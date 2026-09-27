@@ -1,26 +1,25 @@
-# FE_Project
+# SCMS Frontend — FE_Project
 
-Repository dành cho **Frontend Team** của dự án **Sports Center Management System (SCMS)**.
+Frontend repository của **Sports Center Management System (SCMS)**.
 
-Tài liệu này hướng dẫn cách làm việc chung với repository bằng **GitHub Desktop + Visual Studio Code**, nhằm hạn chế conflict và tránh ghi đè code của thành viên khác.
-
----
-
-## 1. Công cụ sử dụng
-
-Frontend team sử dụng:
-
-- **GitHub**: lưu trữ source code và Pull Request.
-- **GitHub Desktop**: Fetch, Pull, Commit, Push, chuyển branch và theo dõi thay đổi.
-- **Visual Studio Code**: chỉnh sửa source code.
-- **React + JavaScript**: công nghệ frontend của dự án.
-- **Figma**: tham khảo và thiết kế UI/UX.
+Repo này là **source of truth của Frontend Team**. Sau khi baseline được merge vào `main`, tất cả thành viên FE phải clone/pull từ repo này và không tiếp tục code trên bản source ZIP/Figma cũ.
 
 ---
 
-## 2. Cấu trúc branch hiện tại
+## 1. Tech stack
 
-Repository hiện sử dụng `main` làm branch tích hợp chung và mỗi thành viên có một branch riêng:
+- React 19
+- JavaScript / JSX
+- Vite 8
+- Tailwind CSS 4
+- pnpm
+- GitHub + GitHub Desktop
+- Backend API: Spring Boot (do BE team cung cấp qua Swagger/OpenAPI)
+- Deployment: Render
+
+---
+
+## 2. Branch hiện tại của team
 
 ```text
 main
@@ -29,98 +28,384 @@ main
 └── ThuyVy
 ```
 
-### Quy ước
+Quy ước:
 
-- `main`: chứa phiên bản code chung đã được kiểm tra và tích hợp.
-- `HoangAnh`: branch làm việc của Hoàng Anh.
-- `PhatTai`: branch làm việc của Phát Tài.
-- `ThuyVy`: branch làm việc của Thúy Vy.
-- Không code trực tiếp trên `main` nếu không có sự thống nhất của nhóm.
-- Mỗi thành viên chủ yếu commit và push lên branch của mình.
-- Khi hoàn thành phần việc, tạo **Pull Request** từ branch cá nhân vào `main`.
+- `main`: source FE chung đã được review/tích hợp.
+- `HoangAnh`, `PhatTai`, `ThuyVy`: branch làm việc cá nhân hiện tại.
+- Không code trực tiếp trên `main` nếu nhóm chưa thống nhất.
+- Hoàn thành phần việc: branch cá nhân → Push → Pull Request → `main`.
+- Khi `main` có code mới: cập nhật `main` trước rồi merge/update `main` vào branch cá nhân.
 
 ---
 
-## 3. Clone repository lần đầu
-
-Mở **GitHub Desktop**:
+## 3. Cấu trúc folder chuẩn
 
 ```text
-File
-→ Clone repository...
-→ URL
+FE_Project/
+│
+├── .env.example             # Mẫu biến môi trường cho API thật
+├── .env.mock                # Chế độ UI/mock, được phép commit
+├── .gitattributes           # Chuẩn hóa line ending text
+├── .gitignore               # File/folder không đưa lên Git
+│
+├── index.html               # HTML entry của Vite
+├── jsconfig.json            # Alias @/* và hỗ trợ VS Code cho JS/JSX
+├── package.json             # Dependencies + scripts
+├── pnpm-lock.yaml           # Lock dependency; phải commit
+├── vite.config.js           # Vite config độc lập Figma
+├── README.md                # Tài liệu chung cho FE team
+│
+└── src/
+    ├── api/                 # Chỉ chứa code giao tiếp Backend API
+    │   ├── apiErrors.js     # Chuẩn hóa lỗi API
+    │   ├── httpClient.js    # fetch wrapper, credentials, API base URL
+    │   ├── authApi.js       # Login / me / logout
+    │   ├── managerApi.js    # API manager đã tích hợp ở baseline
+    │   └── mappers.js       # Map response BE → model FE
+    │
+    ├── components/
+    │   ├── common/          # Component tái sử dụng: Badge, Toast...
+    │   ├── layout/          # Header, Sidebar...
+    │   ├── modals/          # Modal/form dùng trong các flow
+    │   └── views/           # Các màn hình theo role/flow hiện tại
+    │
+    ├── context/
+    │   └── SCMSContext.jsx  # State/context hiện tại + mock fallback
+    │
+    ├── locales/
+    │   └── translations.js  # VI/EN translations
+    │
+    ├── App.jsx              # Điều phối view theo role/tab
+    ├── main.jsx             # React entry point
+    └── index.css            # Tailwind + global styles
 ```
 
-Repository URL:
+### Folder sẽ tạo thêm khi thật sự cần
+
+Không cần tạo folder rỗng chỉ để "đẹp cấu trúc". Khi flow mới phát sinh, có thể thêm:
 
 ```text
-https://github.com/hoanganh21022005/FE_Project.git
+src/
+├── hooks/                   # Custom hooks dùng lại nhiều nơi
+├── utils/                   # Formatter/helper thuần JS
+├── mocks/                   # Tách mock data khỏi SCMSContext
+└── constants/               # Enum/status/config dùng chung
 ```
 
-Chọn thư mục lưu project trên máy, sau đó chọn:
-
-```text
-Clone
-```
-
-Sau khi clone xong:
-
-```text
-Repository
-→ Open in Visual Studio Code
-```
-
-> Nếu project đã được clone trước đó thì không clone lại.  
-> Chọn `File → Add Local Repository...` và trỏ đến thư mục `FE_Project` hiện có.
+Khi số lượng view tăng mạnh, team có thể refactor `components/views` thành `features/<business-flow>/`, nhưng **không nên đổi cấu trúc lớn giữa lúc một sprint đang tích hợp API**.
 
 ---
 
-## 4. Chuyển sang branch của mình
+## 4. Source baseline lấy từ đâu?
 
-Sau khi clone, GitHub Desktop có thể đang ở branch `main`.
-
-Chọn:
+Baseline được lấy từ source FE cũ:
 
 ```text
-Current Branch
+SWP391/SCMS_demo_fe_v1.1/
 ```
 
-Sau đó chọn branch của mình, ví dụ:
+Nhưng repo mới **không copy nguyên thư mục này**. Nội dung cần thiết được đặt trực tiếp tại root `FE_Project`.
+
+Đúng:
 
 ```text
-PhatTai
+FE_Project/
+├── src/
+├── package.json
+├── vite.config.js
+└── ...
 ```
 
-Kiểm tra phía trên GitHub Desktop phải hiển thị:
+Không dùng:
 
 ```text
-Current branch: PhatTai
+FE_Project/
+└── SCMS_demo_fe_v1.1/
+    ├── src/
+    └── package.json
 ```
 
-Trước khi bắt đầu code, luôn chọn:
+Khi mở VS Code, phải mở folder chứa trực tiếp `package.json`:
 
 ```text
-Fetch origin
+D:\School\FA26\SWP391\Project\FE_Project
 ```
-
-Nếu xuất hiện:
-
-```text
-Pull origin
-```
-
-thì bấm `Pull origin` để lấy phiên bản mới nhất của branch về máy.
 
 ---
 
-## 5. Quy trình làm việc hằng ngày
+## 5. File/folder từ source cũ: giữ, bỏ, thay thế
 
-### Bắt đầu công việc
+### GIỮ
 
 ```text
-Mở GitHub Desktop
+src/App.jsx
+src/main.jsx
+src/index.css
+src/api/
+src/components/common/
+src/components/layout/
+src/components/modals/
+src/components/views/
+src/context/SCMSContext.jsx
+src/locales/translations.js
+index.html
+package.json
+pnpm-lock.yaml
+```
+
+### BỎ KHỎI BASELINE
+
+```text
+node_modules/                 # Cài lại bằng pnpm install
+dist/                         # Build output
+.git/                         # Không copy Git history của source cũ
+.figma/                       # Chỉ phục vụ Figma Make
+AGENTS.md                     # Agent/Figma-specific
+CLAUDE.md                     # Agent-specific
+.mise.toml                    # Toolchain Figma cũ, không dùng chung team hiện tại
+README_LOCAL.md               # Nội dung đã được gộp vào README này
+vite.local.config.js          # Được thay bằng mode mock trong vite.config.js
+vite.config.ts                # Figma-specific, được thay bằng vite.config.js sạch
+tsconfig.json                 # Source chính là JS/JSX; dùng jsconfig.json
+src/App.tsx                   # Chỉ là wrapper của App.jsx
+src/main.tsx                  # Chỉ là wrapper của main.jsx
+src/types/scms.js             # File lỗi/không được import
+src/components/views/HomeView.jsx  # Không nằm trong import graph hiện tại
+src/imports/                  # Asset/text import từ Figma hiện không được source sử dụng
+```
+
+### KHÔNG ĐƯỢC COMMIT
+
+```text
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+*.log
+```
+
+Nếu sau này có ảnh/assets thật sự được UI sử dụng, đặt vào vị trí rõ ràng như:
+
+```text
+src/assets/
+```
+
+hoặc static assets:
+
+```text
+public/
+```
+
+Không khôi phục toàn bộ `src/imports/` cũ nếu không có file nào sử dụng chúng.
+
+---
+
+## 6. Setup lần đầu
+
+### Yêu cầu
+
+Khuyến nghị dùng Node.js LTS/phiên bản team đã thống nhất và pnpm.
+
+Kiểm tra:
+
+```powershell
+node --version
+pnpm --version
+```
+
+Cài dependency:
+
+```powershell
+pnpm install --frozen-lockfile
+```
+
+---
+
+## 7. Chạy frontend không cần Backend (mock mode)
+
+Dùng khi BE chưa hoàn thiện API của business flow đang làm:
+
+```powershell
+pnpm dev:local
+```
+
+Ứng dụng đọc:
+
+```text
+.env.mock
+VITE_API_ENABLED=false
+```
+
+Luồng:
+
+```text
+React UI
+   ↓
+SCMSContext
+   ↓
+Mock data
+```
+
+Mục đích của mock mode là để FE tiếp tục làm UI/UX, validation và state trong khi chờ API thật.
+
+Mock data phải bám gần với request/response schema đã thống nhất trong Swagger để giảm công sửa khi tích hợp.
+
+---
+
+## 8. Chạy với Backend API thật
+
+Copy file:
+
+```text
+.env.example
+```
+
+thành:
+
+```text
+.env.local
+```
+
+Ví dụ khi Spring Boot chạy local ở port 8080:
+
+```env
+VITE_API_ENABLED=true
+VITE_API_BASE_URL=
+VITE_API_PROXY_TARGET=http://localhost:8080
+```
+
+Sau đó:
+
+```powershell
+pnpm dev
+```
+
+Vite sẽ proxy request `/api/...` sang Spring Boot local.
+
+> `.env.local` không được commit.
+
+---
+
+## 9. Khi Backend deploy trên Render
+
+FE cần environment variables tương tự:
+
+```env
+VITE_API_ENABLED=true
+VITE_API_BASE_URL=https://<backend-service>.onrender.com
+```
+
+`httpClient.js` sẽ ghép `VITE_API_BASE_URL` với endpoint `/api/...`.
+
+Ví dụ:
+
+```text
+React Render
+https://<frontend>.onrender.com
+        ↓ HTTPS
+Spring Boot Render
+https://<backend>.onrender.com
         ↓
-Chọn repository FE_Project
+Database
+```
+
+Nếu BE đang dùng session/cookie authentication (`credentials: include`), BE phải cấu hình CORS/cookie phù hợp cho domain FE trên Render.
+
+---
+
+## 10. Quy tắc tạo API phía FE
+
+Không gọi `fetch()` trực tiếp rải rác trong component/view.
+
+Luồng chuẩn:
+
+```text
+View / Modal
+    ↓
+Context / state handler
+    ↓
+xxxApi.js
+    ↓
+httpClient.js
+    ↓
+Backend
+```
+
+API hiện có:
+
+```text
+src/api/authApi.js
+src/api/managerApi.js
+```
+
+Khi triển khai flow mới, ưu tiên tách file theo nghiệp vụ:
+
+```text
+src/api/memberApi.js
+src/api/membershipApi.js
+src/api/bookingApi.js
+src/api/paymentApi.js
+src/api/attendanceApi.js
+src/api/trainingApi.js
+src/api/reportApi.js
+```
+
+Không tiếp tục nhét mọi endpoint mới vào một file `managerApi.js` duy nhất.
+
+Endpoint, request body, response body và status phải lấy theo **Swagger/OpenAPI của BE**.
+
+---
+
+## 11. Cách FE làm theo từng Business Flow
+
+Ví dụ sprint đang làm **Payment flow**:
+
+```text
+Member login
+→ View packages
+→ Select package
+→ Create payment
+→ Staff views payment
+→ Staff approve/reject
+→ Membership updated
+```
+
+FE thực hiện:
+
+1. Đọc flow và xác định actor/screen liên quan.
+2. Kiểm tra màn hình nào đã có trong baseline.
+3. Đọc Swagger của BE.
+4. Nếu BE chưa xong: làm UI bằng `pnpm dev:local`.
+5. Tạo/sửa API adapter trong `src/api/`.
+6. Chuyển UI từ mock sang API thật.
+7. Xử lý loading, empty state, validation, success/error.
+8. Test toàn bộ flow end-to-end.
+9. Commit → Push branch cá nhân → Pull Request → `main`.
+
+### Definition of Done của một FE flow
+
+Một flow chỉ được xem là hoàn thành khi:
+
+- UI đúng nghiệp vụ đã thống nhất.
+- Không còn thao tác chính phụ thuộc hard-code/mock nếu API tương ứng đã hoàn thành.
+- Request/response khớp Swagger.
+- Loading/error/empty state cơ bản hoạt động.
+- Role đúng mới truy cập/thao tác được.
+- End-to-end flow chạy được với backend deploy hoặc backend local.
+- Không có lỗi console nghiêm trọng.
+- Code đã được Push và review trước khi merge `main`.
+
+---
+
+## 12. Workflow GitHub Desktop hằng ngày
+
+### Trước khi code
+
+```text
+Open GitHub Desktop
+        ↓
+FE_Project
         ↓
 Chọn branch cá nhân
         ↓
@@ -129,54 +414,20 @@ Fetch origin
 Pull origin (nếu có)
         ↓
 Open in Visual Studio Code
-        ↓
-Bắt đầu code
 ```
+
+Luôn kiểm tra:
+
+```text
+Current branch: <Tên branch của bạn>
+```
+
+Không bắt đầu sửa source khi đang đứng ở `main` nếu không có chủ đích.
 
 ### Sau khi code
 
-Lưu file trong VS Code bằng:
-
 ```text
-Ctrl + S
-```
-
-Quay lại GitHub Desktop và kiểm tra tab:
-
-```text
-Changes
-```
-
-Xem lại các file đã thay đổi trước khi commit.
-
-Nhập nội dung vào ô:
-
-```text
-Summary (required)
-```
-
-Ví dụ:
-
-```text
-Add member management UI
-```
-
-Sau đó chọn:
-
-```text
-Commit to PhatTai
-```
-
-Cuối cùng:
-
-```text
-Push origin
-```
-
-Quy trình đầy đủ:
-
-```text
-Code
+Save
  ↓
 Test
  ↓
@@ -187,50 +438,40 @@ Commit
 Push origin
 ```
 
----
+Commit message tốt:
 
-## 6. Quy tắc Commit Message
+```text
+Add member payment form
+Connect package API
+Fix payment status mapping
+Add staff payment approval UI
+```
 
-Không nên dùng các commit message quá chung chung như:
+Tránh:
 
 ```text
 fix
 update
-code
-new
-sua loi
+code moi
+sua
 ```
-
-Nên mô tả rõ thay đổi:
-
-```text
-Add member list UI
-Add member detail view
-Fix sidebar layout
-Fix login form validation
-Connect member API
-Update bilingual labels
-Refactor dashboard components
-```
-
-Mỗi commit nên tập trung vào một nhóm thay đổi có liên quan.
 
 ---
 
-## 7. Đưa code vào main bằng Pull Request
+## 13. Pull Request vào main
 
-Khi phần việc trên branch cá nhân đã hoàn thành và đã push lên GitHub:
-
-```text
-GitHub Desktop
-→ Preview Pull Request
-```
-
-Hoặc mở repository trên GitHub và vào:
+Khi phần việc ổn định:
 
 ```text
-Pull requests
-→ New pull request
+Branch cá nhân
+      ↓
+    Push
+      ↓
+ Pull Request
+      ↓
+    Review
+      ↓
+     main
 ```
 
 Ví dụ:
@@ -240,63 +481,30 @@ base: main
 compare: PhatTai
 ```
 
-Đặt tiêu đề rõ ràng:
+PR phải mô tả ngắn:
 
-```text
-Add Member Management UI
-```
-
-Mô tả những thay đổi chính, sau đó tạo Pull Request.
-
-Thành viên khác nên review trước khi merge.
-
-Khi Pull Request ổn:
-
-```text
-Merge pull request
-```
-
-Kết quả:
-
-```text
-PhatTai
-   ↓
- Pull Request
-   ↓
- main
-```
+- Flow/task đã làm.
+- Screen đã sửa.
+- API đã tích hợp.
+- Cách test.
+- Điểm chưa hoàn thiện (nếu có).
 
 ---
 
-## 8. Cập nhật code mới từ main vào branch cá nhân
+## 14. Khi main có code mới
 
-Nếu một thành viên khác đã merge code mới vào `main`, branch cá nhân của bạn chưa tự động có thay đổi đó.
-
-Thực hiện theo thứ tự:
-
-```text
-1. Commit và Push hết phần code đang làm trên branch cá nhân.
-2. Chuyển sang main.
-3. Fetch origin.
-4. Pull origin.
-5. Chuyển lại branch cá nhân.
-6. Merge/Update main vào branch cá nhân.
-```
-
-Ví dụ với branch `PhatTai`:
+Trước tiên đảm bảo code branch cá nhân đã Commit/Push.
 
 ```text
 Current Branch → main
 Fetch origin
 Pull origin
 
-Current Branch → PhatTai
-
-Branch
-→ Update from main
+Current Branch → <branch cá nhân>
+Branch → Update from main
 ```
 
-Nếu phiên bản GitHub Desktop không có `Update from main`, sử dụng:
+Nếu GitHub Desktop không có `Update from main`:
 
 ```text
 Branch
@@ -304,242 +512,101 @@ Branch
 → main
 ```
 
-Hướng merge đúng khi cập nhật code là:
+Hướng cập nhật là:
 
 ```text
 main
  ↓
-PhatTai
+branch cá nhân
 ```
 
-Không phải:
-
-```text
-PhatTai
- ↓
-main
-```
-
-Việc đưa branch cá nhân vào `main` nên thực hiện bằng Pull Request.
+Không dùng thao tác này như cách tùy ý merge branch cá nhân vào `main`; việc đó nên qua Pull Request.
 
 ---
 
-## 9. Xử lý Merge Conflict
+## 15. Merge conflict
 
-Conflict thường xảy ra khi hai thành viên cùng sửa một đoạn code trong cùng file.
-
-GitHub Desktop sẽ thông báo các file bị conflict.
-
-Mở file đó trong VS Code. VS Code thường hiển thị các lựa chọn như:
-
-```text
-Accept Current Change
-Accept Incoming Change
-Accept Both Changes
-```
-
-Không chọn ngẫu nhiên.
-
-Hãy kiểm tra code của cả hai phía, giữ lại logic đúng, sau đó:
-
-```text
-Save
-→ Mark as resolved / Continue merge
-→ Commit
-→ Push origin
-```
-
-Nếu chưa chắc nên giữ code nào, trao đổi với thành viên đã sửa cùng file trước khi hoàn tất merge.
-
----
-
-## 10. Những điều không nên làm
-
-### Không push `node_modules`
-
-File `.gitignore` cần có:
-
-```gitignore
-node_modules/
-dist/
-.env
-```
-
-### Không push thông tin bí mật
-
-Không commit các dữ liệu như:
-
-```text
-password
-API key
-secret key
-database credential
-```
-
-### Không Force Push nếu chưa thống nhất
-
-Nếu GitHub Desktop hiện:
-
-```text
-Force push origin
-```
-
-không nên bấm nếu chưa hiểu nguyên nhân.
-
-Force Push có thể làm thay đổi lịch sử commit và ảnh hưởng code của thành viên khác.
-
-### Không sửa trực tiếp main tùy ý
-
-Luồng khuyến nghị:
-
-```text
-Branch cá nhân
-      ↓
-    Commit
-      ↓
-     Push
-      ↓
- Pull Request
-      ↓
-    Review
-      ↓
-     main
-```
-
----
-
-## 11. Khi Push bị từ chối
-
-Nếu gặp lỗi Push do remote có commit mới, không Force Push ngay.
-
-Thử:
-
-```text
-Fetch origin
-```
-
-Sau đó lấy thay đổi mới về, xử lý conflict nếu có, rồi:
-
-```text
-Push origin
-```
-
----
-
-## 12. Kiểm tra branch trước khi code
-
-Trước khi sửa bất kỳ file nào, luôn nhìn:
-
-```text
-Current branch
-```
-
-Ví dụ Phát Tài cần thấy:
-
-```text
-Current branch: PhatTai
-```
-
-Không nên bắt đầu code nếu vẫn đang ở:
-
-```text
-Current branch: main
-```
-
-trừ khi cả nhóm đã thống nhất thực hiện thay đổi trực tiếp trên `main`.
-
----
-
-## 13. Workflow nhanh cần ghi nhớ
-
-```text
-BẮT ĐẦU
-
-Fetch
-  ↓
-Pull
-  ↓
-Chọn branch cá nhân
-  ↓
-Open VS Code
-  ↓
-Code
-  ↓
-Test
-  ↓
-Review Changes
-  ↓
-Commit
-  ↓
-Push
-  ↓
-Pull Request
-  ↓
-Review
-  ↓
-Merge vào main
-```
-
----
-
-## 14. Quy tắc phối hợp trong nhóm
-
-Trước khi sửa một chức năng lớn hoặc file dùng chung, nên thông báo cho các thành viên còn lại để tránh nhiều người chỉnh cùng một phần.
-
-Các file dễ xảy ra conflict thường là:
+Conflict thường xảy ra ở các file dùng chung như:
 
 ```text
 package.json
-routes
-App.jsx / App.js
-sidebar
-navigation
-global styles
-API config
+src/App.jsx
+src/context/SCMSContext.jsx
+src/components/layout/Sidebar.jsx
+src/locales/translations.js
+src/api/httpClient.js
 ```
 
-Nếu phải cùng sửa các file này, nên thống nhất trước ai sẽ thực hiện thay đổi chính.
+Khi conflict:
+
+1. Không chọn Current/Incoming một cách ngẫu nhiên.
+2. Mở file bằng VS Code.
+3. So sánh logic hai phía.
+4. Trao đổi với người đã sửa cùng file nếu cần.
+5. Resolve → Save → Continue merge → Test → Push.
+
+Không Force Push nếu team chưa thống nhất.
 
 ---
 
-## 15. Lưu ý về package manager
+## 16. Quy tắc thay đổi dependencies
 
-Trước khi cài dependency, kiểm tra project đang sử dụng package manager nào.
+Trước khi cài thêm thư viện, hỏi/trao đổi với team nếu thư viện ảnh hưởng toàn project.
 
-Nếu repository có:
+Dùng pnpm:
+
+```powershell
+pnpm add <package>
+```
+
+hoặc dev dependency:
+
+```powershell
+pnpm add -D <package>
+```
+
+Sau khi thay đổi dependency, phải commit cả:
 
 ```text
+package.json
 pnpm-lock.yaml
 ```
 
-ưu tiên:
-
-```bash
-pnpm install
-```
-
-Nếu repository có:
-
-```text
-package-lock.json
-```
-
-ưu tiên:
-
-```bash
-npm install
-```
-
-Không tự ý tạo nhiều lock file khác nhau trong cùng project nếu nhóm chưa thống nhất.
+Không xóa hoặc tự tạo `package-lock.json` / `yarn.lock` nếu team đang dùng pnpm.
 
 ---
 
-## Team
+## 17. Quick start
 
-Frontend Team - Sports Center Management System (SCMS)
+### UI/mock mode
 
-Repository:
+```powershell
+pnpm install --frozen-lockfile
+pnpm dev:local
+```
+
+### Real API mode
+
+```powershell
+Copy-Item .env.example .env.local
+# chỉnh .env.local nếu cần
+pnpm dev
+```
+
+### Build
+
+```powershell
+pnpm build
+```
+
+---
+
+## 18. Nguyên tắc quan trọng nhất
 
 ```text
-https://github.com/hoanganh21022005/FE_Project
+GitHub FE_Project = source of truth
 ```
+
+Không tiếp tục phát triển trên bản ZIP hoặc bản Figma export cũ sau khi baseline đã merge vào `main`.
+
+Mọi thành viên bắt đầu từ cùng một `main`, làm việc trên branch của mình và đồng bộ qua GitHub.
