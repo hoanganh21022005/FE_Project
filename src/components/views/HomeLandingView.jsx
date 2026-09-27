@@ -274,7 +274,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       </section>
 
       {/* Marquee Ticker */}
-      <Marquee items={['YOGA', 'BOXING', 'BƠI LỘI', 'CẦU LÔNG', 'TENNIS', 'PICKLEBALL', 'BÓNG RỔ', 'ZUMBA', 'BÓNG ĐÁ MINI', 'GYM']} />
+      <Marquee items={['GYM', 'YOGA', 'PILATES', 'BOXING', 'CROSSFIT', 'THỂ HÌNH', 'SỨC BỀN', 'PHỤC HỒI', 'THỂ LỰC', 'GIẢM MỠ']} />
 
       {/* ============================================================ */}
       {/* 3. FOUR CORE DISCIPLINES & CLASSES (BỘ MÔN TẬP LUYỆN)       */}
