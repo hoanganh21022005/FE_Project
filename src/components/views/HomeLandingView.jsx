@@ -1,6 +1,8 @@
 import React from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency } from '../../locales/translations';
+import { Marquee } from '../common/Marquee';
+import { Reveal, Stagger, Item } from '../common/Reveal';
 import {
   Activity,
   Award,
@@ -127,7 +129,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid lg:grid-cols-12 gap-10 xl:gap-12 items-center">
             {/* Left Hero Content */}
-            <div className="lg:col-span-7 space-y-6">
+            <Reveal className="lg:col-span-7 space-y-6">
               {/* Badge */}
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-stone-800/90 border border-stone-700 text-xs font-semibold text-stone-300">
                 <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
@@ -196,10 +198,10 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                   </div>
                 </div>
               </div>
-            </div>
+            </Reveal>
 
             {/* Right Hero: Operational Showcase Card */}
-            <div className="lg:col-span-5">
+            <Reveal delay={0.2} className="lg:col-span-5">
               <div className="bg-stone-900/90 border border-stone-800 rounded-2xl p-6 sm:p-7 shadow-2xl space-y-6">
                 <div className="flex items-center justify-between pb-4 border-b border-stone-800">
                   <div className="flex items-center gap-3">
@@ -266,17 +268,20 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                   </span>
                 </div>
               </div>
-            </div>
+            </Reveal>
           </div>
         </div>
       </section>
+
+      {/* Marquee Ticker */}
+      <Marquee items={['YOGA', 'BOXING', 'BƠI LỘI', 'CẦU LÔNG', 'TENNIS', 'PICKLEBALL', 'BÓNG RỔ', 'ZUMBA', 'BÓNG ĐÁ MINI', 'GYM']} />
 
       {/* ============================================================ */}
       {/* 3. FOUR CORE DISCIPLINES & CLASSES (BỘ MÔN TẬP LUYỆN)       */}
       {/* ============================================================ */}
       <section id="classes" className="py-20 bg-[#120f0e] border-b border-stone-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-2xl mx-auto text-center mb-14">
+          <Reveal className="max-w-2xl mx-auto text-center mb-14">
             <h2 className="text-xs font-bold text-amber-500 uppercase tracking-widest mb-2">
               {isVi ? 'CÁC BỘ MÔN TẬP LUYỆN' : 'CORE DISCIPLINES'}
             </h2>
@@ -288,11 +293,11 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                 ? 'Thiết kế bài tập khoa học từ rèn luyện cơ bắp đến phục hồi và dẻo dai toàn diện.'
                 : 'Scientifically crafted workouts from strength and conditioning to recovery and mobility.'}
             </p>
-          </div>
+          </Reveal>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Stagger className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Discipline 1: Gym & Strength */}
-            <div className="bg-stone-900 border border-stone-800 rounded-xl p-5 hover:border-amber-500/50 transition-all group flex flex-col">
+            <Item className="bg-stone-900 border border-stone-800 rounded-xl p-5 hover:border-amber-500/50 transition-all group flex flex-col">
               <div className="w-12 h-12 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 mb-4 group-hover:bg-orange-600 group-hover:text-white transition-colors">
                 <Dumbbell className="w-6 h-6" />
               </div>
@@ -307,10 +312,10 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
               <div className="mt-auto pt-3 text-[11px] font-semibold text-amber-400 flex items-center gap-1 border-t border-stone-800/60">
                 <span>{isVi ? 'Khu vực chính • Tầng 3' : 'Main Area • Level 3'}</span>
               </div>
-            </div>
+            </Item>
 
             {/* Discipline 2: Vinyasa Yoga */}
-            <div className="bg-stone-900 border border-stone-800 rounded-xl p-5 hover:border-amber-500/50 transition-all group flex flex-col">
+            <Item className="bg-stone-900 border border-stone-800 rounded-xl p-5 hover:border-amber-500/50 transition-all group flex flex-col">
               <div className="w-12 h-12 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 mb-4 group-hover:bg-orange-600 group-hover:text-white transition-colors">
                 <HeartPulse className="w-6 h-6" />
               </div>
@@ -325,10 +330,10 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
               <div className="mt-auto pt-3 text-[11px] font-semibold text-amber-400 flex items-center gap-1 border-t border-stone-800/60">
                 <span>{isVi ? 'Phòng tập 1 • Sàn gỗ cách âm' : 'Studio 1 • Acoustic Wood'}</span>
               </div>
-            </div>
+            </Item>
 
             {/* Discipline 3: Reformer Pilates */}
-            <div className="bg-stone-900 border border-stone-800 rounded-xl p-5 hover:border-amber-500/50 transition-all group flex flex-col">
+            <Item className="bg-stone-900 border border-stone-800 rounded-xl p-5 hover:border-amber-500/50 transition-all group flex flex-col">
               <div className="w-12 h-12 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 mb-4 group-hover:bg-orange-600 group-hover:text-white transition-colors">
                 <Activity className="w-6 h-6" />
               </div>
@@ -343,10 +348,10 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
               <div className="mt-auto pt-3 text-[11px] font-semibold text-amber-400 flex items-center gap-1 border-t border-stone-800/60">
                 <span>{isVi ? 'Phòng tập 2 • Nhóm 6-8 người' : 'Studio 2 • Small Groups'}</span>
               </div>
-            </div>
+            </Item>
 
             {/* Discipline 4: Boxing & Functional */}
-            <div className="bg-stone-900 border border-stone-800 rounded-xl p-5 hover:border-amber-500/50 transition-all group flex flex-col">
+            <Item className="bg-stone-900 border border-stone-800 rounded-xl p-5 hover:border-amber-500/50 transition-all group flex flex-col">
               <div className="w-12 h-12 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 mb-4 group-hover:bg-orange-600 group-hover:text-white transition-colors">
                 <Flame className="w-6 h-6" />
               </div>
@@ -361,8 +366,8 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
               <div className="mt-auto pt-3 text-[11px] font-semibold text-amber-400 flex items-center gap-1 border-t border-stone-800/60">
                 <span>{isVi ? 'Khu vực A • Võ đài' : 'Zone A • Combat Ring'}</span>
               </div>
-            </div>
-          </div>
+            </Item>
+          </Stagger>
         </div>
       </section>
 
@@ -371,7 +376,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       {/* ============================================================ */}
       <section id="packages" className="py-20 bg-[#0c0a09] border-b border-stone-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-2xl mx-auto text-center mb-16">
+          <Reveal className="max-w-2xl mx-auto text-center mb-16">
             <h2 className="text-xs font-bold text-amber-500 uppercase tracking-widest mb-2">
               {isVi ? 'GÓI THÀNH VIÊN' : 'MEMBERSHIP TIERS'}
             </h2>
@@ -383,9 +388,9 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                 ? 'Không phát sinh phụ phí ẩn. Tự do lựa chọn theo thời gian và nhu cầu thực tế của bạn.'
                 : 'No hidden fees. Choose the plan that aligns with your schedule and fitness goals.'}
             </p>
-          </div>
+          </Reveal>
 
-          <div className="grid md:grid-cols-3 gap-8 items-stretch">
+          <Stagger className="grid md:grid-cols-3 gap-8 items-stretch">
             {packages.map((pkg) => {
               const isPopular = pkg.id === 'pkg-2';
               const name = isVi ? pkg.nameVi : pkg.name;
@@ -393,7 +398,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
               const benefits = isVi ? pkg.benefitsVi : pkg.benefits;
 
               return (
-                <div
+                <Item
                   key={pkg.id}
                   className={`rounded-2xl p-7 flex flex-col justify-between transition-all relative ${
                     isPopular
@@ -455,10 +460,10 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                     <span>{isVi ? 'Đăng ký tài khoản' : 'Register Account'}</span>
                     <ChevronRight className="w-4 h-4" />
                   </button>
-                </div>
+                </Item>
               );
             })}
-          </div>
+          </Stagger>
         </div>
       </section>
 
@@ -467,7 +472,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       {/* ============================================================ */}
       <section id="coaches" className="py-20 bg-[#120f0e] border-b border-stone-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-2xl mx-auto text-center mb-14">
+          <Reveal className="max-w-2xl mx-auto text-center mb-14">
             <h2 className="text-xs font-bold text-amber-500 uppercase tracking-widest mb-2">
               {isVi ? 'ĐỘI NGŨ HUẤN LUYỆN VIÊN' : 'CERTIFIED TRAINERS'}
             </h2>
@@ -479,11 +484,11 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                 ? 'Đội ngũ huấn luyện viên giàu kinh nghiệm thực tế, có bằng cấp chứng nhận chuyên môn uy tín.'
                 : 'Highly certified trainers holding recognized credentials and practical coaching experience.'}
             </p>
-          </div>
+          </Reveal>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Stagger className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {coaches.map((coach) => (
-              <div
+              <Item
                 key={coach.id}
                 className="bg-stone-900 border border-stone-800 rounded-xl p-6 flex flex-col justify-between hover:border-stone-700 transition-colors"
               >
@@ -528,9 +533,9 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                     {isVi ? 'Đặt lịch tập' : 'Book Session'}
                   </button>
                 </div>
-              </div>
+              </Item>
             ))}
-          </div>
+          </Stagger>
         </div>
       </section>
 
@@ -539,17 +544,17 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       {/* ============================================================ */}
       <section id="facilities" className="py-20 bg-[#0c0a09] border-b border-stone-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-2xl mx-auto text-center mb-14">
+          <Reveal className="max-w-2xl mx-auto text-center mb-14">
             <h2 className="text-xs font-bold text-amber-500 uppercase tracking-widest mb-2">
               {isVi ? 'TIỆN ÍCH DÀNH CHO HỘI VIÊN' : 'MEMBER AMENITIES'}
             </h2>
             <p className="text-3xl font-extrabold text-white tracking-tight">
               {isVi ? 'Mọi tiện nghi cho trải nghiệm tập luyện trọn vẹn' : 'Every Comfort for a Seamless Workout'}
             </p>
-          </div>
+          </Reveal>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-stone-900/60 border border-stone-800 rounded-xl p-5 flex items-start gap-4">
+          <Stagger className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Item className="bg-stone-900/60 border border-stone-800 rounded-xl p-5 flex items-start gap-4">
               <div className="w-10 h-10 rounded-lg bg-stone-800 text-amber-400 flex items-center justify-center shrink-0">
                 <Shield className="w-5 h-5" />
               </div>
@@ -563,9 +568,9 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                     : 'Secure digital access with spacious capacity, ensuring your personal belongings are safe.'}
                 </p>
               </div>
-            </div>
+            </Item>
 
-            <div className="bg-stone-900/60 border border-stone-800 rounded-xl p-5 flex items-start gap-4">
+            <Item className="bg-stone-900/60 border border-stone-800 rounded-xl p-5 flex items-start gap-4">
               <div className="w-10 h-10 rounded-lg bg-stone-800 text-amber-400 flex items-center justify-center shrink-0">
                 <Flame className="w-5 h-5" />
               </div>
@@ -579,9 +584,9 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                     : 'Relax tired muscles, improve blood circulation, and recover effectively after hard workouts.'}
                 </p>
               </div>
-            </div>
+            </Item>
 
-            <div className="bg-stone-900/60 border border-stone-800 rounded-xl p-5 flex items-start gap-4">
+            <Item className="bg-stone-900/60 border border-stone-800 rounded-xl p-5 flex items-start gap-4">
               <div className="w-10 h-10 rounded-lg bg-stone-800 text-amber-400 flex items-center justify-center shrink-0">
                 <Activity className="w-5 h-5" />
               </div>
@@ -595,8 +600,8 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                     : 'High-pressure showers with complimentary toiletries and hair dryers for member convenience.'}
                 </p>
               </div>
-            </div>
-          </div>
+            </Item>
+          </Stagger>
         </div>
       </section>
 
@@ -604,7 +609,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       {/* 7. BOTTOM CTA SECTION                                        */}
       {/* ============================================================ */}
       <section className="py-16 bg-gradient-to-r from-stone-950 via-[#1c1917] to-stone-950 border-b border-stone-800">
-        <div className="max-w-4xl mx-auto px-4 text-center space-y-5">
+        <Reveal className="max-w-4xl mx-auto px-4 text-center space-y-5">
           <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             {isVi ? 'Sẵn sàng bắt đầu hành trình nâng tầm thể lực?' : 'Ready to Elevate Your Physical Health?'}
           </h2>
@@ -629,7 +634,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
               {isVi ? 'Đăng nhập tài khoản' : 'Sign In'}
             </button>
           </div>
-        </div>
+        </Reveal>
       </section>
 
       {/* ============================================================ */}
