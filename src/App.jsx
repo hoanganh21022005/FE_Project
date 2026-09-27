@@ -8,6 +8,7 @@ import { Toast } from './components/common/Toast';
 // Landing & Auth
 import { HomeLandingView } from './components/views/HomeLandingView';
 import { LoginView } from './components/views/LoginView';
+import { PrivacyPolicyView } from './components/views/PrivacyPolicyView';
 
 // Manager Views
 import { ManagerDashboard } from './components/views/ManagerDashboard';
@@ -46,7 +47,10 @@ import { PersonalProfileView } from './components/views/PersonalProfileView';
 
 function SCMSApp() {
   const { role, setRole, currentTab, setCurrentTab, t, language, isAuthenticated, authLoading, logout } = useSCMS();
-  const [publicView, setPublicView] = useState('home'); // 'home' | 'login' | 'register'
+  const [publicView, setPublicView] = useState(() => {
+    if (window.location.pathname === '/privacy-policy') return 'privacy';
+    return 'home';
+  }); // 'home' | 'login' | 'register' | 'privacy'
   const [targetPackageId, setTargetPackageId] = useState(null);
   const [selectedMemberId, setSelectedMemberId] = useState(null);
 
@@ -64,6 +68,18 @@ function SCMSApp() {
   }
 
   if (!isAuthenticated) {
+    if (publicView === 'privacy') {
+      return (
+        <>
+          <PrivacyPolicyView onBackToHome={() => {
+            window.history.pushState({}, '', '/');
+            setPublicView('home');
+          }} />
+          <Toast />
+        </>
+      );
+    }
+
     if (publicView === 'home') {
       return (
         <>
