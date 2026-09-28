@@ -47,9 +47,9 @@ export function Stagger({ children, className, style, amount = 0.2 }) {
   );
 }
 
-export function Item({ children, className, style }) {
+export function Item({ children, className, style, ...props }) {
   return (
-    <motion.div className={className} style={style} variants={itemVariants}>
+    <motion.div className={className} style={style} variants={itemVariants} {...props}>
       {children}
     </motion.div>
   );

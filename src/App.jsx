@@ -48,6 +48,17 @@ const MemberClassCatalog = React.lazy(() => import('./components/views/MemberCla
 const SettingsView = React.lazy(() => import('./components/views/SettingsView').then(module => ({ default: module.SettingsView })));
 const SupportView = React.lazy(() => import('./components/views/SupportView').then(module => ({ default: module.SupportView })));
 const PersonalProfileView = React.lazy(() => import('./components/views/PersonalProfileView').then(module => ({ default: module.PersonalProfileView })));
+const PTDetailView = React.lazy(() => import('./components/views/PTDetailView').then(module => ({ default: module.PTDetailView })));
+const GymDetailView = React.lazy(() => import('./components/views/GymDetailView').then(m => ({ default: m.GymDetailView })));
+const BoxingDetailView = React.lazy(() => import('./components/views/BoxingDetailView').then(m => ({ default: m.BoxingDetailView })));
+const YogaDetailView = React.lazy(() => import('./components/views/YogaDetailView').then(m => ({ default: m.YogaDetailView })));
+const GroupXDetailView = React.lazy(() => import('./components/views/GroupXDetailView').then(m => ({ default: m.GroupXDetailView })));
+const RecoveryDetailView = React.lazy(() => import('./components/views/RecoveryDetailView').then(m => ({ default: m.RecoveryDetailView })));
+const SpinningDetailView = React.lazy(() => import('./components/views/SpinningDetailView').then(m => ({ default: m.SpinningDetailView })));
+const HIITDetailView = React.lazy(() => import('./components/views/HIITDetailView').then(m => ({ default: m.HIITDetailView })));
+const PilatesDetailView = React.lazy(() => import('./components/views/PilatesDetailView').then(m => ({ default: m.PilatesDetailView })));
+const ZumbaDetailView = React.lazy(() => import('./components/views/ZumbaDetailView').then(module => ({ default: module.ZumbaDetailView })));
+const DisciplineDetailView = React.lazy(() => import('./components/views/DisciplineDetailView').then(module => ({ default: module.DisciplineDetailView })));
 
 function SCMSApp() {
   const { role, setRole, t, language, isAuthenticated, authLoading, logout } = useSCMS();
@@ -81,6 +92,17 @@ function SCMSApp() {
         <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div></div>}>
         <Routes>
           <Route path="/" element={<HomeLandingView onOpenLogin={() => navigate('/login')} onOpenRegister={(pkgId) => { setTargetPackageId(pkgId || null); navigate('/register'); }} />} />
+          <Route path="/discipline/pt" element={<PTDetailView />} />
+              <Route path="/discipline/gym" element={<GymDetailView />} />
+              <Route path="/discipline/boxing" element={<BoxingDetailView />} />
+              <Route path="/discipline/yoga" element={<YogaDetailView />} />
+              <Route path="/discipline/pilates" element={<PilatesDetailView />} />
+              <Route path="/discipline/recovery" element={<RecoveryDetailView />} />
+              <Route path="/discipline/spinning" element={<SpinningDetailView />} />
+              <Route path="/discipline/group-x" element={<GroupXDetailView />} />
+              <Route path="/discipline/hiit" element={<HIITDetailView />} />
+              <Route path="/discipline/zumba" element={<ZumbaDetailView />} />
+              <Route path="/discipline/:id" element={<DisciplineDetailView />} />
           <Route path="/login" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" />} />
           <Route path="/register" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="register" initialPackageId={targetPackageId} />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyView onBackToHome={() => navigate('/')} />} />
