@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { PublicHeader } from '../layout/PublicHeader';
 import { useSCMS } from '../../context/SCMSContext';
 
 export function PrivacyPolicyView({ onBackToHome }) {
@@ -9,48 +10,22 @@ export function PrivacyPolicyView({ onBackToHome }) {
   return (
     <div className="min-h-screen bg-white text-stone-900 font-sans flex flex-col">
       {/* Top Navbar / Header matching the screenshot vibe */}
-      <header className="bg-stone-950 text-white sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center gap-2 cursor-pointer" onClick={onBackToHome}>
-            <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center font-black text-sm">
-              <span className="text-white">SC</span>
-            </div>
-            <span className="font-extrabold tracking-widest text-lg">SCMS FITNESS</span>
-          </div>
-
-          {/* Navigation Links */}
-          <nav className="hidden md:flex items-center space-x-8 text-xs font-semibold tracking-wider uppercase">
-            <a href="#services" className="hover:text-orange-500 transition-colors">Dịch vụ</a>
-            <a href="#clubs" className="hover:text-orange-500 transition-colors">Câu lạc bộ</a>
-            <a href="#schedule" className="hover:text-orange-500 transition-colors">Lịch tập / Schedule</a>
-            <a href="#pricing" className="hover:text-orange-500 transition-colors">Bảng giá</a>
-          </nav>
-          
-          <div className="flex items-center gap-4">
-            <button
-              onClick={onBackToHome}
-              className="bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold px-5 py-2.5 uppercase tracking-wide transition-colors"
-            >
-              {isVi ? 'Tập thử miễn phí' : 'Free Trial'}
-            </button>
-          </div>
-        </div>
-      </header>
+      <PublicHeader />
 
       {/* Main Content */}
       <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
         <div className="text-center mb-12 space-y-4">
           <h1 className="text-xl sm:text-2xl font-bold text-stone-900 uppercase tracking-wide leading-relaxed">
-            CÔNG TY TNHH HỆ THỐNG QUẢN LÝ TRUNG TÂM THỂ THAO SCMS<br/>
+            {isVi ? 'CÔNG TY TNHH HỆ THỐNG QUẢN LÝ TRUNG TÂM THỂ THAO SCMS' : 'SCMS FITNESS & SPORTS CENTERS MANAGEMENT CO., LTD'}<br/>
             (SCMS FITNESS & SPORTS CENTERS)
           </h1>
           <h2 className="text-2xl sm:text-[32px] font-black text-stone-900 uppercase tracking-tight mt-6">
-            CHÍNH SÁCH BẢO VỆ DỮ LIỆU CÁ NHÂN
+            {isVi ? 'CHÍNH SÁCH BẢO VỆ DỮ LIỆU CÁ NHÂN' : 'PERSONAL DATA PROTECTION POLICY'}
           </h2>
         </div>
 
-        <div className="prose prose-stone max-w-none text-sm sm:text-base leading-[1.8] text-stone-800 space-y-6">
+        {isVi ? (
+<div className="prose prose-stone max-w-none text-sm sm:text-base leading-[1.8] text-stone-800 space-y-6">
           <p>
             Chính sách bảo vệ dữ liệu cá nhân này (“Chính sách”) được SCMS công bố và thông báo công khai tại khu vực đặt thông báo của câu lạc bộ, trên website của SCMS và thông qua các kênh liên lạc khác giữa SCMS và Khách hàng. Chính sách có hiệu lực ngày 01/01/2026 và được áp dụng theo pháp luật Việt Nam.
           </p>
@@ -133,13 +108,102 @@ export function PrivacyPolicyView({ onBackToHome }) {
 
           <h3 className="text-lg font-bold mt-8 mb-4 uppercase">5. LIÊN HỆ VỚI SCMS</h3>
           <p>
-            Nếu Bạn có bất kỳ thắc mắc, góp ý hoặc yêu cầu chỉnh sửa/xóa dữ liệu, vui lòng liên hệ Bộ phận Quan hệ Hội viên SCMS tại địa chỉ: <strong>memberrelations@scms.vn</strong> hoặc hotline <strong>1900 6934</strong>.
+            Nếu Bạn có bất kỳ thắc mắc, góp ý hoặc yêu cầu chỉnh sửa/xóa dữ liệu, vui lòng liên hệ Bộ phận Quan hệ Hội viên SCMS tại địa chỉ: <strong>memberrelations@scms.vn</strong> hoặc hotline <strong>1800 6995</strong>.
           </p>
         </div>
+) : (
+<div className="prose prose-stone max-w-none text-sm sm:text-base leading-[1.8] text-stone-800 space-y-6">
+          <p>
+            This Personal Data Protection Policy ("Policy") is published and publicly announced by SCMS at the club's notice area, on the SCMS website, and through other communication channels between SCMS and Customers. The Policy is effective from January 1, 2026, and is governed by the laws of Vietnam.
+          </p>
+          <p>
+            The Policy aims to transparently inform the data subject of all information related to the processing of personal data at SCMS.
+          </p>
+          
+          <p className="font-bold">In this Policy:</p>
+          <p className="font-bold underline">Definitions:</p>
+          <ul className="list-none pl-0 space-y-4">
+            <li>
+              <strong>"SCMS" or "We"</strong> means the companies under the SCMS system that manage and operate fitness and health training clubs in Vietnam and/or provide related support products and services for customers using training services at clubs in Vietnam, including but not limited to: SCMS Fitness & Sports Centers Management Co., Ltd, and their branches, representative offices, and affiliated units in Vietnam;
+            </li>
+            <li>
+              <strong>"You" or "Customer"</strong> means the Data Subject whose personal data has been, is being, or may be processed by SCMS;
+            </li>
+            <li>
+              <strong>"Personal Data"</strong> is information in the form of symbols, writing, numbers, images, sounds, or similar forms in the electronic environment that is associated with You or helps identify You. Personal data includes basic personal data and sensitive personal data;
+            </li>
+            <li>
+              <strong>"Processing of Personal Data"</strong> means one or more activities impacting personal data, such as: collecting, recording, analyzing, confirming, storing, modifying, publishing, combining, accessing, retrieving, withdrawing, encrypting, decrypting, copying, sharing, transmitting, providing, transferring, deleting, destroying personal data or other related actions.
+            </li>
+          </ul>
+
+          <p className="font-bold underline mt-8">SCMS's Commitment:</p>
+          <p>
+            Protecting the personal data of the Data Subject is of paramount importance to SCMS. We commit to only collecting personal data for lawful purposes and strive to protect personal data with a sense of responsibility, care, and regular review and enhancement of security measures. We commit to processing personal data safely and in compliance with the law.
+          </p>
+
+          <h3 className="text-lg font-bold mt-8 mb-4 uppercase">1. OBJECTIVES AND SCOPE OF THE POLICY</h3>
+          <p>
+            This Policy applies to all interactions, transactions, and service usage between You and SCMS, including: accessing the website, using the mobile application, signing and executing the membership contract, participating in trade promotion programs, and all other communication channels.
+          </p>
+          <p>Protecting the personal data of the Data Subject is of paramount importance to SCMS. We commit to:</p>
+          <ul className="list-disc pl-8 space-y-2">
+            <li>Only collecting personal data for lawful, specific purposes and with the appropriate consent of the Data Subject.</li>
+            <li>Processing personal data safely, strictly complying with the law, especially Decree 13/2023/ND-CP.</li>
+            <li>Not selling, renting, or illegally trading the personal data of Members in any form.</li>
+            <li>Regularly reviewing and upgrading security measures to ensure information safety.</li>
+          </ul>
+          <p>
+            Your use of SCMS services and/or establishment of a membership contract means that You have read, understood, and agreed to this Policy.
+          </p>
+
+          <h3 className="text-lg font-bold mt-8 mb-4 uppercase">2. TYPES OF PERSONAL DATA PROCESSED</h3>
+          <p className="font-bold">2.1. Basic Personal Data includes:</p>
+          <ul className="list-disc pl-8 space-y-1">
+            <li>Full name, middle name, and birth name; Date of birth; Gender;</li>
+            <li>Place of permanent residence registration, current address, contact address; Nationality;</li>
+            <li>Personal image; Phone number; personal identification number; Email address;</li>
+            <li>Training history information, history of using sports and fitness services at SCMS.</li>
+          </ul>
+          <p className="font-bold mt-4">2.2. Sensitive Personal Data</p>
+          <ul className="list-disc pl-8 space-y-1">
+            <li>Images from the security camera system at the gym;</li>
+            <li>Biometric data and body composition indices (InBody) for the purpose of designing a personal training roadmap;</li>
+            <li>Bank card information, bank account number, payment transaction data.</li>
+          </ul>
+
+          <h3 className="text-lg font-bold mt-8 mb-4 uppercase">3. PURPOSE OF PROCESSING PERSONAL DATA</h3>
+          <p className="font-bold">3.1. Necessary purposes to provide Services</p>
+          <ul className="list-disc pl-8 space-y-2">
+            <li>Consulting, introducing, and guiding Customers about products and services.</li>
+            <li>Executing membership contracts, scheduling training with Personal Trainers (PT).</li>
+            <li>Authenticating identity and processing payment transactions.</li>
+            <li>Monitoring and ensuring safety and security at the club.</li>
+          </ul>
+          <p className="font-bold mt-4">3.2. Advertising purposes</p>
+          <p>
+            SCMS only conducts advertising to improve the quality of experience when explicitly consented to by You: Introducing and communicating about promotional programs, offers, and products via email, SMS, or mobile application.
+          </p>
+
+          <h3 className="text-lg font-bold mt-8 mb-4 uppercase">4. PROCESSING DURATION AND PROTECTION METHODS</h3>
+          <p>
+            Personal data will be stored during the time SCMS provides services to the Member and for the next 10 (ten) years after the Contract is terminated, unless otherwise stipulated by law.
+          </p>
+          <p>
+            SCMS always makes the utmost effort to ensure the safety of Personal Data through technical measures such as: access authentication, transmission data encryption (SSL), firewalls, and regular security checks.
+          </p>
+
+          <h3 className="text-lg font-bold mt-8 mb-4 uppercase">5. CONTACT SCMS</h3>
+          <p>
+            If You have any questions, suggestions, or requests to modify/delete data, please contact the SCMS Member Relations Department at: <strong>memberrelations@scms.vn</strong> or hotline <strong>1800 6995</strong>.
+          </p>
+        </div>
+)}
       </main>
 
       {/* Footer matching California vibe */}
-      <footer className="bg-[#1a1a1a] text-stone-400 py-12 text-sm border-t-4 border-orange-600">
+      {isVi ? (
+<footer className="bg-[#1a1a1a] text-sc-muted py-12 text-sm border-t-4 border-orange-600">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
             
@@ -163,7 +227,7 @@ export function PrivacyPolicyView({ onBackToHome }) {
                 <li><a href="#" className="hover:text-white transition-colors">Điều kiện sử dụng</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Chính sách thanh toán</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Chính sách giải quyết khiếu nại</a></li>
-                <li><a href="#" className="text-orange-500 hover:text-orange-400 transition-colors">Chính sách bảo vệ dữ liệu cá nhân</a></li>
+                <li><a href="#" className="text-sc-accent hover:text-orange-400 transition-colors">Chính sách bảo vệ dữ liệu cá nhân</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Tuyển dụng</a></li>
               </ul>
             </div>
@@ -172,7 +236,7 @@ export function PrivacyPolicyView({ onBackToHome }) {
             <div>
               <h4 className="text-white font-bold mb-4 uppercase tracking-wider">Support</h4>
               <p className="text-2xl font-black text-white mb-2">1800 6995</p>
-              <p className="text-xs text-stone-500">Thứ 2 - Chủ Nhật (8:00 - 21:00)</p>
+              <p className="text-xs text-sc-muted">Thứ 2 - Chủ Nhật (8:00 - 21:00)</p>
             </div>
 
             {/* THÔNG TIN */}
@@ -181,11 +245,60 @@ export function PrivacyPolicyView({ onBackToHome }) {
               <p className="mb-2 font-bold text-white">Công ty TNHH Hệ Thống Quản Lý Trung Tâm Thể Thao SCMS</p>
               <p className="mb-2">Khu Công Nghệ Cao, Thành phố Thủ Đức, Tp.HCM, Việt Nam</p>
               <p className="mb-2">Mã số thuế: 0305060028</p>
-              <p className="mt-6 text-xs text-stone-500">© SCMS Fitness & Sports Center 2026</p>
+              <p className="mt-6 text-xs text-sc-muted">© SCMS Fitness & Sports Center 2026</p>
             </div>
           </div>
         </div>
       </footer>
+) : (
+<footer className="bg-[#1a1a1a] text-sc-muted py-12 text-sm border-t-4 border-orange-600">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+            
+            {/* SERVICES */}
+            <div>
+              <h4 className="text-white font-bold mb-4 uppercase tracking-wider">Services</h4>
+              <ul className="space-y-3">
+                <li><a href="#" className="hover:text-white transition-colors">Yoga</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Pilates</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Boxing & MMA</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Personal Training (PT)</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Group X</a></li>
+              </ul>
+            </div>
+
+            {/* COMPANY */}
+            <div>
+              <h4 className="text-white font-bold mb-4 uppercase tracking-wider">Company</h4>
+              <ul className="space-y-3">
+                <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Terms of Use</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Payment Policy</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Complaint Resolution Policy</a></li>
+                <li><a href="#" className="text-sc-accent hover:text-orange-400 transition-colors">Personal Data Protection Policy</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
+              </ul>
+            </div>
+
+            {/* SUPPORT */}
+            <div>
+              <h4 className="text-white font-bold mb-4 uppercase tracking-wider">Support</h4>
+              <p className="text-2xl font-black text-white mb-2">1800 6995</p>
+              <p className="text-xs text-sc-muted">Mon - Sun (8:00 - 21:00)</p>
+            </div>
+
+            {/* INFO */}
+            <div>
+              <h4 className="text-white font-bold mb-4 uppercase tracking-wider">Information</h4>
+              <p className="mb-2 font-bold text-white">SCMS Fitness & Sports Centers Management Co., Ltd</p>
+              <p className="mb-2">Hi-Tech Park, Thu Duc City, HCMC, Vietnam</p>
+              <p className="mb-2">Tax code: 0305060028</p>
+              <p className="mt-6 text-xs text-sc-muted">© SCMS Fitness & Sports Center 2026</p>
+            </div>
+          </div>
+        </div>
+      </footer>
+)}
     </div>
   );
 }

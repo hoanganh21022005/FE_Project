@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useSCMS } from './context/SCMSContext';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
@@ -6,226 +7,194 @@ import { Toast } from './components/common/Toast';
 
 
 // Landing & Auth
-import { HomeLandingView } from './components/views/HomeLandingView';
-import { LoginView } from './components/views/LoginView';
-import { PrivacyPolicyView } from './components/views/PrivacyPolicyView';
 
 // Manager Views
-import { ManagerDashboard } from './components/views/ManagerDashboard';
-import { StaffManagement } from './components/views/StaffManagement';
-import { MemberManagement } from './components/views/MemberManagement';
-import { MemberDetailView } from './components/views/MemberDetailView';
-import { PackageManagement } from './components/views/PackageManagement';
-import { ClassManagement } from './components/views/ClassManagement';
-import { PaymentManagement } from './components/views/PaymentManagement';
-import { ReportsView } from './components/views/ReportsView';
-import { AuditLogView } from './components/views/AuditLogView';
-import { ResourceManagement } from './components/views/ResourceManagement';
 
 // Coach Views
-import { CoachDashboard } from './components/views/CoachDashboard';
-import { CoachScheduleView } from './components/views/CoachScheduleView';
-import { CoachAttendanceView } from './components/views/CoachAttendanceView';
-import { CoachAssignedMembersView } from './components/views/CoachAssignedMembersView';
-import { CoachTrainingProgress } from './components/views/CoachTrainingProgress';
 
 // Receptionist Views
-import { ReceptionistDashboard } from './components/views/ReceptionistDashboard';
-import { ReceptionMemberSearch } from './components/views/ReceptionMemberSearch';
-import { ReceptionClassBooking } from './components/views/ReceptionClassBooking';
-import { ReceptionPaymentsView } from './components/views/ReceptionPaymentsView';
 
 // Member Views
-import { MemberDashboard } from './components/views/MemberDashboard';
-import { MyMembershipView } from './components/views/MyMembershipView';
-import { MemberClassCatalog } from './components/views/MemberClassCatalog';
 
 // Settings & Support & Profile
-import { SettingsView } from './components/views/SettingsView';
-import { SupportView } from './components/views/SupportView';
-import { PersonalProfileView } from './components/views/PersonalProfileView';
+
+
+// Lazy loaded components
+const HomeLandingView = React.lazy(() => import('./components/views/HomeLandingView').then(module => ({ default: module.HomeLandingView })));
+const LoginView = React.lazy(() => import('./components/views/LoginView').then(module => ({ default: module.LoginView })));
+const PrivacyPolicyView = React.lazy(() => import('./components/views/PrivacyPolicyView').then(module => ({ default: module.PrivacyPolicyView })));
+const ManagerDashboard = React.lazy(() => import('./components/views/ManagerDashboard').then(module => ({ default: module.ManagerDashboard })));
+const StaffManagement = React.lazy(() => import('./components/views/StaffManagement').then(module => ({ default: module.StaffManagement })));
+const MemberManagement = React.lazy(() => import('./components/views/MemberManagement').then(module => ({ default: module.MemberManagement })));
+const MemberDetailView = React.lazy(() => import('./components/views/MemberDetailView').then(module => ({ default: module.MemberDetailView })));
+const PackageManagement = React.lazy(() => import('./components/views/PackageManagement').then(module => ({ default: module.PackageManagement })));
+const ClassManagement = React.lazy(() => import('./components/views/ClassManagement').then(module => ({ default: module.ClassManagement })));
+const PaymentManagement = React.lazy(() => import('./components/views/PaymentManagement').then(module => ({ default: module.PaymentManagement })));
+const ReportsView = React.lazy(() => import('./components/views/ReportsView').then(module => ({ default: module.ReportsView })));
+const AuditLogView = React.lazy(() => import('./components/views/AuditLogView').then(module => ({ default: module.AuditLogView })));
+const ResourceManagement = React.lazy(() => import('./components/views/ResourceManagement').then(module => ({ default: module.ResourceManagement })));
+const CoachDashboard = React.lazy(() => import('./components/views/CoachDashboard').then(module => ({ default: module.CoachDashboard })));
+const CoachScheduleView = React.lazy(() => import('./components/views/CoachScheduleView').then(module => ({ default: module.CoachScheduleView })));
+const CoachAttendanceView = React.lazy(() => import('./components/views/CoachAttendanceView').then(module => ({ default: module.CoachAttendanceView })));
+const CoachAssignedMembersView = React.lazy(() => import('./components/views/CoachAssignedMembersView').then(module => ({ default: module.CoachAssignedMembersView })));
+const CoachTrainingProgress = React.lazy(() => import('./components/views/CoachTrainingProgress').then(module => ({ default: module.CoachTrainingProgress })));
+const ReceptionistDashboard = React.lazy(() => import('./components/views/ReceptionistDashboard').then(module => ({ default: module.ReceptionistDashboard })));
+const ReceptionMemberSearch = React.lazy(() => import('./components/views/ReceptionMemberSearch').then(module => ({ default: module.ReceptionMemberSearch })));
+const ReceptionClassBooking = React.lazy(() => import('./components/views/ReceptionClassBooking').then(module => ({ default: module.ReceptionClassBooking })));
+const ReceptionPaymentsView = React.lazy(() => import('./components/views/ReceptionPaymentsView').then(module => ({ default: module.ReceptionPaymentsView })));
+const MemberDashboard = React.lazy(() => import('./components/views/MemberDashboard').then(module => ({ default: module.MemberDashboard })));
+const MyMembershipView = React.lazy(() => import('./components/views/MyMembershipView').then(module => ({ default: module.MyMembershipView })));
+const MemberClassCatalog = React.lazy(() => import('./components/views/MemberClassCatalog').then(module => ({ default: module.MemberClassCatalog })));
+const SettingsView = React.lazy(() => import('./components/views/SettingsView').then(module => ({ default: module.SettingsView })));
+const SupportView = React.lazy(() => import('./components/views/SupportView').then(module => ({ default: module.SupportView })));
+const PersonalProfileView = React.lazy(() => import('./components/views/PersonalProfileView').then(module => ({ default: module.PersonalProfileView })));
+const PTDetailView = React.lazy(() => import('./components/views/PTDetailView').then(module => ({ default: module.PTDetailView })));
+const GymDetailView = React.lazy(() => import('./components/views/GymDetailView').then(m => ({ default: m.GymDetailView })));
+const BoxingDetailView = React.lazy(() => import('./components/views/BoxingDetailView').then(m => ({ default: m.BoxingDetailView })));
+const YogaDetailView = React.lazy(() => import('./components/views/YogaDetailView').then(m => ({ default: m.YogaDetailView })));
+const GroupXDetailView = React.lazy(() => import('./components/views/GroupXDetailView').then(m => ({ default: m.GroupXDetailView })));
+const RecoveryDetailView = React.lazy(() => import('./components/views/RecoveryDetailView').then(m => ({ default: m.RecoveryDetailView })));
+const SpinningDetailView = React.lazy(() => import('./components/views/SpinningDetailView').then(m => ({ default: m.SpinningDetailView })));
+const HIITDetailView = React.lazy(() => import('./components/views/HIITDetailView').then(m => ({ default: m.HIITDetailView })));
+const PilatesDetailView = React.lazy(() => import('./components/views/PilatesDetailView').then(m => ({ default: m.PilatesDetailView })));
+const ZumbaDetailView = React.lazy(() => import('./components/views/ZumbaDetailView').then(module => ({ default: module.ZumbaDetailView })));
+const DisciplineDetailView = React.lazy(() => import('./components/views/DisciplineDetailView').then(module => ({ default: module.DisciplineDetailView })));
 
 function SCMSApp() {
-  const { role, setRole, currentTab, setCurrentTab, t, language, isAuthenticated, authLoading, logout } = useSCMS();
-  const [publicView, setPublicView] = useState(() => {
-    if (window.location.pathname === '/privacy-policy') return 'privacy';
-    return 'home';
-  }); // 'home' | 'login' | 'register' | 'privacy'
+  const { role, setRole, t, language, isAuthenticated, authLoading, logout } = useSCMS();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [targetPackageId, setTargetPackageId] = useState(null);
-  const [selectedMemberId, setSelectedMemberId] = useState(null);
 
   const handleLoginSuccess = (selectedRole) => {
-    if (selectedRole) setRole(selectedRole);
+    if (selectedRole) {
+      setRole(selectedRole);
+      const defaultPath = selectedRole === 'coach' ? '/coach' :
+                          selectedRole === 'receptionist' ? '/receptionist' :
+                          selectedRole === 'member' ? '/member' : '/manager';
+      navigate(defaultPath);
+    }
   };
 
   const handleLogout = async () => {
     await logout();
-    setPublicView('home');
+    navigate('/');
   };
 
   if (authLoading) {
     return <div className="min-h-screen bg-stone-950 text-stone-200 flex items-center justify-center text-sm">Đang kiểm tra phiên đăng nhập...</div>;
   }
 
+  // Public Routes
   if (!isAuthenticated) {
-    if (publicView === 'privacy') {
-      return (
-        <>
-          <PrivacyPolicyView onBackToHome={() => {
-            window.history.pushState({}, '', '/');
-            setPublicView('home');
-          }} />
-          <Toast />
-        </>
-      );
-    }
-
-    if (publicView === 'home') {
-      return (
-        <>
-          <HomeLandingView
-            onOpenLogin={() => setPublicView('login')}
-            onOpenRegister={(packageId) => {
-              setTargetPackageId(packageId || null);
-              setPublicView('register');
-            }}
-          />
-          <Toast />
-        </>
-      );
-    }
-
     return (
       <>
-        <LoginView
-          onLoginSuccess={handleLoginSuccess}
-          onBackToHome={() => setPublicView('home')}
-          initialMode={publicView === 'register' ? 'register' : 'login'}
-          initialPackageId={targetPackageId}
-        />
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div></div>}>
+        <Routes>
+          <Route path="/" element={<HomeLandingView onOpenLogin={() => navigate('/login')} onOpenRegister={(pkgId) => { setTargetPackageId(pkgId || null); navigate('/register'); }} />} />
+          <Route path="/discipline/pt" element={<PTDetailView />} />
+              <Route path="/discipline/gym" element={<GymDetailView />} />
+              <Route path="/discipline/boxing" element={<BoxingDetailView />} />
+              <Route path="/discipline/yoga" element={<YogaDetailView />} />
+              <Route path="/discipline/pilates" element={<PilatesDetailView />} />
+              <Route path="/discipline/recovery" element={<RecoveryDetailView />} />
+              <Route path="/discipline/spinning" element={<SpinningDetailView />} />
+              <Route path="/discipline/group-x" element={<GroupXDetailView />} />
+              <Route path="/discipline/hiit" element={<HIITDetailView />} />
+              <Route path="/discipline/zumba" element={<ZumbaDetailView />} />
+              <Route path="/discipline/:id" element={<DisciplineDetailView />} />
+          <Route path="/login" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" />} />
+          <Route path="/register" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="register" initialPackageId={targetPackageId} />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyView onBackToHome={() => navigate('/')} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        </Suspense>
         <Toast />
       </>
     );
   }
 
-  // Render current view
-  const renderView = () => {
-    switch (currentTab) {
-      // Manager
-      case 'dashboard':
-        return <ManagerDashboard />;
-      case 'staff':
-        return <StaffManagement />;
-      case 'members':
-        if (selectedMemberId) {
-          return <MemberDetailView memberId={selectedMemberId} onBack={() => setSelectedMemberId(null)} />;
-        }
-        return <MemberManagement onSelectMemberDetail={(id) => setSelectedMemberId(id)} />;
-      case 'packages':
-        return <PackageManagement />;
-      case 'classes':
-        return <ClassManagement />;
-      case 'resources':
-        return <ResourceManagement />;
-      case 'payments':
-        return <PaymentManagement />;
-      case 'reports':
-        return <ReportsView />;
-      case 'auditLogs':
-        return <AuditLogView />;
-
-      // Coach
-      case 'coach_dashboard':
-        return <CoachDashboard />;
-      case 'coach_schedule':
-        return <CoachScheduleView />;
-      case 'coach_attendance':
-        return <CoachAttendanceView />;
-      case 'coach_assigned_members':
-        return <CoachAssignedMembersView />;
-      case 'coach_progress':
-        return <CoachTrainingProgress />;
-
-      // Receptionist
-      case 'reception_dashboard':
-        return <ReceptionistDashboard />;
-      case 'reception_member_search':
-        return <ReceptionMemberSearch />;
-      case 'reception_booking':
-        return <ReceptionClassBooking />;
-      case 'reception_payments':
-        return <ReceptionPaymentsView />;
-
-      // Member
-      case 'member_dashboard':
-        return <MemberDashboard />;
-      case 'member_my_membership':
-        return <MyMembershipView />;
-      case 'member_class_catalog':
-        return <MemberClassCatalog />;
-      case 'member_attendance_history':
-        return <CoachAttendanceView />;
-      case 'member_training_plan':
-        return <CoachTrainingProgress />;
-
-      // Settings & Support
-      case 'settings':
-        return <SettingsView />;
-      case 'support':
-        return <SupportView />;
-
-      case 'profile':
-        return <PersonalProfileView />;
-
-      default:
-        return <ManagerDashboard />;
-    }
-  };
-
+  // Authenticated Layout
   const getPageTitle = () => {
-    switch (currentTab) {
-      case 'dashboard':
-      case 'coach_dashboard':
-      case 'reception_dashboard':
-      case 'member_dashboard':
-        return t('dashboard');
-      case 'staff': return t('staff');
-      case 'members': return t('members');
-      case 'packages': return t('packages');
-      case 'classes': return t('classes');
-      case 'resources': return language === 'vi' ? 'Bộ môn & phòng tập' : 'Subjects & Rooms';
-      case 'coach_schedule': return t('schedule');
-      case 'coach_attendance': return t('attendance');
-      case 'coach_assigned_members': return t('assignedMembers');
-      case 'coach_progress': return t('trainingProgress');
-      case 'reception_member_search': return t('memberSearch');
-      case 'reception_booking': return t('bookings');
-      case 'reception_payments':
-      case 'payments': return t('payments');
-      case 'reports': return t('reports');
-      case 'auditLogs': return t('auditLogs');
-      case 'member_my_membership': return t('myMembership');
-      case 'member_class_catalog': return t('classCatalog');
-      case 'settings': return t('settings');
-      case 'support': return t('support');
-      default: return t('dashboard');
-    }
+    const path = location.pathname;
+    if (path.includes('/dashboard')) return t('dashboard');
+    if (path.includes('/staff')) return t('staff');
+    if (path.includes('/members')) return t('members');
+    if (path.includes('/packages')) return t('packages');
+    if (path.includes('/classes')) return t('classes');
+    if (path.includes('/resources')) return language === 'vi' ? 'Bộ môn & phòng tập' : 'Subjects & Rooms';
+    if (path.includes('/schedule')) return t('schedule');
+    if (path.includes('/attendance')) return t('attendance');
+    if (path.includes('/assigned-members')) return t('assignedMembers');
+    if (path.includes('/progress')) return t('trainingProgress');
+    if (path.includes('/search')) return t('memberSearch');
+    if (path.includes('/booking')) return t('bookings');
+    if (path.includes('/payments')) return t('payments');
+    if (path.includes('/reports')) return t('reports');
+    if (path.includes('/audit-logs')) return t('auditLogs');
+    if (path.includes('/my-membership')) return t('myMembership');
+    if (path.includes('/catalog')) return t('classCatalog');
+    if (path.includes('/settings')) return t('settings');
+    if (path.includes('/support')) return t('support');
+    if (path.includes('/profile')) return t('profile');
+    return t('dashboard');
   };
 
   return (
     <div className="min-h-screen bg-[#F7F5F0] text-[#2D2721] flex flex-row font-sans antialiased">
-      {/* Sidebar */}
-      <Sidebar currentTab={currentTab} onSelectTab={setCurrentTab} />
-
-      {/* Main Content Area */}
+      <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <Header currentTitle={getPageTitle()} onLogout={handleLogout} />
-
         <main className="flex-1 p-6 overflow-y-auto max-w-7xl w-full mx-auto">
-          {renderView()}
+          <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div></div>}>
+        <Routes>
+            {/* Manager Routes */}
+            <Route path="/manager" element={<Navigate to="/manager/dashboard" replace />} />
+            <Route path="/manager/dashboard" element={<ManagerDashboard />} />
+            <Route path="/manager/staff" element={<StaffManagement />} />
+            <Route path="/manager/members" element={<MemberManagement />} />
+            <Route path="/manager/members/:id" element={<MemberDetailView />} />
+            <Route path="/manager/packages" element={<PackageManagement />} />
+            <Route path="/manager/classes" element={<ClassManagement />} />
+            <Route path="/manager/resources" element={<ResourceManagement />} />
+            <Route path="/manager/payments" element={<PaymentManagement />} />
+            <Route path="/manager/reports" element={<ReportsView />} />
+            <Route path="/manager/audit-logs" element={<AuditLogView />} />
+
+            {/* Coach Routes */}
+            <Route path="/coach" element={<Navigate to="/coach/dashboard" replace />} />
+            <Route path="/coach/dashboard" element={<CoachDashboard />} />
+            <Route path="/coach/schedule" element={<CoachScheduleView />} />
+            <Route path="/coach/attendance" element={<CoachAttendanceView />} />
+            <Route path="/coach/assigned-members" element={<CoachAssignedMembersView />} />
+            <Route path="/coach/progress" element={<CoachTrainingProgress />} />
+
+            {/* Receptionist Routes */}
+            <Route path="/receptionist" element={<Navigate to="/receptionist/dashboard" replace />} />
+            <Route path="/receptionist/dashboard" element={<ReceptionistDashboard />} />
+            <Route path="/receptionist/search" element={<ReceptionMemberSearch />} />
+            <Route path="/receptionist/booking" element={<ReceptionClassBooking />} />
+            <Route path="/receptionist/payments" element={<ReceptionPaymentsView />} />
+
+            {/* Member Routes */}
+            <Route path="/member" element={<Navigate to="/member/dashboard" replace />} />
+            <Route path="/member/dashboard" element={<MemberDashboard />} />
+            <Route path="/member/my-membership" element={<MyMembershipView />} />
+            <Route path="/member/catalog" element={<MemberClassCatalog />} />
+            <Route path="/member/attendance" element={<CoachAttendanceView />} />
+            <Route path="/member/progress" element={<CoachTrainingProgress />} />
+
+            {/* Common Routes */}
+            <Route path="/settings" element={<SettingsView />} />
+            <Route path="/support" element={<SupportView />} />
+            <Route path="/profile" element={<PersonalProfileView />} />
+            
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to={`/${role || 'manager'}/dashboard`} replace />} />
+          </Routes>
+        </Suspense>
         </main>
       </div>
-
       <Toast />
     </div>
   );

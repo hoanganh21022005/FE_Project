@@ -29,6 +29,8 @@ const DEMO_EMAIL = 'manager@scms.com';
 const DEMO_PASSWORD = '12345678';
 
 export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login', initialPackageId }) {
+  useEffect(() => { window.scrollTo(0, 0); }, [initialMode]);
+
   const { language, setLanguage, packages, members, addMember, login, apiEnabled } = useSCMS();
   const isVi = language === 'vi';
 
