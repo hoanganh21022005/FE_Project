@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useSCMS } from './context/SCMSContext';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
@@ -46,186 +47,125 @@ import { SupportView } from './components/views/SupportView';
 import { PersonalProfileView } from './components/views/PersonalProfileView';
 
 function SCMSApp() {
-  const { role, setRole, currentTab, setCurrentTab, t, language, isAuthenticated, authLoading, logout } = useSCMS();
-  const [publicView, setPublicView] = useState(() => {
-    if (window.location.pathname === '/privacy-policy') return 'privacy';
-    return 'home';
-  }); // 'home' | 'login' | 'register' | 'privacy'
+  const { role, setRole, t, language, isAuthenticated, authLoading, logout } = useSCMS();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [targetPackageId, setTargetPackageId] = useState(null);
-  const [selectedMemberId, setSelectedMemberId] = useState(null);
 
   const handleLoginSuccess = (selectedRole) => {
-    if (selectedRole) setRole(selectedRole);
+    if (selectedRole) {
+      setRole(selectedRole);
+      const defaultPath = selectedRole === 'coach' ? '/coach' :
+                          selectedRole === 'receptionist' ? '/receptionist' :
+                          selectedRole === 'member' ? '/member' : '/manager';
+      navigate(defaultPath);
+    }
   };
 
   const handleLogout = async () => {
     await logout();
-    setPublicView('home');
+    navigate('/');
   };
 
   if (authLoading) {
     return <div className="min-h-screen bg-stone-950 text-stone-200 flex items-center justify-center text-sm">Đang kiểm tra phiên đăng nhập...</div>;
   }
 
+  // Public Routes
   if (!isAuthenticated) {
-    if (publicView === 'privacy') {
-      return (
-        <>
-          <PrivacyPolicyView onBackToHome={() => {
-            window.history.pushState({}, '', '/');
-            setPublicView('home');
-          }} />
-          <Toast />
-        </>
-      );
-    }
-
-    if (publicView === 'home') {
-      return (
-        <>
-          <HomeLandingView
-            onOpenLogin={() => setPublicView('login')}
-            onOpenRegister={(packageId) => {
-              setTargetPackageId(packageId || null);
-              setPublicView('register');
-            }}
-          />
-          <Toast />
-        </>
-      );
-    }
-
     return (
       <>
-        <LoginView
-          onLoginSuccess={handleLoginSuccess}
-          onBackToHome={() => setPublicView('home')}
-          initialMode={publicView === 'register' ? 'register' : 'login'}
-          initialPackageId={targetPackageId}
-        />
+        <Routes>
+          <Route path="/" element={<HomeLandingView onOpenLogin={() => navigate('/login')} onOpenRegister={(pkgId) => { setTargetPackageId(pkgId || null); navigate('/register'); }} />} />
+          <Route path="/login" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" />} />
+          <Route path="/register" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="register" initialPackageId={targetPackageId} />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyView onBackToHome={() => navigate('/')} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
         <Toast />
       </>
     );
   }
 
-  // Render current view
-  const renderView = () => {
-    switch (currentTab) {
-      // Manager
-      case 'dashboard':
-        return <ManagerDashboard />;
-      case 'staff':
-        return <StaffManagement />;
-      case 'members':
-        if (selectedMemberId) {
-          return <MemberDetailView memberId={selectedMemberId} onBack={() => setSelectedMemberId(null)} />;
-        }
-        return <MemberManagement onSelectMemberDetail={(id) => setSelectedMemberId(id)} />;
-      case 'packages':
-        return <PackageManagement />;
-      case 'classes':
-        return <ClassManagement />;
-      case 'resources':
-        return <ResourceManagement />;
-      case 'payments':
-        return <PaymentManagement />;
-      case 'reports':
-        return <ReportsView />;
-      case 'auditLogs':
-        return <AuditLogView />;
-
-      // Coach
-      case 'coach_dashboard':
-        return <CoachDashboard />;
-      case 'coach_schedule':
-        return <CoachScheduleView />;
-      case 'coach_attendance':
-        return <CoachAttendanceView />;
-      case 'coach_assigned_members':
-        return <CoachAssignedMembersView />;
-      case 'coach_progress':
-        return <CoachTrainingProgress />;
-
-      // Receptionist
-      case 'reception_dashboard':
-        return <ReceptionistDashboard />;
-      case 'reception_member_search':
-        return <ReceptionMemberSearch />;
-      case 'reception_booking':
-        return <ReceptionClassBooking />;
-      case 'reception_payments':
-        return <ReceptionPaymentsView />;
-
-      // Member
-      case 'member_dashboard':
-        return <MemberDashboard />;
-      case 'member_my_membership':
-        return <MyMembershipView />;
-      case 'member_class_catalog':
-        return <MemberClassCatalog />;
-      case 'member_attendance_history':
-        return <CoachAttendanceView />;
-      case 'member_training_plan':
-        return <CoachTrainingProgress />;
-
-      // Settings & Support
-      case 'settings':
-        return <SettingsView />;
-      case 'support':
-        return <SupportView />;
-
-      case 'profile':
-        return <PersonalProfileView />;
-
-      default:
-        return <ManagerDashboard />;
-    }
-  };
-
+  // Authenticated Layout
   const getPageTitle = () => {
-    switch (currentTab) {
-      case 'dashboard':
-      case 'coach_dashboard':
-      case 'reception_dashboard':
-      case 'member_dashboard':
-        return t('dashboard');
-      case 'staff': return t('staff');
-      case 'members': return t('members');
-      case 'packages': return t('packages');
-      case 'classes': return t('classes');
-      case 'resources': return language === 'vi' ? 'Bộ môn & phòng tập' : 'Subjects & Rooms';
-      case 'coach_schedule': return t('schedule');
-      case 'coach_attendance': return t('attendance');
-      case 'coach_assigned_members': return t('assignedMembers');
-      case 'coach_progress': return t('trainingProgress');
-      case 'reception_member_search': return t('memberSearch');
-      case 'reception_booking': return t('bookings');
-      case 'reception_payments':
-      case 'payments': return t('payments');
-      case 'reports': return t('reports');
-      case 'auditLogs': return t('auditLogs');
-      case 'member_my_membership': return t('myMembership');
-      case 'member_class_catalog': return t('classCatalog');
-      case 'settings': return t('settings');
-      case 'support': return t('support');
-      default: return t('dashboard');
-    }
+    const path = location.pathname;
+    if (path.includes('/dashboard')) return t('dashboard');
+    if (path.includes('/staff')) return t('staff');
+    if (path.includes('/members')) return t('members');
+    if (path.includes('/packages')) return t('packages');
+    if (path.includes('/classes')) return t('classes');
+    if (path.includes('/resources')) return language === 'vi' ? 'Bộ môn & phòng tập' : 'Subjects & Rooms';
+    if (path.includes('/schedule')) return t('schedule');
+    if (path.includes('/attendance')) return t('attendance');
+    if (path.includes('/assigned-members')) return t('assignedMembers');
+    if (path.includes('/progress')) return t('trainingProgress');
+    if (path.includes('/search')) return t('memberSearch');
+    if (path.includes('/booking')) return t('bookings');
+    if (path.includes('/payments')) return t('payments');
+    if (path.includes('/reports')) return t('reports');
+    if (path.includes('/audit-logs')) return t('auditLogs');
+    if (path.includes('/my-membership')) return t('myMembership');
+    if (path.includes('/catalog')) return t('classCatalog');
+    if (path.includes('/settings')) return t('settings');
+    if (path.includes('/support')) return t('support');
+    if (path.includes('/profile')) return t('profile');
+    return t('dashboard');
   };
 
   return (
     <div className="min-h-screen bg-[#F7F5F0] text-[#2D2721] flex flex-row font-sans antialiased">
-      {/* Sidebar */}
-      <Sidebar currentTab={currentTab} onSelectTab={setCurrentTab} />
-
-      {/* Main Content Area */}
+      <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <Header currentTitle={getPageTitle()} onLogout={handleLogout} />
-
         <main className="flex-1 p-6 overflow-y-auto max-w-7xl w-full mx-auto">
-          {renderView()}
+          <Routes>
+            {/* Manager Routes */}
+            <Route path="/manager" element={<Navigate to="/manager/dashboard" replace />} />
+            <Route path="/manager/dashboard" element={<ManagerDashboard />} />
+            <Route path="/manager/staff" element={<StaffManagement />} />
+            <Route path="/manager/members" element={<MemberManagement />} />
+            <Route path="/manager/members/:id" element={<MemberDetailView />} />
+            <Route path="/manager/packages" element={<PackageManagement />} />
+            <Route path="/manager/classes" element={<ClassManagement />} />
+            <Route path="/manager/resources" element={<ResourceManagement />} />
+            <Route path="/manager/payments" element={<PaymentManagement />} />
+            <Route path="/manager/reports" element={<ReportsView />} />
+            <Route path="/manager/audit-logs" element={<AuditLogView />} />
+
+            {/* Coach Routes */}
+            <Route path="/coach" element={<Navigate to="/coach/dashboard" replace />} />
+            <Route path="/coach/dashboard" element={<CoachDashboard />} />
+            <Route path="/coach/schedule" element={<CoachScheduleView />} />
+            <Route path="/coach/attendance" element={<CoachAttendanceView />} />
+            <Route path="/coach/assigned-members" element={<CoachAssignedMembersView />} />
+            <Route path="/coach/progress" element={<CoachTrainingProgress />} />
+
+            {/* Receptionist Routes */}
+            <Route path="/receptionist" element={<Navigate to="/receptionist/dashboard" replace />} />
+            <Route path="/receptionist/dashboard" element={<ReceptionistDashboard />} />
+            <Route path="/receptionist/search" element={<ReceptionMemberSearch />} />
+            <Route path="/receptionist/booking" element={<ReceptionClassBooking />} />
+            <Route path="/receptionist/payments" element={<ReceptionPaymentsView />} />
+
+            {/* Member Routes */}
+            <Route path="/member" element={<Navigate to="/member/dashboard" replace />} />
+            <Route path="/member/dashboard" element={<MemberDashboard />} />
+            <Route path="/member/my-membership" element={<MyMembershipView />} />
+            <Route path="/member/catalog" element={<MemberClassCatalog />} />
+            <Route path="/member/attendance" element={<CoachAttendanceView />} />
+            <Route path="/member/progress" element={<CoachTrainingProgress />} />
+
+            {/* Common Routes */}
+            <Route path="/settings" element={<SettingsView />} />
+            <Route path="/support" element={<SupportView />} />
+            <Route path="/profile" element={<PersonalProfileView />} />
+            
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to={`/${role || 'manager'}/dashboard`} replace />} />
+          </Routes>
         </main>
       </div>
-
       <Toast />
     </div>
   );
