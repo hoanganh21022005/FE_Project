@@ -10,7 +10,7 @@ export function Marquee({ items, speed = '40s' }) {
   ));
 
   return (
-    <div className="w-full bg-orange-600 text-white overflow-hidden py-3">
+    <div className="w-full bg-sc-primary text-white overflow-hidden py-3">
       {/* Container trượt, sẽ di chuyển sang trái 50% độ dài của nó */}
       <div 
         className="flex w-max"

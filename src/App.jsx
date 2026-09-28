@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useSCMS } from './context/SCMSContext';
 import { Header } from './components/layout/Header';
@@ -7,44 +7,47 @@ import { Toast } from './components/common/Toast';
 
 
 // Landing & Auth
-import { HomeLandingView } from './components/views/HomeLandingView';
-import { LoginView } from './components/views/LoginView';
-import { PrivacyPolicyView } from './components/views/PrivacyPolicyView';
 
 // Manager Views
-import { ManagerDashboard } from './components/views/ManagerDashboard';
-import { StaffManagement } from './components/views/StaffManagement';
-import { MemberManagement } from './components/views/MemberManagement';
-import { MemberDetailView } from './components/views/MemberDetailView';
-import { PackageManagement } from './components/views/PackageManagement';
-import { ClassManagement } from './components/views/ClassManagement';
-import { PaymentManagement } from './components/views/PaymentManagement';
-import { ReportsView } from './components/views/ReportsView';
-import { AuditLogView } from './components/views/AuditLogView';
-import { ResourceManagement } from './components/views/ResourceManagement';
 
 // Coach Views
-import { CoachDashboard } from './components/views/CoachDashboard';
-import { CoachScheduleView } from './components/views/CoachScheduleView';
-import { CoachAttendanceView } from './components/views/CoachAttendanceView';
-import { CoachAssignedMembersView } from './components/views/CoachAssignedMembersView';
-import { CoachTrainingProgress } from './components/views/CoachTrainingProgress';
 
 // Receptionist Views
-import { ReceptionistDashboard } from './components/views/ReceptionistDashboard';
-import { ReceptionMemberSearch } from './components/views/ReceptionMemberSearch';
-import { ReceptionClassBooking } from './components/views/ReceptionClassBooking';
-import { ReceptionPaymentsView } from './components/views/ReceptionPaymentsView';
 
 // Member Views
-import { MemberDashboard } from './components/views/MemberDashboard';
-import { MyMembershipView } from './components/views/MyMembershipView';
-import { MemberClassCatalog } from './components/views/MemberClassCatalog';
 
 // Settings & Support & Profile
-import { SettingsView } from './components/views/SettingsView';
-import { SupportView } from './components/views/SupportView';
-import { PersonalProfileView } from './components/views/PersonalProfileView';
+
+
+// Lazy loaded components
+const HomeLandingView = React.lazy(() => import('./components/views/HomeLandingView').then(module => ({ default: module.HomeLandingView })));
+const LoginView = React.lazy(() => import('./components/views/LoginView').then(module => ({ default: module.LoginView })));
+const PrivacyPolicyView = React.lazy(() => import('./components/views/PrivacyPolicyView').then(module => ({ default: module.PrivacyPolicyView })));
+const ManagerDashboard = React.lazy(() => import('./components/views/ManagerDashboard').then(module => ({ default: module.ManagerDashboard })));
+const StaffManagement = React.lazy(() => import('./components/views/StaffManagement').then(module => ({ default: module.StaffManagement })));
+const MemberManagement = React.lazy(() => import('./components/views/MemberManagement').then(module => ({ default: module.MemberManagement })));
+const MemberDetailView = React.lazy(() => import('./components/views/MemberDetailView').then(module => ({ default: module.MemberDetailView })));
+const PackageManagement = React.lazy(() => import('./components/views/PackageManagement').then(module => ({ default: module.PackageManagement })));
+const ClassManagement = React.lazy(() => import('./components/views/ClassManagement').then(module => ({ default: module.ClassManagement })));
+const PaymentManagement = React.lazy(() => import('./components/views/PaymentManagement').then(module => ({ default: module.PaymentManagement })));
+const ReportsView = React.lazy(() => import('./components/views/ReportsView').then(module => ({ default: module.ReportsView })));
+const AuditLogView = React.lazy(() => import('./components/views/AuditLogView').then(module => ({ default: module.AuditLogView })));
+const ResourceManagement = React.lazy(() => import('./components/views/ResourceManagement').then(module => ({ default: module.ResourceManagement })));
+const CoachDashboard = React.lazy(() => import('./components/views/CoachDashboard').then(module => ({ default: module.CoachDashboard })));
+const CoachScheduleView = React.lazy(() => import('./components/views/CoachScheduleView').then(module => ({ default: module.CoachScheduleView })));
+const CoachAttendanceView = React.lazy(() => import('./components/views/CoachAttendanceView').then(module => ({ default: module.CoachAttendanceView })));
+const CoachAssignedMembersView = React.lazy(() => import('./components/views/CoachAssignedMembersView').then(module => ({ default: module.CoachAssignedMembersView })));
+const CoachTrainingProgress = React.lazy(() => import('./components/views/CoachTrainingProgress').then(module => ({ default: module.CoachTrainingProgress })));
+const ReceptionistDashboard = React.lazy(() => import('./components/views/ReceptionistDashboard').then(module => ({ default: module.ReceptionistDashboard })));
+const ReceptionMemberSearch = React.lazy(() => import('./components/views/ReceptionMemberSearch').then(module => ({ default: module.ReceptionMemberSearch })));
+const ReceptionClassBooking = React.lazy(() => import('./components/views/ReceptionClassBooking').then(module => ({ default: module.ReceptionClassBooking })));
+const ReceptionPaymentsView = React.lazy(() => import('./components/views/ReceptionPaymentsView').then(module => ({ default: module.ReceptionPaymentsView })));
+const MemberDashboard = React.lazy(() => import('./components/views/MemberDashboard').then(module => ({ default: module.MemberDashboard })));
+const MyMembershipView = React.lazy(() => import('./components/views/MyMembershipView').then(module => ({ default: module.MyMembershipView })));
+const MemberClassCatalog = React.lazy(() => import('./components/views/MemberClassCatalog').then(module => ({ default: module.MemberClassCatalog })));
+const SettingsView = React.lazy(() => import('./components/views/SettingsView').then(module => ({ default: module.SettingsView })));
+const SupportView = React.lazy(() => import('./components/views/SupportView').then(module => ({ default: module.SupportView })));
+const PersonalProfileView = React.lazy(() => import('./components/views/PersonalProfileView').then(module => ({ default: module.PersonalProfileView })));
 
 function SCMSApp() {
   const { role, setRole, t, language, isAuthenticated, authLoading, logout } = useSCMS();
@@ -75,6 +78,7 @@ function SCMSApp() {
   if (!isAuthenticated) {
     return (
       <>
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div></div>}>
         <Routes>
           <Route path="/" element={<HomeLandingView onOpenLogin={() => navigate('/login')} onOpenRegister={(pkgId) => { setTargetPackageId(pkgId || null); navigate('/register'); }} />} />
           <Route path="/login" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" />} />
@@ -82,6 +86,7 @@ function SCMSApp() {
           <Route path="/privacy-policy" element={<PrivacyPolicyView onBackToHome={() => navigate('/')} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
         <Toast />
       </>
     );
@@ -119,7 +124,8 @@ function SCMSApp() {
       <div className="flex-1 flex flex-col min-w-0">
         <Header currentTitle={getPageTitle()} onLogout={handleLogout} />
         <main className="flex-1 p-6 overflow-y-auto max-w-7xl w-full mx-auto">
-          <Routes>
+          <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div></div>}>
+        <Routes>
             {/* Manager Routes */}
             <Route path="/manager" element={<Navigate to="/manager/dashboard" replace />} />
             <Route path="/manager/dashboard" element={<ManagerDashboard />} />
@@ -164,6 +170,7 @@ function SCMSApp() {
             {/* Fallback */}
             <Route path="*" element={<Navigate to={`/${role || 'manager'}/dashboard`} replace />} />
           </Routes>
+        </Suspense>
         </main>
       </div>
       <Toast />

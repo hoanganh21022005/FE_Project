@@ -3,6 +3,7 @@ import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency } from '../../locales/translations';
 import { Marquee } from '../common/Marquee';
 import { Reveal, Stagger, Item } from '../common/Reveal';
+import { AnimatedCounter } from '../common/AnimatedCounter';
 import {
   Activity,
   Award,
@@ -53,19 +54,19 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
 
           {/* Navigation Links */}
           <nav className="hidden lg:flex items-center gap-7 text-xs font-semibold text-stone-300">
-            <a href="#about" className="hover:text-amber-400 transition-colors">
+            <a href="#about" className="hover:text-sc-primary transition-colors">
               {isVi ? 'Về trung tâm' : 'About Center'}
             </a>
-            <a href="#classes" className="hover:text-amber-400 transition-colors">
+            <a href="#classes" className="hover:text-sc-primary transition-colors">
               {isVi ? 'Lịch lớp học' : 'Class Schedule'}
             </a>
-            <a href="#packages" className="hover:text-amber-400 transition-colors">
+            <a href="#packages" className="hover:text-sc-primary transition-colors">
               {isVi ? 'Gói hội viên' : 'Membership Plans'}
             </a>
-            <a href="#coaches" className="hover:text-amber-400 transition-colors">
+            <a href="#coaches" className="hover:text-sc-primary transition-colors">
               {isVi ? 'Đội ngũ HLV' : 'Coaches'}
             </a>
-            <a href="#facilities" className="hover:text-amber-400 transition-colors">
+            <a href="#facilities" className="hover:text-sc-primary transition-colors">
               {isVi ? 'Cơ sở vật chất' : 'Facilities'}
             </a>
           </nav>
@@ -100,7 +101,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
               onClick={onOpenLogin}
               className="min-w-[95px] px-3.5 py-2 rounded-md border border-stone-700 bg-stone-900/80 hover:bg-stone-800 text-stone-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             >
-              <LogIn className="w-3.5 h-3.5 text-amber-400" />
+              <LogIn className="w-3.5 h-3.5 text-sc-primary" />
               <span>{isVi ? 'Đăng nhập' : 'Sign in'}</span>
             </button>
 
@@ -118,57 +119,59 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       </header>
 
       {/* ============================================================ */}
-      {/* 2. HERO SECTION (STICKY PARALLAX SCROLL)                     */}
+      {/* 2. HERO SECTION (SPLIT SCREEN LAYOUT) */}
       {/* ============================================================ */}
-      <section id="about" className="sticky top-0 h-screen w-full flex flex-col justify-end bg-stone-950 overflow-hidden pt-24 z-0">
-        {/* Background Image */}
-        <img 
-          src="https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=2070&auto=format&fit=crop" 
-          alt="Hero background" 
-          className="absolute inset-0 w-full h-full object-cover object-center md:object-right md:w-[65%] ml-auto mix-blend-luminosity opacity-80"
-        />
-        {/* Gradient Overlay for Text Readability */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#120f0e] via-[#120f0e]/95 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#120f0e] via-transparent to-transparent" />
+      <section id="about" className="relative h-screen w-full flex flex-col justify-end bg-sc-paper overflow-hidden pt-24 z-0">
         
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pb-16">
-          <Reveal className="max-w-2xl space-y-6">
-            {/* Slogan block */}
-            <div className="space-y-4">
-              <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-amber-500 mb-6" />
-              
-              <h1 className="text-5xl sm:text-6xl lg:text-[76px] font-black text-white tracking-tighter leading-[1] uppercase">
-                SPORT CENTER
-              </h1>
-              
-              <h2 className="text-3xl sm:text-4xl lg:text-[40px] font-bold text-amber-500 tracking-tight leading-snug">
-                {isVi ? 'Nơi đam mê bắt đầu' : 'Where Passion Begins'}
-              </h2>
-              
-              <p className="text-lg sm:text-xl text-white font-medium tracking-wide">
-                {isVi ? 'Khơi nguồn năng lượng · Chinh phục thử thách' : 'Ignite Your Energy · Conquer Challenges'}
-              </p>
-            </div>
+        {/* Split Screen Background */}
+        <div className="absolute inset-0 flex">
+          {/* Left Solid Color */}
+          <div className="hidden lg:block w-[45%] h-full bg-sc-paper"></div>
+          
+          {/* Right Image Container */}
+          <div className="w-full lg:w-[65%] h-full relative lg:absolute lg:right-0">
+            <img 
+              src="https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=2070&auto=format&fit=crop" 
+              alt="Hero background" 
+              className="w-full h-full object-cover object-center lg:object-right mix-blend-luminosity opacity-30"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-sc-paper via-sc-paper/80 to-transparent lg:via-transparent"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-sc-paper via-transparent to-transparent"></div>
+          </div>
+        </div>
+        
+        {/* Hero Content */}
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1 flex flex-col justify-center pb-10">
+          <Reveal className="max-w-xl space-y-6">
             
-            {/* Subtitle */}
-            <p className="text-sm sm:text-base text-stone-300 max-w-lg leading-relaxed">
+            {/* Main Headline */}
+            <h1 className="text-[56px] sm:text-[72px] lg:text-[84px] font-black text-white tracking-tighter leading-[0.95] uppercase drop-shadow-2xl">
+              {isVi ? (
+                <>ĐÁNH THỨC <br/> SỨC MẠNH, <br/> TIỀM ẨN.</>
+              ) : (
+                <>AWAKEN <br/> YOUR HIDDEN, <br/> STRENGTH.</>
+              )}
+            </h1>
+            
+            {/* Description */}
+            <p className="text-sm sm:text-base text-sc-muted max-w-md leading-relaxed mt-4">
               {isVi 
-                ? 'Hệ thống phòng tập hiện đại 2.500m². Trải nghiệm Gym, Yoga, Pilates, Đấm bốc với 100% HLV đạt chuẩn quốc tế. Khởi tạo tài khoản hội viên ngay hôm nay!' 
-                : 'A 2,500m² modern training complex. Experience Gym, Yoga, Pilates, and Boxing with 100% certified coaches. Create your membership account today!'}
+                ? 'Gym, Yoga, Pilates, Boxing, Spinning, Zumba, HIIT — Tổ hợp 10 bộ môn tập luyện đẳng cấp. Khởi tạo tài khoản và trải nghiệm hệ sinh thái SCMS ngay hôm nay.' 
+                : 'Gym, Yoga, Pilates, Boxing, Spinning, Zumba, HIIT — 10 premium disciplines under one roof. Create an account and experience the SCMS ecosystem today.'}
             </p>
             
-            {/* Actions */}
-            <div className="pt-4 flex flex-wrap items-center gap-4">
+            {/* Action Buttons */}
+            <div className="pt-6 flex flex-wrap items-center gap-4">
               <button 
                 type="button"
                 onClick={() => onOpenRegister()} 
-                className="px-6 py-3.5 rounded bg-orange-600 hover:bg-orange-500 text-white font-black text-sm uppercase tracking-wide transition-colors cursor-pointer flex items-center gap-2"
+                className="px-8 py-4 rounded bg-sc-primary hover:bg-orange-600 text-white font-black text-sm uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-2 drop-shadow-lg"
               >
-                {isVi ? 'Đăng ký tập thử miễn phí' : 'Register Free Trial'} <ChevronRight className="w-4 h-4" />
+                {isVi ? 'ĐĂNG KÝ TẬP THỬ MIỄN PHÍ' : 'Register Free Trial'} <ChevronRight className="w-4 h-4" />
               </button>
               <a 
                 href="#classes" 
-                className="px-6 py-3.5 rounded bg-stone-900 border border-stone-700 hover:border-stone-600 text-stone-200 font-bold text-sm uppercase tracking-wide transition-colors cursor-pointer flex items-center justify-center"
+                className="px-8 py-4 rounded bg-transparent border-2 border-sc-border hover:border-sc-muted text-white font-bold text-sm uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center"
               >
                  {isVi ? 'Khám phá lớp học' : 'Explore Classes'}
               </a>
@@ -177,27 +180,26 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
         </div>
 
         {/* Bottom Facts Strip */}
-        <Reveal delay={0.2} className="relative z-10 border-t border-stone-800 bg-[#120f0e]/60 backdrop-blur-md">
+        <Reveal delay={0.2} className="relative z-10 border-t border-sc-border-soft bg-[#0c0a09]/90 backdrop-blur-md">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-stone-800/80">
+            <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-sc-border-soft">
               <div className="p-6 lg:p-8">
-                <h3 className="text-lg font-black text-white mb-2 uppercase">{isVi ? '2.500m² Không gian' : '2,500m² Facility'}</h3>
-                <p className="text-xs text-stone-400 leading-relaxed">{isVi ? 'Sàn tập tiêu chuẩn quốc tế với hệ thống máy móc, trang thiết bị hiện đại bậc nhất.' : 'World-class fitness floor equipped with state-of-the-art machines and gear.'}</p>
+                <h3 className="text-lg font-black text-white mb-2 uppercase">{isVi ? 'TẬP THỬ MIỄN PHÍ' : 'Free Trial'}</h3>
+                <p className="text-xs text-sc-muted leading-relaxed">{isVi ? 'Trải nghiệm không giới hạn các bộ môn trong buổi đầu tiên.' : 'First session free in any discipline, no prior package required.'}</p>
               </div>
               <div className="p-6 lg:p-8">
-                <h3 className="text-lg font-black text-white mb-2 uppercase">{isVi ? '45+ Lớp học/tuần' : '45+ Weekly Classes'}</h3>
-                <p className="text-xs text-stone-400 leading-relaxed">{isVi ? 'Lịch tập đa dạng: Yoga, Pilates, Boxing trải dài các khung giờ từ sáng đến tối.' : 'Flexible schedules across all disciplines from early morning to late evening.'}</p>
+                <h3 className="text-lg font-black text-white mb-2 uppercase">{isVi ? '2.500m² KHÔNG GIAN' : '2,500m² FACILITY'}</h3>
+                <p className="text-xs text-sc-muted leading-relaxed">{isVi ? 'Sàn tập chuẩn quốc tế, trang thiết bị hiện đại và khu vực phục hồi độc quyền' : 'World-class fitness floor equipped with state-of-the-art machines and recovery zones.'}</p>
               </div>
               <div className="p-6 lg:p-8">
-                <h3 className="text-lg font-black text-white mb-2 uppercase">{isVi ? '100% HLV Đạt chuẩn' : '100% Certified'}</h3>
-                <p className="text-xs text-stone-400 leading-relaxed">{isVi ? 'Đội ngũ chuyên gia giàu kinh nghiệm, đồng hành 1 kèm 1 giúp bạn đạt mục tiêu.' : 'Experienced personal trainers dedicated to guiding your fitness journey 1-on-1.'}</p>
+                <h3 className="text-lg font-black text-white mb-2 uppercase">{isVi ? '100% HLV ĐẠT CHUẨN' : '100% CERTIFIED'}</h3>
+                <p className="text-xs text-sc-muted leading-relaxed">{isVi ? 'Đội ngũ PT chuyên nghiệp, giàu kinh nghiệm, đồng hành 1 kèm 1 giúp bạn đạt mục tiêu' : 'Experienced personal trainers dedicated to guiding your fitness journey 1-on-1.'}</p>
               </div>
             </div>
           </div>
         </Reveal>
       </section>
 
-      {/* Tầng nội dung đè lên (trượt lên che khuất Hero) */}
       <div className="relative z-20 bg-[#120f0e] shadow-[0_-20px_50px_rgba(0,0,0,0.8)]">
         {/* Marquee Ticker */}
         <Marquee items={['GYM', 'YOGA', 'PILATES', 'BOXING', 'CROSSFIT', 'THỂ HÌNH', 'SỨC BỀN', 'PHỤC HỒI', 'THỂ LỰC', 'GIẢM MỠ']} />
@@ -205,10 +207,66 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       {/* ============================================================ */}
       {/* 3. FOUR CORE DISCIPLINES & CLASSES (BỘ MÔN TẬP LUYỆN)       */}
       {/* ============================================================ */}
-      <section id="classes" className="py-20 bg-[#120f0e] border-b border-stone-800">
+      
+        {/* ============================================================ */}
+        {/* ANIMATED STATS STRIP                                         */}
+        {/* ============================================================ */}
+        <section className="border-b border-sc-border-soft bg-sc-paper">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-sc-border-soft border-x border-sc-border-soft">
+              
+              {/* Stat 1 */}
+              <div className="p-6 md:p-8 lg:p-10 flex flex-col justify-start">
+                <div className="text-[56px] lg:text-[72px] font-black text-white leading-none tracking-tighter mb-4">
+                  <AnimatedCounter value={10} duration={2} />
+                </div>
+                <h4 className="text-sm font-bold text-sc-primary uppercase tracking-widest mb-2">{isVi ? 'BỘ MÔN' : 'DISCIPLINES'}</h4>
+                <p className="text-xs text-sc-muted leading-relaxed">
+                  {isVi ? 'Gym, Yoga, Pilates, Boxing, Spinning, Zumba, Group X, Crossfit, HIIT...' : 'Gym, Yoga, Pilates, Boxing, Spinning, Zumba, Group X, Crossfit, HIIT...'}
+                </p>
+              </div>
+
+              {/* Stat 2 */}
+              <div className="p-6 md:p-8 lg:p-10 flex flex-col justify-start">
+                <div className="text-[56px] lg:text-[72px] font-black text-white leading-none tracking-tighter mb-4">
+                  <AnimatedCounter value={15} duration={2.2} />
+                </div>
+                <h4 className="text-sm font-bold text-sc-primary uppercase tracking-widest mb-2">{isVi ? 'KHU VỰC TẬP LUYỆN' : 'TRAINING ZONES'}</h4>
+                <p className="text-xs text-sc-muted leading-relaxed">
+                  {isVi ? 'Không gian tập luyện chuẩn quốc tế phân khu chuyên biệt' : 'World-class specialized training zones for every discipline'}
+                </p>
+              </div>
+
+              {/* Stat 3 */}
+              <div className="p-6 md:p-8 lg:p-10 flex flex-col justify-start">
+                <div className="text-[56px] lg:text-[72px] font-black text-white leading-none tracking-tighter mb-4">
+                  <AnimatedCounter value={45} duration={1.8} />
+                </div>
+                <h4 className="text-sm font-bold text-sc-primary uppercase tracking-widest mb-2">{isVi ? 'LỚP HỌC MỖI TUẦN' : 'WEEKLY CLASSES'}</h4>
+                <p className="text-xs text-sc-muted leading-relaxed">
+                  {isVi ? 'Lịch tập đa dạng các khung giờ từ sáng đến tối' : 'Flexible schedules across all disciplines from early morning to late evening'}
+                </p>
+              </div>
+
+              {/* Stat 4 */}
+              <div className="p-6 md:p-8 lg:p-10 flex flex-col justify-start">
+                <div className="text-[56px] lg:text-[72px] font-black text-white leading-none tracking-tighter mb-4">
+                  <AnimatedCounter value={20} duration={2.4} />
+                </div>
+                <h4 className="text-sm font-bold text-sc-primary uppercase tracking-widest mb-2">{isVi ? 'HUẤN LUYỆN VIÊN' : 'CERTIFIED COACHES'}</h4>
+                <p className="text-xs text-sc-muted leading-relaxed">
+                  {isVi ? 'Chứng chỉ NASM, RYT-500... với nhiều năm kinh nghiệm thực chiến' : 'Certified in NASM, RYT-500... with years of practical experience'}
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <section id="classes" className="py-20 bg-[#120f0e] border-b border-stone-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal className="max-w-2xl mx-auto text-center mb-14">
-            <h2 className="text-xs font-bold text-amber-500 uppercase tracking-widest mb-2">
+            <h2 className="text-xs font-bold text-sc-primary uppercase tracking-widest mb-2">
               {isVi ? 'CÁC BỘ MÔN TẬP LUYỆN' : 'CORE DISCIPLINES'}
             </h2>
             <p className="text-3xl font-extrabold text-white tracking-tight">
@@ -221,76 +279,129 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
             </p>
           </Reveal>
 
-          <Stagger className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Discipline 1: Gym & Strength */}
-            <Item className="bg-stone-900 border border-stone-800 rounded-xl p-5 hover:border-amber-500/50 transition-all group flex flex-col">
-              <div className="w-12 h-12 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 mb-4 group-hover:bg-orange-600 group-hover:text-white transition-colors">
-                <Dumbbell className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-white mb-2">
-                {isVi ? 'Thể hình & Tập tạ' : 'Gym & Strength'}
-              </h3>
-              <p className="text-xs text-stone-400 leading-relaxed mb-4 min-h-[58px]">
-                {isVi
-                  ? 'Khu tạ tự do, giàn máy khối chuyên sâu và khu máy chạy bộ hỗ trợ phát triển thể chất toàn diện.'
-                  : 'Free weights zone, plate-loaded stations, and cardio equipment for total muscle development.'}
-              </p>
-              <div className="mt-auto pt-3 text-[11px] font-semibold text-amber-400 flex items-center gap-1 border-t border-stone-800/60">
-                <span>{isVi ? 'Khu vực chính • Tầng 3' : 'Main Area • Level 3'}</span>
-              </div>
-            </Item>
-
-            {/* Discipline 2: Vinyasa Yoga */}
-            <Item className="bg-stone-900 border border-stone-800 rounded-xl p-5 hover:border-amber-500/50 transition-all group flex flex-col">
-              <div className="w-12 h-12 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 mb-4 group-hover:bg-orange-600 group-hover:text-white transition-colors">
-                <HeartPulse className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-white mb-2">
-                {isVi ? 'Phòng tập Yoga' : 'Yoga Studio'}
-              </h3>
-              <p className="text-xs text-stone-400 leading-relaxed mb-4 min-h-[58px]">
-                {isVi
-                  ? 'Phòng tập sàn gỗ thông thoáng, các buổi Yoga thảm và Yoga phục hồi giúp thư thái và dẻo dai.'
-                  : 'Dedicated acoustic wooden studio offering Vinyasa Flow, Hatha, and restorative Yoga sessions.'}
-              </p>
-              <div className="mt-auto pt-3 text-[11px] font-semibold text-amber-400 flex items-center gap-1 border-t border-stone-800/60">
-                <span>{isVi ? 'Phòng tập 1 • Sàn gỗ cách âm' : 'Studio 1 • Acoustic Wood'}</span>
+          <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-[220px]">
+            {/* 01: GYM (2x2) */}
+            <Item className="relative overflow-hidden rounded-xl group col-span-1 md:col-span-2 lg:row-span-2 cursor-pointer shadow-lg bg-sc-border-soft">
+              <img src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop" alt="Gym" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-in-out opacity-80" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              <div className="absolute top-4 left-5 text-white font-black text-lg drop-shadow-md z-10">01</div>
+              <div className="absolute top-4 right-4 bg-sc-lime text-black text-[10px] font-bold px-2 py-1 uppercase rounded-sm shadow-sm z-10">TỰ DO</div>
+              <div className="absolute bottom-5 left-5 right-5 z-10">
+                <h3 className="text-4xl font-black text-white mb-1 uppercase tracking-wider drop-shadow-lg">GYM</h3>
+                <p className="text-sm text-sc-muted font-medium">{isVi ? 'Thể hình với máy và tạ tự do' : 'Free weights and machines'}</p>
+                <div className="flex gap-4 mt-3 text-[11px] font-semibold text-sc-muted">
+                  <span>{isVi ? '3 phòng' : '3 rooms'}</span>
+                  <span>{isVi ? '5 lớp đang mở' : '5 active classes'}</span>
+                  <span>{isVi ? '12 HLV' : '12 PTs'}</span>
+                </div>
               </div>
             </Item>
 
-            {/* Discipline 3: Reformer Pilates */}
-            <Item className="bg-stone-900 border border-stone-800 rounded-xl p-5 hover:border-amber-500/50 transition-all group flex flex-col">
-              <div className="w-12 h-12 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 mb-4 group-hover:bg-orange-600 group-hover:text-white transition-colors">
-                <Activity className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-white mb-2">
-                {isVi ? 'Lớp tập Pilates' : 'Reformer Pilates'}
-              </h3>
-              <p className="text-xs text-stone-400 leading-relaxed mb-4 min-h-[58px]">
-                {isVi
-                  ? 'Hệ thống máy tập chuyên dụng giúp tăng cường sức mạnh cơ lõi, cải thiện tư thế và sự linh hoạt.'
-                  : 'Premium Reformer machines to strengthen core stability, posture alignment, and flexibility.'}
-              </p>
-              <div className="mt-auto pt-3 text-[11px] font-semibold text-amber-400 flex items-center gap-1 border-t border-stone-800/60">
-                <span>{isVi ? 'Phòng tập 2 • Nhóm 6-8 người' : 'Studio 2 • Small Groups'}</span>
+            {/* 02: YOGA (1x1) */}
+            <Item className="relative overflow-hidden rounded-xl group col-span-1 lg:row-span-1 cursor-pointer shadow-lg bg-sc-border-soft">
+              <img src="https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=1520&auto=format&fit=crop" alt="Yoga" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-in-out opacity-80" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              <div className="absolute top-4 left-5 text-white font-black text-lg drop-shadow-md z-10">02</div>
+              <div className="absolute top-4 right-4 bg-sc-lime text-black text-[10px] font-bold px-2 py-1 uppercase rounded-sm shadow-sm z-10">THEO LỚP</div>
+              <div className="absolute bottom-4 left-5 right-5 z-10">
+                <h3 className="text-2xl font-black text-white mb-1 uppercase tracking-wider drop-shadow-lg">YOGA</h3>
+                <p className="text-xs text-sc-muted font-medium truncate">{isVi ? 'Yoga, Pilates, thiền' : 'Yoga, Pilates, Meditation'}</p>
               </div>
             </Item>
 
-            {/* Discipline 4: Boxing & Functional */}
-            <Item className="bg-stone-900 border border-stone-800 rounded-xl p-5 hover:border-amber-500/50 transition-all group flex flex-col">
-              <div className="w-12 h-12 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 mb-4 group-hover:bg-orange-600 group-hover:text-white transition-colors">
-                <Flame className="w-6 h-6" />
+            {/* 03: BOXING (1x1) */}
+            <Item className="relative overflow-hidden rounded-xl group col-span-1 lg:row-span-1 cursor-pointer shadow-lg bg-sc-border-soft">
+              <img src="https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?q=80&w=1470&auto=format&fit=crop" alt="Boxing" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-in-out opacity-80" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              <div className="absolute top-4 left-5 text-white font-black text-lg drop-shadow-md z-10">03</div>
+              <div className="absolute top-4 right-4 bg-sc-lime text-black text-[10px] font-bold px-2 py-1 uppercase rounded-sm shadow-sm z-10">THEO LỚP</div>
+              <div className="absolute bottom-4 left-5 right-5 z-10">
+                <h3 className="text-2xl font-black text-white mb-1 uppercase tracking-wider drop-shadow-lg">BOXING</h3>
+                <p className="text-xs text-sc-muted font-medium truncate">{isVi ? 'Quyền anh và Kickboxing' : 'Boxing and Kickboxing'}</p>
               </div>
-              <h3 className="text-base font-bold text-white mb-2">
-                {isVi ? 'Đấm bốc & Thể lực' : 'Boxing & CrossFit'}
-              </h3>
-              <p className="text-xs text-stone-400 leading-relaxed mb-4 min-h-[58px]">
-                {isVi
-                  ? 'Võ đài tiêu chuẩn, bao cát tập luyện và khu vực rèn luyện sức bền với các bài tập cường độ linh hoạt.'
-                  : 'Regulation combat ring, heavy punching bags, and functional CrossFit zone for high-energy training.'}
-              </p>
-              <div className="mt-auto pt-3 text-[11px] font-semibold text-amber-400 flex items-center gap-1 border-t border-stone-800/60">
-                <span>{isVi ? 'Khu vực A • Võ đài' : 'Zone A • Combat Ring'}</span>
+            </Item>
+
+            {/* 04: PILATES (2x1) */}
+            <Item className="relative overflow-hidden rounded-xl group col-span-1 md:col-span-2 lg:row-span-1 cursor-pointer shadow-lg bg-sc-border-soft">
+              <img src="https://images.unsplash.com/photo-1518611012118-696072aa579a?q=80&w=1470&auto=format&fit=crop" alt="Pilates" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-in-out opacity-80" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              <div className="absolute top-4 left-5 text-white font-black text-lg drop-shadow-md z-10">04</div>
+              <div className="absolute top-4 right-4 bg-sc-lime text-black text-[10px] font-bold px-2 py-1 uppercase rounded-sm shadow-sm z-10">THEO LỚP</div>
+              <div className="absolute bottom-4 left-5 right-5 z-10">
+                <h3 className="text-2xl font-black text-white mb-1 uppercase tracking-wider drop-shadow-lg">PILATES</h3>
+                <p className="text-xs text-sc-muted font-medium truncate">{isVi ? 'Máy tập Reformer chỉnh dáng' : 'Premium Reformer machines'}</p>
+              </div>
+            </Item>
+
+            {/* 05: RECOVERY (1x2) */}
+            <Item className="relative overflow-hidden rounded-xl group col-span-1 lg:row-span-2 cursor-pointer shadow-lg bg-sc-border-soft">
+              <img src="https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=1470&auto=format&fit=crop" alt="Recovery" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-in-out object-right opacity-80" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              <div className="absolute top-4 left-5 text-white font-black text-lg drop-shadow-md z-10">05</div>
+              <div className="absolute top-4 right-4 bg-sc-lime text-black text-[10px] font-bold px-2 py-1 uppercase rounded-sm shadow-sm z-10">ĐỘC QUYỀN</div>
+              <div className="absolute bottom-5 left-5 right-5 z-10">
+                <h3 className="text-2xl font-black text-white mb-1 uppercase tracking-wider drop-shadow-lg">{isVi ? 'GIÃN CƠ' : 'RECOVERY'}</h3>
+                <p className="text-xs text-sc-muted font-medium">{isVi ? 'Giãn cơ sâu chuyên sâu' : 'Deep stretching & recovery'}</p>
+              </div>
+            </Item>
+
+            {/* 06: SPINNING (1x1) */}
+            <Item className="relative overflow-hidden rounded-xl group col-span-1 lg:row-span-1 cursor-pointer shadow-lg bg-sc-border-soft">
+              <img src="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=1470&auto=format&fit=crop" alt="Spinning" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-in-out opacity-80" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              <div className="absolute top-4 left-5 text-white font-black text-lg drop-shadow-md z-10">06</div>
+              <div className="absolute top-4 right-4 bg-sc-lime text-black text-[10px] font-bold px-2 py-1 uppercase rounded-sm shadow-sm z-10">THEO LỚP</div>
+              <div className="absolute bottom-4 left-5 right-5 z-10">
+                <h3 className="text-2xl font-black text-white mb-1 uppercase tracking-wider drop-shadow-lg">SPINNING</h3>
+                <p className="text-xs text-sc-muted font-medium truncate">{isVi ? 'Đạp xe trong nhà' : 'Indoor cycling classes'}</p>
+              </div>
+            </Item>
+
+            {/* 07: BODY PUMP (1x1) */}
+            <Item className="relative overflow-hidden rounded-xl group col-span-1 lg:row-span-1 cursor-pointer shadow-lg bg-sc-border-soft">
+              <img src="https://images.unsplash.com/photo-1534367610401-9f5ed68180aa?q=80&w=1470&auto=format&fit=crop" alt="Body Pump" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-in-out opacity-80" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              <div className="absolute top-4 left-5 text-white font-black text-lg drop-shadow-md z-10">07</div>
+              <div className="absolute top-4 right-4 bg-sc-lime text-black text-[10px] font-bold px-2 py-1 uppercase rounded-sm shadow-sm z-10">THEO LỚP</div>
+              <div className="absolute bottom-4 left-5 right-5 z-10">
+                <h3 className="text-2xl font-black text-white mb-1 uppercase tracking-wider drop-shadow-lg">GROUP X</h3>
+                <p className="text-xs text-sc-muted font-medium truncate">{isVi ? 'Body Pump, tạ nhóm' : 'Body Pump & group weights'}</p>
+              </div>
+            </Item>
+
+            {/* 08: ZUMBA (1x2) */}
+            <Item className="relative overflow-hidden rounded-xl group col-span-1 lg:row-span-2 cursor-pointer shadow-lg bg-sc-border-soft">
+              <img src="https://images.unsplash.com/photo-1524594152303-9fd13543fe6e?q=80&w=1470&auto=format&fit=crop" alt="Zumba" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-in-out opacity-80" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              <div className="absolute top-4 left-5 text-white font-black text-lg drop-shadow-md z-10">08</div>
+              <div className="absolute top-4 right-4 bg-sc-lime text-black text-[10px] font-bold px-2 py-1 uppercase rounded-sm shadow-sm z-10">THEO LỚP</div>
+              <div className="absolute bottom-5 left-5 right-5 z-10">
+                <h3 className="text-2xl font-black text-white mb-1 uppercase tracking-wider drop-shadow-lg">ZUMBA</h3>
+                <p className="text-xs text-sc-muted font-medium">{isVi ? 'Nhảy Zumba, Aerobic đốt mỡ' : 'Zumba dance, fat-burning aerobics'}</p>
+              </div>
+            </Item>
+
+            {/* 09: HIIT (1x1) */}
+            <Item className="relative overflow-hidden rounded-xl group col-span-1 lg:row-span-1 cursor-pointer shadow-lg bg-sc-border-soft">
+              <img src="https://images.unsplash.com/photo-1574680096145-d05b474e2155?q=80&w=1470&auto=format&fit=crop" alt="HIIT" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-in-out opacity-80" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              <div className="absolute top-4 left-5 text-white font-black text-lg drop-shadow-md z-10">09</div>
+              <div className="absolute top-4 right-4 bg-sc-lime text-black text-[10px] font-bold px-2 py-1 uppercase rounded-sm shadow-sm z-10">TỰ DO</div>
+              <div className="absolute bottom-4 left-5 right-5 z-10">
+                <h3 className="text-2xl font-black text-white mb-1 uppercase tracking-wider drop-shadow-lg">{isVi ? 'HIIT' : 'CROSSFIT'}</h3>
+                <p className="text-xs text-sc-muted font-medium truncate">{isVi ? 'Khu vực Crossfit đa năng' : 'Functional Crossfit zone'}</p>
+              </div>
+            </Item>
+
+            {/* 10: PT (1x1) */}
+            <Item className="relative overflow-hidden rounded-xl group col-span-1 lg:row-span-1 cursor-pointer shadow-lg bg-sc-border-soft">
+              <img src="https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=1470&auto=format&fit=crop" alt="PT" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-in-out opacity-80" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              <div className="absolute top-4 left-5 text-white font-black text-lg drop-shadow-md z-10">10</div>
+              <div className="absolute top-4 right-4 bg-sc-lime text-black text-[10px] font-bold px-2 py-1 uppercase rounded-sm shadow-sm z-10">ĐỘC QUYỀN</div>
+              <div className="absolute bottom-4 left-5 right-5 z-10">
+                <h3 className="text-2xl font-black text-white mb-1 uppercase tracking-wider drop-shadow-lg">1 KÈM 1</h3>
+                <p className="text-xs text-sc-muted font-medium truncate">{isVi ? 'Huấn luyện cá nhân chuyên sâu' : '1-on-1 personal training'}</p>
               </div>
             </Item>
           </Stagger>
@@ -303,7 +414,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       <section id="packages" className="py-20 bg-[#0c0a09] border-b border-stone-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal className="max-w-2xl mx-auto text-center mb-16">
-            <h2 className="text-xs font-bold text-amber-500 uppercase tracking-widest mb-2">
+            <h2 className="text-xs font-bold text-sc-primary uppercase tracking-widest mb-2">
               {isVi ? 'GÓI THÀNH VIÊN' : 'MEMBERSHIP TIERS'}
             </h2>
             <p className="text-3xl font-extrabold text-white tracking-tight">
@@ -355,7 +466,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                           / {pkg.durationMonths} {isVi ? 'tháng' : 'months'}
                         </span>
                       </div>
-                      <div className="text-[11px] text-amber-400 mt-1 font-medium">
+                      <div className="text-[11px] text-sc-primary mt-1 font-medium">
                         {pkg.maxClassesPerMonth > 50
                           ? (isVi ? 'Không giới hạn tất cả các lớp' : 'Unlimited class access')
                           : `${pkg.maxClassesPerMonth} ${isVi ? 'buổi lớp nhóm mỗi tháng' : 'group classes per month'}`}
@@ -399,7 +510,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       <section id="coaches" className="py-20 bg-[#120f0e] border-b border-stone-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal className="max-w-2xl mx-auto text-center mb-14">
-            <h2 className="text-xs font-bold text-amber-500 uppercase tracking-widest mb-2">
+            <h2 className="text-xs font-bold text-sc-primary uppercase tracking-widest mb-2">
               {isVi ? 'ĐỘI NGŨ HUẤN LUYỆN VIÊN' : 'CERTIFIED TRAINERS'}
             </h2>
             <p className="text-3xl font-extrabold text-white tracking-tight">
@@ -420,12 +531,12 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
               >
                 <div>
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="w-14 h-14 rounded-full bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 font-bold text-lg shrink-0">
+                    <div className="w-14 h-14 rounded-full bg-stone-800 border border-stone-700 flex items-center justify-center text-sc-primary font-bold text-lg shrink-0">
                       {coach.name.split(' ').slice(-1)[0][0]}
                     </div>
                     <div>
                       <h3 className="text-base font-bold text-white">{coach.name}</h3>
-                      <div className="text-xs text-amber-400 font-semibold">
+                      <div className="text-xs text-sc-primary font-semibold">
                         {isVi ? (coach.specialtyVi || coach.specialty) : coach.specialty}
                       </div>
                       <div className="text-[11px] text-stone-500 font-mono mt-0.5">{coach.code}</div>
@@ -454,7 +565,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                   <button
                     type="button"
                     onClick={() => onOpenRegister()}
-                    className="text-xs text-amber-400 hover:text-amber-300 font-bold hover:underline cursor-pointer"
+                    className="text-xs text-sc-primary hover:text-amber-300 font-bold hover:underline cursor-pointer"
                   >
                     {isVi ? 'Đặt lịch tập' : 'Book Session'}
                   </button>
@@ -471,7 +582,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       <section id="facilities" className="py-20 bg-[#0c0a09] border-b border-stone-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal className="max-w-2xl mx-auto text-center mb-14">
-            <h2 className="text-xs font-bold text-amber-500 uppercase tracking-widest mb-2">
+            <h2 className="text-xs font-bold text-sc-primary uppercase tracking-widest mb-2">
               {isVi ? 'TIỆN ÍCH DÀNH CHO HỘI VIÊN' : 'MEMBER AMENITIES'}
             </h2>
             <p className="text-3xl font-extrabold text-white tracking-tight">
@@ -481,7 +592,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
 
           <Stagger className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <Item className="bg-stone-900/60 border border-stone-800 rounded-xl p-5 flex items-start gap-4">
-              <div className="w-10 h-10 rounded-lg bg-stone-800 text-amber-400 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-stone-800 text-sc-primary flex items-center justify-center shrink-0">
                 <Shield className="w-5 h-5" />
               </div>
               <div>
@@ -497,7 +608,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
             </Item>
 
             <Item className="bg-stone-900/60 border border-stone-800 rounded-xl p-5 flex items-start gap-4">
-              <div className="w-10 h-10 rounded-lg bg-stone-800 text-amber-400 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-stone-800 text-sc-primary flex items-center justify-center shrink-0">
                 <Flame className="w-5 h-5" />
               </div>
               <div>
@@ -513,7 +624,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
             </Item>
 
             <Item className="bg-stone-900/60 border border-stone-800 rounded-xl p-5 flex items-start gap-4">
-              <div className="w-10 h-10 rounded-lg bg-stone-800 text-amber-400 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-stone-800 text-sc-primary flex items-center justify-center shrink-0">
                 <Activity className="w-5 h-5" />
               </div>
               <div>
@@ -602,11 +713,11 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
               {isVi ? 'Thời gian hoạt động' : 'Working Hours'}
             </h5>
             <div className="flex items-center gap-1.5 text-stone-300">
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <Clock className="w-3.5 h-3.5 text-sc-primary" />
               <span>{isVi ? 'Thứ Hai - Thứ Bảy: 06:00 - 22:00' : 'Mon - Sat: 06:00 - 22:00'}</span>
             </div>
             <div className="flex items-center gap-1.5 text-stone-300">
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <Clock className="w-3.5 h-3.5 text-sc-primary" />
               <span>{isVi ? 'Chủ Nhật & Ngày lễ: 07:00 - 21:00' : 'Sun & Holidays: 07:00 - 21:00'}</span>
             </div>
           </div>
@@ -617,15 +728,15 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
               {isVi ? 'Liên hệ & Địa chỉ' : 'Contact & Address'}
             </h5>
             <div className="flex items-start gap-1.5 text-stone-300">
-              <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+              <MapPin className="w-3.5 h-3.5 text-sc-primary shrink-0 mt-0.5" />
               <span>{isVi ? 'Tòa nhà Thể thao SCMS, Khu Công nghệ cao, TP. Thủ Đức, TP. Hồ Chí Minh' : 'SCMS Sports Complex Building, High-Tech Park, Thu Duc City, Ho Chi Minh City'}</span>
             </div>
             <div className="flex items-center gap-1.5 text-stone-300">
-              <Phone className="w-3.5 h-3.5 text-amber-400" />
+              <Phone className="w-3.5 h-3.5 text-sc-primary" />
               <span>{isVi ? 'Tổng đài: 1900 6868' : 'Hotline: 1900 6868'}</span>
             </div>
             <div className="flex items-center gap-1.5 text-stone-300">
-              <Mail className="w-3.5 h-3.5 text-amber-400" />
+              <Mail className="w-3.5 h-3.5 text-sc-primary" />
               <span>{isVi ? 'Hộp thư: contact@scms.vn' : 'Email: contact@scms.vn'}</span>
             </div>
           </div>
