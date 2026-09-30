@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Flame, Gauge, Zap } from 'lucide-react';
 
@@ -112,6 +113,8 @@ export function SpinningDetailView() {
 
         </div>
       </section>
+      <PublicFooter />
     </div>
   );
 }
+

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { PublicHeader } from '../layout/PublicHeader';
+import { PublicFooter } from '../layout/PublicFooter';
 import { useSCMS } from '../../context/SCMSContext';
 
 export function PrivacyPolicyView({ onBackToHome }) {
@@ -201,104 +202,8 @@ export function PrivacyPolicyView({ onBackToHome }) {
 )}
       </main>
 
-      {/* Footer matching California vibe */}
-      {isVi ? (
-<footer className="bg-[#1a1a1a] text-sc-muted py-12 text-sm border-t-4 border-orange-600">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-            
-            {/* DỊCH VỤ */}
-            <div>
-              <h4 className="text-white font-bold mb-4 uppercase tracking-wider">Dịch vụ</h4>
-              <ul className="space-y-3">
-                <li><a href="#" className="hover:text-white transition-colors">Yoga</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Pilates</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Boxing & MMA</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Huấn Luyện Viên Cá Nhân (PT)</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Group X</a></li>
-              </ul>
-            </div>
-
-            {/* CÔNG TY */}
-            <div>
-              <h4 className="text-white font-bold mb-4 uppercase tracking-wider">Công ty</h4>
-              <ul className="space-y-3">
-                <li><a href="#" className="hover:text-white transition-colors">Về chúng tôi</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Điều kiện sử dụng</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Chính sách thanh toán</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Chính sách giải quyết khiếu nại</a></li>
-                <li><a href="#" className="text-sc-accent hover:text-orange-400 transition-colors">Chính sách bảo vệ dữ liệu cá nhân</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Tuyển dụng</a></li>
-              </ul>
-            </div>
-
-            {/* SUPPORT */}
-            <div>
-              <h4 className="text-white font-bold mb-4 uppercase tracking-wider">Support</h4>
-              <p className="text-2xl font-black text-white mb-2">1800 6995</p>
-              <p className="text-xs text-sc-muted">Thứ 2 - Chủ Nhật (8:00 - 21:00)</p>
-            </div>
-
-            {/* THÔNG TIN */}
-            <div>
-              <h4 className="text-white font-bold mb-4 uppercase tracking-wider">Thông tin</h4>
-              <p className="mb-2 font-bold text-white">Công ty TNHH Hệ Thống Quản Lý Trung Tâm Thể Thao SCMS</p>
-              <p className="mb-2">Khu Công Nghệ Cao, Thành phố Thủ Đức, Tp.HCM, Việt Nam</p>
-              <p className="mb-2">Mã số thuế: 0305060028</p>
-              <p className="mt-6 text-xs text-sc-muted">© SCMS Fitness & Sports Center 2026</p>
-            </div>
-          </div>
-        </div>
-      </footer>
-) : (
-<footer className="bg-[#1a1a1a] text-sc-muted py-12 text-sm border-t-4 border-orange-600">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-            
-            {/* SERVICES */}
-            <div>
-              <h4 className="text-white font-bold mb-4 uppercase tracking-wider">Services</h4>
-              <ul className="space-y-3">
-                <li><a href="#" className="hover:text-white transition-colors">Yoga</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Pilates</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Boxing & MMA</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Personal Training (PT)</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Group X</a></li>
-              </ul>
-            </div>
-
-            {/* COMPANY */}
-            <div>
-              <h4 className="text-white font-bold mb-4 uppercase tracking-wider">Company</h4>
-              <ul className="space-y-3">
-                <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Terms of Use</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Payment Policy</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Complaint Resolution Policy</a></li>
-                <li><a href="#" className="text-sc-accent hover:text-orange-400 transition-colors">Personal Data Protection Policy</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
-              </ul>
-            </div>
-
-            {/* SUPPORT */}
-            <div>
-              <h4 className="text-white font-bold mb-4 uppercase tracking-wider">Support</h4>
-              <p className="text-2xl font-black text-white mb-2">1800 6995</p>
-              <p className="text-xs text-sc-muted">Mon - Sun (8:00 - 21:00)</p>
-            </div>
-
-            {/* INFO */}
-            <div>
-              <h4 className="text-white font-bold mb-4 uppercase tracking-wider">Information</h4>
-              <p className="mb-2 font-bold text-white">SCMS Fitness & Sports Centers Management Co., Ltd</p>
-              <p className="mb-2">Hi-Tech Park, Thu Duc City, HCMC, Vietnam</p>
-              <p className="mb-2">Tax code: 0305060028</p>
-              <p className="mt-6 text-xs text-sc-muted">© SCMS Fitness & Sports Center 2026</p>
-            </div>
-          </div>
-        </div>
-      </footer>
-)}
+      {/* Footer */}
+      <PublicFooter />
     </div>
   );
 }

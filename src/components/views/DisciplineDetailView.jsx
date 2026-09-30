@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { PublicFooter } from '../layout/PublicFooter';
 import { useSCMS } from '../../context/SCMSContext';
 import { ArrowLeft, ArrowRight, CheckCircle2, ChevronRight, Smartphone, Sparkles, Activity, Shield } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -470,6 +471,7 @@ export function DisciplineDetailView() {
           </div>
         </div>
       </section>
+      <PublicFooter />
     </div>
   );
 }

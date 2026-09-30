@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
 import { useSCMS } from '../../context/SCMSContext';
 import { ArrowLeft } from 'lucide-react';
@@ -212,6 +213,8 @@ export function ZumbaDetailView() {
           </button>
         </div>
       </section>
+      <PublicFooter />
     </div>
   );
 }
+

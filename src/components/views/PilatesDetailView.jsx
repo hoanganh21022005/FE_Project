@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Info } from 'lucide-react';
 
@@ -98,6 +99,8 @@ export function PilatesDetailView() {
           </div>
         </div>
       </section>
+      <PublicFooter />
     </div>
   );
 }
+

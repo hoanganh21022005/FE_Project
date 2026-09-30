@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Play, FastForward, Rewind, Pause, Music2, Activity } from 'lucide-react';
 
@@ -165,6 +166,8 @@ export function GroupXDetailView() {
           </button>
         </div>
       </section>
+      <PublicFooter />
     </div>
   );
 }
+

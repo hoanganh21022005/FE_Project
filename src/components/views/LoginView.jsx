@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency } from '../../locales/translations';
 import { getErrorMessage } from '../../api/apiErrors';
+import { PublicFooter } from '../layout/PublicFooter';
 import {
   Activity,
   AlertCircle,
@@ -1218,60 +1219,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
           </section>
 
           {/* Section: Footer (California Style) */}
-          <footer className="bg-[#1a1a1a] text-stone-400 py-16 text-sm border-t-[6px] border-orange-600">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
-                
-                {/* DỊCH VỤ */}
-                <div>
-                  <h4 className="text-white font-bold mb-6 uppercase tracking-widest">Dịch vụ</h4>
-                  <ul className="space-y-4">
-                    <li><a href="#" className="hover:text-white transition-colors">Yoga</a></li>
-                    <li><a href="#" className="hover:text-white transition-colors">Pilates</a></li>
-                    <li><a href="#" className="hover:text-white transition-colors">Boxing & MMA</a></li>
-                    <li><a href="#" className="hover:text-white transition-colors">Huấn Luyện Viên Cá Nhân</a></li>
-                    <li><a href="#" className="hover:text-white transition-colors">Group X</a></li>
-                  </ul>
-                </div>
-
-                {/* CÔNG TY */}
-                <div>
-                  <h4 className="text-white font-bold mb-6 uppercase tracking-widest">Công ty</h4>
-                  <ul className="space-y-4">
-                    <li><a href="#" className="hover:text-white transition-colors">Về chúng tôi</a></li>
-                    <li><a href="#" className="hover:text-white transition-colors">Điều kiện sử dụng</a></li>
-                    <li><a href="#" className="hover:text-white transition-colors">Chính sách thanh toán</a></li>
-                    <li><a href="#" className="hover:text-white transition-colors">Chính sách giải quyết khiếu nại</a></li>
-                    <li><a href="/privacy-policy" className="hover:text-white transition-colors">Chính sách bảo vệ dữ liệu cá nhân</a></li>
-                  </ul>
-                </div>
-
-                {/* SUPPORT */}
-                <div>
-                  <h4 className="text-white font-bold mb-6 uppercase tracking-widest">Support</h4>
-                  <p className="text-3xl font-black text-[#d92c27] mb-4 drop-shadow-sm">1800 6995</p>
-                  <div className="flex items-center gap-4 text-white">
-                    {/* Mock social icons */}
-                    <div className="w-8 h-8 rounded bg-stone-800 flex items-center justify-center cursor-pointer hover:bg-orange-600 transition-colors">F</div>
-                    <div className="w-8 h-8 rounded bg-stone-800 flex items-center justify-center cursor-pointer hover:bg-orange-600 transition-colors">Y</div>
-                    <div className="w-8 h-8 rounded bg-stone-800 flex items-center justify-center cursor-pointer hover:bg-orange-600 transition-colors">I</div>
-                  </div>
-                </div>
-
-                {/* THÔNG TIN */}
-                <div>
-                  <h4 className="text-white font-bold mb-6 uppercase tracking-widest">Thông tin</h4>
-                  <p className="mb-2 font-medium text-white text-base">Công ty TNHH Hệ Thống Quản Lý Trung Tâm Thể Thao SCMS</p>
-                  <p className="mb-2 text-stone-500 leading-relaxed">Khu Công Nghệ Cao, Thành phố Thủ Đức, Tp.HCM, Việt Nam</p>
-                  <p className="mb-2 text-stone-500">Mã số thuế: 0305060028</p>
-                </div>
-              </div>
-              
-              <div className="text-center text-xs text-stone-600 pt-8 border-t border-stone-800">
-                © SCMS Fitness & Yoga Center 2026
-              </div>
-            </div>
-          </footer>
+          <PublicFooter />
         </div>
       )}
     </div>

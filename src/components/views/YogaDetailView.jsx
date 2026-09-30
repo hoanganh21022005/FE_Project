@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
 import { useSCMS } from '../../context/SCMSContext';
 import { ArrowLeft, Heart, Scale, Zap } from 'lucide-react';
@@ -95,6 +96,8 @@ export function YogaDetailView() {
           </div>
         </div>
       </section>
+      <PublicFooter />
     </div>
   );
 }
+

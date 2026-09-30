@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
 import { useSCMS } from '../../context/SCMSContext';
 import { ArrowLeft, Target, Zap, Activity } from 'lucide-react';
@@ -121,6 +122,8 @@ export function GymDetailView() {
           </div>
         </div>
       </section>
+      <PublicFooter />
     </div>
   );
 }
+
