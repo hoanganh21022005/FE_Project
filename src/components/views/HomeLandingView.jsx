@@ -1,4 +1,4 @@
-﻿import React, { useRef } from 'react';
+import React, { useRef } from 'react';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { useSCMS } from '../../context/SCMSContext';
@@ -6,6 +6,7 @@ import { formatCurrency } from '../../locales/translations';
 import { Marquee } from '../common/Marquee';
 import { Reveal, Stagger, Item } from '../common/Reveal';
 import { AnimatedCounter } from '../common/AnimatedCounter';
+import { PublicFooter } from '../layout/PublicFooter';
 import {
   Activity,
   ArrowRight,
@@ -720,86 +721,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       {/* ============================================================ */}
       {/* 8. FOOTER (OFFICIAL REALISTIC SPORTS COMPLEX FOOTER)        */}
       {/* ============================================================ */}
-      <footer className="bg-[#080706] text-stone-400 py-12 text-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-          {/* Col 1 */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center font-black text-sm shadow-sm shrink-0">
-                <span className="text-white">SC</span>
-              </div>
-              <span className="text-sm font-black text-white uppercase tracking-widest mt-0.5">
-                SCMS FITNESS
-              </span>
-            </div>
-            <p className="text-xs text-stone-400 leading-relaxed">
-              {isVi
-                ? 'Hệ thống Quản lý và Vận hành Trung tâm Thể thao chuyên nghiệp. Đáp ứng tiêu chuẩn quản trị hội viên, lớp học và thanh toán.'
-                : 'Professional Sports Center Management System supporting member records, class scheduling, and payments.'}
-            </p>
-          </div>
-
-          {/* Col 2: Quick Links */}
-          <div className="space-y-2">
-            <h5 className="text-xs font-bold text-white uppercase tracking-wider mb-2">
-              {isVi ? 'Bộ môn rèn luyện' : 'Disciplines'}
-            </h5>
-            <div>{isVi ? 'Thể hình & Tập tạ' : 'Gym & Strength Training'}</div>
-            <div>{isVi ? 'Yoga thảm & phục hồi' : 'Vinyasa & Hatha Yoga'}</div>
-            <div>{isVi ? 'Pilates chuyên sâu' : 'Reformer Pilates Core'}</div>
-            <div>{isVi ? 'Đấm bốc & Thể lực' : 'CrossFit & Boxing'}</div>
-          </div>
-
-          {/* Col 3: Operating Hours */}
-          <div className="space-y-2">
-            <h5 className="text-xs font-bold text-white uppercase tracking-wider mb-2">
-              {isVi ? 'Thời gian hoạt động' : 'Working Hours'}
-            </h5>
-            <div className="flex items-center gap-1.5 text-stone-300">
-              <Clock className="w-3.5 h-3.5 text-sc-primary" />
-              <span>{isVi ? 'Thứ Hai - Thứ Bảy: 06:00 - 22:00' : 'Mon - Sat: 06:00 - 22:00'}</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-stone-300">
-              <Clock className="w-3.5 h-3.5 text-sc-primary" />
-              <span>{isVi ? 'Chủ Nhật & Ngày lễ: 07:00 - 21:00' : 'Sun & Holidays: 07:00 - 21:00'}</span>
-            </div>
-          </div>
-
-          {/* Col 4: Contact & Location */}
-          <div className="space-y-2">
-            <h5 className="text-xs font-bold text-white uppercase tracking-wider mb-2">
-              {isVi ? 'Liên hệ & Địa chỉ' : 'Contact & Address'}
-            </h5>
-            <div className="flex items-start gap-1.5 text-stone-300">
-              <MapPin className="w-3.5 h-3.5 text-sc-primary shrink-0 mt-0.5" />
-              <span>{isVi ? 'Tòa nhà Thể thao SCMS, Khu Công nghệ cao, TP. Thủ Đức, TP. Hồ Chí Minh' : 'SCMS Sports Complex Building, High-Tech Park, Thu Duc City, Ho Chi Minh City'}</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-stone-300">
-              <Phone className="w-3.5 h-3.5 text-sc-primary" />
-              <span>{isVi ? 'Tổng đài: 1900 6868' : 'Hotline: 1900 6868'}</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-stone-300">
-              <Mail className="w-3.5 h-3.5 text-sc-primary" />
-              <span>{isVi ? 'Hộp thư: contact@scms.vn' : 'Email: contact@scms.vn'}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 border-t border-stone-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-stone-400">
-          <div>
-            {isVi
-              ? '© 2026 SCMS — Hệ thống Quản lý Trung tâm Thể thao. Đã đăng ký bản quyền.'
-              : '© 2026 SCMS — Sports Center Management System. All rights reserved.'}
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="hover:text-stone-200 cursor-pointer">{isVi ? 'Nội quy trung tâm' : 'Gym Policies'}</span>
-            <span>•</span>
-            <span className="hover:text-stone-200 cursor-pointer">{isVi ? 'Chính sách bảo mật' : 'Privacy'}</span>
-            <span>•</span>
-            <span className="hover:text-stone-200 cursor-pointer">{isVi ? 'Điều khoản sử dụng' : 'Terms'}</span>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
       </div>
     </div>
   );

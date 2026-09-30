@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
 import { useSCMS } from '../../context/SCMSContext';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -245,6 +246,8 @@ export function PTDetailView() {
           </div>
         </div>
       </section>
+      <PublicFooter />
     </div>
   );
 }
+

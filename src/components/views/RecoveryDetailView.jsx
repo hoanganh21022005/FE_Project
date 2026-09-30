@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, GripVertical } from 'lucide-react';
 
@@ -99,6 +100,8 @@ export function RecoveryDetailView() {
           </div>
         </div>
       </section>
+      <PublicFooter />
     </div>
   );
 }
+

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Timer, Play } from 'lucide-react';
 
@@ -123,6 +124,8 @@ export function HIITDetailView() {
           
         </div>
       </section>
+      <PublicFooter />
     </div>
   );
 }
+
