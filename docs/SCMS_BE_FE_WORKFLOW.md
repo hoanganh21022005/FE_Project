@@ -641,3 +641,460 @@ Business Flow
 → End-to-End Test
 → Done
 ```
+
+
+---
+
+# 23. Triển khai Frontend lên Render để BE và cả team cùng xem
+
+Đây là cách khuyến nghị để Backend Team, Frontend Team và các thành viên khác có thể xem cùng một phiên bản giao diện mà không cần copy source hoặc gửi file ZIP cho nhau.
+
+Mục tiêu:
+
+```text
+GitHub FE
+   ↓
+main
+   ↓
+Render Static Site
+   ↓
+Frontend Public URL
+   ↓
+Gọi API
+   ↓
+Render Backend
+```
+
+Backend hiện tại:
+
+```text
+https://scms-app-p1gy.onrender.com
+```
+
+Swagger:
+
+```text
+https://scms-app-p1gy.onrender.com/swagger-ui/index.html
+```
+
+OpenAPI JSON:
+
+```text
+https://scms-app-p1gy.onrender.com/v3/api-docs
+```
+
+## 23.1. Kiến trúc triển khai
+
+```text
+                 FRONTEND TEAM
+                      │
+                      ▼
+              GitHub FE Repository
+                      │
+                    main
+                      │
+                      ▼
+              Render Static Site
+                      │
+                      ▼
+           https://<scms-fe>.onrender.com
+                      │
+                      │ HTTPS API Request
+                      ▼
+             Render Backend Service
+                      │
+                      ▼
+      https://scms-app-p1gy.onrender.com
+                      │
+                      ▼
+                   Database
+```
+
+## 23.2. Điều kiện trước khi deploy FE
+
+Đảm bảo branch `main` có source chuẩn:
+
+```text
+FE_Project/
+├── src/
+├── package.json
+├── pnpm-lock.yaml
+├── vite.config.js
+├── index.html
+├── .gitignore
+├── .env.example
+└── README.md
+```
+
+Không commit:
+
+```text
+node_modules/
+dist/
+.env
+.env.local
+```
+
+Kiểm tra local:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm build
+```
+
+Nếu `pnpm build` thành công và tạo được `dist/` thì source đã sẵn sàng để deploy.
+
+## 23.3. Tạo Static Site trên Render
+
+1. Truy cập `https://render.com/` và đăng nhập bằng tài khoản có quyền truy cập GitHub repo FE.
+2. Trong Render Dashboard chọn:
+
+```text
+New
+→ Static Site
+```
+
+3. Kết nối GitHub nếu Render chưa được cấp quyền.
+4. Chọn repository `FE_Project`.
+5. Chọn branch:
+
+```text
+main
+```
+
+Không deploy môi trường chung từ các branch cá nhân như `HoangAnh`, `PhatTai`, `ThuyVy`.
+
+Luồng đúng:
+
+```text
+Branch cá nhân
+   ↓
+Commit
+   ↓
+Push
+   ↓
+Pull Request
+   ↓
+Review
+   ↓
+Merge main
+   ↓
+Render FE Auto Deploy
+```
+
+## 23.4. Cấu hình build React/Vite
+
+Nếu `package.json` nằm ngay root repository:
+
+```text
+Root Directory:
+(blank)
+```
+
+Build Command:
+
+```bash
+corepack enable && pnpm install --frozen-lockfile && pnpm build
+```
+
+Publish Directory:
+
+```text
+dist
+```
+
+Tóm tắt:
+
+```text
+Service Type: Static Site
+Repository: FE_Project
+Branch: main
+Build Command: corepack enable && pnpm install --frozen-lockfile && pnpm build
+Publish Directory: dist
+```
+
+## 23.5. Cấu hình Backend URL cho Frontend
+
+Không hard-code Backend URL trong từng component. Dùng Environment Variable:
+
+```text
+VITE_API_BASE_URL
+```
+
+Trong Render FE, vào `Environment` và thêm:
+
+```env
+VITE_API_ENABLED=true
+VITE_API_BASE_URL=https://scms-app-p1gy.onrender.com
+```
+
+Luồng gọi API:
+
+```text
+Component
+   ↓
+xxxApi.js
+   ↓
+httpClient.js
+   ↓
+VITE_API_BASE_URL
+   ↓
+Render Backend
+```
+
+## 23.6. Không đưa secret vào biến VITE_*
+
+Các biến `VITE_*` được build vào frontend và có thể bị đọc từ trình duyệt.
+
+Chỉ dùng cho cấu hình public như:
+
+```text
+VITE_API_BASE_URL
+VITE_API_ENABLED
+```
+
+Không dùng cho:
+
+```text
+VITE_DB_PASSWORD
+VITE_SECRET_KEY
+VITE_PRIVATE_TOKEN
+VITE_DATABASE_URL
+```
+
+Secret phải nằm ở Backend / Render Backend Environment Variables.
+
+## 23.7. React Router và lỗi 404 khi refresh
+
+Nếu FE có các route như:
+
+```text
+/login
+/member
+/member/packages
+/member/payments
+/manager/dashboard
+```
+
+thì cần cấu hình Rewrite trên Render Static Site:
+
+```text
+Source: /*
+Destination: /index.html
+Action: Rewrite
+```
+
+Nếu không, refresh trực tiếp một route có thể trả về `404 Not Found`.
+
+## 23.8. Authentication, Session Cookie và CORS
+
+SCMS hiện dùng session/cookie cho authentication. FE đang gọi API với:
+
+```javascript
+credentials: 'include'
+```
+
+Khi deploy:
+
+```text
+Frontend: https://<scms-fe>.onrender.com
+Backend:  https://scms-app-p1gy.onrender.com
+```
+
+đây là hai origin khác nhau. Backend phải cho phép Frontend URL trong CORS và bật credentials.
+
+Ví dụ về mặt logic:
+
+```text
+Allowed Origin: https://<scms-fe>.onrender.com
+Allow Credentials: true
+```
+
+Nếu dùng cookie cross-origin, Backend cũng cần kiểm tra `Secure`, `SameSite`, HTTPS và session cookie.
+
+Nếu cấu hình sai có thể xảy ra:
+
+```text
+Swagger Login: 200 OK
+Postman Login: 200 OK
+Frontend Login: 200 OK
+nhưng GET /api/auth/me → 401 Unauthorized
+```
+
+Khi đó BE và FE cần kiểm tra chung CORS + cookie.
+
+## 23.9. Deploy lần đầu
+
+Sau khi điền cấu hình, chọn `Create Static Site`. Render sẽ thực hiện:
+
+```text
+Clone FE main
+   ↓
+Install dependencies
+   ↓
+pnpm build
+   ↓
+Create dist/
+   ↓
+Publish
+```
+
+Nếu thành công, Render sẽ cung cấp URL dạng:
+
+```text
+https://<service-name>.onrender.com
+```
+
+## 23.10. Kiểm tra sau khi deploy
+
+FE cần kiểm tra tối thiểu:
+
+1. Website mở được.
+2. Login hoạt động.
+3. DevTools → Network cho thấy request gọi tới `https://scms-app-p1gy.onrender.com/api/...`.
+4. Sau login, `GET /api/auth/me` không trả về `401`.
+5. Business flow chính chạy được end-to-end.
+6. Refresh trực tiếp route như `/member/payments` không bị 404.
+
+## 23.11. Cách Backend Team xem giao diện FE
+
+Sau khi FE deploy thành công, gửi cho BE:
+
+```text
+Frontend Demo: https://<scms-fe>.onrender.com
+Backend: https://scms-app-p1gy.onrender.com
+Swagger: https://scms-app-p1gy.onrender.com/swagger-ui/index.html
+```
+
+Kèm flow cần test, ví dụ:
+
+```text
+Member Login
+→ View Package
+→ Payment
+→ Staff Approval
+```
+
+BE không cần clone FE hoặc nhận file ZIP chỉ để xem UI. Họ chỉ cần mở Frontend Render URL.
+
+## 23.12. Auto Deploy khi FE merge code mới
+
+Sau khi Render theo dõi `main`:
+
+```text
+Developer branch
+      ↓
+Code
+      ↓
+Commit
+      ↓
+Push
+      ↓
+Pull Request
+      ↓
+Review
+      ↓
+Merge main
+      ↓
+Render phát hiện main thay đổi
+      ↓
+Build FE mới
+      ↓
+Deploy
+      ↓
+URL FE được cập nhật
+```
+
+BE không cần đổi URL sau mỗi lần deploy.
+
+## 23.13. Nếu Render build thất bại
+
+Kiểm tra:
+
+```text
+Render Dashboard
+→ FE Static Site
+→ Events / Logs
+```
+
+Các lỗi thường gặp:
+
+```text
+pnpm chưa khả dụng
+package dependency lỗi
+build script lỗi
+import sai đường dẫn
+environment variable thiếu
+case-sensitive filename
+```
+
+Trước khi merge PR nên chạy:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm build
+```
+
+## 23.14. Workflow FE–BE sau khi có Render FE
+
+```text
+             BE TEAM
+                │
+          Code API Logic
+                │
+           PR → main
+                │
+                ▼
+          Render Backend
+                │
+          Swagger/API Ready
+                │
+                ▼
+             FE TEAM
+                │
+       Integrate Real API
+                │
+           PR → main
+                │
+                ▼
+          Render Frontend
+                │
+                ▼
+             E2E Test
+                │
+           ┌────┴────┐
+           │         │
+          PASS      FAIL
+           │         │
+           ▼         ▼
+          DONE   Fix BE / FE
+```
+
+## 23.15. Quy tắc deploy FE cần nhớ
+
+```text
+1. Render FE chỉ theo dõi main.
+2. Không deploy branch cá nhân làm môi trường chung.
+3. FE dùng Render Backend URL qua VITE_API_BASE_URL.
+4. Không hard-code API URL trong component.
+5. Không đưa secret vào VITE_*.
+6. Session/cookie phải test cùng CORS.
+7. React Router cần Rewrite /* → /index.html.
+8. Mỗi PR nên chạy pnpm build trước khi merge.
+9. Merge main xong Render tự deploy.
+10. BE xem UI qua URL Render FE.
+```
+
+## 23.16. Mục tiêu cuối cùng
+
+Cả team có một môi trường integration/demo chung:
+
+```text
+Frontend Render
++
+Backend Render
++
+Database
+```
+
+Nhờ vậy có thể kiểm thử business flow từ đầu đến cuối mà không phụ thuộc vào máy local của từng thành viên.
