@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSCMS } from './context/SCMSContext';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
@@ -44,34 +44,159 @@ import { SettingsView } from './components/views/SettingsView';
 import { SupportView } from './components/views/SupportView';
 import { PersonalProfileView } from './components/views/PersonalProfileView';
 
+import {
+  resolveRoute,
+  resolveAuthenticatedRoute,
+  getDefaultTab,
+  getRouteForTab,
+  getLoginDestination,
+  isTabAllowedForRole,
+} from './utils/navigation';
+
 function SCMSApp() {
-  const { role, setRole, currentTab, setCurrentTab, t, language, isAuthenticated, authLoading, logout } = useSCMS();
-  const [publicView, setPublicView] = useState('home'); // 'home' | 'login' | 'register'
+  const {
+    role,
+    setRole,
+    currentTab,
+    setCurrentTab,
+    t,
+    language,
+    isAuthenticated,
+    authLoading,
+    authError,
+    clearAuthError,
+    logout,
+    apiEnabled,
+  } = useSCMS();
+
+  // Track initial route on mount
+  const initialPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const initialRoute = resolveRoute(initialPath);
+
+  const [publicView, setPublicView] = useState(() => (initialRoute.isPublic ? initialRoute.publicView : 'login'));
+  const [intendedLocation, setIntendedLocation] = useState(() => (!initialRoute.isPublic && initialPath !== '/' ? initialPath : null));
   const [targetPackageId, setTargetPackageId] = useState(null);
   const [selectedMemberId, setSelectedMemberId] = useState(null);
+  const effectiveTab = isTabAllowedForRole(currentTab, role) ? currentTab : getDefaultTab(role);
 
-  const handleLoginSuccess = (selectedRole) => {
-    if (selectedRole) setRole(selectedRole);
+  // G1.2: Handle login success with user returned directly from login()
+  const handleLoginSuccess = (userOrRole) => {
+    const destination = getLoginDestination(userOrRole, intendedLocation, {
+      isApiMode: apiEnabled,
+    });
+    if (!destination) return;
+
+    if (!apiEnabled) setRole(destination.role);
+
+    // Determine target route: intendedLocation if valid for this role, else default dashboard
+    setIntendedLocation(null);
+
+    const resolved = resolveRoute(destination.path);
+    if (resolved.tab) {
+      setCurrentTab(resolved.tab);
+    }
+    if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', destination.path);
+    }
+    setPublicView(null);
   };
 
   const handleLogout = async () => {
     await logout();
+    setIntendedLocation(null);
     setPublicView('home');
+    if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', '/');
+    }
   };
 
+  // Tab selection with URL history push
+  const handleSelectTab = (tab) => {
+    setCurrentTab(tab);
+    setSelectedMemberId(null);
+    const targetRoute = getRouteForTab(tab, role);
+    if (typeof window !== 'undefined' && window.location.pathname !== targetRoute) {
+      window.history.pushState(null, '', targetRoute);
+    }
+  };
+
+  // G1.3: Restore deep link when authLoading finishes
+  useEffect(() => {
+    if (authLoading) return;
+
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+    if (isAuthenticated) {
+      const restoredRoute = resolveAuthenticatedRoute(currentPath, role);
+      if (!restoredRoute) return;
+
+      setCurrentTab(restoredRoute.tab);
+      setPublicView(null);
+      if (typeof window !== 'undefined' && currentPath !== restoredRoute.path) {
+        window.history.replaceState(null, '', restoredRoute.path);
+      }
+    } else {
+      const resolved = resolveRoute(currentPath);
+      if (!resolved.isPublic && currentPath !== '/') {
+        setIntendedLocation(currentPath);
+        setPublicView('login');
+      } else {
+        setPublicView(resolved.publicView || 'home');
+      }
+    }
+  }, [authLoading, isAuthenticated, role]);
+
+  // Handle browser Back / Forward popstate
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+      if (isAuthenticated) {
+        const restoredRoute = resolveAuthenticatedRoute(path, role);
+        if (!restoredRoute) return;
+
+        setCurrentTab(restoredRoute.tab);
+        setPublicView(null);
+        if (path !== restoredRoute.path) {
+          window.history.replaceState(null, '', restoredRoute.path);
+        }
+      } else {
+        const resolved = resolveRoute(path);
+        if (resolved.isPublic) {
+          setIntendedLocation(null);
+          setPublicView(resolved.publicView);
+        } else {
+          setIntendedLocation(path);
+          setPublicView('login');
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isAuthenticated, role]);
+
+  // G1.3: While verifying auth session, show clean loading without flashing wrong layout
   if (authLoading) {
-    return <div className="min-h-screen bg-stone-950 text-stone-200 flex items-center justify-center text-sm">Đang kiểm tra phiên đăng nhập...</div>;
+    return (
+      <div className="min-h-screen bg-stone-950 text-stone-200 flex flex-col items-center justify-center gap-3 text-sm">
+        <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+        <p className="font-medium tracking-wide">Đang kiểm tra phiên đăng nhập...</p>
+      </div>
+    );
   }
 
   if (!isAuthenticated) {
-    if (publicView === 'home') {
+    if (publicView === 'home' && !authError) {
       return (
         <>
           <HomeLandingView
-            onOpenLogin={() => setPublicView('login')}
+            onOpenLogin={() => {
+              setPublicView('login');
+              if (typeof window !== 'undefined') window.history.pushState(null, '', '/login');
+            }}
             onOpenRegister={(packageId) => {
               setTargetPackageId(packageId || null);
               setPublicView('register');
+              if (typeof window !== 'undefined') window.history.pushState(null, '', '/register');
             }}
           />
           <Toast />
@@ -83,9 +208,15 @@ function SCMSApp() {
       <>
         <LoginView
           onLoginSuccess={handleLoginSuccess}
-          onBackToHome={() => setPublicView('home')}
+          onBackToHome={() => {
+            clearAuthError();
+            setIntendedLocation(null);
+            setPublicView('home');
+            if (typeof window !== 'undefined') window.history.pushState(null, '', '/');
+          }}
           initialMode={publicView === 'register' ? 'register' : 'login'}
           initialPackageId={targetPackageId}
+          initialError={authError || ''}
         />
         <Toast />
       </>
@@ -94,7 +225,7 @@ function SCMSApp() {
 
   // Render current view
   const renderView = () => {
-    switch (currentTab) {
+    switch (effectiveTab) {
       // Manager
       case 'dashboard':
         return <ManagerDashboard />;
@@ -152,6 +283,17 @@ function SCMSApp() {
       case 'member_training_plan':
         return <CoachTrainingProgress />;
 
+      // Admin
+      case 'admin_dashboard':
+        return (
+          <div className="p-8 bg-white border border-slate-200 rounded-xl shadow-xs">
+            <h1 className="text-xl font-bold text-slate-900">Tài khoản Admin</h1>
+            <p className="text-sm text-slate-500 mt-2">
+              Phiên đăng nhập đã được khôi phục đúng vai trò. Portal Admin riêng chưa thuộc phạm vi G1.1–G1.3.
+            </p>
+          </div>
+        );
+
       // Settings & Support
       case 'settings':
         return <SettingsView />;
@@ -167,7 +309,9 @@ function SCMSApp() {
   };
 
   const getPageTitle = () => {
-    switch (currentTab) {
+    switch (effectiveTab) {
+      case 'admin_dashboard':
+        return 'Admin';
       case 'dashboard':
       case 'coach_dashboard':
       case 'reception_dashboard':
@@ -199,7 +343,7 @@ function SCMSApp() {
   return (
     <div className="min-h-screen bg-[#F7F5F0] text-[#2D2721] flex flex-row font-sans antialiased">
       {/* Sidebar */}
-      <Sidebar currentTab={currentTab} onSelectTab={setCurrentTab} />
+      <Sidebar currentTab={effectiveTab} onSelectTab={handleSelectTab} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">

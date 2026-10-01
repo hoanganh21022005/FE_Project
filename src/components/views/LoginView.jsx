@@ -28,7 +28,7 @@ import {
 const DEMO_EMAIL = 'manager@scms.com';
 const DEMO_PASSWORD = '12345678';
 
-export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login', initialPackageId }) {
+export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login', initialPackageId, initialError = '' }) {
   const { language, setLanguage, packages, members, addMember, login, apiEnabled } = useSCMS();
   const isVi = language === 'vi';
 
@@ -41,7 +41,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [isLoginCaptchaChecked, setIsLoginCaptchaChecked] = useState(false);
   const [isLoginCaptchaLoading, setIsLoginCaptchaLoading] = useState(false);
-  const [loginError, setLoginError] = useState('');
+  const [loginError, setLoginError] = useState(initialError);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
 
   // --- REGISTER STATE ---
@@ -107,8 +107,8 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
     if (apiEnabled) {
       setIsLoginLoading(true);
       try {
-        await login(trimmedEmail, loginPassword);
-        onLoginSuccess();
+        const user = await login(trimmedEmail, loginPassword);
+        onLoginSuccess(user);
       } catch (error) {
         setLoginError(
           getErrorMessage(error, isVi ? 'Không thể đăng nhập.' : 'Unable to sign in.')
@@ -128,7 +128,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
       setIsLoginLoading(true);
       setTimeout(() => {
         setIsLoginLoading(false);
-        onLoginSuccess('manager');
+        onLoginSuccess({ role: 'manager', email: trimmedEmail, fullName: 'Manager Demo' });
       }, 400);
       return;
     }
@@ -137,7 +137,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
       setIsLoginLoading(true);
       setTimeout(() => {
         setIsLoginLoading(false);
-        onLoginSuccess('member');
+        onLoginSuccess({ role: 'member', email: trimmedEmail, fullName: isRegisteredMember.name });
       }, 400);
       return;
     }
