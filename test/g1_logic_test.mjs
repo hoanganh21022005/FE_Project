@@ -6,6 +6,7 @@ import {
   ROLE_RECEPTIONIST,
   ROLE_MEMBER,
   normalizeRole,
+  resolveMockLoginUser,
   getDefaultDashboard,
   getDefaultTab,
   getLoginDestination,
@@ -64,6 +65,47 @@ assert.strictEqual(
 )
 console.log("PASS: G1.1 Role normalization tests")
 
+const mockMembers = [
+  { id: "mem-1", name: "Member Demo", email: "member@scms.com" },
+]
+const mockLoginOptions = {
+  managerEmail: "manager@scms.com",
+  demoPassword: "12345678",
+}
+
+assert.strictEqual(
+  resolveMockLoginUser({
+    ...mockLoginOptions,
+    email: "manager@scms.com",
+    password: "12345678",
+    members: mockMembers,
+  }).role,
+  ROLE_MANAGER,
+)
+assert.deepStrictEqual(
+  resolveMockLoginUser({
+    ...mockLoginOptions,
+    email: "member@scms.com",
+    password: "12345678",
+    members: mockMembers,
+  }),
+  {
+    role: ROLE_MEMBER,
+    email: "member@scms.com",
+    fullName: "Member Demo",
+  },
+)
+assert.strictEqual(
+  resolveMockLoginUser({
+    ...mockLoginOptions,
+    email: "unknown@scms.com",
+    password: "wrong-password",
+    members: mockMembers,
+  }),
+  null,
+)
+console.log("PASS: Mock Member role takes priority over Manager fallback")
+
 console.log("\n--- TEST G1.2: DEFAULT ROUTES & REDIRECTION ---")
 assert.strictEqual(getDefaultDashboard(ROLE_ADMIN), "/admin/dashboard")
 assert.strictEqual(getDefaultDashboard(ROLE_MANAGER), "/manager/dashboard")
@@ -73,6 +115,9 @@ assert.strictEqual(
   "/receptionist/dashboard",
 )
 assert.strictEqual(getDefaultDashboard(ROLE_MEMBER), "/member/dashboard")
+assert.strictEqual(getDefaultTab(ROLE_MANAGER), "dashboard")
+assert.strictEqual(getRouteForTab("classes", ROLE_MANAGER), "/manager/classes")
+assert.strictEqual(getRouteForTab("members", ROLE_MANAGER), "/manager/members")
 
 // Direct login redirect without intended location
 assert.strictEqual(

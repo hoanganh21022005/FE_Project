@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency } from '../../locales/translations';
 import { getErrorMessage } from '../../api/apiErrors';
+import { resolveMockLoginUser } from '../../utils/navigation';
 import {
   Activity,
   AlertCircle,
@@ -119,25 +120,19 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
       return;
     }
 
-    const isManager = trimmedEmail === DEMO_EMAIL.toLowerCase() && loginPassword === DEMO_PASSWORD;
-    const isRegisteredMember = members.find(
-      m => m.email.toLowerCase() === trimmedEmail
-    );
+    const mockUser = resolveMockLoginUser({
+      email: trimmedEmail,
+      password: loginPassword,
+      members,
+      managerEmail: DEMO_EMAIL,
+      demoPassword: DEMO_PASSWORD,
+    });
 
-    if (isManager || loginPassword === '12345678') {
+    if (mockUser) {
       setIsLoginLoading(true);
       setTimeout(() => {
         setIsLoginLoading(false);
-        onLoginSuccess({ role: 'manager', email: trimmedEmail, fullName: 'Manager Demo' });
-      }, 400);
-      return;
-    }
-
-    if (isRegisteredMember) {
-      setIsLoginLoading(true);
-      setTimeout(() => {
-        setIsLoginLoading(false);
-        onLoginSuccess({ role: 'member', email: trimmedEmail, fullName: isRegisteredMember.name });
+        onLoginSuccess(mockUser);
       }, 400);
       return;
     }

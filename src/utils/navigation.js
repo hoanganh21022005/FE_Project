@@ -50,6 +50,52 @@ export function normalizeRole(rawRole, { isApiMode = false } = {}) {
 }
 
 /**
+ * Resolve the demo user without letting the generic demo password override a
+ * known Member account. This helper is used only when API mode is disabled.
+ */
+export function resolveMockLoginUser({
+  email,
+  password,
+  members = [],
+  managerEmail,
+  demoPassword,
+}) {
+  const normalizedEmail = String(email || "")
+    .trim()
+    .toLowerCase()
+  const normalizedManagerEmail = String(managerEmail || "").toLowerCase()
+
+  if (normalizedEmail === normalizedManagerEmail && password === demoPassword) {
+    return {
+      role: ROLE_MANAGER,
+      email: normalizedEmail,
+      fullName: "Manager Demo",
+    }
+  }
+
+  const member = members.find(
+    (item) => String(item?.email || "").toLowerCase() === normalizedEmail,
+  )
+  if (member) {
+    return {
+      role: ROLE_MEMBER,
+      email: normalizedEmail,
+      fullName: member.name,
+    }
+  }
+
+  if (password === demoPassword) {
+    return {
+      role: ROLE_MANAGER,
+      email: normalizedEmail,
+      fullName: "Manager Demo",
+    }
+  }
+
+  return null
+}
+
+/**
  * G1.2: Default route for each role.
  */
 export function getDefaultDashboard(role) {

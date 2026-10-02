@@ -228,7 +228,7 @@ function SCMSApp() {
     switch (effectiveTab) {
       // Manager
       case 'dashboard':
-        return <ManagerDashboard />;
+        return <ManagerDashboard onNavigate={handleSelectTab} />;
       case 'staff':
         return <StaffManagement />;
       case 'members':
@@ -304,7 +304,7 @@ function SCMSApp() {
         return <PersonalProfileView />;
 
       default:
-        return <ManagerDashboard />;
+        return <ManagerDashboard onNavigate={handleSelectTab} />;
     }
   };
 

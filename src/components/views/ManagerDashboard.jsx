@@ -10,8 +10,8 @@ import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend
 } from 'recharts';
 
-export function ManagerDashboard() {
-  const { members, classes, payments, bookings, dashboard, apiEnabled, t, language, setCurrentTab } = useSCMS();
+export function ManagerDashboard({ onNavigate }) {
+  const { members, classes, payments, bookings, dashboard, apiEnabled, t, language } = useSCMS();
 
   const visibleMembers = apiEnabled ? [] : members;
   const visiblePayments = apiEnabled ? [] : payments;
@@ -137,7 +137,7 @@ export function ManagerDashboard() {
               </p>
             </div>
             <button
-              onClick={() => setCurrentTab && setCurrentTab('classes')}
+              onClick={() => onNavigate?.('classes')}
               className="text-xs text-orange-600 hover:text-orange-700 cursor-pointer font-bold bg-transparent border-0 p-0"
             >
               {language === 'vi' ? 'Xem tất cả →' : 'View all →'}
@@ -225,7 +225,7 @@ export function ManagerDashboard() {
                   </div>
 
                   <button
-                    onClick={() => setCurrentTab && setCurrentTab('members')}
+                    onClick={() => onNavigate?.('members')}
                     className="px-2.5 py-1 bg-white hover:bg-orange-50 border border-stone-300 hover:border-orange-500 rounded text-[11px] font-semibold text-stone-800 hover:text-orange-700 shadow-2xs transition-all cursor-pointer"
                   >
                     {language === 'vi' ? 'Xử lý' : 'Process'}
