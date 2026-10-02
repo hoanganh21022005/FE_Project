@@ -43,10 +43,18 @@ import { MemberClassCatalog } from './components/views/MemberClassCatalog';
 import { SettingsView } from './components/views/SettingsView';
 import { SupportView } from './components/views/SupportView';
 import { PersonalProfileView } from './components/views/PersonalProfileView';
+import { ForbiddenView } from './components/views/ForbiddenView';
+import { RequireAuth, RequireRole } from './components/auth/RouteGuard';
 
 import {
+  ROLE_ADMIN,
+  ROLE_MANAGER,
+  ROLE_COACH,
+  ROLE_RECEPTIONIST,
+  ROLE_MEMBER,
   resolveRoute,
   resolveAuthenticatedRoute,
+  checkRouteAccess,
   getDefaultTab,
   getRouteForTab,
   getLoginDestination,
@@ -86,7 +94,13 @@ function SCMSApp() {
     });
     if (!destination) return;
 
-    if (!apiEnabled) setRole(destination.role);
+    if (!apiEnabled) {
+      setRole(destination.role);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('scms_mock_role', destination.role);
+        sessionStorage.setItem('scms_mock_authenticated', 'true');
+      }
+    }
 
     // Determine target route: intendedLocation if valid for this role, else default dashboard
     setIntendedLocation(null);
@@ -106,6 +120,8 @@ function SCMSApp() {
     setIntendedLocation(null);
     setPublicView('home');
     if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('scms_mock_authenticated');
+      sessionStorage.removeItem('scms_mock_role');
       window.history.pushState(null, '', '/');
     }
   };
@@ -120,12 +136,28 @@ function SCMSApp() {
     }
   };
 
-  // G1.3: Restore deep link when authLoading finishes
+  // G1.3 & G1.4: Restore deep link / guard route when authLoading finishes
   useEffect(() => {
     if (authLoading) return;
 
     const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
     if (isAuthenticated) {
+      const access = checkRouteAccess(currentPath, role);
+      if (access.status === 'forbidden') {
+        setCurrentTab('forbidden');
+        setPublicView(null);
+        return;
+      }
+      if (access.status === 'not_found') {
+        const defaultRoute = resolveRoute(access.fallbackPath);
+        setCurrentTab(defaultRoute.tab);
+        setPublicView(null);
+        if (typeof window !== 'undefined' && currentPath !== defaultRoute.path) {
+          window.history.replaceState(null, '', defaultRoute.path);
+        }
+        return;
+      }
+
       const restoredRoute = resolveAuthenticatedRoute(currentPath, role);
       if (!restoredRoute) return;
 
@@ -150,6 +182,22 @@ function SCMSApp() {
     const handlePopState = () => {
       const path = typeof window !== 'undefined' ? window.location.pathname : '/';
       if (isAuthenticated) {
+        const access = checkRouteAccess(path, role);
+        if (access.status === 'forbidden') {
+          setCurrentTab('forbidden');
+          setPublicView(null);
+          return;
+        }
+        if (access.status === 'not_found') {
+          const defaultRoute = resolveRoute(access.fallbackPath);
+          setCurrentTab(defaultRoute.tab);
+          setPublicView(null);
+          if (path !== defaultRoute.path) {
+            window.history.replaceState(null, '', defaultRoute.path);
+          }
+          return;
+        }
+
         const restoredRoute = resolveAuthenticatedRoute(path, role);
         if (!restoredRoute) return;
 
@@ -175,124 +223,218 @@ function SCMSApp() {
   }, [isAuthenticated, role]);
 
   // G1.3: While verifying auth session, show clean loading without flashing wrong layout
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-stone-950 text-stone-200 flex flex-col items-center justify-center gap-3 text-sm">
-        <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-        <p className="font-medium tracking-wide">Đang kiểm tra phiên đăng nhập...</p>
-      </div>
-    );
-  }
+  const unauthenticatedContent = publicView === 'home' && !authError ? (
+    <>
+      <HomeLandingView
+        onOpenLogin={() => {
+          setPublicView('login');
+          if (typeof window !== 'undefined') window.history.pushState(null, '', '/login');
+        }}
+        onOpenRegister={(packageId) => {
+          setTargetPackageId(packageId || null);
+          setPublicView('register');
+          if (typeof window !== 'undefined') window.history.pushState(null, '', '/register');
+        }}
+      />
+      <Toast />
+    </>
+  ) : (
+    <>
+      <LoginView
+        onLoginSuccess={handleLoginSuccess}
+        onBackToHome={() => {
+          clearAuthError();
+          setIntendedLocation(null);
+          setPublicView('home');
+          if (typeof window !== 'undefined') window.history.pushState(null, '', '/');
+        }}
+        initialMode={publicView === 'register' ? 'register' : 'login'}
+        initialPackageId={targetPackageId}
+        initialError={authError || ''}
+      />
+      <Toast />
+    </>
+  );
 
-  if (!isAuthenticated) {
-    if (publicView === 'home' && !authError) {
-      return (
-        <>
-          <HomeLandingView
-            onOpenLogin={() => {
-              setPublicView('login');
-              if (typeof window !== 'undefined') window.history.pushState(null, '', '/login');
-            }}
-            onOpenRegister={(packageId) => {
-              setTargetPackageId(packageId || null);
-              setPublicView('register');
-              if (typeof window !== 'undefined') window.history.pushState(null, '', '/register');
-            }}
-          />
-          <Toast />
-        </>
-      );
-    }
-
-    return (
-      <>
-        <LoginView
-          onLoginSuccess={handleLoginSuccess}
-          onBackToHome={() => {
-            clearAuthError();
-            setIntendedLocation(null);
-            setPublicView('home');
-            if (typeof window !== 'undefined') window.history.pushState(null, '', '/');
-          }}
-          initialMode={publicView === 'register' ? 'register' : 'login'}
-          initialPackageId={targetPackageId}
-          initialError={authError || ''}
-        />
-        <Toast />
-      </>
-    );
-  }
-
-  // Render current view
+  // Render current view guarded by RequireRole
   const renderView = () => {
     switch (effectiveTab) {
       // Manager
       case 'dashboard':
-        return <ManagerDashboard onNavigate={handleSelectTab} />;
+        return (
+          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <ManagerDashboard onNavigate={handleSelectTab} />
+          </RequireRole>
+        );
       case 'staff':
-        return <StaffManagement />;
+        return (
+          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <StaffManagement />
+          </RequireRole>
+        );
       case 'members':
-        if (selectedMemberId) {
-          return <MemberDetailView memberId={selectedMemberId} onBack={() => setSelectedMemberId(null)} />;
-        }
-        return <MemberManagement onSelectMemberDetail={(id) => setSelectedMemberId(id)} />;
+        return (
+          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            {selectedMemberId ? (
+              <MemberDetailView memberId={selectedMemberId} onBack={() => setSelectedMemberId(null)} />
+            ) : (
+              <MemberManagement onSelectMemberDetail={(id) => setSelectedMemberId(id)} />
+            )}
+          </RequireRole>
+        );
       case 'packages':
-        return <PackageManagement />;
+        return (
+          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <PackageManagement />
+          </RequireRole>
+        );
       case 'classes':
-        return <ClassManagement />;
+        return (
+          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <ClassManagement />
+          </RequireRole>
+        );
       case 'resources':
-        return <ResourceManagement />;
+        return (
+          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <ResourceManagement />
+          </RequireRole>
+        );
       case 'payments':
-        return <PaymentManagement />;
+        return (
+          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <PaymentManagement />
+          </RequireRole>
+        );
       case 'reports':
-        return <ReportsView />;
+        return (
+          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <ReportsView />
+          </RequireRole>
+        );
       case 'auditLogs':
-        return <AuditLogView />;
+        return (
+          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <AuditLogView />
+          </RequireRole>
+        );
 
       // Coach
       case 'coach_dashboard':
-        return <CoachDashboard />;
+        return (
+          <RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <CoachDashboard />
+          </RequireRole>
+        );
       case 'coach_schedule':
-        return <CoachScheduleView />;
+        return (
+          <RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <CoachScheduleView />
+          </RequireRole>
+        );
       case 'coach_attendance':
-        return <CoachAttendanceView />;
+        return (
+          <RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <CoachAttendanceView />
+          </RequireRole>
+        );
       case 'coach_assigned_members':
-        return <CoachAssignedMembersView />;
+        return (
+          <RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <CoachAssignedMembersView />
+          </RequireRole>
+        );
       case 'coach_progress':
-        return <CoachTrainingProgress />;
+        return (
+          <RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <CoachTrainingProgress />
+          </RequireRole>
+        );
 
       // Receptionist
       case 'reception_dashboard':
-        return <ReceptionistDashboard />;
+        return (
+          <RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <ReceptionistDashboard />
+          </RequireRole>
+        );
       case 'reception_member_search':
-        return <ReceptionMemberSearch />;
+        return (
+          <RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <ReceptionMemberSearch />
+          </RequireRole>
+        );
       case 'reception_booking':
-        return <ReceptionClassBooking />;
+        return (
+          <RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <ReceptionClassBooking />
+          </RequireRole>
+        );
       case 'reception_payments':
-        return <ReceptionPaymentsView />;
+        return (
+          <RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <ReceptionPaymentsView />
+          </RequireRole>
+        );
 
       // Member
       case 'member_dashboard':
-        return <MemberDashboard />;
+        return (
+          <RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <MemberDashboard />
+          </RequireRole>
+        );
       case 'member_my_membership':
-        return <MyMembershipView />;
+        return (
+          <RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <MyMembershipView />
+          </RequireRole>
+        );
       case 'member_class_catalog':
-        return <MemberClassCatalog />;
+        return (
+          <RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <MemberClassCatalog />
+          </RequireRole>
+        );
       case 'member_attendance_history':
-        return <CoachAttendanceView />;
+        return (
+          <RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <CoachAttendanceView />
+          </RequireRole>
+        );
       case 'member_training_plan':
-        return <CoachTrainingProgress />;
+        return (
+          <RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <CoachTrainingProgress />
+          </RequireRole>
+        );
 
       // Admin
       case 'admin_dashboard':
         return (
-          <div className="p-8 bg-white border border-slate-200 rounded-xl shadow-xs">
-            <h1 className="text-xl font-bold text-slate-900">Tài khoản Admin</h1>
-            <p className="text-sm text-slate-500 mt-2">
-              Phiên đăng nhập đã được khôi phục đúng vai trò. Portal Admin riêng chưa thuộc phạm vi G1.1–G1.3.
-            </p>
-          </div>
+          <RequireRole allowedRoles={[ROLE_ADMIN]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <div className="p-8 bg-white border border-slate-200 rounded-xl shadow-xs">
+              <h1 className="text-xl font-bold text-slate-900">Tài khoản Admin</h1>
+              <p className="text-sm text-slate-500 mt-2">
+                Phiên đăng nhập đã được khôi phục đúng vai trò. Portal Admin riêng chưa thuộc phạm vi G1.1–G1.3.
+              </p>
+            </div>
+          </RequireRole>
         );
+
+      // Forbidden
+      case 'forbidden': {
+        const path = typeof window !== 'undefined' ? window.location.pathname : '';
+        const access = checkRouteAccess(path, role);
+        return (
+          <ForbiddenView
+            currentRole={role}
+            requiredRole={access.requiredRole}
+            attemptedPath={path}
+            onGoHome={() => handleSelectTab(getDefaultTab(role))}
+          />
+        );
+      }
 
       // Settings & Support
       case 'settings':
@@ -310,6 +452,8 @@ function SCMSApp() {
 
   const getPageTitle = () => {
     switch (effectiveTab) {
+      case 'forbidden':
+        return '403 - Quyền truy cập bị từ chối';
       case 'admin_dashboard':
         return 'Admin';
       case 'dashboard':
@@ -341,21 +485,27 @@ function SCMSApp() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F5F0] text-[#2D2721] flex flex-row font-sans antialiased">
-      {/* Sidebar */}
-      <Sidebar currentTab={effectiveTab} onSelectTab={handleSelectTab} />
+    <RequireAuth
+      isAuthenticated={isAuthenticated}
+      authLoading={authLoading}
+      fallback={unauthenticatedContent}
+    >
+      <div className="min-h-screen bg-[#F7F5F0] text-[#2D2721] flex flex-row font-sans antialiased">
+        {/* Sidebar */}
+        <Sidebar currentTab={effectiveTab} onSelectTab={handleSelectTab} />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header currentTitle={getPageTitle()} onLogout={handleLogout} />
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <Header currentTitle={getPageTitle()} onLogout={handleLogout} />
 
-        <main className="flex-1 p-6 overflow-y-auto max-w-7xl w-full mx-auto">
-          {renderView()}
-        </main>
+          <main className="flex-1 p-6 overflow-y-auto max-w-7xl w-full mx-auto">
+            {renderView()}
+          </main>
+        </div>
+
+        <Toast />
       </div>
-
-      <Toast />
-    </div>
+    </RequireAuth>
   );
 }
 

@@ -266,9 +266,11 @@ export function Header({ currentTitle, onLogout }) {
           </div>
           {onLogout && (
             <button
+              id="header-logout-btn"
               onClick={onLogout}
-              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded transition-colors"
+              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded transition-colors cursor-pointer"
               title={t('logout')}
+              aria-label={t('logout')}
             >
               <LogOut className="w-4 h-4" />
             </button>

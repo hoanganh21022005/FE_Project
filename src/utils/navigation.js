@@ -52,6 +52,49 @@ export function normalizeRole(rawRole, { isApiMode = false } = {}) {
 /**
  * Resolve the demo user without letting the generic demo password override a
  * known Member account. This helper is used only when API mode is disabled.
+/**
+ * Exact demo staff account directory for mock mode.
+ * Privileged roles (Admin, Receptionist, Coach, Manager) must ONLY be granted to exact supported demo accounts.
+ */
+export const DEMO_STAFF_ACCOUNTS = {
+  "admin@scms.com": {
+    role: ROLE_ADMIN,
+    fullName: "Hệ Thống Admin",
+  },
+  "manager@scms.com": {
+    role: ROLE_MANAGER,
+    fullName: "Trần Văn Hoàng (Quản lý)",
+  },
+  "thu.reception@scms.com": {
+    role: ROLE_RECEPTIONIST,
+    fullName: "Phạm Thị Thu (Lễ tân)",
+  },
+  "receptionist@scms.com": {
+    role: ROLE_RECEPTIONIST,
+    fullName: "Phạm Thị Thu (Lễ tân)",
+  },
+  "hung.coach@scms.com": {
+    role: ROLE_COACH,
+    fullName: "Nguyễn Văn Hùng (HLV)",
+  },
+  "mai.coach@scms.com": {
+    role: ROLE_COACH,
+    fullName: "Lê Thị Mai (HLV)",
+  },
+  "tuananh.coach@scms.com": {
+    role: ROLE_COACH,
+    fullName: "Đặng Tuấn Anh (HLV)",
+  },
+  "coach@scms.com": {
+    role: ROLE_COACH,
+    fullName: "Nguyễn Văn Hùng (HLV)",
+  },
+}
+
+/**
+ * G1.1: Resolve mock user and role for local/mock authentication mode.
+ * Role assignment is strictly bounded to exact demo accounts or recognized members.
+ * Arbitrary emails containing role keywords (e.g. 'not-admin@example.test') are strictly rejected.
  */
 export function resolveMockLoginUser({
   email,
@@ -63,9 +106,24 @@ export function resolveMockLoginUser({
   const normalizedEmail = String(email || "")
     .trim()
     .toLowerCase()
-  const normalizedManagerEmail = String(managerEmail || "").toLowerCase()
+  const normalizedManagerEmail = String(managerEmail || "").trim().toLowerCase()
 
-  if (normalizedEmail === normalizedManagerEmail && password === demoPassword) {
+  // 1. Check exact staff demo accounts
+  const demoStaff = DEMO_STAFF_ACCOUNTS[normalizedEmail]
+  if (demoStaff && password === demoPassword) {
+    return {
+      role: demoStaff.role,
+      email: normalizedEmail,
+      fullName: demoStaff.fullName,
+    }
+  }
+
+  // 2. Check explicit managerEmail param match
+  if (
+    normalizedManagerEmail &&
+    normalizedEmail === normalizedManagerEmail &&
+    password === demoPassword
+  ) {
     return {
       role: ROLE_MANAGER,
       email: normalizedEmail,
@@ -73,25 +131,22 @@ export function resolveMockLoginUser({
     }
   }
 
-  const member = members.find(
-    (item) => String(item?.email || "").toLowerCase() === normalizedEmail,
+  // 3. Check registered mock members
+  const member = (members || []).find(
+    (item) => String(item?.email || "").trim().toLowerCase() === normalizedEmail,
   )
   if (member) {
-    return {
-      role: ROLE_MEMBER,
-      email: normalizedEmail,
-      fullName: member.name,
+    if (password === demoPassword || password === member.password) {
+      return {
+        role: ROLE_MEMBER,
+        email: normalizedEmail,
+        fullName: member.name,
+      }
     }
+    return null
   }
 
-  if (password === demoPassword) {
-    return {
-      role: ROLE_MANAGER,
-      email: normalizedEmail,
-      fullName: "Manager Demo",
-    }
-  }
-
+  // Strictly reject any unrecognized email (no keyword substring fallback)
   return null
 }
 
@@ -225,6 +280,7 @@ const ROUTE_TAB_MAP = {
   "/settings": { role: null, tab: "settings" },
   "/support": { role: null, tab: "support" },
   "/profile": { role: null, tab: "profile" },
+  "/403": { role: null, tab: "forbidden" },
 }
 
 /**
@@ -269,6 +325,7 @@ const TAB_ROUTE_MAP = {
   settings: "/settings",
   support: "/support",
   profile: "/profile",
+  forbidden: "/403",
 }
 
 /**
@@ -357,11 +414,51 @@ export function resolveAuthenticatedRoute(pathname, role) {
  */
 export function isTabAllowedForRole(tab, role) {
   if (!tab) return false
-  if (tab === "settings" || tab === "support" || tab === "profile") return true
+  if (tab === "settings" || tab === "support" || tab === "profile" || tab === "forbidden") return true
   for (const entry of Object.values(ROUTE_TAB_MAP)) {
     if (entry.tab === tab) {
       return entry.role === role
     }
   }
   return false
+}
+
+/**
+ * G1.4: Check route access permissions for an authenticated user.
+ * Evaluates whether a requested path is public, allowed, forbidden (wrong role),
+ * or not found (unknown route).
+ */
+export function checkRouteAccess(pathname, role) {
+  const normalizedRole = normalizeRole(role, { isApiMode: true })
+  const route = resolveRoute(pathname)
+
+  if (route.isPublic) {
+    return { status: "public", route }
+  }
+
+  // If path is not a known tab/route -> not found (URL không tồn tại)
+  if (!route.tab) {
+    return {
+      status: "not_found",
+      fallbackPath: getDefaultDashboard(normalizedRole),
+    }
+  }
+
+  // Shared routes (e.g. /settings, /support, /profile, /403)
+  if (!route.role) {
+    return { status: "allowed", route }
+  }
+
+  // Route specifically belonging to a different role -> forbidden (URL sai role)
+  if (route.role !== normalizedRole) {
+    return {
+      status: "forbidden",
+      route,
+      requiredRole: route.role,
+      userRole: normalizedRole,
+      fallbackPath: getDefaultDashboard(normalizedRole),
+    }
+  }
+
+  return { status: "allowed", route }
 }

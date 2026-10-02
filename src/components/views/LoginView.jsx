@@ -130,8 +130,13 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
 
     if (mockUser) {
       setIsLoginLoading(true);
-      setTimeout(() => {
+      setTimeout(async () => {
         setIsLoginLoading(false);
+        try {
+          await login(trimmedEmail, loginPassword);
+        } catch (e) {
+          // ignore in mock mode
+        }
         onLoginSuccess(mockUser);
       }, 400);
       return;

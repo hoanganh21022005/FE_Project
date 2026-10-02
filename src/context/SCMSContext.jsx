@@ -3,11 +3,13 @@ import { translations } from '../locales/translations.js';
 import * as authApi from '../api/authApi.js';
 import * as managerApi from '../api/managerApi.js';
 import { getErrorMessage, UnauthorizedError } from '../api/apiErrors.js';
-import { UNAUTHORIZED_EVENT } from '../api/httpClient.js';
+import { UNAUTHORIZED_EVENT, FORBIDDEN_EVENT } from '../api/httpClient.js';
 import {
   normalizeRole,
   getDefaultTab,
   isTabAllowedForRole,
+  checkRouteAccess,
+  resolveRoute,
   ROLE_ADMIN,
   ROLE_MANAGER,
   ROLE_COACH,
@@ -194,19 +196,43 @@ const INITIAL_TRAINING_PLANS = [
 
 export const SCMSProvider = ({ children }) => {
   const [language, setLanguage] = useState('vi');
-  const [role, setRole] = useState(ROLE_MANAGER);
-  const [currentTab, setCurrentTab] = useState('dashboard');
+  const [role, setRole] = useState(() => {
+    if (typeof window !== 'undefined' && !API_ENABLED) {
+      return sessionStorage.getItem('scms_mock_role') || ROLE_MANAGER;
+    }
+    return ROLE_MANAGER;
+  });
+  const [currentTab, setCurrentTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const activeRole = !API_ENABLED ? (sessionStorage.getItem('scms_mock_role') || ROLE_MANAGER) : ROLE_MANAGER;
+      const access = checkRouteAccess(window.location.pathname, activeRole);
+      if (access.status === 'forbidden') return 'forbidden';
+      const route = resolveRoute(window.location.pathname);
+      if (route.tab && isTabAllowedForRole(route.tab, activeRole)) {
+        return route.tab;
+      }
+      return getDefaultTab(activeRole);
+    }
+    return 'dashboard';
+  });
   const [toast, setToast] = useState(null);
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(API_ENABLED);
   const [authError, setAuthError] = useState(null);
-  const [localAuthenticated, setLocalAuthenticated] = useState(false);
+  const [localAuthenticated, setLocalAuthenticated] = useState(() => {
+    if (typeof window === 'undefined' || API_ENABLED) return false;
+    return sessionStorage.getItem('scms_mock_authenticated') === 'true';
+  });
   const [managerDataLoading, setManagerDataLoading] = useState(false);
   const [managerDataError, setManagerDataError] = useState(null);
 
+  const prevRoleRef = React.useRef(role);
   useEffect(() => {
-    if (!isTabAllowedForRole(currentTab, role)) {
-      setCurrentTab(getDefaultTab(role));
+    if (prevRoleRef.current !== role) {
+      prevRoleRef.current = role;
+      if (!isTabAllowedForRole(currentTab, role)) {
+        setCurrentTab(getDefaultTab(role));
+      }
     }
   }, [role, currentTab]);
 
@@ -247,7 +273,29 @@ export const SCMSProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    if (!API_ENABLED) return undefined;
+    const handleUnauthorized = () => {
+      setAuthUser(null);
+      setAuthError(null);
+      setLocalAuthenticated(false);
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('scms_mock_authenticated');
+        sessionStorage.removeItem('scms_mock_role');
+      }
+    };
+    const handleForbidden = (event) => {
+      const detail = event?.detail;
+      const message = detail?.body?.message || 'Bạn không có quyền thực hiện thao tác này (403 Forbidden).';
+      showToast(message, 'error');
+    };
+    window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+    window.addEventListener(FORBIDDEN_EVENT, handleForbidden);
+
+    if (!API_ENABLED) {
+      return () => {
+        window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+        window.removeEventListener(FORBIDDEN_EVENT, handleForbidden);
+      };
+    }
 
     let active = true;
     setAuthError(null);
@@ -274,14 +322,10 @@ export const SCMSProvider = ({ children }) => {
       })
       .finally(() => active && setAuthLoading(false));
 
-    const handleUnauthorized = () => {
-      setAuthUser(null);
-      setAuthError(null);
-    };
-    window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
     return () => {
       active = false;
       window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+      window.removeEventListener(FORBIDDEN_EVENT, handleForbidden);
     };
   }, []);
 
@@ -326,6 +370,9 @@ export const SCMSProvider = ({ children }) => {
     setAuthError(null);
     if (!API_ENABLED) {
       setLocalAuthenticated(true);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('scms_mock_authenticated', 'true');
+      }
       return fallbackUser;
     }
     const user = await authApi.login(email, password);
@@ -353,6 +400,10 @@ export const SCMSProvider = ({ children }) => {
       }
     } else {
       setLocalAuthenticated(false);
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('scms_mock_authenticated');
+        sessionStorage.removeItem('scms_mock_role');
+      }
     }
   };
 
@@ -362,6 +413,9 @@ export const SCMSProvider = ({ children }) => {
     }
     const normalized = normalizeRole(newRole, { isApiMode: false });
     setRole(normalized);
+    if (typeof window !== 'undefined' && normalized) {
+      sessionStorage.setItem('scms_mock_role', normalized);
+    }
   }, []);
 
   const t = (key) => {

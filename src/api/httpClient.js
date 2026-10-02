@@ -1,8 +1,9 @@
 import { createApiError } from './apiErrors.js';
 
 export const UNAUTHORIZED_EVENT = 'scms:unauthorized';
+export const FORBIDDEN_EVENT = 'scms:forbidden';
 
-const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+const API_BASE_URL = String(import.meta?.env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
 function resolveUrl(path) {
   if (/^https?:\/\//i.test(path)) return path;
@@ -43,10 +44,15 @@ export async function httpRequest(path, options = {}) {
       : await response.text().catch(() => '');
 
   if (!response.ok) {
-    if ((response.status === 401 || response.status === 403)
+    if (response.status === 401
       && options.notifyUnauthorized !== false
       && typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
+    }
+    if (response.status === 403
+      && options.notifyForbidden !== false
+      && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(FORBIDDEN_EVENT, { detail: { path, body, status: 403 } }));
     }
     throw createApiError(response.status, body, response.statusText);
   }
@@ -61,3 +67,9 @@ export const httpClient = {
   patch: (path, body, options) => httpRequest(path, { ...options, method: 'PATCH', body }),
   delete: (path, options) => httpRequest(path, { ...options, method: 'DELETE' }),
 };
+
+// Test hooks for CDP browser runner; strictly gated to mock mode and eliminated in production bundle
+if (typeof window !== 'undefined' && typeof import.meta.env !== 'undefined' && import.meta.env.MODE === 'mock') {
+  window.__scms_httpClient = httpClient;
+  window.__scms_httpRequest = httpRequest;
+}

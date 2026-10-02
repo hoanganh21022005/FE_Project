@@ -106,6 +106,57 @@ assert.strictEqual(
 )
 console.log("PASS: Mock Member role takes priority over Manager fallback")
 
+// Exact staff demo account assertions
+assert.strictEqual(
+  resolveMockLoginUser({
+    ...mockLoginOptions,
+    email: "admin@scms.com",
+    password: "12345678",
+  })?.role,
+  ROLE_ADMIN,
+)
+assert.strictEqual(
+  resolveMockLoginUser({
+    ...mockLoginOptions,
+    email: "thu.reception@scms.com",
+    password: "12345678",
+  })?.role,
+  ROLE_RECEPTIONIST,
+)
+assert.strictEqual(
+  resolveMockLoginUser({
+    ...mockLoginOptions,
+    email: "hung.coach@scms.com",
+    password: "12345678",
+  })?.role,
+  ROLE_COACH,
+)
+
+// Negative assertions: Arbitrary emails containing role keywords MUST NOT be granted privileged roles
+const negativeKeywordEmails = [
+  "not-admin@example.test",
+  "admin-fake@domain.com",
+  "attacker-reception@evil.com",
+  "mycoach@random.org",
+  "random-manager@scms.com",
+  "super-admin@external.net",
+  "fake_coach@scms.com",
+]
+for (const fakeEmail of negativeKeywordEmails) {
+  const result = resolveMockLoginUser({
+    ...mockLoginOptions,
+    email: fakeEmail,
+    password: "12345678",
+    members: mockMembers,
+  })
+  assert.strictEqual(
+    result,
+    null,
+    `Arbitrary email '${fakeEmail}' containing keyword must NOT be granted any role`,
+  )
+}
+console.log("PASS: Exact mock role mapping and keyword substring negative assertions verified")
+
 console.log("\n--- TEST G1.2: DEFAULT ROUTES & REDIRECTION ---")
 assert.strictEqual(getDefaultDashboard(ROLE_ADMIN), "/admin/dashboard")
 assert.strictEqual(getDefaultDashboard(ROLE_MANAGER), "/manager/dashboard")
