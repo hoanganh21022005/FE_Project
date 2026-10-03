@@ -10,8 +10,8 @@ Tài liệu này được cập nhật sau mỗi chặng triển khai theo quy t
 | :----: | ---------------------------------------------- | :-----------: | :-----------------------: | :----------------------------------------------------------------------------------: |
 | **G0** | **Baseline, môi trường và API contract**       | `G0.1 – G0.7` |        **Approved**        | API session và browser cookie persistence đã xác minh bằng credential thật |
 | **G1** | **Auth, role, session và route guard** | `G1.1 – G1.6` | **Approved** | 24/24 route matrix, logic test, guard test, API error isolation đều đạt |
-| **G2** | **Khung portal Admin riêng & dữ liệu đọc thật** | `G2.1 – G2.7` | **Ready for review** | Tích hợp origin/main, live backend acceptance 100%, browser verification, Manager 403, 0 mock leaks |
-| **G3** | CRUD user và RBAC cho Admin | `G3.1 – G3.7` | **Closed / Not started** | Cổng G3 đóng; chờ chủ dự án kiểm tra và phê duyệt G2 |
+| **G2** | **Khung portal Admin riêng & dữ liệu đọc thật** | `G2.1 – G2.7` | **Approved** | Live acceptance 8/8, browser matrix 24/24, build/test/scan và diff-check đều đạt |
+| **G3** | CRUD user và RBAC cho Admin | `G3.1 – G3.7` | **Open for planning / Not started** | Được chuẩn bị bàn giao; chưa được triển khai mutation khi chưa có chỉ đạo của Chủ dự án |
 | **G4** | Member và Staff dùng API thật                  | `G4.1 – G4.9` |      **Not started**      |                                     Chờ G3 / G1                                      |
 | **G5** | Membership lifecycle dùng API thật             | `G5.1 – G5.7` |      **Not started**      |                                        Chờ G4                                        |
 | **G6** | Rà soát, regression và chuẩn bị demo           | `G6.1 – G6.7` |      **Not started**      |                                      Chặng cuối                                      |
@@ -1458,3 +1458,11 @@ Bộ kiểm thử `node test/run_browser_matrix.mjs` chạy qua Chrome DevTools 
 - **Gate hiện tại:** **G2 Ready for review, G3 Closed/Not started**.
 - **Chặng G2:** Giữ trạng thái **Ready for review**. Toàn bộ 7 mục công việc `G2.1` đến `G2.7` trong checklist được giữ nguyên dạng chưa tích (`[ ]`), chờ Chủ dự án tiến hành đánh giá và nghiệm thu chính thức.
 - **Chặng G3 (CRUD user và RBAC):** Cổng đóng, giữ trạng thái **Closed / Not started**. Tuyệt đối không mở cổng hay triển khai bất kỳ mutation nào khi chưa có phê duyệt chính thức bằng văn bản cho G2 từ Chủ dự án.
+
+### 4.22. Final Review G2.1–G2.7 — Approved, 2026-10-03
+
+- **Revision được review:** `960439c` trên nhánh `PhatTai`; source G2 không thay đổi sau vòng nghiệm thu độc lập gần nhất.
+- **Kết luận:** **No actionable findings found in the reviewed scope.** G2.1–G2.7 được phê duyệt và checklist đã chuyển sang `[x]`.
+- **Bằng chứng chốt:** live acceptance 8/8; browser matrix 24/24; `g1_logic_test`, `g1_guard_test`, `g2_logic_test` PASS; production/mock build PASS; `git diff --check` PASS.
+- **Bundle production:** 0 kết quả cho `VITE_TEST_ADMIN`, `TEST_ADMIN`, `ScmsAdmin`, `adminMockData`, `__scms_`, `JSESSIONID`; quét theo giá trị thật của `TEST_ADMIN_PASSWORD` cũng xác nhận 0 lần xuất hiện trong `dist/assets` và source/test.
+- **Gate kế tiếp:** G3 được mở ở mức lập kế hoạch và bàn giao, trạng thái vẫn **Not started**. Không triển khai mutation cho đến khi Chủ dự án giao task rõ ràng cho Implementation Agent.
