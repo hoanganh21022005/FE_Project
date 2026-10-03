@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency } from '../../locales/translations';
 import { getErrorMessage } from '../../api/apiErrors';
 import { normalizeRole, resolveMockLoginUser, ROLE_ADMIN } from '../../utils/navigation';
+import { PublicFooter } from '../layout/PublicFooter';
 import {
   Activity,
   AlertCircle,
@@ -30,6 +31,8 @@ const DEMO_EMAIL = 'manager@scms.com';
 const DEMO_PASSWORD = '12345678';
 
 export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login', initialPackageId, initialError = '', adminEntry = false }) {
+  useEffect(() => { window.scrollTo(0, 0); }, [initialMode]);
+
   const { language, setLanguage, packages, members, addMember, login, logout, apiEnabled } = useSCMS();
   const isVi = language === 'vi';
 
@@ -57,6 +60,52 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
   const [regErrors, setRegErrors] = useState({});
   const [isRegLoading, setIsRegLoading] = useState(false);
   const [registeredSuccessData, setRegisteredSuccessData] = useState(null);
+  const [isOtpMode, setIsOtpMode] = useState(false);
+  const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
+
+  // --- SCROLL ANIMATION STATE ---
+  const scrollRef = useRef(null);
+  const trackRef = useRef(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [trackDist, setTrackDist] = useState(0);
+
+  useEffect(() => {
+    const measure = () => {
+      const t = trackRef.current;
+      if (t) {
+        setTrackDist(Math.max(0, t.scrollWidth - window.innerWidth));
+      }
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!scrollRef.current) return;
+      const rect = scrollRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+
+      if (rect.top <= 0) {
+        const scrolled = -rect.top;
+        const maxScroll = rect.height - viewportHeight;
+
+        if (scrolled <= maxScroll && maxScroll > 0) {
+          setScrollProgress(scrolled / maxScroll);
+        } else if (scrolled > maxScroll) {
+          setScrollProgress(1);
+        }
+      } else {
+        setScrollProgress(0);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+  const [isOtpVerifying, setIsOtpVerifying] = useState(false);
+  const [otpError, setOtpError] = useState('');
 
   // Handle Captcha Click (Login)
   const handleLoginCaptchaClick = () => {
@@ -216,25 +265,79 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
     return Object.keys(errors).length === 0;
   };
 
-  // Handle Register Submit
+  // Handle Register Submit -> Go to OTP
   const handleRegister = (e) => {
     e.preventDefault();
     if (!validateRegister()) return;
 
     setIsRegLoading(true);
     setTimeout(() => {
-      const newMember = addMember({
-        name: regName.trim(),
-        email: regEmail.trim(),
-        phone: regPhone.replace(/\s/g, '')
-      });
-
       setIsRegLoading(false);
-      setRegisteredSuccessData({
-        ...newMember,
-        packageName: isVi ? 'Chưa đăng ký gói' : 'No package enrolled'
-      });
+      setIsOtpMode(true); // Switch to OTP View
     }, 450);
+  };
+
+  const handleOtpChange = (index, value) => {
+    // Take the last character in case they type over an existing one
+    const char = value.slice(-1);
+
+    // Allow empty (backspace) or single digit
+    if (char && !/^\d$/.test(char)) return;
+
+    const newOtp = [...otpCode];
+    newOtp[index] = char;
+    setOtpCode(newOtp);
+    setOtpError('');
+
+    // Auto focus next input if a digit was entered
+    if (char && index < 5) {
+      setTimeout(() => {
+        const nextInput = document.getElementById(`otp-${index + 1}`);
+        if (nextInput) {
+          nextInput.focus();
+          nextInput.select();
+        }
+      }, 10);
+    }
+  };
+
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !otpCode[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-${index - 1}`);
+      if (prevInput) {
+        prevInput.focus();
+        prevInput.select();
+      }
+    }
+  };
+
+  const handleVerifyOtp = (e) => {
+    e.preventDefault();
+    const code = otpCode.join('');
+    if (code.length < 6) {
+      setOtpError(isVi ? 'Vui lòng nhập đủ 6 số OTP.' : 'Please enter 6-digit OTP.');
+      return;
+    }
+
+    setIsOtpVerifying(true);
+    setTimeout(() => {
+      setIsOtpVerifying(false);
+      // Assume 123456 is the mock "correct" OTP
+      if (code === '123456') {
+        const newMember = addMember({
+          name: regName.trim(),
+          email: regEmail.trim(),
+          phone: regPhone.replace(/\s/g, '')
+        });
+        setIsOtpMode(false);
+        setRegisteredSuccessData({
+          ...newMember,
+          packageName: isVi ? 'Chưa đăng ký gói' : 'No package enrolled'
+        });
+      } else {
+        setOtpError(isVi ? 'Mã OTP không chính xác. Vui lòng thử lại.' : 'Incorrect OTP. Please try again.');
+      }
+    }, 600);
   };
 
   const handleFinishRegisterAndLogin = () => {
@@ -252,9 +355,10 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#0c0a09] text-stone-100 font-sans antialiased select-none">
-      {/* LEFT COLUMN: HERO & BRANDING WITH FIRESIDE WARM THEME */}
-      <div
+    <div className="w-full min-h-screen bg-[#0c0a09] text-stone-100 font-sans antialiased select-none flex flex-col">
+      <div className="flex flex-col lg:flex-row min-h-screen w-full relative z-10">
+        {/* LEFT COLUMN: HERO & BRANDING WITH FIRESIDE WARM THEME */}
+        <div
         className="relative flex-1 flex flex-col justify-between p-8 sm:p-12 lg:p-14 xl:p-16 min-h-[500px] lg:min-h-screen overflow-hidden bg-[#141210] transition-all duration-300"
         style={{
           backgroundImage: `
@@ -264,9 +368,22 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
           backgroundSize: '54px 54px'
         }}
       >
+        {/* Background Image for Register Mode */}
+        {authMode === 'register' && (
+          <div className="absolute inset-0 z-0 pointer-events-none transition-opacity duration-500">
+            <img
+              src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop"
+              alt="Gym background"
+              className="w-full h-full object-cover opacity-30 mix-blend-luminosity"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#141210] via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#141210] via-transparent to-transparent" />
+          </div>
+        )}
+
         {/* Subtle radial ambient glow */}
-        <div className="pointer-events-none absolute -top-32 -left-32 w-96 h-96 bg-orange-600/12 rounded-full blur-3xl" />
-        <div className="pointer-events-none absolute bottom-10 right-10 w-96 h-96 bg-amber-700/15 rounded-full blur-3xl" />
+        <div className="pointer-events-none absolute -top-32 -left-32 w-96 h-96 bg-orange-600/12 rounded-full blur-3xl z-0" />
+        <div className="pointer-events-none absolute bottom-10 right-10 w-96 h-96 bg-amber-700/15 rounded-full blur-3xl z-0" />
 
         {/* Top Branding (SCMS Logo) */}
         <div
@@ -274,15 +391,12 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
           className={`relative z-10 flex items-center gap-3 ${onBackToHome ? 'cursor-pointer group' : ''}`}
           title={onBackToHome ? (isVi ? 'Quay về Trang chủ' : 'Back to Home') : undefined}
         >
-          <div className="w-10 h-10 rounded-lg bg-stone-950 border border-stone-700/80 flex items-center justify-center text-white shadow-md group-hover:border-orange-500 transition-colors">
-            <Dumbbell className="w-5 h-5 text-amber-400" />
+          <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center font-black text-lg shadow-md shrink-0">
+            <span className="text-white">SC</span>
           </div>
           <div>
-            <div className="text-sm font-extrabold tracking-tight uppercase text-white leading-none group-hover:text-amber-400 transition-colors">
-              SCMS SYSTEM
-            </div>
-            <div className="text-[10px] text-stone-400 font-semibold tracking-wider uppercase mt-1 leading-none">
-              SPORTS CENTER MANAGEMENT
+            <div className="text-xl font-black tracking-widest uppercase text-white leading-none mt-1 group-hover:text-amber-400 transition-colors">
+              SCMS FITNESS
             </div>
           </div>
         </div>
@@ -374,84 +488,17 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
             </>
           ) : (
             <>
-              {/* Overline for Register */}
-              <div className="text-amber-500 font-bold text-xs tracking-wider uppercase mb-3.5">
-                {isVi ? 'GIA NHẬP HỘI VIÊN SCMS' : 'JOIN SCMS MEMBERSHIP'}
-              </div>
-
               {/* Heading */}
-              <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-extrabold text-white tracking-tight leading-[1.18]">
-                <div>{isVi ? 'Bứt phá giới hạn.' : 'Break limits.'}</div>
-                <div className="bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
-                  {isVi ? 'Nâng tầm thể lực.' : 'Elevate fitness.'}
-                </div>
+              <h1 className="text-4xl sm:text-5xl lg:text-[56px] font-black text-white tracking-tight leading-[1.1] uppercase drop-shadow-lg">
+                {isVi ? 'Tập thử không mất phí tại SCMS' : 'Free Trial At SCMS'}
               </h1>
 
               {/* Subtitle description */}
-              <p className="text-stone-300 text-sm leading-relaxed max-w-lg mt-4 mb-8">
+              <p className="text-stone-300 text-sm sm:text-base leading-relaxed max-w-lg mt-6 mb-8 font-medium drop-shadow-md">
                 {isVi
-                  ? 'Đăng ký tài khoản hội viên ngay hôm nay để tận hưởng cơ sở vật chất đẳng cấp, huấn luyện viên chuyên nghiệp và hệ thống lớp học đa dạng.'
-                  : 'Register your membership today to enjoy world-class facilities, expert coaches, and diverse fitness classes.'}
+                  ? 'Trải nghiệm mọi dịch vụ tại SCMS hoàn toàn miễn phí, chúng tôi sẽ liên hệ đặt lịch hẹn với bạn trong vòng 24h sau khi bạn gửi thông tin, đăng ký ngay!'
+                  : 'Experience all services at SCMS entirely for free. We will contact you to schedule an appointment within 24h of submitting your information. Register now!'}
               </p>
-
-              {/* 4 Member Perks */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-3.5 group">
-                  <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 shrink-0 transition-transform group-hover:scale-105 group-hover:bg-orange-600 group-hover:text-white shadow-xs">
-                    <Flame className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Trang thiết bị chuẩn quốc tế' : 'World-class gym facilities'}
-                    </div>
-                    <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Phòng tập hiện đại, khu cardio & tạ đa năng' : 'Modern gym, cardio zones & free weights'}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3.5 group">
-                  <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 shrink-0 transition-transform group-hover:scale-105 group-hover:bg-orange-600 group-hover:text-white shadow-xs">
-                    <Activity className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Lớp nhóm phong phú' : 'Diverse group classes'}
-                    </div>
-                    <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Yoga, Pilates, Boxing, CrossFit mỗi tuần' : 'Yoga, Pilates, Boxing & CrossFit weekly'}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3.5 group">
-                  <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 shrink-0 transition-transform group-hover:scale-105 group-hover:bg-orange-600 group-hover:text-white shadow-xs">
-                    <UserCheck className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Lộ trình huấn luyện cá nhân' : 'Personalized coaching'}
-                    </div>
-                    <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Đo InBody định kỳ & huấn luyện viên đồng hành' : 'Regular InBody scans & coach guidance'}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3.5 group">
-                  <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 shrink-0 transition-transform group-hover:scale-105 group-hover:bg-orange-600 group-hover:text-white shadow-xs">
-                    <CalendarDays className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Ứng dụng quản trị thông minh' : 'Smart membership portal'}
-                    </div>
-                    <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Đặt lịch lớp, theo dõi thẻ tập & điểm danh 24/7' : 'Book classes, view membership & check-in 24/7'}
-                    </div>
-                  </div>
-                </div>
-              </div>
             </>
           )}
         </div>
@@ -755,6 +802,82 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
               </button>
             </div>}
           </div>
+        ) : isOtpMode ? (
+          /* ============================================================ */
+          /* MODE: OTP VERIFICATION                                       */
+          /* ============================================================ */
+          <div className="max-w-md w-full mx-auto py-8">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center text-stone-600 mx-auto mb-4">
+                <Mail className="w-8 h-8" />
+              </div>
+              <h2 className="text-2xl font-extrabold text-stone-900 tracking-tight">
+                {isVi ? 'Xác thực Email' : 'Email Verification'}
+              </h2>
+              <p className="text-xs sm:text-sm text-stone-500 mt-2 leading-relaxed">
+                {isVi
+                  ? <>Mã OTP 6 số đã được gửi tới <strong>{regEmail || 'email của bạn'}</strong>. Vui lòng kiểm tra hộp thư đến hoặc mục thư rác.</>
+                  : <>A 6-digit OTP has been sent to <strong>{regEmail || 'your email'}</strong>. Please check your inbox or spam folder.</>}
+              </p>
+            </div>
+
+            <form onSubmit={handleVerifyOtp} className="space-y-6">
+              <div>
+                <div className="flex items-center justify-between gap-2 sm:gap-3">
+                  {otpCode.map((digit, index) => (
+                    <input
+                      key={index}
+                      id={`otp-${index}`}
+                      type="text"
+                      inputMode="numeric"
+                      value={digit}
+                      onChange={(e) => handleOtpChange(index, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                      onFocus={(e) => e.target.select()}
+                      className={`w-10 h-12 sm:w-12 sm:h-14 text-center text-lg sm:text-xl font-black rounded-lg border focus:outline-none focus:ring-2 transition-all ${
+                        otpError ? 'border-rose-500 focus:ring-rose-100 bg-rose-50/30 text-rose-600' : 'border-stone-300 focus:border-orange-600 focus:ring-orange-100 bg-white text-stone-900'
+                      }`}
+                      autoFocus={index === 0}
+                    />
+                  ))}
+                </div>
+                {otpError && (
+                  <p className="text-xs text-rose-600 mt-3 text-center font-semibold">{otpError}</p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={isOtpVerifying}
+                className="w-full h-11 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 disabled:bg-stone-400 text-white rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-md"
+              >
+                {isOtpVerifying ? (
+                  <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                ) : (
+                  isVi ? 'Xác thực & Hoàn tất' : 'Verify & Complete'
+                )}
+              </button>
+            </form>
+
+            <div className="mt-8 text-center text-xs text-stone-500">
+              <span>{isVi ? 'Chưa nhận được mã?' : "Didn't receive the code?"} </span>
+              <button
+                type="button"
+                className="text-orange-600 font-semibold hover:underline cursor-pointer"
+                onClick={() => {
+                  setOtpError('');
+                  // Mock resend
+                  const toast = document.createElement('div');
+                  toast.className = 'fixed bottom-4 right-4 bg-stone-900 text-white px-4 py-2 rounded shadow-xl text-xs z-[9999] transition-all opacity-100';
+                  toast.textContent = isVi ? 'Đã gửi lại mã OTP (123456)' : 'OTP Resent (123456)';
+                  document.body.appendChild(toast);
+                  setTimeout(() => toast.remove(), 3000);
+                }}
+              >
+                {isVi ? 'Gửi lại' : 'Resend'}
+              </button>
+            </div>
+          </div>
         ) : (
           /* ============================================================ */
           /* MODE: REGISTER FORM                                          */
@@ -762,153 +885,120 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
           <div className="max-w-md w-full mx-auto py-2">
             {/* Header */}
             <div className="mb-5">
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
-                {isVi ? 'Đăng ký hội viên' : 'Member Registration'}
+              <h2 className="text-2xl sm:text-[28px] font-extrabold text-stone-900 tracking-tight leading-tight">
+                {isVi ? 'Đăng ký & Nhận tập thử' : 'Register & Get Free Trial'}
               </h2>
               <p className="text-xs sm:text-sm text-stone-500 mt-1.5">
                 {isVi
-                  ? 'Điền thông tin bên dưới để khởi tạo tài khoản tập luyện.'
-                  : 'Fill in your details below to create your training account.'}
+                  ? 'Khởi tạo tài khoản ngay để nhận 1 buổi tập thử hoàn toàn miễn phí.'
+                  : 'Create your account now to claim 1 free trial session.'}
               </p>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleRegister} className="space-y-3.5">
+            <form onSubmit={handleRegister} className="space-y-4">
               {/* Full Name */}
               <div>
-                <label className="text-xs font-bold text-stone-700 block mb-1">
-                  {isVi ? 'Họ và tên *' : 'Full name *'}
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    required
-                    value={regName}
-                    onChange={e => {
-                      setRegName(e.target.value);
-                      if (regErrors.name) setRegErrors(prev => ({ ...prev, name: undefined }));
-                    }}
-                    placeholder={isVi ? 'Ví dụ: Nguyễn Minh Anh' : 'e.g., John Doe'}
-                    className={`w-full h-9.5 pl-9 pr-3 bg-white border rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:ring-2 transition-all ${
-                      regErrors.name ? 'border-rose-500 focus:ring-rose-100' : 'border-stone-300 focus:border-orange-600 focus:ring-orange-100'
-                    }`}
-                  />
-                </div>
+                <input
+                  type="text"
+                  required
+                  value={regName}
+                  onChange={e => {
+                    setRegName(e.target.value);
+                    if (regErrors.name) setRegErrors(prev => ({ ...prev, name: undefined }));
+                  }}
+                  placeholder={isVi ? 'Họ và Tên *' : 'Full Name *'}
+                  className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
+                    regErrors.name ? 'border-rose-500' : 'border-stone-300 focus:border-orange-600'
+                  }`}
+                />
                 {regErrors.name && (
                   <p className="text-[11px] text-rose-600 mt-1">{regErrors.name}</p>
                 )}
               </div>
 
-              {/* Phone and Email in 2 columns */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Phone */}
-                <div>
-                  <label className="text-xs font-bold text-stone-700 block mb-1">
-                    {isVi ? 'Số điện thoại *' : 'Phone number *'}
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="tel"
-                      required
-                      value={regPhone}
-                      onChange={e => {
-                        setRegPhone(e.target.value);
-                        if (regErrors.phone) setRegErrors(prev => ({ ...prev, phone: undefined }));
-                      }}
-                      placeholder="0988123456"
-                      className={`w-full h-9.5 pl-9 pr-3 bg-white border rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:ring-2 transition-all ${
-                        regErrors.phone ? 'border-rose-500 focus:ring-rose-100' : 'border-stone-300 focus:border-orange-600 focus:ring-orange-100'
-                      }`}
-                    />
-                  </div>
-                  {regErrors.phone && (
-                    <p className="text-[11px] text-rose-600 mt-1">{regErrors.phone}</p>
-                  )}
-                </div>
+              {/* Phone */}
+              <div>
+                <input
+                  type="tel"
+                  required
+                  value={regPhone}
+                  onChange={e => {
+                    setRegPhone(e.target.value);
+                    if (regErrors.phone) setRegErrors(prev => ({ ...prev, phone: undefined }));
+                  }}
+                  placeholder={isVi ? 'Số điện thoại *' : 'Phone Number *'}
+                  className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
+                    regErrors.phone ? 'border-rose-500' : 'border-stone-300 focus:border-orange-600'
+                  }`}
+                />
+                {regErrors.phone && (
+                  <p className="text-[11px] text-rose-600 mt-1">{regErrors.phone}</p>
+                )}
+              </div>
 
-                {/* Email */}
-                <div>
-                  <label className="text-xs font-bold text-stone-700 block mb-1">
-                    {isVi ? 'Email *' : 'Email *'}
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="email"
-                      required
-                      value={regEmail}
-                      onChange={e => {
-                        setRegEmail(e.target.value);
-                        if (regErrors.email) setRegErrors(prev => ({ ...prev, email: undefined }));
-                      }}
-                      placeholder="member@gmail.com"
-                      className={`w-full h-9.5 pl-9 pr-3 bg-white border rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:ring-2 transition-all ${
-                        regErrors.email ? 'border-rose-500 focus:ring-rose-100' : 'border-stone-300 focus:border-orange-600 focus:ring-orange-100'
-                      }`}
-                    />
-                  </div>
-                  {regErrors.email && (
-                    <p className="text-[11px] text-rose-600 mt-1">{regErrors.email}</p>
-                  )}
-                </div>
+              {/* Email */}
+              <div>
+                <input
+                  type="email"
+                  required
+                  value={regEmail}
+                  onChange={e => {
+                    setRegEmail(e.target.value);
+                    if (regErrors.email) setRegErrors(prev => ({ ...prev, email: undefined }));
+                  }}
+                  placeholder={isVi ? 'Email' : 'Email'}
+                  className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
+                    regErrors.email ? 'border-rose-500' : 'border-stone-300 focus:border-orange-600'
+                  }`}
+                />
+                {regErrors.email && (
+                  <p className="text-[11px] text-rose-600 mt-1">{regErrors.email}</p>
+                )}
               </div>
 
               {/* Password and Confirm Password */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-stone-700 block mb-1">
-                    {isVi ? 'Mật khẩu *' : 'Password *'}
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type={showRegPassword ? 'text' : 'password'}
-                      required
-                      value={regPassword}
-                      onChange={e => {
-                        setRegPassword(e.target.value);
-                        if (regErrors.password) setRegErrors(prev => ({ ...prev, password: undefined }));
-                      }}
-                      placeholder="••••••••"
-                      className={`w-full h-9.5 pl-9 pr-8 bg-white border rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:ring-2 transition-all ${
-                        regErrors.password ? 'border-rose-500 focus:ring-rose-100' : 'border-stone-300 focus:border-orange-600 focus:ring-orange-100'
-                      }`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowRegPassword(v => !v)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
-                    >
-                      {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="relative">
+                  <input
+                    type={showRegPassword ? 'text' : 'password'}
+                    required
+                    value={regPassword}
+                    onChange={e => {
+                      setRegPassword(e.target.value);
+                      if (regErrors.password) setRegErrors(prev => ({ ...prev, password: undefined }));
+                    }}
+                    placeholder={isVi ? 'Mật khẩu *' : 'Password *'}
+                    className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 pr-8 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
+                      regErrors.password ? 'border-rose-500' : 'border-stone-300 focus:border-orange-600'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRegPassword(v => !v)}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
+                  >
+                    {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                   {regErrors.password && (
                     <p className="text-[11px] text-rose-600 mt-1">{regErrors.password}</p>
                   )}
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-stone-700 block mb-1">
-                    {isVi ? 'Xác nhận mật khẩu *' : 'Confirm password *'}
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type={showRegPassword ? 'text' : 'password'}
-                      required
-                      value={regConfirmPassword}
-                      onChange={e => {
-                        setRegConfirmPassword(e.target.value);
-                        if (regErrors.confirmPassword) setRegErrors(prev => ({ ...prev, confirmPassword: undefined }));
-                      }}
-                      placeholder="••••••••"
-                      className={`w-full h-9.5 pl-9 pr-3 bg-white border rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:ring-2 transition-all ${
-                        regErrors.confirmPassword ? 'border-rose-500 focus:ring-rose-100' : 'border-stone-300 focus:border-orange-600 focus:ring-orange-100'
-                      }`}
-                    />
-                  </div>
+                <div className="relative">
+                  <input
+                    type={showRegPassword ? 'text' : 'password'}
+                    required
+                    value={regConfirmPassword}
+                    onChange={e => {
+                      setRegConfirmPassword(e.target.value);
+                      if (regErrors.confirmPassword) setRegErrors(prev => ({ ...prev, confirmPassword: undefined }));
+                    }}
+                    placeholder={isVi ? 'Xác nhận mật khẩu *' : 'Confirm password *'}
+                    className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
+                      regErrors.confirmPassword ? 'border-rose-500' : 'border-stone-300 focus:border-orange-600'
+                    }`}
+                  />
                   {regErrors.confirmPassword && (
                     <p className="text-[11px] text-rose-600 mt-1">{regErrors.confirmPassword}</p>
                   )}
@@ -916,8 +1006,8 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
               </div>
 
               {/* reCAPTCHA for registration */}
-              <div className="pt-1">
-                <div className="bg-[#f9f9f9] border border-stone-300 rounded-[3px] p-2.5 flex items-center justify-between shadow-[0_1px_1px_rgba(0,0,0,0.06)] max-w-full">
+              <div className="pt-2">
+                <div className="bg-[#f9f9f9] border border-stone-300 rounded-[3px] p-2.5 flex items-center justify-between shadow-[0_1px_1px_rgba(0,0,0,0.06)] max-w-[300px]">
                   <div
                     onClick={handleRegCaptchaClick}
                     className="flex items-center gap-3 cursor-pointer select-none group"
@@ -964,21 +1054,39 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
               </div>
 
               {/* Submit Button */}
-              <div className="pt-2">
+              <div className="pt-4">
                 <button
                   type="submit"
                   disabled={isRegLoading}
-                  className="w-full h-10 bg-stone-900 hover:bg-stone-800 active:bg-stone-950 disabled:bg-stone-500 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
+                  className="w-1/2 min-w-[140px] h-12 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 disabled:bg-stone-500 text-white text-sm font-black tracking-widest uppercase transition-colors cursor-pointer shadow-md"
                 >
                   {isRegLoading ? (
-                    <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                    <span className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto" />
                   ) : (
-                    <>
-                      <UserPlus className="w-4 h-4" />
-                      <span>{isVi ? 'Hoàn tất đăng ký hội viên' : 'Complete Registration'}</span>
-                    </>
+                    isVi ? 'ĐĂNG KÝ' : 'REGISTER'
                   )}
                 </button>
+              </div>
+
+              {/* Disclaimer */}
+              <div className="pt-6 text-[11px] text-stone-500 leading-relaxed text-justify px-1 font-medium">
+                {isVi ? (
+                  <>
+                    Bằng việc nhấn "ĐĂNG KÝ", bạn xác nhận đã đọc và đồng ý với{' '}
+                    <a href="/privacy-policy" className="text-stone-800 hover:text-orange-600 font-bold underline transition-colors" target="_blank" rel="noreferrer">
+                      Chính sách bảo vệ dữ liệu cá nhân của SCMS
+                    </a>{' '}
+                    và đồng ý cho chúng tôi xử lý thông tin bạn cung cấp để liên hệ, sắp xếp lịch trải nghiệm miễn phí.
+                  </>
+                ) : (
+                  <>
+                    By clicking "REGISTER", you agree to the{' '}
+                    <a href="/privacy-policy" className="text-stone-800 hover:text-orange-600 font-bold underline transition-colors" target="_blank" rel="noreferrer">
+                      SCMS Privacy Policy
+                    </a>{' '}
+                    and consent to us processing your information to arrange your free trial session.
+                  </>
+                )}
               </div>
             </form>
 
@@ -999,6 +1107,140 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
           </div>
         )}
       </div>
+      </div>
+
+      {/* ============================================================ */}
+      {/* EXTRA LANDING PAGE SECTIONS FOR REGISTER MODE                */}
+      {/* ============================================================ */}
+      {authMode === 'register' && !isOtpMode && !registeredSuccessData && (
+        <div className="bg-white text-stone-900 flex-1 relative z-20">
+
+          {/* Section: Benefits (Friend's Exact Layout Adapted with SCMS Content) */}
+          <section ref={scrollRef} className="w-full bg-[#171513] relative h-[360vh]">
+            <div className="sticky top-0 h-screen w-full overflow-hidden flex flex-col justify-center gap-10 py-12 border-t border-stone-800">
+
+              {/* Background Text Overlay */}
+              <div
+                className="absolute top-1/2 -translate-y-1/2 text-[20vw] font-black text-white/[0.02] whitespace-nowrap pointer-events-none"
+                style={{ transform: `translate(calc(10% - ${scrollProgress * 70}%), -50%)` }}
+              >
+                QUYỀN LỢI
+              </div>
+
+              {/* Progress Bar (Friend's Style) */}
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full shrink-0 relative z-10">
+                <span className="text-orange-500 font-bold tracking-widest uppercase text-xs sm:text-sm mb-4 block">Quyền lợi hội viên</span>
+                <h2 className="text-4xl md:text-5xl lg:text-[64px] font-black text-stone-100 tracking-tight leading-[1.1] max-w-3xl mb-8">
+                  {isVi ? 'Bạn nhận được gì ' : 'What you get with '}
+                  <span className="text-white">{isVi ? 'tại SCMS.' : 'SCMS.'}</span>
+                </h2>
+                {/* Progress bar inside header */}
+                <div className="w-[120px] h-1 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-orange-500 transition-all duration-75 ease-out"
+                    style={{ width: `${scrollProgress * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Horizontal Scrolling Track */}
+              <div
+                ref={trackRef}
+                className="flex gap-4 sm:gap-6 w-max will-change-transform relative z-10"
+                style={{
+                  transform: `translateX(-${scrollProgress * trackDist}px)`,
+                  paddingLeft: 'max(24px, calc((100vw - 1240px) / 2))',
+                  paddingRight: '80px'
+                }}
+              >
+
+                {/* Card 1 */}
+                <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/10 hover:-translate-y-1.5 flex-shrink-0">
+                  <div className="flex items-baseline justify-between mb-10">
+                    <span className="text-orange-500 font-bold text-sm tracking-[0.1em] uppercase">{isVi ? 'THỂ HÌNH' : 'FITNESS'}</span>
+                    <span className="text-5xl font-extrabold text-white/20 leading-none">01</span>
+                  </div>
+                  <h3 className="text-3xl sm:text-[40px] font-black text-white uppercase leading-[1.08] mb-3">{isVi ? 'Trang thiết bị chuẩn quốc tế' : 'World-class Equipment'}</h3>
+                  <p className="text-white/70 text-[15.5px] leading-[1.55] mb-6">{isVi ? 'Mở khóa 100% quyền truy cập vào không gian tập luyện hiện đại. Hệ thống máy tập đa năng, khu cardio và tạ tự do được nhập khẩu trực tiếp.' : 'Unlock 100% access to modern workout spaces. Multi-functional machines, cardio zones, and free weights imported directly.'}</p>
+                  <ul className="border-t border-white/10 pt-2 flex-1 flex flex-col">
+                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">{isVi ? 'Không giới hạn thời gian tập' : 'Unlimited training time'}</li>
+                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">{isVi ? 'Phòng tắm, xông hơi cao cấp' : 'Premium sauna & shower'}</li>
+                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">{isVi ? 'Khăn tập & tủ đồ miễn phí' : 'Free towels & lockers'}</li>
+                    <li className="py-2.5 text-[14.5px] text-white/80">{isVi ? 'Bãi giữ xe rộng rãi' : 'Spacious parking'}</li>
+                  </ul>
+                </div>
+
+                {/* Card 2 */}
+                <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/10 hover:-translate-y-1.5 flex-shrink-0">
+                  <div className="flex items-baseline justify-between mb-10">
+                    <span className="text-orange-500 font-bold text-sm tracking-[0.1em] uppercase">{isVi ? 'LỚP NHÓM' : 'GROUP CLASSES'}</span>
+                    <span className="text-5xl font-extrabold text-white/20 leading-none">02</span>
+                  </div>
+                  <h3 className="text-3xl sm:text-[40px] font-black text-white uppercase leading-[1.08] mb-3">{isVi ? 'Hơn 50+ lớp học mỗi tuần' : 'Over 50+ classes weekly'}</h3>
+                  <p className="text-white/70 text-[15.5px] leading-[1.55] mb-6">{isVi ? 'Trải nghiệm mọi lớp học nhóm đỉnh cao không giới hạn số buổi. Tham gia cùng cộng đồng năng động dưới sự dẫn dắt chuyên nghiệp.' : 'Experience unlimited top-tier group classes. Join an active community under professional guidance.'}</p>
+                  <ul className="border-t border-white/10 pt-2 flex-1 flex flex-col">
+                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">{isVi ? 'Yoga, Pilates tĩnh tâm' : 'Yoga & Pilates'}</li>
+                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">{isVi ? 'Zumba, Aerobic sôi động' : 'Dynamic Zumba & Aerobics'}</li>
+                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">{isVi ? 'Boxing, Kickfit đốt mỡ' : 'Fat-burning Boxing & Kickfit'}</li>
+                    <li className="py-2.5 text-[14.5px] text-white/80">{isVi ? 'Đặt chỗ trước qua ứng dụng' : 'Pre-booking via app'}</li>
+                  </ul>
+                </div>
+
+                {/* Card 3 */}
+                <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/10 hover:-translate-y-1.5 flex-shrink-0">
+                  <div className="flex items-baseline justify-between mb-10">
+                    <span className="text-orange-500 font-bold text-sm tracking-[0.1em] uppercase">{isVi ? 'HUẤN LUYỆN VIÊN' : 'PERSONAL TRAINERS'}</span>
+                    <span className="text-5xl font-extrabold text-white/20 leading-none">03</span>
+                  </div>
+                  <h3 className="text-3xl sm:text-[40px] font-black text-white uppercase leading-[1.08] mb-3">{isVi ? 'Đồng hành chuyên sâu' : 'In-depth guidance'}</h3>
+                  <p className="text-white/70 text-[15.5px] leading-[1.55] mb-6">{isVi ? 'Sự tiến bộ của bạn luôn được theo dõi sát sao. HLV ghi lại chỉ số, thiết kế lộ trình dinh dưỡng và tập luyện cá nhân hóa.' : 'Your progress is closely monitored. PTs record metrics and design personalized nutrition & workout plans.'}</p>
+                  <ul className="border-t border-white/10 pt-2 flex-1 flex flex-col">
+                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">{isVi ? 'Đo chỉ số cơ thể InBody miễn phí' : 'Free InBody scans'}</li>
+                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">{isVi ? 'Thiết kế thực đơn dinh dưỡng' : 'Nutrition planning'}</li>
+                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">{isVi ? 'Theo dõi tiến độ hàng tuần' : 'Weekly progress tracking'}</li>
+                    <li className="py-2.5 text-[14.5px] text-white/80">{isVi ? 'Sửa lỗi sai tư thế tức thì' : 'Instant posture correction'}</li>
+                  </ul>
+                </div>
+
+                {/* Card 4 */}
+                <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/10 hover:-translate-y-1.5 flex-shrink-0">
+                  <div className="flex items-baseline justify-between mb-10">
+                    <span className="text-orange-500 font-bold text-sm tracking-[0.1em] uppercase">{isVi ? 'ĐẶC QUYỀN' : 'PRIVILEGES'}</span>
+                    <span className="text-5xl font-extrabold text-white/20 leading-none">04</span>
+                  </div>
+                  <h3 className="text-3xl sm:text-[40px] font-black text-white uppercase leading-[1.08] mb-3">{isVi ? 'Ưu đãi hội viên' : 'Member Perks'}</h3>
+                  <p className="text-white/70 text-[15.5px] leading-[1.55] mb-6">{isVi ? 'Trở thành một phần của SCMS và tận hưởng hàng ngàn quyền lợi độc quyền từ các đối tác về phong cách sống, ẩm thực.' : 'Become part of SCMS and enjoy exclusive perks from our lifestyle, food, and shopping partners.'}</p>
+                  <ul className="border-t border-white/10 pt-2 flex-1 flex flex-col">
+                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">{isVi ? 'Bảo hiểm cá nhân 1 tỷ đồng' : '1B VND Personal Insurance'}</li>
+                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">{isVi ? 'Giảm 20% tại chuỗi Supplements' : '20% off at Supplement stores'}</li>
+                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">{isVi ? 'Sự kiện giao lưu hội viên hàng quý' : 'Quarterly member events'}</li>
+                    <li className="py-2.5 text-[14.5px] text-white/80">{isVi ? 'Tặng voucher đối tác TTTM' : 'Partner mall vouchers'}</li>
+                  </ul>
+                </div>
+
+                {/* End Card */}
+                <div className="w-[320px] sm:w-[400px] lg:w-[460px] bg-orange-600 border border-orange-600 rounded-xl p-8 sm:p-10 flex flex-col justify-center items-start relative transition-all flex-shrink-0">
+                  <h3 className="text-4xl sm:text-[44px] font-black text-[#141210] uppercase leading-[1.08] mb-4">{isVi ? 'Trải nghiệm ngay hôm nay' : 'Start your journey today'}</h3>
+                  <p className="text-[#2a2522] text-[15.5px] leading-[1.55] mb-8 font-medium">{isVi ? 'Tạo tài khoản miễn phí để nhận ngay ưu đãi tập thử tại toàn bộ hệ thống SCMS. Không ràng buộc, không phí ẩn.' : 'Create a free account to receive an exclusive trial pass at any SCMS center. No commitments, no hidden fees.'}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="bg-[#141210] hover:bg-stone-800 text-white font-bold py-3 px-6 rounded flex items-center gap-2 transition-all group"
+                  >
+                    {isVi ? 'Đăng ký ngay' : 'Register now'} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          </section>
+
+          {/* Section: Footer (California Style) */}
+          <PublicFooter />
+        </div>
+      )}
     </div>
   );
 }

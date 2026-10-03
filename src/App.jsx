@@ -1,552 +1,364 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, Suspense } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useSCMS } from './context/SCMSContext';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { Toast } from './components/common/Toast';
-
-
-// Landing & Auth
-import { HomeLandingView } from './components/views/HomeLandingView';
-import { LoginView } from './components/views/LoginView';
-
-// Manager Views
-import { ManagerDashboard } from './components/views/ManagerDashboard';
-import { StaffManagement } from './components/views/StaffManagement';
-import { MemberManagement } from './components/views/MemberManagement';
-import { MemberDetailView } from './components/views/MemberDetailView';
-import { PackageManagement } from './components/views/PackageManagement';
-import { ClassManagement } from './components/views/ClassManagement';
-import { PaymentManagement } from './components/views/PaymentManagement';
-import { ReportsView } from './components/views/ReportsView';
-import { AuditLogView } from './components/views/AuditLogView';
-import { ResourceManagement } from './components/views/ResourceManagement';
-
-// Coach Views
-import { CoachDashboard } from './components/views/CoachDashboard';
-import { CoachScheduleView } from './components/views/CoachScheduleView';
-import { CoachAttendanceView } from './components/views/CoachAttendanceView';
-import { CoachAssignedMembersView } from './components/views/CoachAssignedMembersView';
-import { CoachTrainingProgress } from './components/views/CoachTrainingProgress';
-
-// Receptionist Views
-import { ReceptionistDashboard } from './components/views/ReceptionistDashboard';
-import { ReceptionMemberSearch } from './components/views/ReceptionMemberSearch';
-import { ReceptionClassBooking } from './components/views/ReceptionClassBooking';
-import { ReceptionPaymentsView } from './components/views/ReceptionPaymentsView';
-
-// Member Views
-import { MemberDashboard } from './components/views/MemberDashboard';
-import { MyMembershipView } from './components/views/MyMembershipView';
-import { MemberClassCatalog } from './components/views/MemberClassCatalog';
-
-// Settings & Support & Profile
-import { SettingsView } from './components/views/SettingsView';
-import { SupportView } from './components/views/SupportView';
-import { PersonalProfileView } from './components/views/PersonalProfileView';
 import { ForbiddenView } from './components/views/ForbiddenView';
 import { RequireAuth, RequireRole } from './components/auth/RouteGuard';
 import { AdminDataProvider } from './components/admin/AdminDataContext';
 import { AdminLayout } from './components/admin/AdminLayout';
-import { AdminDashboard } from './components/admin/views/AdminDashboard';
-import { AdminUsersView } from './components/admin/views/AdminUsersView';
-import { AdminRolesView } from './components/admin/views/AdminRolesView';
-import { AdminAuditLogsView } from './components/admin/views/AdminAuditLogsView';
-
 import {
   ROLE_ADMIN,
   ROLE_MANAGER,
   ROLE_COACH,
   ROLE_RECEPTIONIST,
   ROLE_MEMBER,
-  resolveRoute,
-  resolveAuthenticatedRoute,
-  checkRouteAccess,
-  getDefaultTab,
-  getRouteForTab,
   getLoginDestination,
-  isTabAllowedForRole,
 } from './utils/navigation';
+
+// Landing & Auth
+const HomeLandingView = React.lazy(() => import('./components/views/HomeLandingView').then(module => ({ default: module.HomeLandingView })));
+const LoginView = React.lazy(() => import('./components/views/LoginView').then(module => ({ default: module.LoginView })));
+const PrivacyPolicyView = React.lazy(() => import('./components/views/PrivacyPolicyView').then(module => ({ default: module.PrivacyPolicyView })));
+
+// Manager Views
+const ManagerDashboard = React.lazy(() => import('./components/views/ManagerDashboard').then(module => ({ default: module.ManagerDashboard })));
+const StaffManagement = React.lazy(() => import('./components/views/StaffManagement').then(module => ({ default: module.StaffManagement })));
+const MemberManagement = React.lazy(() => import('./components/views/MemberManagement').then(module => ({ default: module.MemberManagement })));
+const MemberDetailView = React.lazy(() => import('./components/views/MemberDetailView').then(module => ({ default: module.MemberDetailView })));
+const PackageManagement = React.lazy(() => import('./components/views/PackageManagement').then(module => ({ default: module.PackageManagement })));
+const ClassManagement = React.lazy(() => import('./components/views/ClassManagement').then(module => ({ default: module.ClassManagement })));
+const PaymentManagement = React.lazy(() => import('./components/views/PaymentManagement').then(module => ({ default: module.PaymentManagement })));
+const ReportsView = React.lazy(() => import('./components/views/ReportsView').then(module => ({ default: module.ReportsView })));
+const AuditLogView = React.lazy(() => import('./components/views/AuditLogView').then(module => ({ default: module.AuditLogView })));
+const ResourceManagement = React.lazy(() => import('./components/views/ResourceManagement').then(module => ({ default: module.ResourceManagement })));
+
+// Coach Views
+const CoachDashboard = React.lazy(() => import('./components/views/CoachDashboard').then(module => ({ default: module.CoachDashboard })));
+const CoachScheduleView = React.lazy(() => import('./components/views/CoachScheduleView').then(module => ({ default: module.CoachScheduleView })));
+const CoachAttendanceView = React.lazy(() => import('./components/views/CoachAttendanceView').then(module => ({ default: module.CoachAttendanceView })));
+const CoachAssignedMembersView = React.lazy(() => import('./components/views/CoachAssignedMembersView').then(module => ({ default: module.CoachAssignedMembersView })));
+const CoachTrainingProgress = React.lazy(() => import('./components/views/CoachTrainingProgress').then(module => ({ default: module.CoachTrainingProgress })));
+
+// Receptionist Views
+const ReceptionistDashboard = React.lazy(() => import('./components/views/ReceptionistDashboard').then(module => ({ default: module.ReceptionistDashboard })));
+const ReceptionMemberSearch = React.lazy(() => import('./components/views/ReceptionMemberSearch').then(module => ({ default: module.ReceptionMemberSearch })));
+const ReceptionClassBooking = React.lazy(() => import('./components/views/ReceptionClassBooking').then(module => ({ default: module.ReceptionClassBooking })));
+const ReceptionPaymentsView = React.lazy(() => import('./components/views/ReceptionPaymentsView').then(module => ({ default: module.ReceptionPaymentsView })));
+
+// Member Views
+const MemberDashboard = React.lazy(() => import('./components/views/MemberDashboard').then(module => ({ default: module.MemberDashboard })));
+const MyMembershipView = React.lazy(() => import('./components/views/MyMembershipView').then(module => ({ default: module.MyMembershipView })));
+const MemberClassCatalog = React.lazy(() => import('./components/views/MemberClassCatalog').then(module => ({ default: module.MemberClassCatalog })));
+
+// Settings & Support & Profile
+const SettingsView = React.lazy(() => import('./components/views/SettingsView').then(module => ({ default: module.SettingsView })));
+const SupportView = React.lazy(() => import('./components/views/SupportView').then(module => ({ default: module.SupportView })));
+const PersonalProfileView = React.lazy(() => import('./components/views/PersonalProfileView').then(module => ({ default: module.PersonalProfileView })));
+
+// Discipline Views
+const PTDetailView = React.lazy(() => import('./components/views/PTDetailView').then(module => ({ default: module.PTDetailView })));
+const GymDetailView = React.lazy(() => import('./components/views/GymDetailView').then(m => ({ default: m.GymDetailView })));
+const BoxingDetailView = React.lazy(() => import('./components/views/BoxingDetailView').then(m => ({ default: m.BoxingDetailView })));
+const YogaDetailView = React.lazy(() => import('./components/views/YogaDetailView').then(m => ({ default: m.YogaDetailView })));
+const GroupXDetailView = React.lazy(() => import('./components/views/GroupXDetailView').then(m => ({ default: m.GroupXDetailView })));
+const RecoveryDetailView = React.lazy(() => import('./components/views/RecoveryDetailView').then(m => ({ default: m.RecoveryDetailView })));
+const SpinningDetailView = React.lazy(() => import('./components/views/SpinningDetailView').then(m => ({ default: m.SpinningDetailView })));
+const HIITDetailView = React.lazy(() => import('./components/views/HIITDetailView').then(m => ({ default: m.HIITDetailView })));
+const PilatesDetailView = React.lazy(() => import('./components/views/PilatesDetailView').then(m => ({ default: m.PilatesDetailView })));
+const ZumbaDetailView = React.lazy(() => import('./components/views/ZumbaDetailView').then(module => ({ default: module.ZumbaDetailView })));
+const DisciplineDetailView = React.lazy(() => import('./components/views/DisciplineDetailView').then(module => ({ default: module.DisciplineDetailView })));
+
+// Admin Views
+const AdminDashboard = React.lazy(() => import('./components/admin/views/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const AdminUsersView = React.lazy(() => import('./components/admin/views/AdminUsersView').then(m => ({ default: m.AdminUsersView })));
+const AdminRolesView = React.lazy(() => import('./components/admin/views/AdminRolesView').then(m => ({ default: m.AdminRolesView })));
+const AdminAuditLogsView = React.lazy(() => import('./components/admin/views/AdminAuditLogsView').then(m => ({ default: m.AdminAuditLogsView })));
+
+function MemberDetailWrapper() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  return <MemberDetailView memberId={id} onBack={() => navigate('/manager/members')} />;
+}
 
 function SCMSApp() {
   const {
     role,
     setRole,
-    currentTab,
-    setCurrentTab,
     t,
     language,
     isAuthenticated,
     authLoading,
-    authError,
-    clearAuthError,
     logout,
     apiEnabled,
   } = useSCMS();
 
-  // Track initial route on mount
-  const initialPath = typeof window !== 'undefined' ? window.location.pathname : '/';
-  const initialRoute = resolveRoute(initialPath);
-
-  const [publicView, setPublicView] = useState(() => (initialRoute.isPublic ? initialRoute.publicView : 'login'));
-  const [intendedLocation, setIntendedLocation] = useState(() => (!initialRoute.isPublic && initialPath !== '/' ? initialPath : null));
+  const navigate = useNavigate();
+  const location = useLocation();
   const [targetPackageId, setTargetPackageId] = useState(null);
-  const [selectedMemberId, setSelectedMemberId] = useState(null);
-  const effectiveTab = isTabAllowedForRole(currentTab, role) ? currentTab : getDefaultTab(role);
 
-  // G1.2: Handle login success with user returned directly from login()
   const handleLoginSuccess = (userOrRole) => {
-    const destination = getLoginDestination(userOrRole, intendedLocation, {
+    const savedIntended = typeof window !== 'undefined' ? sessionStorage.getItem('scms_intended_path') : null;
+    const destination = getLoginDestination(userOrRole, savedIntended, {
       isApiMode: apiEnabled,
     });
-    if (!destination) return;
-
-    if (!apiEnabled) {
-      setRole(destination.role);
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('scms_mock_role', destination.role);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('scms_intended_path');
+    }
+    const targetRole = destination?.role || (typeof userOrRole === 'string' ? userOrRole : userOrRole?.role);
+    if (targetRole) {
+      setRole(targetRole);
+      if (!apiEnabled && typeof window !== 'undefined') {
+        sessionStorage.setItem('scms_mock_role', targetRole);
         sessionStorage.setItem('scms_mock_authenticated', 'true');
       }
+      const defaultPath = destination?.path || (
+        targetRole === 'admin' ? '/admin/dashboard' :
+        targetRole === 'coach' ? '/coach/dashboard' :
+        targetRole === 'receptionist' ? '/receptionist/dashboard' :
+        targetRole === 'member' ? '/member/dashboard' : '/manager/dashboard'
+      );
+      navigate(defaultPath);
     }
-
-    // Determine target route: intendedLocation if valid for this role, else default dashboard
-    setIntendedLocation(null);
-
-    const resolved = resolveRoute(destination.path);
-    if (resolved.tab) {
-      setCurrentTab(resolved.tab);
-    }
-    if (typeof window !== 'undefined') {
-      window.history.pushState(null, '', destination.path);
-    }
-    setPublicView(null);
   };
 
   const handleLogout = async () => {
     const adminSession = role === ROLE_ADMIN;
     await logout();
-    setIntendedLocation(null);
-    setPublicView(adminSession ? 'admin-login' : 'home');
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('scms_mock_authenticated');
       sessionStorage.removeItem('scms_mock_role');
-      window.history.pushState(null, '', adminSession ? '/admin/login' : '/');
+      sessionStorage.removeItem('scms_intended_path');
     }
-  };
-
-  // Tab selection with URL history push
-  const handleSelectTab = (tab) => {
-    setCurrentTab(tab);
-    setSelectedMemberId(null);
-    const targetRoute = getRouteForTab(tab, role);
-    if (typeof window !== 'undefined' && window.location.pathname !== targetRoute) {
-      window.history.pushState(null, '', targetRoute);
-    }
-  };
-
-  // G1.3 & G1.4: Restore deep link / guard route when authLoading finishes
-  useEffect(() => {
-    if (authLoading) return;
-
-    const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
-    if (isAuthenticated) {
-      const access = checkRouteAccess(currentPath, role);
-      if (access.status === 'forbidden') {
-        setCurrentTab('forbidden');
-        setPublicView(null);
-        return;
-      }
-      if (access.status === 'not_found') {
-        const defaultRoute = resolveRoute(access.fallbackPath);
-        setCurrentTab(defaultRoute.tab);
-        setPublicView(null);
-        if (typeof window !== 'undefined' && currentPath !== defaultRoute.path) {
-          window.history.replaceState(null, '', defaultRoute.path);
-        }
-        return;
-      }
-
-      const restoredRoute = resolveAuthenticatedRoute(currentPath, role);
-      if (!restoredRoute) return;
-
-      setCurrentTab(restoredRoute.tab);
-      setPublicView(null);
-      if (typeof window !== 'undefined' && currentPath !== restoredRoute.path) {
-        window.history.replaceState(null, '', restoredRoute.path);
-      }
+    if (adminSession) {
+      navigate('/admin/login');
     } else {
-      const resolved = resolveRoute(currentPath);
-      if (!resolved.isPublic && currentPath !== '/') {
-        setIntendedLocation(currentPath);
-        setPublicView('login');
-      } else {
-        setPublicView(resolved.publicView || 'home');
-      }
+      navigate('/');
     }
-  }, [authLoading, isAuthenticated, role]);
+  };
 
-  // Handle browser Back / Forward popstate
-  useEffect(() => {
-    const handlePopState = () => {
-      const path = typeof window !== 'undefined' ? window.location.pathname : '/';
-      if (isAuthenticated) {
-        const access = checkRouteAccess(path, role);
-        if (access.status === 'forbidden') {
-          setCurrentTab('forbidden');
-          setPublicView(null);
-          return;
-        }
-        if (access.status === 'not_found') {
-          const defaultRoute = resolveRoute(access.fallbackPath);
-          setCurrentTab(defaultRoute.tab);
-          setPublicView(null);
-          if (path !== defaultRoute.path) {
-            window.history.replaceState(null, '', defaultRoute.path);
-          }
-          return;
-        }
+  const getAdminCurrentTab = () => {
+    const path = location.pathname;
+    if (path.startsWith('/admin/users')) return 'admin_users';
+    if (path.startsWith('/admin/roles')) return 'admin_roles';
+    if (path.startsWith('/admin/audit-logs')) return 'admin_audit_logs';
+    if (path === '/profile') return 'profile';
+    return 'admin_dashboard';
+  };
 
-        const restoredRoute = resolveAuthenticatedRoute(path, role);
-        if (!restoredRoute) return;
+  const getAdminTitle = (path) => {
+    if (path.startsWith('/admin/dashboard')) return 'Tổng quan hệ thống';
+    if (path.startsWith('/admin/users')) return 'Người dùng';
+    if (path.startsWith('/admin/roles')) return 'Vai trò & Quyền';
+    if (path.startsWith('/admin/audit-logs')) return 'Nhật ký hoạt động';
+    if (path === '/profile') return 'Hồ sơ cá nhân';
+    if (path === '/settings') return 'Cài đặt';
+    if (path === '/support') return 'Hỗ trợ';
+    if (path === '/403') return '403 - Quyền truy cập bị từ chối';
+    return 'Tổng quan hệ thống';
+  };
 
-        setCurrentTab(restoredRoute.tab);
-        setPublicView(null);
-        if (path !== restoredRoute.path) {
-          window.history.replaceState(null, '', restoredRoute.path);
-        }
-      } else {
-        const resolved = resolveRoute(path);
-        if (resolved.isPublic) {
-          setIntendedLocation(null);
-          setPublicView(resolved.publicView);
-        } else {
-          setIntendedLocation(path);
-          setPublicView('login');
-        }
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [isAuthenticated, role]);
-
-  // G1.3: While verifying auth session, show clean loading without flashing wrong layout
-  const unauthenticatedContent = publicView === 'home' && !authError ? (
-    <>
-      <HomeLandingView
-        onOpenLogin={() => {
-          setPublicView('login');
-          if (typeof window !== 'undefined') window.history.pushState(null, '', '/login');
-        }}
-        onOpenRegister={(packageId) => {
-          setTargetPackageId(packageId || null);
-          setPublicView('register');
-          if (typeof window !== 'undefined') window.history.pushState(null, '', '/register');
-        }}
-      />
-      <Toast />
-    </>
-  ) : (
-    <>
-      <LoginView
-        onLoginSuccess={handleLoginSuccess}
-        onBackToHome={() => {
-          clearAuthError();
-          setIntendedLocation(null);
-          setPublicView('home');
-          if (typeof window !== 'undefined') window.history.pushState(null, '', '/');
-        }}
-        initialMode={publicView === 'register' ? 'register' : 'login'}
-        initialPackageId={targetPackageId}
-        initialError={authError || ''}
-        adminEntry={publicView === 'admin-login'}
-      />
-      <Toast />
-    </>
-  );
-
-  // Render current view guarded by RequireRole
-  const renderView = () => {
-    switch (effectiveTab) {
-      // Manager
-      case 'dashboard':
-        return (
-          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <ManagerDashboard onNavigate={handleSelectTab} />
-          </RequireRole>
-        );
-      case 'staff':
-        return (
-          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <StaffManagement />
-          </RequireRole>
-        );
-      case 'members':
-        return (
-          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            {selectedMemberId ? (
-              <MemberDetailView memberId={selectedMemberId} onBack={() => setSelectedMemberId(null)} />
-            ) : (
-              <MemberManagement onSelectMemberDetail={(id) => setSelectedMemberId(id)} />
-            )}
-          </RequireRole>
-        );
-      case 'packages':
-        return (
-          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <PackageManagement />
-          </RequireRole>
-        );
-      case 'classes':
-        return (
-          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <ClassManagement />
-          </RequireRole>
-        );
-      case 'resources':
-        return (
-          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <ResourceManagement />
-          </RequireRole>
-        );
-      case 'payments':
-        return (
-          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <PaymentManagement />
-          </RequireRole>
-        );
-      case 'reports':
-        return (
-          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <ReportsView />
-          </RequireRole>
-        );
-      case 'auditLogs':
-        return (
-          <RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <AuditLogView />
-          </RequireRole>
-        );
-
-      // Coach
-      case 'coach_dashboard':
-        return (
-          <RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <CoachDashboard />
-          </RequireRole>
-        );
-      case 'coach_schedule':
-        return (
-          <RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <CoachScheduleView />
-          </RequireRole>
-        );
-      case 'coach_attendance':
-        return (
-          <RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <CoachAttendanceView />
-          </RequireRole>
-        );
-      case 'coach_assigned_members':
-        return (
-          <RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <CoachAssignedMembersView />
-          </RequireRole>
-        );
-      case 'coach_progress':
-        return (
-          <RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <CoachTrainingProgress />
-          </RequireRole>
-        );
-
-      // Receptionist
-      case 'reception_dashboard':
-        return (
-          <RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <ReceptionistDashboard />
-          </RequireRole>
-        );
-      case 'reception_member_search':
-        return (
-          <RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <ReceptionMemberSearch />
-          </RequireRole>
-        );
-      case 'reception_booking':
-        return (
-          <RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <ReceptionClassBooking />
-          </RequireRole>
-        );
-      case 'reception_payments':
-        return (
-          <RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <ReceptionPaymentsView />
-          </RequireRole>
-        );
-
-      // Member
-      case 'member_dashboard':
-        return (
-          <RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <MemberDashboard />
-          </RequireRole>
-        );
-      case 'member_my_membership':
-        return (
-          <RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <MyMembershipView />
-          </RequireRole>
-        );
-      case 'member_class_catalog':
-        return (
-          <RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <MemberClassCatalog />
-          </RequireRole>
-        );
-      case 'member_attendance_history':
-        return (
-          <RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <CoachAttendanceView />
-          </RequireRole>
-        );
-      case 'member_training_plan':
-        return (
-          <RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <CoachTrainingProgress />
-          </RequireRole>
-        );
-
-      // Admin
+  const handleAdminSelectTab = (tab) => {
+    switch (tab) {
       case 'admin_dashboard':
-        return (
-          <RequireRole allowedRoles={[ROLE_ADMIN]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <AdminDashboard />
-          </RequireRole>
-        );
+        navigate('/admin/dashboard');
+        break;
       case 'admin_users':
-        return (
-          <RequireRole allowedRoles={[ROLE_ADMIN]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <AdminUsersView />
-          </RequireRole>
-        );
+        navigate('/admin/users');
+        break;
       case 'admin_roles':
-        return (
-          <RequireRole allowedRoles={[ROLE_ADMIN]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <AdminRolesView />
-          </RequireRole>
-        );
+        navigate('/admin/roles');
+        break;
       case 'admin_audit_logs':
-        return (
-          <RequireRole allowedRoles={[ROLE_ADMIN]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <AdminAuditLogsView />
-          </RequireRole>
-        );
-
-      // Forbidden
-      case 'forbidden': {
-        const path = typeof window !== 'undefined' ? window.location.pathname : '';
-        const access = checkRouteAccess(path, role);
-        return (
-          <ForbiddenView
-            currentRole={role}
-            requiredRole={access.requiredRole}
-            attemptedPath={path}
-            onGoHome={() => handleSelectTab(getDefaultTab(role))}
-          />
-        );
-      }
-
-      // Settings & Support
-      case 'settings':
-        return <SettingsView />;
-      case 'support':
-        return <SupportView />;
-
+        navigate('/admin/audit-logs');
+        break;
       case 'profile':
-        return <PersonalProfileView />;
-
+        navigate('/profile');
+        break;
       default:
-        return <ManagerDashboard onNavigate={handleSelectTab} />;
+        navigate('/admin/dashboard');
     }
   };
 
   const getPageTitle = () => {
-    switch (effectiveTab) {
-      case 'forbidden':
-        return '403 - Quyền truy cập bị từ chối';
-        case 'admin_dashboard':
-          return 'Tổng quan hệ thống';
-        case 'admin_users':
-          return 'Người dùng';
-        case 'admin_roles':
-          return 'Vai trò & quyền';
-        case 'admin_audit_logs':
-          return 'Nhật ký hệ thống';
-      case 'dashboard':
-      case 'coach_dashboard':
-      case 'reception_dashboard':
-      case 'member_dashboard':
-        return t('dashboard');
-      case 'staff': return t('staff');
-      case 'members': return t('members');
-      case 'packages': return t('packages');
-      case 'classes': return t('classes');
-      case 'resources': return language === 'vi' ? 'Bộ môn & phòng tập' : 'Subjects & Rooms';
-      case 'coach_schedule': return t('schedule');
-      case 'coach_attendance': return t('attendance');
-      case 'coach_assigned_members': return t('assignedMembers');
-      case 'coach_progress': return t('trainingProgress');
-      case 'reception_member_search': return t('memberSearch');
-      case 'reception_booking': return t('bookings');
-      case 'reception_payments':
-      case 'payments': return t('payments');
-      case 'reports': return t('reports');
-      case 'auditLogs': return t('auditLogs');
-      case 'member_my_membership': return t('myMembership');
-      case 'member_class_catalog': return t('classCatalog');
-      case 'settings': return t('settings');
-      case 'support': return t('support');
-      default: return t('dashboard');
-    }
+    const path = location.pathname;
+    if (path.includes('/dashboard')) return t('dashboard');
+    if (path.includes('/staff')) return t('staff');
+    if (path.includes('/members')) return t('members');
+    if (path.includes('/packages')) return t('packages');
+    if (path.includes('/classes')) return t('classes');
+    if (path.includes('/resources')) return language === 'vi' ? 'Bộ môn & phòng tập' : 'Subjects & Rooms';
+    if (path.includes('/schedule')) return t('schedule');
+    if (path.includes('/attendance')) return t('attendance');
+    if (path.includes('/assigned-members')) return t('assignedMembers');
+    if (path.includes('/progress')) return t('trainingProgress');
+    if (path.includes('/search')) return t('memberSearch');
+    if (path.includes('/booking')) return t('bookings');
+    if (path.includes('/payments')) return t('payments');
+    if (path.includes('/reports')) return t('reports');
+    if (path.includes('/audit-logs')) return t('auditLogs');
+    if (path.includes('/my-membership')) return t('myMembership');
+    if (path.includes('/catalog')) return t('classCatalog');
+    if (path.includes('/settings')) return t('settings');
+    if (path.includes('/support')) return t('support');
+    if (path.includes('/profile')) return t('profile');
+    if (path.includes('/403')) return '403 - Quyền truy cập bị từ chối';
+    return t('dashboard');
   };
 
-  const authenticatedShell = role === ROLE_ADMIN ? (
-    <AdminDataProvider>
-      <AdminLayout
-        currentTab={effectiveTab}
-        currentTitle={getPageTitle()}
-        onSelectTab={handleSelectTab}
-        onLogout={handleLogout}
-      >
-        {renderView()}
-      </AdminLayout>
-    </AdminDataProvider>
-  ) : (
-    <div className="min-h-screen bg-[#F7F5F0] text-[#2D2721] flex flex-row font-sans antialiased">
-      {/* Sidebar */}
-      <Sidebar currentTab={effectiveTab} onSelectTab={handleSelectTab} />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header currentTitle={getPageTitle()} onLogout={handleLogout} />
-
-        <main className="flex-1 p-6 overflow-y-auto max-w-7xl w-full mx-auto">
-          {renderView()}
-        </main>
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-stone-950 text-stone-200 flex flex-col items-center justify-center gap-3 text-sm">
+        <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+        <p className="font-medium tracking-wide">Đang kiểm tra phiên đăng nhập...</p>
       </div>
+    );
+  }
 
-      <Toast />
-    </div>
-  );
+  // Public Routes (Unauthenticated)
+  if (!isAuthenticated) {
+    return (
+      <>
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div></div>}>
+          <Routes>
+            <Route path="/" element={<HomeLandingView onOpenLogin={() => navigate('/login')} onOpenRegister={(pkgId) => { setTargetPackageId(pkgId || null); navigate('/register'); }} />} />
+            <Route path="/discipline/pt" element={<PTDetailView />} />
+            <Route path="/discipline/gym" element={<GymDetailView />} />
+            <Route path="/discipline/boxing" element={<BoxingDetailView />} />
+            <Route path="/discipline/yoga" element={<YogaDetailView />} />
+            <Route path="/discipline/pilates" element={<PilatesDetailView />} />
+            <Route path="/discipline/recovery" element={<RecoveryDetailView />} />
+            <Route path="/discipline/spinning" element={<SpinningDetailView />} />
+            <Route path="/discipline/group-x" element={<GroupXDetailView />} />
+            <Route path="/discipline/hiit" element={<HIITDetailView />} />
+            <Route path="/discipline/zumba" element={<ZumbaDetailView />} />
+            <Route path="/discipline/:id" element={<DisciplineDetailView />} />
+            <Route path="/login" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" />} />
+            <Route path="/register" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="register" initialPackageId={targetPackageId} />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicyView onBackToHome={() => navigate('/')} />} />
+            <Route path="/admin/login" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" adminEntry={true} />} />
+            <Route path="/admin/*" element={<Navigate to="/admin/login" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+        <Toast />
+      </>
+    );
+  }
 
+  // Authenticated: Admin Portal
+  if (role === ROLE_ADMIN) {
+    return (
+      <RequireAuth
+        isAuthenticated={isAuthenticated}
+        authLoading={authLoading}
+        fallback={<Navigate to="/admin/login" replace />}
+      >
+        <AdminDataProvider>
+          <AdminLayout
+            currentTab={getAdminCurrentTab()}
+            currentTitle={getAdminTitle(location.pathname)}
+            onSelectTab={handleAdminSelectTab}
+            onLogout={handleLogout}
+          >
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div></div>}>
+              <Routes>
+                <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+                <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                <Route path="/admin/users" element={<AdminUsersView />} />
+                <Route path="/admin/roles" element={<AdminRolesView />} />
+                <Route path="/admin/audit-logs" element={<AdminAuditLogsView />} />
+                <Route path="/profile" element={<PersonalProfileView />} />
+                <Route path="/settings" element={<SettingsView />} />
+                <Route path="/support" element={<SupportView />} />
+                <Route path="/403" element={<ForbiddenView currentRole={role} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
+                <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+              </Routes>
+            </Suspense>
+          </AdminLayout>
+        </AdminDataProvider>
+      </RequireAuth>
+    );
+  }
+
+  // Authenticated: Manager, Coach, Receptionist, Member
   return (
     <RequireAuth
       isAuthenticated={isAuthenticated}
       authLoading={authLoading}
-      fallback={unauthenticatedContent}
+      fallback={<Navigate to="/login" replace />}
     >
-      {authenticatedShell}
+      <div className="min-h-screen bg-[#F7F5F0] text-[#2D2721] flex flex-row font-sans antialiased">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0">
+          <Header currentTitle={getPageTitle()} onLogout={handleLogout} />
+          <main className="flex-1 p-6 overflow-y-auto max-w-7xl w-full mx-auto">
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div></div>}>
+              <Routes>
+                {/* Admin routes protected from non-admin */}
+                <Route
+                  path="/admin/*"
+                  element={
+                    <RequireRole
+                      allowedRoles={[ROLE_ADMIN]}
+                      currentRole={role}
+                      attemptedPath={location.pathname}
+                      onForbidden={() => navigate(`/${role}/dashboard`)}
+                    />
+                  }
+                />
+
+                {/* Manager Routes */}
+                <Route path="/manager" element={<Navigate to="/manager/dashboard" replace />} />
+                <Route path="/manager/dashboard" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ManagerDashboard /></RequireRole>} />
+                <Route path="/manager/staff" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><StaffManagement /></RequireRole>} />
+                <Route path="/manager/members" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberManagement onSelectMemberDetail={(id) => navigate(`/manager/members/${id}`)} /></RequireRole>} />
+                <Route path="/manager/members/:id" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberDetailWrapper /></RequireRole>} />
+                <Route path="/manager/packages" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><PackageManagement /></RequireRole>} />
+                <Route path="/manager/classes" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ClassManagement /></RequireRole>} />
+                <Route path="/manager/resources" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ResourceManagement /></RequireRole>} />
+                <Route path="/manager/payments" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><PaymentManagement /></RequireRole>} />
+                <Route path="/manager/reports" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReportsView /></RequireRole>} />
+                <Route path="/manager/audit-logs" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><AuditLogView /></RequireRole>} />
+
+                {/* Coach Routes */}
+                <Route path="/coach" element={<Navigate to="/coach/dashboard" replace />} />
+                <Route path="/coach/dashboard" element={<RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachDashboard /></RequireRole>} />
+                <Route path="/coach/schedule" element={<RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachScheduleView /></RequireRole>} />
+                <Route path="/coach/attendance" element={<RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachAttendanceView /></RequireRole>} />
+                <Route path="/coach/assigned-members" element={<RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachAssignedMembersView /></RequireRole>} />
+                <Route path="/coach/progress" element={<RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachTrainingProgress /></RequireRole>} />
+
+                {/* Receptionist Routes */}
+                <Route path="/receptionist" element={<Navigate to="/receptionist/dashboard" replace />} />
+                <Route path="/receptionist/dashboard" element={<RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReceptionistDashboard /></RequireRole>} />
+                <Route path="/receptionist/search" element={<RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReceptionMemberSearch /></RequireRole>} />
+                <Route path="/receptionist/booking" element={<RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReceptionClassBooking /></RequireRole>} />
+                <Route path="/receptionist/payments" element={<RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReceptionPaymentsView /></RequireRole>} />
+
+                {/* Member Routes */}
+                <Route path="/member" element={<Navigate to="/member/dashboard" replace />} />
+                <Route path="/member/dashboard" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberDashboard /></RequireRole>} />
+                <Route path="/member/my-membership" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MyMembershipView /></RequireRole>} />
+                <Route path="/member/catalog" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberClassCatalog /></RequireRole>} />
+                <Route path="/member/attendance" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachAttendanceView /></RequireRole>} />
+                <Route path="/member/progress" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachTrainingProgress /></RequireRole>} />
+
+                {/* Common Routes */}
+                <Route path="/settings" element={<SettingsView />} />
+                <Route path="/support" element={<SupportView />} />
+                <Route path="/profile" element={<PersonalProfileView />} />
+                <Route path="/403" element={<ForbiddenView currentRole={role} attemptedPath={location.pathname} onGoHome={() => navigate(`/${role}/dashboard`)} />} />
+
+                {/* Fallback */}
+                <Route path="*" element={<Navigate to={`/${role || 'manager'}/dashboard`} replace />} />
+              </Routes>
+            </Suspense>
+          </main>
+        </div>
+        <Toast />
+      </div>
     </RequireAuth>
   );
 }

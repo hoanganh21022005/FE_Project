@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useSCMS } from '../../context/SCMSContext';
 import {
   LayoutDashboard, Users, UserCheck, Package, Calendar,
@@ -9,7 +10,9 @@ import {
 
 
 
-export function Sidebar({ currentTab, onSelectTab }) {
+export function Sidebar() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { role, language, t } = useSCMS();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -17,41 +20,41 @@ export function Sidebar({ currentTab, onSelectTab }) {
     switch (role) {
       case 'manager':
         return [
-          { id: 'dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
-          { id: 'staff', labelKey: 'staff', icon: Users },
-          { id: 'members', labelKey: 'members', icon: UserCheck },
-          { id: 'packages', labelKey: 'packages', icon: Package },
-          { id: 'classes', labelKey: 'classes', icon: Calendar },
-          { id: 'resources', labelKey: 'resources', label: language === 'vi' ? 'Bộ môn & phòng' : 'Subjects & Rooms', icon: Library },
-          { id: 'payments', labelKey: 'payments', icon: CreditCard },
-          { id: 'reports', labelKey: 'reports', icon: BarChart3 },
-          { id: 'auditLogs', labelKey: 'auditLogs', icon: History }
+          { path: '/manager/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
+          { path: '/manager/staff', labelKey: 'staff', icon: Users },
+          { path: '/manager/members', labelKey: 'members', icon: UserCheck },
+          { path: '/manager/packages', labelKey: 'packages', icon: Package },
+          { path: '/manager/classes', labelKey: 'classes', icon: Calendar },
+          { path: '/manager/resources', labelKey: 'resources', label: language === 'vi' ? 'Bộ môn & phòng' : 'Subjects & Rooms', icon: Library },
+          { path: '/manager/payments', labelKey: 'payments', icon: CreditCard },
+          { path: '/manager/reports', labelKey: 'reports', icon: BarChart3 },
+          { path: '/manager/audit-logs', labelKey: 'auditLogs', icon: History }
         ];
 
       case 'coach':
         return [
-          { id: 'coach_dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
-          { id: 'coach_schedule', labelKey: 'schedule', icon: Calendar },
-          { id: 'coach_attendance', labelKey: 'attendance', icon: ClipboardCheck },
-          { id: 'coach_assigned_members', labelKey: 'assignedMembers', icon: UserCheck },
-          { id: 'coach_progress', labelKey: 'trainingProgress', icon: TrendingUp }
+          { path: '/coach/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
+          { path: '/coach/schedule', labelKey: 'schedule', icon: Calendar },
+          { path: '/coach/attendance', labelKey: 'attendance', icon: ClipboardCheck },
+          { path: '/coach/assigned-members', labelKey: 'assignedMembers', icon: UserCheck },
+          { path: '/coach/progress', labelKey: 'trainingProgress', icon: TrendingUp }
         ];
 
       case 'receptionist':
         return [
-          { id: 'reception_dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
-          { id: 'reception_member_search', labelKey: 'memberSearch', icon: Search },
-          { id: 'reception_booking', labelKey: 'bookings', icon: Calendar },
-          { id: 'reception_payments', labelKey: 'payments', icon: CreditCard }
+          { path: '/receptionist/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
+          { path: '/receptionist/search', labelKey: 'memberSearch', icon: Search },
+          { path: '/receptionist/booking', labelKey: 'bookings', icon: Calendar },
+          { path: '/receptionist/payments', labelKey: 'payments', icon: CreditCard }
         ];
 
       case 'member':
         return [
-          { id: 'member_dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
-          { id: 'member_my_membership', labelKey: 'myMembership', icon: Award },
-          { id: 'member_class_catalog', labelKey: 'classCatalog', icon: Calendar },
-          { id: 'member_attendance_history', labelKey: 'attendance', icon: ClipboardCheck },
-          { id: 'member_training_plan', labelKey: 'trainingProgress', icon: Activity }
+          { path: '/member/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
+          { path: '/member/my-membership', labelKey: 'myMembership', icon: Award },
+          { path: '/member/catalog', labelKey: 'classCatalog', icon: Calendar },
+          { path: '/member/attendance', labelKey: 'attendance', icon: ClipboardCheck },
+          { path: '/member/progress', labelKey: 'trainingProgress', icon: Activity }
         ];
 
       default:
@@ -107,12 +110,12 @@ export function Sidebar({ currentTab, onSelectTab }) {
         <nav className="p-2 space-y-1">
           {navItems.map(item => {
             const Icon = item.icon;
-            const isActive = currentTab === item.id;
+            const isActive = location.pathname.includes(item.path);
 
             return (
               <button
-                key={item.id}
-                onClick={() => onSelectTab(item.id)}
+                key={item.path}
+                onClick={() => navigate(item.path)}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded text-xs transition-all ${
                   isActive
                     ? 'bg-orange-50 text-orange-700 font-bold border-l-2 border-orange-600 shadow-2xs'
@@ -131,9 +134,9 @@ export function Sidebar({ currentTab, onSelectTab }) {
       {/* Footer Settings & Support */}
       <div className="p-2 border-t border-slate-200 space-y-1">
         <button
-          onClick={() => onSelectTab('settings')}
+          onClick={() => navigate('/settings')}
           className={`w-full flex items-center gap-3 px-3 py-2 rounded text-xs font-medium transition-all ${
-            currentTab === 'settings'
+            location.pathname.includes('/settings')
               ? 'bg-orange-50 text-orange-700 font-bold border-l-2 border-orange-600'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
@@ -144,9 +147,9 @@ export function Sidebar({ currentTab, onSelectTab }) {
         </button>
 
         <button
-          onClick={() => onSelectTab('support')}
+          onClick={() => navigate('/support')}
           className={`w-full flex items-center gap-3 px-3 py-2 rounded text-xs font-medium transition-all ${
-            currentTab === 'support'
+            location.pathname.includes('/support')
               ? 'bg-orange-50 text-orange-700 font-bold border-l-2 border-orange-600'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
