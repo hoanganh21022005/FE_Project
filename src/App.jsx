@@ -100,7 +100,10 @@ function SCMSApp() {
 
   const handleLoginSuccess = (userOrRole) => {
     const savedIntended = typeof window !== 'undefined' ? sessionStorage.getItem('scms_intended_path') : null;
-    const destination = getLoginDestination(userOrRole, savedIntended, {
+    const currentPath = location.pathname;
+    const isPublicPath = currentPath === '/' || currentPath === '/login' || currentPath === '/register' || currentPath === '/admin/login' || currentPath === '/privacy-policy' || currentPath.startsWith('/discipline');
+    const effectiveIntended = savedIntended || (!isPublicPath ? currentPath : null);
+    const destination = getLoginDestination(userOrRole, effectiveIntended, {
       isApiMode: apiEnabled,
     });
     if (typeof window !== 'undefined') {
@@ -155,7 +158,7 @@ function SCMSApp() {
     if (path === '/profile') return 'Hồ sơ cá nhân';
     if (path === '/settings') return 'Cài đặt';
     if (path === '/support') return 'Hỗ trợ';
-    if (path === '/403') return '403 - Quyền truy cập bị từ chối';
+    if (path === '/403' || path.startsWith('/manager') || path.startsWith('/coach') || path.startsWith('/receptionist') || path.startsWith('/member')) return '403 - Quyền truy cập bị từ chối';
     return 'Tổng quan hệ thống';
   };
 
@@ -238,8 +241,8 @@ function SCMSApp() {
             <Route path="/register" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="register" initialPackageId={targetPackageId} />} />
             <Route path="/privacy-policy" element={<PrivacyPolicyView onBackToHome={() => navigate('/')} />} />
             <Route path="/admin/login" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" adminEntry={true} />} />
-            <Route path="/admin/*" element={<Navigate to="/admin/login" replace />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/admin/*" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" adminEntry={true} />} />
+            <Route path="*" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" />} />
           </Routes>
         </Suspense>
         <Toast />
@@ -273,6 +276,10 @@ function SCMSApp() {
                 <Route path="/settings" element={<SettingsView />} />
                 <Route path="/support" element={<SupportView />} />
                 <Route path="/403" element={<ForbiddenView currentRole={role} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
+                <Route path="/manager/*" element={<ForbiddenView currentRole={role} allowedRoles={[ROLE_MANAGER]} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
+                <Route path="/coach/*" element={<ForbiddenView currentRole={role} allowedRoles={[ROLE_COACH]} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
+                <Route path="/receptionist/*" element={<ForbiddenView currentRole={role} allowedRoles={[ROLE_RECEPTIONIST]} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
+                <Route path="/member/*" element={<ForbiddenView currentRole={role} allowedRoles={[ROLE_MEMBER]} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
                 <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
               </Routes>
             </Suspense>
