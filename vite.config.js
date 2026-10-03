@@ -21,8 +21,23 @@ export default defineConfig(({ mode }) => {
       strictPort: false,
       proxy: {
         '/api': {
-          target: apiProxyTarget,
+          target: (apiProxyTarget || 'http://localhost:8080').trim(),
           changeOrigin: true,
+          secure: false,
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq) => {
+              proxyReq.removeHeader('origin');
+              proxyReq.removeHeader('referer');
+            });
+            proxy.on('proxyRes', (proxyRes) => {
+              const sc = proxyRes.headers['set-cookie'];
+              if (sc) {
+                proxyRes.headers['set-cookie'] = sc.map((c) =>
+                  c.replace(/;\s*Secure/gi, '')
+                );
+              }
+            });
+          },
         },
       },
     },
