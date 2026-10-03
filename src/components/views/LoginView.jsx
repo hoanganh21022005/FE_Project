@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency } from '../../locales/translations';
 import { getErrorMessage } from '../../api/apiErrors';
-import { resolveMockLoginUser } from '../../utils/navigation';
+import { normalizeRole, resolveMockLoginUser, ROLE_ADMIN } from '../../utils/navigation';
 import {
   Activity,
   AlertCircle,
@@ -29,8 +29,8 @@ import {
 const DEMO_EMAIL = 'manager@scms.com';
 const DEMO_PASSWORD = '12345678';
 
-export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login', initialPackageId, initialError = '' }) {
-  const { language, setLanguage, packages, members, addMember, login, apiEnabled } = useSCMS();
+export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login', initialPackageId, initialError = '', adminEntry = false }) {
+  const { language, setLanguage, packages, members, addMember, login, logout, apiEnabled } = useSCMS();
   const isVi = language === 'vi';
 
   // Screen mode: 'login' | 'register'
@@ -109,6 +109,15 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
       setIsLoginLoading(true);
       try {
         const user = await login(trimmedEmail, loginPassword);
+        if (adminEntry && normalizeRole(user?.role, { isApiMode: true }) !== ROLE_ADMIN) {
+          await logout();
+          setLoginError(
+            isVi
+              ? 'Tài khoản này không có quyền truy cập Admin Portal.'
+              : 'This account cannot access the Admin Portal.'
+          );
+          return;
+        }
         onLoginSuccess(user);
       } catch (error) {
         setLoginError(
@@ -129,6 +138,14 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
     });
 
     if (mockUser) {
+      if (adminEntry && mockUser.role !== ROLE_ADMIN) {
+        setLoginError(
+          isVi
+            ? 'Tài khoản này không có quyền truy cập Admin Portal.'
+            : 'This account cannot access the Admin Portal.'
+        );
+        return;
+      }
       setIsLoginLoading(true);
       setTimeout(async () => {
         setIsLoginLoading(false);
@@ -150,7 +167,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
   };
 
   const fillDemoAccount = () => {
-    setLoginEmail(DEMO_EMAIL);
+    setLoginEmail(adminEntry ? 'admin@scms.com' : DEMO_EMAIL);
     setLoginPassword(DEMO_PASSWORD);
     setIsLoginCaptchaChecked(true);
     setLoginError('');
@@ -276,22 +293,24 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
             <>
               {/* Overline */}
               <div className="text-amber-500 font-bold text-xs tracking-wider uppercase mb-3.5">
-                {isVi ? 'NỀN TẢNG QUẢN LÝ' : 'MANAGEMENT PLATFORM'}
+                {adminEntry
+                  ? (isVi ? 'CỔNG QUẢN TRỊ HỆ THỐNG' : 'SYSTEM ADMINISTRATION')
+                  : (isVi ? 'NỀN TẢNG QUẢN LÝ' : 'MANAGEMENT PLATFORM')}
               </div>
 
               {/* Heading */}
               <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-extrabold text-white tracking-tight leading-[1.18]">
-                <div>{isVi ? 'Một hệ thống.' : 'One system.'}</div>
-                <div className="bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
-                  {isVi ? 'Mọi vận hành.' : 'Every operation.'}
+                <div>{adminEntry ? (isVi ? 'Quản trị rõ ràng.' : 'Clear administration.') : (isVi ? 'Một hệ thống.' : 'One system.')}</div>
+                <div className={adminEntry ? 'text-sky-300' : 'bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent'}>
+                  {adminEntry ? (isVi ? 'Dữ liệu đáng tin cậy.' : 'Trustworthy data.') : (isVi ? 'Mọi vận hành.' : 'Every operation.')}
                 </div>
               </h1>
 
               {/* Subtitle description */}
               <p className="text-stone-300 text-sm leading-relaxed max-w-lg mt-4 mb-8">
                 {isVi
-                  ? 'Quản lý hội viên, lớp học, thanh toán và nhân sự trong một nền tảng có phân quyền rõ ràng.'
-                  : 'Manage members, classes, payments, and staff in a single, clearly role-governed platform.'}
+                  ? (adminEntry ? 'Theo dõi người dùng, vai trò, quyền và nhật ký hệ thống từ dữ liệu backend.' : 'Quản lý hội viên, lớp học, thanh toán và nhân sự trong một nền tảng có phân quyền rõ ràng.')
+                  : (adminEntry ? 'Review users, roles, permissions, and audit activity from backend data.' : 'Manage members, classes, payments, and staff in a single, clearly role-governed platform.')}
               </p>
 
               {/* 4 Feature Items */}
@@ -302,10 +321,10 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   </div>
                   <div>
                     <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Quản lý hội viên' : 'Member management'}
+                      {adminEntry ? (isVi ? 'Người dùng hệ thống' : 'System users') : (isVi ? 'Quản lý hội viên' : 'Member management')}
                     </div>
                     <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Hồ sơ, gói tập, lịch sử điểm danh' : 'Profiles, packages, attendance history'}
+                      {adminEntry ? (isVi ? 'Danh sách và hồ sơ chỉ đọc' : 'Read-only directory and profiles') : (isVi ? 'Hồ sơ, gói tập, lịch sử điểm danh' : 'Profiles, packages, attendance history')}
                     </div>
                   </div>
                 </div>
@@ -316,10 +335,10 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   </div>
                   <div>
                     <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Lớp học & điểm danh' : 'Classes & attendance'}
+                      {adminEntry ? (isVi ? 'Vai trò & quyền' : 'Roles & permissions') : (isVi ? 'Lớp học & điểm danh' : 'Classes & attendance')}
                     </div>
                     <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Lịch lớp, đặt chỗ, điểm danh' : 'Class schedule, bookings, check-in'}
+                      {adminEntry ? (isVi ? 'Ma trận phân quyền minh bạch' : 'Transparent permission matrix') : (isVi ? 'Lịch lớp, đặt chỗ, điểm danh' : 'Class schedule, bookings, check-in')}
                     </div>
                   </div>
                 </div>
@@ -330,10 +349,10 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   </div>
                   <div>
                     <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Thanh toán' : 'Payments'}
+                      {adminEntry ? (isVi ? 'Nhật ký hệ thống' : 'System audit trail') : (isVi ? 'Thanh toán' : 'Payments')}
                     </div>
                     <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Ghi nhận, theo dõi giao dịch' : 'Record and track transactions'}
+                      {adminEntry ? (isVi ? 'Actor, hành động, đối tượng và thời gian' : 'Actor, action, target, and time') : (isVi ? 'Ghi nhận, theo dõi giao dịch' : 'Record and track transactions')}
                     </div>
                   </div>
                 </div>
@@ -344,10 +363,10 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   </div>
                   <div>
                     <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Báo cáo vận hành' : 'Operations reports'}
+                      {adminEntry ? (isVi ? 'Trạng thái nguồn dữ liệu' : 'Data source status') : (isVi ? 'Báo cáo vận hành' : 'Operations reports')}
                     </div>
                     <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Doanh thu và hiệu suất' : 'Revenue and performance analytics'}
+                      {adminEntry ? (isVi ? 'Lỗi từng panel, không mất toàn trang' : 'Panel-level errors without page loss') : (isVi ? 'Doanh thu và hiệu suất' : 'Revenue and performance analytics')}
                     </div>
                   </div>
                 </div>
@@ -560,12 +579,12 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
             {/* Header */}
             <div className="mb-7">
               <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
-                {isVi ? 'Đăng nhập' : 'Sign in'}
+                {adminEntry ? (isVi ? 'Đăng nhập Admin' : 'Admin sign in') : (isVi ? 'Đăng nhập' : 'Sign in')}
               </h2>
               <p className="text-xs sm:text-sm text-stone-500 mt-2">
                 {isVi
-                  ? 'Nhập thông tin tài khoản để tiếp tục.'
-                  : 'Enter your credentials to continue.'}
+                  ? (adminEntry ? 'Chỉ tài khoản Admin được phép tiếp tục.' : 'Nhập thông tin tài khoản để tiếp tục.')
+                  : (adminEntry ? 'Only Admin accounts may continue.' : 'Enter your credentials to continue.')}
               </p>
             </div>
 
@@ -596,7 +615,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   autoComplete="username"
                   value={loginEmail}
                   onChange={e => setLoginEmail(e.target.value)}
-                  placeholder="manager@scms.com"
+                  placeholder={adminEntry ? 'admin@scms.com' : 'manager@scms.com'}
                   className="w-full h-10 px-3.5 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:border-orange-600 focus:ring-2 focus:ring-orange-100 transition-all"
                 />
               </div>
@@ -703,7 +722,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
             </form>
 
             {/* Switch to Register link */}
-            <div className="mt-6 text-center text-xs text-stone-500">
+            {!adminEntry && <div className="mt-6 text-center text-xs text-stone-500">
               <span>{isVi ? 'Chưa có tài khoản?' : "Don't have an account?"}{' '}</span>
               <button
                 type="button"
@@ -715,16 +734,16 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
               >
                 {isVi ? 'Đăng ký hội viên' : 'Register membership'}
               </button>
-            </div>
+            </div>}
 
             {/* Quick Demo Fill Helper */}
-            <div className="mt-6 p-3.5 rounded-md border border-stone-200 bg-stone-50/70 flex items-center justify-between gap-3 text-xs">
+            {!apiEnabled && <div className="mt-6 p-3.5 rounded-md border border-stone-200 bg-stone-50/70 flex items-center justify-between gap-3 text-xs">
               <div>
                 <p className="text-[11px] font-bold text-stone-800">
                   {isVi ? 'Tài khoản trình diễn' : 'Demo account'}
                 </p>
                 <p className="mt-0.5 text-[11px] text-stone-500 font-mono">
-                  {DEMO_EMAIL} · {DEMO_PASSWORD}
+                  {adminEntry ? 'admin@scms.com' : DEMO_EMAIL} · {DEMO_PASSWORD}
                 </p>
               </div>
               <button
@@ -734,7 +753,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
               >
                 {isVi ? 'Điền lại' : 'Fill'}
               </button>
-            </div>
+            </div>}
           </div>
         ) : (
           /* ============================================================ */

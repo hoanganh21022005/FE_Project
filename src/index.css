@@ -5,14 +5,16 @@
   --font-sans: 'Roboto', 'Segoe UI', Arial, system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Driftwood Pearl Morning Palette Tokens */
+  /* SCMS Unified Palette Tokens (Firebase & Fireside) */
   --color-pearl-canvas: #F7F5F0;
+  --color-admin-canvas: #F7F8FA;
   --color-pearl-surface: #FFFFFF;
-  --color-driftwood-dark: #3B332B;
-  --color-driftwood-medium: #786C62;
-  --color-driftwood-sand: #E8E2D8;
-  --color-morning-blue: #2A5270;
-  --color-morning-blue-light: #EBF2F7;
+  --color-brand-flame: #EA580C;
+  --color-brand-flame-hover: #C2410C;
+  --color-brand-amber: #F59E0B;
+  --color-brand-soft-bg: #FFF7ED;
+  --color-brand-soft-border: #FED7AA;
+  --color-brand-dark: #0F172A;
 
   /* Fireside Hearth & Ember Palette Tokens */
   --color-fireside-dark: #0c0a09;
@@ -54,4 +56,28 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #78716c;
+}
+
+.admin-shell ::-webkit-scrollbar-track {
+  background: #F5F5F4;
+}
+
+.admin-shell ::-webkit-scrollbar-thumb {
+  background: #A8A29E;
+  border-radius: 3px;
+}
+
+.admin-shell ::-webkit-scrollbar-thumb:hover {
+  background: #78716C;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

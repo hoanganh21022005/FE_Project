@@ -275,6 +275,9 @@ const ROUTE_TAB_MAP = {
 
   // Admin routes
   "/admin/dashboard": { role: ROLE_ADMIN, tab: "admin_dashboard" },
+  "/admin/users": { role: ROLE_ADMIN, tab: "admin_users" },
+  "/admin/roles": { role: ROLE_ADMIN, tab: "admin_roles" },
+  "/admin/audit-logs": { role: ROLE_ADMIN, tab: "admin_audit_logs" },
 
   // Shared routes
   "/settings": { role: null, tab: "settings" },
@@ -320,6 +323,9 @@ const TAB_ROUTE_MAP = {
 
   // Admin
   admin_dashboard: "/admin/dashboard",
+  admin_users: "/admin/users",
+  admin_roles: "/admin/roles",
+  admin_audit_logs: "/admin/audit-logs",
 
   // Shared
   settings: "/settings",
@@ -336,11 +342,17 @@ export function resolveRoute(pathname) {
   if (
     normalizedPath === "/" ||
     normalizedPath === "/login" ||
-    normalizedPath === "/register"
+    normalizedPath === "/register" ||
+    normalizedPath === "/admin/login"
   ) {
     return {
       isPublic: true,
-      publicView: normalizedPath === "/" ? "home" : normalizedPath.slice(1),
+      publicView:
+        normalizedPath === "/"
+          ? "home"
+          : normalizedPath === "/admin/login"
+            ? "admin-login"
+            : normalizedPath.slice(1),
       path: normalizedPath,
       tab: null,
       role: null,

@@ -32,6 +32,7 @@ export const translations = {
     login: 'Đăng nhập',
     
     // Role names
+    roleAdmin: 'Quản trị viên',
     roleManager: 'Quản lý trung tâm',
     roleCoach: 'Huấn luyện viên',
     roleReceptionist: 'Lễ tân',
@@ -172,6 +173,7 @@ export const translations = {
     login: 'Log In',
 
     // Role names
+    roleAdmin: 'System Administrator',
     roleManager: 'Center Manager',
     roleCoach: 'Coach',
     roleReceptionist: 'Receptionist',

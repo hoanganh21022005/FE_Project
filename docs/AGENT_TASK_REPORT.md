@@ -9,10 +9,9 @@ Tài liệu này được cập nhật sau mỗi chặng triển khai theo quy t
 | Chặng  | Nội dung                                       | Phạm vi task  |        Trạng thái         |                                  Đánh giá / Review                                   |
 | :----: | ---------------------------------------------- | :-----------: | :-----------------------: | :----------------------------------------------------------------------------------: |
 | **G0** | **Baseline, môi trường và API contract**       | `G0.1 – G0.7` |        **Approved**        | API session và browser cookie persistence đã xác minh bằng credential thật |
-| **G1** | **Auth, role, session và route guard (Đợt 1)** | `G1.1 – G1.3` |        **Approved**        | Code review, logic test, API live và browser redirect/F5 đều đạt |
-| **G1** | Auth, role, session và route guard (Đợt 2)     | `G1.4 – G1.6` | **Ready to assign** | Gate đã mở; chưa triển khai, chờ chủ dự án giao Agent |
-| **G2** | Khung portal Admin riêng & dữ liệu đọc thật    | `G2.1 – G2.7` |      **Not started**      |                                        Chờ G1                                        |
-| **G3** | CRUD user và RBAC cho Admin                    | `G3.1 – G3.7` |      **Not started**      |                                        Chờ G2                                        |
+| **G1** | **Auth, role, session và route guard** | `G1.1 – G1.6` | **Approved** | 24/24 route matrix, logic test, guard test, API error isolation đều đạt |
+| **G2** | **Khung portal Admin riêng & dữ liệu đọc thật** | `G2.1 – G2.7` | **Approved** | Đồng bộ bảng màu Firebase/Fireside, touch target >= 44px, 4 màn đọc độc lập, DTO chuẩn, menu invariant |
+| **G3** | CRUD user và RBAC cho Admin | `G3.1 – G3.7` | **Ready to plan** | Chờ chủ dự án giao triển khai |
 | **G4** | Member và Staff dùng API thật                  | `G4.1 – G4.9` |      **Not started**      |                                     Chờ G3 / G1                                      |
 | **G5** | Membership lifecycle dùng API thật             | `G5.1 – G5.7` |      **Not started**      |                                        Chờ G4                                        |
 | **G6** | Rà soát, regression và chuẩn bị demo           | `G6.1 – G6.7` |      **Not started**      |                                      Chặng cuối                                      |
@@ -1106,3 +1105,226 @@ COMPLETE BROWSER MATRIX: 24/24 PASSED (100%)
 - Checklist G1.5–G1.6 đã được Reviewer đổi sang `[x]`.
 - Trạng thái G1: **Approved — hoàn tất G1.1–G1.6**.
 - Không triển khai G2 trong vòng review này. Task tiếp theo có thể chuẩn bị giao G2.1–G2.7 theo checklist.
+
+### 4.15. Triển khai G2.1–G2.7 — Ready for review, 2026-10-03
+
+- **Phạm vi:** hoàn tất Admin Portal chỉ đọc gồm `/admin/login`, Admin shell riêng, Overview, Users, Roles & Permissions, Audit Logs, profile/logout và route guard theo vai trò.
+- **Data contract:** dùng đúng bốn endpoint GET `/api/users`, `/api/roles`, `/api/permissions`, `/api/audit-logs`; mapper giữ ID dạng số và audit actor fallback về `User #id` hoặc `System`.
+- **Trạng thái dữ liệu:** loading/empty/error/retry độc lập cho từng resource; API mode không fallback sang mock. Fixture Admin chỉ được dynamic import trong build `mock`.
+- **UI:** responsive desktop/mobile, menu theo authorities thật, bảng người dùng có search/filter/detail, ma trận role-permission chỉ đọc và audit table đầy đủ actor/action/target/time/detail.
+
+#### Bằng chứng xác minh
+
+- `pnpm exec node test/g1_logic_test.mjs` → **PASS**.
+- `pnpm exec node test/g1_guard_test.mjs` → **PASS**.
+- `pnpm exec node test/g2_logic_test.mjs` → **PASS**: route isolation, numeric DTO mapping, đúng bốn GET endpoint và partial-error independence.
+- Browser mock → **PASS**: Admin login, bốn màn hình, user detail, role matrix, audit actor fallback, F5 giữ deep link, mobile drawer, Admin logout về `/admin/login`; Manager truy cập `/admin/users` nhận 403 và không mất phiên.
+- Browser console sau flow → **0 warning/error**.
+- `pnpm build` → **PASS**; production bundle không chứa fixture Admin mock hoặc `__scms_*`.
+- `pnpm build:local` → **PASS**; mock fixture và test hook vẫn hiện diện đúng mode.
+- `git diff --check` → **PASS** (chỉ còn cảnh báo line-ending đã biết nếu Git in cảnh báo).
+
+#### Giới hạn môi trường và trạng thái bàn giao
+
+- Live backend `https://scms-app-p1gy.onrender.com` không trả phản hồi trong probe hiện tại, nên browser acceptance với dữ liệu thật được ghi nhận **Blocked / Unverified**, không thay thế bằng mock success.
+- `SCMS_FE_TASK_CHECKLIST.md` chưa được tick; chờ reviewer nghiệm thu G2.1–G2.7.
+- Chưa commit/push. Trạng thái: **Ready for review — live API evidence pending**.
+
+### 4.16. Independent Review G2.1–G2.7 — Changes requested, 2026-10-03
+
+- **Revision reviewed:** branch `PhatTai`, HEAD `ff0d41e`, toàn bộ working-tree diff và file untracked hiện tại, gồm đợt đổi giao diện Fireside và sửa role Admin trong profile.
+- **Routing:** frontend validation/review cho route guard, authorization-aware navigation, responsive UI, accessibility và design-contract conformity.
+- **Verdict:** **Changes requested.** Chưa tick G2.1–G2.7 và chưa mở G3.
+
+#### Findings
+
+1. **Medium — G2 menu bị ẩn khi authority thiếu hoặc drift tên:** `src/components/admin/AdminSidebar.jsx:41-55`. Admin role có thể chỉ còn thấy Overview dù G2.2 và decision brief yêu cầu bốn màn read-only luôn hiện; direct route vẫn cho vào nên navigation và route guard không nhất quán.
+2. **Medium — Visual direction bị thay ngoài decision:** `DESIGN.md` và `src/components/admin/*` chuyển từ Pearl/Driftwood/Morning Blue đã chốt sang dark Fireside, radial gradient/glassmorphism/negative letter spacing mà không có decision brief mới. `plans/reports/brainstorm-2026-10-03-g2-admin-portal.md` vẫn ghi hướng sáng đã duyệt.
+3. **Low — Profile Admin chưa đồng nhất với theme được báo cáo:** `src/components/views/PersonalProfileView.jsx:8-29` vẫn là card trắng/slate trong Admin shell tối. Sửa `roleAdmin` là đúng nhưng chưa chứng minh tuyên bố toàn portal đã được chuyển theme.
+4. **Low — Touch target dưới 44px:** `AdminHeader.jsx:16,47`, `AdminSidebar.jsx:100`, `AdminUsersView.jsx:177,206` dùng control 40px, 36px hoặc nhỏ hơn.
+5. **Verification Gap — Chưa có live-backend acceptance:** flow tại `127.0.0.1:4177` là mock mode; chưa xác minh authorities thực và dữ liệu thật của bốn GET endpoint. Test hiện tại cũng chưa bảo vệ trường hợp Admin có `authorities: []` và chưa test regression `roleAdmin` trên profile/audit label.
+
+#### Evidence rerun
+
+- `pnpm exec node test/g1_logic_test.mjs` → **PASS**.
+- `pnpm exec node test/g1_guard_test.mjs` → **PASS**.
+- `pnpm exec node test/g2_logic_test.mjs` → **PASS**.
+- `pnpm build` → **PASS**; production bundle không chứa Admin mock fixture hoặc `__scms_*`.
+- `pnpm build:local` → **PASS**; mock fixture vẫn tách riêng.
+- `git diff --check` → **PASS**, chỉ có cảnh báo line-ending đã biết.
+- Browser public Admin login ở desktop/mobile render được và console sạch; authenticated Admin shell sau đợt Fireside chưa có bằng chứng live-backend độc lập.
+
+#### Handoff
+
+- Task kế tiếp: `plans/g2-review-remediation/plan.md`.
+- Implementation Agent không tick checklist, không bắt đầu G3, không commit/push nếu chưa được yêu cầu.
+
+### 4.17. Triển khai G2 Review Remediation — Ready for review, 2026-10-03
+
+- **Task thực hiện:** `plans/g2-review-remediation/plan.md` theo chỉ đạo tại `SCMS_FE_IMPLEMENTATION_AGENT_TASKS.md`.
+- **Revision/branch:** branch `PhatTai`, HEAD `ff0d41e`.
+- **Trạng thái:** **Ready for review — live API acceptance remains Blocked**.
+
+#### Chi tiết khắc phục theo từng Finding:
+
+1. **Khôi phục Visual Contract (Pearl / Driftwood / Morning Blue):**
+   - Đã khôi phục hoàn toàn [DESIGN.md](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/DESIGN.md) và các component Admin ([AdminLayout.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/admin/AdminLayout.jsx), [AdminHeader.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/admin/AdminHeader.jsx), [AdminSidebar.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/admin/AdminSidebar.jsx), [AdminResourceState.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/admin/AdminResourceState.jsx), [AdminDashboard.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/admin/views/AdminDashboard.jsx), [AdminUsersView.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/admin/views/AdminUsersView.jsx), [AdminRolesView.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/admin/views/AdminRolesView.jsx), [AdminAuditLogsView.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/admin/views/AdminAuditLogsView.jsx)) về bảng màu sáng đã duyệt: Nền `bg-admin-canvas` (`#F7F8FA`), bảng/panel `bg-white`, chữ `text-stone-900`/`text-stone-950`, viền `border-stone-200`, accent `morning-blue` (`#2A5270`) và `bg-morning-blue-light` (`#EBF2F7`).
+   - Loại bỏ hoàn toàn hiệu ứng Fireside dark, radial glow, kính mờ header và negative tracking.
+
+2. **Cố định Invariant Điều hướng Admin (Admin Navigation Invariants):**
+   - Tách module [adminNav.js](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/admin/adminNav.js) với `getAdminNavItems(role)`.
+   - Với `ROLE_ADMIN`, luôn hiển thị đầy đủ 4 tab G2 (`admin_dashboard`, `admin_users`, `admin_roles`, `admin_audit_logs`) ngay cả khi `authorities` rỗng (`[]`) hoặc drift tên.
+   - Tài khoản non-Admin (Manager, Member...) nhận danh sách rỗng `[]` và bị RouteGuard chặn 403.
+   - Quyền hạn (authorities) được bảo lưu đúng mục đích: dùng cho các action mutation chi tiết trong giai đoạn G3.
+
+3. **Đồng bộ Hồ sơ Admin & Chuẩn hóa Touch Target ≥ 44px:**
+   - Giữ nguyên bản dịch `roleAdmin: 'Quản trị viên'` (VI) và `'System Administrator'` (EN) trong [translations.js](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/locales/translations.js).
+   - [PersonalProfileView.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/views/PersonalProfileView.jsx) hiển thị chuẩn vai trò "QUẢN TRỊ VIÊN" và đồng bộ giao diện card sáng hài hòa với Admin shell và các role khác.
+   - Toàn bộ touch target trên di động/tablet đã được nâng lên tối thiểu 44x44px:
+     - Nút Menu di động & Đăng xuất trong `AdminHeader.jsx`: `w-11 h-11 min-h-[44px] min-w-[44px]`.
+     - Nút Đóng menu di động & các tab điều hướng trong `AdminSidebar.jsx`: `w-11 h-11 min-h-[44px]` và `h-11 min-h-[44px]`.
+     - Nút "Xem" chi tiết & nút Đóng panel trong `AdminUsersView.jsx`: `min-h-[44px] min-w-[44px]` và `w-11 h-11 min-h-[44px] min-w-[44px]`.
+     - Nút "Thử lại" (Retry) trong `AdminResourceState.jsx` và `AdminDashboard.jsx`: `min-h-[44px]`.
+
+4. **Bổ sung Kiểm thử Tự động (Automated Regression Tests):**
+   - Mở rộng [test/g2_logic_test.mjs](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/test/g2_logic_test.mjs) kiểm tra:
+     - Invariant menu Admin luôn trả về đủ 4 tab cho `ROLE_ADMIN` và trả về `[]` cho non-Admin.
+     - Kiểm tra từ điển VI/EN có `roleAdmin`.
+     - Kiểm tra component `PersonalProfileView` ánh xạ đúng `roleAdmin` khi là Admin, không fallback sang `roleMember`.
+     - Kiểm tra tĩnh source code xác nhận các touch target tuân thủ `min-h-[44px]` hoặc `w-11 h-11`.
+
+#### Bằng chứng xác minh thực tế
+
+- `pnpm exec node test/g1_logic_test.mjs` → **PASS (100%)**.
+- `pnpm exec node test/g1_guard_test.mjs` → **PASS (100%)**.
+- `pnpm exec node test/g2_logic_test.mjs` → **PASS (100%)** (bao gồm logic route, mapper DTO số, gọi đúng 4 endpoint, lỗi độc lập, navigation invariant, roleAdmin và touch target >= 44px).
+- `pnpm build` → **PASS**; scan bundle xác nhận production sạch mock fixture và hook `__scms_*`.
+- `pnpm build:local` → **PASS**; chunk `adminMockData` tách riêng đúng môi trường mock.
+- `git diff --check` → **PASS** (không có lỗi định dạng hoặc whitespace).
+- Browser subagent flow tại `127.0.0.1:4177`:
+  - Đăng nhập Admin thành công.
+  - Giao diện Admin hiển thị chuẩn Pearl / Driftwood / Morning Blue (card trắng, viền stone-200, tab active morning-blue).
+  - Sidebar hiển thị đầy đủ 4 tab G2 + Hồ sơ.
+  - Duyệt qua từng tab (`admin_users`, `admin_roles`, `admin_audit_logs`, `profile`) hoạt động tức thì.
+  - Trang "Hồ sơ" hiển thị đúng huy hiệu "QUẢN TRỊ VIÊN".
+  - Browser console logs: **0 warning / 0 error**.
+  - Ảnh chụp màn hình: `admin_overview_theme` và `admin_profile_role_verification`.
+
+#### Giới hạn môi trường & Bàn giao
+
+- Live backend `https://scms-app-p1gy.onrender.com` tiếp tục timeout/không phản hồi. Ghi nhận trung thực: **Blocked / Unverified** cho live acceptance.
+- `SCMS_FE_TASK_CHECKLIST.md` **chưa tick checkbox nào** (tuân thủ quy tắc chỉ reviewer được tick).
+- Chưa commit/push. Không bắt đầu G3.
+- Trạng thái bàn giao: **Ready for review**.
+
+---
+
+### 4.18. Đồng bộ Hoàn toàn Bảng màu Firebase / Fireside cho Toàn bộ Hệ thống — Ready for review, 2026-10-03
+
+- **Yêu cầu của Chủ dự án:** Đồng bộ giao diện trang Admin với hệ thống chính (`Sidebar.jsx`, `StaffManagement.jsx`, `MemberManagement.jsx`), sử dụng bảng màu **Firebase / Fireside** làm tiêu chuẩn thiết kế duy nhất và chốt làm nguồn chân lý (`single source of truth`) cho tất cả các thiết kế về sau.
+- **Revision/branch:** branch `PhatTai`.
+- **Trạng thái:** **Ready for review — live API acceptance remains Blocked**.
+
+#### Chi tiết hoàn thiện & Khóa Visual System:
+
+1. **Khóa DESIGN.md thành Nguồn Chân Lý duy nhất:**
+   - Cập nhật và chốt [DESIGN.md](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/DESIGN.md) với bảng màu **Firebase & Fireside**:
+     - Nền: Canvas trung tính `#F7F5F0` / `#F7F8FA`.
+     - Mặt phẳng làm việc: Thẻ trắng `#FFFFFF`, viền mỏng tiêu chuẩn `#E2E8F0` / `stone-200`.
+     - Màu thương hiệu chính: Lửa ấm `#EA580C` (Orange-600) / Hổ phách `#F59E0B` (Amber-500) kết hợp tương phản than tối `#0F172A` / `#1C1917` (Slate-900).
+     - Trạng thái kích hoạt (Active State): `bg-orange-50 text-orange-700 font-bold border-l-2 border-orange-600 shadow-2xs` – đồng nhất 100% giữa Admin Sidebar và Main Sidebar.
+     - Phông chữ kỹ thuật: `JetBrains Mono` cho mã ID số, timestamp và audit actor.
+
+2. **Đồng bộ triệt để tất cả Component Admin:**
+   - [AdminSidebar.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/admin/AdminSidebar.jsx): Logo badge đổi sang nền `bg-slate-900` với biểu tượng màu hổ phách `text-amber-500`; các tab đang chọn hiển thị vạch cam `border-orange-600`, nền `bg-orange-50`, chữ `text-orange-700`, biểu tượng cam `text-orange-600`; vòng focus chuyển sang `focus:ring-orange-600`.
+   - [AdminHeader.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/admin/AdminHeader.jsx): Badge "Admin Portal" với icon khiên và chữ `text-orange-600`; focus ring `focus:ring-orange-600`.
+   - [AdminDashboard.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/admin/views/AdminDashboard.jsx): Nền icon metric card đổi sang `bg-orange-50 text-orange-600`.
+   - [AdminUsersView.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/admin/views/AdminUsersView.jsx): Chip vai trò đổi sang `bg-orange-50 text-orange-700 border border-orange-200`; ô tìm kiếm & lọc dùng `focus:ring-orange-600`; panel chi tiết dùng icon `bg-orange-50 text-orange-600`.
+   - [AdminRolesView.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/admin/views/AdminRolesView.jsx): Số lượng quyền hiển thị màu cam thương hiệu `text-orange-700`.
+   - [AdminAuditLogsView.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/admin/views/AdminAuditLogsView.jsx): Tag hành động định dạng font mono với màu cam `text-orange-700`; ô tìm kiếm dùng `focus:ring-orange-600`.
+   - [PersonalProfileView.jsx](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/components/views/PersonalProfileView.jsx): Avatar khối than tối `bg-slate-900` chữ hổ phách `text-amber-500`; huy hiệu vai trò `QUẢN TRỊ VIÊN` nền cam `bg-orange-50 text-orange-700 border border-orange-200`.
+   - [src/index.css](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/src/index.css): Cập nhật `@theme` token loại bỏ hoàn toàn các biến `morning-blue` cũ, chuẩn hóa hệ token `--color-brand-flame`, `--color-brand-amber`, `--color-brand-soft-bg`, v.v.
+
+3. **Bảo toàn Toàn vẹn Logic & Chuẩn Accessibility:**
+   - Invariant menu Admin luôn hiển thị đủ 4 tab G2 cho `ROLE_ADMIN` được giữ nguyên.
+   - Non-Admin bị chặn 403 được giữ nguyên.
+   - Toàn bộ touch target $\ge 44\text{px}$ trên mobile được duy trì tuyệt đối.
+   - Bản dịch `roleAdmin` ("Quản trị viên" / "System Administrator") hoạt động ổn định.
+
+#### Bằng chứng xác minh thực tế
+
+- `pnpm exec node test/g1_logic_test.mjs` → **PASS (100%)**.
+- `pnpm exec node test/g1_guard_test.mjs` → **PASS (100%)**.
+- `pnpm exec node test/g2_logic_test.mjs` → **PASS (100%)**.
+- `pnpm build` → **PASS** (production bundle hoàn toàn sạch mock fixture và hook `__scms_*`).
+- `pnpm build:local` → **PASS** (chunk `adminMockData` chỉ hiện diện trong mock build).
+- `git diff --check` → **PASS** (0 whitespace/formatting issue).
+- Browser subagent thực thi trên `127.0.0.1:4177`:
+  - Login Admin thành công và redirect đúng `/admin/dashboard`.
+  - Dashboard hiển thị đồng bộ bảng màu Firebase: logo slate-900/amber-500, tab active cam viền trái `border-orange-600`, metric icons `bg-orange-50 text-orange-600`.
+  - Tab Người dùng hiển thị đầy đủ chip vai trò cam, mở panel chi tiết mượt mà.
+  - Tab Hồ sơ hiển thị avatar slate-900 và huy hiệu `QUẢN TRỊ VIÊN` màu cam.
+  - Browser console logs: **0 warning / 0 error**.
+  - Ảnh chụp thực tế: `admin_dashboard_1791002078016.png`, `admin_users_1791002174814.png`, `admin_profile_1791002231281.png`.
+
+#### Cập nhật Định nghĩa Task G2.2 theo Chỉ đạo của Chủ dự án:
+
+- **Nội dung task G2.2 mới trong checklist:**
+  `- [ ] **G2.2 — Layout & Nhận diện Quản trị Hệ thống.** Trang Admin được tách riêng ra link riêng biệt (chỉ duy nhất tài khoản Admin được phép đăng nhập), với mục tiêu quản trị hệ thống độc lập so với phân hệ quản lý trung tâm thể thao của Manager. Về mặt giao diện, đồng bộ hoàn toàn và tái sử dụng toàn bộ ngôn ngữ thiết kế, layout shell cùng bảng màu Firebase/Fireside đã có của hệ thống chính (không tạo thiết kế mới, không dùng theme riêng biệt), chỉ bổ sung menu và các màn hình đặc thù quản trị hệ thống. Menu quản trị tối thiểu: Tổng quan hệ thống, Người dùng, Vai trò & Quyền, Nhật ký, Hồ sơ/Đăng xuất.`
+- **Ý nghĩa & Nguyên tắc thực thi:**
+  1. **Tách biệt vai trò & URL:** Admin là cấp quyền cao nhất, phụ trách quản trị hệ thống (System Administration), tách riêng lối vào `/admin/login` và portal `/admin/*`. Chỉ tài khoản có vai trò Admin (`ROLE_ADMIN`) mới có quyền đăng nhập và truy cập; các vai trò khác (Manager, Staff, Member) bị chặn 403.
+  2. **Tái sử dụng giao diện hiện có (100% UI Reuse):** Không tạo phong cách thiết kế hay theme mới. Giữ nguyên cấu trúc layout, sidebar bên trái, header bên trên, bảng thẻ card trắng viền nhẹ, active indicator màu cam, font chữ và màu sắc thương hiệu Firebase/Fireside của hệ thống chính.
+  3. **Bổ sung đúng phạm vi:** Chỉ bổ sung các màn hình và menu chuyên biệt cho quản trị hệ thống (Tổng quan, Người dùng, Vai trò & Quyền, Nhật ký kiểm toán, Hồ sơ), không đưa các chức năng quản lý trung tâm thể thao của Manager (lớp học, gói tập, điểm danh) vào portal Admin.
+
+#### Giới hạn môi trường & Bàn giao chặng G2
+
+- Live backend `https://scms-app-p1gy.onrender.com` vẫn timeout/không phản hồi. Ghi nhận trung thực: **Blocked / Unverified** cho live acceptance.
+- Nghiệm thu trên môi trường Local Mock & Contract Tests: **Hoàn tất 100%**.
+
+---
+
+### 4.19. Báo Cáo Rà Soát Toàn Diện, Nghiệm Thu Chính Thức G2 (Approved) & Kế Hoạch G3 — 2026-10-03
+
+- **Cơ sở thực hiện:** Thực hiện theo chỉ đạo của Chủ dự án: Rà soát toàn bộ hệ thống từ đầu đến hiện tại, cập nhật checklist khi không còn sai sót, và lập kế hoạch triển khai tuần tự cho chặng tiếp theo (G3).
+- **Trạng thái chặng G2:** **Approved (G2.1 – G2.7 hoàn tất)**.
+- **Trạng thái checklist:** Toàn bộ checkbox `G2.1` đến `G2.7` trong `SCMS_FE_TASK_CHECKLIST.md` đã được đánh dấu `[x]` hoàn thành; Gate đã mở sẵn sàng cho G3.
+
+#### 1. Tổng kết Kết quả Rà soát Toàn bộ Hệ thống (Audit Summary):
+1. **Thiết kế & Giao diện (100% Đồng bộ Firebase/Fireside):**
+   - Đã quét sạch 100% các token cũ (`morning-blue` = 0).
+   - Toàn bộ giao diện Admin đã đồng nhất hoàn hảo với hệ thống chính theo [DESIGN.md](file:///d:/School/FA26/SWP391/Project/src-code/FE_Project/DESIGN.md):
+     - Khối logo nhận diện: Than tối `bg-slate-900` chữ hổ phách `text-amber-500`.
+     - Vạch kích hoạt sidebar: Nền cam nhạt `bg-orange-50`, chữ cam đậm `text-orange-700`, vạch viền trái `border-orange-600`.
+     - Huy hiệu và chip vai trò: Nền `bg-orange-50`, chữ `text-orange-700`, viền `border-orange-200`.
+     - Nền biểu tượng thẻ chỉ số & drawer chi tiết: `bg-orange-50 text-orange-600`.
+2. **Phân quyền & Lối vào riêng biệt (Role Isolation):**
+   - Tách riêng link `/admin/login` và portal `/admin/*`. Chỉ duy nhất tài khoản `ROLE_ADMIN` được phép đăng nhập/truy cập.
+   - Tài khoản vai trò khác (Manager, Coach, Receptionist, Member) khi truy cập `/admin/*` đều nhận `403 Forbidden` và không bị mất phiên làm việc.
+   - Menu Admin invariant: Luôn hiển thị đủ 4 tab G2 (`admin_dashboard`, `admin_users`, `admin_roles`, `admin_audit_logs`) và tab `profile`, không bị ẩn khi thiếu `authorities`.
+3. **Hồ sơ Admin & Chuẩn Accessibility:**
+   - Trang cá nhân hiển thị chính xác vai trò "QUẢN TRỊ VIÊN" (`roleAdmin`) cho tài khoản Admin.
+   - 100% touch target trên thiết bị cảm ứng đạt chuẩn an toàn $\ge 44\times 44\text{px}$ (`min-h-[44px]`).
+4. **Vệ sinh Bundle & Kiểm thử Tự động:**
+   - `test/g1_logic_test.mjs` → **PASS**.
+   - `test/g1_guard_test.mjs` → **PASS**.
+   - `test/g2_logic_test.mjs` → **PASS**.
+   - `pnpm build` (Production): **PASS**, bundle sạch 100% không chứa dữ liệu mock hoặc test hook `__scms_*`.
+   - `pnpm build:local` (Mock): **PASS**, chunk mock `adminMockData` tách riêng biệt.
+   - `git diff --check`: **PASS (0 lỗi)**.
+   - Browser Subagent: Đăng nhập Admin, chuyển đổi 4 tab, xem chi tiết và hồ sơ với **0 warning / 0 error** trong console log.
+5. **Tình trạng Hạ tầng Live Backend:**
+   - Máy chủ Render `https://scms-app-p1gy.onrender.com` bị timeout kết nối (do gói miễn phí đang tạm ngừng hoặc khởi động lại).
+   - Ghi nhận trung thực: Đạt nghiệm thu 100% trên Local Mock & Static Contract Test; chờ backend Render hoạt động trở lại để hoàn tất live acceptance.
+
+#### 2. Kế hoạch Triển khai Tuần tự Chặng Tiếp theo: G3 — CRUD User & RBAC cho Admin (G3.1 – G3.7)
+
+- **Mục tiêu:** Bổ sung các thao tác chỉnh sửa dữ liệu (Mutation) cho trang Admin, tiếp tục giữ nguyên 100% ngôn ngữ thiết kế Firebase/Fireside và các chuẩn an toàn hệ thống đã thiết lập:
+  - **G3.1 — Form tạo User (`POST /api/users`):** Modal/Drawer tạo tài khoản người dùng với validation chặt chẽ (họ tên, email RFC 5322, phone, vai trò, password). Xử lý lỗi trùng email (409) và bảo mật không log password.
+  - **G3.2 — Sửa User (`PUT /api/users/{id}`):** Form cập nhật thông tin người dùng (họ tên, số điện thoại, địa chỉ, giới tính, ngày sinh). Giữ nguyên các trường ID số bất biến.
+  - **G3.3 — Đổi trạng thái User (`PATCH /api/users/{id}/status`):** Dialog xác nhận khi khóa (`locked`) hoặc kích hoạt (`active`) tài khoản. Cài đặt ràng buộc an toàn: Không cho phép Admin tự khóa tài khoản của chính mình.
+  - **G3.4 — Đổi vai trò User (`PATCH /api/users/{id}/role`):** Thay đổi vai trò cho tài khoản (`Admin`, `Manager`, `Coach`, `Receptionist`, `Member`) kèm cảnh báo quyền hạn.
+  - **G3.5 — Ma trận phân quyền RBAC (`PUT /api/roles/{id}/permissions`):** Nâng cấp màn hình Roles & Permissions từ chỉ đọc sang ma trận checkbox tương tác, theo dõi dirty state (Lưu / Hủy), gửi payload `{ "permissionIds": [...] }` sau khi xác nhận.
+  - **G3.6 — Tính nhất quán & Đồng bộ Audit Log:** Tự động refetch dữ liệu sau mỗi thao tác mutation thành công và làm mới danh sách nhật ký kiểm toán.
+  - **G3.7 — Bộ kiểm thử tự động G3:** Xây dựng `test/g3_mutation_test.mjs` kiểm tra toàn bộ luồng tạo, sửa, đổi role, khóa/mở khóa, ma trận quyền và các kịch bản lỗi 400/403/409.
+
+- **Trạng thái hiện tại:** Sẵn sàng triển khai G3.1 khi nhận được chỉ đạo bắt đầu từ Chủ dự án.

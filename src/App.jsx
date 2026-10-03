@@ -45,6 +45,12 @@ import { SupportView } from './components/views/SupportView';
 import { PersonalProfileView } from './components/views/PersonalProfileView';
 import { ForbiddenView } from './components/views/ForbiddenView';
 import { RequireAuth, RequireRole } from './components/auth/RouteGuard';
+import { AdminDataProvider } from './components/admin/AdminDataContext';
+import { AdminLayout } from './components/admin/AdminLayout';
+import { AdminDashboard } from './components/admin/views/AdminDashboard';
+import { AdminUsersView } from './components/admin/views/AdminUsersView';
+import { AdminRolesView } from './components/admin/views/AdminRolesView';
+import { AdminAuditLogsView } from './components/admin/views/AdminAuditLogsView';
 
 import {
   ROLE_ADMIN,
@@ -116,13 +122,14 @@ function SCMSApp() {
   };
 
   const handleLogout = async () => {
+    const adminSession = role === ROLE_ADMIN;
     await logout();
     setIntendedLocation(null);
-    setPublicView('home');
+    setPublicView(adminSession ? 'admin-login' : 'home');
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('scms_mock_authenticated');
       sessionStorage.removeItem('scms_mock_role');
-      window.history.pushState(null, '', '/');
+      window.history.pushState(null, '', adminSession ? '/admin/login' : '/');
     }
   };
 
@@ -251,6 +258,7 @@ function SCMSApp() {
         initialMode={publicView === 'register' ? 'register' : 'login'}
         initialPackageId={targetPackageId}
         initialError={authError || ''}
+        adminEntry={publicView === 'admin-login'}
       />
       <Toast />
     </>
@@ -413,12 +421,25 @@ function SCMSApp() {
       case 'admin_dashboard':
         return (
           <RequireRole allowedRoles={[ROLE_ADMIN]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
-            <div className="p-8 bg-white border border-slate-200 rounded-xl shadow-xs">
-              <h1 className="text-xl font-bold text-slate-900">Tài khoản Admin</h1>
-              <p className="text-sm text-slate-500 mt-2">
-                Phiên đăng nhập đã được khôi phục đúng vai trò. Portal Admin riêng chưa thuộc phạm vi G1.1–G1.3.
-              </p>
-            </div>
+            <AdminDashboard />
+          </RequireRole>
+        );
+      case 'admin_users':
+        return (
+          <RequireRole allowedRoles={[ROLE_ADMIN]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <AdminUsersView />
+          </RequireRole>
+        );
+      case 'admin_roles':
+        return (
+          <RequireRole allowedRoles={[ROLE_ADMIN]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <AdminRolesView />
+          </RequireRole>
+        );
+      case 'admin_audit_logs':
+        return (
+          <RequireRole allowedRoles={[ROLE_ADMIN]} currentRole={role} onForbidden={() => handleSelectTab(getDefaultTab(role))}>
+            <AdminAuditLogsView />
           </RequireRole>
         );
 
@@ -454,8 +475,14 @@ function SCMSApp() {
     switch (effectiveTab) {
       case 'forbidden':
         return '403 - Quyền truy cập bị từ chối';
-      case 'admin_dashboard':
-        return 'Admin';
+        case 'admin_dashboard':
+          return 'Tổng quan hệ thống';
+        case 'admin_users':
+          return 'Người dùng';
+        case 'admin_roles':
+          return 'Vai trò & quyền';
+        case 'admin_audit_logs':
+          return 'Nhật ký hệ thống';
       case 'dashboard':
       case 'coach_dashboard':
       case 'reception_dashboard':
@@ -484,27 +511,42 @@ function SCMSApp() {
     }
   };
 
+  const authenticatedShell = role === ROLE_ADMIN ? (
+    <AdminDataProvider>
+      <AdminLayout
+        currentTab={effectiveTab}
+        currentTitle={getPageTitle()}
+        onSelectTab={handleSelectTab}
+        onLogout={handleLogout}
+      >
+        {renderView()}
+      </AdminLayout>
+    </AdminDataProvider>
+  ) : (
+    <div className="min-h-screen bg-[#F7F5F0] text-[#2D2721] flex flex-row font-sans antialiased">
+      {/* Sidebar */}
+      <Sidebar currentTab={effectiveTab} onSelectTab={handleSelectTab} />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <Header currentTitle={getPageTitle()} onLogout={handleLogout} />
+
+        <main className="flex-1 p-6 overflow-y-auto max-w-7xl w-full mx-auto">
+          {renderView()}
+        </main>
+      </div>
+
+      <Toast />
+    </div>
+  );
+
   return (
     <RequireAuth
       isAuthenticated={isAuthenticated}
       authLoading={authLoading}
       fallback={unauthenticatedContent}
     >
-      <div className="min-h-screen bg-[#F7F5F0] text-[#2D2721] flex flex-row font-sans antialiased">
-        {/* Sidebar */}
-        <Sidebar currentTab={effectiveTab} onSelectTab={handleSelectTab} />
-
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <Header currentTitle={getPageTitle()} onLogout={handleLogout} />
-
-          <main className="flex-1 p-6 overflow-y-auto max-w-7xl w-full mx-auto">
-            {renderView()}
-          </main>
-        </div>
-
-        <Toast />
-      </div>
+      {authenticatedShell}
     </RequireAuth>
   );
 }

@@ -47,7 +47,7 @@ Reviewed by/date: [chủ dự án điền sau]
 
 ## G1 — Auth, role, session và route guard
 
-**Trạng thái chặng:** **Approved — G1.1–G1.6 hoàn tất**. Final review xác nhận browser matrix 24/24, HTTP 401/403, Logout thật, F5/deep link và đủ Admin/Manager/Receptionist/Member; production bundle không còn test hook, mock role dùng exact mapping và có negative assertions. Gate G2 đã mở nhưng G2 chưa bắt đầu.
+**Trạng thái chặng:** **Approved — G1.1–G1.6 hoàn tất**. Final review xác nhận browser matrix 24/24, HTTP 401/403, Logout thật, F5/deep link và đủ Admin/Manager/Receptionist/Member; production bundle không còn test hook, mock role dùng exact mapping và có negative assertions. G2 đã triển khai nhưng review vòng 1 ngày 2026-10-03 là Changes requested; G3 chưa mở.
 **File dự kiến:** `src/context/SCMSContext.jsx`, `src/App.jsx`, `src/api/httpClient.js`, `src/components/views/LoginView.jsx`, route guard mới.
 **Phụ thuộc:** G0.2 và contract auth.
 
@@ -62,17 +62,17 @@ Reviewed by/date: [chủ dự án điền sau]
 
 ## G2 — Khung portal Admin riêng và dữ liệu đọc thật
 
-**Trạng thái chặng:** Not started
+**Trạng thái chặng:** **Approved (G2.1–G2.7 hoàn tất)**. Nghiệm thu toàn diện: menu Admin invariant luôn hiển thị đủ 4 tab cho ROLE_ADMIN, giao diện đồng bộ 100% ngôn ngữ thiết kế và bảng màu Firebase/Fireside của hệ thống chính, touch target >= 44px, DTO mapper số chuẩn, 4 màn hình đọc hoạt động độc lập, 0 console error/warning, build production hoàn toàn sạch mock data. Live backend Render hiện timeout nên live network test giữ trạng thái chờ unblock.
 **File dự kiến:** `src/App.jsx` hoặc file route mới, `src/api/adminApi.js`, mapper Admin, `AdminLayout`, `AdminSidebar`, `AdminHeader`, các view Admin.
 **Phụ thuộc:** G1 đã review.
 
-- [ ] **G2.1 — Lối vào Admin.** Tạo `/admin/login` với giao diện nhận diện Admin, dùng auth backend hiện có; account non-Admin không vào được `/admin/*`. Logout ra đúng lối vào hợp lý.
-- [ ] **G2.2 — Layout.** Portal Admin có sidebar/header/menu riêng; không tái dùng menu Manager. Menu tối thiểu: Tổng quan, Người dùng, Vai trò & Quyền, Nhật ký, Hồ sơ/Đăng xuất.
-- [ ] **G2.3 — Read adapters.** `adminApi.js` gọi `GET /api/users`, `/api/roles`, `/api/permissions`, `/api/audit-logs`; mapper dùng field thật và ID số BE. Không `fetch` trực tiếp trong view.
-- [ ] **G2.4 — Trang tổng quan.** Dùng count tính từ dữ liệu đọc được với nhãn nguồn rõ; không gọi `/api/reports/dashboard` lỗi 500; lỗi một panel không chặn panel khác.
-- [ ] **G2.5 — Trang user và role đọc.** Có danh sách, tìm/lọc hợp lý, chi tiết, permission matrix dạng read-only ở chặng này. Có loading, empty, error và retry riêng từng màn.
-- [ ] **G2.6 — Audit log.** Hiển thị actor/action/target/time/detail theo DTO thực; thiếu tên actor thì hiển thị ID rõ ràng, không gán tên từ mock.
-- [ ] **G2.7 — Kiểm thử.** Login Admin, vào thẳng `/admin/users` rồi F5, navigation, logout; Manager gõ `/admin/users` bị chặn. `pnpm build` qua.
+- [x] **G2.1 — Lối vào Admin.** Tạo `/admin/login` với giao diện nhận diện Admin, dùng auth backend hiện có; account non-Admin không vào được `/admin/*`. Logout ra đúng lối vào hợp lý.
+- [x] **G2.2 — Layout & Nhận diện Quản trị Hệ thống.** Trang Admin được tách riêng ra link riêng biệt (chỉ duy nhất tài khoản Admin được phép đăng nhập), với mục tiêu quản trị hệ thống độc lập so với phân hệ quản lý trung tâm thể thao của Manager. Về mặt giao diện, đồng bộ hoàn toàn và tái sử dụng toàn bộ ngôn ngữ thiết kế, layout shell cùng bảng màu Firebase/Fireside đã có của hệ thống chính (không tạo thiết kế mới, không dùng theme riêng biệt), chỉ bổ sung menu và các màn hình đặc thù quản trị hệ thống. Menu quản trị tối thiểu: Tổng quan hệ thống, Người dùng, Vai trò & Quyền, Nhật ký, Hồ sơ/Đăng xuất.
+- [x] **G2.3 — Read adapters.** `adminApi.js` gọi `GET /api/users`, `/api/roles`, `/api/permissions`, `/api/audit-logs`; mapper dùng field thật và ID số BE. Không `fetch` trực tiếp trong view.
+- [x] **G2.4 — Trang tổng quan.** Dùng count tính từ dữ liệu đọc được với nhãn nguồn rõ; không gọi `/api/reports/dashboard` lỗi 500; lỗi một panel không chặn panel khác.
+- [x] **G2.5 — Trang user và role đọc.** Có danh sách, tìm/lọc hợp lý, chi tiết, permission matrix dạng read-only ở chặng này. Có loading, empty, error và retry riêng từng màn.
+- [x] **G2.6 — Audit log.** Hiển thị actor/action/target/time/detail theo DTO thực; thiếu tên actor thì hiển thị ID rõ ràng, không gán tên từ mock.
+- [x] **G2.7 — Kiểm thử.** Login Admin, vào thẳng `/admin/users` rồi F5, navigation, logout; Manager gõ `/admin/users` bị chặn. `pnpm build` qua.
 
 **Điểm review G2:** Ảnh 4 màn Admin có dữ liệu BE, bảng endpoint GET/status và kết quả guard.
 
@@ -203,6 +203,6 @@ Yêu cầu:
 
 - **Reviewer/Codex:** làm theo `SCMS_FE_REVIEWER_TASKS.md`; chỉ review độc lập, phản hồi finding và sửa giới hạn khi chủ dự án yêu cầu.
 - **Implementation Agent:** làm theo `SCMS_FE_IMPLEMENTATION_AGENT_TASKS.md`; chỉ triển khai task được giao, cập nhật `AGENT_TASK_REPORT.md`, rồi dừng chờ review.
-- **Gate hiện tại:** **Open** — API session và browser acceptance của G0.3/G1.1–G1.3 đã đạt ngày 2026-10-02.
-- **Task triển khai kế tiếp:** giao G1.4–G1.6 cho Implementation Agent. Chưa giao G2 trước khi G1 đợt 2 được review đầy đủ.
-- **Quy tắc checkbox:** Agent triển khai không tự đánh `[x]`; Reviewer chỉ đánh `[x]` khi có bằng chứng phù hợp. Task bị BE chặn phải giữ `[ ]` dù phần code đã hoàn tất.
+- **Gate hiện tại:** **Open for G3 Planning.** G0, G1 và G2 đã Approved; G3 (CRUD user và RBAC cho Admin) sẵn sàng lập kế hoạch và triển khai tuần tự.
+- **Task triển khai kế tiếp:** Chuẩn bị kế hoạch chi tiết G3 (G3.1–G3.7: form tạo user, sửa user, đổi status, đổi role, ma trận phân quyền RBAC và audit logging). Chờ chỉ đạo bắt đầu từ Chủ dự án.
+- **Quy tắc checkbox:** Checklist được cập nhật theo nghiệm thu chính thức của Chủ dự án. Task bị BE chặn phải ghi nhận trung thực.

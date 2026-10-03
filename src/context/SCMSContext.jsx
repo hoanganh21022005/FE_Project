@@ -254,7 +254,8 @@ export const SCMSProvider = ({ children }) => {
     id: role === ROLE_ADMIN ? 'adm-1' : role === ROLE_COACH ? 'stf-3' : role === ROLE_RECEPTIONIST ? 'stf-5' : role === ROLE_MEMBER ? 'mem-1' : 'stf-1',
     name: role === ROLE_ADMIN ? 'Hệ Thống Admin' : role === ROLE_COACH ? 'Lê Thị Mai' : role === ROLE_RECEPTIONIST ? 'Phạm Thị Thu' : role === ROLE_MEMBER ? 'Nguyễn Minh Anh' : 'Trần Văn Hoàng',
     email: `${role}@scms.com`,
-    role
+    role,
+    authorities: role === ROLE_ADMIN ? ['MANAGE_USERS', 'MANAGE_RBAC', 'VIEW_AUDIT_LOG'] : []
   };
 
   const currentUser = authUser ? {
@@ -429,7 +430,7 @@ export const SCMSProvider = ({ children }) => {
       id: `log-${Date.now()}`,
       timestamp,
       actorId: currentUser.id,
-      actorName: `${currentUser.name} (${t(role === 'manager' ? 'roleManager' : role === 'coach' ? 'roleCoach' : role === 'receptionist' ? 'roleReceptionist' : 'roleMember')})`,
+      actorName: `${currentUser.name} (${t(role === 'admin' ? 'roleAdmin' : role === 'manager' ? 'roleManager' : role === 'coach' ? 'roleCoach' : role === 'receptionist' ? 'roleReceptionist' : 'roleMember')})`,
       actorRole: role,
       action,
       target,

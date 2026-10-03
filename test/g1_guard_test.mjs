@@ -46,7 +46,7 @@ console.log("==============================================")
 console.log("\n--- TEST 1: ROUTE ACCESS & ROLE GUARD (G1.4) ---")
 
 // 1.1 Public routes should always return 'public'
-for (const publicPath of ["/", "/login", "/register"]) {
+for (const publicPath of ["/", "/login", "/register", "/admin/login"]) {
   const access = checkRouteAccess(publicPath, ROLE_MANAGER)
   assert.strictEqual(
     access.status,
@@ -118,7 +118,12 @@ const VALID_ROLE_ROUTES = {
     "/member/attendance-history",
     "/member/training-plan",
   ],
-  [ROLE_ADMIN]: ["/admin/dashboard"],
+  [ROLE_ADMIN]: [
+    "/admin/dashboard",
+    "/admin/users",
+    "/admin/roles",
+    "/admin/audit-logs",
+  ],
 }
 
 for (const [role, routes] of Object.entries(VALID_ROLE_ROUTES)) {
