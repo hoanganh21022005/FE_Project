@@ -3,19 +3,24 @@ import { translations } from '../locales/translations.js';
 import * as authApi from '../api/authApi.js';
 import * as managerApi from '../api/managerApi.js';
 import { getErrorMessage, UnauthorizedError } from '../api/apiErrors.js';
-import { UNAUTHORIZED_EVENT } from '../api/httpClient.js';
+import { UNAUTHORIZED_EVENT, FORBIDDEN_EVENT } from '../api/httpClient.js';
+import {
+  normalizeRole,
+  getDefaultTab,
+  isTabAllowedForRole,
+  checkRouteAccess,
+  resolveRoute,
+  ROLE_ADMIN,
+  ROLE_MANAGER,
+  ROLE_COACH,
+  ROLE_RECEPTIONIST,
+  ROLE_MEMBER,
+} from '../utils/navigation.js';
 
 const SCMSContext = createContext(undefined);
 const API_ENABLED = import.meta.env.VITE_API_ENABLED === 'true';
+const UNSUPPORTED_ROLE_MESSAGE = 'Vai trò người dùng không được hỗ trợ trong hệ thống.';
 
-const roleFromApi = (role) => {
-  const normalized = String(role || '').toLowerCase();
-  if (normalized === 'centermanager' || normalized === 'manager') return 'manager';
-  if (normalized === 'coach') return 'coach';
-  if (normalized === 'receptionist') return 'receptionist';
-  if (normalized === 'member') return 'member';
-  return 'manager';
-};
 
 // Initial Seed Data
 const INITIAL_PACKAGES = [
@@ -191,21 +196,45 @@ const INITIAL_TRAINING_PLANS = [
 
 export const SCMSProvider = ({ children }) => {
   const [language, setLanguage] = useState('vi');
-  const [role, setRole] = useState('manager');
-  const [currentTab, setCurrentTab] = useState('dashboard');
+  const [role, setRole] = useState(() => {
+    if (typeof window !== 'undefined' && !API_ENABLED) {
+      return sessionStorage.getItem('scms_mock_role') || ROLE_MANAGER;
+    }
+    return ROLE_MANAGER;
+  });
+  const [currentTab, setCurrentTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const activeRole = !API_ENABLED ? (sessionStorage.getItem('scms_mock_role') || ROLE_MANAGER) : ROLE_MANAGER;
+      const access = checkRouteAccess(window.location.pathname, activeRole);
+      if (access.status === 'forbidden') return 'forbidden';
+      const route = resolveRoute(window.location.pathname);
+      if (route.tab && isTabAllowedForRole(route.tab, activeRole)) {
+        return route.tab;
+      }
+      return getDefaultTab(activeRole);
+    }
+    return 'dashboard';
+  });
   const [toast, setToast] = useState(null);
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(API_ENABLED);
-  const [localAuthenticated, setLocalAuthenticated] = useState(false);
+  const [authError, setAuthError] = useState(null);
+  const [localAuthenticated, setLocalAuthenticated] = useState(() => {
+    if (typeof window === 'undefined' || API_ENABLED) return false;
+    return sessionStorage.getItem('scms_mock_authenticated') === 'true';
+  });
   const [managerDataLoading, setManagerDataLoading] = useState(false);
   const [managerDataError, setManagerDataError] = useState(null);
 
+  const prevRoleRef = React.useRef(role);
   useEffect(() => {
-    if (role === 'coach') setCurrentTab('coach_dashboard');
-    else if (role === 'receptionist') setCurrentTab('reception_dashboard');
-    else if (role === 'member') setCurrentTab('member_dashboard');
-    else setCurrentTab('dashboard');
-  }, [role]);
+    if (prevRoleRef.current !== role) {
+      prevRoleRef.current = role;
+      if (!isTabAllowedForRole(currentTab, role)) {
+        setCurrentTab(getDefaultTab(role));
+      }
+    }
+  }, [role, currentTab]);
 
   // States
   const [members, setMembers] = useState(INITIAL_MEMBERS);
@@ -222,17 +251,18 @@ export const SCMSProvider = ({ children }) => {
   const [trainingPlans, setTrainingPlans] = useState(INITIAL_TRAINING_PLANS);
 
   const fallbackUser = {
-    id: role === 'coach' ? 'stf-3' : role === 'receptionist' ? 'stf-5' : role === 'member' ? 'mem-1' : 'stf-1',
-    name: role === 'coach' ? 'Lê Thị Mai' : role === 'receptionist' ? 'Phạm Thị Thu' : role === 'member' ? 'Nguyễn Minh Anh' : 'Trần Văn Hoàng',
+    id: role === ROLE_ADMIN ? 'adm-1' : role === ROLE_COACH ? 'stf-3' : role === ROLE_RECEPTIONIST ? 'stf-5' : role === ROLE_MEMBER ? 'mem-1' : 'stf-1',
+    name: role === ROLE_ADMIN ? 'Hệ Thống Admin' : role === ROLE_COACH ? 'Lê Thị Mai' : role === ROLE_RECEPTIONIST ? 'Phạm Thị Thu' : role === ROLE_MEMBER ? 'Nguyễn Minh Anh' : 'Trần Văn Hoàng',
     email: `${role}@scms.com`,
-    role
+    role,
+    authorities: role === ROLE_ADMIN ? ['MANAGE_USERS', 'MANAGE_RBAC', 'VIEW_AUDIT_LOG'] : []
   };
 
   const currentUser = authUser ? {
     id: authUser.userId,
     name: authUser.fullName,
     email: authUser.email,
-    role: roleFromApi(authUser.role),
+    role: authUser.role,
     authorities: authUser.authorities || []
   } : fallbackUser;
 
@@ -244,32 +274,64 @@ export const SCMSProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    if (!API_ENABLED) return undefined;
+    const handleUnauthorized = () => {
+      setAuthUser(null);
+      setAuthError(null);
+      setLocalAuthenticated(false);
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('scms_mock_authenticated');
+        sessionStorage.removeItem('scms_mock_role');
+      }
+    };
+    const handleForbidden = (event) => {
+      const detail = event?.detail;
+      const message = detail?.body?.message || 'Bạn không có quyền thực hiện thao tác này (403 Forbidden).';
+      showToast(message, 'error');
+    };
+    window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+    window.addEventListener(FORBIDDEN_EVENT, handleForbidden);
+
+    if (!API_ENABLED) {
+      return () => {
+        window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+        window.removeEventListener(FORBIDDEN_EVENT, handleForbidden);
+      };
+    }
 
     let active = true;
+    setAuthError(null);
     authApi.getCurrentUser()
       .then((user) => {
         if (!active) return;
-        setAuthUser(user);
-        setRole(roleFromApi(user.role));
+        const normalizedRole = normalizeRole(user?.role, { isApiMode: true });
+        if (!normalizedRole) {
+          setAuthUser(null);
+          setAuthError(UNSUPPORTED_ROLE_MESSAGE);
+          return;
+        }
+        const normalizedUser = {
+          ...user,
+          role: normalizedRole,
+        };
+        setAuthUser(normalizedUser);
+        setRole(normalizedRole);
       })
       .catch((error) => {
         if (active && !(error instanceof UnauthorizedError)) {
-          setManagerDataError(getErrorMessage(error));
+          setAuthError(getErrorMessage(error));
         }
       })
       .finally(() => active && setAuthLoading(false));
 
-    const handleUnauthorized = () => setAuthUser(null);
-    window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
     return () => {
       active = false;
       window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+      window.removeEventListener(FORBIDDEN_EVENT, handleForbidden);
     };
   }, []);
 
   useEffect(() => {
-    if (!API_ENABLED || !authUser || roleFromApi(authUser.role) !== 'manager') return undefined;
+    if (!API_ENABLED || !authUser || authUser.role !== ROLE_MANAGER) return undefined;
 
     let active = true;
     setManagerDataLoading(true);
@@ -306,14 +368,27 @@ export const SCMSProvider = ({ children }) => {
   }, [authUser]);
 
   const login = async (email, password) => {
+    setAuthError(null);
     if (!API_ENABLED) {
       setLocalAuthenticated(true);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('scms_mock_authenticated', 'true');
+      }
       return fallbackUser;
     }
     const user = await authApi.login(email, password);
-    setAuthUser(user);
-    setRole(roleFromApi(user.role));
-    return user;
+    const normalizedRole = normalizeRole(user?.role, { isApiMode: true });
+    if (!normalizedRole) {
+      setAuthError(UNSUPPORTED_ROLE_MESSAGE);
+      throw new Error(UNSUPPORTED_ROLE_MESSAGE);
+    }
+    const normalizedUser = {
+      ...user,
+      role: normalizedRole,
+    };
+    setAuthUser(normalizedUser);
+    setRole(normalizedRole);
+    return normalizedUser;
   };
 
   const logout = async () => {
@@ -322,11 +397,27 @@ export const SCMSProvider = ({ children }) => {
         await authApi.logout();
       } finally {
         setAuthUser(null);
+        setAuthError(null);
       }
     } else {
       setLocalAuthenticated(false);
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('scms_mock_authenticated');
+        sessionStorage.removeItem('scms_mock_role');
+      }
     }
   };
+
+  const updateRole = useCallback((newRole) => {
+    if (API_ENABLED) {
+      return;
+    }
+    const normalized = normalizeRole(newRole, { isApiMode: false });
+    setRole(normalized);
+    if (typeof window !== 'undefined' && normalized) {
+      sessionStorage.setItem('scms_mock_role', normalized);
+    }
+  }, []);
 
   const t = (key) => {
     return translations[language][key] || translations['vi'][key] || key;
@@ -339,7 +430,7 @@ export const SCMSProvider = ({ children }) => {
       id: `log-${Date.now()}`,
       timestamp,
       actorId: currentUser.id,
-      actorName: `${currentUser.name} (${t(role === 'manager' ? 'roleManager' : role === 'coach' ? 'roleCoach' : role === 'receptionist' ? 'roleReceptionist' : 'roleMember')})`,
+      actorName: `${currentUser.name} (${t(role === 'admin' ? 'roleAdmin' : role === 'manager' ? 'roleManager' : role === 'coach' ? 'roleCoach' : role === 'receptionist' ? 'roleReceptionist' : 'roleMember')})`,
       actorRole: role,
       action,
       target,
@@ -756,12 +847,14 @@ export const SCMSProvider = ({ children }) => {
         language,
         setLanguage,
         role,
-        setRole,
+        setRole: updateRole,
         currentTab,
         setCurrentTab,
         currentUser,
         isAuthenticated,
         authLoading,
+        authError,
+        clearAuthError: () => setAuthError(null),
         login,
         logout,
         apiEnabled: API_ENABLED,
@@ -822,6 +915,8 @@ const fallbackContext = {
   currentUser: { id: 'usr-1', name: 'Trần Văn Quản Lý', email: 'manager@scms.com', role: 'manager' },
   isAuthenticated: false,
   authLoading: false,
+  authError: null,
+  clearAuthError: () => {},
   login: async () => {},
   logout: async () => {},
   apiEnabled: false,

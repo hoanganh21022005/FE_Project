@@ -8,6 +8,28 @@
   --font-barlow: 'Barlow', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
+  /* SCMS Unified Palette Tokens (Firebase & Fireside) */
+  --color-pearl-canvas: #F7F5F0;
+  --color-admin-canvas: #F7F8FA;
+  --color-pearl-surface: #FFFFFF;
+  --color-brand-flame: #EA580C;
+  --color-brand-flame-hover: #C2410C;
+  --color-brand-amber: #F59E0B;
+  --color-brand-soft-bg: #FFF7ED;
+  --color-brand-soft-border: #FED7AA;
+  --color-brand-dark: #0F172A;
+
+  /* Fireside Hearth & Ember Palette Tokens */
+  --color-fireside-dark: #0c0a09;
+  --color-fireside-hearth: #141210;
+  --color-fireside-surface: #1c1917;
+  --color-fireside-card: #24201e;
+  --color-fireside-border: #332d29;
+  --color-fireside-flame: #ea580c;
+  --color-fireside-ember: #f97316;
+  --color-fireside-amber: #f59e0b;
+  --color-fireside-glow: #fbbf24;
+
   /* SCMS Primary Theme (Vibrant Orange/Brick Red) */
   --color-sc-primary: #ff5a1f; /* Brighter, more punchy orange for maximum visibility */
   --color-sc-primary-soft: #2a1610;
@@ -60,5 +82,29 @@ h1, h2, h3, h4, h5, h6 {
   }
   100% {
     transform: translateX(-50%);
+  }
+}
+
+.admin-shell ::-webkit-scrollbar-track {
+  background: #F5F5F4;
+}
+
+.admin-shell ::-webkit-scrollbar-thumb {
+  background: #A8A29E;
+  border-radius: 3px;
+}
+
+.admin-shell ::-webkit-scrollbar-thumb:hover {
+  background: #78716C;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

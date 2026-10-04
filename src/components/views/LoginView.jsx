@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency } from '../../locales/translations';
 import { getErrorMessage } from '../../api/apiErrors';
+import { normalizeRole, resolveMockLoginUser, ROLE_ADMIN } from '../../utils/navigation';
 import { PublicFooter } from '../layout/PublicFooter';
 import {
   Activity,
@@ -29,10 +30,10 @@ import {
 const DEMO_EMAIL = 'manager@scms.com';
 const DEMO_PASSWORD = '12345678';
 
-export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login', initialPackageId }) {
+export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login', initialPackageId, initialError = '', adminEntry = false }) {
   useEffect(() => { window.scrollTo(0, 0); }, [initialMode]);
 
-  const { language, setLanguage, packages, members, addMember, login, apiEnabled } = useSCMS();
+  const { language, setLanguage, packages, members, addMember, login, logout, apiEnabled } = useSCMS();
   const isVi = language === 'vi';
 
   // Screen mode: 'login' | 'register'
@@ -44,7 +45,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [isLoginCaptchaChecked, setIsLoginCaptchaChecked] = useState(false);
   const [isLoginCaptchaLoading, setIsLoginCaptchaLoading] = useState(false);
-  const [loginError, setLoginError] = useState('');
+  const [loginError, setLoginError] = useState(initialError);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
 
   // --- REGISTER STATE ---
@@ -85,11 +86,11 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
       if (!scrollRef.current) return;
       const rect = scrollRef.current.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
-      
+
       if (rect.top <= 0) {
         const scrolled = -rect.top;
         const maxScroll = rect.height - viewportHeight;
-        
+
         if (scrolled <= maxScroll && maxScroll > 0) {
           setScrollProgress(scrolled / maxScroll);
         } else if (scrolled > maxScroll) {
@@ -99,7 +100,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
         setScrollProgress(0);
       }
     };
-    
+
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -156,8 +157,17 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
     if (apiEnabled) {
       setIsLoginLoading(true);
       try {
-        await login(trimmedEmail, loginPassword);
-        onLoginSuccess();
+        const user = await login(trimmedEmail, loginPassword);
+        if (adminEntry && normalizeRole(user?.role, { isApiMode: true }) !== ROLE_ADMIN) {
+          await logout();
+          setLoginError(
+            isVi
+              ? 'Tài khoản này không có quyền truy cập Admin Portal.'
+              : 'This account cannot access the Admin Portal.'
+          );
+          return;
+        }
+        onLoginSuccess(user);
       } catch (error) {
         setLoginError(
           getErrorMessage(error, isVi ? 'Không thể đăng nhập.' : 'Unable to sign in.')
@@ -168,25 +178,32 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
       return;
     }
 
-    const isManager = trimmedEmail === DEMO_EMAIL.toLowerCase() && loginPassword === DEMO_PASSWORD;
-    const isRegisteredMember = members.find(
-      m => m.email.toLowerCase() === trimmedEmail
-    );
+    const mockUser = resolveMockLoginUser({
+      email: trimmedEmail,
+      password: loginPassword,
+      members,
+      managerEmail: DEMO_EMAIL,
+      demoPassword: DEMO_PASSWORD,
+    });
 
-    if (isManager || loginPassword === '12345678') {
+    if (mockUser) {
+      if (adminEntry && mockUser.role !== ROLE_ADMIN) {
+        setLoginError(
+          isVi
+            ? 'Tài khoản này không có quyền truy cập Admin Portal.'
+            : 'This account cannot access the Admin Portal.'
+        );
+        return;
+      }
       setIsLoginLoading(true);
-      setTimeout(() => {
+      setTimeout(async () => {
         setIsLoginLoading(false);
-        onLoginSuccess('manager');
-      }, 400);
-      return;
-    }
-
-    if (isRegisteredMember) {
-      setIsLoginLoading(true);
-      setTimeout(() => {
-        setIsLoginLoading(false);
-        onLoginSuccess('member');
+        try {
+          await login(trimmedEmail, loginPassword);
+        } catch (e) {
+          // ignore in mock mode
+        }
+        onLoginSuccess(mockUser);
       }, 400);
       return;
     }
@@ -199,7 +216,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
   };
 
   const fillDemoAccount = () => {
-    setLoginEmail(DEMO_EMAIL);
+    setLoginEmail(adminEntry ? 'admin@scms.com' : DEMO_EMAIL);
     setLoginPassword(DEMO_PASSWORD);
     setIsLoginCaptchaChecked(true);
     setLoginError('');
@@ -263,7 +280,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
   const handleOtpChange = (index, value) => {
     // Take the last character in case they type over an existing one
     const char = value.slice(-1);
-    
+
     // Allow empty (backspace) or single digit
     if (char && !/^\d$/.test(char)) return;
 
@@ -354,10 +371,10 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
         {/* Background Image for Register Mode */}
         {authMode === 'register' && (
           <div className="absolute inset-0 z-0 pointer-events-none transition-opacity duration-500">
-            <img 
-              src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop" 
-              alt="Gym background" 
-              className="w-full h-full object-cover opacity-30 mix-blend-luminosity" 
+            <img
+              src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop"
+              alt="Gym background"
+              className="w-full h-full object-cover opacity-30 mix-blend-luminosity"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#141210] via-transparent to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-r from-[#141210] via-transparent to-transparent" />
@@ -390,22 +407,24 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
             <>
               {/* Overline */}
               <div className="text-amber-500 font-bold text-xs tracking-wider uppercase mb-3.5">
-                {isVi ? 'NỀN TẢNG QUẢN LÝ' : 'MANAGEMENT PLATFORM'}
+                {adminEntry
+                  ? (isVi ? 'CỔNG QUẢN TRỊ HỆ THỐNG' : 'SYSTEM ADMINISTRATION')
+                  : (isVi ? 'NỀN TẢNG QUẢN LÝ' : 'MANAGEMENT PLATFORM')}
               </div>
 
               {/* Heading */}
               <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-extrabold text-white tracking-tight leading-[1.18]">
-                <div>{isVi ? 'Một hệ thống.' : 'One system.'}</div>
-                <div className="bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
-                  {isVi ? 'Mọi vận hành.' : 'Every operation.'}
+                <div>{adminEntry ? (isVi ? 'Quản trị rõ ràng.' : 'Clear administration.') : (isVi ? 'Một hệ thống.' : 'One system.')}</div>
+                <div className={adminEntry ? 'text-sky-300' : 'bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent'}>
+                  {adminEntry ? (isVi ? 'Dữ liệu đáng tin cậy.' : 'Trustworthy data.') : (isVi ? 'Mọi vận hành.' : 'Every operation.')}
                 </div>
               </h1>
 
               {/* Subtitle description */}
               <p className="text-stone-300 text-sm leading-relaxed max-w-lg mt-4 mb-8">
                 {isVi
-                  ? 'Quản lý hội viên, lớp học, thanh toán và nhân sự trong một nền tảng có phân quyền rõ ràng.'
-                  : 'Manage members, classes, payments, and staff in a single, clearly role-governed platform.'}
+                  ? (adminEntry ? 'Theo dõi người dùng, vai trò, quyền và nhật ký hệ thống từ dữ liệu backend.' : 'Quản lý hội viên, lớp học, thanh toán và nhân sự trong một nền tảng có phân quyền rõ ràng.')
+                  : (adminEntry ? 'Review users, roles, permissions, and audit activity from backend data.' : 'Manage members, classes, payments, and staff in a single, clearly role-governed platform.')}
               </p>
 
               {/* 4 Feature Items */}
@@ -416,10 +435,10 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   </div>
                   <div>
                     <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Quản lý hội viên' : 'Member management'}
+                      {adminEntry ? (isVi ? 'Người dùng hệ thống' : 'System users') : (isVi ? 'Quản lý hội viên' : 'Member management')}
                     </div>
                     <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Hồ sơ, gói tập, lịch sử điểm danh' : 'Profiles, packages, attendance history'}
+                      {adminEntry ? (isVi ? 'Danh sách và hồ sơ chỉ đọc' : 'Read-only directory and profiles') : (isVi ? 'Hồ sơ, gói tập, lịch sử điểm danh' : 'Profiles, packages, attendance history')}
                     </div>
                   </div>
                 </div>
@@ -430,10 +449,10 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   </div>
                   <div>
                     <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Lớp học & điểm danh' : 'Classes & attendance'}
+                      {adminEntry ? (isVi ? 'Vai trò & quyền' : 'Roles & permissions') : (isVi ? 'Lớp học & điểm danh' : 'Classes & attendance')}
                     </div>
                     <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Lịch lớp, đặt chỗ, điểm danh' : 'Class schedule, bookings, check-in'}
+                      {adminEntry ? (isVi ? 'Ma trận phân quyền minh bạch' : 'Transparent permission matrix') : (isVi ? 'Lịch lớp, đặt chỗ, điểm danh' : 'Class schedule, bookings, check-in')}
                     </div>
                   </div>
                 </div>
@@ -444,10 +463,10 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   </div>
                   <div>
                     <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Thanh toán' : 'Payments'}
+                      {adminEntry ? (isVi ? 'Nhật ký hệ thống' : 'System audit trail') : (isVi ? 'Thanh toán' : 'Payments')}
                     </div>
                     <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Ghi nhận, theo dõi giao dịch' : 'Record and track transactions'}
+                      {adminEntry ? (isVi ? 'Actor, hành động, đối tượng và thời gian' : 'Actor, action, target, and time') : (isVi ? 'Ghi nhận, theo dõi giao dịch' : 'Record and track transactions')}
                     </div>
                   </div>
                 </div>
@@ -458,10 +477,10 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   </div>
                   <div>
                     <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Báo cáo vận hành' : 'Operations reports'}
+                      {adminEntry ? (isVi ? 'Trạng thái nguồn dữ liệu' : 'Data source status') : (isVi ? 'Báo cáo vận hành' : 'Operations reports')}
                     </div>
                     <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Doanh thu và hiệu suất' : 'Revenue and performance analytics'}
+                      {adminEntry ? (isVi ? 'Lỗi từng panel, không mất toàn trang' : 'Panel-level errors without page loss') : (isVi ? 'Doanh thu và hiệu suất' : 'Revenue and performance analytics')}
                     </div>
                   </div>
                 </div>
@@ -607,12 +626,12 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
             {/* Header */}
             <div className="mb-7">
               <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
-                {isVi ? 'Đăng nhập' : 'Sign in'}
+                {adminEntry ? (isVi ? 'Đăng nhập Admin' : 'Admin sign in') : (isVi ? 'Đăng nhập' : 'Sign in')}
               </h2>
               <p className="text-xs sm:text-sm text-stone-500 mt-2">
                 {isVi
-                  ? 'Nhập thông tin tài khoản để tiếp tục.'
-                  : 'Enter your credentials to continue.'}
+                  ? (adminEntry ? 'Chỉ tài khoản Admin được phép tiếp tục.' : 'Nhập thông tin tài khoản để tiếp tục.')
+                  : (adminEntry ? 'Only Admin accounts may continue.' : 'Enter your credentials to continue.')}
               </p>
             </div>
 
@@ -643,7 +662,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   autoComplete="username"
                   value={loginEmail}
                   onChange={e => setLoginEmail(e.target.value)}
-                  placeholder="manager@scms.com"
+                  placeholder={adminEntry ? 'admin@scms.com' : 'manager@scms.com'}
                   className="w-full h-10 px-3.5 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:border-orange-600 focus:ring-2 focus:ring-orange-100 transition-all"
                 />
               </div>
@@ -750,7 +769,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
             </form>
 
             {/* Switch to Register link */}
-            <div className="mt-6 text-center text-xs text-stone-500">
+            {!adminEntry && <div className="mt-6 text-center text-xs text-stone-500">
               <span>{isVi ? 'Chưa có tài khoản?' : "Don't have an account?"}{' '}</span>
               <button
                 type="button"
@@ -762,16 +781,16 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
               >
                 {isVi ? 'Đăng ký hội viên' : 'Register membership'}
               </button>
-            </div>
+            </div>}
 
             {/* Quick Demo Fill Helper */}
-            <div className="mt-6 p-3.5 rounded-md border border-stone-200 bg-stone-50/70 flex items-center justify-between gap-3 text-xs">
+            {!apiEnabled && <div className="mt-6 p-3.5 rounded-md border border-stone-200 bg-stone-50/70 flex items-center justify-between gap-3 text-xs">
               <div>
                 <p className="text-[11px] font-bold text-stone-800">
                   {isVi ? 'Tài khoản trình diễn' : 'Demo account'}
                 </p>
                 <p className="mt-0.5 text-[11px] text-stone-500 font-mono">
-                  {DEMO_EMAIL} · {DEMO_PASSWORD}
+                  {adminEntry ? 'admin@scms.com' : DEMO_EMAIL} · {DEMO_PASSWORD}
                 </p>
               </div>
               <button
@@ -781,7 +800,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
               >
                 {isVi ? 'Điền lại' : 'Fill'}
               </button>
-            </div>
+            </div>}
           </div>
         ) : isOtpMode ? (
           /* ============================================================ */
@@ -796,8 +815,8 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 {isVi ? 'Xác thực Email' : 'Email Verification'}
               </h2>
               <p className="text-xs sm:text-sm text-stone-500 mt-2 leading-relaxed">
-                {isVi 
-                  ? <>Mã OTP 6 số đã được gửi tới <strong>{regEmail || 'email của bạn'}</strong>. Vui lòng kiểm tra hộp thư đến hoặc mục thư rác.</> 
+                {isVi
+                  ? <>Mã OTP 6 số đã được gửi tới <strong>{regEmail || 'email của bạn'}</strong>. Vui lòng kiểm tra hộp thư đến hoặc mục thư rác.</>
                   : <>A 6-digit OTP has been sent to <strong>{regEmail || 'your email'}</strong>. Please check your inbox or spam folder.</>}
               </p>
             </div>
@@ -842,7 +861,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
 
             <div className="mt-8 text-center text-xs text-stone-500">
               <span>{isVi ? 'Chưa nhận được mã?' : "Didn't receive the code?"} </span>
-              <button 
+              <button
                 type="button"
                 className="text-orange-600 font-semibold hover:underline cursor-pointer"
                 onClick={() => {
@@ -1089,19 +1108,19 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
         )}
       </div>
       </div>
-      
+
       {/* ============================================================ */}
       {/* EXTRA LANDING PAGE SECTIONS FOR REGISTER MODE                */}
       {/* ============================================================ */}
       {authMode === 'register' && !isOtpMode && !registeredSuccessData && (
         <div className="bg-white text-stone-900 flex-1 relative z-20">
-          
+
           {/* Section: Benefits (Friend's Exact Layout Adapted with SCMS Content) */}
           <section ref={scrollRef} className="w-full bg-[#171513] relative h-[360vh]">
             <div className="sticky top-0 h-screen w-full overflow-hidden flex flex-col justify-center gap-10 py-12 border-t border-stone-800">
-              
+
               {/* Background Text Overlay */}
-              <div 
+              <div
                 className="absolute top-1/2 -translate-y-1/2 text-[20vw] font-black text-white/[0.02] whitespace-nowrap pointer-events-none"
                 style={{ transform: `translate(calc(10% - ${scrollProgress * 70}%), -50%)` }}
               >
@@ -1117,7 +1136,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 </h2>
                 {/* Progress bar inside header */}
                 <div className="w-[120px] h-1 bg-white/10 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-orange-500 transition-all duration-75 ease-out"
                     style={{ width: `${scrollProgress * 100}%` }}
                   />
@@ -1125,16 +1144,16 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
               </div>
 
               {/* Horizontal Scrolling Track */}
-              <div 
+              <div
                 ref={trackRef}
                 className="flex gap-4 sm:gap-6 w-max will-change-transform relative z-10"
-                style={{ 
+                style={{
                   transform: `translateX(-${scrollProgress * trackDist}px)`,
                   paddingLeft: 'max(24px, calc((100vw - 1240px) / 2))',
                   paddingRight: '80px'
                 }}
               >
-                
+
                 {/* Card 1 */}
                 <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/10 hover:-translate-y-1.5 flex-shrink-0">
                   <div className="flex items-baseline justify-between mb-10">
@@ -1203,8 +1222,8 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 <div className="w-[320px] sm:w-[400px] lg:w-[460px] bg-orange-600 border border-orange-600 rounded-xl p-8 sm:p-10 flex flex-col justify-center items-start relative transition-all flex-shrink-0">
                   <h3 className="text-4xl sm:text-[44px] font-black text-[#141210] uppercase leading-[1.08] mb-4">{isVi ? 'Trải nghiệm ngay hôm nay' : 'Start your journey today'}</h3>
                   <p className="text-[#2a2522] text-[15.5px] leading-[1.55] mb-8 font-medium">{isVi ? 'Tạo tài khoản miễn phí để nhận ngay ưu đãi tập thử tại toàn bộ hệ thống SCMS. Không ràng buộc, không phí ẩn.' : 'Create a free account to receive an exclusive trial pass at any SCMS center. No commitments, no hidden fees.'}</p>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => {
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}

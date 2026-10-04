@@ -15,7 +15,7 @@ export function Toast() {
                toast.type === 'error' ? AlertCircle : Info;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 animate-bounce">
+    <div id="scms-toast" className="fixed bottom-6 right-6 z-50 animate-bounce">
       <div className={`flex items-center gap-2.5 px-4 py-3 rounded-lg border shadow-lg ${bg}`}>
         <Icon className="w-4 h-4 flex-shrink-0 text-emerald-400" />
         <span className="text-xs font-bold">{toast.message}</span>
