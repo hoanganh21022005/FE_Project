@@ -1466,3 +1466,11 @@ Bộ kiểm thử `node test/run_browser_matrix.mjs` chạy qua Chrome DevTools 
 - **Bằng chứng chốt:** live acceptance 8/8; browser matrix 24/24; `g1_logic_test`, `g1_guard_test`, `g2_logic_test` PASS; production/mock build PASS; `git diff --check` PASS.
 - **Bundle production:** 0 kết quả cho `VITE_TEST_ADMIN`, `TEST_ADMIN`, `ScmsAdmin`, `adminMockData`, `__scms_`, `JSESSIONID`; quét theo giá trị thật của `TEST_ADMIN_PASSWORD` cũng xác nhận 0 lần xuất hiện trong `dist/assets` và source/test.
 - **Gate kế tiếp:** G3 được mở ở mức lập kế hoạch và bàn giao, trạng thái vẫn **Not started**. Không triển khai mutation cho đến khi Chủ dự án giao task rõ ràng cho Implementation Agent.
+
+### 4.23. Phạm vi phát hành Admin G1-G2 lên main — 2026-10-04
+
+- **Release candidate:** nhánh `release/admin-g1-g2` tách từ `PhatTai` tại `5abed28`; target PR là `main`. Chỉ đưa các commit G1-G2 đã nghiệm thu và ghi chú phát hành này vào PR.
+- **Đã nghiệm thu:** xác thực/khôi phục phiên và route guard G1; portal Admin cùng dashboard, danh sách/chi tiết user, ma trận role/permission và audit log dạng đọc G2.
+- **Không thuộc phạm vi phát hành:** code G3 tạo/sửa user đang chưa commit trên working tree `PhatTai`; đổi role/status và chỉnh quyền role chưa hoàn thành. BE chưa bàn giao phân quyền Admin, vì vậy không tuyên bố CRUD/RBAC hoặc enforcement mutation đã nghiệm thu.
+- **Giới hạn hệ thống:** các luồng Manager, Coach, Receptionist và Member ngoài G1/G2 còn nhiều dữ liệu/thao tác mock; PR này không xác nhận toàn bộ hệ thống đã sẵn sàng vận hành production.
+- **Điều kiện merge:** PR phải không xung đột, các kiểm tra bắt buộc và review theo chính sách repository đạt. Việc mở PR không đồng nghĩa đã merge hoặc deploy.
