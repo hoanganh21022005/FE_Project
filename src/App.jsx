@@ -1,4 +1,4 @@
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useSCMS } from './context/SCMSContext';
 import { Header } from './components/layout/Header';
@@ -95,8 +95,12 @@ function SCMSApp() {
   } = useSCMS();
 
   const navigate = useNavigate();
-  const location = useLocation();
   const [targetPackageId, setTargetPackageId] = useState(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [location.pathname]);
 
   const handleLoginSuccess = (userOrRole) => {
     const savedIntended = typeof window !== 'undefined' ? sessionStorage.getItem('scms_intended_path') : null;
@@ -213,7 +217,7 @@ function SCMSApp() {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-stone-950 text-stone-200 flex flex-col items-center justify-center gap-3 text-sm">
-        <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[#BA0000] border-t-transparent rounded-full animate-spin" />
         <p className="font-medium tracking-wide">Đang kiểm tra phiên đăng nhập...</p>
       </div>
     );
@@ -223,7 +227,7 @@ function SCMSApp() {
   if (!isAuthenticated) {
     return (
       <>
-        <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div></div>}>
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full animate-spin"></div></div>}>
           <Routes>
             <Route path="/" element={<HomeLandingView onOpenLogin={() => navigate('/login')} onOpenRegister={(pkgId) => { setTargetPackageId(pkgId || null); navigate('/register'); }} />} />
             <Route path="/discipline/pt" element={<PTDetailView />} />
@@ -265,7 +269,7 @@ function SCMSApp() {
             onSelectTab={handleAdminSelectTab}
             onLogout={handleLogout}
           >
-            <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div></div>}>
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full animate-spin"></div></div>}>
               <Routes>
                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
@@ -297,11 +301,11 @@ function SCMSApp() {
       fallback={<Navigate to="/login" replace />}
     >
       <div className="min-h-screen bg-[#F7F5F0] text-[#2D2721] flex flex-row font-sans antialiased">
-        <Sidebar />
+        <Sidebar mobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0">
-          <Header currentTitle={getPageTitle()} onLogout={handleLogout} />
-          <main className="flex-1 p-6 overflow-y-auto max-w-7xl w-full mx-auto">
-            <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div></div>}>
+          <Header currentTitle={getPageTitle()} onLogout={handleLogout} onOpenMobileMenu={() => setMobileSidebarOpen(true)} />
+          <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto max-w-7xl w-full mx-auto">
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full animate-spin"></div></div>}>
               <Routes>
                 {/* Admin routes protected from non-admin */}
                 <Route

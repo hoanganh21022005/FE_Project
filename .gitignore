@@ -30,3 +30,6 @@ Thumbs.db
 # Temporary files
 .tmp-*
 *.tsbuildinfo
+
+# Test artifacts & generated visual audit images
+test/artifacts/

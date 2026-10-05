@@ -8,38 +8,53 @@
   --font-barlow: 'Barlow', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* SCMS Unified Palette Tokens (Firebase & Fireside) */
-  --color-pearl-canvas: #F7F5F0;
-  --color-admin-canvas: #F7F8FA;
+  /* SCMS Webzone Operations System - 6 Primitives */
+  --color-webzone-black: #181818;      /* Eerie Black: ink chính, sidebar, dark surface */
+  --color-webzone-charcoal: #323232;   /* Dark Charcoal: ink phụ, hover dark surface */
+  --color-webzone-platinum: #E4E4E4;   /* Platinum: canvas, divider, neutral surface */
+  --color-webzone-maxred: #D62323;     /* Maximum Red: accent, focus, selection */
+  --color-webzone-red: #BA0000;        /* UE Red: primary action, active nav */
+  --color-webzone-darkred: #8E0000;    /* Dark Red: hover/pressed, destructive emphasis */
+
+  /* Webzone Semantic Tokens */
+  --color-wz-canvas: #E4E4E4;
+  --color-wz-surface: #FFFFFF;
+  --color-wz-dark-surface: #181818;
+  --color-wz-ink: #181818;
+  --color-wz-ink-secondary: #323232;
+  --color-wz-border: #E4E4E4;
+  --color-wz-border-subtle: #D4D4D4;
+  --color-wz-primary: #BA0000;
+  --color-wz-primary-hover: #8E0000;
+  --color-wz-accent: #D62323;
+  --color-wz-focus: #D62323;
+  --color-wz-destructive: #8E0000;
+
+  /* Semantic Status Tokens (separate from brand red) */
+  --color-wz-success: #047857;
+  --color-wz-warning: #D97706;
+  --color-wz-info: #0284C7;
+
+  /* Backward-compatible aliases (deprecated: mapped to Webzone palette) */
+  --color-pearl-canvas: #E4E4E4;
+  --color-admin-canvas: #E4E4E4;
   --color-pearl-surface: #FFFFFF;
-  --color-brand-flame: #EA580C;
-  --color-brand-flame-hover: #C2410C;
-  --color-brand-amber: #F59E0B;
-  --color-brand-soft-bg: #FFF7ED;
-  --color-brand-soft-border: #FED7AA;
-  --color-brand-dark: #0F172A;
+  --color-brand-flame: #BA0000;
+  --color-brand-flame-hover: #8E0000;
+  --color-brand-amber: #D62323;
+  --color-brand-soft-bg: #FEF2F2;
+  --color-brand-soft-border: #FECACA;
+  --color-brand-dark: #181818;
 
-  /* Fireside Hearth & Ember Palette Tokens */
-  --color-fireside-dark: #0c0a09;
-  --color-fireside-hearth: #141210;
-  --color-fireside-surface: #1c1917;
-  --color-fireside-card: #24201e;
-  --color-fireside-border: #332d29;
-  --color-fireside-flame: #ea580c;
-  --color-fireside-ember: #f97316;
-  --color-fireside-amber: #f59e0b;
-  --color-fireside-glow: #fbbf24;
-
-  /* SCMS Primary Theme (Vibrant Orange/Brick Red) */
-  --color-sc-primary: #ff5a1f; /* Brighter, more punchy orange for maximum visibility */
-  --color-sc-primary-soft: #2a1610;
-  --color-sc-accent: #ff7b47; /* Even brighter orange for text highlights */
-  --color-sc-lime: #ccff00;
-  --color-sc-ink: #14130f;
-  --color-sc-paper: #0c0a09; /* Slightly darker base to increase contrast */
-  --color-sc-muted: #a3a3a3;
-  --color-sc-border: #292524;
-  --color-sc-border-soft: #1c1917;
+  --color-sc-primary: #BA0000;
+  --color-sc-primary-soft: #181818;
+  --color-sc-accent: #D62323;
+  --color-sc-lime: #D62323;
+  --color-sc-ink: #181818;
+  --color-sc-paper: #181818;
+  --color-sc-muted: #E4E4E4;
+  --color-sc-border: #323232;
+  --color-sc-border-soft: #242424;
 }
 
 body {

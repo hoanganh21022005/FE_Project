@@ -25,12 +25,12 @@ export function ReceptionMemberSearch() {
       {/* Header */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-blue-50 text-blue-800 rounded border border-blue-200">
+          <div className="p-2.5 bg-[#181818] text-[#D62323] rounded border border-[#323232]">
             <Search className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900 whitespace-nowrap">{t('memberSearch')}</h2>
-            <p className="text-xs text-slate-500 whitespace-nowrap">
+            <h2 className="text-base font-bold text-[#181818] tracking-tight">{t('memberSearch')}</h2>
+            <p className="text-xs text-slate-500">
               {language === 'vi' ? 'Tra cứu chi tiết hồ sơ hội viên, kiểm tra thời hạn gói & thông tin liên hệ' : 'Look up member profile details, package expiry and contact information'}
             </p>
           </div>
@@ -38,7 +38,7 @@ export function ReceptionMemberSearch() {
 
         <button
           onClick={() => setIsNewMemberOpen(true)}
-          className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5"
+          className="px-3.5 py-1.5 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer w-full md:w-auto"
         >
           <UserPlus className="w-3.5 h-3.5" />
           <span>Tạo Thành Viên Mới</span>
@@ -47,7 +47,7 @@ export function ReceptionMemberSearch() {
 
       {/* Filter and Search Bar */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
-        <div className="flex flex-col md:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -55,16 +55,16 @@ export function ReceptionMemberSearch() {
               placeholder="Nhập tên, số điện thoại, email hoặc mã hội viên..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-300 rounded pl-9 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:bg-white"
+              className="w-full bg-slate-50 border border-slate-300 rounded pl-9 pr-3 py-2 text-xs text-[#181818] placeholder-slate-400 focus:outline-none focus:border-[#BA0000] focus:bg-white"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-500" />
+            <Filter className="w-4 h-4 text-slate-500 shrink-0" />
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
+              className="w-full sm:w-auto bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs text-[#181818] font-semibold focus:outline-none focus:border-[#BA0000] cursor-pointer"
             >
               <option value="all">Tất cả trạng thái (All Statuses)</option>
               <option value="active">Hoạt động (Active)</option>
@@ -101,8 +101,8 @@ export function ReceptionMemberSearch() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs">
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                  <button className="w-full md:w-auto px-3 py-1.5 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded text-xs font-bold shadow-xs transition-colors cursor-pointer">
                     Xem Chi Tiết Hồ Sơ
                   </button>
                 </div>

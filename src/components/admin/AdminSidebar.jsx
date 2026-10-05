@@ -45,9 +45,9 @@ export function AdminSidebar({
               <button
                 type="button"
                 onClick={() => select("admin_dashboard")}
-                className="flex items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-orange-600 rounded cursor-pointer"
+                className="flex items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-[#BA0000] rounded cursor-pointer"
               >
-                <div className="w-8 h-8 rounded bg-slate-900 text-amber-500 flex items-center justify-center font-black">
+                <div className="w-8 h-8 rounded bg-[#181818] text-white flex items-center justify-center font-black">
                   S
                 </div>
                 <div>
@@ -81,13 +81,13 @@ export function AdminSidebar({
                     type="button"
                     onClick={() => select(id)}
                     aria-current={active ? "page" : undefined}
-                    className={`w-full h-11 min-h-[44px] px-3 flex items-center gap-3 rounded text-sm font-semibold transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-600 ${
+                    className={`w-full h-11 min-h-[44px] px-3 flex items-center gap-3 rounded text-sm font-semibold transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#BA0000] ${
                       active
-                        ? "bg-orange-50 text-orange-700 font-bold border-l-2 border-orange-600 shadow-2xs"
+                        ? "bg-red-50 text-red-950 font-bold border-l-2 border-[#BA0000] shadow-2xs"
                         : "text-stone-700 hover:bg-stone-100"
                     }`}
                   >
-                    <Icon className={`w-4 h-4 shrink-0 ${active ? "text-orange-600" : "text-stone-500"}`} />
+                    <Icon className={`w-4 h-4 shrink-0 ${active ? "text-[#BA0000]" : "text-stone-500"}`} />
                     <span className="truncate">{label}</span>
                   </button>
                 )
@@ -99,13 +99,13 @@ export function AdminSidebar({
             <button
               type="button"
               onClick={() => select("profile")}
-              className={`w-full h-11 min-h-[44px] px-3 flex items-center gap-3 rounded text-sm font-semibold transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-600 ${
+              className={`w-full h-11 min-h-[44px] px-3 flex items-center gap-3 rounded text-sm font-semibold transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#BA0000] ${
                 currentTab === "profile"
-                  ? "bg-orange-50 text-orange-700 font-bold border-l-2 border-orange-600 shadow-2xs"
+                  ? "bg-red-50 text-red-950 font-bold border-l-2 border-[#BA0000] shadow-2xs"
                   : "text-stone-700 hover:bg-stone-100"
               }`}
             >
-              <UserCircle className={`w-4 h-4 shrink-0 ${currentTab === "profile" ? "text-orange-600" : "text-stone-500"}`} />
+              <UserCircle className={`w-4 h-4 shrink-0 ${currentTab === "profile" ? "text-[#BA0000]" : "text-stone-500"}`} />
               Hồ sơ
             </button>
             <button

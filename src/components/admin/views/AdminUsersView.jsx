@@ -72,7 +72,7 @@ export function AdminUsersView() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Tên, email, mã hoặc số điện thoại"
-            className="w-full h-11 min-h-[44px] pl-9 pr-3 rounded border border-stone-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-600"
+            className="w-full h-11 min-h-[44px] pl-9 pr-3 rounded border border-stone-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#BA0000]"
           />
         </label>
         <label>
@@ -80,7 +80,7 @@ export function AdminUsersView() {
           <select
             value={roleFilter}
             onChange={(event) => setRoleFilter(event.target.value)}
-            className="w-full md:w-48 h-11 min-h-[44px] px-3 rounded border border-stone-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-600 cursor-pointer"
+            className="w-full md:w-48 h-11 min-h-[44px] px-3 rounded border border-stone-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#BA0000] cursor-pointer"
           >
             <option value="all">Tất cả vai trò</option>
             {roleOptions.map((role) => (
@@ -95,7 +95,7 @@ export function AdminUsersView() {
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
-            className="w-full md:w-44 h-11 min-h-[44px] px-3 rounded border border-stone-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-600 cursor-pointer"
+            className="w-full md:w-44 h-11 min-h-[44px] px-3 rounded border border-stone-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#BA0000] cursor-pointer"
           >
             <option value="all">Tất cả trạng thái</option>
             <option value="active">Hoạt động</option>
@@ -142,7 +142,7 @@ export function AdminUsersView() {
                         </p>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="inline-flex px-2 py-1 rounded bg-orange-50 text-orange-700 border border-orange-200 text-xs font-bold">
+                        <span className="inline-flex px-2 py-1 rounded bg-red-50 text-red-950 border border-red-200 text-xs font-bold">
                           {user.roleName || `Role #${user.roleId ?? "?"}`}
                         </span>
                       </td>
@@ -166,7 +166,7 @@ export function AdminUsersView() {
                         <button
                           type="button"
                           onClick={() => setSelectedUser(user)}
-                          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 rounded border border-stone-300 text-xs font-bold text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-orange-600 cursor-pointer transition-colors"
+                          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 rounded border border-stone-300 text-xs font-bold text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-[#BA0000] cursor-pointer transition-colors"
                         >
                           Xem
                         </button>
@@ -189,7 +189,7 @@ export function AdminUsersView() {
               aria-label="Chi tiết người dùng"
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="w-10 h-10 rounded bg-orange-50 text-orange-600 flex items-center justify-center">
+                <div className="w-10 h-10 rounded bg-red-50 text-[#BA0000] flex items-center justify-center">
                   <UserRound className="w-5 h-5" />
                 </div>
                 <button

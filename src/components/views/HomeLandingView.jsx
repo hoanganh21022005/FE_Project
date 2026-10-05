@@ -119,7 +119,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
   const coaches = staff.filter(s => s.role === 'coach');
 
   return (
-    <div className="min-h-screen bg-[#0c0a09] text-stone-100 font-sans antialiased selection:bg-orange-600 selection:text-white">
+    <div className="min-h-screen bg-[#0c0a09] text-stone-100 font-sans antialiased selection:bg-[#BA0000] selection:text-white">
       {/* ============================================================ */}
       {/* 1. TOP NAVBAR (SOLID, CLEAN SPORTS CLUB HEADER)             */}
       {/* ============================================================ */}
@@ -127,7 +127,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
           {/* Logo & Brand */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center font-black text-lg shadow-md shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-[#BA0000] flex items-center justify-center font-black text-lg shadow-md shrink-0">
               <span className="text-white">SC</span>
             </div>
             <div className="text-xl font-black tracking-widest uppercase text-white leading-none mt-1">
@@ -162,7 +162,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                 type="button"
                 onClick={() => setLanguage('vi')}
                 className={`px-2 py-1 rounded transition-all cursor-pointer ${
-                  isVi ? 'bg-orange-600 text-white shadow-xs' : 'text-stone-400 hover:text-stone-200'
+                  isVi ? 'bg-[#BA0000] text-white shadow-xs' : 'text-stone-400 hover:text-stone-200'
                 }`}
               >
                 VI
@@ -171,7 +171,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                 type="button"
                 onClick={() => setLanguage('en')}
                 className={`px-2 py-1 rounded transition-all cursor-pointer ${
-                  !isVi ? 'bg-orange-600 text-white shadow-xs' : 'text-stone-400 hover:text-stone-200'
+                  !isVi ? 'bg-[#BA0000] text-white shadow-xs' : 'text-stone-400 hover:text-stone-200'
                 }`}
               >
                 EN
@@ -192,7 +192,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
             <button
               type="button"
               onClick={() => onOpenRegister()}
-              className="min-w-[115px] px-4 py-2 rounded-md bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm shadow-orange-600/30"
+              className="min-w-[115px] px-4 py-2 rounded-md bg-[#BA0000] hover:bg-[#8E0000] active:bg-[#8E0000] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm shadow-red-950/30"
             >
               <UserPlus className="w-3.5 h-3.5" />
               <span>{isVi ? 'Đăng ký ngay' : 'Join Now'}</span>
@@ -248,7 +248,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
               <button 
                 type="button"
                 onClick={() => onOpenRegister()} 
-                className="px-8 py-4 rounded bg-sc-primary hover:bg-orange-600 text-white font-black text-sm uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-2 drop-shadow-lg"
+                className="px-8 py-4 rounded bg-[#BA0000] hover:bg-[#8E0000] text-white font-black text-sm uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-2 drop-shadow-lg"
               >
                 {isVi ? 'ĐĂNG KÝ TẬP THỬ MIỄN PHÍ' : 'Register Free Trial'} <ChevronRight className="w-4 h-4" />
               </button>
@@ -482,12 +482,12 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                   key={pkg.id}
                   className={`rounded-2xl p-7 flex flex-col justify-between transition-all relative ${
                     isPopular
-                      ? 'bg-stone-900 border-2 border-orange-500 shadow-xl shadow-orange-950/60'
+                      ? 'bg-stone-900 border-2 border-[#BA0000] shadow-xl shadow-red-950/60'
                       : 'bg-stone-900/70 border border-stone-800 hover:border-stone-700'
                   }`}
                 >
                   {isPopular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-gradient-to-r from-orange-600 to-amber-600 text-[10px] font-bold text-white uppercase tracking-wider shadow-sm">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-[#BA0000] text-[10px] font-bold text-white uppercase tracking-wider shadow-sm">
                       {isVi ? 'Gói phổ biến nhất' : 'Most Popular'}
                     </div>
                   )}
@@ -533,7 +533,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                     onClick={() => onOpenRegister()}
                     className={`w-full py-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
                       isPopular
-                        ? 'bg-orange-600 hover:bg-orange-500 text-white shadow-md shadow-orange-600/30'
+                        ? 'bg-[#BA0000] hover:bg-[#8E0000] text-white shadow-md shadow-red-950/30'
                         : 'bg-stone-800 hover:bg-stone-700 text-stone-200 hover:text-white'
                     }`}
                   >
@@ -608,7 +608,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                   <button
                     type="button"
                     onClick={() => onOpenRegister()}
-                    className="text-xs text-sc-primary hover:text-amber-300 font-bold hover:underline cursor-pointer"
+                    className="text-xs text-[#BA0000] hover:text-[#D62323] font-bold hover:underline cursor-pointer"
                   >
                     {isVi ? 'Đặt lịch tập' : 'Book Session'}
                   </button>
@@ -703,7 +703,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
             <button
               type="button"
               onClick={() => onOpenRegister()}
-              className="px-6 py-3 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer shadow-md shadow-orange-600/30"
+              className="px-6 py-3 rounded-lg bg-[#BA0000] hover:bg-[#8E0000] text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer shadow-md shadow-red-900/30"
             >
               {isVi ? 'Đăng ký hội viên ngay' : 'Join Membership Now'}
             </button>

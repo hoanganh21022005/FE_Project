@@ -36,7 +36,7 @@ export function AdminRolesView() {
                     <p className="text-sm font-bold text-stone-950">
                       {role.name || `Role #${role.id}`}
                     </p>
-                    <span className="text-xs font-semibold text-orange-700">
+                    <span className="text-xs font-semibold text-[#BA0000]">
                       {role.permissions.length} quyền
                     </span>
                   </div>

@@ -44,7 +44,7 @@ function MetricPanel({ config, resource, onRetry }) {
             {config.source}
           </p>
         </div>
-        <div className="w-9 h-9 rounded bg-orange-50 text-orange-600 flex items-center justify-center">
+        <div className="w-9 h-9 rounded bg-red-50 text-[#BA0000] flex items-center justify-center">
           <Icon className="w-4 h-4" />
         </div>
       </div>

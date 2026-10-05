@@ -2,13 +2,13 @@ const normalizeStatus = (status, fallback = null) => status
   ? String(status).trim().toLowerCase().replace(/\s+/g, '_')
   : fallback;
 
-const asNumber = (value) => {
+export const asNumber = (value) => {
   if (value === null || value === undefined || value === '') return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 };
 
-const idNumber = (value) => {
+export const idNumber = (value) => {
   const direct = asNumber(value);
   if (direct !== null) return direct;
   const match = String(value ?? '').match(/(\d+)$/);
