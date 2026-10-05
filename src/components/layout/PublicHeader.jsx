@@ -81,7 +81,7 @@ export function PublicHeader() {
           <button
             type="button"
             onClick={() => navigate('/register')}
-            className="flex items-center gap-2 bg-sc-primary hover:bg-orange-600 text-white text-xs font-bold px-5 py-2.5 rounded shadow-lg shadow-orange-600/20 transition-all cursor-pointer"
+            className="flex items-center gap-2 bg-[#BA0000] hover:bg-[#8E0000] text-white text-xs font-bold px-5 py-2.5 rounded shadow-lg shadow-red-950/20 transition-all cursor-pointer"
           >
             <UserPlus className="w-3.5 h-3.5" />
             {isVi ? 'Đăng ký ngay' : 'Join Now'}

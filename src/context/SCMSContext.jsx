@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import { translations } from '../locales/translations.js';
 import * as authApi from '../api/authApi.js';
 import * as managerApi from '../api/managerApi.js';
+import * as memberApi from '../api/memberApi.js';
+import * as staffApi from '../api/staffApi.js';
 import { getErrorMessage, UnauthorizedError } from '../api/apiErrors.js';
 import { UNAUTHORIZED_EVENT, FORBIDDEN_EVENT } from '../api/httpClient.js';
 import {
@@ -17,7 +19,7 @@ import {
   ROLE_MEMBER,
 } from '../utils/navigation.js';
 
-const SCMSContext = createContext(undefined);
+export const SCMSContext = createContext(undefined);
 const API_ENABLED = import.meta.env.VITE_API_ENABLED === 'true';
 const UNSUPPORTED_ROLE_MESSAGE = 'Vai trò người dùng không được hỗ trợ trong hệ thống.';
 
@@ -237,8 +239,12 @@ export const SCMSProvider = ({ children }) => {
   }, [role, currentTab]);
 
   // States
-  const [members, setMembers] = useState(INITIAL_MEMBERS);
-  const [staff, setStaff] = useState(INITIAL_STAFF);
+  const [members, setMembers] = useState(API_ENABLED ? [] : INITIAL_MEMBERS);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersError, setMembersError] = useState(null);
+  const [staff, setStaff] = useState(API_ENABLED ? [] : INITIAL_STAFF);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [staffError, setStaffError] = useState(null);
   const [packages, setPackages] = useState(API_ENABLED ? [] : INITIAL_PACKAGES);
   const [classes, setClasses] = useState(API_ENABLED ? [] : INITIAL_CLASSES);
   const [subjects, setSubjects] = useState(API_ENABLED ? [] : INITIAL_SUBJECTS);
@@ -330,6 +336,69 @@ export const SCMSProvider = ({ children }) => {
     };
   }, []);
 
+  // Independent fetchers for Member and Staff resources
+  const fetchMembers = useCallback(async () => {
+    if (!API_ENABLED) {
+      setMembers(INITIAL_MEMBERS);
+      return INITIAL_MEMBERS;
+    }
+    setMembersLoading(true);
+    setMembersError(null);
+    try {
+      const data = await memberApi.getMembers();
+      setMembers(data);
+      return data;
+    } catch (err) {
+      const msg = getErrorMessage(err, 'Không thể tải danh sách hội viên từ máy chủ.');
+      setMembersError(msg);
+      setMembers([]); // In API mode, never fallback to mock
+      throw err;
+    } finally {
+      setMembersLoading(false);
+    }
+  }, []);
+
+  const fetchStaff = useCallback(async () => {
+    if (!API_ENABLED) {
+      setStaff(INITIAL_STAFF);
+      return INITIAL_STAFF;
+    }
+    setStaffLoading(true);
+    setStaffError(null);
+    try {
+      const data = await staffApi.getStaff();
+      setStaff(data);
+      return data;
+    } catch (err) {
+      const msg = getErrorMessage(err, 'Không thể tải danh sách nhân viên từ máy chủ.');
+      setStaffError(msg);
+      setStaff([]); // In API mode, never fallback to mock
+      throw err;
+    } finally {
+      setStaffLoading(false);
+    }
+  }, []);
+
+  // Authoritative Coach lookup derived from active staff with Coach role
+  const coaches = useMemo(() => {
+    return staff.filter((s) => {
+      const r = String(s.role || s.beRole || '').toLowerCase();
+      const isCoachRole = r.includes('coach') || r.includes('huấn luyện');
+      const isActive = s.status === 'active' || String(s.rawStatus || '').toLowerCase() === 'active';
+      return isCoachRole && isActive;
+    });
+  }, [staff]);
+
+  // Load Member and Staff independently for roles with access
+  useEffect(() => {
+    if (!API_ENABLED || !authUser) return undefined;
+    const allowedRoles = [ROLE_MANAGER, ROLE_RECEPTIONIST, ROLE_ADMIN, ROLE_COACH];
+    if (allowedRoles.includes(authUser.role)) {
+      fetchMembers().catch(() => {});
+      fetchStaff().catch(() => {});
+    }
+  }, [authUser, fetchMembers, fetchStaff]);
+
   useEffect(() => {
     if (!API_ENABLED || !authUser || authUser.role !== ROLE_MANAGER) return undefined;
 
@@ -339,10 +408,13 @@ export const SCMSProvider = ({ children }) => {
 
     (async () => {
       try {
-        const loadedSubjects = await managerApi.getSubjects();
+        const [loadedSubjects, loadedStaff] = await Promise.all([
+          managerApi.getSubjects(),
+          staffApi.getStaff().catch(() => staff),
+        ]);
         const [loadedRooms, loadedClasses, loadedPackages, loadedDashboard, loadedAuditLogs] = await Promise.all([
           managerApi.getRooms(),
-          managerApi.getClasses({ subjects: loadedSubjects, coaches: staff }),
+          managerApi.getClasses({ subjects: loadedSubjects, coaches: loadedStaff }),
           managerApi.getPackages(),
           managerApi.getDashboard(),
           managerApi.getAuditLogs(),
@@ -441,7 +513,15 @@ export const SCMSProvider = ({ children }) => {
     setAuditLogs(prev => [newLog, ...prev]);
   };
 
-  const addMember = (data) => {
+  const addMember = async (data) => {
+    if (API_ENABLED) {
+      const created = await memberApi.createMember(data);
+      setMembers(prev => [created, ...prev.filter(m => m.id !== created.id)]);
+      addAuditLog('CREATE_MEMBER', `Thành viên: ${created.name} (${created.code})`, 'N/A', 'Active', 'Khởi tạo tài khoản hội viên qua API');
+      showToast(language === 'vi' ? `Đã tạo tài khoản hội viên ${created.name}!` : `Created member profile ${created.name}!`);
+      fetchMembers().catch(() => {});
+      return created;
+    }
     const newId = `mem-${Date.now()}`;
     const newCode = `MB-${Math.floor(1000 + Math.random() * 9000)}`;
     const pkg = data.currentPackageId ? packages.find(p => p.id === data.currentPackageId) : null;
@@ -463,17 +543,36 @@ export const SCMSProvider = ({ children }) => {
     return newMember;
   };
 
-  const updateMember = (id, data) => {
-    setMembers(prev => prev.map(m => m.id === id ? { ...m, ...data } : m));
+  const updateMember = async (id, data) => {
+    if (API_ENABLED) {
+      const updated = await memberApi.updateMember(id, data);
+      setMembers(prev => prev.map(m => (m.id === id ? { ...m, ...updated } : m)));
+      showToast(language === 'vi' ? 'Đã cập nhật thông tin hội viên!' : 'Member updated successfully!');
+      fetchMembers().catch(() => {});
+      return updated;
+    }
+    setMembers(prev => prev.map(m => (m.id === id ? { ...m, ...data } : m)));
   };
 
-  const updateMemberProfile = (id, profileData) => {
+  const updateMemberProfile = async (id, profileData) => {
+    if (API_ENABLED) {
+      return await updateMember(id, profileData);
+    }
     const member = members.find(m => m.id === id);
     if (!member) return;
     const oldName = member.name;
-    setMembers(prev => prev.map(m => m.id === id ? { ...m, ...profileData } : m));
+    setMembers(prev => prev.map(m => (m.id === id ? { ...m, ...profileData } : m)));
     addAuditLog('UPDATE_MEMBER_PROFILE', `Thành viên: ${profileData.name || oldName} (${member.code})`, 'Old Profile', 'Updated Profile', 'Cập nhật thông tin hồ sơ cá nhân');
     showToast(language === 'vi' ? 'Đã cập nhật thông tin hồ sơ thành viên!' : 'Member profile updated successfully!');
+  };
+
+  const updateMemberStatus = async (memberId, status) => {
+    if (API_ENABLED) {
+      showToast(language === 'vi' ? 'Thao tác đổi trạng thái hội viên (G4.5) đang bị khóa do Backend chưa công bố cấu trúc body và enum.' : 'Member status update is blocked pending BE contract verification.', 'error');
+      throw new Error('Thao tác cập nhật trạng thái hội viên (G4.5) đang bị khóa do Backend chưa công bố cấu trúc body và enum.');
+    }
+    setMembers(prev => prev.map(m => (m.id === memberId ? { ...m, accountStatus: status, status } : m)));
+    showToast(language === 'vi' ? 'Đã cập nhật trạng thái hội viên' : 'Member status updated');
   };
 
   const addMemberPackage = (memberId, packageId) => {
@@ -493,7 +592,15 @@ export const SCMSProvider = ({ children }) => {
     showToast(language === 'vi' ? 'Đã đăng ký gói mới (Trạng thái: Chờ thanh toán)!' : 'New package registered in Pending Payment status!');
   };
 
-  const addStaff = (staffData) => {
+  const addStaff = async (staffData) => {
+    if (API_ENABLED) {
+      const created = await staffApi.createStaff(staffData);
+      setStaff(prev => [created, ...prev.filter(s => s.id !== created.id)]);
+      addAuditLog('CREATE_STAFF', `Nhân viên mới: ${created.name} (${created.code})`, 'N/A', 'Active', `Tạo tài khoản ${created.role}`);
+      showToast(language === 'vi' ? `Đã tạo tài khoản nhân viên ${created.name}!` : `Created staff account for ${created.name}!`);
+      fetchStaff().catch(() => {});
+      return created;
+    }
     const newId = `stf-${Date.now()}`;
     const prefix = staffData.role === 'coach' ? 'COA' : 'REC';
     const newCode = `${prefix}-${Math.floor(100 + Math.random() * 900)}`;
@@ -504,7 +611,8 @@ export const SCMSProvider = ({ children }) => {
       email: staffData.email,
       phone: staffData.phone,
       role: staffData.role,
-      specialty: staffData.specialty || null,
+      specialty: staffData.specialty || staffData.specialization || null,
+      specialization: staffData.specialization || staffData.specialty || null,
       status: 'active',
       activeClassesCount: staffData.role === 'coach' ? 0 : undefined
     };
@@ -513,6 +621,18 @@ export const SCMSProvider = ({ children }) => {
     addAuditLog('CREATE_STAFF', `Nhân viên mới: ${newStaff.name} (${newStaff.code})`, 'N/A', 'Active', `Tạo tài khoản ${staffData.role}`);
     showToast(language === 'vi' ? `Đã tạo tài khoản nhân viên ${newStaff.name}!` : `Created staff account for ${newStaff.name}!`);
     return newStaff;
+  };
+
+  const updateStaff = async (id, staffData) => {
+    if (API_ENABLED) {
+      const updated = await staffApi.updateStaff(id, staffData);
+      setStaff(prev => prev.map(s => (s.id === id ? { ...s, ...updated } : s)));
+      showToast(language === 'vi' ? `Đã cập nhật tài khoản nhân viên ${updated.name}!` : `Updated staff account for ${updated.name}!`);
+      fetchStaff().catch(() => {});
+      return updated;
+    }
+    setStaff(prev => prev.map(s => (s.id === id ? { ...s, ...staffData } : s)));
+    showToast(language === 'vi' ? 'Đã cập nhật thông tin nhân viên' : 'Staff updated successfully');
   };
 
   const recordPayment = (memberId, packageId, amount, method, notes) => {
@@ -703,7 +823,11 @@ export const SCMSProvider = ({ children }) => {
     return { success: true, data: newClass };
   };
 
-  const updateStaffStatus = (staffId, status, reason) => {
+  const updateStaffStatus = async (staffId, status, reason) => {
+    if (API_ENABLED) {
+      showToast(language === 'vi' ? 'Thao tác đổi trạng thái nhân sự (G4.5) đang bị khóa do Backend chưa công bố cấu trúc body và enum.' : 'Staff status update is blocked pending BE contract verification.', 'error');
+      throw new Error('Thao tác cập nhật trạng thái nhân sự (G4.5) đang bị khóa do Backend chưa công bố cấu trúc body và enum.');
+    }
     const stf = staff.find(s => s.id === staffId);
     if (stf) {
       setStaff(prev => prev.map(s => s.id === staffId ? { ...s, status } : s));
@@ -896,6 +1020,15 @@ export const SCMSProvider = ({ children }) => {
         updatePackage,
         updatePackageStatus,
         updateStaffStatus,
+        updateMemberStatus,
+        updateStaff,
+        membersLoading,
+        membersError,
+        fetchMembers,
+        staffLoading,
+        staffError,
+        fetchStaff,
+        coaches,
         updateTrainingPlan,
         t
       }}
@@ -955,6 +1088,15 @@ const fallbackContext = {
   updatePackage: async () => {},
   updatePackageStatus: async () => {},
   updateStaffStatus: () => {},
+  updateMemberStatus: () => {},
+  updateStaff: () => {},
+  membersLoading: false,
+  membersError: null,
+  fetchMembers: async () => [],
+  staffLoading: false,
+  staffError: null,
+  fetchStaff: async () => [],
+  coaches: [],
   updateTrainingPlan: () => {},
   t: (key) => key
 };

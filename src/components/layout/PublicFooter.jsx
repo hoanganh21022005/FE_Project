@@ -47,7 +47,7 @@ export function PublicFooter() {
             <h5 className="text-sm font-black text-white uppercase tracking-wider mb-4">
               {isVi ? 'SUPPORT' : 'SUPPORT'}
             </h5>
-            <div className="text-3xl font-black text-[#E32119] tracking-tighter mb-4">
+            <div className="text-3xl font-black text-[#BA0000] tracking-tighter mb-4">
               1800 6995
             </div>
             <div className="flex items-center gap-3">

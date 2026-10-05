@@ -1,12 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
-import { Calendar, ChevronRight, LogOut, Bell, CheckCircle2, AlertTriangle, CreditCard, Users, Check } from 'lucide-react';
+import { Calendar, ChevronRight, LogOut, Bell, CheckCircle2, AlertTriangle, CreditCard, Users, Check, Menu } from 'lucide-react';
 
-
-
-
-
-export function Header({ currentTitle, onLogout }) {
+export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
   const { language, setLanguage, currentUser, t } = useSCMS();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState([
@@ -100,19 +96,27 @@ export function Header({ currentTitle, onLogout }) {
   };
 
   return (
-    <header className="h-[56px] bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
-      {/* Left Trail */}
-      <div className="flex items-center gap-2 text-xs">
-        <span className="text-slate-400 font-medium">SCMS Center</span>
-        <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-        <span className="text-slate-900 font-bold">{currentTitle}</span>
+    <header className="h-[56px] bg-white border-b border-slate-200 px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+      {/* Left Trail & Mobile Menu Button */}
+      <div className="flex items-center gap-2 text-xs min-w-0">
+        <button
+          type="button"
+          onClick={onOpenMobileMenu}
+          className="p-1.5 -ml-1 text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-md md:hidden cursor-pointer"
+          aria-label={language === 'vi' ? 'Mở menu điều hướng' : 'Open navigation menu'}
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <span className="hidden sm:inline text-slate-400 font-medium">SCMS Center</span>
+        <ChevronRight className="hidden sm:inline w-3.5 h-3.5 text-slate-300" />
+        <span className="text-slate-900 font-bold truncate">{currentTitle}</span>
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-3">
-        {/* Today's Date Display */}
-        <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 border border-slate-200 rounded text-xs font-semibold text-slate-800 shadow-2xs">
-          <Calendar className="w-4 h-4 text-orange-600 flex-shrink-0" />
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Today's Date Display (hidden on small/medium screens to prevent clutter) */}
+        <div className="hidden lg:flex items-center gap-2 bg-slate-50 px-3 py-1.5 border border-slate-200 rounded text-xs font-semibold text-slate-800 shadow-2xs">
+          <Calendar className="w-4 h-4 text-[#BA0000] flex-shrink-0" />
           <span className="tabular-nums text-slate-900 font-bold">
             {getFormattedTodayDate()}
           </span>
@@ -125,7 +129,7 @@ export function Header({ currentTitle, onLogout }) {
             onClick={() => setLanguage('vi')}
             className={`px-2.5 py-1 rounded text-[11px] transition-all ${
               language === 'vi'
-                ? 'bg-orange-600 text-white shadow-xs'
+                ? 'bg-[#BA0000] text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -136,7 +140,7 @@ export function Header({ currentTitle, onLogout }) {
             onClick={() => setLanguage('en')}
             className={`px-2.5 py-1 rounded text-[11px] transition-all ${
               language === 'en'
-                ? 'bg-orange-600 text-white shadow-xs'
+                ? 'bg-[#BA0000] text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >

@@ -23,13 +23,13 @@ export function PersonalProfileView() {
   return (
     <div className="max-w-2xl mx-auto bg-white border border-stone-200 rounded-lg p-6 shadow-xs space-y-6">
       <div className="flex items-center gap-4 border-b border-stone-200 pb-6">
-        <div className="w-14 h-14 rounded-lg bg-slate-900 text-amber-500 flex items-center justify-center text-xl font-bold">
+        <div className="w-14 h-14 rounded-lg bg-[#181818] text-[#D62323] flex items-center justify-center text-xl font-bold">
           {userName.charAt(0)}
         </div>
         <div>
-          <h2 className="text-base font-bold text-stone-900">{userName}</h2>
+          <h2 className="text-base font-bold text-[#181818]">{userName}</h2>
           <p className="text-xs text-stone-500">{userEmail}</p>
-          <span className="inline-flex items-center justify-center min-w-[140px] mt-1.5 px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wider bg-orange-50 text-orange-700 border border-orange-200 text-center">
+          <span className="inline-flex items-center justify-center min-w-[140px] mt-1.5 px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wider bg-red-50 text-[#BA0000] border border-red-200 text-center">
             {roleLabel}
           </span>
         </div>
