@@ -4,17 +4,13 @@ import * as authApi from '../api/authApi.js';
 import * as managerApi from '../api/managerApi.js';
 import { getErrorMessage, UnauthorizedError } from '../api/apiErrors.js';
 import { UNAUTHORIZED_EVENT } from '../api/httpClient.js';
+import { normalizeRole } from '../utils/navigation.js';
 
 const SCMSContext = createContext(undefined);
 const API_ENABLED = import.meta.env.VITE_API_ENABLED === 'true';
 
 const roleFromApi = (role) => {
-  const normalized = String(role || '').toLowerCase();
-  if (normalized === 'centermanager' || normalized === 'manager') return 'manager';
-  if (normalized === 'coach') return 'coach';
-  if (normalized === 'receptionist') return 'receptionist';
-  if (normalized === 'member') return 'member';
-  return 'manager';
+  return normalizeRole(role, { isApiMode: true });
 };
 
 // Initial Seed Data
@@ -191,12 +187,17 @@ const INITIAL_TRAINING_PLANS = [
 
 export const SCMSProvider = ({ children }) => {
   const [language, setLanguage] = useState('vi');
-  const [role, setRole] = useState('manager');
+  const [role, setRole] = useState(() => {
+    if (typeof window === 'undefined') return 'manager';
+    return normalizeRole(sessionStorage.getItem('scms_mock_role')) || 'manager';
+  });
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [toast, setToast] = useState(null);
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(API_ENABLED);
-  const [localAuthenticated, setLocalAuthenticated] = useState(false);
+  const [localAuthenticated, setLocalAuthenticated] = useState(() =>
+    typeof window !== 'undefined' && sessionStorage.getItem('scms_mock_authenticated') === 'true'
+  );
   const [managerDataLoading, setManagerDataLoading] = useState(false);
   const [managerDataError, setManagerDataError] = useState(null);
 
@@ -222,9 +223,9 @@ export const SCMSProvider = ({ children }) => {
   const [trainingPlans, setTrainingPlans] = useState(INITIAL_TRAINING_PLANS);
 
   const fallbackUser = {
-    id: role === 'coach' ? 'stf-3' : role === 'receptionist' ? 'stf-5' : role === 'member' ? 'mem-1' : 'stf-1',
-    name: role === 'coach' ? 'Lê Thị Mai' : role === 'receptionist' ? 'Phạm Thị Thu' : role === 'member' ? 'Nguyễn Minh Anh' : 'Trần Văn Hoàng',
-    email: `${role}@scms.com`,
+    id: role === 'admin' ? 'usr-admin' : role === 'coach' ? 'stf-3' : role === 'receptionist' ? 'stf-5' : role === 'member' ? 'mem-1' : 'stf-1',
+    name: role === 'admin' ? 'System Admin' : role === 'coach' ? 'Lê Thị Mai' : role === 'receptionist' ? 'Phạm Thị Thu' : role === 'member' ? 'Nguyễn Minh Anh' : 'Trần Văn Hoàng',
+    email: role === 'admin' ? 'admin@scms.com' : `${role}@scms.com`,
     role
   };
 
@@ -250,8 +251,14 @@ export const SCMSProvider = ({ children }) => {
     authApi.getCurrentUser()
       .then((user) => {
         if (!active) return;
-        setAuthUser(user);
-        setRole(roleFromApi(user.role));
+        const normalizedRole = roleFromApi(user.role);
+        if (!normalizedRole) {
+          setAuthUser(null);
+          setRole(null);
+          return;
+        }
+        setAuthUser({ ...user, role: normalizedRole });
+        setRole(normalizedRole);
       })
       .catch((error) => {
         if (active && !(error instanceof UnauthorizedError)) {
@@ -311,9 +318,14 @@ export const SCMSProvider = ({ children }) => {
       return fallbackUser;
     }
     const user = await authApi.login(email, password);
-    setAuthUser(user);
-    setRole(roleFromApi(user.role));
-    return user;
+    const normalizedRole = roleFromApi(user?.role);
+    if (!normalizedRole) {
+      throw new Error('This account role is not supported by the application.');
+    }
+    const normalizedUser = { ...user, role: normalizedRole };
+    setAuthUser(normalizedUser);
+    setRole(normalizedRole);
+    return normalizedUser;
   };
 
   const logout = async () => {

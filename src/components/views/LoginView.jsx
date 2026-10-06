@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency } from '../../locales/translations';
 import { getErrorMessage } from '../../api/apiErrors';
+import { normalizeRole, resolveMockLoginUser, ROLE_ADMIN } from '../../utils/navigation';
 import { PublicFooter } from '../layout/PublicFooter';
 import {
   Activity,
@@ -29,10 +30,10 @@ import {
 const DEMO_EMAIL = 'manager@scms.com';
 const DEMO_PASSWORD = '12345678';
 
-export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login', initialPackageId }) {
+export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login', initialPackageId, initialError = '', adminEntry = false }) {
   useEffect(() => { window.scrollTo(0, 0); }, [initialMode]);
 
-  const { language, setLanguage, packages, members, addMember, login, apiEnabled } = useSCMS();
+  const { language, setLanguage, packages, members, addMember, login, logout, apiEnabled } = useSCMS();
   const isVi = language === 'vi';
 
   // Screen mode: 'login' | 'register'
@@ -44,7 +45,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [isLoginCaptchaChecked, setIsLoginCaptchaChecked] = useState(false);
   const [isLoginCaptchaLoading, setIsLoginCaptchaLoading] = useState(false);
-  const [loginError, setLoginError] = useState('');
+  const [loginError, setLoginError] = useState(initialError);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
 
   // --- REGISTER STATE ---
@@ -156,8 +157,15 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
     if (apiEnabled) {
       setIsLoginLoading(true);
       try {
-        await login(trimmedEmail, loginPassword);
-        onLoginSuccess();
+        const user = await login(trimmedEmail, loginPassword);
+        if (adminEntry && normalizeRole(user?.role, { isApiMode: true }) !== ROLE_ADMIN) {
+          await logout();
+          setLoginError(isVi
+            ? 'Tài khoản này không có quyền truy cập Admin Portal.'
+            : 'This account cannot access the Admin Portal.');
+          return;
+        }
+        onLoginSuccess(user);
       } catch (error) {
         setLoginError(
           getErrorMessage(error, isVi ? 'Không thể đăng nhập.' : 'Unable to sign in.')
@@ -168,25 +176,30 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
       return;
     }
 
-    const isManager = trimmedEmail === DEMO_EMAIL.toLowerCase() && loginPassword === DEMO_PASSWORD;
-    const isRegisteredMember = members.find(
-      m => m.email.toLowerCase() === trimmedEmail
-    );
+    const mockUser = resolveMockLoginUser({
+      email: trimmedEmail,
+      password: loginPassword,
+      members,
+      managerEmail: DEMO_EMAIL,
+      demoPassword: DEMO_PASSWORD,
+    });
 
-    if (isManager || loginPassword === '12345678') {
+    if (mockUser) {
+      if (adminEntry && mockUser.role !== ROLE_ADMIN) {
+        setLoginError(isVi
+          ? 'Tài khoản này không có quyền truy cập Admin Portal.'
+          : 'This account cannot access the Admin Portal.');
+        return;
+      }
       setIsLoginLoading(true);
-      setTimeout(() => {
+      setTimeout(async () => {
         setIsLoginLoading(false);
-        onLoginSuccess('manager');
-      }, 400);
-      return;
-    }
-
-    if (isRegisteredMember) {
-      setIsLoginLoading(true);
-      setTimeout(() => {
-        setIsLoginLoading(false);
-        onLoginSuccess('member');
+        try {
+          await login(trimmedEmail, loginPassword);
+        } catch {
+          // Local mock login does not depend on the API.
+        }
+        onLoginSuccess(mockUser);
       }, 400);
       return;
     }
@@ -199,7 +212,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
   };
 
   const fillDemoAccount = () => {
-    setLoginEmail(DEMO_EMAIL);
+    setLoginEmail(adminEntry ? 'admin@scms.com' : DEMO_EMAIL);
     setLoginPassword(DEMO_PASSWORD);
     setIsLoginCaptchaChecked(true);
     setLoginError('');

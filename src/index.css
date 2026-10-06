@@ -20,6 +20,7 @@
   --color-sc-muted: #a3a3a3;
   --color-sc-border: #292524;
   --color-sc-border-soft: #1c1917;
+  --color-admin-canvas: #e4e4e4;
 
   /* SCMS Sports Center public site */
   --color-mlc-ink: #181d25;
@@ -75,6 +76,19 @@ h1, h2, h3, h4, h5, h6 {
 
 .sports-marquee-track {
   animation: marquee 32s linear infinite;
+}
+
+.admin-shell ::-webkit-scrollbar-track {
+  background: #f5f5f4;
+}
+
+.admin-shell ::-webkit-scrollbar-thumb {
+  background: #a8a29e;
+  border-radius: 3px;
+}
+
+.admin-shell ::-webkit-scrollbar-thumb:hover {
+  background: #78716c;
 }
 
 @media (prefers-reduced-motion: reduce) {

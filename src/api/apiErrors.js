@@ -29,6 +29,13 @@ export class UnauthorizedError extends ApiError {
   }
 }
 
+export class ForbiddenError extends ApiError {
+  constructor(message, options = {}) {
+    super(message, { ...options, code: 'FORBIDDEN' });
+    this.name = 'ForbiddenError';
+  }
+}
+
 export function createApiError(status, body, fallbackMessage) {
   const message = body?.message || body?.error || fallbackMessage || `HTTP ${status}`;
   const options = { status, details: body };
@@ -36,8 +43,11 @@ export function createApiError(status, body, fallbackMessage) {
   if (status === 400 || status === 409 || status === 422) {
     return new ValidationError(message, options);
   }
-  if (status === 401 || status === 403) {
+  if (status === 401) {
     return new UnauthorizedError(message, options);
+  }
+  if (status === 403) {
+    return new ForbiddenError(message, options);
   }
   if (status === 404) {
     return new NotFoundError(message, options);
@@ -48,3 +58,4 @@ export function createApiError(status, body, fallbackMessage) {
 export function getErrorMessage(error, fallback = 'Không thể kết nối đến máy chủ.') {
   return error instanceof Error && error.message ? error.message : fallback;
 }
+
