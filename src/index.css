@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Barlow:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;0,900;1,300;1,400;1,500;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', 'Barlow', 'Roboto', 'Segoe UI', Arial, system-ui, -apple-system, sans-serif;
+  --font-mlc: 'Lexend', sans-serif;
+  --font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --font-barlow: 'Barlow', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* SCMS Primary Theme (Vibrant Orange/Brick Red) */
+  --color-sc-primary: #ff5a1f; /* Brighter, more punchy orange for maximum visibility */
+  --color-sc-primary-soft: #2a1610;
+  --color-sc-accent: #ff7b47; /* Even brighter orange for text highlights */
+  --color-sc-lime: #ccff00;
+  --color-sc-ink: #14130f;
+  --color-sc-paper: #0c0a09; /* Slightly darker base to increase contrast */
+  --color-sc-muted: #a3a3a3;
+  --color-sc-border: #292524;
+  --color-sc-border-soft: #1c1917;
+
+  /* SCMS Sports Center public site */
+  --color-mlc-ink: #181d25;
+  --color-mlc-red: #e31628;
+  --color-mlc-muted: #676f7e;
+  --color-mlc-border: #e5e7eb;
+  --color-mlc-surface: #f7f8fa;
+  --shadow-mlc: 0 8px 30px -5px rgb(227 22 40 / 30%);
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-sc-paper);
+  color: #ffffff;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Warm scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-sc-border-soft);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-sc-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-sc-muted);
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.sports-marquee-track {
+  animation: marquee 32s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sports-marquee-track {
+    animation: none;
+  }
+}
