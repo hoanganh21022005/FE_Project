@@ -1,89 +1,126 @@
-import React from 'react';
-import { useSCMS } from '../../context/SCMSContext';
+import React from "react"
+import { useSCMS } from "../../context/SCMSContext"
+
+const courseNames = [
+  ["Cầu lông", "Badminton"],
+  ["Bóng bàn", "Table tennis"],
+  ["Pickleball", "Pickleball"],
+  ["Bóng rổ", "Basketball"],
+  ["Bóng chuyền", "Volleyball"],
+  ["Bắn cung", "Archery"],
+  ["Bắn súng", "Sport shooting"],
+  ["Bóng đá", "Football"],
+  ["Quần vợt", "Tennis"],
+]
 
 export function PublicFooter() {
-  const { language } = useSCMS();
-  const isVi = language === 'vi';
+  const { language } = useSCMS()
+  const isVi = language === "vi"
 
   return (
-    <footer className="bg-[#181818] text-stone-300 py-16 text-sm border-t border-stone-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
-          {/* Column 1: DỊCH VỤ */}
-          <div className="space-y-4">
-            <h5 className="text-sm font-black text-white uppercase tracking-wider mb-4">
-              {isVi ? 'DỊCH VỤ' : 'SERVICES'}
-            </h5>
-            <ul className="space-y-3">
-              <li><a href="/discipline/gym" className="hover:text-white transition-colors">Gym</a></li>
-              <li><a href="/discipline/yoga" className="hover:text-white transition-colors">Yoga</a></li>
-              <li><a href="/discipline/boxing" className="hover:text-white transition-colors">Boxing & MMA</a></li>
-              <li><a href="/discipline/pilates" className="hover:text-white transition-colors">Pilates</a></li>
-              <li><a href="/discipline/recovery" className="hover:text-white transition-colors">{isVi ? 'Giãn cơ phục hồi' : 'Recovery'}</a></li>
-              <li><a href="/discipline/spinning" className="hover:text-white transition-colors">Spinning</a></li>
-              <li><a href="/discipline/group-x" className="hover:text-white transition-colors">Group X</a></li>
-              <li><a href="/discipline/zumba" className="hover:text-white transition-colors">Zumba & Dance</a></li>
-              <li><a href="/discipline/hiit" className="hover:text-white transition-colors">HIIT</a></li>
-              <li><a href="/discipline/pt" className="hover:text-white transition-colors">{isVi ? 'Huấn Luyện Viên Cá Nhân' : 'Personal Trainer'}</a></li>
+    <footer className="bg-mlc-ink py-14 text-white sm:py-16">
+      <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
+        <div className="grid gap-10 border-b border-white/15 pb-10 md:grid-cols-[1.2fr_1fr_1fr]">
+          <div>
+            <a
+              href="/#top"
+              className="inline-flex items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-mlc-red text-xs font-black">
+                S
+              </span>
+              <span>
+                <span className="block text-sm font-bold tracking-wider">
+                  R E S I L I E N C E
+                </span>
+                <span className="mt-1 block text-[9px] font-medium tracking-[0.2em] text-white/60">
+                  SPORTS CENTER
+                </span>
+              </span>
+            </a>
+            <p className="mt-5 max-w-sm text-sm leading-6 text-white/65">
+              {isVi
+                ? "Khám phá các môn thể thao, xây dựng kỹ năng và phát triển qua từng buổi tập."
+                : "Explore sports, build skills and grow through every session."}
+            </p>
+          </div>
+
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-[0.15em]">
+              {isVi ? "KHÓA HỌC" : "COURSES"}
+            </h2>
+            <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-white/65">
+              {courseNames.map(([vi, en]) => (
+                <li key={vi}>
+                  <a
+                    href="/#courses"
+                    className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  >
+                    {isVi ? vi : en}
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Column 2: CÔNG TY */}
-          <div className="space-y-4">
-            <h5 className="text-sm font-black text-white uppercase tracking-wider mb-4">
-              {isVi ? 'CÔNG TY' : 'COMPANY'}
-            </h5>
-            <ul className="space-y-3">
-              <li><a href="/#about" className="hover:text-white transition-colors">{isVi ? 'Về chúng tôi' : 'About us'}</a></li>
-              <li><a href="/privacy-policy" className="hover:text-white transition-colors">{isVi ? 'Điều kiện sử dụng' : 'Terms of use'}</a></li>
-              <li><a href="/privacy-policy" className="hover:text-white transition-colors">{isVi ? 'Chính sách thanh toán' : 'Payment policy'}</a></li>
-              <li><a href="/privacy-policy" className="hover:text-white transition-colors">{isVi ? 'Chính sách giải quyết khiếu nại' : 'Complaint resolution policy'}</a></li>
-              <li><a href="/privacy-policy" className="hover:text-white transition-colors">{isVi ? 'Chính sách bảo vệ dữ liệu cá nhân' : 'Privacy policy'}</a></li>
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-[0.15em]">
+              {isVi ? "KHÁM PHÁ" : "EXPLORE"}
+            </h2>
+            <ul className="mt-4 space-y-3 text-sm text-white/65">
+              <li>
+                <a
+                  href="/#about"
+                  className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                >
+                  {isVi ? "Về Resilience Sports" : "About Resilience Sports"}
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/#coaches"
+                  className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                >
+                  {isVi ? "Huấn luyện viên" : "Coaches"}
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/#facilities"
+                  className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                >
+                  {isVi ? "Cơ sở vật chất" : "Facilities"}
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/privacy-policy"
+                  className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                >
+                  {isVi ? "Chính sách bảo mật" : "Privacy policy"}
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/register"
+                  className="font-semibold text-white transition-colors hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                >
+                  {isVi ? "Đăng ký tài khoản" : "Create an account"}
+                </a>
+              </li>
             </ul>
-          </div>
-
-          {/* Column 3: SUPPORT */}
-          <div className="space-y-4">
-            <h5 className="text-sm font-black text-white uppercase tracking-wider mb-4">
-              {isVi ? 'SUPPORT' : 'SUPPORT'}
-            </h5>
-            <div className="text-3xl font-black text-[#BA0000] tracking-tighter mb-4">
-              1800 6995
-            </div>
-            <div className="flex items-center gap-3">
-              <a href="#" className="w-10 h-10 bg-[#252525] hover:bg-[#333] flex items-center justify-center text-white font-bold rounded-sm transition-colors">
-                F
-              </a>
-              <a href="#" className="w-10 h-10 bg-[#252525] hover:bg-[#333] flex items-center justify-center text-white font-bold rounded-sm transition-colors">
-                Y
-              </a>
-              <a href="#" className="w-10 h-10 bg-[#252525] hover:bg-[#333] flex items-center justify-center text-white font-bold rounded-sm transition-colors">
-                I
-              </a>
-            </div>
-          </div>
-
-          {/* Column 4: THÔNG TIN */}
-          <div className="space-y-4">
-            <h5 className="text-sm font-black text-white uppercase tracking-wider mb-4">
-              {isVi ? 'THÔNG TIN' : 'INFORMATION'}
-            </h5>
-            <p className="font-bold text-white mb-2">
-              Công ty TNHH Hệ Thống Quản Lý Trung Tâm Thể Thao SCMS
-            </p>
-            <p className="text-stone-400 mb-2">
-              Khu Công Nghệ Cao, Thành phố Thủ Đức, Tp.HCM, Việt Nam
-            </p>
-            <p className="text-stone-400">
-              Mã số thuế: 0305060028
-            </p>
           </div>
         </div>
 
-        <div className="pt-8 border-t border-stone-800/50 text-center text-stone-500 text-xs">
-          © SCMS Fitness & Yoga Center 2026
+        <div className="flex flex-col gap-2 pt-6 text-xs text-white/50 sm:flex-row sm:items-center sm:justify-between">
+          <span>Resilience Sports Center 2026</span>
+          <span>
+            {isVi
+              ? "Vận động hôm nay, trưởng thành mỗi ngày."
+              : "Move today. Grow every day."}
+          </span>
         </div>
       </div>
     </footer>
-  );
+  )
 }

@@ -1,729 +1,1182 @@
-import React, { useRef } from 'react';
-import { motion, useScroll, useTransform } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
-import { useSCMS } from '../../context/SCMSContext';
-import { formatCurrency } from '../../locales/translations';
-import { Marquee } from '../common/Marquee';
-import { Reveal, Stagger, Item } from '../common/Reveal';
-import { AnimatedCounter } from '../common/AnimatedCounter';
-import { PublicFooter } from '../layout/PublicFooter';
-import {
-  Activity,
-  ArrowRight,
-  Award,
-  Calendar,
-  Check,
-  CheckCircle2,
-  ChevronRight,
-  Clock,
-  Dumbbell,
-  Flame,
-  HeartPulse,
-  LogIn,
-  Mail,
-  MapPin,
-  Phone,
-  Shield,
-  Sparkles,
-  Star,
-  Trophy,
-  UserCheck,
-  UserPlus,
-  Users
-} from 'lucide-react';
+import React, { useEffect, useRef, useState } from "react"
+import { useSCMS } from "../../context/SCMSContext"
+import { PublicFooter } from "../layout/PublicFooter"
+import { Reveal, Stagger, Item } from "../common/Reveal"
+import { ArrowDown, ArrowRight, ChevronDown, Mail, Menu, Newspaper, Phone, X } from "lucide-react"
 
+const courses = [
+  {
+    id: "badminton",
+    title: "Cầu lông",
+    titleEn: "Badminton",
+    description:
+      "Rèn tốc độ, sự linh hoạt và khả năng phối hợp qua từng đường cầu.",
+    descriptionEn: "Build speed, agility and coordination with every rally.",
+    image:
+      "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=85&w=900&auto=format&fit=crop",
+  },
+  {
+    id: "table-tennis",
+    title: "Bóng bàn",
+    titleEn: "Table tennis",
+    description: "Luyện phản xạ, sự tập trung và khả năng kiểm soát bóng.",
+    descriptionEn: "Train your reflexes, focus and ball control.",
+    image:
+      "https://images.unsplash.com/photo-1611251135345-18c56206b863?q=85&w=900&auto=format&fit=crop",
+  },
+  {
+    id: "pickleball",
+    title: "Pickleball",
+    titleEn: "Pickleball",
+    description:
+      "Môn thể thao năng động, dễ bắt đầu và vui khi chơi cùng nhau.",
+    descriptionEn:
+      "An energetic sport that is easy to pick up and fun to play together.",
+    image:
+      "https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?q=85&w=900&auto=format&fit=crop",
+  },
+  {
+    id: "basketball",
+    title: "Bóng rổ",
+    titleEn: "Basketball",
+    description: "Phát triển kỹ thuật, thể lực và tinh thần phối hợp đồng đội.",
+    descriptionEn: "Develop your skills, fitness and teamwork on the court.",
+    image:
+      "https://images.unsplash.com/photo-1546519638-68e109498ffc?q=85&w=900&auto=format&fit=crop",
+  },
+  {
+    id: "volleyball",
+    title: "Bóng chuyền",
+    titleEn: "Volleyball",
+    description:
+      "Học cách di chuyển, chuyền bóng và phối hợp trong mỗi pha bóng.",
+    descriptionEn: "Learn movement, passing and teamwork through every play.",
+    image:
+      "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?q=85&w=900&auto=format&fit=crop",
+  },
+  {
+    id: "archery",
+    title: "Bắn cung",
+    titleEn: "Archery",
+    description:
+      "Rèn sự tập trung, tư thế và khả năng kiểm soát từng phát bắn.",
+    descriptionEn: "Practice focus, form and control with every shot.",
+    image:
+      "https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=85&w=900&auto=format&fit=crop",
+  },
+  {
+    id: "shooting",
+    title: "Bắn súng",
+    titleEn: "Sport shooting",
+    description: "Tập trung vào độ chính xác, sự bình tĩnh và kỷ luật an toàn.",
+    descriptionEn: "Focus on precision, composure and safe sporting practice.",
+    image:
+      "https://images.unsplash.com/photo-1595590424283-b8f17842773f?q=85&w=900&auto=format&fit=crop",
+  },
+  {
+    id: "football",
+    title: "Bóng đá",
+    titleEn: "Football",
+    description:
+      "Nâng cao kỹ năng với bóng, tư duy chiến thuật và tinh thần đồng đội.",
+    descriptionEn:
+      "Build ball skills, game awareness and a team-first mindset.",
+    image:
+      "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=85&w=900&auto=format&fit=crop",
+  },
+  {
+    id: "tennis",
+    title: "Quần vợt",
+    titleEn: "Tennis",
+    description:
+      "Hoàn thiện kỹ thuật giao bóng, di chuyển và kiểm soát trận đấu.",
+    descriptionEn:
+      "Practice your serve, movement and control across the court.",
+    image:
+      "https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?q=85&w=900&auto=format&fit=crop",
+  },
+]
 
-const Word = ({ children, progress, range, activeColor }) => {
-  const opacity = useTransform(progress, range, [0.15, 1]);
-  return (
-    <motion.span style={{ opacity }} className={`mr-1.5 sm:mr-2 lg:mr-3 inline-block ${activeColor}`}>
-      {children}
-    </motion.span>
-  );
-};
+const values = [
+  {
+    number: "01",
+    title: "ĐA DẠNG MÔN HỌC",
+    titleEn: "SPORTS FOR EVERY INTEREST",
+    description:
+      "Chín môn thể thao để bạn khám phá sở thích và tìm cách vận động phù hợp.",
+    descriptionEn: "Nine sports to explore and find the way you love to move.",
+  },
+  {
+    number: "02",
+    title: "PHÁT TRIỂN TOÀN DIỆN",
+    titleEn: "GROW THROUGH MOVEMENT",
+    description:
+      "Thể thao giúp bồi đắp thể lực, sự tự tin, tính kỷ luật và tinh thần đồng đội.",
+    descriptionEn:
+      "Build fitness, confidence, discipline and teamwork through sport.",
+  },
+  {
+    number: "03",
+    title: "HÀNH TRÌNH CỦA RIÊNG BẠN",
+    titleEn: "YOUR OWN JOURNEY",
+    description:
+      "Bắt đầu từ môn học bạn yêu thích và tiến bộ theo nhịp độ của mình.",
+    descriptionEn:
+      "Start with a sport you enjoy and progress at your own pace.",
+  },
+]
 
-const ScrollTextReveal = ({ titleWhite, titleOrange, description }) => {
-  const container = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: container,
-    offset: ["start 80%", "center 40%"]
-  });
+const facilities = [
+  {
+    title: "Không gian tập luyện",
+    titleEn: "Training spaces",
+    image:
+      "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=85&w=1100&auto=format&fit=crop",
+  },
+  {
+    title: "Sân thể thao đa năng",
+    titleEn: "Multi-sport courts",
+    image:
+      "https://images.unsplash.com/photo-1521412644187-c49fa049e84d?q=85&w=1100&auto=format&fit=crop",
+  },
+  {
+    title: "Cùng nhau vận động",
+    titleEn: "Move together",
+    image:
+      "https://images.unsplash.com/photo-1526232761682-d26e03ac148e?q=85&w=1100&auto=format&fit=crop",
+  },
+]
 
-  const titleWhiteWords = titleWhite.split(" ");
-  const titleOrangeWords = titleOrange.split(" ");
-  const descWords = description.split(" ");
-  
-  const totalWords = titleWhiteWords.length + titleOrangeWords.length + descWords.length;
-  let currentWordIndex = 0;
+const coachSportAliases = {
+  badminton: ["badminton", "cau long"],
+  "table-tennis": ["table tennis", "bong ban"],
+  pickleball: ["pickleball"],
+  basketball: ["basketball", "bong ro"],
+  volleyball: ["volleyball", "bong chuyen"],
+  archery: ["archery", "ban cung"],
+  shooting: ["shooting", "ban sung"],
+  football: ["football", "soccer", "bong da"],
+  tennis: ["tennis"],
+}
 
-  const renderWords = (words, activeColor) => {
-    return words.map((word, i) => {
-      const start = currentWordIndex / totalWords;
-      const end = (currentWordIndex + 1) / totalWords;
-      currentWordIndex++;
-      return (
-        <Word key={currentWordIndex} progress={scrollYProgress} range={[start, end]} activeColor={activeColor}>
-          {word}
-        </Word>
-      );
-    });
-  };
+const normalizeSportText = (value = "") =>
+  String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .toLowerCase()
 
-  return (
-    <div ref={container} className="py-8 max-w-2xl">
-      <h2 className="text-4xl sm:text-5xl lg:text-[56px] font-black uppercase leading-[1.15] tracking-tight mb-6">
-        {renderWords(titleWhiteWords, "text-white")}
-        {renderWords(titleOrangeWords, "text-[#E32119]")}
-      </h2>
-      <p className="text-2xl sm:text-3xl lg:text-[30px] font-semibold leading-snug tracking-tight text-white">
-        {renderWords(descWords, "text-white")}
-      </p>
-    </div>
-  );
-};
+const getCoachSport = (coach) => {
+  const specialty = normalizeSportText(
+    [coach.specialty, coach.specialtyVi, coach.specialization, coach.specializationVi]
+      .filter(Boolean)
+      .join(" "),
+  )
 
-const ScrollImageReveal = ({ src, alt, tag }) => {
-  const container = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: container,
-    offset: ["start 85%", "center 50%"]
-  });
+  return courses.find((course) =>
+    coachSportAliases[course.id].some((alias) => specialty.includes(alias)),
+  )
+}
 
-  // Clip from bottom to top
-  const clipPath = useTransform(scrollYProgress, [0, 1], ["inset(100% 0 0 0)", "inset(0% 0 0 0)"]);
-  const scale = useTransform(scrollYProgress, [0, 1], [1.3, 1]);
+const featuredBadmintonCoach = {
+  id: "landing-coach-badminton",
+  name: "Huỳnh Thị Hương",
+  role: "coach",
+  specialty: "Badminton",
+  specialtyVi: "Cầu lông",
+  status: "active",
+  activeClassesCount: 0,
+}
 
-  return (
-    <div ref={container} className="relative h-[400px] lg:h-[700px] w-full overflow-hidden shadow-2xl rounded-sm bg-[#120f0e]">
-      <motion.div style={{ clipPath, width: "100%", height: "100%" }} className="relative">
-        <motion.img 
-          style={{ scale }}
-          src={src} 
-          alt={alt} 
-          className="absolute inset-0 w-full h-full object-cover object-center"
-        />
-        <div className="absolute bottom-6 left-6 bg-[#E32119] text-white text-xs sm:text-sm font-bold py-2 px-4 uppercase tracking-wider shadow-lg">
-          {tag}
-        </div>
-      </motion.div>
-    </div>
-  );
-};
+const badmintonCoachImage =
+  "https://images.unsplash.com/photo-1732955365693-fbd795199803?auto=format&fit=crop&q=85&w=1000"
 
 export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
-  const navigate = useNavigate();
-  const { language, setLanguage, packages, classes, staff } = useSCMS();
-  const isVi = language === 'vi';
+  const { authLoading, language, setLanguage, staff, fetchStaff } = useSCMS()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [openDropdown, setOpenDropdown] = useState(null)
+  const [activeCourse, setActiveCourse] = useState("all")
+  const [activeSport, setActiveSport] = useState("all")
+  const [selectedCoach, setSelectedCoach] = useState(null)
+  const staffFetchStarted = useRef(false)
+  const headerRef = useRef(null)
+  const dropdownTriggerRefs = useRef({})
+  const coachTriggerRef = useRef(null)
+  const coachDialogRef = useRef(null)
+  const closeCoachButtonRef = useRef(null)
+  const isVi = language === "vi"
+  useEffect(() => {
+    if (!authLoading && staff.length === 0 && !staffFetchStarted.current) {
+      staffFetchStarted.current = true
+      fetchStaff().catch(() => {})
+    }
+  }, [authLoading, fetchStaff, staff.length])
+  useEffect(() => {
+    if (!selectedCoach) return undefined
 
-  // Coaches list
-  const coaches = staff.filter(s => s.role === 'coach');
+    const previousOverflow = document.body.style.overflow
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setSelectedCoach(null)
+        return
+      }
+
+      if (event.key === "Tab") {
+        const focusable = coachDialogRef.current?.querySelectorAll(
+          'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        )
+        if (!focusable?.length) return
+
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first.focus()
+        }
+      }
+    }
+
+    document.body.style.overflow = "hidden"
+    window.addEventListener("keydown", handleKeyDown)
+    closeCoachButtonRef.current?.focus()
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener("keydown", handleKeyDown)
+      coachTriggerRef.current?.focus()
+    }
+  }, [selectedCoach])
+
+  useEffect(() => {
+    if (!openDropdown) return undefined
+
+    const handlePointerDown = (event) => {
+      if (!headerRef.current?.contains(event.target)) setOpenDropdown(null)
+    }
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setOpenDropdown(null)
+        dropdownTriggerRefs.current[openDropdown]?.focus()
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown)
+    window.addEventListener("keydown", handleKeyDown)
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown)
+      window.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [openDropdown])
+
+  const openCoachProfile = (coachCard, event) => {
+    coachTriggerRef.current = event.currentTarget
+    setSelectedCoach(coachCard)
+  }
+
+  const handleCoachKeyDown = (event, coachCard) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault()
+      openCoachProfile(coachCard, event)
+    }
+  }
+  const staffCoaches = staff
+    .filter((member) => member.role === "coach" && member.status !== "inactive")
+  const huongProfile = staffCoaches.find(
+    (coach) => normalizeSportText(coach.name) === "huynh thi huong",
+  )
+  const badmintonCoach = huongProfile || featuredBadmintonCoach
+  const coaches = [
+    badmintonCoach,
+    ...staffCoaches.filter(
+      (coach) => coach !== huongProfile && getCoachSport(coach)?.id !== "badminton",
+    ),
+  ].slice(0, 9)
+  const coachCards = coaches.map((coach, index) => ({
+    coach,
+    sport: getCoachSport(coach) || courses[index % courses.length],
+    image:
+      normalizeSportText(coach.name) === "huynh thi huong"
+        ? badmintonCoachImage
+        : (getCoachSport(coach) || courses[index % courses.length]).image,
+  }))
+  const visibleCoachCards =
+    activeSport === "all"
+      ? coachCards
+      : coachCards.filter(({ sport }) => sport.id === activeSport)
+  const visibleCourses =
+    activeCourse === "all"
+      ? courses
+      : courses.filter((course) => course.id === activeCourse)
+  const navigation = [
+    {
+      href: "#top",
+      label: isVi ? "Trang chủ" : "Home",
+      isHome: true,
+    },
+    {
+      id: "about",
+      label: isVi ? "Về chúng tôi" : "About us",
+      children: [
+        {
+          href: "#news",
+          label: isVi ? "Tin tức và sự kiện" : "News and events",
+        },
+        {
+          href: "#contact",
+          label: isVi ? "Liên hệ" : "Contact",
+        },
+      ],
+    },
+    {
+      id: "courses",
+      label: isVi ? "Khóa học" : "Courses",
+      children: [
+        { href: "#courses", courseId: "all", label: isVi ? "Tất cả" : "All" },
+        ...courses.map((course) => ({
+          href: "#courses",
+          courseId: course.id,
+          label: isVi ? course.title : course.titleEn,
+        })),
+      ],
+    },
+    { href: "#coaches", label: isVi ? "Huấn luyện viên" : "Coaches" },
+    { href: "#facilities", label: isVi ? "Cơ sở vật chất" : "Facilities" },
+    { href: "#admission", label: isVi ? "Tuyển sinh" : "Admissions" },
+  ]
 
   return (
-    <div className="min-h-screen bg-[#0c0a09] text-stone-100 font-sans antialiased selection:bg-[#BA0000] selection:text-white">
-      {/* ============================================================ */}
-      {/* 1. TOP NAVBAR (SOLID, CLEAN SPORTS CLUB HEADER)             */}
-      {/* ============================================================ */}
-      <header className="sticky top-0 z-50 bg-[#141210]/95 backdrop-blur-md border-b border-stone-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-          {/* Logo & Brand */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#BA0000] flex items-center justify-center font-black text-lg shadow-md shrink-0">
-              <span className="text-white">SC</span>
-            </div>
-            <div className="text-xl font-black tracking-widest uppercase text-white leading-none mt-1">
-              SCMS FITNESS
-            </div>
-          </div>
+    <div className="min-h-screen bg-white font-mlc text-mlc-ink antialiased selection:bg-mlc-red selection:text-white">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:bg-white focus:px-4 focus:py-3 focus:shadow-xl"
+      >
+        {isVi ? "Bỏ qua điều hướng" : "Skip to content"}
+      </a>
 
-          {/* Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-7 text-xs font-semibold text-stone-300">
-            <a href="#about" className="hover:text-sc-primary transition-colors">
-              {isVi ? 'Về trung tâm' : 'About Center'}
-            </a>
-            <a href="#classes" className="hover:text-sc-primary transition-colors">
-              {isVi ? 'Lịch lớp học' : 'Class Schedule'}
-            </a>
-            <a href="#packages" className="hover:text-sc-primary transition-colors">
-              {isVi ? 'Gói hội viên' : 'Membership Plans'}
-            </a>
-            <a href="#coaches" className="hover:text-sc-primary transition-colors">
-              {isVi ? 'Đội ngũ HLV' : 'Coaches'}
-            </a>
-            <a href="#facilities" className="hover:text-sc-primary transition-colors">
-              {isVi ? 'Cơ sở vật chất' : 'Facilities'}
-            </a>
+      <header ref={headerRef} className="sticky top-0 z-50 border-b border-mlc-border bg-white/95 backdrop-blur-md">
+        <div className="mx-auto flex h-[76px] max-w-[1440px] items-center justify-between px-5 sm:px-8 lg:px-12">
+          <a
+            href="#top"
+            aria-label="R E S I L I E N C E Sports Center, trang chủ"
+            className="flex items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-mlc-red text-sm font-black tracking-tight text-white shadow-mlc">
+              S
+            </span>
+            <span className="leading-none">
+              <span className="block text-base font-extrabold tracking-[0.06em] sm:text-lg">
+                R E S I L I E N C E
+              </span>
+              <span className="mt-1 block text-[9px] font-semibold tracking-[0.2em] text-mlc-muted">
+                SPORTS CENTER
+              </span>
+            </span>
+          </a>
+
+          <nav
+            aria-label={isVi ? "Điều hướng chính" : "Main navigation"}
+            className="hidden items-center gap-4 lg:flex xl:gap-7"
+          >
+            {navigation.map((item) =>
+              item.children ? (
+                <div key={item.id} className="relative">
+                  <button
+                    ref={(node) => {
+                      if (node) dropdownTriggerRefs.current[item.id] = node
+                      else delete dropdownTriggerRefs.current[item.id]
+                    }}
+                    type="button"
+                    aria-expanded={openDropdown === item.id}
+                    aria-controls={`desktop-${item.id}-dropdown`}
+                    onClick={() =>
+                      setOpenDropdown((open) => (open === item.id ? null : item.id))
+                    }
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-mlc-ink transition-colors hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
+                  >
+                    {item.label}
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 transition-transform ${openDropdown === item.id ? "rotate-180" : ""}`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                  {openDropdown === item.id && (
+                    <div
+                      id={`desktop-${item.id}-dropdown`}
+                      className="absolute left-0 top-full z-50 mt-3 max-h-[70vh] min-w-56 overflow-y-auto border border-mlc-border bg-white p-2 shadow-xl"
+                    >
+                      {item.children.map((child) => (
+                        <a
+                          key={child.courseId || child.href}
+                          href={child.href}
+                          aria-current={
+                            child.courseId && child.courseId === activeCourse
+                              ? "true"
+                              : undefined
+                          }
+                          onClick={() => {
+                            if (child.courseId) setActiveCourse(child.courseId)
+                            setOpenDropdown(null)
+                          }}
+                          className={`block whitespace-nowrap px-4 py-3 text-sm font-medium transition-colors hover:bg-mlc-surface hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red ${
+                            child.courseId && child.courseId === activeCourse
+                              ? "bg-mlc-surface text-mlc-red"
+                              : "text-mlc-ink"
+                          }`}
+                        >
+                          {child.label}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  aria-current={item.isHome ? "page" : undefined}
+                  onClick={() => setOpenDropdown(null)}
+                  className={`text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red ${
+                    item.isHome
+                      ? "-skew-x-6 bg-mlc-red px-4 py-3 text-white shadow-mlc hover:bg-rose-700 hover:text-white"
+                      : "text-mlc-ink hover:text-mlc-red"
+                  }`}
+                >
+                  <span className={item.isHome ? "inline-block skew-x-6" : ""}>
+                    {item.label}
+                  </span>
+                </a>
+              ),
+            )}
           </nav>
 
-          {/* Right Action Buttons */}
-          <div className="flex items-center gap-3">
-            {/* Language Switch */}
-            <div className="flex items-center bg-stone-900 p-0.5 rounded border border-stone-800 text-[11px] font-bold">
+          <div className="hidden items-center gap-3 sm:flex">
+            <div
+              className="flex items-center border-r border-mlc-border pr-3 text-xs font-semibold"
+              aria-label={isVi ? "Ngôn ngữ" : "Language"}
+            >
               <button
                 type="button"
-                onClick={() => setLanguage('vi')}
-                className={`px-2 py-1 rounded transition-all cursor-pointer ${
-                  isVi ? 'bg-[#BA0000] text-white shadow-xs' : 'text-stone-400 hover:text-stone-200'
+                aria-pressed={isVi}
+                onClick={() => setLanguage("vi")}
+                className={`px-1.5 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red ${
+                  isVi ? "text-mlc-red" : "text-mlc-muted hover:text-mlc-ink"
                 }`}
               >
                 VI
               </button>
+              <span className="text-mlc-border" aria-hidden="true">
+                /
+              </span>
               <button
                 type="button"
-                onClick={() => setLanguage('en')}
-                className={`px-2 py-1 rounded transition-all cursor-pointer ${
-                  !isVi ? 'bg-[#BA0000] text-white shadow-xs' : 'text-stone-400 hover:text-stone-200'
+                aria-pressed={!isVi}
+                onClick={() => setLanguage("en")}
+                className={`px-1.5 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red ${
+                  !isVi ? "text-mlc-red" : "text-mlc-muted hover:text-mlc-ink"
                 }`}
               >
                 EN
               </button>
             </div>
-
-            {/* Login button */}
             <button
               type="button"
               onClick={onOpenLogin}
-              className="min-w-[95px] px-3.5 py-2 rounded-md border border-stone-700 bg-stone-900/80 hover:bg-stone-800 text-stone-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              className="px-3 py-3 text-xs font-semibold text-mlc-ink transition-colors hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red"
             >
-              <LogIn className="w-3.5 h-3.5 text-sc-primary" />
-              <span>{isVi ? 'Đăng nhập' : 'Sign in'}</span>
+              {isVi ? "Đăng nhập" : "Sign in"}
             </button>
-
-            {/* Register button */}
             <button
               type="button"
               onClick={() => onOpenRegister()}
-              className="min-w-[115px] px-4 py-2 rounded-md bg-[#BA0000] hover:bg-[#8E0000] active:bg-[#8E0000] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm shadow-red-950/30"
+              className="rounded-full bg-mlc-red px-5 py-3 text-xs font-bold text-white shadow-mlc transition hover:bg-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mlc-ink"
             >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>{isVi ? 'Đăng ký ngay' : 'Join Now'}</span>
+              {isVi ? "Đăng ký ngay" : "Register now"}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 sm:hidden">
+            <button
+              type="button"
+              onClick={() => setLanguage(isVi ? "en" : "vi")}
+              className="rounded-full px-2 py-2 text-xs font-bold text-mlc-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red"
+              aria-label={isVi ? "Switch to English" : "Chuyển sang tiếng Việt"}
+            >
+              {isVi ? "EN" : "VI"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen((open) => !open)
+                setOpenDropdown(null)
+              }}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-navigation"
+              aria-label={
+                menuOpen
+                  ? isVi
+                    ? "Đóng menu"
+                    : "Close menu"
+                  : isVi
+                    ? "Mở menu"
+                    : "Open menu"
+              }
+              className="rounded-full p-2 text-mlc-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red"
+            >
+              {menuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
             </button>
           </div>
         </div>
-      </header>
-
-      {/* ============================================================ */}
-      {/* 2. HERO SECTION (SPLIT SCREEN LAYOUT) */}
-      {/* ============================================================ */}
-      <section id="about" className="relative h-screen w-full flex flex-col justify-end bg-sc-paper overflow-hidden pt-24 z-0">
-        
-        {/* Split Screen Background */}
-        <div className="absolute inset-0 flex">
-          {/* Left Solid Color */}
-          <div className="hidden lg:block w-[45%] h-full bg-sc-paper"></div>
-          
-          {/* Right Image Container */}
-          <div className="w-full lg:w-[65%] h-full relative lg:absolute lg:right-0">
-            <img 
-              src="https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=2070&auto=format&fit=crop" 
-              alt="Hero background" 
-              className="w-full h-full object-cover object-center lg:object-right mix-blend-luminosity opacity-30"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-sc-paper via-sc-paper/80 to-transparent lg:via-transparent"></div>
-            <div className="absolute inset-0 bg-gradient-to-t from-sc-paper via-transparent to-transparent"></div>
-          </div>
-        </div>
-        
-        {/* Hero Content */}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1 flex flex-col justify-center pb-10">
-          <Reveal className="max-w-xl space-y-6">
-            
-            {/* Main Headline */}
-            <h1 className="text-[56px] sm:text-[72px] lg:text-[84px] font-black text-white tracking-tighter leading-[0.95] uppercase drop-shadow-2xl">
-              {isVi ? (
-                <>ĐÁNH THỨC <br/> SỨC MẠNH, <br/> TIỀM ẨN.</>
-              ) : (
-                <>AWAKEN <br/> YOUR HIDDEN, <br/> STRENGTH.</>
-              )}
-            </h1>
-            
-            {/* Description */}
-            <p className="text-sm sm:text-base text-sc-muted max-w-md leading-relaxed mt-4">
-              {isVi 
-                ? 'Gym, Yoga, Pilates, Boxing, Spinning, Zumba, HIIT — Tổ hợp 10 bộ môn tập luyện đẳng cấp. Khởi tạo tài khoản và trải nghiệm hệ sinh thái SCMS ngay hôm nay.' 
-                : 'Gym, Yoga, Pilates, Boxing, Spinning, Zumba, HIIT — 10 premium disciplines under one roof. Create an account and experience the SCMS ecosystem today.'}
-            </p>
-            
-            {/* Action Buttons */}
-            <div className="pt-6 flex flex-wrap items-center gap-4">
-              <button 
-                type="button"
-                onClick={() => onOpenRegister()} 
-                className="px-8 py-4 rounded bg-[#BA0000] hover:bg-[#8E0000] text-white font-black text-sm uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-2 drop-shadow-lg"
-              >
-                {isVi ? 'ĐĂNG KÝ TẬP THỬ MIỄN PHÍ' : 'Register Free Trial'} <ChevronRight className="w-4 h-4" />
-              </button>
-              <a 
-                href="#classes" 
-                className="px-8 py-4 rounded bg-transparent border-2 border-sc-border hover:border-sc-muted text-white font-bold text-sm uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center"
-              >
-                 {isVi ? 'Khám phá lớp học' : 'Explore Classes'}
-              </a>
-            </div>
-          </Reveal>
-        </div>
-
-        {/* Bottom Facts Strip */}
-        <Reveal delay={0.2} className="relative z-10 border-t border-sc-border-soft bg-[#0c0a09]/90 backdrop-blur-md">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-sc-border-soft">
-              <div className="p-6 lg:p-8">
-                <h3 className="text-lg font-black text-white mb-2 uppercase">{isVi ? 'TẬP THỬ MIỄN PHÍ' : 'Free Trial'}</h3>
-                <p className="text-xs text-sc-muted leading-relaxed">{isVi ? 'Trải nghiệm không giới hạn các bộ môn trong buổi đầu tiên.' : 'First session free in any discipline, no prior package required.'}</p>
-              </div>
-              <div className="p-6 lg:p-8">
-                <h3 className="text-lg font-black text-white mb-2 uppercase">{isVi ? '2.500m² KHÔNG GIAN' : '2,500m² FACILITY'}</h3>
-                <p className="text-xs text-sc-muted leading-relaxed">{isVi ? 'Sàn tập chuẩn quốc tế, trang thiết bị hiện đại và khu vực phục hồi độc quyền' : 'World-class fitness floor equipped with state-of-the-art machines and recovery zones.'}</p>
-              </div>
-              <div className="p-6 lg:p-8">
-                <h3 className="text-lg font-black text-white mb-2 uppercase">{isVi ? '100% HLV ĐẠT CHUẨN' : '100% CERTIFIED'}</h3>
-                <p className="text-xs text-sc-muted leading-relaxed">{isVi ? 'Đội ngũ PT chuyên nghiệp, giàu kinh nghiệm, đồng hành 1 kèm 1 giúp bạn đạt mục tiêu' : 'Experienced personal trainers dedicated to guiding your fitness journey 1-on-1.'}</p>
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      </section>
-
-      <div className="relative z-20 bg-[#120f0e] shadow-[0_-20px_50px_rgba(0,0,0,0.8)]">
-        {/* Marquee Ticker */}
-        <Marquee items={['GYM', 'YOGA', 'PILATES', 'BOXING', 'CROSSFIT', 'THỂ HÌNH', 'SỨC BỀN', 'PHỤC HỒI', 'THỂ LỰC', 'GIẢM MỠ']} />
-
-        {/* ============================================================ */}
-        {/* SCROLL TEXT REVEAL SECTION                                   */}
-        {/* ============================================================ */}
-                  <section className="py-24 bg-[#0c0a09] lg:min-h-[85vh] flex items-center border-b border-stone-800 overflow-hidden">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-                
-                {/* Left: Text Reveal */}
-                <div>
-                  <ScrollTextReveal 
-                    titleWhite={isVi ? "KHÔNG CHỈ LÀ TẬP LUYỆN, ĐÂY LÀ" : "NOT JUST TRAINING, THIS IS"}
-                    titleOrange={isVi ? "NHỊP SỐNG CỦA BẠN." : "YOUR LIFESTYLE."}
-                    description={isVi 
-                      ? "Dù mục tiêu của bạn là thay đổi hình thể với CrossFit, giải tỏa tinh thần cùng Boxing, hay tìm kiếm sự cân bằng qua Yoga, mọi trải nghiệm bạn cần đều đã sẵn sàng. Không cần đi đâu xa, chúng tôi mang đến một hệ sinh thái thể thao toàn diện để bạn tự do định hình lối sống khỏe của riêng mình."
-                      : "Whether your goal is body transformation with CrossFit, stress relief through Boxing, or finding balance with Yoga, every experience you need is ready. No need to look elsewhere, we provide a comprehensive sports ecosystem for you to freely shape your own healthy lifestyle."}
-                  />
-                </div>
-  
-                                {/* Right: Image */}
-                <div>
-                  <ScrollImageReveal 
-                    src="https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=1200"
-                    alt="SCMS Ecosystem"
-                    tag={isVi ? 'HỆ SINH THÁI SCMS - MỞ CỬA 24/7' : 'SCMS ECOSYSTEM - OPEN 24/7'}
-                  />
-                </div>
-  
-              </div>
-            </div>
-          </section>
-
-
-      {/* ============================================================ */}
-      {/* 3. FOUR CORE DISCIPLINES & CLASSES (BỘ MÔN TẬP LUYỆN)       */}
-      {/* ============================================================ */}
-          {/* ============================================================ */}
-          {/* ANIMATED STATS STRIP                                         */}
-          {/* ============================================================ */}
-          <section className="border-b border-sc-border-soft bg-sc-paper">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-sc-border-soft border-x border-sc-border-soft">
-                
-                {/* Stat 1 */}
-                <div className="p-6 md:p-8 lg:p-10 flex flex-col justify-start">
-                  <div className="text-[56px] lg:text-[72px] font-black text-white leading-none tracking-tighter mb-4 flex items-baseline">
-                    <AnimatedCounter value={10} duration={2} /><span className="text-[#E32119]">+</span>
-                  </div>
-                  <h4 className="text-sm font-bold text-[#E32119] uppercase tracking-widest mb-2">{isVi ? 'BỘ MÔN CHUYÊN SÂU' : 'SPECIALIZED DISCIPLINES'}</h4>
-                  <p className="text-xs text-sc-muted leading-relaxed">
-                    {isVi ? 'Trải nghiệm luyện tập toàn diện từ bứt phá giới hạn thể lực đến phục hồi tĩnh tại.' : 'Comprehensive training experience from breaking physical limits to peaceful recovery.'}
-                  </p>
-                </div>
-  
-                {/* Stat 2 */}
-                <div className="p-6 md:p-8 lg:p-10 flex flex-col justify-start">
-                  <div className="text-[56px] lg:text-[72px] font-black text-white leading-none tracking-tighter mb-4 flex items-baseline">
-                    <AnimatedCounter value={15} duration={2.2} /><span className="text-[#E32119]">+</span>
-                  </div>
-                  <h4 className="text-sm font-bold text-[#E32119] uppercase tracking-widest mb-2">{isVi ? 'PHÂN KHU TẬP LUYỆN' : 'TRAINING ZONES'}</h4>
-                  <p className="text-xs text-sc-muted leading-relaxed">
-                    {isVi ? 'Không gian chuẩn 5 sao, tối ưu hóa trải nghiệm với hệ thống thiết bị tân tiến nhất.' : '5-star standard space, optimizing experience with the most advanced equipment system.'}
-                  </p>
-                </div>
-  
-                {/* Stat 3 */}
-                <div className="p-6 md:p-8 lg:p-10 flex flex-col justify-start">
-                  <div className="text-[56px] lg:text-[72px] font-black text-white leading-none tracking-tighter mb-4 flex items-baseline">
-                    <AnimatedCounter value={45} duration={1.8} /><span className="text-[#E32119]">+</span>
-                  </div>
-                  <h4 className="text-sm font-bold text-[#E32119] uppercase tracking-widest mb-2">{isVi ? 'KHUNG GIỜ LINH HOẠT' : 'FLEXIBLE SCHEDULES'}</h4>
-                  <p className="text-xs text-sc-muted leading-relaxed">
-                    {isVi ? 'Các lớp học trải dài từ sáng sớm đến tối muộn, dễ dàng duy trì thói quen dù bạn bận rộn.' : 'Classes span from early morning to late evening, easy to maintain routines even when busy.'}
-                  </p>
-                </div>
-  
-                {/* Stat 4 */}
-                <div className="p-6 md:p-8 lg:p-10 flex flex-col justify-start">
-                  <div className="text-[56px] lg:text-[72px] font-black text-white leading-none tracking-tighter mb-4 flex items-baseline">
-                    <AnimatedCounter value={20} duration={2.4} /><span className="text-[#E32119]">+</span>
-                  </div>
-                  <h4 className="text-sm font-bold text-[#E32119] uppercase tracking-widest mb-2">{isVi ? 'CHUYÊN GIA ĐỒNG HÀNH' : 'EXPERT COMPANIONS'}</h4>
-                  <p className="text-xs text-sc-muted leading-relaxed">
-                    {isVi ? 'Đội ngũ sở hữu chứng chỉ quốc tế (NASM, RYT-500), sát cánh kiến tạo vóc dáng cùng bạn.' : 'Team with international certifications (NASM, RYT-500), standing by you to sculpt your physique.'}
-                  </p>
-                </div>
-  
-              </div>
-            </div>
-          </section>
-
-        <section id="classes" className="py-20 bg-[#120f0e] border-b border-stone-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                      <div className="max-w-2xl mx-auto text-center mb-16 flex flex-col gap-3">
-              <Reveal delay={0}>
-                <h2 className="text-sm font-semibold text-[#E32119] uppercase tracking-[2px]">
-                  {isVi ? 'Hệ sinh thái tập luyện' : 'Training Ecosystem'}
-                </h2>
-              </Reveal>
-              <Reveal delay={0.15}>
-                <h3 className="text-4xl sm:text-5xl font-bold text-white leading-[1.2] tracking-tight">
-                  {isVi ? 'Đánh thức phiên bản tốt nhất của bạn' : 'Awaken Your Best Version'}
-                </h3>
-              </Reveal>
-              <Reveal delay={0.30}>
-                <p className="text-base sm:text-lg font-light text-[#a0a0a0] leading-relaxed mt-1">
-                  {isVi
-                    ? 'Từ bứt phá thể lực, siết cơ định hình đến phục hồi chuyên sâu. Lựa chọn hành trình của riêng bạn ngay hôm nay.'
-                    : 'From athletic breakthroughs and body sculpting to deep recovery. Choose your own journey today.'}
-                </p>
-              </Reveal>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-fr">
-              {[
-                { id: '01', title: 'GYM', path: '/discipline/gym', tag: 'TỰ DO', subtitle: 'Xây dựng cơ bắp với hệ thống máy và tạ tự do cao cấp.', img: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=800' },
-                { id: '02', title: 'YOGA', path: '/discipline/yoga', tag: 'THEO LỚP', subtitle: 'Hành trình tìm lại sự tĩnh tâm và độ linh hoạt toàn diện cho cơ thể.', img: 'https://images.unsplash.com/photo-1599901860904-17e6ed7083a0?q=80&w=800' },
-                { id: '03', title: 'COMBAT', path: '/discipline/boxing', tag: 'THEO LỚP', subtitle: 'Bùng nổ năng lượng, xả stress cực mạnh với Boxing, Kickfit và Muay Thái.', img: 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?q=80&w=800' },
-                { id: '04', title: 'PILATES', path: '/discipline/pilates', tag: 'THEO LỚP', subtitle: 'Định hình đường cong hoàn mỹ và sửa tư thế với máy tập Reformer.', img: '/images/pilates_reformer.jpg' },
-                { id: '05', title: 'GIÃN CƠ', path: '/discipline/recovery', tag: 'ĐỘC QUYỀN', subtitle: 'Giải phóng bó cơ, phục hồi chuyên sâu và trị liệu 1 kèm 1.', img: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=800' },
-                { id: '06', title: 'SPINNING', path: '/discipline/spinning', tag: 'THEO LỚP', subtitle: 'Đạp xe nhịp điệu bùng nổ năng lượng trong không gian âm nhạc sôi động.', img: 'https://images.unsplash.com/photo-1594911772125-07fc7a2d8d9f?q=80&w=800' },
-                { id: '07', title: 'GROUP X', path: '/discipline/group-x', tag: 'THEO LỚP', subtitle: 'Xây dựng sức bền và đốt mỡ cùng các bài tập tạ nhóm.', img: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=800' },
-                { id: '08', title: 'DANCE', path: '/discipline/zumba', tag: 'THEO LỚP', subtitle: 'Thả mình vào âm nhạc, đốt calo qua từng nhịp điệu Zumba, Sexy Dance, Kpop.', img: 'https://images.unsplash.com/photo-1524594152303-9fd13543fe6e?q=80&w=800' },
-                { id: '09', title: 'HIIT', path: '/discipline/hiit', tag: 'TỰ DO', subtitle: 'Thách thức giới hạn thể lực và sức bền tại khu vực Crossfit đa năng.', img: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=800' },
-                { id: '10', title: '1 KÈM 1', path: '/discipline/pt', tag: 'ĐỘC QUYỀN', subtitle: 'Lộ trình Huấn luyện cá nhân được thiết kế chuyên biệt theo thể trạng của bạn.', img: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=800' }
-              ].map((d, i) => {
-                const isLarge = i === 0 || i === 9;
-                return (
-                  <div key={d.id} onClick={() => navigate(d.path)} className={`relative h-[420px] rounded-[32px] overflow-hidden group cursor-pointer shadow-xl ${isLarge ? 'sm:col-span-2 lg:col-span-2 xl:col-span-2' : ''}`}>
-                    {/* Background Image with Zoom */}
-                    <div className="absolute inset-0 bg-cover bg-center transition-transform duration-700 ease-out group-hover:scale-110" style={{ backgroundImage: "url(" + d.img + ")" }}></div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 transition-opacity duration-300"></div>
-                    
-                    {/* Glassmorphism gradient effect on hover */}
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-t from-[#E32119]/20 via-transparent to-transparent transition-opacity duration-500"></div>
-                    
-                    {/* Top Info */}
-                    <div className="absolute top-6 left-6 right-6 flex justify-between items-start z-10">
-                      <span className="text-5xl font-black text-white/50 tracking-tighter drop-shadow-md">{d.id}</span>
-                      <span className="px-4 py-1.5 rounded-full border border-[#E32119] text-[#E32119] text-xs font-bold tracking-widest bg-black/30 backdrop-blur-md shadow-sm">{d.tag}</span>
-                    </div>
-
-                    {/* Bottom Content */}
-                    <div className="absolute bottom-6 left-6 right-6 flex flex-col justify-end transform transition-transform duration-500 z-10">
-                      <h2 className="text-3xl font-black italic text-white uppercase mb-2 drop-shadow-lg leading-tight">{d.title}</h2>
-                      <p className="text-stone-300 text-sm leading-relaxed drop-shadow-md transition-all duration-500">{d.subtitle}</p>
-                      
-                      {/* Slide-up Reveal Button */}
-                      <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-500 ease-in-out mt-1">
-                        <div className="overflow-hidden">
-                           <div className="inline-flex items-center gap-2 text-[#E32119] font-black text-[13px] tracking-widest uppercase pt-3">
-                             Khám phá ngay <ArrowRight className="w-4 h-4" />
-                           </div>
-                        </div>
+        {menuOpen && (
+          <nav
+            id="mobile-navigation"
+            aria-label={isVi ? "Điều hướng chính" : "Main navigation"}
+            className="border-t border-mlc-border bg-white px-5 py-4 sm:hidden"
+          >
+            <div className="flex flex-col">
+              {navigation.map((item) =>
+                item.children ? (
+                  <div key={item.id} className="border-b border-mlc-border">
+                    <button
+                      ref={(node) => {
+                        if (node) dropdownTriggerRefs.current[item.id] = node
+                        else delete dropdownTriggerRefs.current[item.id]
+                      }}
+                      type="button"
+                      aria-expanded={openDropdown === item.id}
+                      aria-controls={`mobile-${item.id}-dropdown`}
+                      onClick={() =>
+                        setOpenDropdown((open) => (open === item.id ? null : item.id))
+                      }
+                      className="flex w-full items-center justify-between py-3 text-left text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red"
+                    >
+                      {item.label}
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${openDropdown === item.id ? "rotate-180" : ""}`}
+                        aria-hidden="true"
+                      />
+                    </button>
+                    {openDropdown === item.id && (
+                      <div id={`mobile-${item.id}-dropdown`} className="pb-2 pl-3">
+                        {item.children.map((child) => (
+                          <a
+                            key={child.courseId || child.href}
+                            href={child.href}
+                            aria-current={
+                              child.courseId && child.courseId === activeCourse
+                                ? "true"
+                                : undefined
+                            }
+                            onClick={() => {
+                              if (child.courseId) setActiveCourse(child.courseId)
+                              setOpenDropdown(null)
+                              setMenuOpen(false)
+                            }}
+                            className={`block px-3 py-2.5 text-sm transition-colors hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red ${
+                              child.courseId && child.courseId === activeCourse
+                                ? "font-semibold text-mlc-red"
+                                : "text-mlc-muted"
+                            }`}
+                          >
+                            {child.label}
+                          </a>
+                        ))}
                       </div>
-                    </div>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-        </div>
-      </section>
-
-      {/* ============================================================ */}
-      {/* 4. MEMBERSHIP PRICING PACKAGES (BẢNG GIÁ GÓI HỘI VIÊN)       */}
-      {/* ============================================================ */}
-      
-
-<section id="packages" className="py-20 bg-[#0c0a09] border-b border-stone-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Reveal className="max-w-2xl mx-auto text-center mb-16">
-            <h2 className="text-xs font-bold text-sc-primary uppercase tracking-widest mb-2">
-              {isVi ? 'GÓI THÀNH VIÊN' : 'MEMBERSHIP TIERS'}
-            </h2>
-            <p className="text-3xl font-extrabold text-white tracking-tight">
-              {isVi ? 'Bảng giá minh bạch, quyền lợi trọn vẹn' : 'Transparent Pricing, Maximum Privileges'}
-            </p>
-            <p className="text-sm text-stone-400 mt-3">
-              {isVi
-                ? 'Không phát sinh phụ phí ẩn. Tự do lựa chọn theo thời gian và nhu cầu thực tế của bạn.'
-                : 'No hidden fees. Choose the plan that aligns with your schedule and fitness goals.'}
-            </p>
-          </Reveal>
-
-          <Stagger className="grid md:grid-cols-3 gap-8 items-stretch">
-            {packages.map((pkg) => {
-              const isPopular = pkg.id === 'pkg-2';
-              const name = isVi ? pkg.nameVi : pkg.name;
-              const desc = isVi ? pkg.descriptionVi : pkg.description;
-              const benefits = isVi ? pkg.benefitsVi : pkg.benefits;
-
-              return (
-                <Item
-                  key={pkg.id}
-                  className={`rounded-2xl p-7 flex flex-col justify-between transition-all relative ${
-                    isPopular
-                      ? 'bg-stone-900 border-2 border-[#BA0000] shadow-xl shadow-red-950/60'
-                      : 'bg-stone-900/70 border border-stone-800 hover:border-stone-700'
-                  }`}
-                >
-                  {isPopular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-[#BA0000] text-[10px] font-bold text-white uppercase tracking-wider shadow-sm">
-                      {isVi ? 'Gói phổ biến nhất' : 'Most Popular'}
-                    </div>
-                  )}
-
-                  <div>
-                    {/* Header */}
-                    <div className="mb-4">
-                      <h3 className="text-lg font-bold text-white">{name}</h3>
-                      <p className="text-xs text-stone-400 mt-1.5 leading-relaxed min-h-[36px]">{desc}</p>
-                    </div>
-
-                    {/* Price */}
-                    <div className="py-4 border-y border-stone-800 my-4">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-black text-white">
-                          {formatCurrency(pkg.price, language)}
-                        </span>
-                        <span className="text-xs text-stone-400">
-                          / {pkg.durationMonths} {isVi ? 'tháng' : 'months'}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-sc-primary mt-1 font-medium">
-                        {pkg.maxClassesPerMonth > 50
-                          ? (isVi ? 'Không giới hạn tất cả các lớp' : 'Unlimited class access')
-                          : `${pkg.maxClassesPerMonth} ${isVi ? 'buổi lớp nhóm mỗi tháng' : 'group classes per month'}`}
-                      </div>
-                    </div>
-
-                    {/* Benefits List */}
-                    <div className="space-y-3 my-6 min-h-[140px]">
-                      {benefits.map((b, bIdx) => (
-                        <div key={bIdx} className="flex items-start gap-2.5 text-xs text-stone-300">
-                          <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                          <span>{b}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Register CTA Button */}
-                  <button
-                    type="button"
-                    onClick={() => onOpenRegister()}
-                    className={`w-full py-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                      isPopular
-                        ? 'bg-[#BA0000] hover:bg-[#8E0000] text-white shadow-md shadow-red-950/30'
-                        : 'bg-stone-800 hover:bg-stone-700 text-stone-200 hover:text-white'
+                ) : (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    aria-current={item.isHome ? "page" : undefined}
+                    onClick={() => {
+                      setMenuOpen(false)
+                      setOpenDropdown(null)
+                    }}
+                    className={`border-b border-mlc-border py-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red ${
+                      item.isHome
+                        ? "bg-mlc-red px-3 text-white"
+                        : "text-mlc-ink"
                     }`}
                   >
-                    <span>{isVi ? 'Đăng ký tài khoản' : 'Register Account'}</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </Item>
-              );
-            })}
-          </Stagger>
-        </div>
-      </section>
-
-      {/* ============================================================ */}
-      {/* 5. CERTIFIED COACHES TEAM (ĐỘI NGŨ HUẤN LUYỆN VIÊN)         */}
-      {/* ============================================================ */}
-      <section id="coaches" className="py-20 bg-[#120f0e] border-b border-stone-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Reveal className="max-w-2xl mx-auto text-center mb-14">
-            <h2 className="text-xs font-bold text-sc-primary uppercase tracking-widest mb-2">
-              {isVi ? 'ĐỘI NGŨ HUẤN LUYỆN VIÊN' : 'CERTIFIED TRAINERS'}
-            </h2>
-            <p className="text-3xl font-extrabold text-white tracking-tight">
-              {isVi ? 'Người đồng hành tận tâm cùng mục tiêu của bạn' : 'Dedicated Mentors for Your Fitness Journey'}
-            </p>
-            <p className="text-sm text-stone-400 mt-3">
-              {isVi
-                ? 'Đội ngũ huấn luyện viên giàu kinh nghiệm thực tế, có bằng cấp chứng nhận chuyên môn uy tín.'
-                : 'Highly certified trainers holding recognized credentials and practical coaching experience.'}
-            </p>
-          </Reveal>
-
-          <Stagger className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {coaches.map((coach) => (
-              <Item
-                key={coach.id}
-                className="bg-stone-900 border border-stone-800 rounded-xl p-6 flex flex-col justify-between hover:border-stone-700 transition-colors"
+                    {item.label}
+                  </a>
+                ),
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false)
+                  onOpenLogin()
+                }}
+                className="py-3 text-left text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mlc-red"
               >
-                <div>
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-14 h-14 rounded-full bg-stone-800 border border-stone-700 flex items-center justify-center text-sc-primary font-bold text-lg shrink-0">
-                      {coach.name.split(' ').slice(-1)[0][0]}
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-white">{coach.name}</h3>
-                      <div className="text-xs text-sc-primary font-semibold">
-                        {isVi ? (coach.specialtyVi || coach.specialty) : coach.specialty}
-                      </div>
-                      <div className="text-[11px] text-stone-500 font-mono mt-0.5">{coach.code}</div>
-                    </div>
-                  </div>
+                {isVi ? "Đăng nhập" : "Sign in"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false)
+                  onOpenRegister()
+                }}
+                className="rounded-full bg-mlc-red px-5 py-3 text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mlc-red"
+              >
+                {isVi ? "Đăng ký ngay" : "Register now"}
+              </button>
+            </div>
+          </nav>
+        )}
+      </header>
 
-                  <div className="space-y-2 text-xs text-stone-400 py-3 border-t border-stone-800">
-                    <div className="flex items-center justify-between">
-                      <span>{isVi ? 'Số lớp phụ trách:' : 'Active classes:'}</span>
-                      <span className="font-semibold text-white">
-                        {coach.activeClassesCount || 8} {isVi ? 'lớp' : 'classes'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>{isVi ? 'Kinh nghiệm thực tế:' : 'Experience:'}</span>
-                      <span className="font-semibold text-white">{isVi ? '5+ năm' : '5+ years'}</span>
-                    </div>
-                  </div>
-                </div>
+      <main id="main-content">
+        <section
+          id="top"
+          className="relative isolate flex min-h-[620px] scroll-mt-20 items-center overflow-hidden bg-mlc-ink text-white sm:min-h-[700px] lg:min-h-[calc(100svh-76px)]"
+        >
+          <img
+            src="https://images.unsplash.com/photo-1526232761682-d26e03ac148e?q=90&w=2200&auto=format&fit=crop"
+            alt=""
+            fetchPriority="high"
+            className="absolute inset-0 -z-20 h-full w-full object-cover object-center"
+          />
+          <div className="absolute inset-0 -z-10 bg-gradient-to-r from-mlc-ink/90 via-mlc-ink/65 to-mlc-ink/10" />
+          <div className="absolute inset-0 -z-10 bg-gradient-to-t from-mlc-ink/50 via-transparent to-mlc-ink/15" />
+          <div className="mx-auto w-full max-w-[1440px] px-5 py-24 sm:px-8 lg:px-12">
+            <Reveal className="max-w-4xl">
+              <p className="mb-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-white/85 sm:text-sm">
+                <span className="h-0.5 w-10 bg-mlc-red" />
+                RESILIENCE SPORTS CENTER
+              </p>
+              <h1 className="text-[clamp(3.25rem,9vw,7.5rem)] font-extrabold leading-[0.98] tracking-[-0.055em]">
+                {isVi ? (
+                  <>
+                    RÈN BẢN LĨNH
+                    <br />
+                    <span className="text-mlc-red">VỮNG TƯƠNG LAI</span>
+                  </>
+                ) : (
+                  <>
+                    SHAPING RESILIENCE
+                    <br />
+                    <span className="text-mlc-red">THROUGH SPORTS</span>
+                  </>
+                )}
+              </h1>
+              <p className="mt-7 max-w-2xl text-base leading-7 text-white/85 sm:text-lg sm:leading-8">
+                {isVi
+                  ? "Khám phá niềm vui vận động, phát triển kỹ năng và xây dựng tinh thần đồng đội qua những môn thể thao bạn yêu thích."
+                  : "Discover the joy of movement, grow your skills and build teamwork through the sports you love."}
+              </p>
+              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+                <a
+                  href="#courses"
+                  className="inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-mlc-red px-7 text-sm font-bold text-white shadow-mlc transition hover:bg-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                >
+                  {isVi ? "Khám phá khóa học" : "Explore courses"}{" "}
+                  <ArrowDown className="h-4 w-4" />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => onOpenRegister()}
+                  className="inline-flex min-h-14 items-center justify-center gap-3 rounded-full border border-white/70 bg-white/10 px-7 text-sm font-bold text-white transition hover:bg-white hover:text-mlc-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                >
+                  {isVi ? "Tạo tài khoản" : "Create an account"}{" "}
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+            </Reveal>
+          </div>
+        </section>
 
-                <div className="pt-4 border-t border-stone-800 flex items-center justify-between">
-                  <span className="text-[11px] text-emerald-400 flex items-center gap-1 font-semibold">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    {isVi ? 'Nhận lịch kèm riêng 1-1' : 'Available for 1-on-1'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onOpenRegister()}
-                    className="text-xs text-[#BA0000] hover:text-[#D62323] font-bold hover:underline cursor-pointer"
+        <div
+          className="overflow-hidden border-b border-mlc-border bg-mlc-red py-5"
+          role="region"
+          aria-label={isVi ? "Các môn thể thao" : "Sports"}
+        >
+          <div className="sports-marquee-track flex w-max items-center hover:[animation-play-state:paused]">
+            {[0, 1].map((copy) => (
+              <div
+                key={copy}
+                className="flex shrink-0 items-center gap-12 px-6 text-lg font-bold text-white sm:gap-16 sm:px-10 sm:text-xl"
+                aria-hidden={copy === 1 ? "true" : undefined}
+              >
+                {courses.map((course) => (
+                  <span
+                    key={course.id}
+                    className="flex shrink-0 items-center whitespace-nowrap"
                   >
-                    {isVi ? 'Đặt lịch tập' : 'Book Session'}
-                  </button>
-                </div>
-              </Item>
+                    {isVi ? course.title : course.titleEn}
+                  </span>
+                ))}
+              </div>
             ))}
-          </Stagger>
+          </div>
         </div>
-      </section>
 
-      
-        {/* ============================================================ */}
-        {/* 6. REALISTIC AMENITIES & FACILITIES (TIỆN ÍCH THỰC TẾ)        */}
-        {/* ============================================================ */}
-        <section id="facilities" className="py-20 bg-[#0c0a09] border-b border-stone-800">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <Reveal className="max-w-2xl mx-auto text-center mb-14">
-              <h2 className="text-sm font-bold text-[#E32119] uppercase tracking-widest mb-2">
-                {isVi ? 'TIỆN ÍCH DÀNH CHO HỘI VIÊN' : 'MEMBER AMENITIES'}
+        <section
+          id="about"
+          className="scroll-mt-24 bg-mlc-surface py-20 sm:py-28"
+        >
+          <div className="mx-auto grid max-w-[1440px] gap-12 px-5 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-20 lg:px-12">
+            <Reveal>
+              <p className="mb-5 text-xs font-bold uppercase tracking-[0.16em] text-mlc-red">
+                {isVi ? "TẠI SAO CHỌN RESILIENCE SPORTS" : "WHY CHOOSE RESILIENCE SPORTS"}
+              </p>
+              <h2 className="text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-6xl">
+                {isVi ? (
+                  <>
+                    LỚN LÊN CÙNG
+                    <br />
+                    <span className="text-mlc-red">THỂ THAO</span>
+                  </>
+                ) : (
+                  <>
+                    GROW STRONGER
+                    <br />
+                    <span className="text-mlc-red">THROUGH SPORT</span>
+                  </>
+                )}
               </h2>
-              <p className="text-3xl font-extrabold text-white tracking-tight mt-2">
-                {isVi ? 'Mọi tiện nghi cho trải nghiệm tập luyện trọn vẹn' : 'Every Comfort for a Seamless Workout'}
+              <p className="mt-6 max-w-xl text-base leading-7 text-mlc-muted">
+                {isVi
+                  ? "Resilience Sports Center mang đến môi trường để học viên khám phá các môn thể thao, rèn luyện sức khỏe và phát triển những kỹ năng đồng hành cùng mình trong cuộc sống."
+                  : "Resilience Sports Center creates space to explore sports, build healthy habits and develop skills that carry into everyday life."}
               </p>
             </Reveal>
-  
-            <Stagger className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
-              <Item className="bg-[#1a1715] border border-white/5 rounded-2xl p-8 flex flex-col items-start gap-5 hover:border-[#E32119]/50 transition-colors">
-                <div className="w-12 h-12 rounded-xl bg-[#2a2220] border border-[#3a2c28] text-sc-primary flex items-center justify-center shrink-0">
-                  <Shield className="w-6 h-6 text-[#E32119]" />
-                </div>
-                <div>
-                  <h4 className="text-lg font-bold text-white mb-2">
-                    {isVi ? 'Tủ khoá cá nhân thông minh' : 'Smart Lockers'}
-                  </h4>
-                  <p className="text-sm text-stone-400 leading-relaxed">
-                    {isVi
-                      ? 'Khoá từ bảo mật cá nhân, sức chứa rộng rãi, đảm bảo an toàn tư trang trong suốt buổi tập.'
-                      : 'Secure digital access with spacious capacity, ensuring your personal belongings are safe.'}
+            <Stagger className="grid gap-4 sm:grid-cols-3">
+              {values.map((value) => (
+                <Item
+                  key={value.number}
+                  className="rounded-2xl border border-mlc-border bg-white p-5 shadow-sm sm:p-6"
+                >
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-mlc-red/10 text-sm font-bold text-mlc-red">
+                    {value.number}
+                  </span>
+                  <h3 className="mt-6 text-base font-bold leading-snug">
+                    {isVi ? value.title : value.titleEn}
+                  </h3>
+                  <p className="mt-3 text-sm leading-6 text-mlc-muted">
+                    {isVi ? value.description : value.descriptionEn}
                   </p>
-                </div>
-              </Item>
-  
-              <Item className="bg-[#1a1715] border border-white/5 rounded-2xl p-8 flex flex-col items-start gap-5 hover:border-[#E32119]/50 transition-colors">
-                <div className="w-12 h-12 rounded-xl bg-[#2a2220] border border-[#3a2c28] text-sc-primary flex items-center justify-center shrink-0">
-                  <Flame className="w-6 h-6 text-[#E32119]" />
-                </div>
-                <div>
-                  <h4 className="text-lg font-bold text-white mb-2">
-                    {isVi ? 'Phòng xông hơi khô và ướt' : 'Sauna & Steam Bath'}
-                  </h4>
-                  <p className="text-sm text-stone-400 leading-relaxed">
-                    {isVi
-                      ? 'Thư giãn cơ bắp, hỗ trợ lưu thông khí huyết và giải tỏa căng thẳng sau các bài tập nặng.'
-                      : 'Relax tired muscles, improve blood circulation, and recover effectively after hard workouts.'}
-                  </p>
-                </div>
-              </Item>
-  
-              <Item className="bg-[#1a1715] border border-white/5 rounded-2xl p-8 flex flex-col items-start gap-5 hover:border-[#E32119]/50 transition-colors">
-                <div className="w-12 h-12 rounded-xl bg-[#2a2220] border border-[#3a2c28] text-sc-primary flex items-center justify-center shrink-0">
-                  <Activity className="w-6 h-6 text-[#E32119]" />
-                </div>
-                <div>
-                  <h4 className="text-lg font-bold text-white mb-2">
-                    {isVi ? 'Phòng tắm nóng lạnh cao cấp' : 'Luxury Hot Showers'}
-                  </h4>
-                  <p className="text-sm text-stone-400 leading-relaxed">
-                    {isVi
-                      ? 'Hệ thống vòi sen nóng lạnh áp lực cao, trang bị sẵn dầu gội, sữa tắm và máy sấy tóc tiện lợi.'
-                      : 'High-pressure showers with complimentary toiletries and hair dryers for member convenience.'}
-                  </p>
-                </div>
-              </Item>
+                </Item>
+              ))}
             </Stagger>
           </div>
         </section>
 
-        {/* ============================================================ */}
-      {/* 7. BOTTOM CTA SECTION                                        */}
-      {/* ============================================================ */}
-      <section className="py-16 bg-gradient-to-r from-stone-950 via-[#1c1917] to-stone-950 border-b border-stone-800">
-        <Reveal className="max-w-4xl mx-auto px-4 text-center space-y-5">
-          <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            {isVi ? 'Sẵn sàng bắt đầu hành trình nâng tầm thể lực?' : 'Ready to Elevate Your Physical Health?'}
-          </h2>
-          <p className="text-sm text-stone-300 max-w-xl mx-auto leading-relaxed">
-            {isVi
-              ? 'Đăng ký ngay hôm nay để nhận buổi kiểm tra chỉ số cơ thể và tư vấn lộ trình tập luyện 1 kèm 1 cùng Huấn luyện viên.'
-              : 'Join today and receive a complimentary body assessment and 1-on-1 strategy consultation with our trainers.'}
-          </p>
-          <div className="pt-2 flex justify-center gap-4">
+        <section id="courses" className="scroll-mt-24 bg-mlc-surface-base py-20 text-white sm:py-28">
+          <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
+            <Reveal className="mb-10 flex flex-col justify-between gap-5 sm:mb-14 sm:flex-row sm:items-end">
+              <div>
+                <p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-mlc-red">
+                  {isVi ? "TÌM MÔN THỂ THAO CỦA BẠN" : "FIND YOUR SPORT"}
+                </p>
+                <h2 className="font-mlc text-4xl font-extrabold leading-[0.98] tracking-tight sm:text-6xl">
+                  {isVi
+                    ? `${visibleCourses.length} KHÓA HỌC THỂ THAO`
+                    : `${visibleCourses.length} SPORTS COURSES`}
+                </h2>
+              </div>
+              <p className="max-w-lg text-base leading-7 text-white/70">
+                {isVi
+                  ? "Từ những môn phối hợp đồng đội đến thử thách cá nhân, hãy chọn hoạt động khiến bạn muốn quay lại sân tập."
+                  : "From team play to individual challenges, choose an activity that makes you want to come back."}
+              </p>
+            </Reveal>
+            <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleCourses.map((course) => {
+                const courseIndex = courses.findIndex((item) => item.id === course.id)
+                return (
+                <Item key={course.id} className="h-full">
+                  <article className="group h-full overflow-hidden border border-white/15 border-b-4 border-b-mlc-red bg-white/[0.03] transition duration-300 hover:-translate-y-1 hover:border-white/35 hover:shadow-mlc">
+                    <div className="relative aspect-[4/3] overflow-hidden bg-black">
+                      <img
+                        src={course.image}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover opacity-80 transition duration-500 group-hover:scale-105 group-hover:opacity-100"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-mlc-ink/75 via-transparent to-black/10" />
+                      <span className="absolute left-4 top-4 flex h-10 w-10 items-center justify-center bg-mlc-red font-mlc text-sm font-bold text-white">
+                        {String(courseIndex + 1).padStart(2, "0")}
+                      </span>
+                    </div>
+                    <div className="p-5 sm:p-6">
+                      <h3 className="font-mlc text-2xl font-bold uppercase leading-tight">
+                        {isVi ? course.title : course.titleEn}
+                      </h3>
+                      <p className="mt-3 min-h-[48px] text-sm leading-6 text-white/70">
+                        {isVi ? course.description : course.descriptionEn}
+                      </p>
+                    </div>
+                  </article>
+                </Item>
+                )
+              })}
+            </Stagger>
+          </div>
+        </section>
+
+        <section
+          id="coaches"
+          className="scroll-mt-24 overflow-hidden bg-mlc-ink py-14 text-white sm:py-20"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px)",
+            backgroundSize: "66px 66px",
+          }}
+        >
+          <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
+            <Reveal className="mb-8 max-w-5xl sm:mb-10">
+              <span className="mb-3 inline-flex bg-mlc-red px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+                {isVi ? "Đội ngũ" : "All team"}
+              </span>
+              <h2 className="font-display text-5xl font-extrabold uppercase leading-[0.92] tracking-tight sm:text-7xl lg:text-8xl">
+                {isVi ? "Huấn luyện viên" : "Coaches"}{" "}
+                <span className="text-mlc-red">MLC SPORTS</span>
+              </h2>
+              <div className="mt-5 h-1 w-16 bg-mlc-red" />
+            </Reveal>
+
+            <div
+              role="group"
+              aria-label={isVi ? "Lọc theo môn thể thao" : "Filter by sport"}
+              className="mb-6 flex gap-2 overflow-x-auto pb-2"
+            >
+              <button
+                type="button"
+                aria-pressed={activeSport === "all"}
+                onClick={() => setActiveSport("all")}
+                className={`shrink-0 border px-3 py-2 font-display text-xs font-bold uppercase transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+                  activeSport === "all"
+                    ? "border-mlc-red bg-mlc-red text-white"
+                    : "border-white/20 text-white/60 hover:border-white/60 hover:text-white"
+                }`}
+              >
+                {isVi ? "Tất cả" : "All"}
+              </button>
+              {courses.map((sport) => (
+                <button
+                  key={sport.id}
+                  type="button"
+                  aria-pressed={activeSport === sport.id}
+                  onClick={() => setActiveSport(sport.id)}
+                  className={`shrink-0 border px-3 py-2 font-display text-xs font-bold uppercase transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+                    activeSport === sport.id
+                      ? "border-mlc-red bg-mlc-red text-white"
+                      : "border-white/20 text-white/60 hover:border-white/60 hover:text-white"
+                  }`}
+                >
+                  {isVi ? sport.title : sport.titleEn}
+                </button>
+              ))}
+            </div>
+
+            {visibleCoachCards.length > 0 ? (
+              <Stagger className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 lg:gap-4">
+                {visibleCoachCards.map(({ coach, sport, image }) => (
+                  <Item
+                    key={coach.id}
+                    className="group relative aspect-[3/4] overflow-hidden bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={
+                      isVi
+                        ? `Xem hồ sơ huấn luyện viên ${coach.name}`
+                        : `View coach profile for ${coach.name}`
+                    }
+                    onClick={(event) => openCoachProfile({ coach, sport, image }, event)}
+                    onKeyDown={(event) =>
+                      handleCoachKeyDown(event, { coach, sport, image })
+                    }
+                  >
+                    <img
+                      src={image}
+                      alt=""
+                      loading="lazy"
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-black/10 transition-colors group-hover:from-black/95" />
+                    <div className="absolute inset-x-0 bottom-0 border-b-4 border-mlc-red p-3 sm:p-4">
+                      <p className="mb-1 font-display text-xs font-bold uppercase tracking-wider text-white/75 sm:text-sm">
+                        {coach.specialtyVi || coach.specialty || (isVi ? sport.title : sport.titleEn)}
+                      </p>
+                      <h3 className="font-display text-xl font-extrabold uppercase leading-[0.95] text-white sm:text-2xl lg:text-3xl">
+                        {coach.name}
+                      </h3>
+                    </div>
+                  </Item>
+                ))}
+              </Stagger>
+            ) : (
+              <p className="border border-white/15 bg-white/5 p-6 text-sm text-white/70">
+                {coaches.length > 0
+                  ? isVi
+                    ? "Chưa có huấn luyện viên cho môn thể thao này."
+                    : "There are no coaches for this sport yet."
+                  : isVi
+                    ? "Thông tin huấn luyện viên sẽ sớm được cập nhật."
+                    : "Coach profiles will be available soon."}
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section
+          id="facilities"
+          className="scroll-mt-24 bg-white py-20 sm:py-28"
+        >
+          <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
+            <Reveal className="mb-10 max-w-3xl sm:mb-14">
+              <p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-mlc-red">
+                {isVi ? "KHÔNG GIAN THỂ THAO" : "SPORTS FACILITIES"}
+              </p>
+              <h2 className="text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-6xl">
+                {isVi
+                  ? "SẴN SÀNG CHO BẠN TỎA SÁNG"
+                  : "A PLACE TO PLAY AND GROW"}
+              </h2>
+            </Reveal>
+            <Stagger className="grid gap-5 md:grid-cols-3">
+              {facilities.map((facility, index) => (
+                <Item
+                  key={facility.title}
+                  className={`group relative min-h-[300px] overflow-hidden rounded-2xl bg-mlc-ink sm:min-h-[380px] ${
+                    index === 1 ? "md:translate-y-8" : ""
+                  }`}
+                >
+                  <img
+                    src={facility.image}
+                    alt=""
+                    loading="lazy"
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-mlc-ink/80 via-mlc-ink/10 to-transparent" />
+                  <h3 className="absolute bottom-5 left-5 right-5 text-xl font-bold text-white sm:bottom-7 sm:left-7">
+                    {isVi ? facility.title : facility.titleEn}
+                  </h3>
+                </Item>
+              ))}
+            </Stagger>
+          </div>
+        </section>
+
+        <section id="news" className="scroll-mt-24 bg-sc-paper py-20 text-white sm:py-24">
+          <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
+            <Reveal className="mb-8 max-w-3xl">
+              <p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-sc-primary">
+                {isVi ? "BẢN TIN SCMS" : "SCMS UPDATES"}
+              </p>
+              <h2 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl">
+                {isVi ? "TIN TỨC VÀ SỰ KIỆN" : "NEWS AND EVENTS"}
+              </h2>
+              <p className="mt-4 text-base leading-7 text-sc-muted">
+                {isVi
+                  ? "Cập nhật hoạt động và thông báo mới của trung tâm."
+                  : "Updates and announcements from the center."}
+              </p>
+            </Reveal>
+            <div className="flex min-h-44 items-center gap-5 border border-sc-border bg-white/[0.03] p-6 sm:p-8">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center bg-sc-primary/10 text-sc-primary">
+                <Newspaper className="h-6 w-6" aria-hidden="true" />
+              </span>
+              <p className="text-sm leading-6 text-sc-muted sm:text-base">
+                {isVi
+                  ? "Chưa có tin tức hoặc sự kiện nào được đăng. Nội dung mới sẽ xuất hiện tại đây."
+                  : "There are no news or event posts yet. New updates will appear here."}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section id="contact" className="scroll-mt-24 bg-sc-ink py-20 text-white sm:py-24">
+          <div className="mx-auto grid max-w-[1440px] gap-10 px-5 sm:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:px-12">
+            <Reveal>
+              <p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-sc-primary">
+                {isVi ? "BỘ PHẬN QUAN HỆ HỘI VIÊN" : "MEMBER RELATIONS"}
+              </p>
+              <h2 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl">
+                {isVi ? "LIÊN HỆ SCMS" : "CONTACT SCMS"}
+              </h2>
+              <p className="mt-5 max-w-2xl text-base leading-7 text-white/70">
+                {isVi
+                  ? "Liên hệ bộ phận Quan hệ Hội viên nếu bạn cần hỗ trợ về tài khoản hoặc dịch vụ của trung tâm."
+                  : "Contact Member Relations for help with your account or center services."}
+              </p>
+            </Reveal>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <a
+                href="tel:18006995"
+                className="flex min-h-24 items-center gap-4 border border-white/15 bg-white/[0.03] p-5 transition hover:border-sc-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sc-primary"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-sc-primary/10 text-sc-primary">
+                  <Phone className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <span>
+                  <span className="block text-xs font-semibold uppercase tracking-wide text-white/60">
+                    {isVi ? "Điện thoại" : "Phone"}
+                  </span>
+                  <span className="mt-1 block font-semibold">1800 6995</span>
+                </span>
+              </a>
+              <a
+                href="mailto:memberrelations@scms.vn"
+                className="flex min-h-24 items-center gap-4 border border-white/15 bg-white/[0.03] p-5 transition hover:border-sc-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sc-primary"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-sc-primary/10 text-sc-primary">
+                  <Mail className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-semibold uppercase tracking-wide text-white/60">
+                    Email
+                  </span>
+                  <span className="mt-1 block break-all font-semibold">memberrelations@scms.vn</span>
+                </span>
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <section id="admission" className="scroll-mt-24 bg-mlc-red py-16 text-white sm:py-20">
+          <div className="mx-auto flex max-w-[1440px] flex-col gap-7 px-5 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-12">
+            <Reveal className="max-w-3xl">
+              <p className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-white/80">
+                {isVi ? "SẴN SÀNG BẮT ĐẦU?" : "READY TO GET STARTED?"}
+              </p>
+              <h2 className="text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl">
+                {isVi
+                  ? "CHỌN MÔN BẠN YÊU THÍCH. BẮT ĐẦU HÔM NAY."
+                  : "PICK YOUR SPORT. START TODAY."}
+              </h2>
+            </Reveal>
             <button
               type="button"
               onClick={() => onOpenRegister()}
-              className="px-6 py-3 rounded-lg bg-[#BA0000] hover:bg-[#8E0000] text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer shadow-md shadow-red-900/30"
+              className="inline-flex min-h-14 shrink-0 items-center justify-center gap-3 self-start rounded-full bg-white px-7 text-sm font-bold text-mlc-red shadow-lg transition hover:bg-mlc-ink hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white md:self-center"
             >
-              {isVi ? 'Đăng ký hội viên ngay' : 'Join Membership Now'}
-            </button>
-            <button
-              type="button"
-              onClick={onOpenLogin}
-              className="px-5 py-3 rounded-lg bg-stone-900 border border-stone-700 text-stone-200 font-bold text-xs uppercase tracking-wider hover:bg-stone-800 transition-colors cursor-pointer"
-            >
-              {isVi ? 'Đăng nhập tài khoản' : 'Sign In'}
+              {isVi ? "Đăng ký ngay" : "Register now"}{" "}
+              <ArrowRight className="h-4 w-4" />
             </button>
           </div>
-        </Reveal>
-      </section>
+        </section>
+      </main>
 
-      {/* ============================================================ */}
-      {/* 8. FOOTER (OFFICIAL REALISTIC SPORTS COMPLEX FOOTER)        */}
-      {/* ============================================================ */}
+      {selectedCoach && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-6"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setSelectedCoach(null)
+          }}
+        >
+          <div
+            ref={coachDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="coach-profile-name"
+            className="relative max-h-[calc(100vh-1.5rem)] w-full max-w-[1680px] overflow-y-auto border border-white/15 bg-mlc-ink p-3 text-white shadow-2xl sm:max-h-[calc(100vh-3rem)] sm:p-6"
+          >
+            <button
+              ref={closeCoachButtonRef}
+              type="button"
+              onClick={() => setSelectedCoach(null)}
+              aria-label={isVi ? "Đóng hồ sơ huấn luyện viên" : "Close coach profile"}
+              className="absolute right-5 top-5 z-20 flex h-11 w-11 items-center justify-center border border-white/30 bg-black/50 text-white transition hover:bg-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <section
+                className="grid min-h-[560px] grid-rows-[1fr_auto] border border-white/15 bg-white/[0.06]"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px)",
+                  backgroundSize: "66px 66px",
+                }}
+              >
+                <div className="grid md:grid-cols-2">
+                  <div className="relative min-h-[340px] bg-black/30 md:min-h-0">
+                    <img
+                      src={selectedCoach.image}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover object-center"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-mlc-ink/70 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-mlc-ink/40" />
+                  </div>
+                  <div className="flex flex-col justify-center px-5 py-8 sm:px-8">
+                    <p className="mb-4 inline-flex w-fit -skew-x-6 bg-mlc-red px-4 py-2 font-display text-xs font-extrabold uppercase tracking-wider text-white">
+                      <span className="skew-x-6">
+                        {isVi
+                          ? `Huấn luyện viên ${selectedCoach.sport.title}`
+                          : `${selectedCoach.sport.titleEn} coach`}
+                      </span>
+                    </p>
+                    <h2
+                      id="coach-profile-name"
+                      className="font-display text-4xl font-extrabold uppercase leading-[0.95] text-mlc-red sm:text-5xl"
+                    >
+                      {selectedCoach.coach.name}
+                    </h2>
+                    <p className="mt-6 max-w-prose text-base font-medium leading-7 text-white/85 sm:text-lg sm:leading-8">
+                      {isVi
+                        ? `Huấn luyện viên ${selectedCoach.sport.title} tại MLC Sports, đồng hành cùng học viên rèn kỹ thuật, phản xạ, tốc độ di chuyển và khả năng phối hợp chiến thuật trên sân.`
+                        : `A ${selectedCoach.sport.titleEn} coach at MLC Sports, supporting members as they build technique, reflexes, court movement and tactical coordination.`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-2 border-t border-white/15 p-3 sm:grid-cols-2 sm:p-4">
+                  <div className="flex min-h-16 items-center gap-3 border border-white/15 bg-white/[0.04] p-3 sm:p-4">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-mlc-red text-lg font-bold text-white">✓</span>
+                    <span className="text-sm font-semibold sm:text-base">
+                      {isVi ? "Kỹ thuật & phối hợp" : "Technique & coordination"}
+                    </span>
+                  </div>
+                  <div className="flex min-h-16 items-center gap-3 border border-white/15 bg-white/[0.04] p-3 sm:p-4">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-mlc-red text-lg font-bold text-white">✓</span>
+                    <span className="text-sm font-semibold sm:text-base">
+                      {isVi ? "Phản xạ & di chuyển" : "Reflexes & movement"}
+                    </span>
+                  </div>
+                </div>
+              </section>
+
+              <section className="group relative flex min-h-[420px] items-end overflow-hidden border-l-4 border-mlc-red bg-black sm:min-h-[560px]">
+                <img
+                  src={selectedCoach.sport.image}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 to-black/10" />
+                <div className="relative max-w-3xl p-6 sm:p-9 lg:p-10">
+                  <p className="mb-4 flex items-center gap-3 font-display text-sm font-extrabold uppercase tracking-[0.18em] text-white/80">
+                    <span className="h-2 w-10 -skew-x-12 bg-mlc-red" />
+                    {isVi ? "Cơ sở vật chất" : "Sports facilities"}
+                  </p>
+                  <h3 className="font-display text-3xl font-extrabold uppercase leading-[0.95] sm:text-5xl">
+                    {isVi
+                      ? `Không gian tập luyện ${selectedCoach.sport.title}`
+                      : `${selectedCoach.sport.titleEn} training space`}
+                  </h3>
+                  <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-white/90 sm:text-xl sm:leading-8">
+                    {isVi
+                      ? "Không gian dành cho các bài tập kỹ thuật, phản xạ và di chuyển, giúp học viên thực hành trực tiếp trên sân."
+                      : "A dedicated space for technique, reflex and movement drills, giving members room to practise on court."}
+                  </p>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
+
       <PublicFooter />
-      </div>
     </div>
-  );
+  )
 }
-
