@@ -10,17 +10,22 @@
   --font-barlow: 'Barlow', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* SCMS Primary Theme (Vibrant Orange/Brick Red) */
-  --color-sc-primary: #ff5a1f; /* Brighter, more punchy orange for maximum visibility */
-  --color-sc-primary-soft: #2a1610;
-  --color-sc-accent: #ff7b47; /* Even brighter orange for text highlights */
-  --color-sc-lime: #ccff00;
-  --color-sc-ink: #14130f;
-  --color-sc-paper: #0c0a09; /* Slightly darker base to increase contrast */
-  --color-sc-muted: #a3a3a3;
-  --color-sc-border: #292524;
-  --color-sc-border-soft: #1c1917;
-  --color-admin-canvas: #e4e4e4;
+  /* Sports Center public site */
+  --color-mlc-surface-base: #000000;
+  --color-mlc-ink: #181d25;
+  --color-mlc-red: #e31628;
+  --color-mlc-muted: #676f7e;
+  --color-mlc-border: #e5e7eb;
+  --color-mlc-surface: #f7f8fa;
+  --shadow-mlc: 0 8px 30px -5px rgb(227 22 40 / 30%);
+
+  /* SCMS Webzone Operations System - 6 Primitives */
+  --color-webzone-black: #181818;      /* Eerie Black: ink chính, sidebar, dark surface */
+  --color-webzone-charcoal: #323232;   /* Dark Charcoal: ink phụ, hover dark surface */
+  --color-webzone-platinum: #E4E4E4;   /* Platinum: canvas, divider, neutral surface */
+  --color-webzone-maxred: #D62323;     /* Maximum Red: accent, focus, selection */
+  --color-webzone-red: #BA0000;        /* UE Red: primary action, active nav */
+  --color-webzone-darkred: #8E0000;    /* Dark Red: hover/pressed, destructive emphasis */
 
   /* SCMS Sports Center public site */
   --color-mlc-surface-base: #000000;
