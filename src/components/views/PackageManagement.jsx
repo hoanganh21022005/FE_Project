@@ -79,23 +79,23 @@ export function PackageManagement() {
     <div className="space-y-6">
       <div className="bg-white border border-stone-200 rounded-lg p-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-stone-100 rounded"><Package className="w-5 h-5 text-orange-600" /></div>
-          <div><h2 className="text-sm font-bold">{t('packages')}</h2><p className="text-xs text-stone-500 mt-1">{language === 'vi' ? 'Tạo, chỉnh sửa và bật/tắt gói thành viên.' : 'Create, edit and activate membership packages.'}</p></div>
+          <div className="p-2 bg-stone-100 rounded"><Package className="w-5 h-5 text-[#BA0000]" /></div>
+          <div><h2 className="text-sm font-bold text-[#181818]">{t('packages')}</h2><p className="text-xs text-stone-500 mt-1">{language === 'vi' ? 'Tạo, chỉnh sửa và bật/tắt gói thành viên.' : 'Create, edit and activate membership packages.'}</p></div>
         </div>
-        <button onClick={() => setEditor({ item: null })} className="px-3.5 py-2 bg-stone-900 text-white rounded text-xs font-bold flex items-center gap-1.5"><Plus className="w-4 h-4" />{language === 'vi' ? 'Tạo gói mới' : 'Create Package'}</button>
+        <button onClick={() => setEditor({ item: null })} className="px-3.5 py-2 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"><Plus className="w-4 h-4" />{language === 'vi' ? 'Tạo gói mới' : 'Create Package'}</button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {packages.map((pkg, index) => (
           <article key={pkg.id} className="bg-white border border-stone-200 rounded-lg p-5 shadow-xs flex flex-col">
             <div className="flex items-start justify-between gap-3">
-              <div><span className="text-[10px] font-bold text-orange-700 uppercase">Package {index + 1}</span><h3 className="text-base font-bold mt-1">{language === 'vi' ? (pkg.nameVi || pkg.name) : pkg.name}</h3></div>
-              <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded ${pkg.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-600'}`}>{pkg.status}</span>
+              <div><span className="text-[10px] font-bold text-[#BA0000] uppercase">Package {index + 1}</span><h3 className="text-base font-bold text-[#181818] mt-1">{language === 'vi' ? (pkg.nameVi || pkg.name) : pkg.name}</h3></div>
+              <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded ${pkg.status === 'active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-stone-100 text-stone-600 border border-stone-200'}`}>{pkg.status}</span>
             </div>
-            <div className="mt-4 bg-stone-50 border border-stone-200 rounded p-3"><div className="text-xl font-bold">{formatCurrency(pkg.price, language)}</div><div className="text-xs text-stone-500">{pkg.durationMonths ?? Math.round((pkg.durationDays || 0) / 30)} {language === 'vi' ? 'tháng' : 'months'}</div></div>
+            <div className="mt-4 bg-stone-50 border border-stone-200 rounded p-3"><div className="text-xl font-bold text-[#181818]">{formatCurrency(pkg.price, language)}</div><div className="text-xs text-stone-500">{pkg.durationMonths ?? Math.round((pkg.durationDays || 0) / 30)} {language === 'vi' ? 'tháng' : 'months'}</div></div>
             <div className="mt-4 space-y-2 flex-1">{(pkg.benefits || []).map((benefit, benefitIndex) => <div key={benefitIndex} className="flex gap-2 text-xs text-stone-700"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /><span>{benefit}</span></div>)}</div>
             <div className="mt-5 pt-4 border-t flex gap-2">
-              <button onClick={() => setEditor({ item: pkg })} className="flex-1 py-2 bg-stone-100 rounded text-xs font-bold flex items-center justify-center gap-1"><Edit3 className="w-3.5 h-3.5" />{language === 'vi' ? 'Sửa' : 'Edit'}</button>
-              <button disabled={busyId === pkg.id} onClick={() => toggleStatus(pkg)} className="flex-1 py-2 bg-orange-50 text-orange-800 rounded text-xs font-bold flex items-center justify-center gap-1 disabled:opacity-50"><Power className="w-3.5 h-3.5" />{pkg.status === 'active' ? (language === 'vi' ? 'Tắt' : 'Disable') : (language === 'vi' ? 'Bật' : 'Enable')}</button>
+              <button onClick={() => setEditor({ item: pkg })} className="flex-1 py-2 bg-stone-100 hover:bg-stone-200 rounded text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"><Edit3 className="w-3.5 h-3.5" />{language === 'vi' ? 'Sửa' : 'Edit'}</button>
+              <button disabled={busyId === pkg.id} onClick={() => toggleStatus(pkg)} className="flex-1 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded text-xs font-bold flex items-center justify-center gap-1 disabled:opacity-50 cursor-pointer transition-colors"><Power className="w-3.5 h-3.5" />{pkg.status === 'active' ? (language === 'vi' ? 'Tắt' : 'Disable') : (language === 'vi' ? 'Bật' : 'Enable')}</button>
             </div>
           </article>
         ))}

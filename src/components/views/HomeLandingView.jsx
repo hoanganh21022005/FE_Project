@@ -1,8 +1,8 @@
-import React, { useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { useSCMS } from "../../context/SCMSContext"
 import { PublicFooter } from "../layout/PublicFooter"
 import { Reveal, Stagger, Item } from "../common/Reveal"
-import { ArrowDown, ArrowRight, Menu, X } from "lucide-react"
+import { ArrowDown, ArrowRight, ChevronDown, Mail, Menu, Newspaper, Phone, X } from "lucide-react"
 
 const courses = [
   {
@@ -86,7 +86,7 @@ const courses = [
   },
   {
     id: "tennis",
-    title: "Tennis",
+    title: "Quần vợt",
     titleEn: "Tennis",
     description:
       "Hoàn thiện kỹ thuật giao bóng, di chuyển và kiểm soát trận đấu.",
@@ -147,18 +147,204 @@ const facilities = [
   },
 ]
 
+const coachSportAliases = {
+  badminton: ["badminton", "cau long"],
+  "table-tennis": ["table tennis", "bong ban"],
+  pickleball: ["pickleball"],
+  basketball: ["basketball", "bong ro"],
+  volleyball: ["volleyball", "bong chuyen"],
+  archery: ["archery", "ban cung"],
+  shooting: ["shooting", "ban sung"],
+  football: ["football", "soccer", "bong da"],
+  tennis: ["tennis"],
+}
+
+const normalizeSportText = (value = "") =>
+  String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .toLowerCase()
+
+const getCoachSport = (coach) => {
+  const specialty = normalizeSportText(
+    [coach.specialty, coach.specialtyVi, coach.specialization, coach.specializationVi]
+      .filter(Boolean)
+      .join(" "),
+  )
+
+  return courses.find((course) =>
+    coachSportAliases[course.id].some((alias) => specialty.includes(alias)),
+  )
+}
+
+const featuredBadmintonCoach = {
+  id: "landing-coach-badminton",
+  name: "Huỳnh Thị Hương",
+  role: "coach",
+  specialty: "Badminton",
+  specialtyVi: "Cầu lông",
+  status: "active",
+  activeClassesCount: 0,
+}
+
+const badmintonCoachImage =
+  "https://images.unsplash.com/photo-1732955365693-fbd795199803?auto=format&fit=crop&q=85&w=1000"
+
 export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
-  const { language, setLanguage, staff } = useSCMS()
+  const { authLoading, language, setLanguage, staff, fetchStaff } = useSCMS()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [openDropdown, setOpenDropdown] = useState(null)
+  const [activeCourse, setActiveCourse] = useState("all")
+  const [activeSport, setActiveSport] = useState("all")
+  const [selectedCoach, setSelectedCoach] = useState(null)
+  const staffFetchStarted = useRef(false)
+  const headerRef = useRef(null)
+  const dropdownTriggerRefs = useRef({})
+  const coachTriggerRef = useRef(null)
+  const coachDialogRef = useRef(null)
+  const closeCoachButtonRef = useRef(null)
   const isVi = language === "vi"
-  const coaches = staff
+  useEffect(() => {
+    if (!authLoading && staff.length === 0 && !staffFetchStarted.current) {
+      staffFetchStarted.current = true
+      fetchStaff().catch(() => {})
+    }
+  }, [authLoading, fetchStaff, staff.length])
+  useEffect(() => {
+    if (!selectedCoach) return undefined
+
+    const previousOverflow = document.body.style.overflow
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setSelectedCoach(null)
+        return
+      }
+
+      if (event.key === "Tab") {
+        const focusable = coachDialogRef.current?.querySelectorAll(
+          'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        )
+        if (!focusable?.length) return
+
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first.focus()
+        }
+      }
+    }
+
+    document.body.style.overflow = "hidden"
+    window.addEventListener("keydown", handleKeyDown)
+    closeCoachButtonRef.current?.focus()
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener("keydown", handleKeyDown)
+      coachTriggerRef.current?.focus()
+    }
+  }, [selectedCoach])
+
+  useEffect(() => {
+    if (!openDropdown) return undefined
+
+    const handlePointerDown = (event) => {
+      if (!headerRef.current?.contains(event.target)) setOpenDropdown(null)
+    }
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setOpenDropdown(null)
+        dropdownTriggerRefs.current[openDropdown]?.focus()
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown)
+    window.addEventListener("keydown", handleKeyDown)
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown)
+      window.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [openDropdown])
+
+  const openCoachProfile = (coachCard, event) => {
+    coachTriggerRef.current = event.currentTarget
+    setSelectedCoach(coachCard)
+  }
+
+  const handleCoachKeyDown = (event, coachCard) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault()
+      openCoachProfile(coachCard, event)
+    }
+  }
+  const staffCoaches = staff
     .filter((member) => member.role === "coach" && member.status !== "inactive")
-    .slice(0, 3)
+  const huongProfile = staffCoaches.find(
+    (coach) => normalizeSportText(coach.name) === "huynh thi huong",
+  )
+  const badmintonCoach = huongProfile || featuredBadmintonCoach
+  const coaches = [
+    badmintonCoach,
+    ...staffCoaches.filter(
+      (coach) => coach !== huongProfile && getCoachSport(coach)?.id !== "badminton",
+    ),
+  ].slice(0, 9)
+  const coachCards = coaches.map((coach, index) => ({
+    coach,
+    sport: getCoachSport(coach) || courses[index % courses.length],
+    image:
+      normalizeSportText(coach.name) === "huynh thi huong"
+        ? badmintonCoachImage
+        : (getCoachSport(coach) || courses[index % courses.length]).image,
+  }))
+  const visibleCoachCards =
+    activeSport === "all"
+      ? coachCards
+      : coachCards.filter(({ sport }) => sport.id === activeSport)
+  const visibleCourses =
+    activeCourse === "all"
+      ? courses
+      : courses.filter((course) => course.id === activeCourse)
   const navigation = [
-    { href: "#about", label: isVi ? "Về chúng tôi" : "About" },
-    { href: "#courses", label: isVi ? "Khóa học" : "Courses" },
+    {
+      href: "#top",
+      label: isVi ? "Trang chủ" : "Home",
+      isHome: true,
+    },
+    {
+      id: "about",
+      label: isVi ? "Về chúng tôi" : "About us",
+      children: [
+        {
+          href: "#news",
+          label: isVi ? "Tin tức và sự kiện" : "News and events",
+        },
+        {
+          href: "#contact",
+          label: isVi ? "Liên hệ" : "Contact",
+        },
+      ],
+    },
+    {
+      id: "courses",
+      label: isVi ? "Khóa học" : "Courses",
+      children: [
+        { href: "#courses", courseId: "all", label: isVi ? "Tất cả" : "All" },
+        ...courses.map((course) => ({
+          href: "#courses",
+          courseId: course.id,
+          label: isVi ? course.title : course.titleEn,
+        })),
+      ],
+    },
     { href: "#coaches", label: isVi ? "Huấn luyện viên" : "Coaches" },
     { href: "#facilities", label: isVi ? "Cơ sở vật chất" : "Facilities" },
+    { href: "#admission", label: isVi ? "Tuyển sinh" : "Admissions" },
   ]
 
   return (
@@ -170,11 +356,11 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
         {isVi ? "Bỏ qua điều hướng" : "Skip to content"}
       </a>
 
-      <header className="sticky top-0 z-50 border-b border-mlc-border bg-white/95 backdrop-blur-md">
+      <header ref={headerRef} className="sticky top-0 z-50 border-b border-mlc-border bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex h-[76px] max-w-[1440px] items-center justify-between px-5 sm:px-8 lg:px-12">
           <a
             href="#top"
-            aria-label="SCMS Sports Center, trang chủ"
+            aria-label="R E S I L I E N C E Sports Center, trang chủ"
             className="flex items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
           >
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-mlc-red text-sm font-black tracking-tight text-white shadow-mlc">
@@ -192,17 +378,78 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
 
           <nav
             aria-label={isVi ? "Điều hướng chính" : "Main navigation"}
-            className="hidden items-center gap-7 lg:flex"
+            className="hidden items-center gap-4 lg:flex xl:gap-7"
           >
-            {navigation.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className="text-xs font-semibold text-mlc-ink transition-colors hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
-              >
-                {item.label}
-              </a>
-            ))}
+            {navigation.map((item) =>
+              item.children ? (
+                <div key={item.id} className="relative">
+                  <button
+                    ref={(node) => {
+                      if (node) dropdownTriggerRefs.current[item.id] = node
+                      else delete dropdownTriggerRefs.current[item.id]
+                    }}
+                    type="button"
+                    aria-expanded={openDropdown === item.id}
+                    aria-controls={`desktop-${item.id}-dropdown`}
+                    onClick={() =>
+                      setOpenDropdown((open) => (open === item.id ? null : item.id))
+                    }
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-mlc-ink transition-colors hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
+                  >
+                    {item.label}
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 transition-transform ${openDropdown === item.id ? "rotate-180" : ""}`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                  {openDropdown === item.id && (
+                    <div
+                      id={`desktop-${item.id}-dropdown`}
+                      className="absolute left-0 top-full z-50 mt-3 max-h-[70vh] min-w-56 overflow-y-auto border border-mlc-border bg-white p-2 shadow-xl"
+                    >
+                      {item.children.map((child) => (
+                        <a
+                          key={child.courseId || child.href}
+                          href={child.href}
+                          aria-current={
+                            child.courseId && child.courseId === activeCourse
+                              ? "true"
+                              : undefined
+                          }
+                          onClick={() => {
+                            if (child.courseId) setActiveCourse(child.courseId)
+                            setOpenDropdown(null)
+                          }}
+                          className={`block whitespace-nowrap px-4 py-3 text-sm font-medium transition-colors hover:bg-mlc-surface hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red ${
+                            child.courseId && child.courseId === activeCourse
+                              ? "bg-mlc-surface text-mlc-red"
+                              : "text-mlc-ink"
+                          }`}
+                        >
+                          {child.label}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  aria-current={item.isHome ? "page" : undefined}
+                  onClick={() => setOpenDropdown(null)}
+                  className={`text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red ${
+                    item.isHome
+                      ? "-skew-x-6 bg-mlc-red px-4 py-3 text-white shadow-mlc hover:bg-rose-700 hover:text-white"
+                      : "text-mlc-ink hover:text-mlc-red"
+                  }`}
+                >
+                  <span className={item.isHome ? "inline-block skew-x-6" : ""}>
+                    {item.label}
+                  </span>
+                </a>
+              ),
+            )}
           </nav>
 
           <div className="hidden items-center gap-3 sm:flex">
@@ -261,7 +508,10 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
             </button>
             <button
               type="button"
-              onClick={() => setMenuOpen((open) => !open)}
+              onClick={() => {
+                setMenuOpen((open) => !open)
+                setOpenDropdown(null)
+              }}
               aria-expanded={menuOpen}
               aria-controls="mobile-navigation"
               aria-label={
@@ -290,23 +540,82 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
             className="border-t border-mlc-border bg-white px-5 py-4 sm:hidden"
           >
             <div className="flex flex-col">
-              {navigation.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMenuOpen(false)}
-                  className="border-b border-mlc-border py-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red"
-                >
-                  {item.label}
-                </a>
-              ))}
+              {navigation.map((item) =>
+                item.children ? (
+                  <div key={item.id} className="border-b border-mlc-border">
+                    <button
+                      ref={(node) => {
+                        if (node) dropdownTriggerRefs.current[item.id] = node
+                        else delete dropdownTriggerRefs.current[item.id]
+                      }}
+                      type="button"
+                      aria-expanded={openDropdown === item.id}
+                      aria-controls={`mobile-${item.id}-dropdown`}
+                      onClick={() =>
+                        setOpenDropdown((open) => (open === item.id ? null : item.id))
+                      }
+                      className="flex w-full items-center justify-between py-3 text-left text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red"
+                    >
+                      {item.label}
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${openDropdown === item.id ? "rotate-180" : ""}`}
+                        aria-hidden="true"
+                      />
+                    </button>
+                    {openDropdown === item.id && (
+                      <div id={`mobile-${item.id}-dropdown`} className="pb-2 pl-3">
+                        {item.children.map((child) => (
+                          <a
+                            key={child.courseId || child.href}
+                            href={child.href}
+                            aria-current={
+                              child.courseId && child.courseId === activeCourse
+                                ? "true"
+                                : undefined
+                            }
+                            onClick={() => {
+                              if (child.courseId) setActiveCourse(child.courseId)
+                              setOpenDropdown(null)
+                              setMenuOpen(false)
+                            }}
+                            className={`block px-3 py-2.5 text-sm transition-colors hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red ${
+                              child.courseId && child.courseId === activeCourse
+                                ? "font-semibold text-mlc-red"
+                                : "text-mlc-muted"
+                            }`}
+                          >
+                            {child.label}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    aria-current={item.isHome ? "page" : undefined}
+                    onClick={() => {
+                      setMenuOpen(false)
+                      setOpenDropdown(null)
+                    }}
+                    className={`border-b border-mlc-border py-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red ${
+                      item.isHome
+                        ? "bg-mlc-red px-3 text-white"
+                        : "text-mlc-ink"
+                    }`}
+                  >
+                    {item.label}
+                  </a>
+                ),
+              )}
               <button
                 type="button"
                 onClick={() => {
                   setMenuOpen(false)
                   onOpenLogin()
                 }}
-                className="py-3 text-left text-sm font-semibold"
+                className="py-3 text-left text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mlc-red"
               >
                 {isVi ? "Đăng nhập" : "Sign in"}
               </button>
@@ -316,7 +625,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                   setMenuOpen(false)
                   onOpenRegister()
                 }}
-                className="rounded-full bg-mlc-red px-5 py-3 text-sm font-bold text-white"
+                className="rounded-full bg-mlc-red px-5 py-3 text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mlc-red"
               >
                 {isVi ? "Đăng ký ngay" : "Register now"}
               </button>
@@ -342,7 +651,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
             <Reveal className="max-w-4xl">
               <p className="mb-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-white/85 sm:text-sm">
                 <span className="h-0.5 w-10 bg-mlc-red" />
-                {isVi ? "SCMS SPORTS CENTER" : "SCMS SPORTS CENTER"}
+                RESILIENCE SPORTS CENTER
               </p>
               <h1 className="text-[clamp(3.25rem,9vw,7.5rem)] font-extrabold leading-[0.98] tracking-[-0.055em]">
                 {isVi ? (
@@ -386,7 +695,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
         </section>
 
         <div
-          className="overflow-hidden border-b border-mlc-border bg-white py-5"
+          className="overflow-hidden border-b border-mlc-border bg-mlc-red py-5"
           role="region"
           aria-label={isVi ? "Các môn thể thao" : "Sports"}
         >
@@ -394,15 +703,14 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
             {[0, 1].map((copy) => (
               <div
                 key={copy}
-                className="flex shrink-0 items-center gap-8 px-5 text-xs font-semibold text-mlc-muted sm:gap-12 sm:px-8 sm:text-sm"
+                className="flex shrink-0 items-center gap-12 px-6 text-lg font-bold text-white sm:gap-16 sm:px-10 sm:text-xl"
                 aria-hidden={copy === 1 ? "true" : undefined}
               >
                 {courses.map((course) => (
                   <span
                     key={course.id}
-                    className="flex shrink-0 items-center gap-2 whitespace-nowrap"
+                    className="flex shrink-0 items-center whitespace-nowrap"
                   >
-                    <span className="h-2 w-2 rounded-full bg-mlc-red" />
                     {isVi ? course.title : course.titleEn}
                   </span>
                 ))}
@@ -418,7 +726,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
           <div className="mx-auto grid max-w-[1440px] gap-12 px-5 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-20 lg:px-12">
             <Reveal>
               <p className="mb-5 text-xs font-bold uppercase tracking-[0.16em] text-mlc-red">
-                {isVi ? "TẠI SAO CHỌN SCMS SPORTS" : "WHY CHOOSE SCMS SPORTS"}
+                {isVi ? "TẠI SAO CHỌN RESILIENCE SPORTS" : "WHY CHOOSE RESILIENCE SPORTS"}
               </p>
               <h2 className="text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-6xl">
                 {isVi ? (
@@ -437,8 +745,8 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
               </h2>
               <p className="mt-6 max-w-xl text-base leading-7 text-mlc-muted">
                 {isVi
-                  ? "SCMS Sports Center mang đến môi trường để học viên khám phá các môn thể thao, rèn luyện sức khỏe và phát triển những kỹ năng đồng hành cùng mình trong cuộc sống."
-                  : "SCMS Sports Center creates space to explore sports, build healthy habits and develop skills that carry into everyday life."}
+                  ? "Resilience Sports Center mang đến môi trường để học viên khám phá các môn thể thao, rèn luyện sức khỏe và phát triển những kỹ năng đồng hành cùng mình trong cuộc sống."
+                  : "Resilience Sports Center creates space to explore sports, build healthy habits and develop skills that carry into everyday life."}
               </p>
             </Reveal>
             <Stagger className="grid gap-4 sm:grid-cols-3">
@@ -462,109 +770,159 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
           </div>
         </section>
 
-        <section id="courses" className="scroll-mt-24 bg-white py-20 sm:py-28">
+        <section id="courses" className="scroll-mt-24 bg-mlc-surface-base py-20 text-white sm:py-28">
           <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
             <Reveal className="mb-10 flex flex-col justify-between gap-5 sm:mb-14 sm:flex-row sm:items-end">
               <div>
                 <p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-mlc-red">
                   {isVi ? "TÌM MÔN THỂ THAO CỦA BẠN" : "FIND YOUR SPORT"}
                 </p>
-                <h2 className="text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-6xl">
-                  {isVi ? "9 KHÓA HỌC THỂ THAO" : "9 SPORTS COURSES"}
+                <h2 className="font-mlc text-4xl font-extrabold leading-[0.98] tracking-tight sm:text-6xl">
+                  {isVi
+                    ? `${visibleCourses.length} KHÓA HỌC THỂ THAO`
+                    : `${visibleCourses.length} SPORTS COURSES`}
                 </h2>
               </div>
-              <p className="max-w-lg text-base leading-7 text-mlc-muted">
+              <p className="max-w-lg text-base leading-7 text-white/70">
                 {isVi
                   ? "Từ những môn phối hợp đồng đội đến thử thách cá nhân, hãy chọn hoạt động khiến bạn muốn quay lại sân tập."
                   : "From team play to individual challenges, choose an activity that makes you want to come back."}
               </p>
             </Reveal>
-            <Stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {courses.map((course, index) => (
-                <Item key={course.id}>
-                  <article className="group h-full overflow-hidden rounded-2xl border border-mlc-border bg-white transition duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_-5px_rgba(227,22,40,0.18)]">
-                    <div className="relative aspect-[4/3] overflow-hidden bg-mlc-surface">
+            <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleCourses.map((course) => {
+                const courseIndex = courses.findIndex((item) => item.id === course.id)
+                return (
+                <Item key={course.id} className="h-full">
+                  <article className="group h-full overflow-hidden border border-white/15 border-b-4 border-b-mlc-red bg-white/[0.03] transition duration-300 hover:-translate-y-1 hover:border-white/35 hover:shadow-mlc">
+                    <div className="relative aspect-[4/3] overflow-hidden bg-black">
                       <img
                         src={course.image}
                         alt=""
                         loading="lazy"
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="h-full w-full object-cover opacity-80 transition duration-500 group-hover:scale-105 group-hover:opacity-100"
                       />
-                      <span className="absolute left-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white text-xs font-bold text-mlc-red shadow-sm">
-                        {String(index + 1).padStart(2, "0")}
+                      <div className="absolute inset-0 bg-gradient-to-t from-mlc-ink/75 via-transparent to-black/10" />
+                      <span className="absolute left-4 top-4 flex h-10 w-10 items-center justify-center bg-mlc-red font-mlc text-sm font-bold text-white">
+                        {String(courseIndex + 1).padStart(2, "0")}
                       </span>
                     </div>
                     <div className="p-5 sm:p-6">
-                      <h3 className="text-xl font-bold">
+                      <h3 className="font-mlc text-2xl font-bold uppercase leading-tight">
                         {isVi ? course.title : course.titleEn}
                       </h3>
-                      <p className="mt-2 min-h-[48px] text-sm leading-6 text-mlc-muted">
+                      <p className="mt-3 min-h-[48px] text-sm leading-6 text-white/70">
                         {isVi ? course.description : course.descriptionEn}
                       </p>
                     </div>
                   </article>
                 </Item>
-              ))}
+                )
+              })}
             </Stagger>
           </div>
         </section>
 
         <section
           id="coaches"
-          className="scroll-mt-24 bg-mlc-surface py-20 sm:py-28"
+          className="scroll-mt-24 overflow-hidden bg-mlc-ink py-14 text-white sm:py-20"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px)",
+            backgroundSize: "66px 66px",
+          }}
         >
           <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
-            <Reveal className="mb-10 max-w-3xl sm:mb-14">
-              <p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-mlc-red">
-                {isVi ? "ĐỘI NGŨ HUẤN LUYỆN VIÊN" : "MEET THE COACHES"}
-              </p>
-              <h2 className="text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-6xl">
-                {isVi
-                  ? "NGƯỜI ĐỒNG HÀNH\nTRÊN SÂN TẬP"
-                  : "COACHES WHO\nHELP YOU GROW"}
+            <Reveal className="mb-8 max-w-5xl sm:mb-10">
+              <span className="mb-3 inline-flex bg-mlc-red px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+                {isVi ? "Đội ngũ" : "All team"}
+              </span>
+              <h2 className="font-display text-5xl font-extrabold uppercase leading-[0.92] tracking-tight sm:text-7xl lg:text-8xl">
+                {isVi ? "Huấn luyện viên" : "Coaches"}{" "}
+                <span className="text-mlc-red">MLC SPORTS</span>
               </h2>
+              <div className="mt-5 h-1 w-16 bg-mlc-red" />
             </Reveal>
-            {coaches.length > 0 ? (
-              <Stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {coaches.map((coach, index) => (
+
+            <div
+              role="group"
+              aria-label={isVi ? "Lọc theo môn thể thao" : "Filter by sport"}
+              className="mb-6 flex gap-2 overflow-x-auto pb-2"
+            >
+              <button
+                type="button"
+                aria-pressed={activeSport === "all"}
+                onClick={() => setActiveSport("all")}
+                className={`shrink-0 border px-3 py-2 font-display text-xs font-bold uppercase transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+                  activeSport === "all"
+                    ? "border-mlc-red bg-mlc-red text-white"
+                    : "border-white/20 text-white/60 hover:border-white/60 hover:text-white"
+                }`}
+              >
+                {isVi ? "Tất cả" : "All"}
+              </button>
+              {courses.map((sport) => (
+                <button
+                  key={sport.id}
+                  type="button"
+                  aria-pressed={activeSport === sport.id}
+                  onClick={() => setActiveSport(sport.id)}
+                  className={`shrink-0 border px-3 py-2 font-display text-xs font-bold uppercase transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+                    activeSport === sport.id
+                      ? "border-mlc-red bg-mlc-red text-white"
+                      : "border-white/20 text-white/60 hover:border-white/60 hover:text-white"
+                  }`}
+                >
+                  {isVi ? sport.title : sport.titleEn}
+                </button>
+              ))}
+            </div>
+
+            {visibleCoachCards.length > 0 ? (
+              <Stagger className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 lg:gap-4">
+                {visibleCoachCards.map(({ coach, sport, image }) => (
                   <Item
                     key={coach.id}
-                    className="overflow-hidden rounded-2xl border border-mlc-border bg-white"
+                    className="group relative aspect-[3/4] overflow-hidden bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={
+                      isVi
+                        ? `Xem hồ sơ huấn luyện viên ${coach.name}`
+                        : `View coach profile for ${coach.name}`
+                    }
+                    onClick={(event) => openCoachProfile({ coach, sport, image }, event)}
+                    onKeyDown={(event) =>
+                      handleCoachKeyDown(event, { coach, sport, image })
+                    }
                   >
-                    <div className="relative flex aspect-[4/3] items-end overflow-hidden bg-mlc-ink p-5 text-white">
-                      <img
-                        src={`https://images.unsplash.com/${["photo-1560250097-0b93528c311a", "photo-1535713875002-d1d0cf377fde", "photo-1500648767791-00dcc994a43e"][index % 3]}?q=85&w=800&auto=format&fit=crop`}
-                        alt=""
-                        loading="lazy"
-                        className="absolute inset-0 h-full w-full object-cover opacity-75"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-mlc-ink/80 to-transparent" />
-                      <span className="relative rounded-full bg-white/95 px-4 py-2 text-xs font-semibold text-mlc-ink">
-                        {coach.specialtyVi ||
-                          coach.specialty ||
-                          (isVi ? "Huấn luyện viên" : "Coach")}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 p-5">
-                      <div>
-                        <h3 className="text-lg font-bold">{coach.name}</h3>
-                        <p className="mt-1 text-sm text-mlc-muted">
-                          {coach.activeClassesCount || 0}{" "}
-                          {isVi ? "lớp đang phụ trách" : "active classes"}
-                        </p>
-                      </div>
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-mlc-red/10 text-mlc-red">
-                        <ArrowRight className="h-4 w-4" />
-                      </span>
+                    <img
+                      src={image}
+                      alt=""
+                      loading="lazy"
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-black/10 transition-colors group-hover:from-black/95" />
+                    <div className="absolute inset-x-0 bottom-0 border-b-4 border-mlc-red p-3 sm:p-4">
+                      <p className="mb-1 font-display text-xs font-bold uppercase tracking-wider text-white/75 sm:text-sm">
+                        {coach.specialtyVi || coach.specialty || (isVi ? sport.title : sport.titleEn)}
+                      </p>
+                      <h3 className="font-display text-xl font-extrabold uppercase leading-[0.95] text-white sm:text-2xl lg:text-3xl">
+                        {coach.name}
+                      </h3>
                     </div>
                   </Item>
                 ))}
               </Stagger>
             ) : (
-              <p className="rounded-2xl border border-mlc-border bg-white p-6 text-sm text-mlc-muted">
-                {isVi
-                  ? "Thông tin huấn luyện viên sẽ sớm được cập nhật."
-                  : "Coach profiles will be available soon."}
+              <p className="border border-white/15 bg-white/5 p-6 text-sm text-white/70">
+                {coaches.length > 0
+                  ? isVi
+                    ? "Chưa có huấn luyện viên cho môn thể thao này."
+                    : "There are no coaches for this sport yet."
+                  : isVi
+                    ? "Thông tin huấn luyện viên sẽ sớm được cập nhật."
+                    : "Coach profiles will be available soon."}
               </p>
             )}
           </div>
@@ -609,7 +967,83 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
           </div>
         </section>
 
-        <section className="bg-mlc-red py-16 text-white sm:py-20">
+        <section id="news" className="scroll-mt-24 bg-sc-paper py-20 text-white sm:py-24">
+          <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
+            <Reveal className="mb-8 max-w-3xl">
+              <p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-sc-primary">
+                {isVi ? "BẢN TIN SCMS" : "SCMS UPDATES"}
+              </p>
+              <h2 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl">
+                {isVi ? "TIN TỨC VÀ SỰ KIỆN" : "NEWS AND EVENTS"}
+              </h2>
+              <p className="mt-4 text-base leading-7 text-sc-muted">
+                {isVi
+                  ? "Cập nhật hoạt động và thông báo mới của trung tâm."
+                  : "Updates and announcements from the center."}
+              </p>
+            </Reveal>
+            <div className="flex min-h-44 items-center gap-5 border border-sc-border bg-white/[0.03] p-6 sm:p-8">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center bg-sc-primary/10 text-sc-primary">
+                <Newspaper className="h-6 w-6" aria-hidden="true" />
+              </span>
+              <p className="text-sm leading-6 text-sc-muted sm:text-base">
+                {isVi
+                  ? "Chưa có tin tức hoặc sự kiện nào được đăng. Nội dung mới sẽ xuất hiện tại đây."
+                  : "There are no news or event posts yet. New updates will appear here."}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section id="contact" className="scroll-mt-24 bg-sc-ink py-20 text-white sm:py-24">
+          <div className="mx-auto grid max-w-[1440px] gap-10 px-5 sm:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:px-12">
+            <Reveal>
+              <p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-sc-primary">
+                {isVi ? "BỘ PHẬN QUAN HỆ HỘI VIÊN" : "MEMBER RELATIONS"}
+              </p>
+              <h2 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl">
+                {isVi ? "LIÊN HỆ SCMS" : "CONTACT SCMS"}
+              </h2>
+              <p className="mt-5 max-w-2xl text-base leading-7 text-white/70">
+                {isVi
+                  ? "Liên hệ bộ phận Quan hệ Hội viên nếu bạn cần hỗ trợ về tài khoản hoặc dịch vụ của trung tâm."
+                  : "Contact Member Relations for help with your account or center services."}
+              </p>
+            </Reveal>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <a
+                href="tel:18006995"
+                className="flex min-h-24 items-center gap-4 border border-white/15 bg-white/[0.03] p-5 transition hover:border-sc-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sc-primary"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-sc-primary/10 text-sc-primary">
+                  <Phone className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <span>
+                  <span className="block text-xs font-semibold uppercase tracking-wide text-white/60">
+                    {isVi ? "Điện thoại" : "Phone"}
+                  </span>
+                  <span className="mt-1 block font-semibold">1800 6995</span>
+                </span>
+              </a>
+              <a
+                href="mailto:memberrelations@scms.vn"
+                className="flex min-h-24 items-center gap-4 border border-white/15 bg-white/[0.03] p-5 transition hover:border-sc-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sc-primary"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-sc-primary/10 text-sc-primary">
+                  <Mail className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-semibold uppercase tracking-wide text-white/60">
+                    Email
+                  </span>
+                  <span className="mt-1 block break-all font-semibold">memberrelations@scms.vn</span>
+                </span>
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <section id="admission" className="scroll-mt-24 bg-mlc-red py-16 text-white sm:py-20">
           <div className="mx-auto flex max-w-[1440px] flex-col gap-7 px-5 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-12">
             <Reveal className="max-w-3xl">
               <p className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-white/80">
@@ -632,6 +1066,116 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
           </div>
         </section>
       </main>
+
+      {selectedCoach && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-6"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setSelectedCoach(null)
+          }}
+        >
+          <div
+            ref={coachDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="coach-profile-name"
+            className="relative max-h-[calc(100vh-1.5rem)] w-full max-w-[1680px] overflow-y-auto border border-white/15 bg-mlc-ink p-3 text-white shadow-2xl sm:max-h-[calc(100vh-3rem)] sm:p-6"
+          >
+            <button
+              ref={closeCoachButtonRef}
+              type="button"
+              onClick={() => setSelectedCoach(null)}
+              aria-label={isVi ? "Đóng hồ sơ huấn luyện viên" : "Close coach profile"}
+              className="absolute right-5 top-5 z-20 flex h-11 w-11 items-center justify-center border border-white/30 bg-black/50 text-white transition hover:bg-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <section
+                className="grid min-h-[560px] grid-rows-[1fr_auto] border border-white/15 bg-white/[0.06]"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px)",
+                  backgroundSize: "66px 66px",
+                }}
+              >
+                <div className="grid md:grid-cols-2">
+                  <div className="relative min-h-[340px] bg-black/30 md:min-h-0">
+                    <img
+                      src={selectedCoach.image}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover object-center"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-mlc-ink/70 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-mlc-ink/40" />
+                  </div>
+                  <div className="flex flex-col justify-center px-5 py-8 sm:px-8">
+                    <p className="mb-4 inline-flex w-fit -skew-x-6 bg-mlc-red px-4 py-2 font-display text-xs font-extrabold uppercase tracking-wider text-white">
+                      <span className="skew-x-6">
+                        {isVi
+                          ? `Huấn luyện viên ${selectedCoach.sport.title}`
+                          : `${selectedCoach.sport.titleEn} coach`}
+                      </span>
+                    </p>
+                    <h2
+                      id="coach-profile-name"
+                      className="font-display text-4xl font-extrabold uppercase leading-[0.95] text-mlc-red sm:text-5xl"
+                    >
+                      {selectedCoach.coach.name}
+                    </h2>
+                    <p className="mt-6 max-w-prose text-base font-medium leading-7 text-white/85 sm:text-lg sm:leading-8">
+                      {isVi
+                        ? `Huấn luyện viên ${selectedCoach.sport.title} tại MLC Sports, đồng hành cùng học viên rèn kỹ thuật, phản xạ, tốc độ di chuyển và khả năng phối hợp chiến thuật trên sân.`
+                        : `A ${selectedCoach.sport.titleEn} coach at MLC Sports, supporting members as they build technique, reflexes, court movement and tactical coordination.`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-2 border-t border-white/15 p-3 sm:grid-cols-2 sm:p-4">
+                  <div className="flex min-h-16 items-center gap-3 border border-white/15 bg-white/[0.04] p-3 sm:p-4">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-mlc-red text-lg font-bold text-white">✓</span>
+                    <span className="text-sm font-semibold sm:text-base">
+                      {isVi ? "Kỹ thuật & phối hợp" : "Technique & coordination"}
+                    </span>
+                  </div>
+                  <div className="flex min-h-16 items-center gap-3 border border-white/15 bg-white/[0.04] p-3 sm:p-4">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-mlc-red text-lg font-bold text-white">✓</span>
+                    <span className="text-sm font-semibold sm:text-base">
+                      {isVi ? "Phản xạ & di chuyển" : "Reflexes & movement"}
+                    </span>
+                  </div>
+                </div>
+              </section>
+
+              <section className="group relative flex min-h-[420px] items-end overflow-hidden border-l-4 border-mlc-red bg-black sm:min-h-[560px]">
+                <img
+                  src={selectedCoach.sport.image}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 to-black/10" />
+                <div className="relative max-w-3xl p-6 sm:p-9 lg:p-10">
+                  <p className="mb-4 flex items-center gap-3 font-display text-sm font-extrabold uppercase tracking-[0.18em] text-white/80">
+                    <span className="h-2 w-10 -skew-x-12 bg-mlc-red" />
+                    {isVi ? "Cơ sở vật chất" : "Sports facilities"}
+                  </p>
+                  <h3 className="font-display text-3xl font-extrabold uppercase leading-[0.95] sm:text-5xl">
+                    {isVi
+                      ? `Không gian tập luyện ${selectedCoach.sport.title}`
+                      : `${selectedCoach.sport.titleEn} training space`}
+                  </h3>
+                  <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-white/90 sm:text-xl sm:leading-8">
+                    {isVi
+                      ? "Không gian dành cho các bài tập kỹ thuật, phản xạ và di chuyển, giúp học viên thực hành trực tiếp trên sân."
+                      : "A dedicated space for technique, reflex and movement drills, giving members room to practise on court."}
+                  </p>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
+
       <PublicFooter />
     </div>
   )

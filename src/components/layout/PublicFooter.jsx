@@ -10,7 +10,7 @@ const courseNames = [
   ["Bắn cung", "Archery"],
   ["Bắn súng", "Sport shooting"],
   ["Bóng đá", "Football"],
-  ["Tennis", "Tennis"],
+  ["Quần vợt", "Tennis"],
 ]
 
 export function PublicFooter() {
@@ -18,7 +18,7 @@ export function PublicFooter() {
   const isVi = language === "vi"
 
   return (
-    <footer className="bg-[#181d25] py-14 text-white sm:py-16">
+    <footer className="bg-mlc-ink py-14 text-white sm:py-16">
       <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
         <div className="grid gap-10 border-b border-white/15 pb-10 md:grid-cols-[1.2fr_1fr_1fr]">
           <div>
@@ -26,12 +26,12 @@ export function PublicFooter() {
               href="/#top"
               className="inline-flex items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e31628] text-xs font-black">
-                SC
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-mlc-red text-xs font-black">
+                S
               </span>
               <span>
                 <span className="block text-sm font-bold tracking-wider">
-                  SCMS SPORTS
+                  R E S I L I E N C E
                 </span>
                 <span className="mt-1 block text-[9px] font-medium tracking-[0.2em] text-white/60">
                   SPORTS CENTER
@@ -73,7 +73,7 @@ export function PublicFooter() {
                   href="/#about"
                   className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
-                  {isVi ? "Về SCMS Sports" : "About SCMS Sports"}
+                  {isVi ? "Về Resilience Sports" : "About Resilience Sports"}
                 </a>
               </li>
               <li>
@@ -103,7 +103,7 @@ export function PublicFooter() {
               <li>
                 <a
                   href="/register"
-                  className="font-semibold text-white transition-colors hover:text-[#ff6671] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  className="font-semibold text-white transition-colors hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
                   {isVi ? "Đăng ký tài khoản" : "Create an account"}
                 </a>
@@ -113,7 +113,7 @@ export function PublicFooter() {
         </div>
 
         <div className="flex flex-col gap-2 pt-6 text-xs text-white/50 sm:flex-row sm:items-center sm:justify-between">
-          <span>© SCMS Sports Center 2026</span>
+          <span>Resilience Sports Center 2026</span>
           <span>
             {isVi
               ? "Vận động hôm nay, trưởng thành mỗi ngày."
