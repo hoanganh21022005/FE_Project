@@ -68,4 +68,3 @@ export function mapAdminAuditLog(item = {}) {
     createdAt: item.createdAt ?? null,
   }
 }
-

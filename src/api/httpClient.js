@@ -73,4 +73,3 @@ if (typeof window !== 'undefined' && typeof import.meta.env !== 'undefined' && i
   window.__scms_httpClient = httpClient;
   window.__scms_httpRequest = httpRequest;
 }
-

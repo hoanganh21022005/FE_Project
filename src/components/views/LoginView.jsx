@@ -86,11 +86,11 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
       if (!scrollRef.current) return;
       const rect = scrollRef.current.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
-      
+
       if (rect.top <= 0) {
         const scrolled = -rect.top;
         const maxScroll = rect.height - viewportHeight;
-        
+
         if (scrolled <= maxScroll && maxScroll > 0) {
           setScrollProgress(scrolled / maxScroll);
         } else if (scrolled > maxScroll) {
@@ -100,7 +100,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
         setScrollProgress(0);
       }
     };
-    
+
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -160,9 +160,11 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
         const user = await login(trimmedEmail, loginPassword);
         if (adminEntry && normalizeRole(user?.role, { isApiMode: true }) !== ROLE_ADMIN) {
           await logout();
-          setLoginError(isVi
-            ? 'Tài khoản này không có quyền truy cập Admin Portal.'
-            : 'This account cannot access the Admin Portal.');
+          setLoginError(
+            isVi
+              ? 'Tài khoản này không có quyền truy cập Admin Portal.'
+              : 'This account cannot access the Admin Portal.'
+          );
           return;
         }
         onLoginSuccess(user);
@@ -186,9 +188,11 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
 
     if (mockUser) {
       if (adminEntry && mockUser.role !== ROLE_ADMIN) {
-        setLoginError(isVi
-          ? 'Tài khoản này không có quyền truy cập Admin Portal.'
-          : 'This account cannot access the Admin Portal.');
+        setLoginError(
+          isVi
+            ? 'Tài khoản này không có quyền truy cập Admin Portal.'
+            : 'This account cannot access the Admin Portal.'
+        );
         return;
       }
       setIsLoginLoading(true);
@@ -196,8 +200,8 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
         setIsLoginLoading(false);
         try {
           await login(trimmedEmail, loginPassword);
-        } catch {
-          // Local mock login does not depend on the API.
+        } catch (e) {
+          // ignore in mock mode
         }
         onLoginSuccess(mockUser);
       }, 400);
@@ -276,7 +280,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
   const handleOtpChange = (index, value) => {
     // Take the last character in case they type over an existing one
     const char = value.slice(-1);
-    
+
     // Allow empty (backspace) or single digit
     if (char && !/^\d$/.test(char)) return;
 
@@ -367,10 +371,10 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
         {/* Background Image for Register Mode */}
         {authMode === 'register' && (
           <div className="absolute inset-0 z-0 pointer-events-none transition-opacity duration-500">
-            <img 
-              src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop" 
-              alt="Gym background" 
-              className="w-full h-full object-cover opacity-30 mix-blend-luminosity" 
+            <img
+              src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop"
+              alt="Gym background"
+              className="w-full h-full object-cover opacity-30 mix-blend-luminosity"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#141210] via-transparent to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-r from-[#141210] via-transparent to-transparent" />
@@ -378,8 +382,8 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
         )}
 
         {/* Subtle radial ambient glow */}
-        <div className="pointer-events-none absolute -top-32 -left-32 w-96 h-96 bg-orange-600/12 rounded-full blur-3xl z-0" />
-        <div className="pointer-events-none absolute bottom-10 right-10 w-96 h-96 bg-amber-700/15 rounded-full blur-3xl z-0" />
+        <div className="pointer-events-none absolute -top-32 -left-32 w-96 h-96 bg-[#BA0000]/15 rounded-full blur-3xl z-0" />
+        <div className="pointer-events-none absolute bottom-10 right-10 w-96 h-96 bg-[#8E0000]/20 rounded-full blur-3xl z-0" />
 
         {/* Top Branding (SCMS Logo) */}
         <div
@@ -387,11 +391,11 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
           className={`relative z-10 flex items-center gap-3 ${onBackToHome ? 'cursor-pointer group' : ''}`}
           title={onBackToHome ? (isVi ? 'Quay về Trang chủ' : 'Back to Home') : undefined}
         >
-          <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center font-black text-lg shadow-md shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-[#BA0000] flex items-center justify-center font-black text-lg shadow-md shrink-0">
             <span className="text-white">SC</span>
           </div>
           <div>
-            <div className="text-xl font-black tracking-widest uppercase text-white leading-none mt-1 group-hover:text-amber-400 transition-colors">
+            <div className="text-xl font-black tracking-widest uppercase text-white leading-none mt-1 group-hover:text-[#D62323] transition-colors">
               SCMS FITNESS
             </div>
           </div>
@@ -402,79 +406,81 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
           {authMode === 'login' ? (
             <>
               {/* Overline */}
-              <div className="text-amber-500 font-bold text-xs tracking-wider uppercase mb-3.5">
-                {isVi ? 'NỀN TẢNG QUẢN LÝ' : 'MANAGEMENT PLATFORM'}
+              <div className="text-[#D62323] font-bold text-xs tracking-wider uppercase mb-3.5">
+                {adminEntry
+                  ? (isVi ? 'CỔNG QUẢN TRỊ HỆ THỐNG' : 'SYSTEM ADMINISTRATION')
+                  : (isVi ? 'NỀN TẢNG QUẢN LÝ' : 'MANAGEMENT PLATFORM')}
               </div>
 
               {/* Heading */}
               <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-extrabold text-white tracking-tight leading-[1.18]">
-                <div>{isVi ? 'Một hệ thống.' : 'One system.'}</div>
-                <div className="bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
-                  {isVi ? 'Mọi vận hành.' : 'Every operation.'}
+                <div>{adminEntry ? (isVi ? 'Quản trị rõ ràng.' : 'Clear administration.') : (isVi ? 'Một hệ thống.' : 'One system.')}</div>
+                <div className={adminEntry ? 'text-sky-300' : 'text-[#E4E4E4]'}>
+                  {adminEntry ? (isVi ? 'Dữ liệu đáng tin cậy.' : 'Trustworthy data.') : (isVi ? 'Mọi vận hành.' : 'Every operation.')}
                 </div>
               </h1>
 
               {/* Subtitle description */}
               <p className="text-stone-300 text-sm leading-relaxed max-w-lg mt-4 mb-8">
                 {isVi
-                  ? 'Quản lý hội viên, lớp học, thanh toán và nhân sự trong một nền tảng có phân quyền rõ ràng.'
-                  : 'Manage members, classes, payments, and staff in a single, clearly role-governed platform.'}
+                  ? (adminEntry ? 'Theo dõi người dùng, vai trò, quyền và nhật ký hệ thống từ dữ liệu backend.' : 'Quản lý hội viên, lớp học, thanh toán và nhân sự trong một nền tảng có phân quyền rõ ràng.')
+                  : (adminEntry ? 'Review users, roles, permissions, and audit activity from backend data.' : 'Manage members, classes, payments, and staff in a single, clearly role-governed platform.')}
               </p>
 
               {/* 4 Feature Items */}
               <div className="space-y-4">
                 <div className="flex items-center gap-3.5 group">
-                  <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 shrink-0 transition-transform group-hover:scale-105 group-hover:bg-orange-600 group-hover:text-white shadow-xs">
+                  <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-[#E4E4E4] shrink-0 transition-transform group-hover:scale-105 group-hover:bg-[#BA0000] group-hover:text-white shadow-xs">
                     <UserCheck className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Quản lý hội viên' : 'Member management'}
+                      {adminEntry ? (isVi ? 'Người dùng hệ thống' : 'System users') : (isVi ? 'Quản lý hội viên' : 'Member management')}
                     </div>
                     <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Hồ sơ, gói tập, lịch sử điểm danh' : 'Profiles, packages, attendance history'}
+                      {adminEntry ? (isVi ? 'Danh sách và hồ sơ chỉ đọc' : 'Read-only directory and profiles') : (isVi ? 'Hồ sơ, gói tập, lịch sử điểm danh' : 'Profiles, packages, attendance history')}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3.5 group">
-                  <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 shrink-0 transition-transform group-hover:scale-105 group-hover:bg-orange-600 group-hover:text-white shadow-xs">
+                  <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-[#E4E4E4] shrink-0 transition-transform group-hover:scale-105 group-hover:bg-[#BA0000] group-hover:text-white shadow-xs">
                     <CalendarDays className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Lớp học & điểm danh' : 'Classes & attendance'}
+                      {adminEntry ? (isVi ? 'Vai trò & quyền' : 'Roles & permissions') : (isVi ? 'Lớp học & điểm danh' : 'Classes & attendance')}
                     </div>
                     <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Lịch lớp, đặt chỗ, điểm danh' : 'Class schedule, bookings, check-in'}
+                      {adminEntry ? (isVi ? 'Ma trận phân quyền minh bạch' : 'Transparent permission matrix') : (isVi ? 'Lịch lớp, đặt chỗ, điểm danh' : 'Class schedule, bookings, check-in')}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3.5 group">
-                  <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 shrink-0 transition-transform group-hover:scale-105 group-hover:bg-orange-600 group-hover:text-white shadow-xs">
+                  <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-[#E4E4E4] shrink-0 transition-transform group-hover:scale-105 group-hover:bg-[#BA0000] group-hover:text-white shadow-xs">
                     <CreditCard className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Thanh toán' : 'Payments'}
+                      {adminEntry ? (isVi ? 'Nhật ký hệ thống' : 'System audit trail') : (isVi ? 'Thanh toán' : 'Payments')}
                     </div>
                     <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Ghi nhận, theo dõi giao dịch' : 'Record and track transactions'}
+                      {adminEntry ? (isVi ? 'Actor, hành động, đối tượng và thời gian' : 'Actor, action, target, and time') : (isVi ? 'Ghi nhận, theo dõi giao dịch' : 'Record and track transactions')}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3.5 group">
-                  <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-amber-400 shrink-0 transition-transform group-hover:scale-105 group-hover:bg-orange-600 group-hover:text-white shadow-xs">
+                  <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-[#E4E4E4] shrink-0 transition-transform group-hover:scale-105 group-hover:bg-[#BA0000] group-hover:text-white shadow-xs">
                     <BarChart3 className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="text-white font-semibold text-sm leading-snug">
-                      {isVi ? 'Báo cáo vận hành' : 'Operations reports'}
+                      {adminEntry ? (isVi ? 'Trạng thái nguồn dữ liệu' : 'Data source status') : (isVi ? 'Báo cáo vận hành' : 'Operations reports')}
                     </div>
                     <div className="text-stone-400 text-xs mt-0.5">
-                      {isVi ? 'Doanh thu và hiệu suất' : 'Revenue and performance analytics'}
+                      {adminEntry ? (isVi ? 'Lỗi từng panel, không mất toàn trang' : 'Panel-level errors without page loss') : (isVi ? 'Doanh thu và hiệu suất' : 'Revenue and performance analytics')}
                     </div>
                   </div>
                 </div>
@@ -524,7 +530,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
               type="button"
               onClick={() => setLanguage('vi')}
               className={`px-2.5 py-1 rounded transition-all cursor-pointer ${
-                isVi ? 'bg-orange-600 text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+                isVi ? 'bg-[#BA0000] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
               }`}
             >
               VI
@@ -533,7 +539,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
               type="button"
               onClick={() => setLanguage('en')}
               className={`px-2.5 py-1 rounded transition-all cursor-pointer ${
-                !isVi ? 'bg-orange-600 text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+                !isVi ? 'bg-[#BA0000] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
               }`}
             >
               EN
@@ -563,7 +569,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
             <div className="mt-6 p-4 rounded-xl border border-stone-200 bg-stone-50 space-y-2.5 text-xs">
               <div className="flex items-center justify-between pb-2 border-b border-stone-200">
                 <span className="text-stone-500">{isVi ? 'Mã hội viên:' : 'Member Code:'}</span>
-                <span className="font-mono font-bold text-orange-700 bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
+                <span className="font-mono font-bold text-[#BA0000] bg-red-50 px-2 py-0.5 rounded border border-red-200">
                   {registeredSuccessData.code}
                 </span>
               </div>
@@ -620,12 +626,12 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
             {/* Header */}
             <div className="mb-7">
               <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
-                {isVi ? 'Đăng nhập' : 'Sign in'}
+                {adminEntry ? (isVi ? 'Đăng nhập Admin' : 'Admin sign in') : (isVi ? 'Đăng nhập' : 'Sign in')}
               </h2>
               <p className="text-xs sm:text-sm text-stone-500 mt-2">
                 {isVi
-                  ? 'Nhập thông tin tài khoản để tiếp tục.'
-                  : 'Enter your credentials to continue.'}
+                  ? (adminEntry ? 'Chỉ tài khoản Admin được phép tiếp tục.' : 'Nhập thông tin tài khoản để tiếp tục.')
+                  : (adminEntry ? 'Only Admin accounts may continue.' : 'Enter your credentials to continue.')}
               </p>
             </div>
 
@@ -656,8 +662,8 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   autoComplete="username"
                   value={loginEmail}
                   onChange={e => setLoginEmail(e.target.value)}
-                  placeholder="manager@scms.com"
-                  className="w-full h-10 px-3.5 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:border-orange-600 focus:ring-2 focus:ring-orange-100 transition-all"
+                  placeholder={adminEntry ? 'admin@scms.com' : 'manager@scms.com'}
+                  className="w-full h-10 px-3.5 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-red-100 transition-all"
                 />
               </div>
 
@@ -677,7 +683,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                     value={loginPassword}
                     onChange={e => setLoginPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full h-10 px-3.5 pr-10 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:border-orange-600 focus:ring-2 focus:ring-orange-100 transition-all"
+                    className="w-full h-10 px-3.5 pr-10 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-red-100 transition-all"
                   />
                   <button
                     type="button"
@@ -705,14 +711,14 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                         isLoginCaptchaChecked
                           ? 'bg-emerald-600 border-emerald-600 text-white'
                           : isLoginCaptchaLoading
-                          ? 'border-orange-500 bg-white'
+                          ? 'border-[#BA0000] bg-white'
                           : 'border-stone-300 bg-white group-hover:border-stone-400'
                       }`}
                     >
                       {isLoginCaptchaChecked ? (
                         <Check className="w-4 h-4 stroke-[3]" />
                       ) : isLoginCaptchaLoading ? (
-                        <span className="animate-spin w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full" />
+                        <span className="animate-spin w-4 h-4 border-2 border-[#BA0000] border-t-transparent rounded-full" />
                       ) : null}
                     </div>
                     <span className="text-xs text-stone-800 font-normal">
@@ -748,7 +754,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 <button
                   type="submit"
                   disabled={isLoginLoading}
-                  className="w-full h-10 bg-stone-900 hover:bg-stone-800 active:bg-stone-950 disabled:bg-stone-500 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
+                  className="w-full h-10 bg-[#181818] hover:bg-[#BA0000] active:bg-[#8E0000] disabled:bg-stone-500 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
                 >
                   {isLoginLoading ? (
                     <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
@@ -763,7 +769,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
             </form>
 
             {/* Switch to Register link */}
-            <div className="mt-6 text-center text-xs text-stone-500">
+            {!adminEntry && <div className="mt-6 text-center text-xs text-stone-500">
               <span>{isVi ? 'Chưa có tài khoản?' : "Don't have an account?"}{' '}</span>
               <button
                 type="button"
@@ -771,20 +777,20 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   setLoginError('');
                   setAuthMode('register');
                 }}
-                className="text-orange-600 font-semibold hover:underline cursor-pointer"
+                className="text-[#BA0000] font-semibold hover:underline cursor-pointer"
               >
                 {isVi ? 'Đăng ký hội viên' : 'Register membership'}
               </button>
-            </div>
+            </div>}
 
             {/* Quick Demo Fill Helper */}
-            <div className="mt-6 p-3.5 rounded-md border border-stone-200 bg-stone-50/70 flex items-center justify-between gap-3 text-xs">
+            {!apiEnabled && <div className="mt-6 p-3.5 rounded-md border border-stone-200 bg-stone-50/70 flex items-center justify-between gap-3 text-xs">
               <div>
                 <p className="text-[11px] font-bold text-stone-800">
                   {isVi ? 'Tài khoản trình diễn' : 'Demo account'}
                 </p>
                 <p className="mt-0.5 text-[11px] text-stone-500 font-mono">
-                  {DEMO_EMAIL} · {DEMO_PASSWORD}
+                  {adminEntry ? 'admin@scms.com' : DEMO_EMAIL} · {DEMO_PASSWORD}
                 </p>
               </div>
               <button
@@ -794,7 +800,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
               >
                 {isVi ? 'Điền lại' : 'Fill'}
               </button>
-            </div>
+            </div>}
           </div>
         ) : isOtpMode ? (
           /* ============================================================ */
@@ -809,8 +815,8 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 {isVi ? 'Xác thực Email' : 'Email Verification'}
               </h2>
               <p className="text-xs sm:text-sm text-stone-500 mt-2 leading-relaxed">
-                {isVi 
-                  ? <>Mã OTP 6 số đã được gửi tới <strong>{regEmail || 'email của bạn'}</strong>. Vui lòng kiểm tra hộp thư đến hoặc mục thư rác.</> 
+                {isVi
+                  ? <>Mã OTP 6 số đã được gửi tới <strong>{regEmail || 'email của bạn'}</strong>. Vui lòng kiểm tra hộp thư đến hoặc mục thư rác.</>
                   : <>A 6-digit OTP has been sent to <strong>{regEmail || 'your email'}</strong>. Please check your inbox or spam folder.</>}
               </p>
             </div>
@@ -829,7 +835,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
                       onFocus={(e) => e.target.select()}
                       className={`w-10 h-12 sm:w-12 sm:h-14 text-center text-lg sm:text-xl font-black rounded-lg border focus:outline-none focus:ring-2 transition-all ${
-                        otpError ? 'border-rose-500 focus:ring-rose-100 bg-rose-50/30 text-rose-600' : 'border-stone-300 focus:border-orange-600 focus:ring-orange-100 bg-white text-stone-900'
+                        otpError ? 'border-rose-500 focus:ring-rose-100 bg-rose-50/30 text-rose-600' : 'border-stone-300 focus:border-[#BA0000] focus:ring-red-100 bg-white text-stone-900'
                       }`}
                       autoFocus={index === 0}
                     />
@@ -843,7 +849,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
               <button
                 type="submit"
                 disabled={isOtpVerifying}
-                className="w-full h-11 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 disabled:bg-stone-400 text-white rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-md"
+                className="w-full h-11 bg-[#BA0000] hover:bg-[#8E0000] active:bg-[#8E0000] disabled:bg-stone-400 text-white rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-md"
               >
                 {isOtpVerifying ? (
                   <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
@@ -855,9 +861,9 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
 
             <div className="mt-8 text-center text-xs text-stone-500">
               <span>{isVi ? 'Chưa nhận được mã?' : "Didn't receive the code?"} </span>
-              <button 
+              <button
                 type="button"
-                className="text-orange-600 font-semibold hover:underline cursor-pointer"
+                className="text-[#BA0000] font-semibold hover:underline cursor-pointer"
                 onClick={() => {
                   setOtpError('');
                   // Mock resend
@@ -903,7 +909,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   }}
                   placeholder={isVi ? 'Họ và Tên *' : 'Full Name *'}
                   className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
-                    regErrors.name ? 'border-rose-500' : 'border-stone-300 focus:border-orange-600'
+                    regErrors.name ? 'border-rose-500' : 'border-stone-300 focus:border-[#BA0000]'
                   }`}
                 />
                 {regErrors.name && (
@@ -923,7 +929,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   }}
                   placeholder={isVi ? 'Số điện thoại *' : 'Phone Number *'}
                   className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
-                    regErrors.phone ? 'border-rose-500' : 'border-stone-300 focus:border-orange-600'
+                    regErrors.phone ? 'border-rose-500' : 'border-stone-300 focus:border-[#BA0000]'
                   }`}
                 />
                 {regErrors.phone && (
@@ -943,7 +949,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   }}
                   placeholder={isVi ? 'Email' : 'Email'}
                   className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
-                    regErrors.email ? 'border-rose-500' : 'border-stone-300 focus:border-orange-600'
+                    regErrors.email ? 'border-rose-500' : 'border-stone-300 focus:border-[#BA0000]'
                   }`}
                 />
                 {regErrors.email && (
@@ -964,7 +970,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                     }}
                     placeholder={isVi ? 'Mật khẩu *' : 'Password *'}
                     className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 pr-8 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
-                      regErrors.password ? 'border-rose-500' : 'border-stone-300 focus:border-orange-600'
+                      regErrors.password ? 'border-rose-500' : 'border-stone-300 focus:border-[#BA0000]'
                     }`}
                   />
                   <button
@@ -990,7 +996,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                     }}
                     placeholder={isVi ? 'Xác nhận mật khẩu *' : 'Confirm password *'}
                     className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
-                      regErrors.confirmPassword ? 'border-rose-500' : 'border-stone-300 focus:border-orange-600'
+                      regErrors.confirmPassword ? 'border-rose-500' : 'border-stone-300 focus:border-[#BA0000]'
                     }`}
                   />
                   {regErrors.confirmPassword && (
@@ -1011,14 +1017,14 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                         isRegCaptchaChecked
                           ? 'bg-emerald-600 border-emerald-600 text-white'
                           : isRegCaptchaLoading
-                          ? 'border-orange-500 bg-white'
+                          ? 'border-[#BA0000] bg-white'
                           : 'border-stone-300 bg-white group-hover:border-stone-400'
                       }`}
                     >
                       {isRegCaptchaChecked ? (
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
                       ) : isRegCaptchaLoading ? (
-                        <span className="animate-spin w-3.5 h-3.5 border-2 border-orange-600 border-t-transparent rounded-full" />
+                        <span className="animate-spin w-3.5 h-3.5 border-2 border-[#BA0000] border-t-transparent rounded-full" />
                       ) : null}
                     </div>
                     <span className="text-xs text-stone-800 font-normal">
@@ -1052,7 +1058,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 <button
                   type="submit"
                   disabled={isRegLoading}
-                  className="w-1/2 min-w-[140px] h-12 bg-orange-600 hover:bg-orange-500 active:bg-orange-700 disabled:bg-stone-500 text-white text-sm font-black tracking-widest uppercase transition-colors cursor-pointer shadow-md"
+                  className="w-1/2 min-w-[140px] h-12 bg-[#BA0000] hover:bg-[#8E0000] active:bg-[#8E0000] disabled:bg-stone-500 text-white text-sm font-black tracking-widest uppercase transition-colors cursor-pointer shadow-md"
                 >
                   {isRegLoading ? (
                     <span className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto" />
@@ -1067,7 +1073,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 {isVi ? (
                   <>
                     Bằng việc nhấn "ĐĂNG KÝ", bạn xác nhận đã đọc và đồng ý với{' '}
-                    <a href="/privacy-policy" className="text-stone-800 hover:text-orange-600 font-bold underline transition-colors" target="_blank" rel="noreferrer">
+                    <a href="/privacy-policy" className="text-stone-800 hover:text-[#BA0000] font-bold underline transition-colors" target="_blank" rel="noreferrer">
                       Chính sách bảo vệ dữ liệu cá nhân của SCMS
                     </a>{' '}
                     và đồng ý cho chúng tôi xử lý thông tin bạn cung cấp để liên hệ, sắp xếp lịch trải nghiệm miễn phí.
@@ -1075,7 +1081,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 ) : (
                   <>
                     By clicking "REGISTER", you agree to the{' '}
-                    <a href="/privacy-policy" className="text-stone-800 hover:text-orange-600 font-bold underline transition-colors" target="_blank" rel="noreferrer">
+                    <a href="/privacy-policy" className="text-stone-800 hover:text-[#BA0000] font-bold underline transition-colors" target="_blank" rel="noreferrer">
                       SCMS Privacy Policy
                     </a>{' '}
                     and consent to us processing your information to arrange your free trial session.
@@ -1093,7 +1099,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   setRegErrors({});
                   setAuthMode('login');
                 }}
-                className="text-orange-600 font-semibold hover:underline cursor-pointer"
+                className="text-[#BA0000] font-semibold hover:underline cursor-pointer"
               >
                 {isVi ? 'Đăng nhập ngay' : 'Sign in now'}
               </button>
@@ -1102,19 +1108,19 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
         )}
       </div>
       </div>
-      
+
       {/* ============================================================ */}
       {/* EXTRA LANDING PAGE SECTIONS FOR REGISTER MODE                */}
       {/* ============================================================ */}
       {authMode === 'register' && !isOtpMode && !registeredSuccessData && (
         <div className="bg-white text-stone-900 flex-1 relative z-20">
-          
+
           {/* Section: Benefits (Friend's Exact Layout Adapted with SCMS Content) */}
           <section ref={scrollRef} className="w-full bg-[#171513] relative h-[360vh]">
             <div className="sticky top-0 h-screen w-full overflow-hidden flex flex-col justify-center gap-10 py-12 border-t border-stone-800">
-              
+
               {/* Background Text Overlay */}
-              <div 
+              <div
                 className="absolute top-1/2 -translate-y-1/2 text-[20vw] font-black text-white/[0.02] whitespace-nowrap pointer-events-none"
                 style={{ transform: `translate(calc(10% - ${scrollProgress * 70}%), -50%)` }}
               >
@@ -1123,35 +1129,35 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
 
               {/* Progress Bar (Friend's Style) */}
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full shrink-0 relative z-10">
-                <span className="text-orange-500 font-bold tracking-widest uppercase text-xs sm:text-sm mb-4 block">Quyền lợi hội viên</span>
+                <span className="text-[#D62323] font-bold tracking-widest uppercase text-xs sm:text-sm mb-4 block">Quyền lợi hội viên</span>
                 <h2 className="text-4xl md:text-5xl lg:text-[64px] font-black text-stone-100 tracking-tight leading-[1.1] max-w-3xl mb-8">
                   {isVi ? 'Bạn nhận được gì ' : 'What you get with '}
                   <span className="text-white">{isVi ? 'tại SCMS.' : 'SCMS.'}</span>
                 </h2>
                 {/* Progress bar inside header */}
                 <div className="w-[120px] h-1 bg-white/10 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-orange-500 transition-all duration-75 ease-out"
+                  <div
+                    className="h-full bg-[#BA0000] transition-all duration-75 ease-out"
                     style={{ width: `${scrollProgress * 100}%` }}
                   />
                 </div>
               </div>
 
               {/* Horizontal Scrolling Track */}
-              <div 
+              <div
                 ref={trackRef}
                 className="flex gap-4 sm:gap-6 w-max will-change-transform relative z-10"
-                style={{ 
+                style={{
                   transform: `translateX(-${scrollProgress * trackDist}px)`,
                   paddingLeft: 'max(24px, calc((100vw - 1240px) / 2))',
                   paddingRight: '80px'
                 }}
               >
-                
+
                 {/* Card 1 */}
                 <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/10 hover:-translate-y-1.5 flex-shrink-0">
                   <div className="flex items-baseline justify-between mb-10">
-                    <span className="text-orange-500 font-bold text-sm tracking-[0.1em] uppercase">{isVi ? 'THỂ HÌNH' : 'FITNESS'}</span>
+                    <span className="text-[#D62323] font-bold text-sm tracking-[0.1em] uppercase">{isVi ? 'THỂ HÌNH' : 'FITNESS'}</span>
                     <span className="text-5xl font-extrabold text-white/20 leading-none">01</span>
                   </div>
                   <h3 className="text-3xl sm:text-[40px] font-black text-white uppercase leading-[1.08] mb-3">{isVi ? 'Trang thiết bị chuẩn quốc tế' : 'World-class Equipment'}</h3>
@@ -1167,7 +1173,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 {/* Card 2 */}
                 <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/10 hover:-translate-y-1.5 flex-shrink-0">
                   <div className="flex items-baseline justify-between mb-10">
-                    <span className="text-orange-500 font-bold text-sm tracking-[0.1em] uppercase">{isVi ? 'LỚP NHÓM' : 'GROUP CLASSES'}</span>
+                    <span className="text-[#D62323] font-bold text-sm tracking-[0.1em] uppercase">{isVi ? 'LỚP NHÓM' : 'GROUP CLASSES'}</span>
                     <span className="text-5xl font-extrabold text-white/20 leading-none">02</span>
                   </div>
                   <h3 className="text-3xl sm:text-[40px] font-black text-white uppercase leading-[1.08] mb-3">{isVi ? 'Hơn 50+ lớp học mỗi tuần' : 'Over 50+ classes weekly'}</h3>
@@ -1183,7 +1189,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 {/* Card 3 */}
                 <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/10 hover:-translate-y-1.5 flex-shrink-0">
                   <div className="flex items-baseline justify-between mb-10">
-                    <span className="text-orange-500 font-bold text-sm tracking-[0.1em] uppercase">{isVi ? 'HUẤN LUYỆN VIÊN' : 'PERSONAL TRAINERS'}</span>
+                    <span className="text-[#D62323] font-bold text-sm tracking-[0.1em] uppercase">{isVi ? 'HUẤN LUYỆN VIÊN' : 'PERSONAL TRAINERS'}</span>
                     <span className="text-5xl font-extrabold text-white/20 leading-none">03</span>
                   </div>
                   <h3 className="text-3xl sm:text-[40px] font-black text-white uppercase leading-[1.08] mb-3">{isVi ? 'Đồng hành chuyên sâu' : 'In-depth guidance'}</h3>
@@ -1199,7 +1205,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 {/* Card 4 */}
                 <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/10 hover:-translate-y-1.5 flex-shrink-0">
                   <div className="flex items-baseline justify-between mb-10">
-                    <span className="text-orange-500 font-bold text-sm tracking-[0.1em] uppercase">{isVi ? 'ĐẶC QUYỀN' : 'PRIVILEGES'}</span>
+                    <span className="text-[#D62323] font-bold text-sm tracking-[0.1em] uppercase">{isVi ? 'ĐẶC QUYỀN' : 'PRIVILEGES'}</span>
                     <span className="text-5xl font-extrabold text-white/20 leading-none">04</span>
                   </div>
                   <h3 className="text-3xl sm:text-[40px] font-black text-white uppercase leading-[1.08] mb-3">{isVi ? 'Ưu đãi hội viên' : 'Member Perks'}</h3>
@@ -1213,15 +1219,15 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 </div>
 
                 {/* End Card */}
-                <div className="w-[320px] sm:w-[400px] lg:w-[460px] bg-orange-600 border border-orange-600 rounded-xl p-8 sm:p-10 flex flex-col justify-center items-start relative transition-all flex-shrink-0">
-                  <h3 className="text-4xl sm:text-[44px] font-black text-[#141210] uppercase leading-[1.08] mb-4">{isVi ? 'Trải nghiệm ngay hôm nay' : 'Start your journey today'}</h3>
-                  <p className="text-[#2a2522] text-[15.5px] leading-[1.55] mb-8 font-medium">{isVi ? 'Tạo tài khoản miễn phí để nhận ngay ưu đãi tập thử tại toàn bộ hệ thống SCMS. Không ràng buộc, không phí ẩn.' : 'Create a free account to receive an exclusive trial pass at any SCMS center. No commitments, no hidden fees.'}</p>
-                  <button 
-                    type="button" 
+                <div className="w-[320px] sm:w-[400px] lg:w-[460px] bg-[#BA0000] border border-[#BA0000] rounded-xl p-8 sm:p-10 flex flex-col justify-center items-start relative transition-all flex-shrink-0 shadow-lg">
+                  <h3 className="text-4xl sm:text-[44px] font-black text-white uppercase leading-[1.08] mb-4">{isVi ? 'Trải nghiệm ngay hôm nay' : 'Start your journey today'}</h3>
+                  <p className="text-white/90 text-[15.5px] leading-[1.55] mb-8 font-medium">{isVi ? 'Tạo tài khoản miễn phí để nhận ngay ưu đãi tập thử tại toàn bộ hệ thống SCMS. Không ràng buộc, không phí ẩn.' : 'Create a free account to receive an exclusive trial pass at any SCMS center. No commitments, no hidden fees.'}</p>
+                  <button
+                    type="button"
                     onClick={() => {
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className="bg-[#141210] hover:bg-stone-800 text-white font-bold py-3 px-6 rounded flex items-center gap-2 transition-all group"
+                    className="bg-[#181818] hover:bg-[#323232] text-white font-bold py-3 px-6 rounded flex items-center gap-2 transition-all group cursor-pointer"
                   >
                     {isVi ? 'Đăng ký ngay' : 'Register now'} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </button>

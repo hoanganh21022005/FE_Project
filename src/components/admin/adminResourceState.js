@@ -20,4 +20,3 @@ export const updateAdminResource = (resources, key, patch) => ({
   ...resources,
   [key]: { ...resources[key], ...patch },
 })
-

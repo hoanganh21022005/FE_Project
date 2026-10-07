@@ -95,7 +95,6 @@ function SCMSApp() {
   } = useSCMS();
 
   const navigate = useNavigate();
-  const location = useLocation();
   const [targetPackageId, setTargetPackageId] = useState(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
@@ -378,4 +377,3 @@ function SCMSApp() {
 export default function App() {
   return <SCMSApp />;
 }
-

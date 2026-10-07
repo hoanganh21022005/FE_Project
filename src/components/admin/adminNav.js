@@ -37,4 +37,3 @@ export function getAdminNavItems(role) {
   if (role !== ROLE_ADMIN) return []
   return ADMIN_NAV_ITEMS
 }
-

@@ -109,4 +109,3 @@ export const MOCK_ADMIN_DATA = Object.freeze({
     },
   ],
 })
-

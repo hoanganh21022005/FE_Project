@@ -27,14 +27,45 @@
   --color-webzone-red: #BA0000;        /* UE Red: primary action, active nav */
   --color-webzone-darkred: #8E0000;    /* Dark Red: hover/pressed, destructive emphasis */
 
-  /* SCMS Sports Center public site */
-  --color-mlc-surface-base: #000000;
-  --color-mlc-ink: #181d25;
-  --color-mlc-red: #e31628;
-  --color-mlc-muted: #676f7e;
-  --color-mlc-border: #e5e7eb;
-  --color-mlc-surface: #f7f8fa;
-  --shadow-mlc: 0 8px 30px -5px rgb(227 22 40 / 30%);
+  /* Webzone Semantic Tokens */
+  --color-wz-canvas: #E4E4E4;
+  --color-wz-surface: #FFFFFF;
+  --color-wz-dark-surface: #181818;
+  --color-wz-ink: #181818;
+  --color-wz-ink-secondary: #323232;
+  --color-wz-border: #E4E4E4;
+  --color-wz-border-subtle: #D4D4D4;
+  --color-wz-primary: #BA0000;
+  --color-wz-primary-hover: #8E0000;
+  --color-wz-accent: #D62323;
+  --color-wz-focus: #D62323;
+  --color-wz-destructive: #8E0000;
+
+  /* Semantic Status Tokens (separate from brand red) */
+  --color-wz-success: #047857;
+  --color-wz-warning: #D97706;
+  --color-wz-info: #0284C7;
+
+  /* Backward-compatible aliases (deprecated: mapped to Webzone palette) */
+  --color-pearl-canvas: #E4E4E4;
+  --color-admin-canvas: #E4E4E4;
+  --color-pearl-surface: #FFFFFF;
+  --color-brand-flame: #BA0000;
+  --color-brand-flame-hover: #8E0000;
+  --color-brand-amber: #D62323;
+  --color-brand-soft-bg: #FEF2F2;
+  --color-brand-soft-border: #FECACA;
+  --color-brand-dark: #181818;
+
+  --color-sc-primary: #BA0000;
+  --color-sc-primary-soft: #181818;
+  --color-sc-accent: #D62323;
+  --color-sc-lime: #D62323;
+  --color-sc-ink: #181818;
+  --color-sc-paper: #181818;
+  --color-sc-muted: #E4E4E4;
+  --color-sc-border: #323232;
+  --color-sc-border-soft: #242424;
 }
 
 body {
@@ -85,20 +116,25 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .admin-shell ::-webkit-scrollbar-track {
-  background: #f5f5f4;
+  background: #F5F5F4;
 }
 
 .admin-shell ::-webkit-scrollbar-thumb {
-  background: #a8a29e;
+  background: #A8A29E;
   border-radius: 3px;
 }
 
 .admin-shell ::-webkit-scrollbar-thumb:hover {
-  background: #78716c;
+  background: #78716C;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sports-marquee-track {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

@@ -58,4 +58,3 @@ export function createApiError(status, body, fallbackMessage) {
 export function getErrorMessage(error, fallback = 'Không thể kết nối đến máy chủ.') {
   return error instanceof Error && error.message ? error.message : fallback;
 }
-

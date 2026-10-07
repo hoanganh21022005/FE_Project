@@ -50,4 +50,3 @@ export function AdminHeader({ title, onMenu, onLogout }) {
     </header>
   )
 }
-

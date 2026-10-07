@@ -22,4 +22,3 @@ export const getAdminPermissions = async () =>
 
 export const getAdminAuditLogs = async () =>
   mapCollection(await httpClient.get("/api/audit-logs"), mapAdminAuditLog)
-

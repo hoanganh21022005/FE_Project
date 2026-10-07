@@ -12,6 +12,10 @@ build/
 .env.local
 .env.*.local
 
+# Personal task tracking (kept locally, not published)
+docs/SCMS_FE_TASK_CHECKLIST.md
+docs/AGENT_TASK_REPORT.md
+
 # Logs
 logs/
 *.log
@@ -26,3 +30,6 @@ Thumbs.db
 # Temporary files
 .tmp-*
 *.tsbuildinfo
+
+# Test artifacts & generated visual audit images
+test/artifacts/
