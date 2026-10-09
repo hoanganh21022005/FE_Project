@@ -10,187 +10,287 @@
  * 5. Comprehensive WCAG 2.1 AA/AAA contrast measurement across primary buttons, headers, text, and badges.
  */
 
-import { spawn } from 'child_process';
-import os from 'os';
-import path from 'path';
-import fs from 'fs';
-import { createServer } from 'vite';
-import { extractList, validateMemberSchema, validateStaffSchema } from '../src/api/schemaValidators.js';
+import { spawn } from "child_process"
+
+import os from "os"
+
+import path from "path"
+
+import fs from "fs"
+
+import { createServer } from "vite"
+
+import {
+  extractList,
+  validateMemberSchema,
+  validateStaffSchema,
+} from "../src/api/schemaValidators.js"
 
 // --- DATA SANITIZATION HELPERS ---
+
 function maskPassword(str) {
-  if (!str) return str;
-  return '[REDACTED_PASSWORD]';
+  if (!str) return str
+
+  return "[REDACTED_PASSWORD]"
 }
 
 function maskCookie(cookieHeader) {
-  if (!cookieHeader) return '[NO_COOKIE]';
-  return '[REDACTED_SESSION_COOKIE]';
+  if (!cookieHeader) return "[NO_COOKIE]"
+
+  return "[REDACTED_SESSION_COOKIE]"
 }
 
 function maskEmail(email) {
-  if (!email || typeof email !== 'string') return email;
-  const parts = email.split('@');
-  if (parts.length !== 2) return '[REDACTED_EMAIL]';
-  const name = parts[0];
-  const maskedName = name.length > 2 ? `${name[0]}***${name[name.length - 1]}` : `${name[0]}***`;
-  return `${maskedName}@${parts[1]}`;
+  if (!email || typeof email !== "string") return email
+
+  const parts = email.split("@")
+
+  if (parts.length !== 2) return "[REDACTED_EMAIL]"
+
+  const name = parts[0]
+
+  const maskedName =
+    name.length > 2 ? `${name[0]}***${name[name.length - 1]}` : `${name[0]}***`
+
+  return `${maskedName}@${parts[1]}`
 }
 
 function maskPhone(phone) {
-  if (!phone || typeof phone !== 'string') return phone;
-  if (phone.length <= 4) return '[REDACTED_PHONE]';
-  return `${phone.slice(0, 3)}****${phone.slice(-3)}`;
+  if (!phone || typeof phone !== "string") return phone
+
+  if (phone.length <= 4) return "[REDACTED_PHONE]"
+
+  return `${phone.slice(0, 3)}****${phone.slice(-3)}`
 }
 
 function maskName(name) {
-  if (!name || typeof name !== 'string') return name;
-  const parts = name.trim().split(/\s+/);
-  if (parts.length <= 1) return `${name.slice(0, 1)}***`;
-  return `${parts[0]} *** ${parts[parts.length - 1]}`;
+  if (!name || typeof name !== "string") return name
+
+  const parts = name.trim().split(/\s+/)
+
+  if (parts.length <= 1) return `${name.slice(0, 1)}***`
+
+  return `${parts[0]} *** ${parts[parts.length - 1]}`
 }
 
 const KNOWN_PERSONAL_NAMES = [
-  'nguyễn văn an', 'văn an',
-  'trần văn hoàng', 'văn hoàng',
-  'nguyễn minh anh', 'minh anh',
-  'nguyễn văn hùng', 'văn hùng',
-  'lê thị mai', 'thị mai', 'lê thi mai', 'thi mai',
-  'đặng tuấn anh', 'tuấn anh',
-  'phạm thị thu', 'thị thu',
-  'lê hoàng nam', 'hoàng nam',
-  'phạm thanh hương', 'thanh hương',
-  'vũ quốc thái', 'quốc thái',
-  'đỗ thị kim', 'thị kim',
-  'trần quốc huy', 'quốc huy'
-];
+  "nguyễn văn an",
+  "văn an",
+
+  "trần văn hoàng",
+  "văn hoàng",
+
+  "nguyễn minh anh",
+  "minh anh",
+
+  "nguyễn văn hùng",
+  "văn hùng",
+
+  "lê thị mai",
+  "thị mai",
+  "lê thi mai",
+  "thi mai",
+
+  "đặng tuấn anh",
+  "tuấn anh",
+
+  "phạm thị thu",
+  "thị thu",
+
+  "lê hoàng nam",
+  "hoàng nam",
+
+  "phạm thanh hương",
+  "thanh hương",
+
+  "vũ quốc thái",
+  "quốc thái",
+
+  "đỗ thị kim",
+  "thị kim",
+
+  "trần quốc huy",
+  "quốc huy",
+]
 
 function sanitizeString(str) {
-  if (!str || typeof str !== 'string') return str;
-  let s = str;
-  if (s.includes('12345678')) s = s.replaceAll('12345678', '[REDACTED_PASSWORD]');
-  s = s.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, m => maskEmail(m));
-  s = s.replace(/(?:\+?84|0)\d{9,10}/g, m => maskPhone(m));
+  if (!str || typeof str !== "string") return str
+
+  let s = str
+
+  if (s.includes("12345678"))
+    s = s.replaceAll("12345678", "[REDACTED_PASSWORD]")
+
+  s = s.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, (m) =>
+    maskEmail(m),
+  )
+
+  s = s.replace(/(?:\+?84|0)\d{9,10}/g, (m) => maskPhone(m))
+
   for (const n of KNOWN_PERSONAL_NAMES) {
     if (s.toLowerCase().includes(n)) {
-      const regex = new RegExp(n, 'gi');
-      s = s.replace(regex, maskName(n));
+      const regex = new RegExp(n, "gi")
+
+      s = s.replace(regex, maskName(n))
     }
   }
-  return s;
+
+  return s
 }
 
 function sanitizeTraceObject(obj) {
-  if (!obj || typeof obj !== 'object') {
-    if (typeof obj === 'string') return sanitizeString(obj);
-    return obj;
+  if (!obj || typeof obj !== "object") {
+    if (typeof obj === "string") return sanitizeString(obj)
+
+    return obj
   }
-  if (Array.isArray(obj)) return obj.map(sanitizeTraceObject);
-  const sanitized = {};
+
+  if (Array.isArray(obj)) return obj.map(sanitizeTraceObject)
+
+  const sanitized = {}
+
   for (const [key, value] of Object.entries(obj)) {
-    const lk = key.toLowerCase();
-    if (lk.includes('password') || lk.includes('secret')) {
-      sanitized[key] = maskPassword(value);
-    } else if (lk.includes('cookie') || lk.includes('token') || lk.includes('authorization')) {
-      sanitized[key] = maskCookie(value);
-    } else if (lk.includes('phone')) {
-      sanitized[key] = maskPhone(value);
-    } else if (lk.includes('email')) {
-      sanitized[key] = maskEmail(value);
-    } else if (lk.includes('name') && typeof value === 'string') {
-      if (KNOWN_PERSONAL_NAMES.some(n => value.toLowerCase().includes(n)) || lk === 'loadedname' || lk === 'username' || lk === 'fullname' || lk === 'actorname' || lk === 'nameval') {
-        sanitized[key] = maskName(value);
+    const lk = key.toLowerCase()
+
+    if (lk.includes("password") || lk.includes("secret")) {
+      sanitized[key] = maskPassword(value)
+    } else if (
+      lk.includes("cookie") ||
+      lk.includes("token") ||
+      lk.includes("authorization")
+    ) {
+      sanitized[key] = maskCookie(value)
+    } else if (lk.includes("phone")) {
+      sanitized[key] = maskPhone(value)
+    } else if (lk.includes("email")) {
+      sanitized[key] = maskEmail(value)
+    } else if (lk.includes("name") && typeof value === "string") {
+      if (
+        KNOWN_PERSONAL_NAMES.some((n) => value.toLowerCase().includes(n)) ||
+        lk === "loadedname" ||
+        lk === "username" ||
+        lk === "fullname" ||
+        lk === "actorname" ||
+        lk === "nameval"
+      ) {
+        sanitized[key] = maskName(value)
       } else {
-        sanitized[key] = sanitizeString(value);
+        sanitized[key] = sanitizeString(value)
       }
-    } else if (typeof value === 'object') {
-      sanitized[key] = sanitizeTraceObject(value);
-    } else if (typeof value === 'string') {
-      sanitized[key] = sanitizeString(value);
+    } else if (typeof value === "object") {
+      sanitized[key] = sanitizeTraceObject(value)
+    } else if (typeof value === "string") {
+      sanitized[key] = sanitizeString(value)
     } else {
-      sanitized[key] = value;
+      sanitized[key] = value
     }
   }
-  return sanitized;
+
+  return sanitized
 }
 
 // --- CDP CLIENT OVER WEBSOCKET ---
+
 class ChromeClient {
   constructor(wsUrl) {
-    this.wsUrl = wsUrl;
-    this.ws = null;
-    this.id = 1;
-    this.pending = new Map();
+    this.wsUrl = wsUrl
+
+    this.ws = null
+
+    this.id = 1
+
+    this.pending = new Map()
   }
 
   async connect() {
-    this.ws = new WebSocket(this.wsUrl);
+    this.ws = new WebSocket(this.wsUrl)
+
     await new Promise((resolve, reject) => {
-      this.ws.onopen = resolve;
-      this.ws.onerror = reject;
-    });
+      this.ws.onopen = resolve
+
+      this.ws.onerror = reject
+    })
 
     this.ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
+      const msg = JSON.parse(event.data)
+
       if (msg.id && this.pending.has(msg.id)) {
-        const { resolve, reject } = this.pending.get(msg.id);
-        this.pending.delete(msg.id);
-        if (msg.error) reject(new Error(msg.error.message));
-        else resolve(msg.result);
+        const { resolve, reject } = this.pending.get(msg.id)
+
+        this.pending.delete(msg.id)
+
+        if (msg.error) reject(new Error(msg.error.message))
+        else resolve(msg.result)
       }
-    };
+    }
   }
 
   send(method, params = {}) {
     return new Promise((resolve, reject) => {
-      const msgId = this.id++;
-      this.pending.set(msgId, { resolve, reject });
-      this.ws.send(JSON.stringify({ id: msgId, method, params }));
-    });
+      const msgId = this.id++
+
+      this.pending.set(msgId, { resolve, reject })
+
+      this.ws.send(JSON.stringify({ id: msgId, method, params }))
+    })
   }
 
   async eval(expression) {
-    const res = await this.send('Runtime.evaluate', {
+    const res = await this.send("Runtime.evaluate", {
       expression,
+
       returnByValue: true,
+
       awaitPromise: true,
-    });
+    })
+
     if (res.exceptionDetails) {
-      throw new Error(`Eval exception: ${JSON.stringify(res.exceptionDetails)}`);
+      throw new Error(`Eval exception: ${JSON.stringify(res.exceptionDetails)}`)
     }
-    return res.result?.value;
+
+    return res.result?.value
   }
 
   async waitFor(expression, timeoutMs = 10000, pollIntervalMs = 150) {
-    const start = Date.now();
+    const start = Date.now()
+
     while (Date.now() - start < timeoutMs) {
       try {
-        const val = await this.eval(expression);
-        if (val) return val;
+        const val = await this.eval(expression)
+
+        if (val) return val
       } catch (e) {}
-      await new Promise(r => setTimeout(r, pollIntervalMs));
+
+      await new Promise((r) => setTimeout(r, pollIntervalMs))
     }
-    throw new Error(`Timeout waiting for expression: ${expression}`);
+
+    throw new Error(`Timeout waiting for expression: ${expression}`)
   }
 
   async navigate(url) {
-    await this.send('Page.navigate', { url });
-    await new Promise(r => setTimeout(r, 600));
+    await this.send("Page.navigate", { url })
+
+    await new Promise((r) => setTimeout(r, 600))
   }
 
   async reload() {
-    await this.send('Page.reload');
-    await new Promise(r => setTimeout(r, 800));
+    await this.send("Page.reload")
+
+    await new Promise((r) => setTimeout(r, 800))
   }
 
   async setViewport(width, height, isMobile = false) {
-    await this.send('Emulation.setDeviceMetricsOverride', {
+    await this.send("Emulation.setDeviceMetricsOverride", {
       width,
+
       height,
+
       deviceScaleFactor: isMobile ? 2 : 1,
+
       mobile: isMobile,
-    });
-    await new Promise(r => setTimeout(r, 300));
+    })
+
+    await new Promise((r) => setTimeout(r, 300))
   }
 
   async maskPII() {
@@ -266,212 +366,348 @@ class ChromeClient {
           }
         });
       })()
-    `);
+    `)
   }
 
   async captureScreenshot(filePath) {
-    await this.maskPII();
-    const res = await this.send('Page.captureScreenshot', { format: 'png' });
+    await this.maskPII()
+
+    const res = await this.send("Page.captureScreenshot", { format: "png" })
+
     if (res && res.data) {
-      fs.mkdirSync(path.dirname(filePath), { recursive: true });
-      fs.writeFileSync(filePath, Buffer.from(res.data, 'base64'));
+      fs.mkdirSync(path.dirname(filePath), { recursive: true })
+
+      fs.writeFileSync(filePath, Buffer.from(res.data, "base64"))
     }
   }
 
   close() {
     if (this.ws) {
-      this.ws.close();
+      this.ws.close()
     }
   }
 }
 
 async function getOrCreatePageClient() {
-  const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-  const cdpPort = 9222;
+  const chromePath =
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
 
-  let pageList = [];
+  const cdpPort = 9222
+
+  let pageList = []
+
   try {
-    const res = await fetch(`http://127.0.0.1:${cdpPort}/json/list`);
-    if (res.ok) pageList = await res.json();
+    const res = await fetch(`http://127.0.0.1:${cdpPort}/json/list`)
+
+    if (res.ok) pageList = await res.json()
   } catch (e) {}
 
-  let proc = null;
-  let tempDir = null;
+  let proc = null
+
+  let tempDir = null
 
   if (pageList.length === 0) {
-    console.log('[Chrome] Spawning headless Chrome instance on port 9222...');
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chrome-g4-'));
-    proc = spawn(chromePath, [
-      `--remote-debugging-port=${cdpPort}`,
-      '--headless=new',
-      '--no-first-run',
-      '--no-default-browser-check',
-      `--user-data-dir=${tempDir}`,
-      'about:blank'
-    ], { stdio: 'ignore' });
+    console.log("[Chrome] Spawning headless Chrome instance on port 9222...")
+
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "chrome-g4-"))
+
+    proc = spawn(
+      chromePath,
+      [
+        `--remote-debugging-port=${cdpPort}`,
+
+        "--headless=new",
+
+        "--no-first-run",
+
+        "--no-default-browser-check",
+
+        `--user-data-dir=${tempDir}`,
+
+        "about:blank",
+      ],
+      { stdio: "ignore" },
+    )
 
     for (let i = 0; i < 30; i++) {
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 200))
+
       try {
-        const res = await fetch(`http://127.0.0.1:${cdpPort}/json/list`);
+        const res = await fetch(`http://127.0.0.1:${cdpPort}/json/list`)
+
         if (res.ok) {
-          pageList = await res.json();
-          if (pageList.length > 0) break;
+          pageList = await res.json()
+
+          if (pageList.length > 0) break
         }
       } catch (e) {}
     }
   }
 
-  let target = pageList.find(p => p.type === 'page' && !p.url.startsWith('chrome://')) || pageList[0];
-  console.log(`[Chrome] Connected to CDP target: ${target.url}`);
-  const client = new ChromeClient(target.webSocketDebuggerUrl);
-  await client.connect();
-  await client.send('Page.enable');
-  await client.send('Runtime.enable');
+  let target =
+    pageList.find((p) => p.type === "page" && !p.url.startsWith("chrome://")) ||
+    pageList[0]
 
-  return { client, proc, tempDir };
+  console.log(`[Chrome] Connected to CDP target: ${target.url}`)
+
+  const client = new ChromeClient(target.webSocketDebuggerUrl)
+
+  await client.connect()
+
+  await client.send("Page.enable")
+
+  await client.send("Runtime.enable")
+
+  return { client, proc, tempDir }
 }
 
 // --- MAIN RUNNER ---
+
 async function runG4BrowserMatrix() {
-  console.log('================================================================');
-  console.log('  RUNNING G4 BROWSER MATRIX & SANITIZED AUDIT (Strict No-PII)');
-  console.log('================================================================\n');
+  console.log(
+    "================================================================",
+  )
 
-  const auditDir = path.resolve('test/artifacts/visual-audit');
-  fs.mkdirSync(auditDir, { recursive: true });
+  console.log("  RUNNING G4 BROWSER MATRIX & SANITIZED AUDIT (Strict No-PII)")
 
-  const results = [];
+  console.log(
+    "================================================================\n",
+  )
+
+  const auditDir = path.resolve("test/artifacts/visual-audit")
+
+  fs.mkdirSync(auditDir, { recursive: true })
+
+  const results = []
+
   function record(testId, name, status, details) {
-    const isPass = status === true;
-    const isPending = status === 'PENDING';
-    results.push({ testId, name, status: isPass ? 'PASS' : isPending ? 'PENDING' : 'FAIL', passed: isPass, details: sanitizeTraceObject(details) });
-    const mark = isPass ? '✅ PASS' : isPending ? '⏳ PENDING' : '❌ FAIL';
-    console.log(`[${testId}] ${mark}: ${name}`);
+    const isPass = status === true
+
+    const isPending = status === "PENDING"
+
+    results.push({
+      testId,
+      name,
+      status: isPass ? "PASS" : isPending ? "PENDING" : "FAIL",
+      passed: isPass,
+      details: sanitizeTraceObject(details),
+    })
+
+    const mark = isPass ? "✅ PASS" : isPending ? "⏳ PENDING" : "❌ FAIL"
+
+    console.log(`[${testId}] ${mark}: ${name}`)
+
     if (details) {
-      console.log(`       Trace: ${JSON.stringify(sanitizeTraceObject(details))}`);
+      console.log(
+        `       Trace: ${JSON.stringify(sanitizeTraceObject(details))}`,
+      )
     }
   }
 
   // --------------------------------------------------------------------------
+
   // PART 1: LIVE BACKEND READ-ONLY PROBE & CONTRACT AUDIT (Sanitized)
+
   // --------------------------------------------------------------------------
-  console.log('\n--- PART 1: LIVE BACKEND READ-ONLY PROBE (No Hardcoded Credentials) ---');
-  const LIVE_URL = 'https://scms-app-p1gy.onrender.com';
+
+  console.log(
+    "\n--- PART 1: LIVE BACKEND READ-ONLY PROBE (No Hardcoded Credentials) ---",
+  )
+
+  const LIVE_URL = "https://scms-app-p1gy.onrender.com"
 
   // Probe 1: Live Member GET without session (Contract Enforcement: 401 Unauthenticated Protection)
+
   try {
-    const memberGetRes = await fetch(`${LIVE_URL}/api/members`);
+    const memberGetRes = await fetch(`${LIVE_URL}/api/members`)
+
     record(
-      'G4.9-LIVE-01',
-      'Live BE GET /api/members requires authentication (401 unauthenticated protection check)',
+      "G4.9-LIVE-01",
+
+      "Live BE GET /api/members requires authentication (401 unauthenticated protection check)",
+
       memberGetRes.status === 401,
+
       {
-        endpoint: '/api/members',
-        method: 'GET',
+        endpoint: "/api/members",
+
+        method: "GET",
+
         httpStatus: memberGetRes.status,
+
         cookie: maskCookie(null),
-        note: 'BE contract correctly rejects unauthenticated requests with HTTP 401'
-      }
-    );
+
+        note: "BE contract correctly rejects unauthenticated requests with HTTP 401",
+      },
+    )
   } catch (err) {
-    record('G4.9-LIVE-01', 'Live BE GET /api/members reachable', false, { error: err.message });
+    record("G4.9-LIVE-01", "Live BE GET /api/members reachable", false, {
+      error: err.message,
+    })
   }
 
   // Probe 2: Live Staff GET without session (Contract Enforcement: 401 Unauthenticated Protection)
+
   try {
-    const staffGetRes = await fetch(`${LIVE_URL}/api/staff`);
+    const staffGetRes = await fetch(`${LIVE_URL}/api/staff`)
+
     record(
-      'G4.9-LIVE-02',
-      'Live BE GET /api/staff requires authentication (401 unauthenticated protection check)',
+      "G4.9-LIVE-02",
+
+      "Live BE GET /api/staff requires authentication (401 unauthenticated protection check)",
+
       staffGetRes.status === 401,
+
       {
-        endpoint: '/api/staff',
-        method: 'GET',
+        endpoint: "/api/staff",
+
+        method: "GET",
+
         httpStatus: staffGetRes.status,
+
         cookie: maskCookie(null),
-        note: 'BE contract correctly rejects unauthenticated requests with HTTP 401'
-      }
-    );
+
+        note: "BE contract correctly rejects unauthenticated requests with HTTP 401",
+      },
+    )
   } catch (err) {
-    record('G4.9-LIVE-02', 'Live BE GET /api/staff reachable', false, { error: err.message });
+    record("G4.9-LIVE-02", "Live BE GET /api/staff reachable", false, {
+      error: err.message,
+    })
   }
 
   // Probe 3: Live Authenticated Member & Staff GET Status Check
-  const liveEnvEmail = process.env.LIVE_SCMS_EMAIL;
-  const liveEnvPassword = process.env.LIVE_SCMS_PASSWORD;
+
+  const liveEnvEmail = process.env.LIVE_SCMS_EMAIL
+
+  const liveEnvPassword = process.env.LIVE_SCMS_PASSWORD
 
   if (liveEnvEmail && liveEnvPassword) {
     try {
       const loginRes = await fetch(`${LIVE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: liveEnvEmail, password: liveEnvPassword })
-      });
-      const cookie = loginRes.headers.get('set-cookie');
+        method: "POST",
+
+        headers: { "Content-Type": "application/json" },
+
+        body: JSON.stringify({
+          email: liveEnvEmail,
+          password: liveEnvPassword,
+        }),
+      })
+
+      const cookie = loginRes.headers.get("set-cookie")
+
       if (loginRes.ok && cookie) {
-        const memRes = await fetch(`${LIVE_URL}/api/members`, { headers: { Cookie: cookie } });
-        const staffRes = await fetch(`${LIVE_URL}/api/staff`, { headers: { Cookie: cookie } });
-        const memData = await memRes.json().catch(() => null);
-        const staffData = await staffRes.json().catch(() => null);
+        const memRes = await fetch(`${LIVE_URL}/api/members`, {
+          headers: { Cookie: cookie },
+        })
 
-        const memList = extractList(memData);
-        const staffList = extractList(staffData);
+        const staffRes = await fetch(`${LIVE_URL}/api/staff`, {
+          headers: { Cookie: cookie },
+        })
 
-        const isMemValid = memRes.ok && validateMemberSchema(memList);
-        const isStaffValid = staffRes.ok && validateStaffSchema(staffList);
-        const isLiveGetPass = isMemValid && isStaffValid;
+        const memData = await memRes.json().catch(() => null)
 
-        record('G4.9-LIVE-03', 'Live BE authenticated GET /api/members and /api/staff with valid schema conformance', isLiveGetPass, {
-          loginHttpStatus: loginRes.status,
-          memberHttpStatus: memRes.status,
-          staffHttpStatus: staffRes.status,
-          memberSchemaValid: Boolean(isMemValid),
-          staffSchemaValid: Boolean(isStaffValid),
-          memberRecordCount: memList ? memList.length : null,
-          staffRecordCount: staffList ? staffList.length : null,
-        });
+        const staffData = await staffRes.json().catch(() => null)
+
+        const memList = extractList(memData)
+
+        const staffList = extractList(staffData)
+
+        const isMemValid = memRes.ok && validateMemberSchema(memList)
+
+        const isStaffValid = staffRes.ok && validateStaffSchema(staffList)
+
+        const isLiveGetPass = isMemValid && isStaffValid
+
+        record(
+          "G4.9-LIVE-03",
+          "Live BE authenticated GET /api/members and /api/staff with valid schema conformance",
+          isLiveGetPass,
+          {
+            loginHttpStatus: loginRes.status,
+
+            memberHttpStatus: memRes.status,
+
+            staffHttpStatus: staffRes.status,
+
+            memberSchemaValid: Boolean(isMemValid),
+
+            staffSchemaValid: Boolean(isStaffValid),
+
+            memberRecordCount: memList ? memList.length : null,
+
+            staffRecordCount: staffList ? staffList.length : null,
+          },
+        )
       } else {
-        record('G4.9-LIVE-03', 'Live BE authenticated GET /api/members and /api/staff (Auth handshake failed)', 'PENDING', {
-          loginHttpStatus: loginRes.status,
-          note: 'Configured credentials rejected or failed session handshake on live BE. Kept PENDING, not PASS.'
-        });
+        record(
+          "G4.9-LIVE-03",
+          "Live BE authenticated GET /api/members and /api/staff (Auth handshake failed)",
+          "PENDING",
+          {
+            loginHttpStatus: loginRes.status,
+
+            note: "Configured credentials rejected or failed session handshake on live BE. Kept PENDING, not PASS.",
+          },
+        )
       }
     } catch (err) {
-      record('G4.9-LIVE-03', 'Live BE authenticated GET', 'PENDING', { error: err.message });
+      record("G4.9-LIVE-03", "Live BE authenticated GET", "PENDING", {
+        error: err.message,
+      })
     }
   } else {
     record(
-      'G4.9-LIVE-03',
-      'Live BE authenticated Member/Staff GET verification (Pending live account)',
-      'PENDING',
+      "G4.9-LIVE-03",
+
+      "Live BE authenticated Member/Staff GET verification (Pending live account)",
+
+      "PENDING",
+
       {
-        note: 'No LIVE_SCMS_EMAIL/LIVE_SCMS_PASSWORD configured. Demo credentials not hardcoded. 401 unauthenticated check does not substitute for actual data read. Marked PENDING awaiting valid live credentials.'
-      }
-    );
+        note: "No LIVE_SCMS_EMAIL/LIVE_SCMS_PASSWORD configured. Demo credentials not hardcoded. 401 unauthenticated check does not substitute for actual data read. Marked PENDING awaiting valid live credentials.",
+      },
+    )
   }
 
-  console.log('\n[INFO] G4.9 Live Business Mutations: No live business mutations were performed.');
-  console.log('       Zero residual garbage records written to live database.\n');
+  console.log(
+    "\n[INFO] G4.9 Live Business Mutations: No live business mutations were performed.",
+  )
+
+  console.log(
+    "       Zero residual garbage records written to live database.\n",
+  )
 
   // --------------------------------------------------------------------------
+
   // PART 2: CONTROLLED BROWSER MATRIX & UI/NAVIGATION VERIFICATION
+
   // --------------------------------------------------------------------------
-  console.log('--- PART 2: CONTROLLED BROWSER MATRIX & NAVIGATION TESTING ---');
+
+  console.log("--- PART 2: CONTROLLED BROWSER MATRIX & NAVIGATION TESTING ---")
 
   const viteServer = await createServer({
     server: { port: 5176 },
-    mode: 'mock',
-  });
-  await viteServer.listen();
-  const BASE_URL = 'http://localhost:5176';
-  console.log(`[Vite] Server started at ${BASE_URL} in mock mode`);
 
-  const { client, proc, tempDir } = await getOrCreatePageClient();
+    mode: "mock",
+  })
 
-  async function performLogin(email, password = '12345678') {
-    await client.navigate(`${BASE_URL}/login`);
-    await client.waitFor('document.getElementById("login-email") !== null', 10000);
+  await viteServer.listen()
+
+  const BASE_URL = "http://localhost:5176"
+
+  console.log(`[Vite] Server started at ${BASE_URL} in mock mode`)
+
+  const { client, proc, tempDir } = await getOrCreatePageClient()
+
+  async function performLogin(email, password = "Scms@2026") {
+    await client.navigate(`${BASE_URL}/login`)
+
+    await client.waitFor(
+      'document.getElementById("login-email") !== null',
+      10000,
+    )
 
     await client.eval(`
       (() => {
@@ -486,16 +722,18 @@ async function runG4BrowserMatrix() {
         const captchaEl = document.querySelector(".bg-\\\\[\\\\#f9f9f9\\\\] div");
         if (captchaEl) captchaEl.click();
       })()
-    `);
-    await new Promise(r => setTimeout(r, 600));
+    `)
+
+    await new Promise((r) => setTimeout(r, 600))
 
     await client.eval(`
       (() => {
         const submitBtn = document.querySelector('button[type="submit"]');
         if (submitBtn) submitBtn.click();
       })()
-    `);
-    await new Promise(r => setTimeout(r, 1200));
+    `)
+
+    await new Promise((r) => setTimeout(r, 1200))
   }
 
   async function performLogout() {
@@ -504,28 +742,50 @@ async function runG4BrowserMatrix() {
         sessionStorage.clear();
         localStorage.clear();
       })()
-    `);
-    await client.navigate(`${BASE_URL}/login`);
-    await client.waitFor('document.getElementById("login-email") !== null', 8000);
+    `)
+
+    await client.navigate(`${BASE_URL}/login`)
+
+    await client.waitFor(
+      'document.getElementById("login-email") !== null',
+      8000,
+    )
   }
 
   try {
     // ------------------------------------------------------------------------
-    // SCENARIO 1: MANAGER PORTAL (List, Search, Filter, Detail, F5 Deep Link, Staff, Coach)
-    // ------------------------------------------------------------------------
-    console.log('\n[Scenario 1] Manager Portal Verification');
-    await client.setViewport(1280, 800, false);
-    await performLogin('manager@scms.com');
-    await client.waitFor('window.location.pathname === "/manager/dashboard"', 10000);
 
-    record('G4.9-MGR-01', 'Manager login redirects to /manager/dashboard', true, {
-      user: maskEmail('manager@scms.com'),
-      pathname: '/manager/dashboard'
-    });
+    // SCENARIO 1: MANAGER PORTAL (List, Search, Filter, Detail, F5 Deep Link, Staff, Coach)
+
+    // ------------------------------------------------------------------------
+
+    console.log("\n[Scenario 1] Manager Portal Verification")
+
+    await client.setViewport(1280, 800, false)
+
+    await performLogin("manager@scms.com")
+
+    await client.waitFor(
+      'window.location.pathname === "/manager/dashboard"',
+      10000,
+    )
+
+    record(
+      "G4.9-MGR-01",
+      "Manager login redirects to /manager/dashboard",
+      true,
+      {
+        user: maskEmail("manager@scms.com"),
+
+        pathname: "/manager/dashboard",
+      },
+    )
 
     // 1.1 Navigate to Member Management
-    await client.navigate(`${BASE_URL}/manager/members`);
-    await client.waitFor('document.querySelector("tbody tr") !== null', 8000);
+
+    await client.navigate(`${BASE_URL}/manager/members`)
+
+    await client.waitFor('document.querySelector("tbody tr") !== null', 8000)
 
     const memberListInfo = await client.eval(`
       ({
@@ -535,16 +795,23 @@ async function runG4BrowserMatrix() {
         hasActiveStatus: document.body.innerText.includes("Đang hoạt động") || document.body.innerText.includes("Active"),
         hasWebzoneButton: Boolean(document.querySelector(".bg-\\\\[\\\\#BA0000\\\\]"))
       })
-    `);
-    const memberListValid = memberListInfo.rowCount === 5 && memberListInfo.hasFirstMemberCode;
+    `)
+
+    const memberListValid =
+      memberListInfo.rowCount === 5 && memberListInfo.hasFirstMemberCode
+
     record(
-      'G4.9-MGR-02',
-      'Manager views member list with exact rows (5) and MB-1001 data assertion',
+      "G4.9-MGR-02",
+
+      "Manager views member list with exact rows (5) and MB-1001 data assertion",
+
       memberListValid,
-      memberListInfo
-    );
+
+      memberListInfo,
+    )
 
     // 1.2 Test search and filter with specific data assertions
+
     await client.eval(`
       (() => {
         const searchInput = document.querySelector('input[type="text"]');
@@ -554,8 +821,9 @@ async function runG4BrowserMatrix() {
           searchInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
       })()
-    `);
-    await new Promise(r => setTimeout(r, 600));
+    `)
+
+    await new Promise((r) => setTimeout(r, 600))
 
     const searchResultInfo = await client.eval(`
       ({
@@ -563,14 +831,24 @@ async function runG4BrowserMatrix() {
         containsMB1004: document.body.innerText.includes("MB-1004"),
         containsGracePeriod: document.body.innerText.includes("Ân hạn") || document.body.innerText.includes("Grace Period")
       })
-    `);
-    const searchAssertionPass = searchResultInfo.rowCount === 1 && searchResultInfo.containsMB1004;
-    record('G4.9-MGR-03', 'Member search filters for exact code MB-1004 (1 record matched)', searchAssertionPass, {
-      query: 'MB-1004',
-      assertion: searchResultInfo
-    });
+    `)
+
+    const searchAssertionPass =
+      searchResultInfo.rowCount === 1 && searchResultInfo.containsMB1004
+
+    record(
+      "G4.9-MGR-03",
+      "Member search filters for exact code MB-1004 (1 record matched)",
+      searchAssertionPass,
+      {
+        query: "MB-1004",
+
+        assertion: searchResultInfo,
+      },
+    )
 
     // Reset search
+
     await client.eval(`
       (() => {
         const searchInput = document.querySelector('input[type="text"]');
@@ -580,10 +858,12 @@ async function runG4BrowserMatrix() {
           searchInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
       })()
-    `);
-    await new Promise(r => setTimeout(r, 400));
+    `)
+
+    await new Promise((r) => setTimeout(r, 400))
 
     // 1.3 Open Member Detail & Verify Safe Authoritative Fields & Fallback in Package Tab
+
     await client.eval(`
       (() => {
         const viewLink = Array.from(document.querySelectorAll("tbody tr button, tbody tr a")).find(el =>
@@ -591,12 +871,22 @@ async function runG4BrowserMatrix() {
         );
         if (viewLink) viewLink.click();
       })()
-    `);
-    await client.waitFor('window.location.pathname.startsWith("/manager/members/")', 8000);
-    await client.waitFor('document.body.innerText.includes("Thông tin cá nhân")', 8000);
-    const detailUrl = await client.eval('window.location.pathname');
+    `)
+
+    await client.waitFor(
+      'window.location.pathname.startsWith("/manager/members/")',
+      8000,
+    )
+
+    await client.waitFor(
+      'document.body.innerText.includes("Thông tin cá nhân")',
+      8000,
+    )
+
+    const detailUrl = await client.eval("window.location.pathname")
 
     // Click to open Package tab (Gói đăng ký)
+
     await client.eval(`
       (() => {
         const pkgTabBtn = document.querySelector('[data-testid="tab-button-membership"]') ||
@@ -605,8 +895,12 @@ async function runG4BrowserMatrix() {
           );
         if (pkgTabBtn) pkgTabBtn.click();
       })()
-    `);
-    await client.waitFor('document.querySelector("[data-testid=\\"member-package-panel\\"]") !== null', 8000);
+    `)
+
+    await client.waitFor(
+      'document.querySelector("[data-testid=\\"member-package-panel\\"]") !== null',
+      8000,
+    )
 
     const detailRendered = await client.eval(`
       (() => {
@@ -630,29 +924,49 @@ async function runG4BrowserMatrix() {
           packagePanelElementFound: Boolean(pkgPanel)
         };
       })()
-    `);
-    const detailSafeAssert = detailRendered.hasDetailHeader &&
-                             detailRendered.hasPackageTabOpened &&
-                             detailRendered.packagePanelElementFound &&
-                             detailRendered.hasFallbackLabel &&
-                             detailRendered.hasNoHardcodedMS &&
-                             detailRendered.hasNoZeroPrice;
-    record('G4.9-MGR-04', 'Manager opens Member detail view and verifies package fallback labels in package panel', detailSafeAssert, detailRendered);
+    `)
+
+    const detailSafeAssert =
+      detailRendered.hasDetailHeader &&
+      detailRendered.hasPackageTabOpened &&
+      detailRendered.packagePanelElementFound &&
+      detailRendered.hasFallbackLabel &&
+      detailRendered.hasNoHardcodedMS &&
+      detailRendered.hasNoZeroPrice
+
+    record(
+      "G4.9-MGR-04",
+      "Manager opens Member detail view and verifies package fallback labels in package panel",
+      detailSafeAssert,
+      detailRendered,
+    )
 
     // 1.4 Test F5 Deep Link Reload
-    await client.reload();
-    await client.waitFor('document.body.innerText.includes("Thông tin cá nhân") || document.body.innerText.includes("Gói đăng ký")', 8000);
-    const reloadedUrl = await client.eval('window.location.pathname');
+
+    await client.reload()
+
+    await client.waitFor(
+      'document.body.innerText.includes("Thông tin cá nhân") || document.body.innerText.includes("Gói đăng ký")',
+      8000,
+    )
+
+    const reloadedUrl = await client.eval("window.location.pathname")
+
     record(
-      'G4.9-MGR-05',
-      'F5 browser reload preserves Member Detail deep-link URL and state',
+      "G4.9-MGR-05",
+
+      "F5 browser reload preserves Member Detail deep-link URL and state",
+
       reloadedUrl === detailUrl,
-      { beforeReload: detailUrl, afterReload: reloadedUrl }
-    );
+
+      { beforeReload: detailUrl, afterReload: reloadedUrl },
+    )
 
     // 1.5 Navigate to Staff Management & Coach Selector
-    await client.navigate(`${BASE_URL}/manager/staff`);
-    await client.waitFor('document.querySelector("tbody tr") !== null', 8000);
+
+    await client.navigate(`${BASE_URL}/manager/staff`)
+
+    await client.waitFor('document.querySelector("tbody tr") !== null', 8000)
 
     const staffInfo = await client.eval(`
       ({
@@ -660,10 +974,17 @@ async function runG4BrowserMatrix() {
         hasStaffHeader: document.body.innerText.includes("nhân sự") || document.body.innerText.includes("nhân viên"),
         hasCoachRoleBadge: document.body.innerText.includes("Huấn luyện viên") || document.body.innerText.includes("Coach")
       })
-    `);
-    record('G4.9-MGR-06', 'Manager views Staff list with Coach role mapping', staffInfo.rowCount > 0 && staffInfo.hasCoachRoleBadge, staffInfo);
+    `)
+
+    record(
+      "G4.9-MGR-06",
+      "Manager views Staff list with Coach role mapping",
+      staffInfo.rowCount > 0 && staffInfo.hasCoachRoleBadge,
+      staffInfo,
+    )
 
     // 1.6 Verify Edit Staff Modal loads exact staff data
+
     await client.eval(`
       (() => {
         const editBtn = Array.from(document.querySelectorAll("tbody tr button")).find(b =>
@@ -671,8 +992,10 @@ async function runG4BrowserMatrix() {
         );
         if (editBtn) editBtn.click();
       })()
-    `);
-    await client.waitFor('document.querySelector("form") !== null', 8000);
+    `)
+
+    await client.waitFor('document.querySelector("form") !== null', 8000)
+
     const modalOpened = await client.eval(`
       (() => {
         const form = document.querySelector("form");
@@ -687,44 +1010,82 @@ async function runG4BrowserMatrix() {
           hasLoadedData: Boolean(inputs[0]?.value && select?.value)
         };
       })()
-    `);
-    const modalAssertPass = modalOpened.hasModal && modalOpened.hasLoadedData;
-    record('G4.9-MGR-07', 'Manager opens Edit Staff modal with loaded data assertion', modalAssertPass, modalOpened);
+    `)
+
+    const modalAssertPass = modalOpened.hasModal && modalOpened.hasLoadedData
+
+    record(
+      "G4.9-MGR-07",
+      "Manager opens Edit Staff modal with loaded data assertion",
+      modalAssertPass,
+      modalOpened,
+    )
 
     // Close modal
+
     await client.eval(`
       (() => {
         const cancelBtn = Array.from(document.querySelectorAll("button")).find(b => b.innerText.includes("Hủy") || b.innerText.includes("Cancel"));
         if (cancelBtn) cancelBtn.click();
       })()
-    `);
-    await new Promise(r => setTimeout(r, 500));
+    `)
+
+    await new Promise((r) => setTimeout(r, 500))
 
     // ------------------------------------------------------------------------
+
     // SCENARIO 2: RECEPTIONIST PORTAL & CLIENT-SIDE ROUTE GUARD
-    // ------------------------------------------------------------------------
-    console.log('\n[Scenario 2] Receptionist Portal & Client-side Route Guard');
-    await performLogout();
-    await performLogin('thu.reception@scms.com');
-    await client.waitFor('window.location.pathname.startsWith("/receptionist/")', 10000);
 
-    const recInitPath = await client.eval('window.location.pathname');
-    record('G4.9-REC-01', 'Receptionist login redirects to /receptionist portal', recInitPath.startsWith('/receptionist'), {
-      user: maskEmail('thu.reception@scms.com'),
-      pathname: recInitPath
-    });
+    // ------------------------------------------------------------------------
+
+    console.log("\n[Scenario 2] Receptionist Portal & Client-side Route Guard")
+
+    await performLogout()
+
+    await performLogin("thu.reception@scms.com")
+
+    await client.waitFor(
+      'window.location.pathname.startsWith("/receptionist/")',
+      10000,
+    )
+
+    const recInitPath = await client.eval("window.location.pathname")
+
+    record(
+      "G4.9-REC-01",
+      "Receptionist login redirects to /receptionist portal",
+      recInitPath.startsWith("/receptionist"),
+      {
+        user: maskEmail("thu.reception@scms.com"),
+
+        pathname: recInitPath,
+      },
+    )
 
     // 2.1 Authorized Receptionist Search
-    await client.navigate(`${BASE_URL}/receptionist/search`);
-    await client.waitFor('document.querySelector("input") !== null', 8000);
-    const recSearchOk = await client.eval('document.body.innerText.includes("Tra cứu") || document.body.innerText.includes("hội viên")');
-    record('G4.9-REC-02', 'Receptionist accesses authorized /receptionist/search page', recSearchOk, {
-      pathname: '/receptionist/search'
-    });
+
+    await client.navigate(`${BASE_URL}/receptionist/search`)
+
+    await client.waitFor('document.querySelector("input") !== null', 8000)
+
+    const recSearchOk = await client.eval(
+      'document.body.innerText.includes("Tra cứu") || document.body.innerText.includes("hội viên")',
+    )
+
+    record(
+      "G4.9-REC-02",
+      "Receptionist accesses authorized /receptionist/search page",
+      recSearchOk,
+      {
+        pathname: "/receptionist/search",
+      },
+    )
 
     // 2.2 Client-side Route Guard (FE Navigation Block on /manager/members)
-    await client.navigate(`${BASE_URL}/manager/members`);
-    await new Promise(r => setTimeout(r, 800));
+
+    await client.navigate(`${BASE_URL}/manager/members`)
+
+    await new Promise((r) => setTimeout(r, 800))
 
     const guardMemberState = await client.eval(`
       ({
@@ -733,18 +1094,27 @@ async function runG4BrowserMatrix() {
         forbiddenHeadingText: document.querySelector("#forbidden-view h1, #forbidden-view h2, h2")?.innerText || "",
         managerViewRendered: Boolean(document.querySelector(".bg-\\\\[\\\\#BA0000\\\\] button"))
       })
-    `);
-    const guardMemberPass = guardMemberState.renderedForbiddenView && !guardMemberState.managerViewRendered;
+    `)
+
+    const guardMemberPass =
+      guardMemberState.renderedForbiddenView &&
+      !guardMemberState.managerViewRendered
+
     record(
-      'G4.9-REC-03',
-      'Client-side Route Guard strictly blocks Receptionist from /manager/members (FE Forbidden View)',
+      "G4.9-REC-03",
+
+      "Client-side Route Guard strictly blocks Receptionist from /manager/members (FE Forbidden View)",
+
       guardMemberPass,
-      guardMemberState
-    );
+
+      guardMemberState,
+    )
 
     // 2.3 Client-side Route Guard on /manager/staff
-    await client.navigate(`${BASE_URL}/manager/staff`);
-    await new Promise(r => setTimeout(r, 800));
+
+    await client.navigate(`${BASE_URL}/manager/staff`)
+
+    await new Promise((r) => setTimeout(r, 800))
 
     const guardStaffState = await client.eval(`
       ({
@@ -753,50 +1123,102 @@ async function runG4BrowserMatrix() {
         forbiddenHeadingText: document.querySelector("#forbidden-view h1, #forbidden-view h2, h2")?.innerText || "",
         managerStaffRendered: document.body.innerText.includes("Thêm nhân viên mới")
       })
-    `);
-    const guardStaffPass = guardStaffState.renderedForbiddenView && !guardStaffState.managerStaffRendered;
+    `)
+
+    const guardStaffPass =
+      guardStaffState.renderedForbiddenView &&
+      !guardStaffState.managerStaffRendered
+
     record(
-      'G4.9-REC-04',
-      'Client-side Route Guard strictly blocks Receptionist from /manager/staff (FE Forbidden View)',
+      "G4.9-REC-04",
+
+      "Client-side Route Guard strictly blocks Receptionist from /manager/staff (FE Forbidden View)",
+
       guardStaffPass,
-      guardStaffState
-    );
+
+      guardStaffState,
+    )
 
     // ------------------------------------------------------------------------
+
     // SCENARIO 3: FULL PORTAL VISUAL AUDIT (Desktop 1280x800 & Mobile 375x667)
+
     // ------------------------------------------------------------------------
-    console.log('\n--- SCENARIO 3: FULL PORTAL VISUAL AUDIT (10 Screens, 20 Viewports) ---');
+
+    console.log(
+      "\n--- SCENARIO 3: FULL PORTAL VISUAL AUDIT (10 Screens, 20 Viewports) ---",
+    )
 
     // 1. Audit Landing Page (Logged Out)
-    await performLogout();
-    await client.navigate(`${BASE_URL}/`);
-    await client.waitFor('document.querySelector("header") !== null', 8000);
-    await client.setViewport(1280, 800, false);
-    await client.captureScreenshot(path.join(auditDir, '01_public_landing_desktop_1280x800.png'));
-    await client.setViewport(375, 667, true);
-    await client.captureScreenshot(path.join(auditDir, '01_public_landing_mobile_375x667.png'));
-    console.log('[Audit] 1/10: Captured 01_public_landing (Desktop & Mobile)');
+
+    await performLogout()
+
+    await client.navigate(`${BASE_URL}/`)
+
+    await client.waitFor('document.querySelector("header") !== null', 8000)
+
+    await client.setViewport(1280, 800, false)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "01_public_landing_desktop_1280x800.png"),
+    )
+
+    await client.setViewport(375, 667, true)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "01_public_landing_mobile_375x667.png"),
+    )
+
+    console.log("[Audit] 1/10: Captured 01_public_landing (Desktop & Mobile)")
 
     // 2. Audit Login View (Strictly Unauthenticated, Password & Hints Sanitized)
-    await client.navigate(`${BASE_URL}/login`);
-    await client.waitFor('document.getElementById("login-email") !== null', 8000);
-    const loginPathname = await client.eval('window.location.pathname');
-    if (loginPathname !== '/login') throw new Error(`Expected /login but got ${loginPathname}`);
-    await client.setViewport(1280, 800, false);
-    await client.captureScreenshot(path.join(auditDir, '02_login_view_desktop_1280x800.png'));
-    await client.setViewport(375, 667, true);
-    await client.captureScreenshot(path.join(auditDir, '02_login_view_mobile_375x667.png'));
-    console.log('[Audit] 2/10: Captured 02_login_view (Verified on /login pathname)');
+
+    await client.navigate(`${BASE_URL}/login`)
+
+    await client.waitFor(
+      'document.getElementById("login-email") !== null',
+      8000,
+    )
+
+    const loginPathname = await client.eval("window.location.pathname")
+
+    if (loginPathname !== "/login")
+      throw new Error(`Expected /login but got ${loginPathname}`)
+
+    await client.setViewport(1280, 800, false)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "02_login_view_desktop_1280x800.png"),
+    )
+
+    await client.setViewport(375, 667, true)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "02_login_view_mobile_375x667.png"),
+    )
+
+    console.log(
+      "[Audit] 2/10: Captured 02_login_view (Verified on /login pathname)",
+    )
 
     // 3. Audit Manager Members View
-    await performLogin('manager@scms.com');
-    await client.navigate(`${BASE_URL}/manager/members`);
-    await client.waitFor('document.querySelector("tbody tr") !== null', 8000);
-    await client.setViewport(1280, 800, false);
-    await client.captureScreenshot(path.join(auditDir, '03_manager_members_desktop_1280x800.png'));
+
+    await performLogin("manager@scms.com")
+
+    await client.navigate(`${BASE_URL}/manager/members`)
+
+    await client.waitFor('document.querySelector("tbody tr") !== null', 8000)
+
+    await client.setViewport(1280, 800, false)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "03_manager_members_desktop_1280x800.png"),
+    )
 
     // Mobile Responsiveness Check for Member Management
-    await client.setViewport(375, 667, true);
+
+    await client.setViewport(375, 667, true)
+
     const mobileMemberMetrics = await client.eval(`
       ({
         mainWidth: document.querySelector("main")?.getBoundingClientRect().width || 0,
@@ -804,96 +1226,214 @@ async function runG4BrowserMatrix() {
         viewportWidth: window.innerWidth,
         hasHorizontalScroll: document.documentElement.scrollWidth > window.innerWidth
       })
-    `);
-    await client.captureScreenshot(path.join(auditDir, '03_manager_members_mobile_375x667.png'));
-    console.log('[Audit] 3/10: Captured 03_manager_members (Desktop & Mobile)');
+    `)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "03_manager_members_mobile_375x667.png"),
+    )
+
+    console.log("[Audit] 3/10: Captured 03_manager_members (Desktop & Mobile)")
 
     // 4. Audit Manager Staff View
-    await client.navigate(`${BASE_URL}/manager/staff`);
-    await client.waitFor('document.querySelector("tbody tr") !== null', 8000);
-    await client.setViewport(1280, 800, false);
-    await client.captureScreenshot(path.join(auditDir, '04_manager_staff_desktop_1280x800.png'));
-    await client.setViewport(375, 667, true);
-    await client.captureScreenshot(path.join(auditDir, '04_manager_staff_mobile_375x667.png'));
-    console.log('[Audit] 4/10: Captured 04_manager_staff (Desktop & Mobile)');
+
+    await client.navigate(`${BASE_URL}/manager/staff`)
+
+    await client.waitFor('document.querySelector("tbody tr") !== null', 8000)
+
+    await client.setViewport(1280, 800, false)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "04_manager_staff_desktop_1280x800.png"),
+    )
+
+    await client.setViewport(375, 667, true)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "04_manager_staff_mobile_375x667.png"),
+    )
+
+    console.log("[Audit] 4/10: Captured 04_manager_staff (Desktop & Mobile)")
 
     // 5. Audit Receptionist Search View
-    await performLogout();
-    await performLogin('thu.reception@scms.com');
-    await client.navigate(`${BASE_URL}/receptionist/search`);
-    await client.waitFor('document.querySelector("input") !== null', 8000);
-    await client.setViewport(1280, 800, false);
-    await client.captureScreenshot(path.join(auditDir, '05_receptionist_search_desktop_1280x800.png'));
-    await client.setViewport(375, 667, true);
-    await client.captureScreenshot(path.join(auditDir, '05_receptionist_search_mobile_375x667.png'));
-    console.log('[Audit] 5/10: Captured 05_receptionist_search (Desktop & Mobile)');
+
+    await performLogout()
+
+    await performLogin("thu.reception@scms.com")
+
+    await client.navigate(`${BASE_URL}/receptionist/search`)
+
+    await client.waitFor('document.querySelector("input") !== null', 8000)
+
+    await client.setViewport(1280, 800, false)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "05_receptionist_search_desktop_1280x800.png"),
+    )
+
+    await client.setViewport(375, 667, true)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "05_receptionist_search_mobile_375x667.png"),
+    )
+
+    console.log(
+      "[Audit] 5/10: Captured 05_receptionist_search (Desktop & Mobile)",
+    )
 
     // 6. Audit Forbidden Guard View
-    await client.navigate(`${BASE_URL}/manager/members`);
-    await client.waitFor('document.getElementById("forbidden-view") !== null', 8000);
-    await client.setViewport(1280, 800, false);
-    await client.captureScreenshot(path.join(auditDir, '06_forbidden_guard_view_desktop_1280x800.png'));
-    await client.setViewport(375, 667, true);
-    await client.captureScreenshot(path.join(auditDir, '06_forbidden_guard_view_mobile_375x667.png'));
-    console.log('[Audit] 6/10: Captured 06_forbidden_guard_view (Desktop & Mobile)');
+
+    await client.navigate(`${BASE_URL}/manager/members`)
+
+    await client.waitFor(
+      'document.getElementById("forbidden-view") !== null',
+      8000,
+    )
+
+    await client.setViewport(1280, 800, false)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "06_forbidden_guard_view_desktop_1280x800.png"),
+    )
+
+    await client.setViewport(375, 667, true)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "06_forbidden_guard_view_mobile_375x667.png"),
+    )
+
+    console.log(
+      "[Audit] 6/10: Captured 06_forbidden_guard_view (Desktop & Mobile)",
+    )
 
     // 7. Audit Admin Dashboard View
-    await performLogout();
-    await performLogin('admin@scms.com');
-    await client.navigate(`${BASE_URL}/admin/dashboard`);
-    await client.waitFor('document.querySelector(".admin-shell") !== null', 8000);
-    await client.setViewport(1280, 800, false);
-    await client.captureScreenshot(path.join(auditDir, '07_admin_dashboard_desktop_1280x800.png'));
-    await client.setViewport(375, 667, true);
-    await client.captureScreenshot(path.join(auditDir, '07_admin_dashboard_mobile_375x667.png'));
-    console.log('[Audit] 7/10: Captured 07_admin_dashboard (Desktop & Mobile)');
+
+    await performLogout()
+
+    await performLogin("admin@scms.com")
+
+    await client.navigate(`${BASE_URL}/admin/dashboard`)
+
+    await client.waitFor(
+      'document.querySelector(".admin-shell") !== null',
+      8000,
+    )
+
+    await client.setViewport(1280, 800, false)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "07_admin_dashboard_desktop_1280x800.png"),
+    )
+
+    await client.setViewport(375, 667, true)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "07_admin_dashboard_mobile_375x667.png"),
+    )
+
+    console.log("[Audit] 7/10: Captured 07_admin_dashboard (Desktop & Mobile)")
 
     // 8. Audit Admin Users View
-    await client.navigate(`${BASE_URL}/admin/users`);
-    await client.waitFor('document.querySelector("tbody tr") !== null', 8000);
-    await client.setViewport(1280, 800, false);
-    await client.captureScreenshot(path.join(auditDir, '08_admin_users_desktop_1280x800.png'));
-    await client.setViewport(375, 667, true);
-    await client.captureScreenshot(path.join(auditDir, '08_admin_users_mobile_375x667.png'));
-    console.log('[Audit] 8/10: Captured 08_admin_users (Desktop & Mobile)');
+
+    await client.navigate(`${BASE_URL}/admin/users`)
+
+    await client.waitFor('document.querySelector("tbody tr") !== null', 8000)
+
+    await client.setViewport(1280, 800, false)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "08_admin_users_desktop_1280x800.png"),
+    )
+
+    await client.setViewport(375, 667, true)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "08_admin_users_mobile_375x667.png"),
+    )
+
+    console.log("[Audit] 8/10: Captured 08_admin_users (Desktop & Mobile)")
 
     // 9. Audit Coach Dashboard View
-    await performLogout();
-    await performLogin('coach@scms.com');
-    await client.navigate(`${BASE_URL}/coach/dashboard`);
-    await client.waitFor('document.querySelector("main") !== null', 8000);
-    await client.setViewport(1280, 800, false);
-    await client.captureScreenshot(path.join(auditDir, '09_coach_dashboard_desktop_1280x800.png'));
-    await client.setViewport(375, 667, true);
-    await client.captureScreenshot(path.join(auditDir, '09_coach_dashboard_mobile_375x667.png'));
-    console.log('[Audit] 9/10: Captured 09_coach_dashboard (Desktop & Mobile)');
+
+    await performLogout()
+
+    await performLogin("coach@scms.com")
+
+    await client.navigate(`${BASE_URL}/coach/dashboard`)
+
+    await client.waitFor('document.querySelector("main") !== null', 8000)
+
+    await client.setViewport(1280, 800, false)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "09_coach_dashboard_desktop_1280x800.png"),
+    )
+
+    await client.setViewport(375, 667, true)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "09_coach_dashboard_mobile_375x667.png"),
+    )
+
+    console.log("[Audit] 9/10: Captured 09_coach_dashboard (Desktop & Mobile)")
 
     // 10. Audit Member Dashboard View
-    await performLogout();
-    await performLogin('minhanh@gmail.com');
-    await client.navigate(`${BASE_URL}/member/dashboard`);
-    await client.waitFor('document.querySelector("main") !== null', 8000);
-    await client.setViewport(1280, 800, false);
-    await client.captureScreenshot(path.join(auditDir, '10_member_dashboard_desktop_1280x800.png'));
-    await client.setViewport(375, 667, true);
-    await client.captureScreenshot(path.join(auditDir, '10_member_dashboard_mobile_375x667.png'));
-    console.log('[Audit] 10/10: Captured 10_member_dashboard (Desktop & Mobile)');
+
+    await performLogout()
+
+    await performLogin("minhanh@gmail.com")
+
+    await client.navigate(`${BASE_URL}/member/dashboard`)
+
+    await client.waitFor('document.querySelector("main") !== null', 8000)
+
+    await client.setViewport(1280, 800, false)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "10_member_dashboard_desktop_1280x800.png"),
+    )
+
+    await client.setViewport(375, 667, true)
+
+    await client.captureScreenshot(
+      path.join(auditDir, "10_member_dashboard_mobile_375x667.png"),
+    )
+
+    console.log(
+      "[Audit] 10/10: Captured 10_member_dashboard (Desktop & Mobile)",
+    )
 
     // Assertion for Mobile Usability & Viewport Space
-    const mobileUsabilityPass = mobileMemberMetrics.mainWidth >= 320 && mobileMemberMetrics.sidebarWidthInFlow;
-    record('G4.9-AUDIT-01', 'Mobile layout audit verified (Sidebar collapsed offscreen, main width >= 320px on 375px)', mobileUsabilityPass, {
-      mobileMemberMetrics,
-      screenshotCount: 20
-    });
+
+    const mobileUsabilityPass =
+      mobileMemberMetrics.mainWidth >= 320 &&
+      mobileMemberMetrics.sidebarWidthInFlow
+
+    record(
+      "G4.9-AUDIT-01",
+      "Mobile layout audit verified (Sidebar collapsed offscreen, main width >= 320px on 375px)",
+      mobileUsabilityPass,
+      {
+        mobileMemberMetrics,
+
+        screenshotCount: 20,
+      },
+    )
 
     // ------------------------------------------------------------------------
+
     // COMPREHENSIVE WCAG 2.1 CONTRAST AUDIT (Buttons, Headers, Canvas, Badges)
+
     // ------------------------------------------------------------------------
-    await performLogout();
-    await performLogin('manager@scms.com');
-    await client.setViewport(1280, 800, false);
-    await client.navigate(`${BASE_URL}/manager/members`);
-    await client.waitFor('document.querySelector("thead th") !== null', 8000);
+
+    await performLogout()
+
+    await performLogin("manager@scms.com")
+
+    await client.setViewport(1280, 800, false)
+
+    await client.navigate(`${BASE_URL}/manager/members`)
+
+    await client.waitFor('document.querySelector("thead th") !== null', 8000)
 
     const contrastData = await client.eval(`
       (() => {
@@ -1016,53 +1556,76 @@ async function runG4BrowserMatrix() {
           }
         };
       })()
-    `);
+    `)
 
-    const allContrastElementsFound = contrastData.redButton.found &&
-                                     contrastData.darkHeader.found &&
-                                     contrastData.bodyHeading.found &&
-                                     contrastData.activeStatusBadge.found &&
-                                     contrastData.warningStatusBadge.found &&
-                                     contrastData.activeSidebarItem.found;
+    const allContrastElementsFound =
+      contrastData.redButton.found &&
+      contrastData.darkHeader.found &&
+      contrastData.bodyHeading.found &&
+      contrastData.activeStatusBadge.found &&
+      contrastData.warningStatusBadge.found &&
+      contrastData.activeSidebarItem.found
 
-    const allContrastRatiosPassed = contrastData.redButton.passesAA &&
-                                    contrastData.darkHeader.passesAAA &&
-                                    contrastData.bodyHeading.passesAAA &&
-                                    contrastData.activeStatusBadge.passesAA &&
-                                    contrastData.warningStatusBadge.passesAA &&
-                                    contrastData.activeSidebarItem.passesAA;
+    const allContrastRatiosPassed =
+      contrastData.redButton.passesAA &&
+      contrastData.darkHeader.passesAAA &&
+      contrastData.bodyHeading.passesAAA &&
+      contrastData.activeStatusBadge.passesAA &&
+      contrastData.warningStatusBadge.passesAA &&
+      contrastData.activeSidebarItem.passesAA
 
-    const contrastPass = allContrastElementsFound && allContrastRatiosPassed;
+    const contrastPass = allContrastElementsFound && allContrastRatiosPassed
+
     record(
-      'G4.9-AUDIT-02',
-      'System-wide WCAG 2.1 contrast ratio verified across all 6 key elements (buttons, headers, headings, badges, and sidebar)',
-      contrastPass,
-      contrastData
-    );
+      "G4.9-AUDIT-02",
 
-    console.log('\n================================================================');
-    const passedCount = results.filter(r => r.status === 'PASS').length;
-    const pendingCount = results.filter(r => r.status === 'PENDING').length;
-    const failedCount = results.filter(r => r.status === 'FAIL').length;
-    console.log(`CURRENT SCRIPT EXECUTION RESULTS: ${passedCount} PASSED, ${pendingCount} PENDING, ${failedCount} FAILED`);
-    console.log('================================================================\n');
+      "System-wide WCAG 2.1 contrast ratio verified across all 6 key elements (buttons, headers, headings, badges, and sidebar)",
+
+      contrastPass,
+
+      contrastData,
+    )
+
+    console.log(
+      "\n================================================================",
+    )
+
+    const passedCount = results.filter((r) => r.status === "PASS").length
+
+    const pendingCount = results.filter((r) => r.status === "PENDING").length
+
+    const failedCount = results.filter((r) => r.status === "FAIL").length
+
+    console.log(
+      `CURRENT SCRIPT EXECUTION RESULTS: ${passedCount} PASSED, ${pendingCount} PENDING, ${failedCount} FAILED`,
+    )
+
+    console.log(
+      "================================================================\n",
+    )
 
     if (failedCount > 0) {
-      process.exitCode = 1;
+      process.exitCode = 1
     }
   } finally {
-    client.close();
+    client.close()
+
     if (proc) {
-      proc.kill('SIGKILL');
+      proc.kill("SIGKILL")
     }
+
     if (tempDir) {
-      try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (e) {}
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true })
+      } catch (e) {}
     }
-    await viteServer.close();
+
+    await viteServer.close()
   }
 }
 
-runG4BrowserMatrix().catch(err => {
-  console.error('[Error] Execution failed:', err);
-  process.exit(1);
-});
+runG4BrowserMatrix().catch((err) => {
+  console.error("[Error] Execution failed:", err)
+
+  process.exit(1)
+})

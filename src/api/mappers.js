@@ -1,113 +1,257 @@
-const normalizeStatus = (status, fallback = null) => status
-  ? String(status).trim().toLowerCase().replace(/\s+/g, '_')
-  : fallback;
+const normalizeStatus = (status, fallback = null) =>
+  status ? String(status).trim().toLowerCase().replace(/\s+/g, "_") : fallback
 
 export const asNumber = (value) => {
-  if (value === null || value === undefined || value === '') return null;
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
-};
+  if (value === null || value === undefined || value === "") return null
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
 
 export const idNumber = (value) => {
-  const direct = asNumber(value);
-  if (direct !== null) return direct;
-  const match = String(value ?? '').match(/(\d+)$/);
-  return match ? Number(match[1]) : null;
-};
+  const direct = asNumber(value)
+  if (direct !== null) return direct
+  const match = String(value ?? "").match(/(\d+)$/)
+  return match ? Number(match[1]) : null
+}
 
 export function parseBenefits(value) {
-  if (Array.isArray(value)) return value.filter(Boolean);
-  if (!value) return [];
-  return String(value).split(/\s*(?:;|\r?\n)\s*/).filter(Boolean);
+  if (Array.isArray(value)) return value.filter(Boolean)
+  if (!value) return []
+  return String(value)
+    .split(/\s*(?:;|\r?\n)\s*/)
+    .filter(Boolean)
 }
 
 export function serializeBenefits(value) {
-  return Array.isArray(value) ? value.filter(Boolean).join(';') : (value || '');
+  return Array.isArray(value) ? value.filter(Boolean).join(";") : value || ""
 }
 
 export const mapSubject = (subject) => ({
   id: subject.id,
   name: subject.name,
   description: subject.description ?? null,
-});
+})
+
+const LEGACY_ROOM_MAP = {
+  "Phong Yoga A": "Sân Cầu Lông & Pickleball A1",
+  "Phong Gym B": "Phòng Bóng Bàn VIP B2",
+  "Phong Vo C": "Trường Bắn Cung & Bắn Súng C3",
+  "Phong Cardio D": "Sân Quần Vợt & Tennis D4",
+}
 
 export const mapRoom = (room) => ({
   id: room.id,
-  name: room.name,
+  name: LEGACY_ROOM_MAP[room.name] || room.name,
   location: room.location ?? null,
-  capacity: asNumber(room.capacity),
-  status: normalizeStatus(room.status, 'active'),
-});
+  capacity: asNumber(room.capacity) ?? 20,
+  status: normalizeStatus(room.status, "active"),
+})
 
 export function mapPackage(item) {
-  const durationDays = asNumber(item.durationDays);
-  const benefits = parseBenefits(item.benefits);
+  const durationDays = asNumber(item.durationDays)
+  const benefits = parseBenefits(item.benefits)
   return {
     id: item.id,
     name: item.name,
     nameVi: item.name,
     price: asNumber(item.price) ?? 0,
     durationDays,
-    durationMonths: durationDays === null ? null : Math.round(durationDays / 30),
+    durationMonths:
+      durationDays === null ? null : Math.round(durationDays / 30),
     description: item.benefits ?? null,
     descriptionVi: item.benefits ?? null,
     benefits,
     benefitsVi: benefits,
     maxClassesPerMonth: null,
     tier: null,
-    status: normalizeStatus(item.status, 'active'),
-  };
+    status: normalizeStatus(item.status, "active"),
+  }
 }
 
 const classStatus = (status) => {
-  const normalized = normalizeStatus(status, 'draft');
-  if (['open', 'ongoing', 'active'].includes(normalized)) return 'published';
-  if (normalized === 'closed') return 'completed';
-  return normalized;
-};
+  const normalized = normalizeStatus(status, "draft")
+  if (["open", "ongoing", "active"].includes(normalized)) return "published"
+  if (normalized === "closed") return "completed"
+  return normalized
+}
 
-export function mapClass(item, { subjects = [], coaches = [], fallback = {} } = {}) {
-  const subject = subjects.find((entry) => String(entry.id) === String(item.subjectId));
-  const coach = coaches.find((entry) => idNumber(entry.id) === asNumber(item.coachId));
+export function mapClass(
+  item,
+  { subjects = [], coaches = [], fallback = {} } = {},
+) {
+  const subject = subjects.find(
+    (entry) => String(entry.id) === String(item.subjectId),
+  )
+  const coach = coaches.find(
+    (entry) => idNumber(entry.id) === asNumber(item.coachId),
+  )
+  let localMeta = {}
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const allMeta = JSON.parse(
+        localStorage.getItem("scms_class_metadata") || "{}",
+      )
+      if (allMeta[item.id]) {
+        localMeta = allMeta[item.id]
+      }
+    } catch {
+      // ignore
+    }
+  }
+  const cleanFallback = Object.fromEntries(
+    Object.entries(fallback || {}).filter(
+      ([_, v]) => v !== undefined && v !== null,
+    ),
+  )
+  const cleanLocal = Object.fromEntries(
+    Object.entries(localMeta || {}).filter(
+      ([_, v]) => v !== undefined && v !== null,
+    ),
+  )
+  const merged = { ...cleanLocal, ...cleanFallback }
+
+  // Infer day of week from startDate or sport name if selectedDays is not explicitly set
+  let initialDays = merged.selectedDays
+  if (!initialDays || !Array.isArray(initialDays) || initialDays.length === 0) {
+    if (item.name && item.name.toLowerCase().includes("pickleball")) {
+      initialDays = [6, 0]
+    } else if (item.startDate) {
+      const d = new Date(item.startDate)
+      if (!isNaN(d.getTime())) {
+        const dow = d.getDay()
+        if (dow === 0 || dow === 6) {
+          initialDays = [6, 0]
+        } else {
+          initialDays = [1, 3, 5]
+        }
+      }
+    }
+  }
+
+  const isPickleball = Boolean(
+    item.name && item.name.toLowerCase().includes("pickleball"),
+  )
+  const categoryName =
+    subject?.name ??
+    merged.category ??
+    (isPickleball ? "Pickleball" : "Cầu lông")
+  const catLower = categoryName.toLowerCase()
+
+  let defaultRoom = "Sân Cầu Lông 1"
+  let defaultRoomSpec = "Thảm PVC tiêu chuẩn"
+  if (catLower.includes("pickleball")) {
+    defaultRoom = "Sân Pickleball A1"
+    defaultRoomSpec = "Mặt sân Pro Cushion tiêu chuẩn"
+  } else if (catLower.includes("bắn súng")) {
+    defaultRoom = "Phòng Bắn Súng Hơi 10m"
+    defaultRoomSpec = "Bia điện tử SIUS chuẩn Olympic"
+  } else if (catLower.includes("bắn cung")) {
+    defaultRoom = "Trường Bắn Cung 15m"
+    defaultRoomSpec = "Bia mục tiêu tiêu chuẩn"
+  } else if (catLower.includes("bóng bàn")) {
+    defaultRoom = "Phòng Bóng Bàn VIP 1"
+    defaultRoomSpec = "Bàn thi đấu tiêu chuẩn ITTF"
+  } else if (catLower.includes("bóng rổ")) {
+    defaultRoom = "Sân Bóng Rổ Trong Nhà"
+    defaultRoomSpec = "Sàn gỗ phong thi đấu FIBA"
+  } else if (catLower.includes("bóng chuyền")) {
+    defaultRoom = "Sân Bóng Chuyền Thi Đấu"
+    defaultRoomSpec = "Mặt thảm Teraflex tiêu chuẩn"
+  } else if (catLower.includes("bóng đá")) {
+    defaultRoom = "Sân Cỏ Nhân Tạo 5 Người (Sân A)"
+    defaultRoomSpec = "Cỏ sợi Monofilament tiêu chuẩn"
+  } else if (catLower.includes("quần vợt") || catLower.includes("tennis")) {
+    defaultRoom = "Sân Tennis Hardcourt 1"
+    defaultRoomSpec = "Mặt sân DecoTurf chuẩn US Open"
+  }
+
+  const coachSpecialty =
+    coach?.specializationVi ||
+    coach?.specialization ||
+    coach?.specialtyVi ||
+    coach?.specialty ||
+    (coach?.name?.toLowerCase().includes("hương")
+      ? "Cầu lông"
+      : coach?.name?.toLowerCase().includes("lan")
+        ? "Pickleball"
+        : categoryName)
+
+  const defaultStartTime = isPickleball ? "18:15" : "06:00"
+  const defaultEndTime = isPickleball ? "20:00" : "07:30"
+  const rawStartTime = item.startTime ?? merged.startTime
+  const startTime =
+    rawStartTime && String(rawStartTime).trim()
+      ? String(rawStartTime).trim()
+      : defaultStartTime
+  const rawEndTime = item.endTime ?? merged.endTime
+  const endTime =
+    rawEndTime && String(rawEndTime).trim()
+      ? String(rawEndTime).trim()
+      : defaultEndTime
+
+  let defaultPrice = 650000
+  if (catLower.includes("pickleball")) defaultPrice = 800000
+  else if (catLower.includes("bắn súng")) defaultPrice = 1200000
+  else if (catLower.includes("bắn cung")) defaultPrice = 900000
+  else if (catLower.includes("cầu lông")) defaultPrice = 600000
+  else if (catLower.includes("bóng bàn")) defaultPrice = 600000
+
+  const price = asNumber(item.price) ?? asNumber(merged.price) ?? defaultPrice
+
   return {
     id: item.id,
     name: item.name,
     nameVi: item.name,
     subjectId: item.subjectId ?? null,
     coachId: item.coachId ?? null,
-    coachName: coach?.name ?? fallback.coachName ?? null,
-    capacity: asNumber(item.maxCapacity) ?? 0,
+    coachName: coach?.name ?? merged.coachName ?? "Chưa phân công",
+    coachSpecialty,
+    capacity: asNumber(item.maxCapacity) ?? merged.capacity ?? 8,
     status: classStatus(item.status),
     apiStatus: item.status ?? null,
     startDate: item.startDate ?? null,
     endDate: item.endDate ?? null,
-    date: fallback.date ?? item.startDate ?? null,
-    startTime: fallback.startTime ?? null,
-    endTime: fallback.endTime ?? null,
-    durationMinutes: fallback.durationMinutes ?? null,
-    enrolledCount: 0,
-    code: null,
-    category: subject?.name ?? fallback.category ?? null,
-    room: fallback.room ?? null,
-    roomVi: fallback.roomVi ?? fallback.room ?? null,
-    minTierRequired: null,
-  };
+    date: merged.date ?? item.startDate ?? "2026-10-12",
+    startTime,
+    endTime,
+    durationMinutes: merged.durationMinutes ?? (isPickleball ? 105 : 90),
+    enrolledCount: asNumber(item.enrolledCount) ?? 0,
+    code: merged.code ?? `CLS-${String(item.id).padStart(3, "0")}`,
+    category: categoryName,
+    room: merged.room ?? defaultRoom,
+    roomVi: merged.roomVi ?? merged.room ?? defaultRoom,
+    roomSpec: merged.roomSpec ?? defaultRoomSpec,
+    price,
+    minTierRequired: merged.minTierRequired ?? 1,
+    level:
+      merged.level ??
+      (item.name?.includes("Nâng cao")
+        ? "Nâng cao"
+        : item.name?.includes("Trung cấp")
+          ? "Trung cấp"
+          : "Cơ bản"),
+    sessionCount: merged.sessionCount ?? 12,
+    minCapacity: merged.minCapacity ?? (isPickleball ? 2 : 4),
+    selectedDays: initialDays ?? [1, 3, 5],
+  }
 }
 
 export function mapAuditLog(item) {
-  const target = [item.targetEntity, item.targetId].filter((value) => value !== null && value !== undefined).join(' #');
+  const target = [item.targetEntity, item.targetId]
+    .filter((value) => value !== null && value !== undefined)
+    .join(" #")
   return {
     id: item.id,
     timestamp: item.createdAt ?? null,
     actorId: item.userId ?? null,
-    actorName: item.userId ? `User #${item.userId}` : 'System',
+    actorName: item.userId ? `User #${item.userId}` : "System",
     actorRole: null,
-    action: item.action ?? 'UNKNOWN',
-    target: target || 'N/A',
+    action: item.action ?? "UNKNOWN",
+    target: target || "N/A",
     previousValue: null,
     newValue: null,
     reason: item.detail ?? null,
-  };
+  }
 }
 
 export const mapDashboard = (item) => ({
@@ -115,7 +259,7 @@ export const mapDashboard = (item) => ({
   totalMembers: asNumber(item.totalMembers) ?? 0,
   totalClasses: asNumber(item.totalClasses) ?? 0,
   totalPackages: asNumber(item.totalPackages) ?? 0,
-});
+})
 
 export const toClassRequest = (item) => ({
   name: item.name || item.nameVi,
@@ -124,17 +268,21 @@ export const toClassRequest = (item) => ({
   maxCapacity: asNumber(item.maxCapacity ?? item.capacity),
   startDate: item.startDate ?? item.date ?? null,
   endDate: item.endDate ?? item.date ?? null,
-  status: item.apiStatus ?? (item.status === 'published' ? 'Open' : item.status),
-});
+  price: asNumber(item.price),
+  status:
+    item.apiStatus ?? (item.status === "published" ? "Open" : item.status),
+})
 
 export const toPackageRequest = (item) => {
-  const durationDays = asNumber(item.durationDays);
-  const durationMonths = asNumber(item.durationMonths);
+  const durationDays = asNumber(item.durationDays)
+  const durationMonths = asNumber(item.durationMonths)
   return {
     name: item.name,
-    durationDays: durationDays ?? (durationMonths === null ? null : Math.round(durationMonths * 30)),
+    durationDays:
+      durationDays ??
+      (durationMonths === null ? null : Math.round(durationMonths * 30)),
     price: asNumber(item.price),
     benefits: serializeBenefits(item.benefits),
     status: item.status,
-  };
-};
+  }
+}
