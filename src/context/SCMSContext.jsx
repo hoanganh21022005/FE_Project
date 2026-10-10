@@ -26,6 +26,7 @@ import {
   ROLE_MEMBER,
 } from "../utils/navigation.js"
 import { checkSingleClassConflict } from "../components/classes/hooks/useScheduleConflict.js"
+import { buildCurrentUser } from "../utils/memberSafetyHelpers.js"
 
 export const SCMSContext = createContext(undefined)
 const API_ENABLED = import.meta.env.VITE_API_ENABLED === "true"
@@ -959,15 +960,7 @@ export const SCMSProvider = ({ children }) => {
         : [],
   }
 
-  const currentUser = authUser
-    ? {
-        id: authUser.userId,
-        name: authUser.fullName,
-        email: authUser.email,
-        role: authUser.role,
-        authorities: authUser.authorities || [],
-      }
-    : fallbackUser
+  const currentUser = buildCurrentUser(authUser, fallbackUser)
 
   const isAuthenticated = API_ENABLED ? Boolean(authUser) : localAuthenticated
 
