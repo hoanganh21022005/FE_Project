@@ -33,7 +33,7 @@ export function mapMember(dto) {
 
   return {
     id,
-    code: dto.code || (id ? `MB-${String(id).padStart(4, '0')}` : 'MB-NEW'),
+    code: dto.code ? String(dto.code).trim() : '',
     name: dto.name ? String(dto.name).trim() : (dto.fullName ? String(dto.fullName).trim() : ''),
     email: dto.email ? String(dto.email).trim() : '',
     phone: dto.phone ? String(dto.phone).trim() : '',

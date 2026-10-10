@@ -309,7 +309,7 @@ function SCMSApp() {
       authLoading={authLoading}
       fallback={<Navigate to="/login" replace />}
     >
-      <div className="min-h-screen bg-[#F7F5F0] text-[#2D2721] flex flex-row font-sans antialiased">
+      <div className="min-h-screen bg-[#F4F6F8] text-[#2D2721] flex flex-row font-sans antialiased">
         <Sidebar mobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0">
           <Header currentTitle={getPageTitle()} onLogout={handleLogout} onOpenMobileMenu={() => setMobileSidebarOpen(true)} />

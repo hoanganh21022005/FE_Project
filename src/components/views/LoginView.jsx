@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 const DEMO_EMAIL = 'manager@scms.com';
-const DEMO_PASSWORD = '12345678';
+const DEMO_PASSWORD = "Scms@2026";
 
 export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login', initialPackageId, initialError = '', adminEntry = false }) {
   const location = useLocation();
@@ -159,11 +159,12 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
     }
 
     const trimmedEmail = loginEmail.trim().toLowerCase();
+    const trimmedPassword = loginPassword.trim();
 
     if (apiEnabled) {
       setIsLoginLoading(true);
       try {
-        const user = await login(trimmedEmail, loginPassword);
+        const user = await login(trimmedEmail, trimmedPassword);
         if (adminEntry && normalizeRole(user?.role, { isApiMode: true }) !== ROLE_ADMIN) {
           await logout();
           setLoginError(
@@ -186,7 +187,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
 
     const mockUser = resolveMockLoginUser({
       email: trimmedEmail,
-      password: loginPassword,
+      password: trimmedPassword,
       members,
       managerEmail: DEMO_EMAIL,
       demoPassword: DEMO_PASSWORD,
@@ -216,8 +217,8 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
 
     setLoginError(
       isVi
-        ? 'Thông tin đăng nhập không chính xác. Mật khẩu demo: 12345678'
-        : 'Incorrect sign-in details. Demo password: 12345678'
+        ? 'Thông tin đăng nhập không chính xác. Mật khẩu demo: Scms@2026'
+        : 'Incorrect sign-in details. Demo password: Scms@2026'
     );
   };
 
