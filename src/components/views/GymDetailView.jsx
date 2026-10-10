@@ -1,3 +1,4 @@
+import { usePublicBack } from '../../hooks/usePublicBack';
 import React, { useEffect, useState } from 'react';
 import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +9,7 @@ export function GymDetailView() {
   const { language } = useSCMS();
   const isVi = language === 'vi';
   const navigate = useNavigate();
+  const goBack = usePublicBack();
   
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
@@ -45,9 +47,9 @@ export function GymDetailView() {
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
             <div className="w-10 h-10 rounded-xl bg-[#E32119] flex items-center justify-center font-black text-lg text-white">SC</div>
-            <div className="text-xl font-black uppercase text-white tracking-widest">SCMS FITNESS</div>
+            <div className="text-xl font-black uppercase text-white tracking-widest">VIBE Sport FITNESS</div>
           </div>
-          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-stone-400 hover:text-white transition-colors"><ArrowLeft className="w-5 h-5" />{isVi ? 'Quay lại' : 'Back'}</button>
+          <button onClick={goBack} className="flex items-center gap-2 text-stone-400 hover:text-white transition-colors"><ArrowLeft className="w-5 h-5" />{isVi ? 'Quay lại' : 'Back'}</button>
         </div>
       </header>
 

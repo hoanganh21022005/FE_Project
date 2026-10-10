@@ -1,3 +1,4 @@
+import { usePublicBack } from '../../hooks/usePublicBack';
 import React, { useEffect, useState } from 'react';
 import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
@@ -5,6 +6,7 @@ import { ArrowLeft, Info } from 'lucide-react';
 
 export function PilatesDetailView() {
   const navigate = useNavigate();
+  const goBack = usePublicBack();
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const [activePart, setActivePart] = useState(null);
@@ -37,9 +39,9 @@ export function PilatesDetailView() {
       <header className="fixed top-0 inset-x-0 z-50 bg-[#F7F6F2]/90 backdrop-blur-md border-b border-[#EBEBEB]">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between font-sans">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
-            <div className="text-xl font-bold uppercase tracking-widest text-[#2C2C2C]">SCMS PILATES</div>
+            <div className="text-xl font-bold uppercase tracking-widest text-[#2C2C2C]">VIBE Sport PILATES</div>
           </div>
-          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-stone-500 hover:text-black transition-colors"><ArrowLeft className="w-5 h-5" />Quay lại</button>
+          <button onClick={goBack} className="flex items-center gap-2 text-stone-500 hover:text-black transition-colors"><ArrowLeft className="w-5 h-5" />Quay lại</button>
         </div>
       </header>
 

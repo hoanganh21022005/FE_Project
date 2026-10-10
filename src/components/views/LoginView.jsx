@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { publicSports } from '../../data/publicCoaches';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency } from '../../locales/translations';
 import { getErrorMessage } from '../../api/apiErrors';
@@ -31,16 +33,20 @@ const DEMO_EMAIL = 'manager@scms.com';
 const DEMO_PASSWORD = '12345678';
 
 export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login', initialPackageId, initialError = '', adminEntry = false }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const enrollment = initialMode === 'register' ? location.state?.enrollment : null;
+  const enrollmentSport = publicSports.find(sport => sport.id === enrollment?.sportId);
   useEffect(() => { window.scrollTo(0, 0); }, [initialMode]);
 
   const { language, setLanguage, packages, members, addMember, login, logout, apiEnabled } = useSCMS();
   const isVi = language === 'vi';
 
   // Screen mode: 'login' | 'register'
-  const [authMode, setAuthMode] = useState(initialMode);
+  const authMode = initialMode;
 
   // --- LOGIN STATE ---
-  const [loginEmail, setLoginEmail] = useState('');
+  const [loginEmail, setLoginEmail] = useState(location.state?.loginEmail || '');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [isLoginCaptchaChecked, setIsLoginCaptchaChecked] = useState(false);
@@ -49,9 +55,9 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
   const [isLoginLoading, setIsLoginLoading] = useState(false);
 
   // --- REGISTER STATE ---
-  const [regName, setRegName] = useState('');
-  const [regPhone, setRegPhone] = useState('');
-  const [regEmail, setRegEmail] = useState('');
+  const [regName, setRegName] = useState(enrollment?.name || '');
+  const [regPhone, setRegPhone] = useState(enrollment?.phone || '');
+  const [regEmail, setRegEmail] = useState(enrollment?.email || '');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
@@ -347,11 +353,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
   };
 
   const handleBackToLoginWithEmail = () => {
-    if (registeredSuccessData?.email) {
-      setLoginEmail(registeredSuccessData.email);
-    }
-    setRegisteredSuccessData(null);
-    setAuthMode('login');
+    navigate('/login', { state: { loginEmail: registeredSuccessData?.email || '' } });
   };
 
   return (
@@ -391,14 +393,11 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
           className={`relative z-10 flex items-center gap-3 ${onBackToHome ? 'cursor-pointer group' : ''}`}
           title={onBackToHome ? (isVi ? 'Quay về Trang chủ' : 'Back to Home') : undefined}
         >
-          <div className="w-10 h-10 rounded-xl bg-[#BA0000] flex items-center justify-center font-black text-lg shadow-md shrink-0">
-            <span className="text-white">SC</span>
-          </div>
-          <div>
-            <div className="text-xl font-black tracking-widest uppercase text-white leading-none mt-1 group-hover:text-[#D62323] transition-colors">
-              SCMS FITNESS
-            </div>
-          </div>
+          <img
+            src="/images/vibe-sport-logo.png?v=2"
+            alt="Vibe Sport"
+            className="h-20 w-32 object-contain sm:w-36 shrink-0 transition-transform group-hover:scale-[1.02]"
+          />
         </div>
 
         {/* Center Main Content (Dynamic based on Login vs Register) */}
@@ -490,14 +489,14 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
             <>
               {/* Heading */}
               <h1 className="text-4xl sm:text-5xl lg:text-[56px] font-black text-white tracking-tight leading-[1.1] uppercase drop-shadow-lg">
-                {isVi ? 'Tập thử không mất phí tại SCMS' : 'Free Trial At SCMS'}
+                {isVi ? 'Tập thử không mất phí tại VIBE Sport' : 'Free Trial At VIBE Sport'}
               </h1>
 
               {/* Subtitle description */}
               <p className="text-stone-300 text-sm sm:text-base leading-relaxed max-w-lg mt-6 mb-8 font-medium drop-shadow-md">
                 {isVi
-                  ? 'Trải nghiệm mọi dịch vụ tại SCMS hoàn toàn miễn phí, chúng tôi sẽ liên hệ đặt lịch hẹn với bạn trong vòng 24h sau khi bạn gửi thông tin, đăng ký ngay!'
-                  : 'Experience all services at SCMS entirely for free. We will contact you to schedule an appointment within 24h of submitting your information. Register now!'}
+                  ? 'Trải nghiệm mọi dịch vụ tại VIBE Sport hoàn toàn miễn phí, chúng tôi sẽ liên hệ đặt lịch hẹn với bạn trong vòng 24h sau khi bạn gửi thông tin, đăng ký ngay!'
+                  : 'Experience all services at VIBE Sport entirely for free. We will contact you to schedule an appointment within 24h of submitting your information. Register now!'}
               </p>
             </>
           )}
@@ -505,7 +504,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
 
         {/* Footer Copyright */}
         <div className="relative z-10 pt-6 text-xs text-stone-500 font-normal">
-          © 2026 SCMS — Sports Center Management System
+          © 2026 VIBE Sport — Sports Center Management System
         </div>
       </div>
 
@@ -561,8 +560,8 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
               </h2>
               <p className="text-xs sm:text-sm text-stone-500 mt-2">
                 {isVi
-                  ? 'Chào mừng bạn đến với cộng đồng thể thao SCMS. Hồ sơ hội viên của bạn đã sẵn sàng.'
-                  : 'Welcome to the SCMS sports community. Your member profile is ready.'}
+                  ? 'Chào mừng bạn đến với cộng đồng thể thao VIBE Sport. Hồ sơ hội viên của bạn đã sẵn sàng.'
+                  : 'Welcome to the VIBE Sport sports community. Your member profile is ready.'}
               </p>
             </div>
 
@@ -775,7 +774,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 type="button"
                 onClick={() => {
                   setLoginError('');
-                  setAuthMode('register');
+                  navigate('/register');
                 }}
                 className="text-[#BA0000] font-semibold hover:underline cursor-pointer"
               >
@@ -897,6 +896,12 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
 
             {/* Form */}
             <form onSubmit={handleRegister} className="space-y-4">
+              {enrollmentSport && (
+                <p className="border-l-2 border-mlc-red bg-rose-50 px-3 py-2 text-xs leading-6 text-stone-700">
+                  {isVi ? `Môn quan tâm: ${enrollmentSport.title}` : `Interested in: ${enrollmentSport.titleEn}`}
+                  {enrollment.age && (isVi ? ` · Độ tuổi học viên: ${enrollment.age}` : ` · Student age: ${enrollment.age}`)}
+                </p>
+              )}
               {/* Full Name */}
               <div>
                 <input
@@ -1074,7 +1079,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   <>
                     Bằng việc nhấn "ĐĂNG KÝ", bạn xác nhận đã đọc và đồng ý với{' '}
                     <a href="/privacy-policy" className="text-stone-800 hover:text-[#BA0000] font-bold underline transition-colors" target="_blank" rel="noreferrer">
-                      Chính sách bảo vệ dữ liệu cá nhân của SCMS
+                      Chính sách bảo vệ dữ liệu cá nhân của VIBE Sport
                     </a>{' '}
                     và đồng ý cho chúng tôi xử lý thông tin bạn cung cấp để liên hệ, sắp xếp lịch trải nghiệm miễn phí.
                   </>
@@ -1082,7 +1087,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   <>
                     By clicking "REGISTER", you agree to the{' '}
                     <a href="/privacy-policy" className="text-stone-800 hover:text-[#BA0000] font-bold underline transition-colors" target="_blank" rel="noreferrer">
-                      SCMS Privacy Policy
+                      VIBE Sport Privacy Policy
                     </a>{' '}
                     and consent to us processing your information to arrange your free trial session.
                   </>
@@ -1097,7 +1102,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 type="button"
                 onClick={() => {
                   setRegErrors({});
-                  setAuthMode('login');
+                  navigate('/login');
                 }}
                 className="text-[#BA0000] font-semibold hover:underline cursor-pointer"
               >
@@ -1132,7 +1137,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 <span className="text-[#D62323] font-bold tracking-widest uppercase text-xs sm:text-sm mb-4 block">Quyền lợi hội viên</span>
                 <h2 className="text-4xl md:text-5xl lg:text-[64px] font-black text-stone-100 tracking-tight leading-[1.1] max-w-3xl mb-8">
                   {isVi ? 'Bạn nhận được gì ' : 'What you get with '}
-                  <span className="text-white">{isVi ? 'tại SCMS.' : 'SCMS.'}</span>
+                  <span className="text-white">{isVi ? 'tại VIBE Sport.' : 'VIBE Sport.'}</span>
                 </h2>
                 {/* Progress bar inside header */}
                 <div className="w-[120px] h-1 bg-white/10 rounded-full overflow-hidden">
@@ -1209,7 +1214,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                     <span className="text-5xl font-extrabold text-white/20 leading-none">04</span>
                   </div>
                   <h3 className="text-3xl sm:text-[40px] font-black text-white uppercase leading-[1.08] mb-3">{isVi ? 'Ưu đãi hội viên' : 'Member Perks'}</h3>
-                  <p className="text-white/70 text-[15.5px] leading-[1.55] mb-6">{isVi ? 'Trở thành một phần của SCMS và tận hưởng hàng ngàn quyền lợi độc quyền từ các đối tác về phong cách sống, ẩm thực.' : 'Become part of SCMS and enjoy exclusive perks from our lifestyle, food, and shopping partners.'}</p>
+                  <p className="text-white/70 text-[15.5px] leading-[1.55] mb-6">{isVi ? 'Trở thành một phần của VIBE Sport và tận hưởng hàng ngàn quyền lợi độc quyền từ các đối tác về phong cách sống, ẩm thực.' : 'Become part of VIBE Sport and enjoy exclusive perks from our lifestyle, food, and shopping partners.'}</p>
                   <ul className="border-t border-white/10 pt-2 flex-1 flex flex-col">
                     <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">{isVi ? 'Bảo hiểm cá nhân 1 tỷ đồng' : '1B VND Personal Insurance'}</li>
                     <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">{isVi ? 'Giảm 20% tại chuỗi Supplements' : '20% off at Supplement stores'}</li>
@@ -1221,7 +1226,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 {/* End Card */}
                 <div className="w-[320px] sm:w-[400px] lg:w-[460px] bg-[#BA0000] border border-[#BA0000] rounded-xl p-8 sm:p-10 flex flex-col justify-center items-start relative transition-all flex-shrink-0 shadow-lg">
                   <h3 className="text-4xl sm:text-[44px] font-black text-white uppercase leading-[1.08] mb-4">{isVi ? 'Trải nghiệm ngay hôm nay' : 'Start your journey today'}</h3>
-                  <p className="text-white/90 text-[15.5px] leading-[1.55] mb-8 font-medium">{isVi ? 'Tạo tài khoản miễn phí để nhận ngay ưu đãi tập thử tại toàn bộ hệ thống SCMS. Không ràng buộc, không phí ẩn.' : 'Create a free account to receive an exclusive trial pass at any SCMS center. No commitments, no hidden fees.'}</p>
+                  <p className="text-white/90 text-[15.5px] leading-[1.55] mb-8 font-medium">{isVi ? 'Tạo tài khoản miễn phí để nhận ngay ưu đãi tập thử tại toàn bộ hệ thống VIBE Sport. Không ràng buộc, không phí ẩn.' : 'Create a free account to receive an exclusive trial pass at any VIBE Sport center. No commitments, no hidden fees.'}</p>
                   <button
                     type="button"
                     onClick={() => {

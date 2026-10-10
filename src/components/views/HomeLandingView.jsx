@@ -1,8 +1,14 @@
 import React, { useEffect, useRef, useState } from "react"
+import { Link } from "react-router-dom"
+import { useReducedMotion } from "motion/react"
 import { useSCMS } from "../../context/SCMSContext"
+import { publicCoaches, publicSports } from "../../data/publicCoaches"
 import { PublicFooter } from "../layout/PublicFooter"
 import { Reveal, Stagger, Item } from "../common/Reveal"
-import { ArrowDown, ArrowRight, ChevronDown, Mail, Menu, Newspaper, Phone, X } from "lucide-react"
+import { ArrowDown, ArrowRight, ChevronDown, Mail, Menu, Newspaper, Phone, Users, X } from "lucide-react"
+import "../../styles/coaches.css"
+
+const heroSlogan = ["Vitality", "Inspire", "Balance", "Energy"]
 
 const courses = [
   {
@@ -65,13 +71,12 @@ const courses = [
       "https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=85&w=900&auto=format&fit=crop",
   },
   {
-    id: "shooting",
-    title: "Bắn súng",
-    titleEn: "Sport shooting",
-    description: "Tập trung vào độ chính xác, sự bình tĩnh và kỷ luật an toàn.",
-    descriptionEn: "Focus on precision, composure and safe sporting practice.",
-    image:
-      "https://images.unsplash.com/photo-1595590424283-b8f17842773f?q=85&w=900&auto=format&fit=crop",
+    id: "swimming",
+    title: "Bơi lội",
+    titleEn: "Swimming",
+    description: "Rèn kỹ thuật bơi, điều hòa nhịp thở và nâng cao thể lực trong môi trường nước.",
+    descriptionEn: "Build swimming technique, breathing control and fitness in the water.",
+    image: "/images/swimming-course.jpg",
   },
   {
     id: "football",
@@ -147,70 +152,35 @@ const facilities = [
   },
 ]
 
-const coachSportAliases = {
-  badminton: ["badminton", "cau long"],
-  "table-tennis": ["table tennis", "bong ban"],
-  pickleball: ["pickleball"],
-  basketball: ["basketball", "bong ro"],
-  volleyball: ["volleyball", "bong chuyen"],
-  archery: ["archery", "ban cung"],
-  shooting: ["shooting", "ban sung"],
-  football: ["football", "soccer", "bong da"],
-  tennis: ["tennis"],
-}
-
-const normalizeSportText = (value = "") =>
-  String(value)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[đĐ]/g, "d")
-    .toLowerCase()
-
-const getCoachSport = (coach) => {
-  const specialty = normalizeSportText(
-    [coach.specialty, coach.specialtyVi, coach.specialization, coach.specializationVi]
-      .filter(Boolean)
-      .join(" "),
-  )
-
-  return courses.find((course) =>
-    coachSportAliases[course.id].some((alias) => specialty.includes(alias)),
-  )
-}
-
-const featuredBadmintonCoach = {
-  id: "landing-coach-badminton",
-  name: "Huỳnh Thị Hương",
-  role: "coach",
-  specialty: "Badminton",
-  specialtyVi: "Cầu lông",
-  status: "active",
-  activeClassesCount: 0,
-}
-
-const badmintonCoachImage =
-  "https://images.unsplash.com/photo-1732955365693-fbd795199803?auto=format&fit=crop&q=85&w=1000"
-
 export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
-  const { authLoading, language, setLanguage, staff, fetchStaff } = useSCMS()
+  const { language, setLanguage } = useSCMS()
+  const prefersReducedMotion = useReducedMotion()
+  const heroVideoRef = useRef(null)
+  const heroMotionPaused = Boolean(prefersReducedMotion)
   const [menuOpen, setMenuOpen] = useState(false)
   const [openDropdown, setOpenDropdown] = useState(null)
   const [activeCourse, setActiveCourse] = useState("all")
   const [activeSport, setActiveSport] = useState("all")
   const [selectedCoach, setSelectedCoach] = useState(null)
-  const staffFetchStarted = useRef(false)
   const headerRef = useRef(null)
   const dropdownTriggerRefs = useRef({})
   const coachTriggerRef = useRef(null)
   const coachDialogRef = useRef(null)
   const closeCoachButtonRef = useRef(null)
   const isVi = language === "vi"
+
   useEffect(() => {
-    if (!authLoading && staff.length === 0 && !staffFetchStarted.current) {
-      staffFetchStarted.current = true
-      fetchStaff().catch(() => {})
+    const video = heroVideoRef.current
+    if (!video) return
+    if (heroMotionPaused) {
+      video.pause()
+    } else {
+      video.play().catch(() => {
+        // Keep the local poster visible if the browser blocks autoplay.
+      })
     }
-  }, [authLoading, fetchStaff, staff.length])
+  }, [heroMotionPaused])
+
   useEffect(() => {
     if (!selectedCoach) return undefined
 
@@ -282,30 +252,16 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       openCoachProfile(coachCard, event)
     }
   }
-  const staffCoaches = staff
-    .filter((member) => member.role === "coach" && member.status !== "inactive")
-  const huongProfile = staffCoaches.find(
-    (coach) => normalizeSportText(coach.name) === "huynh thi huong",
-  )
-  const badmintonCoach = huongProfile || featuredBadmintonCoach
-  const coaches = [
-    badmintonCoach,
-    ...staffCoaches.filter(
-      (coach) => coach !== huongProfile && getCoachSport(coach)?.id !== "badminton",
-    ),
-  ].slice(0, 9)
-  const coachCards = coaches.map((coach, index) => ({
+  const coaches = publicCoaches
+  const coachCards = coaches.map((coach) => ({
     coach,
-    sport: getCoachSport(coach) || courses[index % courses.length],
-    image:
-      normalizeSportText(coach.name) === "huynh thi huong"
-        ? badmintonCoachImage
-        : (getCoachSport(coach) || courses[index % courses.length]).image,
+    sport: courses.find((sport) => sport.id === coach.sportId),
+    image: coach.image,
   }))
   const visibleCoachCards =
     activeSport === "all"
       ? coachCards
-      : coachCards.filter(({ sport }) => sport.id === activeSport)
+      : coachCards.filter(({ coach }) => coach.sportId === activeSport)
   const visibleCourses =
     activeCourse === "all"
       ? courses
@@ -317,18 +273,8 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       isHome: true,
     },
     {
-      id: "about",
+      href: "/about",
       label: isVi ? "Về chúng tôi" : "About us",
-      children: [
-        {
-          href: "#news",
-          label: isVi ? "Tin tức và sự kiện" : "News and events",
-        },
-        {
-          href: "#contact",
-          label: isVi ? "Liên hệ" : "Contact",
-        },
-      ],
     },
     {
       id: "courses",
@@ -336,45 +282,38 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       children: [
         { href: "#courses", courseId: "all", label: isVi ? "Tất cả" : "All" },
         ...courses.map((course) => ({
-          href: "#courses",
-          courseId: course.id,
+          href: `/courses/${course.id}`,
           label: isVi ? course.title : course.titleEn,
         })),
       ],
     },
-    { href: "#coaches", label: isVi ? "Huấn luyện viên" : "Coaches" },
+    { href: "/coaches", label: isVi ? "Huấn luyện viên" : "Coaches" },
     { href: "#facilities", label: isVi ? "Cơ sở vật chất" : "Facilities" },
     { href: "#admission", label: isVi ? "Tuyển sinh" : "Admissions" },
   ]
 
   return (
     <div className="min-h-screen bg-white font-mlc text-mlc-ink antialiased selection:bg-mlc-red selection:text-white">
-      <a
-        href="#main-content"
+      <Link
+        to="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:bg-white focus:px-4 focus:py-3 focus:shadow-xl"
       >
         {isVi ? "Bỏ qua điều hướng" : "Skip to content"}
-      </a>
+      </Link>
 
       <header ref={headerRef} className="sticky top-0 z-50 border-b border-mlc-border bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex h-[76px] max-w-[1440px] items-center justify-between px-5 sm:px-8 lg:px-12">
-          <a
-            href="#top"
-            aria-label="R E S I L I E N C E Sports Center, trang chủ"
+          <Link
+            to="#top"
+            aria-label="Vibe Sport, trang chủ"
             className="flex items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-mlc-red text-sm font-black tracking-tight text-white shadow-mlc">
-              S
-            </span>
-            <span className="leading-none">
-              <span className="block text-base font-extrabold tracking-[0.06em] sm:text-lg">
-                R E S I L I E N C E
-              </span>
-              <span className="mt-1 block text-[9px] font-semibold tracking-[0.2em] text-mlc-muted">
-                SPORTS CENTER
-              </span>
-            </span>
-          </a>
+            <img
+              src="/images/vibe-sport-logo.png?v=2"
+              alt="Vibe Sport"
+              className="h-14 w-24 shrink-0 object-contain sm:h-16 sm:w-32"
+            />
+          </Link>
 
           <nav
             aria-label={isVi ? "Điều hướng chính" : "Main navigation"}
@@ -408,9 +347,9 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                       className="absolute left-0 top-full z-50 mt-3 max-h-[70vh] min-w-56 overflow-y-auto border border-mlc-border bg-white p-2 shadow-xl"
                     >
                       {item.children.map((child) => (
-                        <a
+                        <Link
                           key={child.courseId || child.href}
-                          href={child.href}
+                          to={child.href}
                           aria-current={
                             child.courseId && child.courseId === activeCourse
                               ? "true"
@@ -427,15 +366,15 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                           }`}
                         >
                           {child.label}
-                        </a>
+                        </Link>
                       ))}
                     </div>
                   )}
                 </div>
               ) : (
-                <a
+                <Link
                   key={item.href}
-                  href={item.href}
+                  to={item.href}
                   aria-current={item.isHome ? "page" : undefined}
                   onClick={() => setOpenDropdown(null)}
                   className={`text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red ${
@@ -447,7 +386,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                   <span className={item.isHome ? "inline-block skew-x-6" : ""}>
                     {item.label}
                   </span>
-                </a>
+                </Link>
               ),
             )}
           </nav>
@@ -497,11 +436,11 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
             </button>
           </div>
 
-          <div className="flex items-center gap-2 sm:hidden">
+          <div className="flex items-center gap-2 lg:hidden">
             <button
               type="button"
               onClick={() => setLanguage(isVi ? "en" : "vi")}
-              className="rounded-full px-2 py-2 text-xs font-bold text-mlc-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red"
+              className="rounded-full px-2 py-2 text-xs font-bold text-mlc-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red sm:hidden"
               aria-label={isVi ? "Switch to English" : "Chuyển sang tiếng Việt"}
             >
               {isVi ? "EN" : "VI"}
@@ -537,7 +476,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
           <nav
             id="mobile-navigation"
             aria-label={isVi ? "Điều hướng chính" : "Main navigation"}
-            className="border-t border-mlc-border bg-white px-5 py-4 sm:hidden"
+            className="max-h-[calc(100dvh-76px)] overflow-y-auto border-t border-mlc-border bg-white px-5 py-4 lg:hidden"
           >
             <div className="flex flex-col">
               {navigation.map((item) =>
@@ -565,9 +504,9 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                     {openDropdown === item.id && (
                       <div id={`mobile-${item.id}-dropdown`} className="pb-2 pl-3">
                         {item.children.map((child) => (
-                          <a
+                          <Link
                             key={child.courseId || child.href}
-                            href={child.href}
+                            to={child.href}
                             aria-current={
                               child.courseId && child.courseId === activeCourse
                                 ? "true"
@@ -585,15 +524,15 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                             }`}
                           >
                             {child.label}
-                          </a>
+                          </Link>
                         ))}
                       </div>
                     )}
                   </div>
                 ) : (
-                  <a
+                  <Link
                     key={item.href}
-                    href={item.href}
+                    to={item.href}
                     aria-current={item.isHome ? "page" : undefined}
                     onClick={() => {
                       setMenuOpen(false)
@@ -606,7 +545,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                     }`}
                   >
                     {item.label}
-                  </a>
+                  </Link>
                 ),
               )}
               <button
@@ -637,36 +576,45 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       <main id="main-content">
         <section
           id="top"
-          className="relative isolate flex min-h-[620px] scroll-mt-20 items-center overflow-hidden bg-mlc-ink text-white sm:min-h-[700px] lg:min-h-[calc(100svh-76px)]"
+          data-paused={heroMotionPaused}
+          className="vibe-hero relative isolate flex min-h-[620px] scroll-mt-20 items-center overflow-hidden bg-mlc-ink text-white sm:min-h-[700px] lg:min-h-[calc(100svh-76px)]"
         >
-          <img
-            src="https://images.unsplash.com/photo-1526232761682-d26e03ac148e?q=90&w=2200&auto=format&fit=crop"
-            alt=""
-            fetchPriority="high"
-            className="absolute inset-0 -z-20 h-full w-full object-cover object-center"
-          />
+          <video
+            ref={heroVideoRef}
+            className="pointer-events-none absolute inset-0 -z-20 h-full w-full object-cover object-center"
+            autoPlay={!heroMotionPaused}
+            loop
+            muted
+            playsInline
+            preload="auto"
+            poster="/videos/vibe-sport-poster.jpg"
+            aria-hidden="true"
+          >
+            <source src="/videos/vibe-sport-montage-1080p.mp4?v=2" type="video/mp4" />
+          </video>
           <div className="absolute inset-0 -z-10 bg-gradient-to-r from-mlc-ink/90 via-mlc-ink/65 to-mlc-ink/10" />
           <div className="absolute inset-0 -z-10 bg-gradient-to-t from-mlc-ink/50 via-transparent to-mlc-ink/15" />
+          <div className="vibe-hero-accent" aria-hidden="true" />
           <div className="mx-auto w-full max-w-[1440px] px-5 py-24 sm:px-8 lg:px-12">
             <Reveal className="max-w-4xl">
               <p className="mb-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-white/85 sm:text-sm">
                 <span className="h-0.5 w-10 bg-mlc-red" />
-                RESILIENCE SPORTS CENTER
+                VIBE SPORT
               </p>
-              <h1 className="text-[clamp(3.25rem,9vw,7.5rem)] font-extrabold leading-[0.98] tracking-[-0.055em]">
-                {isVi ? (
-                  <>
-                    RÈN BẢN LĨNH
-                    <br />
-                    <span className="text-mlc-red">VỮNG TƯƠNG LAI</span>
-                  </>
-                ) : (
-                  <>
-                    SHAPING RESILIENCE
-                    <br />
-                    <span className="text-mlc-red">THROUGH SPORTS</span>
-                  </>
-                )}
+              <h1 className="text-[clamp(3.75rem,12vw,10rem)] font-extrabold leading-[0.98] tracking-[-0.055em]">
+                <span className="sr-only">Vitality · Inspire · Balance · Energy</span>
+                <span className="vibe-slogan-stage" aria-hidden="true">
+                  {heroSlogan.map((word, index) => (
+                    <span
+                      key={word}
+                      className="vibe-slogan-word"
+                      data-pause-visible={index === 0}
+                      style={{ animationDelay: `${index * 3}s` }}
+                    >
+                      {word}
+                    </span>
+                  ))}
+                </span>
               </h1>
               <p className="mt-7 max-w-2xl text-base leading-7 text-white/85 sm:text-lg sm:leading-8">
                 {isVi
@@ -674,13 +622,13 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                   : "Discover the joy of movement, grow your skills and build teamwork through the sports you love."}
               </p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <a
-                  href="#courses"
+                <Link
+                  to="#courses"
                   className="inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-mlc-red px-7 text-sm font-bold text-white shadow-mlc transition hover:bg-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
                 >
                   {isVi ? "Khám phá khóa học" : "Explore courses"}{" "}
                   <ArrowDown className="h-4 w-4" />
-                </a>
+                </Link>
                 <button
                   type="button"
                   onClick={() => onOpenRegister()}
@@ -726,7 +674,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
           <div className="mx-auto grid max-w-[1440px] gap-12 px-5 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-20 lg:px-12">
             <Reveal>
               <p className="mb-5 text-xs font-bold uppercase tracking-[0.16em] text-mlc-red">
-                {isVi ? "TẠI SAO CHỌN RESILIENCE SPORTS" : "WHY CHOOSE RESILIENCE SPORTS"}
+                {isVi ? "TẠI SAO CHỌN VIBE SPORT" : "WHY CHOOSE VIBE SPORT"}
               </p>
               <h2 className="text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-6xl">
                 {isVi ? (
@@ -745,8 +693,8 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
               </h2>
               <p className="mt-6 max-w-xl text-base leading-7 text-mlc-muted">
                 {isVi
-                  ? "Resilience Sports Center mang đến môi trường để học viên khám phá các môn thể thao, rèn luyện sức khỏe và phát triển những kỹ năng đồng hành cùng mình trong cuộc sống."
-                  : "Resilience Sports Center creates space to explore sports, build healthy habits and develop skills that carry into everyday life."}
+                  ? "VIBE Sport mang đến môi trường để học viên khám phá các môn thể thao, rèn luyện sức khỏe và phát triển những kỹ năng đồng hành cùng mình trong cuộc sống."
+                  : "VIBE Sport creates space to explore sports, build healthy habits and develop skills that carry into everyday life."}
               </p>
             </Reveal>
             <Stagger className="grid gap-4 sm:grid-cols-3">
@@ -795,7 +743,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                 return (
                 <Item key={course.id} className="h-full">
                   <article className="group h-full overflow-hidden border border-white/15 border-b-4 border-b-mlc-red bg-white/[0.03] transition duration-300 hover:-translate-y-1 hover:border-white/35 hover:shadow-mlc">
-                    <div className="relative aspect-[4/3] overflow-hidden bg-black">
+                    <Link to={`/courses/${course.id}`} aria-label={isVi ? `Xem khóa học ${course.title}` : `View ${course.titleEn} course`} className="relative block aspect-[4/3] overflow-hidden bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white">
                       <img
                         src={course.image}
                         alt=""
@@ -806,14 +754,17 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                       <span className="absolute left-4 top-4 flex h-10 w-10 items-center justify-center bg-mlc-red font-mlc text-sm font-bold text-white">
                         {String(courseIndex + 1).padStart(2, "0")}
                       </span>
-                    </div>
+                    </Link>
                     <div className="p-5 sm:p-6">
                       <h3 className="font-mlc text-2xl font-bold uppercase leading-tight">
-                        {isVi ? course.title : course.titleEn}
+                        <Link to={`/courses/${course.id}`} className="hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">{isVi ? course.title : course.titleEn}</Link>
                       </h3>
                       <p className="mt-3 min-h-[48px] text-sm leading-6 text-white/70">
                         {isVi ? course.description : course.descriptionEn}
                       </p>
+                      <Link to={`/courses/${course.id}`} className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-white transition hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
+                        {isVi ? "Khám phá khóa học" : "Explore this course"}<ArrowRight className="h-4 w-4" />
+                      </Link>
                     </div>
                   </article>
                 </Item>
@@ -825,65 +776,52 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
 
         <section
           id="coaches"
-          className="scroll-mt-24 overflow-hidden bg-mlc-ink py-14 text-white sm:py-20"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px)",
-            backgroundSize: "66px 66px",
-          }}
+          className="coaches-grid-background scroll-mt-24 bg-mlc-ink py-14 text-white sm:py-20"
+          aria-labelledby="home-coaches-title"
         >
-          <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
-            <Reveal className="mb-8 max-w-5xl sm:mb-10">
-              <span className="mb-3 inline-flex bg-mlc-red px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-                {isVi ? "Đội ngũ" : "All team"}
-              </span>
-              <h2 className="font-display text-5xl font-extrabold uppercase leading-[0.92] tracking-tight sm:text-7xl lg:text-8xl">
+          <div className="mx-auto max-w-[1280px] px-5 sm:px-8 lg:px-12">
+            <Reveal>
+              <p className="coaches-eyebrow">ALL TEAM</p>
+              <h2 id="home-coaches-title" className="mt-5 font-display text-[clamp(2.5rem,5vw,4.5rem)] font-extrabold uppercase leading-[1.03] tracking-tight">
                 {isVi ? "Huấn luyện viên" : "Coaches"}{" "}
-                <span className="text-mlc-red">MLC SPORTS</span>
+                <span className="text-mlc-red">VIBE SPORT</span>
               </h2>
-              <div className="mt-5 h-1 w-16 bg-mlc-red" />
+              <Link to="/coaches" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-white/75 transition hover:text-white">
+                {isVi ? "Khám phá đội ngũ huấn luyện viên" : "Meet our coaching team"}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <div className="mb-9 mt-6 h-1 w-24 bg-mlc-red" />
             </Reveal>
 
             <div
               role="group"
               aria-label={isVi ? "Lọc theo môn thể thao" : "Filter by sport"}
-              className="mb-6 flex gap-2 overflow-x-auto pb-2"
+              className="coaches-sport-filters"
             >
-              <button
-                type="button"
-                aria-pressed={activeSport === "all"}
-                onClick={() => setActiveSport("all")}
-                className={`shrink-0 border px-3 py-2 font-display text-xs font-bold uppercase transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
-                  activeSport === "all"
-                    ? "border-mlc-red bg-mlc-red text-white"
-                    : "border-white/20 text-white/60 hover:border-white/60 hover:text-white"
-                }`}
-              >
-                {isVi ? "Tất cả" : "All"}
-              </button>
-              {courses.map((sport) => (
+              {[{ id: "all", title: "Tất cả", titleEn: "All" }, ...publicSports].map((sport) => (
                 <button
                   key={sport.id}
                   type="button"
                   aria-pressed={activeSport === sport.id}
                   onClick={() => setActiveSport(sport.id)}
-                  className={`shrink-0 border px-3 py-2 font-display text-xs font-bold uppercase transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
-                    activeSport === sport.id
-                      ? "border-mlc-red bg-mlc-red text-white"
-                      : "border-white/20 text-white/60 hover:border-white/60 hover:text-white"
-                  }`}
+                  className={`coaches-sport-filter focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white ${activeSport === sport.id ? "is-active" : ""}`}
                 >
-                  {isVi ? sport.title : sport.titleEn}
+                  <span>{isVi ? sport.title : sport.titleEn}</span>
                 </button>
               ))}
             </div>
 
+            <p role="status" aria-live="polite" aria-atomic="true" className="mb-5 mt-6 text-xs text-white/50">
+              {isVi
+                ? `${visibleCoachCards.length} huấn luyện viên · ${activeSport === "all" ? "9 môn thể thao" : publicSports.find((sport) => sport.id === activeSport).title}`
+                : `${visibleCoachCards.length} ${visibleCoachCards.length === 1 ? "coach" : "coaches"} · ${activeSport === "all" ? "9 sports" : publicSports.find((sport) => sport.id === activeSport).titleEn}`}
+            </p>
             {visibleCoachCards.length > 0 ? (
-              <Stagger className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 lg:gap-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 xl:gap-4" data-coach-grid>
                 {visibleCoachCards.map(({ coach, sport, image }) => (
-                  <Item
+                  <div
                     key={coach.id}
-                    className="group relative aspect-[3/4] overflow-hidden bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
+                    className="coaches-team-card cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
                     role="button"
                     tabIndex={0}
                     aria-label={
@@ -898,22 +836,25 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                   >
                     <img
                       src={image}
-                      alt=""
+                      alt={isVi ? `${coach.name} – ảnh minh họa môn ${coach.specialtyVi}` : `${coach.name} – illustrative ${coach.specialty} photo`}
+                      width="768"
+                      height="1024"
                       loading="lazy"
-                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      decoding="async"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-black/10 transition-colors group-hover:from-black/95" />
-                    <div className="absolute inset-x-0 bottom-0 border-b-4 border-mlc-red p-3 sm:p-4">
-                      <p className="mb-1 font-display text-xs font-bold uppercase tracking-wider text-white/75 sm:text-sm">
-                        {coach.specialtyVi || coach.specialty || (isVi ? sport.title : sport.titleEn)}
+                    <div className="coaches-team-card-shade" aria-hidden="true" />
+                    <span className="coaches-team-card-icon" aria-hidden="true"><Users className="h-5 w-5" /></span>
+                    <div className="coaches-team-card-copy">
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-white/80 sm:text-xs">
+                        {isVi ? sport.title : sport.titleEn}
                       </p>
-                      <h3 className="font-display text-xl font-extrabold uppercase leading-[0.95] text-white sm:text-2xl lg:text-3xl">
+                      <h3 className="font-display text-2xl font-extrabold uppercase leading-[1.02] sm:text-3xl">
                         {coach.name}
                       </h3>
                     </div>
-                  </Item>
+                  </div>
                 ))}
-              </Stagger>
+              </div>
             ) : (
               <p className="border border-white/15 bg-white/5 p-6 text-sm text-white/70">
                 {coaches.length > 0
@@ -925,6 +866,9 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                     : "Coach profiles will be available soon."}
               </p>
             )}
+            <p className="mt-8 border-t border-white/10 pt-6 text-xs leading-6 text-white/45">
+              {isVi ? "Hình ảnh huấn luyện viên mang tính minh họa." : "Coach images are illustrative."}
+            </p>
           </div>
         </section>
 
@@ -971,7 +915,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
           <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
             <Reveal className="mb-8 max-w-3xl">
               <p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-sc-primary">
-                {isVi ? "BẢN TIN SCMS" : "SCMS UPDATES"}
+                {isVi ? "BẢN TIN VIBE Sport" : "VIBE Sport UPDATES"}
               </p>
               <h2 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl">
                 {isVi ? "TIN TỨC VÀ SỰ KIỆN" : "NEWS AND EVENTS"}
@@ -1002,7 +946,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                 {isVi ? "BỘ PHẬN QUAN HỆ HỘI VIÊN" : "MEMBER RELATIONS"}
               </p>
               <h2 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl">
-                {isVi ? "LIÊN HỆ SCMS" : "CONTACT SCMS"}
+                {isVi ? "LIÊN HỆ VIBE Sport" : "CONTACT VIBE Sport"}
               </h2>
               <p className="mt-5 max-w-2xl text-base leading-7 text-white/70">
                 {isVi
@@ -1125,8 +1069,8 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                     </h2>
                     <p className="mt-6 max-w-prose text-base font-medium leading-7 text-white/85 sm:text-lg sm:leading-8">
                       {isVi
-                        ? `Huấn luyện viên ${selectedCoach.sport.title} tại MLC Sports, đồng hành cùng học viên rèn kỹ thuật, phản xạ, tốc độ di chuyển và khả năng phối hợp chiến thuật trên sân.`
-                        : `A ${selectedCoach.sport.titleEn} coach at MLC Sports, supporting members as they build technique, reflexes, court movement and tactical coordination.`}
+                        ? `Huấn luyện viên ${selectedCoach.sport.title} tại VIBE Sport, đồng hành cùng học viên rèn kỹ thuật, phản xạ, tốc độ di chuyển và khả năng phối hợp chiến thuật trên sân.`
+                        : `A ${selectedCoach.sport.titleEn} coach at VIBE Sport, supporting members as they build technique, reflexes, court movement and tactical coordination.`}
                     </p>
                   </div>
                 </div>

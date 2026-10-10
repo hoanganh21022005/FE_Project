@@ -107,7 +107,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
         >
           <Menu className="w-5 h-5" />
         </button>
-        <span className="hidden sm:inline text-slate-400 font-medium">SCMS Center</span>
+        <span className="hidden sm:inline text-slate-400 font-medium">VIBE Sport Center</span>
         <ChevronRight className="hidden sm:inline w-3.5 h-3.5 text-slate-300" />
         <span className="text-slate-900 font-bold truncate">{currentTitle}</span>
       </div>

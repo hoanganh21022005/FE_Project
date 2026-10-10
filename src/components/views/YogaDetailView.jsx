@@ -1,3 +1,4 @@
+import { usePublicBack } from '../../hooks/usePublicBack';
 import React, { useEffect, useState } from 'react';
 import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
@@ -7,6 +8,7 @@ import { ArrowLeft, Heart, Scale, Zap } from 'lucide-react';
 export function YogaDetailView() {
   const { language } = useSCMS();
   const navigate = useNavigate();
+  const goBack = usePublicBack();
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const [activeMood, setActiveMood] = useState('relax');
@@ -40,7 +42,7 @@ export function YogaDetailView() {
             <div className="w-10 h-10 rounded-full bg-[#8E9B90] flex items-center justify-center font-black text-lg text-white">SC</div>
             <div className="text-xl font-bold uppercase text-stone-800 tracking-widest">YOGA SANCTUARY</div>
           </div>
-          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-stone-500 hover:text-stone-900 transition-colors"><ArrowLeft className="w-5 h-5" />Quay lại</button>
+          <button onClick={goBack} className="flex items-center gap-2 text-stone-500 hover:text-stone-900 transition-colors"><ArrowLeft className="w-5 h-5" />Quay lại</button>
         </div>
       </header>
 

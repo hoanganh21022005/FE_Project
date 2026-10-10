@@ -1,17 +1,7 @@
 import React from "react"
+import { Link } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
-
-const courseNames = [
-  ["Cầu lông", "Badminton"],
-  ["Bóng bàn", "Table tennis"],
-  ["Pickleball", "Pickleball"],
-  ["Bóng rổ", "Basketball"],
-  ["Bóng chuyền", "Volleyball"],
-  ["Bắn cung", "Archery"],
-  ["Bắn súng", "Sport shooting"],
-  ["Bóng đá", "Football"],
-  ["Quần vợt", "Tennis"],
-]
+import { publicSports } from "../../data/publicCoaches"
 
 export function PublicFooter() {
   const { language } = useSCMS()
@@ -22,22 +12,16 @@ export function PublicFooter() {
       <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
         <div className="grid gap-10 border-b border-white/15 pb-10 md:grid-cols-[1.2fr_1fr_1fr]">
           <div>
-            <a
-              href="/#top"
+            <Link
+              to="/#top"
               className="inline-flex items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-mlc-red text-xs font-black">
-                S
-              </span>
-              <span>
-                <span className="block text-sm font-bold tracking-wider">
-                  R E S I L I E N C E
-                </span>
-                <span className="mt-1 block text-[9px] font-medium tracking-[0.2em] text-white/60">
-                  SPORTS CENTER
-                </span>
-              </span>
-            </a>
+              <img
+                src="/images/vibe-sport-logo.png?v=2"
+                alt="Vibe Sport"
+                className="h-20 w-32 shrink-0 object-contain"
+              />
+            </Link>
             <p className="mt-5 max-w-sm text-sm leading-6 text-white/65">
               {isVi
                 ? "Khám phá các môn thể thao, xây dựng kỹ năng và phát triển qua từng buổi tập."
@@ -50,14 +34,14 @@ export function PublicFooter() {
               {isVi ? "KHÓA HỌC" : "COURSES"}
             </h2>
             <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-white/65">
-              {courseNames.map(([vi, en]) => (
-                <li key={vi}>
-                  <a
-                    href="/#courses"
+              {publicSports.map((sport) => (
+                <li key={sport.id}>
+                  <Link
+                    to={`/courses/${sport.id}`}
                     className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                   >
-                    {isVi ? vi : en}
-                  </a>
+                    {isVi ? sport.title : sport.titleEn}
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -69,51 +53,51 @@ export function PublicFooter() {
             </h2>
             <ul className="mt-4 space-y-3 text-sm text-white/65">
               <li>
-                <a
-                  href="/#about"
+                <Link
+                  to="/about"
                   className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
-                  {isVi ? "Về Resilience Sports" : "About Resilience Sports"}
-                </a>
+                  {isVi ? "Về VIBE Sport" : "About VIBE Sport"}
+                </Link>
               </li>
               <li>
-                <a
-                  href="/#coaches"
+                <Link
+                  to="/coaches"
                   className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
                   {isVi ? "Huấn luyện viên" : "Coaches"}
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="/#facilities"
+                <Link
+                  to="/#facilities"
                   className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
                   {isVi ? "Cơ sở vật chất" : "Facilities"}
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="/privacy-policy"
+                <Link
+                  to="/privacy-policy"
                   className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
                   {isVi ? "Chính sách bảo mật" : "Privacy policy"}
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="/register"
+                <Link
+                  to="/register"
                   className="font-semibold text-white transition-colors hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
                   {isVi ? "Đăng ký tài khoản" : "Create an account"}
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
         </div>
 
         <div className="flex flex-col gap-2 pt-6 text-xs text-white/50 sm:flex-row sm:items-center sm:justify-between">
-          <span>Resilience Sports Center 2026</span>
+          <span>VIBE Sport 2026</span>
           <span>
             {isVi
               ? "Vận động hôm nay, trưởng thành mỗi ngày."

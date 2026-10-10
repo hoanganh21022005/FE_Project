@@ -4,7 +4,7 @@ import { useSCMS } from '../../context/SCMSContext';
 import {
   LayoutDashboard, Users, UserCheck, Package, Calendar,
   ClipboardCheck, TrendingUp, CreditCard, BarChart3, History,
-  Dumbbell, Search, ChevronLeft, ChevronRight, Activity, Award,
+  Search, ChevronLeft, ChevronRight, Activity, Award,
   Settings, HelpCircle, Library, X
 } from 'lucide-react';
 
@@ -92,12 +92,14 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
         <div>
           <div className={`h-[56px] border-b border-slate-200 flex items-center justify-between ${collapsed ? 'px-2' : 'px-3.5'}`}>
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-[#181818] flex items-center justify-center text-white font-bold text-xs flex-shrink-0 shadow-xs">
-                <Dumbbell className="w-4 h-4 text-[#BA0000]" />
-              </div>
+              <img
+                src="/images/vibe-sport-logo.png?v=2"
+                alt="Vibe Sport"
+                className={`object-contain flex-shrink-0 ${collapsed ? 'w-10 h-8' : 'w-12 h-9'}`}
+              />
               {(!collapsed || mobileOpen) && (
                 <div className="truncate">
-                  <div className="text-xs font-bold tracking-tight text-slate-900 uppercase leading-tight truncate">SCMS SYSTEM</div>
+                  <div className="text-xs font-bold tracking-tight text-slate-900 uppercase leading-tight truncate">VIBE Sport SYSTEM</div>
                   <div className="text-[9px] text-slate-500 font-bold tracking-wider uppercase leading-tight truncate">SPORTS CENTER</div>
                 </div>
               )}

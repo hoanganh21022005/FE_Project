@@ -1,0 +1,154 @@
+.coaches-page :is(a, button, input, select):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
+}
+
+.coaches-nav-link {
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 0.85rem 0.25rem;
+  transition: color 180ms;
+}
+
+.coaches-nav-link:hover { color: var(--color-mlc-red); }
+.coaches-nav-link.is-current {
+  background: var(--color-mlc-red);
+  color: white;
+  padding-inline: 1rem;
+  transform: skewX(-6deg);
+}
+.coaches-nav-link-mobile { border-bottom: 1px solid var(--color-mlc-border); }
+.coaches-nav-link-mobile.is-current { transform: none; }
+
+.coaches-grid-background,
+.coaches-hero-grid {
+  background-image: linear-gradient(rgb(255 255 255 / 3%) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 3%) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+.coaches-hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  min-height: 530px;
+  overflow: hidden;
+}
+.coaches-hero-photo { position: absolute; inset: 0; z-index: -4; background-size: cover; }
+.coaches-hero-photo-left {
+  right: 28%;
+  background-image: url('/images/coaches/badminton.jpg');
+  background-position: center 38%;
+}
+.coaches-hero-photo-right {
+  left: 53%;
+  background-image: linear-gradient(rgb(227 22 40 / 32%), rgb(227 22 40 / 20%)), url('/images/coaches/basketball.jpg');
+  background-position: center 35%;
+  clip-path: polygon(16% 0, 100% 0, 100% 100%, 0 100%);
+}
+.coaches-hero-shade { position: absolute; inset: 0; z-index: -3; background: linear-gradient(90deg, rgb(24 29 37 / 94%), rgb(24 29 37 / 74%) 48%, rgb(24 29 37 / 30%)), linear-gradient(0deg, var(--color-mlc-ink), transparent 30%); }
+.coaches-hero-grid { position: absolute; inset: 0; z-index: -2; }
+.coaches-hero-ghost {
+  position: absolute;
+  top: 50%;
+  left: -0.03em;
+  z-index: -1;
+  transform: translateY(-45%);
+  font-family: var(--font-display);
+  font-size: clamp(10rem, 30vw, 30rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: rgb(255 255 255 / 3%);
+  pointer-events: none;
+}
+.coaches-eyebrow {
+  display: inline-block;
+  width: fit-content;
+  padding: 0.5rem 0.95rem;
+  transform: skewX(-6deg);
+  background: var(--color-mlc-red);
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: white;
+}
+.coaches-stat {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1.3rem;
+  min-height: 118px;
+  padding: 1.25rem 1.5rem;
+  background: rgb(255 255 255 / 5%);
+  border-left: 1px solid rgb(255 255 255 / 9%);
+}
+.coaches-stat::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 16%;
+  height: 48%;
+  background: rgb(227 22 40 / 9%);
+  clip-path: polygon(35% 0, 100% 0, 100% 100%, 0 100%);
+}
+.coaches-sport-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.coaches-sport-filter {
+  min-height: 40px;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid rgb(255 255 255 / 14%);
+  background: rgb(255 255 255 / 3%);
+  color: rgb(255 255 255 / 55%);
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  transform: skewX(-6deg);
+  transition: color 180ms, background 180ms, border-color 180ms;
+}
+.coaches-sport-filter > span { display: block; transform: skewX(6deg); }
+.coaches-sport-filter:hover { color: white; border-color: rgb(255 255 255 / 50%); }
+.coaches-sport-filter.is-active { color: white; background: var(--color-mlc-red); border-color: var(--color-mlc-red); }
+
+.coaches-team-card { position: relative; isolation: isolate; width: 100%; min-width: 0; aspect-ratio: 3 / 4; min-height: 260px; overflow: hidden; background: #252b34; border-bottom: 3px solid rgb(227 22 40 / 60%); transition: border-color 250ms, transform 250ms; }
+.coaches-team-card:hover { transform: translateY(-4px); border-color: var(--color-mlc-red); }
+.coaches-team-card > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 35%; transition: transform 600ms, filter 600ms; filter: saturate(0.8); }
+.coaches-team-card:hover > img { transform: scale(1.045); filter: saturate(1); }
+.coaches-team-card-shade { position: absolute; inset: 0; background: linear-gradient(0deg, rgb(8 12 18 / 95%), rgb(8 12 18 / 45%) 30%, transparent 60%), linear-gradient(180deg, rgb(0 0 0 / 20%), transparent 30%); }
+.coaches-team-card-icon { position: absolute; top: 1rem; left: 1rem; color: rgb(255 255 255 / 75%); }
+.coaches-team-card-copy { position: absolute; inset: auto 0 0; padding: 1.25rem 1rem; }
+
+.coaches-contact { position: relative; isolation: isolate; background: #151a22; }
+.coaches-contact::before { content: ''; position: absolute; z-index: -1; inset: 0 0 0 47%; background: var(--color-mlc-red); clip-path: polygon(12% 0, 100% 0, 100% 100%, 0 100%); }
+.coaches-contact-inner { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: clamp(3rem, 7vw, 8rem); max-width: 1440px; margin: 0 auto; padding: 4rem 3rem; }
+.coaches-contact-form-wrap { text-align: center; }
+.coaches-enrollment-form { display: grid; gap: 0.75rem; }
+.coaches-enrollment-form :is(input, select) { display: block; width: 100%; height: 52px; min-width: 0; border: 1px solid transparent; border-radius: 0; padding: 0.8rem 1rem; background: var(--color-mlc-ink); color: white; font-size: 0.875rem; text-align: center; color-scheme: dark; }
+.coaches-enrollment-form input::placeholder { color: rgb(255 255 255 / 60%); opacity: 1; }
+.coaches-enrollment-form select:has(option:checked[value='']) { color: rgb(255 255 255 / 60%); }
+.coaches-enrollment-form select option { color: white; }
+.coaches-enrollment-form :is(input, select):focus-visible { outline-color: white; outline-offset: 2px; }
+.coaches-enrollment-submit { display: inline-flex; align-items: center; justify-content: center; gap: 0.9rem; justify-self: center; min-height: 48px; margin-top: 0.75rem; padding: 0.9rem 2rem; transform: skewX(-6deg); background: white; color: var(--color-mlc-red); font-size: 0.875rem; font-weight: 800; transition: color 180ms, background 180ms; }
+.coaches-enrollment-submit:hover { background: var(--color-mlc-ink); color: white; }
+
+@media (max-width: 900px) {
+  .coaches-contact::before { display: none; }
+  .coaches-contact-inner { grid-template-columns: 1fr; gap: 0; padding: 0; }
+  .coaches-contact-info { padding: 3rem 2rem; }
+  .coaches-contact-form-wrap { padding: 3rem 2rem; background: var(--color-mlc-red); }
+}
+@media (max-width: 600px) {
+  .coaches-hero { min-height: 470px; }
+  .coaches-hero-photo-left { right: 0; }
+  .coaches-hero-photo-right { display: none; }
+  .coaches-hero-shade { background: linear-gradient(90deg, rgb(24 29 37 / 92%), rgb(24 29 37 / 65%)), linear-gradient(0deg, var(--color-mlc-ink), transparent 30%); }
+  .coaches-stat { gap: 0.75rem; padding: 1rem; }
+  .coaches-sport-filter { padding-inline: 0.75rem; }
+  .coaches-team-card-copy { padding: 1rem 0.75rem; }
+  .coaches-contact-info, .coaches-contact-form-wrap { padding: 2.5rem 1.25rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .coaches-team-card:hover, .coaches-team-card:hover > img { transform: none; }
+}

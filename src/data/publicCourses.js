@@ -1,0 +1,93 @@
+import { publicSports } from "./publicCoaches"
+
+// Editorial course introductions. Tuition and scheduling will be supplied later.
+const details = {
+  badminton: {
+    accent: "#547d43",
+    intro: "Làm quen với cầu lông từ cách cầm vợt, tư thế chuẩn bị đến di chuyển trên sân. Từng bài tập giúp bạn kiểm soát đường cầu, phối hợp tay chân và tự tin bước vào những pha cầu đầu tiên.",
+    introEn: "Start with grip, ready position and court movement. Build shuttle control, coordination and confidence through guided practice.",
+    goals: ["Cầm vợt và thực hiện động tác giao cầu cơ bản.", "Tập phông cầu, bỏ nhỏ và đưa cầu qua lưới.", "Phối hợp bước chân với đánh cầu, làm quen luật chơi đơn và đôi."],
+    goalsEn: ["Learn grip and a basic serve.", "Practise clears, net shots and controlled returns.", "Combine footwork and strokes; discover singles and doubles rules."],
+    space: "Sân cầu lông với lưới, vạch sân và khoảng di chuyển cho các bài tập giao cầu, đánh cầu và phối hợp đôi.",
+    spaceEn: "A badminton court with net, court markings and space to practise serves, strokes and doubles movement.",
+  },
+  "table-tennis": {
+    accent: "#315b8b",
+    image: "/images/courses/table-tennis-room.jpg",
+    intro: "Bắt đầu hành trình bóng bàn với kỹ thuật cầm vợt, cảm giác bóng và tư thế đứng. Chương trình cơ bản tập trung vào kiểm soát bóng, phản xạ và kết nối các động tác trong một lượt đánh.",
+    introEn: "Discover table tennis through grip, ball feel and stance. Develop control, reactions and the ability to connect strokes in a rally.",
+    goals: ["Giao bóng cơ bản và làm quen luật tính điểm.", "Thực hiện động tác đánh bóng thuận tay và trái tay.", "Kết hợp giao bóng, trả bóng và di chuyển quanh bàn."],
+    goalsEn: ["Learn a basic serve and scoring rules.", "Practise forehand and backhand strokes.", "Connect serves, returns and movement around the table."],
+    space: "Phòng tập bóng bàn trong nhà với bàn tập, lưới, ánh sáng đều và khoảng di chuyển cho các bài giao bóng, trả bóng và đánh qua lại cùng bạn tập.",
+    spaceEn: "An indoor table tennis practice room with tables, nets, even lighting and movement space for serving, returning and partner rallies.",
+  },
+  pickleball: {
+    accent: "#688341",
+    intro: "Khám phá Pickleball qua những bài tập dễ tiếp cận về cách cầm vợt, giao bóng và kiểm soát bóng. Làm quen nhịp chơi, khu vực gần lưới và sự phối hợp cùng đồng đội.",
+    introEn: "Explore pickleball with approachable drills for grip, serving and ball control. Discover the rhythm of play, the non-volley zone and teamwork.",
+    goals: ["Làm quen giao bóng dưới tay và luật hai lần nảy.", "Luyện trả bóng, dink và volley cơ bản.", "Nhận biết khu vực non-volley và phối hợp vị trí khi chơi đôi."],
+    goalsEn: ["Learn the underhand serve and two-bounce rule.", "Practise returns, dinks and basic volleys.", "Understand the non-volley zone and positioning in doubles."],
+    space: "Sân Pickleball với vạch khu vực non-volley và lưới để luyện kiểm soát bóng, di chuyển và phối hợp đôi.",
+    spaceEn: "A pickleball court with non-volley zone markings and net for ball control, movement and doubles drills.",
+  },
+  basketball: {
+    accent: "#bd6535",
+    intro: "Rèn nền tảng bóng rổ từ dẫn bóng, chuyền bóng đến ném rổ. Bài tập cá nhân kết hợp hoạt động nhóm giúp học viên phát triển khả năng quan sát và phối hợp trên sân.",
+    introEn: "Build basketball foundations in dribbling, passing and shooting. Individual drills and group activities develop awareness and teamwork.",
+    goals: ["Kiểm soát bóng khi đứng tại chỗ và di chuyển.", "Tập chuyền, bắt bóng, ném rổ và lên rổ cơ bản.", "Làm quen tư thế phòng thủ, phối hợp nhóm và luật thi đấu."],
+    goalsEn: ["Control the ball while stationary and moving.", "Practise passing, catching, shooting and basic layups.", "Discover defensive stance, team play and game rules."],
+    space: "Sân bóng rổ với rổ và vạch sân dành cho bài tập dẫn bóng, ném rổ và phối hợp nhóm nhỏ.",
+    spaceEn: "A basketball court with hoops and markings for dribbling, shooting and small-group practice.",
+  },
+  volleyball: {
+    accent: "#b77c2e",
+    intro: "Làm quen với bóng chuyền thông qua tư thế chuẩn bị, đệm bóng và chuyền bóng. Từng buổi tập hướng đến cảm giác bóng, khả năng di chuyển và tinh thần phối hợp trong đội.",
+    introEn: "Get started with volleyball through ready position, forearm passes and setting. Build ball feel, movement and team coordination.",
+    goals: ["Thực hiện tư thế chuẩn bị và di chuyển đón bóng.", "Luyện đệm bóng, chuyền bóng cao tay và phát bóng cơ bản.", "Kết nối các động tác theo nhóm và làm quen vị trí trên sân."],
+    goalsEn: ["Practise ready position and movement to the ball.", "Learn forearm passes, setting and basic serving.", "Connect skills in a group and discover court positions."],
+    space: "Sân bóng chuyền với lưới và không gian cho các bài tập chuyền, đệm, phát bóng và phối hợp đồng đội.",
+    spaceEn: "A volleyball court with net and space for passing, setting, serving and team drills.",
+  },
+  archery: {
+    accent: "#877448",
+    intro: "Khám phá bắn cung với sự tập trung và kiểm soát từng động tác. HLV hướng dẫn tư thế, nhịp thở và quy trình sử dụng dụng cụ; các bài tập được thực hiện theo hướng dẫn tại khu vực tập.",
+    introEn: "Discover archery through focus and controlled movement. Your coach guides stance, breathing and equipment handling throughout each drill.",
+    goals: ["Nhận biết dụng cụ và quy tắc sử dụng khu vực bắn.", "Làm quen tư thế đứng, kéo cung, neo tay và ngắm.", "Luyện thả dây, giữ tư thế và quan sát kết quả cùng HLV."],
+    goalsEn: ["Identify equipment and shooting-range rules.", "Learn stance, draw, anchor and aiming.", "Practise release and follow-through with coach feedback."],
+    space: "Khu vực tập bắn cung với vạch bắn và bia mục tiêu; học viên luyện tập theo hướng dẫn của HLV.",
+    spaceEn: "An archery practice area with shooting line and targets, used under coach guidance.",
+  },
+  swimming: {
+    accent: "#25869a",
+    intro: "Xây dựng sự tự tin trong nước từ cách thở, nổi và lướt nước. HLV đồng hành qua các bài tập phù hợp với khả năng của học viên để hình thành kỹ thuật bơi nền tảng.",
+    introEn: "Build water confidence through breathing, floating and gliding. Your coach adapts practice to your ability as you develop swimming foundations.",
+    goals: ["Làm quen môi trường nước, tập thở và nổi có hướng dẫn.", "Luyện đạp chân, lướt nước và động tác tay cơ bản.", "Phối hợp nhịp thở với động tác bơi và nhận biết quy tắc ở hồ bơi."],
+    goalsEn: ["Build water familiarity through guided breathing and floating.", "Practise kicking, gliding and basic arm movements.", "Coordinate breathing and swimming movements; learn pool rules."],
+    space: "Không gian hồ bơi với làn tập để làm quen nước và luyện phối hợp động tác dưới sự hướng dẫn của HLV.",
+    spaceEn: "A pool with practice lanes for water familiarisation and coordinated swimming under coach guidance.",
+  },
+  football: {
+    accent: "#4e814d",
+    intro: "Bắt đầu với cảm giác bóng, kỹ thuật chuyền và kiểm soát bóng. Các bài tập theo cặp và nhóm giúp học viên phối hợp, đọc tình huống và tìm niềm vui trong mỗi trận đấu.",
+    introEn: "Start with ball feel, passing and control. Partner and group drills develop teamwork, awareness and enjoyment of the game.",
+    goals: ["Dẫn bóng, dừng bóng và đổi hướng cơ bản.", "Luyện chuyền, nhận bóng và dứt điểm.", "Phối hợp nhóm, nhận biết vị trí và làm quen luật chơi."],
+    goalsEn: ["Practise dribbling, stopping and changing direction.", "Learn passing, receiving and shooting.", "Build team play, positioning and knowledge of the rules."],
+    space: "Sân bóng đá với khung thành và khu vực tập cho các bài dẫn bóng, chuyền bóng và thi đấu nhóm nhỏ.",
+    spaceEn: "A football pitch with goals and practice areas for dribbling, passing and small-sided games.",
+  },
+  tennis: {
+    accent: "#438576",
+    intro: "Làm quen với quần vợt qua cách cầm vợt, tư thế và kiểm soát điểm chạm bóng. Học viên luyện kỹ thuật nền tảng cùng di chuyển để tự tin duy trì những lượt đánh đầu tiên.",
+    introEn: "Discover tennis through grip, stance and contact-point control. Build foundational strokes and footwork to sustain your first rallies.",
+    goals: ["Làm quen cách cầm vợt và tư thế chuẩn bị.", "Luyện thuận tay, trái tay và giao bóng cơ bản.", "Kết hợp di chuyển, đánh qua lại và luật tính điểm."],
+    goalsEn: ["Learn grip and ready position.", "Practise forehand, backhand and basic serving.", "Combine movement and rallying; discover scoring rules."],
+    space: "Sân quần vợt với lưới và vạch sân để thực hành giao bóng, đánh bóng và di chuyển trong các lượt đánh.",
+    spaceEn: "A tennis court with net and markings for serves, strokes and movement during rallies.",
+  },
+}
+
+export const publicCourses = publicSports.map((sport) => ({
+  ...sport,
+  image: `/images/courses/${sport.id}.jpg`,
+  ...details[sport.id],
+}))

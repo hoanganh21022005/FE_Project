@@ -1,3 +1,4 @@
+import { usePublicBack } from '../../hooks/usePublicBack';
 import React, { useEffect, useState } from 'react';
 import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
@@ -5,6 +6,7 @@ import { ArrowLeft, Flame, Gauge, Zap } from 'lucide-react';
 
 export function SpinningDetailView() {
   const navigate = useNavigate();
+  const goBack = usePublicBack();
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const [activeLevel, setActiveLevel] = useState('warmup');
@@ -39,9 +41,9 @@ export function SpinningDetailView() {
       <header className="relative z-50 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
-            <div className="text-xl font-black uppercase tracking-widest text-white">SCMS SPINNING</div>
+            <div className="text-xl font-black uppercase tracking-widest text-white">VIBE Sport SPINNING</div>
           </div>
-          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-stone-400 hover:text-white transition-colors"><ArrowLeft className="w-5 h-5" />Quay lại</button>
+          <button onClick={goBack} className="flex items-center gap-2 text-stone-400 hover:text-white transition-colors"><ArrowLeft className="w-5 h-5" />Quay lại</button>
         </div>
       </header>
 
@@ -106,7 +108,7 @@ export function SpinningDetailView() {
               </p>
             </div>
 
-            <button className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest transition-all duration-500 text-white ${currentConfig.id === 'warmup' ? 'bg-blue-600 hover:bg-blue-500' : currentConfig.id === 'climb' ? 'bg-orange-500 hover:bg-orange-400' : 'bg-red-600 hover:bg-red-500'}`}>
+            <button onClick={() => navigate('/register')} className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest transition-all duration-500 text-white ${currentConfig.id === 'warmup' ? 'bg-blue-600 hover:bg-blue-500' : currentConfig.id === 'climb' ? 'bg-orange-500 hover:bg-orange-400' : 'bg-red-600 hover:bg-red-500'}`}>
               CHỌN XE VÀ GIỮ CHỖ NGAY
             </button>
           </div>

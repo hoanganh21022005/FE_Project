@@ -47,12 +47,14 @@ export function AdminSidebar({
                 onClick={() => select("admin_dashboard")}
                 className="flex items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-[#BA0000] rounded cursor-pointer"
               >
-                <div className="w-8 h-8 rounded bg-[#181818] text-white flex items-center justify-center font-black">
-                  S
-                </div>
+                <img
+                  src="/images/vibe-sport-logo.png?v=2"
+                  alt="Vibe Sport"
+                  className="w-12 h-9 object-contain flex-shrink-0"
+                />
                 <div>
                   <p className="text-sm font-extrabold text-stone-950 leading-none">
-                    SCMS Admin
+                    VIBE Sport Admin
                   </p>
                   <p className="mt-1 text-[11px] text-stone-600">
                     Quản trị hệ thống

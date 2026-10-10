@@ -26,7 +26,7 @@ export function SupportView() {
           <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
             <BookOpen className="w-4 h-4 text-blue-600" />
             <span>
-              {language === 'vi' ? 'Tài Liệu Hướng Dẫn Vận Hành SCMS' : 'SCMS Operations Documentation'}
+              {language === 'vi' ? 'Tài Liệu Hướng Dẫn Vận Hành VIBE Sport' : 'VIBE Sport Operations Documentation'}
             </span>
           </div>
           <p className="text-xs text-slate-600 leading-relaxed">

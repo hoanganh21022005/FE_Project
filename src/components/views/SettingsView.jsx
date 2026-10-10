@@ -15,7 +15,7 @@ export function SettingsView() {
         <div>
           <h2 className="text-base font-bold text-slate-900 whitespace-nowrap">{t('settings')}</h2>
           <p className="text-xs text-slate-500 whitespace-nowrap">
-            {language === 'vi' ? 'Cấu hình ngôn ngữ, thông báo & tham số vận hành Trung tâm SCMS' : 'Configure language, notifications & SCMS operational parameters'}
+            {language === 'vi' ? 'Cấu hình ngôn ngữ, thông báo & tham số vận hành Trung tâm VIBE Sport' : 'Configure language, notifications & VIBE Sport operational parameters'}
           </p>
         </div>
       </div>
@@ -55,7 +55,7 @@ export function SettingsView() {
         <div className="space-y-3 border-b border-slate-200 pb-4">
           <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
             <Sliders className="w-4 h-4 text-slate-700" />
-            <span>{language === 'vi' ? 'Quy tắc vận hành SCMS' : 'SCMS operating rules'}</span>
+            <span>{language === 'vi' ? 'Quy tắc vận hành VIBE Sport' : 'VIBE Sport operating rules'}</span>
           </h3>
           <div className="space-y-2 text-xs text-slate-700">
             <div className="p-3 bg-slate-50 border border-slate-200 rounded flex justify-between items-center">

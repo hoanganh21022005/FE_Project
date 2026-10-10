@@ -4,6 +4,7 @@ import { useSCMS } from './context/SCMSContext';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { Toast } from './components/common/Toast';
+import { PublicPageScroll } from './components/common/PublicPageScroll';
 import { ForbiddenView } from './components/views/ForbiddenView';
 import { RequireAuth, RequireRole } from './components/auth/RouteGuard';
 import { AdminDataProvider } from './components/admin/AdminDataContext';
@@ -19,6 +20,8 @@ import {
 
 // Landing & Auth
 const HomeLandingView = React.lazy(() => import('./components/views/HomeLandingView').then(module => ({ default: module.HomeLandingView })));
+const CoachesView = React.lazy(() => import('./components/views/CoachesView').then(module => ({ default: module.CoachesView })));
+const AboutView = React.lazy(() => import('./components/views/AboutView').then(module => ({ default: module.AboutView })));
 const LoginView = React.lazy(() => import('./components/views/LoginView').then(module => ({ default: module.LoginView })));
 const PrivacyPolicyView = React.lazy(() => import('./components/views/PrivacyPolicyView').then(module => ({ default: module.PrivacyPolicyView })));
 
@@ -69,6 +72,7 @@ const HIITDetailView = React.lazy(() => import('./components/views/HIITDetailVie
 const PilatesDetailView = React.lazy(() => import('./components/views/PilatesDetailView').then(m => ({ default: m.PilatesDetailView })));
 const ZumbaDetailView = React.lazy(() => import('./components/views/ZumbaDetailView').then(module => ({ default: module.ZumbaDetailView })));
 const DisciplineDetailView = React.lazy(() => import('./components/views/DisciplineDetailView').then(module => ({ default: module.DisciplineDetailView })));
+const SportCourseView = React.lazy(() => import('./components/views/SportCourseView').then(module => ({ default: module.SportCourseView })));
 
 // Admin Views
 const AdminDashboard = React.lazy(() => import('./components/admin/views/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
@@ -96,6 +100,7 @@ function SCMSApp() {
 
   const navigate = useNavigate();
   const [targetPackageId, setTargetPackageId] = useState(null);
+  const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -105,7 +110,7 @@ function SCMSApp() {
   const handleLoginSuccess = (userOrRole) => {
     const savedIntended = typeof window !== 'undefined' ? sessionStorage.getItem('scms_intended_path') : null;
     const currentPath = location.pathname;
-    const isPublicPath = currentPath === '/' || currentPath === '/login' || currentPath === '/register' || currentPath === '/admin/login' || currentPath === '/privacy-policy' || currentPath.startsWith('/discipline');
+    const isPublicPath = currentPath === '/' || currentPath === '/about' || currentPath === '/coaches' || currentPath.startsWith('/courses/') || currentPath === '/login' || currentPath === '/register' || currentPath === '/admin/login' || currentPath === '/privacy-policy' || currentPath.startsWith('/discipline');
     const effectiveIntended = savedIntended || (!isPublicPath ? currentPath : null);
     const destination = getLoginDestination(userOrRole, effectiveIntended, {
       isApiMode: apiEnabled,
@@ -224,11 +229,15 @@ function SCMSApp() {
   }
 
   // Public Routes (Unauthenticated)
-  if (!isAuthenticated) {
+  if (!isAuthenticated || ['/', '/about', '/coaches', '/privacy-policy'].includes(location.pathname) || location.pathname.startsWith('/courses/') || location.pathname.startsWith('/discipline/')) {
     return (
       <>
         <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full animate-spin"></div></div>}>
+          <PublicPageScroll />
           <Routes>
+            <Route path="/about" element={<AboutView />} />
+            <Route path="/coaches" element={<CoachesView />} />
+            <Route path="/courses/:sportId" element={<SportCourseView />} />
             <Route path="/" element={<HomeLandingView onOpenLogin={() => navigate('/login')} onOpenRegister={(pkgId) => { setTargetPackageId(pkgId || null); navigate('/register'); }} />} />
             <Route path="/discipline/pt" element={<PTDetailView />} />
             <Route path="/discipline/gym" element={<GymDetailView />} />
@@ -241,12 +250,12 @@ function SCMSApp() {
             <Route path="/discipline/hiit" element={<HIITDetailView />} />
             <Route path="/discipline/zumba" element={<ZumbaDetailView />} />
             <Route path="/discipline/:id" element={<DisciplineDetailView />} />
-            <Route path="/login" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" />} />
-            <Route path="/register" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="register" initialPackageId={targetPackageId} />} />
+            <Route path="/login" element={<LoginView key={location.pathname} onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" />} />
+            <Route path="/register" element={<LoginView key={location.pathname} onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="register" initialPackageId={targetPackageId} />} />
             <Route path="/privacy-policy" element={<PrivacyPolicyView onBackToHome={() => navigate('/')} />} />
-            <Route path="/admin/login" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" adminEntry={true} />} />
-            <Route path="/admin/*" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" adminEntry={true} />} />
-            <Route path="*" element={<LoginView onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" />} />
+            <Route path="/admin/login" element={<LoginView key={location.pathname} onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" adminEntry={true} />} />
+            <Route path="/admin/*" element={<LoginView key={location.pathname} onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" adminEntry={true} />} />
+            <Route path="*" element={<LoginView key={location.pathname} onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" />} />
           </Routes>
         </Suspense>
         <Toast />

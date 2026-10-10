@@ -1,3 +1,4 @@
+import { usePublicBack } from '../../hooks/usePublicBack';
 import React, { useEffect, useState } from 'react';
 import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +9,7 @@ export function PTDetailView() {
   const { language } = useSCMS();
   const isVi = language === 'vi';
   const navigate = useNavigate();
+  const goBack = usePublicBack();
   
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -55,11 +57,11 @@ export function PTDetailView() {
               <span className="text-white">SC</span>
             </div>
             <div className="text-xl font-black tracking-widest uppercase text-white leading-none mt-1">
-              SCMS FITNESS
+              VIBE Sport FITNESS
             </div>
           </div>
           <button 
-            onClick={() => navigate(-1)}
+            onClick={goBack}
             className="flex items-center gap-2 text-sm font-semibold text-stone-300 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -200,12 +202,12 @@ export function PTDetailView() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
             <div className="max-w-xl">
               <h2 className="text-5xl md:text-[64px] font-black uppercase leading-[1.1] tracking-tighter mb-8 text-[#111111]">
-                {isVi ? 'KẾT NỐI NGAY VỚI CÁC HLV CÁ NHÂN TẠI SCMS' : 'CONNECT NOW WITH SCMS PERSONAL TRAINERS'}
+                {isVi ? 'KẾT NỐI NGAY VỚI CÁC HLV CÁ NHÂN TẠI VIBE Sport' : 'CONNECT NOW WITH VIBE Sport PERSONAL TRAINERS'}
               </h2>
               <p className="text-stone-600 font-medium text-sm leading-relaxed">
                 {isVi 
-                  ? 'Khi phát sinh thanh toán, vui lòng chỉ thanh toán cho công ty SCMS Fitness, không giao dịch hay chuyển khoản vào tài khoản không phải của Công ty SCMS.'
-                  : 'For any payments, please only pay to SCMS Fitness company. Do not transact or transfer to non-company accounts.'}
+                  ? 'Khi phát sinh thanh toán, vui lòng chỉ thanh toán cho công ty VIBE Sport Fitness, không giao dịch hay chuyển khoản vào tài khoản không phải của Công ty VIBE Sport.'
+                  : 'For any payments, please only pay to VIBE Sport Fitness company. Do not transact or transfer to non-company accounts.'}
               </p>
             </div>
             

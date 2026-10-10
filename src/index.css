@@ -111,6 +111,90 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+@keyframes vibe-slogan-cycle {
+  0% {
+    opacity: 0;
+    filter: blur(12px);
+    transform: translate3d(0.12em, 0.3em, 0) skewX(-10deg);
+  }
+  5%,
+  20% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0) skewX(-8deg);
+  }
+  25%,
+  100% {
+    opacity: 0;
+    filter: blur(8px);
+    transform: translate3d(-0.08em, -0.24em, 0) skewX(-8deg);
+  }
+}
+
+.vibe-hero-accent {
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: -10;
+  width: 28%;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgb(227 22 40 / 12%));
+  clip-path: polygon(65% 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.vibe-slogan-stage {
+  position: relative;
+  display: block;
+  min-height: 1.25em;
+  isolation: isolate;
+}
+
+.vibe-slogan-word {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  white-space: nowrap;
+  text-transform: uppercase;
+  color: #fff;
+  line-height: 1.12;
+  opacity: 0;
+  animation: vibe-slogan-cycle 12s cubic-bezier(0.2, 0.75, 0.25, 1) infinite both;
+  will-change: opacity, filter, transform;
+}
+
+.vibe-slogan-word:nth-child(even) {
+  color: var(--color-mlc-red);
+}
+
+.vibe-slogan-word::after {
+  content: "";
+  position: absolute;
+  bottom: -0.025em;
+  left: 0.04em;
+  width: 1.1em;
+  height: 0.045em;
+  background: var(--color-mlc-red);
+  clip-path: polygon(5% 0, 100% 0, 95% 100%, 0 100%);
+}
+
+.vibe-slogan-word:nth-child(even)::after {
+  background: #fff;
+}
+
+.vibe-hero[data-paused="true"] .vibe-slogan-word {
+  animation-play-state: paused;
+}
+
+.vibe-hero[data-paused="true"] .vibe-slogan-word {
+  visibility: hidden;
+}
+
+.vibe-hero[data-paused="true"] .vibe-slogan-word[data-pause-visible="true"] {
+  visibility: visible;
+  opacity: 1 !important;
+  filter: none !important;
+  transform: skewX(-8deg) !important;
+}
+
 .sports-marquee-track {
   animation: marquee 32s linear infinite;
 }
@@ -136,5 +220,44 @@ h1, h2, h3, h4, h5, h6 {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .vibe-slogan-stage {
+    display: flex;
+    min-height: 0;
+    flex-wrap: wrap;
+    column-gap: 0.24em;
+    font-size: clamp(2.5rem, 7vw, 5.5rem);
+  }
+
+  .vibe-slogan-word {
+    position: static;
+    width: auto;
+    opacity: 1;
+    filter: none;
+    transform: none;
+    animation: none !important;
+    will-change: auto;
+  }
+
+  .vibe-slogan-word::after {
+    display: none;
+  }
+
+  .vibe-hero[data-paused="true"] .vibe-slogan-word {
+    visibility: visible;
+    transform: none !important;
+  }
+
+  .vibe-slogan-word:not(:last-child)::after {
+    position: static;
+    display: inline;
+    width: auto;
+    height: auto;
+    background: none;
+    clip-path: none;
+    content: "·";
+    color: #ffffff99;
+    margin-left: 0.24em;
   }
 }

@@ -4,7 +4,7 @@ export const translations = {
   vi: {
     // App Brand
     appName: 'HỆ THỐNG QUẢN LÝ TRUNG TÂM THỂ THAO',
-    appShort: 'SCMS',
+    appShort: 'VIBE Sport',
     systemTitle: 'SPORTS CENTER MANAGEMENT SYSTEM',
     
     // Navigation & Roles
@@ -145,7 +145,7 @@ export const translations = {
   en: {
     // App Brand
     appName: 'SPORTS CENTER MANAGEMENT SYSTEM',
-    appShort: 'SCMS',
+    appShort: 'VIBE Sport',
     systemTitle: 'SPORTS CENTER MANAGEMENT SYSTEM',
     
     // Navigation & Roles

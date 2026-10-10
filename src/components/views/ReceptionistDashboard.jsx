@@ -36,7 +36,7 @@ export function ReceptionistDashboard() {
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-bold text-slate-900">
-            {language === 'vi' ? 'Quầy Lễ Tân SCMS Center' : 'SCMS Reception Desk'}
+            {language === 'vi' ? 'Quầy Lễ Tân VIBE Sport Center' : 'VIBE Sport Reception Desk'}
           </h2>
           <p className="text-xs text-slate-500">
             {language === 'vi'

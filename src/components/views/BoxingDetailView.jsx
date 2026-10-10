@@ -1,3 +1,4 @@
+import { usePublicBack } from '../../hooks/usePublicBack';
 import React, { useEffect, useState } from 'react';
 import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
@@ -6,6 +7,7 @@ import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Responsi
 
 export function BoxingDetailView() {
   const navigate = useNavigate();
+  const goBack = usePublicBack();
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const [activeStyle, setActiveStyle] = useState('Boxing');
@@ -47,9 +49,9 @@ export function BoxingDetailView() {
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
             <div className="w-10 h-10 rounded-xl bg-[#00ffcc] flex items-center justify-center font-black text-lg text-black">SC</div>
-            <div className="text-xl font-black uppercase text-white tracking-widest">SCMS FIGHT</div>
+            <div className="text-xl font-black uppercase text-white tracking-widest">VIBE Sport FIGHT</div>
           </div>
-          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-stone-400 hover:text-[#00ffcc] transition-colors"><ArrowLeft className="w-5 h-5" />Quay lại</button>
+          <button onClick={goBack} className="flex items-center gap-2 text-stone-400 hover:text-[#00ffcc] transition-colors"><ArrowLeft className="w-5 h-5" />Quay lại</button>
         </div>
       </header>
 

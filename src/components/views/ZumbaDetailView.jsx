@@ -1,3 +1,4 @@
+import { usePublicBack } from '../../hooks/usePublicBack';
 import React, { useEffect } from 'react';
 import { PublicFooter } from '../layout/PublicFooter';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +10,7 @@ export function ZumbaDetailView() {
   const { language } = useSCMS();
   const isVi = language === 'vi';
   const navigate = useNavigate();
+  const goBack = usePublicBack();
   
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -63,11 +65,11 @@ export function ZumbaDetailView() {
               <span className="text-white">SC</span>
             </div>
             <div className="text-xl font-black tracking-widest uppercase text-white leading-none mt-1">
-              SCMS FITNESS
+              VIBE Sport FITNESS
             </div>
           </div>
           <button 
-            onClick={() => navigate(-1)}
+            onClick={goBack}
             className="flex items-center gap-2 text-sm font-semibold text-stone-300 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -98,8 +100,8 @@ export function ZumbaDetailView() {
               </h3>
               <p className="text-stone-300 text-xs md:text-sm max-w-[250px] leading-relaxed">
                 {isVi 
-                  ? 'Đắm chìm trong không gian sôi động với hơn 30+ lớp Dance đa dạng tại SCMS và tận hưởng những lợi ích bất ngờ từ Dance.'
-                  : 'Immerse yourself in a vibrant space with over 30+ diverse Dance classes at SCMS and enjoy surprising benefits.'}
+                  ? 'Đắm chìm trong không gian sôi động với hơn 30+ lớp Dance đa dạng tại VIBE Sport và tận hưởng những lợi ích bất ngờ từ Dance.'
+                  : 'Immerse yourself in a vibrant space with over 30+ diverse Dance classes at VIBE Sport and enjoy surprising benefits.'}
               </p>
             </div>
             
@@ -150,7 +152,7 @@ export function ZumbaDetailView() {
       <section className="py-24 bg-[#111111] relative border-t border-stone-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-5xl md:text-7xl lg:text-[80px] font-black text-white uppercase leading-[1] tracking-tighter mb-24 max-w-4xl">
-            {isVi ? 'CHÁY HẾT MÌNH VỚI HƠN 30 LỚP DANCE SCMS' : 'BURN OUT WITH OVER 30 SCMS DANCE CLASSES'}
+            {isVi ? 'CHÁY HẾT MÌNH VỚI HƠN 30 LỚP DANCE VIBE Sport' : 'BURN OUT WITH OVER 30 VIBE Sport DANCE CLASSES'}
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-24 relative">

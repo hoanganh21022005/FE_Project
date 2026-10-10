@@ -1,0 +1,40 @@
+.sport-course-container { width: 100%; max-width: 1440px; margin-inline: auto; padding-inline: clamp(1.25rem, 4vw, 3rem); }
+.sport-course-page { --course-accent: #315b8b; }
+.sport-course-accent { color: var(--course-accent); }
+.coaches-grid-background .sport-course-accent { color: color-mix(in srgb, var(--course-accent), white 35%); }
+.sport-course-kicker { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+.sport-course-rule { height: 4px; width: 100px; margin-block: 1.75rem 2rem; background: var(--course-accent); transform: skewX(-15deg); }
+.sport-course-hero { position: relative; isolation: isolate; overflow: hidden; min-height: 600px; display: flex; align-items: center; }
+.sport-course-hero-image { position: absolute; inset: 0; z-index: -4; width: 100%; height: 100%; object-fit: cover; }
+.sport-course-hero-shade { position: absolute; inset: 0; z-index: -3; background: linear-gradient(90deg, rgb(15 21 29 / 90%), rgb(15 21 29 / 65%) 50%, rgb(15 21 29 / 35%)), linear-gradient(0deg, rgb(15 21 29 / 30%), transparent); }
+.sport-course-hero-wedge { position: absolute; inset: 0 0 0 55%; z-index: -1; background: var(--course-accent); opacity: 0.2; clip-path: polygon(22% 0, 100% 0, 100% 100%, 0 100%); }
+.sport-course-hero .coaches-hero-grid { z-index: -2; }
+.sport-course-hero .coaches-eyebrow { background: var(--course-accent); }
+.sport-course-overview { align-self: start; padding: clamp(1.5rem, 3vw, 2.5rem); border: 1px solid #e2e5e9; background: #f1f3f6; box-shadow: 0 24px 50px -35px rgb(24 29 37 / 40%); }
+.sport-course-programme { border: 1px solid #e2e5e9; background: white; box-shadow: 0 24px 50px -35px rgb(24 29 37 / 40%); }
+.sport-course-programme-head { position: relative; overflow: hidden; padding: 1.75rem 2rem; background: var(--course-accent); color: white; }
+.sport-course-programme-head > span { position: absolute; top: -1rem; left: 1rem; transform: skewX(-12deg); opacity: 0.12; font-family: var(--font-display); font-size: 7rem; font-weight: 900; line-height: 1; }
+.sport-course-coach { display: grid; grid-template-columns: 0.9fr 1.1fr; min-width: 0; overflow: hidden; border: 1px solid rgb(255 255 255 / 12%); background: rgb(255 255 255 / 5%); }
+.sport-course-coach > img { width: 100%; height: 100%; min-height: 450px; object-fit: cover; object-position: center; }
+.sport-course-coach-copy { min-width: 0; align-self: center; padding: 1.5rem; }
+.sport-course-space { position: relative; isolation: isolate; min-height: 450px; overflow: hidden; border-left: 5px solid var(--course-accent); }
+.sport-course-space > img { position: absolute; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sport-course-space::after { content: ''; position: absolute; z-index: -1; inset: 0; background: linear-gradient(0deg, rgb(10 15 23 / 96%), rgb(10 15 23 / 65%) 40%, rgb(10 15 23 / 10%)); }
+.sport-course-space-copy { padding: 2rem; padding-top: 12rem; }
+.sport-course-training { position: relative; isolation: isolate; overflow: hidden; }
+.sport-course-training::before { content: ''; position: absolute; z-index: -1; inset: 0 60% 0 0; background: var(--course-accent); opacity: 0.18; transform: skewX(-12deg); transform-origin: top; }
+.sport-course-button { display: inline-flex; justify-content: center; align-items: center; gap: 1rem; min-height: 52px; padding: 1rem 2rem; background: var(--course-accent); color: white; font-size: 0.875rem; font-weight: 700; border-radius: 2px; transition: filter 200ms, transform 200ms; }
+.sport-course-button:hover { filter: brightness(1.15); transform: translateY(-2px); }
+.sport-course-tuition { max-width: 760px; margin: 3rem auto 0; padding: 2rem; border: 1px solid rgb(255 255 255 / 15%); background: #202631; }
+@media (max-width: 640px) {
+  .sport-course-hero { min-height: 530px; }
+  .sport-course-coach { grid-template-columns: 1fr; }
+  .sport-course-coach > img { height: 350px; min-height: 0; object-position: center 30%; }
+  .sport-course-coach-copy, .sport-course-space-copy { padding: 1.5rem; }
+  .sport-course-space-copy { padding-top: 12rem; }
+  .sport-course-space { min-height: 420px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sport-course-button { transition: none; }
+  .sport-course-button:hover { transform: none; }
+}
