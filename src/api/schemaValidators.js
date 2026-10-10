@@ -92,3 +92,49 @@ export function validateStaffSchema(list) {
   if (list.length === 0) return true;
   return list.every(validateStaffItem);
 }
+
+export function validatePackageItem(item) {
+  if (!item || typeof item !== 'object') return false;
+  if (!isValidNumericId(item.id)) return false;
+  if (!isNonEmptyString(item.name)) return false;
+  const price = asNumber(item.price);
+  if (price === null || price < 0) return false;
+  return true;
+}
+
+export function validatePackageSchema(list) {
+  if (!Array.isArray(list)) return false;
+  if (list.length === 0) return true;
+  return list.every(validatePackageItem);
+}
+
+export function validateSubscriptionItem(item) {
+  if (!item || typeof item !== 'object') return false;
+  const subId = item.subscriptionId ?? item.id;
+  if (!isValidNumericId(subId)) return false;
+  if (!isValidNumericId(item.memberId)) return false;
+  if (!isValidNumericId(item.packageId)) return false;
+  return true;
+}
+
+export function validateSubscriptionSchema(list) {
+  if (!Array.isArray(list)) return false;
+  if (list.length === 0) return true;
+  return list.every(validateSubscriptionItem);
+}
+
+export function validateInvoiceItem(item) {
+  if (!item || typeof item !== 'object') return false;
+  const invId = item.invoiceId ?? item.id;
+  if (!isValidNumericId(invId)) return false;
+  if (!isValidNumericId(item.memberId)) return false;
+  const amount = asNumber(item.amount);
+  if (amount === null || amount < 0) return false;
+  return true;
+}
+
+export function validateInvoiceSchema(list) {
+  if (!Array.isArray(list)) return false;
+  if (list.length === 0) return true;
+  return list.every(validateInvoiceItem);
+}
