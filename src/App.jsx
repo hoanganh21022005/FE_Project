@@ -9,6 +9,7 @@ import { ForbiddenView } from './components/views/ForbiddenView';
 import { RequireAuth, RequireRole } from './components/auth/RouteGuard';
 import { AdminDataProvider } from './components/admin/AdminDataContext';
 import { AdminLayout } from './components/admin/AdminLayout';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import {
   ROLE_ADMIN,
   ROLE_MANAGER,
@@ -54,6 +55,8 @@ const ReceptionPaymentsView = React.lazy(() => import('./components/views/Recept
 const MemberDashboard = React.lazy(() => import('./components/views/MemberDashboard').then(module => ({ default: module.MemberDashboard })));
 const MyMembershipView = React.lazy(() => import('./components/views/MyMembershipView').then(module => ({ default: module.MyMembershipView })));
 const MemberClassCatalog = React.lazy(() => import('./components/views/MemberClassCatalog').then(module => ({ default: module.MemberClassCatalog })));
+const MemberAttendanceView = React.lazy(() => import('./components/views/MemberAttendanceView').then(module => ({ default: module.MemberAttendanceView })));
+const MemberFeedbackView = React.lazy(() => import('./components/views/MemberFeedbackView').then(module => ({ default: module.MemberFeedbackView })));
 
 // Settings & Support & Profile
 const SettingsView = React.lazy(() => import('./components/views/SettingsView').then(module => ({ default: module.SettingsView })));
@@ -212,6 +215,7 @@ function SCMSApp() {
     if (path.includes('/audit-logs')) return t('auditLogs');
     if (path.includes('/my-membership')) return t('myMembership');
     if (path.includes('/catalog')) return t('classCatalog');
+    if (path.includes('/feedback')) return language === 'vi' ? 'Đánh giá & Feedback' : 'Class Feedback';
     if (path.includes('/settings')) return t('settings');
     if (path.includes('/support')) return t('support');
     if (path.includes('/profile')) return t('profile');
@@ -221,9 +225,14 @@ function SCMSApp() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-stone-950 text-stone-200 flex flex-col items-center justify-center gap-3 text-sm">
-        <div className="w-8 h-8 border-2 border-[#BA0000] border-t-transparent rounded-full animate-spin" />
-        <p className="font-medium tracking-wide">Đang kiểm tra phiên đăng nhập...</p>
+      <div className="min-h-screen bg-[#F4F6F8] text-[#2D2721] flex flex-col items-center justify-center gap-4 text-sm p-4">
+        <div className="w-12 h-12 bg-white rounded-xl shadow-xs border border-slate-200 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-[#BA0000] border-t-transparent rounded-full animate-spin" />
+        </div>
+        <div className="text-center">
+          <p className="font-bold tracking-wide text-slate-800">VIBE SPORT CENTER</p>
+          <p className="text-xs text-slate-500 mt-1">Đang kiểm tra phiên đăng nhập & nạp dữ liệu...</p>
+        </div>
       </div>
     );
   }
@@ -232,32 +241,34 @@ function SCMSApp() {
   if (!isAuthenticated || ['/', '/about', '/coaches', '/privacy-policy'].includes(location.pathname) || location.pathname.startsWith('/courses/') || location.pathname.startsWith('/discipline/')) {
     return (
       <>
-        <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full animate-spin"></div></div>}>
-          <PublicPageScroll />
-          <Routes>
-            <Route path="/about" element={<AboutView />} />
-            <Route path="/coaches" element={<CoachesView />} />
-            <Route path="/courses/:sportId" element={<SportCourseView />} />
-            <Route path="/" element={<HomeLandingView onOpenLogin={() => navigate('/login')} onOpenRegister={(pkgId) => { setTargetPackageId(pkgId || null); navigate('/register'); }} />} />
-            <Route path="/discipline/pt" element={<PTDetailView />} />
-            <Route path="/discipline/gym" element={<GymDetailView />} />
-            <Route path="/discipline/boxing" element={<BoxingDetailView />} />
-            <Route path="/discipline/yoga" element={<YogaDetailView />} />
-            <Route path="/discipline/pilates" element={<PilatesDetailView />} />
-            <Route path="/discipline/recovery" element={<RecoveryDetailView />} />
-            <Route path="/discipline/spinning" element={<SpinningDetailView />} />
-            <Route path="/discipline/group-x" element={<GroupXDetailView />} />
-            <Route path="/discipline/hiit" element={<HIITDetailView />} />
-            <Route path="/discipline/zumba" element={<ZumbaDetailView />} />
-            <Route path="/discipline/:id" element={<DisciplineDetailView />} />
-            <Route path="/login" element={<LoginView key={location.pathname} onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" />} />
-            <Route path="/register" element={<LoginView key={location.pathname} onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="register" initialPackageId={targetPackageId} />} />
-            <Route path="/privacy-policy" element={<PrivacyPolicyView onBackToHome={() => navigate('/')} />} />
-            <Route path="/admin/login" element={<LoginView key={location.pathname} onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" adminEntry={true} />} />
-            <Route path="/admin/*" element={<LoginView key={location.pathname} onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" adminEntry={true} />} />
-            <Route path="*" element={<LoginView key={location.pathname} onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" />} />
-          </Routes>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full animate-spin"></div></div>}>
+            <PublicPageScroll />
+            <Routes>
+              <Route path="/about" element={<AboutView />} />
+              <Route path="/coaches" element={<CoachesView />} />
+              <Route path="/courses/:sportId" element={<SportCourseView />} />
+              <Route path="/" element={<HomeLandingView onOpenLogin={() => navigate('/login')} onOpenRegister={(pkgId) => { setTargetPackageId(pkgId || null); navigate('/register'); }} />} />
+              <Route path="/discipline/pt" element={<PTDetailView />} />
+              <Route path="/discipline/gym" element={<GymDetailView />} />
+              <Route path="/discipline/boxing" element={<BoxingDetailView />} />
+              <Route path="/discipline/yoga" element={<YogaDetailView />} />
+              <Route path="/discipline/pilates" element={<PilatesDetailView />} />
+              <Route path="/discipline/recovery" element={<RecoveryDetailView />} />
+              <Route path="/discipline/spinning" element={<SpinningDetailView />} />
+              <Route path="/discipline/group-x" element={<GroupXDetailView />} />
+              <Route path="/discipline/hiit" element={<HIITDetailView />} />
+              <Route path="/discipline/zumba" element={<ZumbaDetailView />} />
+              <Route path="/discipline/:id" element={<DisciplineDetailView />} />
+              <Route path="/login" element={<LoginView key={location.pathname} onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" />} />
+              <Route path="/register" element={<LoginView key={location.pathname} onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="register" initialPackageId={targetPackageId} />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicyView onBackToHome={() => navigate('/')} />} />
+              <Route path="/admin/login" element={<LoginView key={location.pathname} onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" adminEntry={true} />} />
+              <Route path="/admin/*" element={<LoginView key={location.pathname} onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" adminEntry={true} />} />
+              <Route path="*" element={<LoginView key={location.pathname} onLoginSuccess={handleLoginSuccess} onBackToHome={() => navigate('/')} initialMode="login" />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
         <Toast />
       </>
     );
@@ -278,24 +289,26 @@ function SCMSApp() {
             onSelectTab={handleAdminSelectTab}
             onLogout={handleLogout}
           >
-            <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full animate-spin"></div></div>}>
-              <Routes>
-                <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-                <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                <Route path="/admin/users" element={<AdminUsersView />} />
-                <Route path="/admin/roles" element={<AdminRolesView />} />
-                <Route path="/admin/audit-logs" element={<AdminAuditLogsView />} />
-                <Route path="/profile" element={<PersonalProfileView />} />
-                <Route path="/settings" element={<SettingsView />} />
-                <Route path="/support" element={<SupportView />} />
-                <Route path="/403" element={<ForbiddenView currentRole={role} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
-                <Route path="/manager/*" element={<ForbiddenView currentRole={role} allowedRoles={[ROLE_MANAGER]} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
-                <Route path="/coach/*" element={<ForbiddenView currentRole={role} allowedRoles={[ROLE_COACH]} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
-                <Route path="/receptionist/*" element={<ForbiddenView currentRole={role} allowedRoles={[ROLE_RECEPTIONIST]} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
-                <Route path="/member/*" element={<ForbiddenView currentRole={role} allowedRoles={[ROLE_MEMBER]} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
-                <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
-              </Routes>
-            </Suspense>
+            <ErrorBoundary inline>
+              <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full animate-spin"></div></div>}>
+                <Routes>
+                  <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+                  <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                  <Route path="/admin/users" element={<AdminUsersView />} />
+                  <Route path="/admin/roles" element={<AdminRolesView />} />
+                  <Route path="/admin/audit-logs" element={<AdminAuditLogsView />} />
+                  <Route path="/profile" element={<PersonalProfileView />} />
+                  <Route path="/settings" element={<SettingsView />} />
+                  <Route path="/support" element={<SupportView />} />
+                  <Route path="/403" element={<ForbiddenView currentRole={role} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
+                  <Route path="/manager/*" element={<ForbiddenView currentRole={role} allowedRoles={[ROLE_MANAGER]} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
+                  <Route path="/coach/*" element={<ForbiddenView currentRole={role} allowedRoles={[ROLE_COACH]} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
+                  <Route path="/receptionist/*" element={<ForbiddenView currentRole={role} allowedRoles={[ROLE_RECEPTIONIST]} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
+                  <Route path="/member/*" element={<ForbiddenView currentRole={role} allowedRoles={[ROLE_MEMBER]} attemptedPath={location.pathname} onGoHome={() => navigate('/admin/dashboard')} />} />
+                  <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
           </AdminLayout>
         </AdminDataProvider>
       </RequireAuth>
@@ -309,72 +322,77 @@ function SCMSApp() {
       authLoading={authLoading}
       fallback={<Navigate to="/login" replace />}
     >
-      <div className="min-h-screen bg-[#F4F6F8] text-[#2D2721] flex flex-row font-sans antialiased">
+      <div className={`min-h-screen ${location.pathname.startsWith('/member') ? 'bg-white' : 'bg-[#F4F6F8]'} text-[#2D2721] flex flex-row font-sans antialiased`}>
         <Sidebar mobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0">
           <Header currentTitle={getPageTitle()} onLogout={handleLogout} onOpenMobileMenu={() => setMobileSidebarOpen(true)} />
-          <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto max-w-7xl w-full mx-auto">
-            <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full animate-spin"></div></div>}>
-              <Routes>
-                {/* Admin routes protected from non-admin */}
-                <Route
-                  path="/admin/*"
-                  element={
-                    <RequireRole
-                      allowedRoles={[ROLE_ADMIN]}
-                      currentRole={role}
-                      attemptedPath={location.pathname}
-                      onForbidden={() => navigate(`/${role}/dashboard`)}
-                    />
-                  }
-                />
+          <main className={`flex-1 ${location.pathname.startsWith('/member') ? 'overflow-y-auto w-full bg-white' : 'p-3 sm:p-4 md:p-6 overflow-y-auto max-w-7xl w-full mx-auto'}`}>
+            <ErrorBoundary inline>
+              <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full animate-spin"></div></div>}>
+                <Routes>
+                  {/* Admin routes protected from non-admin */}
+                  <Route
+                    path="/admin/*"
+                    element={
+                      <RequireRole
+                        allowedRoles={[ROLE_ADMIN]}
+                        currentRole={role}
+                        attemptedPath={location.pathname}
+                        onForbidden={() => navigate(`/${role}/dashboard`)}
+                      />
+                    }
+                  />
 
-                {/* Manager Routes */}
-                <Route path="/manager" element={<Navigate to="/manager/dashboard" replace />} />
-                <Route path="/manager/dashboard" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ManagerDashboard /></RequireRole>} />
-                <Route path="/manager/staff" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><StaffManagement /></RequireRole>} />
-                <Route path="/manager/members" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberManagement onSelectMemberDetail={(id) => navigate(`/manager/members/${id}`)} /></RequireRole>} />
-                <Route path="/manager/members/:id" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberDetailWrapper /></RequireRole>} />
-                <Route path="/manager/packages" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><PackageManagement /></RequireRole>} />
-                <Route path="/manager/classes" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ClassManagement /></RequireRole>} />
-                <Route path="/manager/resources" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ResourceManagement /></RequireRole>} />
-                <Route path="/manager/payments" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><PaymentManagement /></RequireRole>} />
-                <Route path="/manager/reports" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReportsView /></RequireRole>} />
-                <Route path="/manager/audit-logs" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><AuditLogView /></RequireRole>} />
+                  {/* Manager Routes */}
+                  <Route path="/manager" element={<Navigate to="/manager/dashboard" replace />} />
+                  <Route path="/manager/dashboard" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ManagerDashboard /></RequireRole>} />
+                  <Route path="/manager/staff" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><StaffManagement /></RequireRole>} />
+                  <Route path="/manager/members" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberManagement onSelectMemberDetail={(id) => navigate(`/manager/members/${id}`)} /></RequireRole>} />
+                  <Route path="/manager/members/:id" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberDetailWrapper /></RequireRole>} />
+                  <Route path="/manager/packages" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><PackageManagement /></RequireRole>} />
+                  <Route path="/manager/classes" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ClassManagement /></RequireRole>} />
+                  <Route path="/manager/resources" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ResourceManagement /></RequireRole>} />
+                  <Route path="/manager/payments" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><PaymentManagement /></RequireRole>} />
+                  <Route path="/manager/reports" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReportsView /></RequireRole>} />
+                  <Route path="/manager/audit-logs" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><AuditLogView /></RequireRole>} />
 
-                {/* Coach Routes */}
-                <Route path="/coach" element={<Navigate to="/coach/dashboard" replace />} />
-                <Route path="/coach/dashboard" element={<RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachDashboard /></RequireRole>} />
-                <Route path="/coach/schedule" element={<RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachScheduleView /></RequireRole>} />
-                <Route path="/coach/attendance" element={<RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachAttendanceView /></RequireRole>} />
-                <Route path="/coach/assigned-members" element={<RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachAssignedMembersView /></RequireRole>} />
-                <Route path="/coach/progress" element={<RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachTrainingProgress /></RequireRole>} />
+                  {/* Coach Routes */}
+                  <Route path="/coach" element={<Navigate to="/coach/dashboard" replace />} />
+                  <Route path="/coach/dashboard" element={<RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachDashboard /></RequireRole>} />
+                  <Route path="/coach/schedule" element={<RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachScheduleView /></RequireRole>} />
+                  <Route path="/coach/attendance" element={<RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachAttendanceView /></RequireRole>} />
+                  <Route path="/coach/assigned-members" element={<RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachAssignedMembersView /></RequireRole>} />
+                  <Route path="/coach/progress" element={<RequireRole allowedRoles={[ROLE_COACH]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachTrainingProgress /></RequireRole>} />
 
-                {/* Receptionist Routes */}
-                <Route path="/receptionist" element={<Navigate to="/receptionist/dashboard" replace />} />
-                <Route path="/receptionist/dashboard" element={<RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReceptionistDashboard /></RequireRole>} />
-                <Route path="/receptionist/search" element={<RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReceptionMemberSearch /></RequireRole>} />
-                <Route path="/receptionist/booking" element={<RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReceptionClassBooking /></RequireRole>} />
-                <Route path="/receptionist/payments" element={<RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReceptionPaymentsView /></RequireRole>} />
+                  {/* Receptionist Routes */}
+                  <Route path="/receptionist" element={<Navigate to="/receptionist/dashboard" replace />} />
+                  <Route path="/receptionist/dashboard" element={<RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReceptionistDashboard /></RequireRole>} />
+                  <Route path="/receptionist/search" element={<RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReceptionMemberSearch /></RequireRole>} />
+                  <Route path="/receptionist/booking" element={<RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReceptionClassBooking /></RequireRole>} />
+                  <Route path="/receptionist/payments" element={<RequireRole allowedRoles={[ROLE_RECEPTIONIST]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReceptionPaymentsView /></RequireRole>} />
 
-                {/* Member Routes */}
-                <Route path="/member" element={<Navigate to="/member/dashboard" replace />} />
-                <Route path="/member/dashboard" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberDashboard /></RequireRole>} />
-                <Route path="/member/my-membership" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MyMembershipView /></RequireRole>} />
-                <Route path="/member/catalog" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberClassCatalog /></RequireRole>} />
-                <Route path="/member/attendance" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachAttendanceView /></RequireRole>} />
-                <Route path="/member/progress" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachTrainingProgress /></RequireRole>} />
+                  {/* Member Routes */}
+                  <Route path="/member" element={<Navigate to="/member/dashboard" replace />} />
+                  <Route path="/member/dashboard" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberDashboard /></RequireRole>} />
+                  <Route path="/member/my-membership" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MyMembershipView /></RequireRole>} />
+                  <Route path="/member/catalog" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberClassCatalog /></RequireRole>} />
+                  <Route path="/member/class-catalog" element={<Navigate to="/member/catalog" replace />} />
+                  <Route path="/member/attendance" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberAttendanceView /></RequireRole>} />
+                  <Route path="/member/attendance-history" element={<Navigate to="/member/attendance" replace />} />
+                  <Route path="/member/feedback" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberFeedbackView /></RequireRole>} />
+                  <Route path="/member/progress" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><CoachTrainingProgress /></RequireRole>} />
 
-                {/* Common Routes */}
-                <Route path="/settings" element={<SettingsView />} />
-                <Route path="/support" element={<SupportView />} />
-                <Route path="/profile" element={<PersonalProfileView />} />
-                <Route path="/403" element={<ForbiddenView currentRole={role} attemptedPath={location.pathname} onGoHome={() => navigate(`/${role}/dashboard`)} />} />
+                  {/* Common Routes */}
+                  <Route path="/settings" element={<SettingsView />} />
+                  <Route path="/support" element={<SupportView />} />
+                  <Route path="/profile" element={<PersonalProfileView />} />
+                  <Route path="/403" element={<ForbiddenView currentRole={role} attemptedPath={location.pathname} onGoHome={() => navigate(`/${role}/dashboard`)} />} />
 
-                {/* Fallback */}
-                <Route path="*" element={<Navigate to={`/${role || 'manager'}/dashboard`} replace />} />
-              </Routes>
-            </Suspense>
+                  {/* Fallback */}
+                  <Route path="*" element={<Navigate to={`/${role || 'manager'}/dashboard`} replace />} />
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
           </main>
         </div>
         <Toast />
@@ -384,5 +402,9 @@ function SCMSApp() {
 }
 
 export default function App() {
-  return <SCMSApp />;
+  return (
+    <ErrorBoundary>
+      <SCMSApp />
+    </ErrorBoundary>
+  );
 }

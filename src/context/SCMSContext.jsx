@@ -11,6 +11,7 @@ import * as authApi from "../api/authApi.js"
 import * as managerApi from "../api/managerApi.js"
 import * as memberApi from "../api/memberApi.js"
 import * as staffApi from "../api/staffApi.js"
+import * as classEnrollmentApi from "../api/classEnrollmentApi.js"
 import { getErrorMessage, UnauthorizedError } from "../api/apiErrors.js"
 import { UNAUTHORIZED_EVENT, FORBIDDEN_EVENT } from "../api/httpClient.js"
 import {
@@ -38,11 +39,21 @@ const INITIAL_DELETED_CLASS_IDS = [
   "2",
   "3",
   "4",
+  "6",
   "8",
   "9",
   "10",
   "11",
   "12",
+  "14",
+  "15",
+  "17",
+  "29",
+  "30",
+  "35",
+  "36",
+  "37",
+  "38",
 ]
 
 const getDeletedClassIds = () => {
@@ -77,18 +88,18 @@ const LEGACY_CLASS_NAMES = [
 export const filterActiveClasses = (list) => {
   const deleted = getDeletedClassIds()
   return (list || []).filter((item) => {
-    if (deleted.includes(String(item.id))) return false
-    // Hide duplicate legacy classes 14 and 15
-    if (["14", "15"].includes(String(item.id))) {
+    const strId = String(item.id)
+    if (deleted.includes(strId)) return false
+
+    const nameLower = (item.name || item.nameVi || "").toLowerCase().trim()
+    if (
+      nameLower.includes("demo") ||
+      nameLower.includes("cancelled") ||
+      nameLower.includes("test")
+    ) {
       return false
     }
-    // Keep official classes 5, 6, 7, 13, 19, 20, 21 unless deleted
-    if (["5", "6", "7", "13", "19", "20", "21"].includes(String(item.id))) {
-      return true
-    }
-    const nameLower = (item.name || item.nameVi || "").toLowerCase().trim()
     if (LEGACY_CLASS_NAMES.includes(nameLower)) return false
-    if (nameLower.startsWith("cancelled class")) return false
     return true
   })
 }
@@ -329,12 +340,12 @@ const INITIAL_MEMBERS = [
     email: "minhanh@gmail.com",
     phone: "0988111222",
     joinDate: "2026-01-10",
-    currentPackageId: "pkg-2",
-    currentPackageName: "Gói Nâng Cao",
+    currentPackageId: "pkg-3",
+    currentPackageName: "Gói Thượng Hạng (VIP Elite)",
     membershipStatus: "active",
     primaryCoachId: "stf-3",
     primaryCoachName: "Lê Thị Mai",
-    totalSpent: 3200000,
+    totalSpent: 11500000,
   },
   {
     id: "mem-2",
@@ -395,14 +406,15 @@ const INITIAL_CLASSES = [
   {
     id: 6,
     code: "CLS-006",
-    name: "Cầu lông Cơ bản K02",
-    nameVi: "Cầu lông Cơ bản K02",
+    batch: "K02",
+    name: "Cầu lông K02",
+    nameVi: "Cầu lông K02",
     category: "Cầu lông",
-    coachId: 14,
-    coachName: "Trần Thị Hương",
+    coachId: 15,
+    coachName: "Lê Văn Hùng",
     coachSpecialty: "Cầu lông",
-    room: "Sân Cầu Lông 1",
-    roomVi: "Sân Cầu Lông 1",
+    room: "Sân Cầu Lông 2",
+    roomVi: "Sân Cầu Lông 2",
     roomSpec: "Thảm PVC tiêu chuẩn",
     date: "2026-10-12",
     startDate: "2026-10-12",
@@ -421,8 +433,9 @@ const INITIAL_CLASSES = [
   {
     id: 5,
     code: "CLS-005",
-    name: "Cầu lông Cơ bản K01",
-    nameVi: "Cầu lông Cơ bản K01",
+    batch: "K01",
+    name: "Cầu lông K01",
+    nameVi: "Cầu lông K01",
     category: "Cầu lông",
     coachId: 14,
     coachName: "Trần Thị Hương",
@@ -447,8 +460,9 @@ const INITIAL_CLASSES = [
   {
     id: 7,
     code: "CLS-007",
-    name: "Pickleball Nâng cao K01",
-    nameVi: "Pickleball Nâng cao K01",
+    batch: "K01",
+    name: "Pickleball K01",
+    nameVi: "Pickleball K01",
     category: "Pickleball",
     coachId: 16,
     coachName: "Phạm Thị Lan",
@@ -456,8 +470,8 @@ const INITIAL_CLASSES = [
     room: "Sân Pickleball A1",
     roomVi: "Sân Pickleball A1",
     roomSpec: "Mặt sân Pro Cushion tiêu chuẩn",
-    date: "2026-10-10",
-    startDate: "2026-10-10",
+    date: "2026-10-09",
+    startDate: "2026-10-09",
     startTime: "18:15",
     endTime: "20:00",
     durationMinutes: 105,
@@ -473,8 +487,9 @@ const INITIAL_CLASSES = [
   {
     id: 13,
     code: "CLS-013",
-    name: "Bắn súng Cơ bản K01",
-    nameVi: "Bắn súng Cơ bản K01",
+    batch: "K01",
+    name: "Bắn súng K01",
+    nameVi: "Bắn súng K01",
     category: "Bắn súng",
     coachId: 15,
     coachName: "Nguyễn Văn Hoàng",
@@ -494,13 +509,14 @@ const INITIAL_CLASSES = [
     status: "published",
     level: "Cơ bản",
     sessionCount: 12,
-    selectedDays: [1, 3, 5],
+    selectedDays: [2, 4, 6],
   },
   {
     id: 20,
     code: "CLS-020",
-    name: "Quần vợt Mọi cấp độ K01",
-    nameVi: "Quần vợt Mọi cấp độ K01",
+    batch: "K01",
+    name: "Quần vợt K01",
+    nameVi: "Quần vợt K01",
     category: "Quần vợt",
     coachId: 19,
     coachName: "Huỳnh Diễm My",
@@ -525,8 +541,9 @@ const INITIAL_CLASSES = [
   {
     id: 21,
     code: "CLS-021",
-    name: "Bắn cung Cơ bản K01",
-    nameVi: "Bắn cung Cơ bản K01",
+    batch: "K01",
+    name: "Bắn cung K01",
+    nameVi: "Bắn cung K01",
     category: "Bắn cung",
     coachId: 16,
     coachName: "Lê Nguyễn Thiên Phúc",
@@ -551,8 +568,9 @@ const INITIAL_CLASSES = [
   {
     id: 19,
     code: "CLS-019",
-    name: "Bóng đá Cơ bản K01",
-    nameVi: "Bóng đá Cơ bản K01",
+    batch: "K01",
+    name: "Bóng đá K01",
+    nameVi: "Bóng đá K01",
     category: "Bóng đá",
     coachId: 18,
     coachName: "Lê Trần Phi",
@@ -573,6 +591,193 @@ const INITIAL_CLASSES = [
     level: "Cơ bản",
     sessionCount: 12,
     selectedDays: [2, 4, 6],
+  },
+  {
+    id: 18,
+    code: "CLS-018",
+    batch: "K02",
+    name: "Pickleball K02",
+    nameVi: "Pickleball K02",
+    category: "Pickleball",
+    coachId: 16,
+    coachName: "Phạm Thị Lan",
+    coachSpecialty: "Pickleball",
+    room: "Sân Pickleball A2",
+    roomVi: "Sân Pickleball A2",
+    roomSpec: "Mặt sân Pro Cushion tiêu chuẩn",
+    date: "2026-10-17",
+    startDate: "2026-10-17",
+    startTime: "07:00",
+    endTime: "08:30",
+    durationMinutes: 90,
+    capacity: 6,
+    enrolledCount: 0,
+    minCapacity: 2,
+    price: 750000,
+    status: "published",
+    level: "Cơ bản",
+    sessionCount: 12,
+    selectedDays: [6, 0],
+  },
+  {
+    id: 22,
+    code: "CLS-022",
+    batch: "K01",
+    name: "Bóng bàn K01",
+    nameVi: "Bóng bàn K01",
+    category: "Bóng bàn",
+    coachId: 17,
+    coachName: "Đặng Đình Khang",
+    coachSpecialty: "Bóng bàn",
+    room: "Phòng Bóng Bàn VIP 1",
+    roomVi: "Phòng Bóng Bàn VIP 1",
+    roomSpec: "Bàn thi đấu tiêu chuẩn ITTF",
+    date: "2026-10-14",
+    startDate: "2026-10-14",
+    startTime: "18:00",
+    endTime: "19:30",
+    durationMinutes: 90,
+    capacity: 6,
+    enrolledCount: 0,
+    minCapacity: 2,
+    price: 0,
+    isFree: true,
+    status: "published",
+    level: "Mọi cấp độ",
+    sessionCount: 12,
+    selectedDays: [3, 5],
+  },
+  {
+    id: 23,
+    code: "CLS-023",
+    name: "Bóng rổ Trung cấp K01",
+    nameVi: "Bóng rổ Trung cấp K01",
+    category: "Bóng rổ",
+    coachId: 14,
+    coachName: "Đỗ Minh Tuấn",
+    coachSpecialty: "Bóng rổ",
+    room: "Sân Bóng Rổ Trong Nhà",
+    roomVi: "Sân Bóng Rổ Trong Nhà",
+    roomSpec: "Sàn gỗ phong thi đấu FIBA",
+    date: "2026-10-13",
+    startDate: "2026-10-13",
+    startTime: "17:30",
+    endTime: "19:00",
+    durationMinutes: 90,
+    capacity: 15,
+    enrolledCount: 0,
+    minCapacity: 6,
+    price: 650000,
+    status: "published",
+    level: "Trung cấp",
+    sessionCount: 12,
+    selectedDays: [2, 4],
+  },
+  {
+    id: 24,
+    code: "CLS-024",
+    name: "Bóng chuyền Kỹ thuật K01",
+    nameVi: "Bóng chuyền Kỹ thuật K01",
+    category: "Bóng chuyền",
+    coachId: 15,
+    coachName: "Vũ Hoàng Nam",
+    coachSpecialty: "Bóng chuyền",
+    room: "Sân Bóng Chuyền Thi Đấu",
+    roomVi: "Sân Bóng Chuyền Thi Đấu",
+    roomSpec: "Mặt thảm Teraflex tiêu chuẩn",
+    date: "2026-10-15",
+    startDate: "2026-10-15",
+    startTime: "18:00",
+    endTime: "19:30",
+    durationMinutes: 90,
+    capacity: 12,
+    enrolledCount: 0,
+    minCapacity: 6,
+    price: 600000,
+    status: "published",
+    level: "Cơ bản",
+    sessionCount: 12,
+    selectedDays: [2, 4, 6],
+  },
+  {
+    id: 25,
+    code: "CLS-025",
+    name: "Bơi lội Sải & Ếch K01",
+    nameVi: "Bơi lội Sải & Ếch K01",
+    category: "Bơi lội",
+    coachId: 18,
+    coachName: "Nguyễn Thúy Vi",
+    coachSpecialty: "Bơi lội",
+    room: "Bể Bơi Nước Ấm 50m",
+    roomVi: "Bể Bơi Nước Ấm 50m",
+    roomSpec: "Bể bơi điện phân muối sinh học",
+    date: "2026-10-13",
+    startDate: "2026-10-13",
+    startTime: "06:30",
+    endTime: "08:00",
+    durationMinutes: 90,
+    capacity: 10,
+    enrolledCount: 0,
+    minCapacity: 4,
+    price: 700000,
+    status: "published",
+    level: "Cơ bản",
+    sessionCount: 12,
+    selectedDays: [2, 4, 6],
+  },
+  {
+    id: 26,
+    code: "CLS-026",
+    batch: "K01",
+    name: "Cầu lông K01",
+    nameVi: "Cầu lông K01",
+    category: "Cầu lông",
+    coachId: 14,
+    coachName: "Trần Thị Hương",
+    coachSpecialty: "Cầu lông",
+    room: "Sân Cầu Lông 2",
+    roomVi: "Sân Cầu Lông 2",
+    roomSpec: "Thảm PVC tiêu chuẩn",
+    date: "2026-10-15",
+    startDate: "2026-10-15",
+    startTime: "07:00",
+    endTime: "08:30",
+    durationMinutes: 90,
+    capacity: 8,
+    enrolledCount: 1,
+    minCapacity: 4,
+    price: 600000,
+    status: "published",
+    level: "Cơ bản",
+    sessionCount: 12,
+    selectedDays: [2, 4],
+  },
+  {
+    id: 27,
+    code: "CLS-027",
+    batch: "K01",
+    name: "Pickleball K01",
+    nameVi: "Pickleball K01",
+    category: "Pickleball",
+    coachId: 16,
+    coachName: "Phạm Thị Lan",
+    coachSpecialty: "Pickleball",
+    room: "Sân Pickleball A1",
+    roomVi: "Sân Pickleball A1",
+    roomSpec: "Mặt sân Pro Cushion tiêu chuẩn",
+    date: "2026-10-16",
+    startDate: "2026-10-16",
+    startTime: "18:15",
+    endTime: "19:45",
+    durationMinutes: 90,
+    capacity: 4,
+    enrolledCount: 1,
+    minCapacity: 2,
+    price: 800000,
+    status: "published",
+    level: "Nâng cao",
+    sessionCount: 12,
+    selectedDays: [5],
   },
 ]
 
@@ -700,20 +905,38 @@ const INITIAL_ROOMS = [
 const INITIAL_BOOKINGS = [
   {
     id: "bk-1",
-    classId: "cls-101",
-    className: "Yoga Vinyasa Flow Buổi Sáng",
+    classId: 5,
+    className: "Cầu lông Cơ bản K01",
     memberId: "mem-1",
     memberName: "Nguyễn Minh Anh",
-    bookingDate: "2026-09-18 10:30",
+    bookingDate: "2026-10-08 08:30",
     status: "confirmed",
   },
   {
     id: "bk-2",
-    classId: "cls-102",
-    className: "CrossFit Cường Độ Cao",
+    classId: 7,
+    className: "Pickleball Nâng cao K01",
+    memberId: "mem-1",
+    memberName: "Nguyễn Minh Anh",
+    bookingDate: "2026-10-09 14:00",
+    status: "confirmed",
+  },
+  {
+    id: "bk-3",
+    classId: 21,
+    className: "Bắn cung Cơ bản K01",
+    memberId: "mem-1",
+    memberName: "Nguyễn Minh Anh",
+    bookingDate: "2026-10-10 10:15",
+    status: "confirmed",
+  },
+  {
+    id: "bk-4",
+    classId: 6,
+    className: "Cầu lông Cơ bản K02",
     memberId: "mem-2",
     memberName: "Lê Hoàng Nam",
-    bookingDate: "2026-09-18 14:15",
+    bookingDate: "2026-10-09 15:20",
     status: "confirmed",
   },
 ]
@@ -721,21 +944,59 @@ const INITIAL_BOOKINGS = [
 const INITIAL_ATTENDANCE = [
   {
     id: "att-1",
-    classId: "cls-101",
+    classId: 5,
     memberId: "mem-1",
     memberName: "Nguyễn Minh Anh",
     status: "present",
-    markedAt: "2026-09-20 07:35",
-    markedBy: "Lê Thị Mai",
+    markedAt: "2026-10-12 05:55",
+    markedBy: "Trần Thị Hương",
   },
   {
     id: "att-2",
-    classId: "cls-102",
+    classId: 7,
+    memberId: "mem-1",
+    memberName: "Nguyễn Minh Anh",
+    status: "late",
+    markedAt: "2026-10-09 18:25",
+    markedBy: "Phạm Thị Lan",
+  },
+  {
+    id: "att-3",
+    classId: 6,
     memberId: "mem-2",
     memberName: "Lê Hoàng Nam",
     status: "present",
-    markedAt: "2026-09-20 17:02",
-    markedBy: "Nguyễn Văn Hùng",
+    markedAt: "2026-10-10 07:30",
+    markedBy: "Trần Thị Hương",
+  },
+]
+
+const INITIAL_FEEDBACKS = [
+  {
+    id: "fb-1",
+    classId: "badminton-session-1",
+    className: "Cầu lông K01",
+    memberId: "mem-1",
+    memberName: "Bùi Văn Phúc",
+    coachId: 14,
+    coachName: "HLV Lê Thị Mai",
+    date: "2026-10-12",
+    dayVi: "Thứ Hai, 12/10",
+    startTime: "06:00",
+    endTime: "07:30",
+    room: "Sân 02 (Khu A · Thảm Taraflex)",
+    rating: 5,
+    criteria: {
+      coachQuality: 5,
+      facilityQuality: 5,
+      intensity: "Vừa sức",
+      coachBreakdown: { expertise: 5, interaction: 5, punctuality: 5 },
+      facilityBreakdown: { court: 5, lighting: 5, cleanliness: 5 },
+    },
+    tags: ["Giải thích rõ", "Nhiệt tình", "Bài tập phù hợp", "Sân sạch đẹp"],
+    comment: "HLV hướng dẫn kỹ thuật di chuyển và đập cầu rất kỹ.",
+    coachReply: "Cảm ơn bạn đã nỗ lực trong buổi học đầu tiên! Động tác di chuyển bộ chân 6 góc của bạn rất thanh thoát, hẹn gặp bạn ở các buổi tiếp theo!",
+    createdAt: "2026-10-12 08:30",
   },
 ]
 
@@ -925,6 +1186,10 @@ export const SCMSProvider = ({ children }) => {
   const [dashboard, setDashboard] = useState(null)
   const [bookings, setBookings] = useState(INITIAL_BOOKINGS)
   const [attendance, setAttendance] = useState(INITIAL_ATTENDANCE)
+  const [feedbacks, setFeedbacks] = useState(INITIAL_FEEDBACKS)
+  const [leaveRequests, setLeaveRequests] = useState([])
+  const [attendanceDisputes, setAttendanceDisputes] = useState([])
+  const [checkedInCourseSessions, setCheckedInCourseSessions] = useState({})
   const [payments, setPayments] = useState(INITIAL_PAYMENTS)
   const [auditLogs, setAuditLogs] = useState(
     API_ENABLED ? [] : INITIAL_AUDIT_LOGS,
@@ -998,6 +1263,12 @@ export const SCMSProvider = ({ children }) => {
 
     let active = true
     setAuthError(null)
+    const authTimeoutId = setTimeout(() => {
+      if (active) {
+        setAuthLoading(false)
+      }
+    }, 5000)
+
     authApi
       .getCurrentUser()
       .then((user) => {
@@ -1020,10 +1291,14 @@ export const SCMSProvider = ({ children }) => {
           setAuthError(getErrorMessage(error))
         }
       })
-      .finally(() => active && setAuthLoading(false))
+      .finally(() => {
+        clearTimeout(authTimeoutId)
+        if (active) setAuthLoading(false)
+      })
 
     return () => {
       active = false
+      clearTimeout(authTimeoutId)
       window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)
       window.removeEventListener(FORBIDDEN_EVENT, handleForbidden)
     }
@@ -1519,9 +1794,10 @@ export const SCMSProvider = ({ children }) => {
     return newTx
   }
 
-  const bookClass = (classId, memberId) => {
-    const cls = classes.find((c) => c.id === classId)
-    const member = members.find((m) => m.id === memberId)
+  const bookClass = async (classId, memberId) => {
+    const effectiveMemberId = memberId || currentUser?.id
+    const cls = classes.find((c) => String(c.id) === String(classId))
+    const member = members.find((m) => String(m.id) === String(effectiveMemberId)) || currentUser
 
     if (!cls || !member)
       return { success: false, message: "Dữ liệu không tồn tại" }
@@ -1546,49 +1822,127 @@ export const SCMSProvider = ({ children }) => {
     // Validation 2 booked check
     const existing = bookings.find(
       (b) =>
-        b.classId === classId &&
-        b.memberId === memberId &&
+        String(b.classId) === String(classId) &&
+        String(b.memberId) === String(member.id) &&
         b.status === "confirmed",
     )
     if (existing) {
       return { success: false, message: t("bookingDeniedAlready") }
     }
 
-    // Validation 3 capacity check
-    if (cls.enrolledCount >= cls.capacity) {
-      return { success: false, message: t("bookingDeniedFull") }
+    // Validation: Class status check
+    if (cls.status === "cancelled" || cls.status === "completed") {
+      return {
+        success: false,
+        message:
+          language === "vi"
+            ? "Lớp học đã kết thúc hoặc đã bị hủy!"
+            : "Class has ended or is cancelled.",
+      }
+    }
+
+    // Validation: Schedule conflict check with member's existing classes
+    const conflictingBooking = bookings.find((b) => {
+      if (
+        String(b.memberId) !== String(member.id) ||
+        b.status !== "confirmed" ||
+        String(b.classId) === String(classId)
+      ) {
+        return false
+      }
+      const otherCls = classes.find((c) => String(c.id) === String(b.classId))
+      if (!otherCls) return false
+
+      const daysA = cls.selectedDays || [1, 3, 5]
+      const daysB = otherCls.selectedDays || [1, 3, 5]
+      const hasDayConflict = daysA.some((d) => daysB.includes(d))
+      if (!hasDayConflict) return false
+
+      const startA = cls.startTime || "00:00"
+      const endA = cls.endTime || "23:59"
+      const startB = otherCls.startTime || "00:00"
+      const endB = otherCls.endTime || "23:59"
+      return startA < endB && startB < endA
+    })
+
+    if (conflictingBooking) {
+      return {
+        success: false,
+        message:
+          language === "vi"
+            ? `Trùng lịch học! Bạn đã đăng ký lớp "${conflictingBooking.className}" trong cùng khung giờ (${cls.startTime} - ${cls.endTime}).`
+            : `Schedule conflict! You are already enrolled in "${conflictingBooking.className}" during this time.`,
+      }
+    }
+
+    // Validation 3 capacity & concurrency check (Atomic reservation against race conditions)
+    let slotAcquired = false
+    setClasses((prev) => {
+      const target = prev.find((c) => String(c.id) === String(classId))
+      if (!target || target.enrolledCount >= target.capacity) {
+        slotAcquired = false
+        return prev
+      }
+      slotAcquired = true
+      return prev.map((c) =>
+        String(c.id) === String(classId)
+          ? { ...c, enrolledCount: c.enrolledCount + 1 }
+          : c,
+      )
+    })
+
+    if (!slotAcquired) {
+      return {
+        success: false,
+        message:
+          language === "vi"
+            ? "Rất tiếc! Chỗ trống cuối cùng vừa được học viên khác đăng ký nhanh hơn."
+            : "Sorry! The last spot was just booked by another member.",
+      }
     }
 
     // Validation 4 requirement check
     const memberPkg = packages.find((p) => p.id === member.currentPackageId)
     if (memberPkg && memberPkg.tier < cls.minTierRequired) {
+      // Rollback reservation
+      setClasses((prev) =>
+        prev.map((c) =>
+          String(c.id) === String(classId)
+            ? { ...c, enrolledCount: Math.max(0, c.enrolledCount - 1) }
+            : c,
+        ),
+      )
       return { success: false, message: t("bookingDeniedTier") }
+    }
+
+    if (API_ENABLED) {
+      try {
+        await classEnrollmentApi.enrollMemberInClass(classId, member.id)
+      } catch (err) {
+        console.warn("Backend enrollment transaction sync warning (falling back to local state):", err)
+      }
     }
 
     // Create booking
     const newBooking = {
       id: `bk-${Date.now()}`,
-      classId,
-      className: cls.nameVi,
-      memberId,
-      memberName: member.name,
+      classId: cls.id,
+      className: cls.nameVi || cls.name,
+      memberId: member.id || effectiveMemberId || "mem-1",
+      memberName: member.name || currentUser?.name || "Hội viên",
+      memberEmail: member.email || currentUser?.email,
       bookingDate: new Date().toISOString().replace("T", " ").slice(0, 16),
       status: "confirmed",
     }
 
     setBookings((prev) => [newBooking, ...prev])
-    setClasses((prev) =>
-      prev.map((c) =>
-        c.id === classId ? { ...c, enrolledCount: c.enrolledCount + 1 } : c,
-      ),
-    )
 
     addAuditLog(
       "BOOK_CLASS",
-      `Đăng ký lớp ${cls.nameVi}`,
+      `Đăng ký lớp ${cls.nameVi || cls.name}`,
       "Chưa đăng ký",
       "Confirmed",
-      `Thành viên ${member.name} đăng ký thành công`,
+      `Thành viên ${member.name} đăng ký thành công (Khóa ${cls.batch || "K01"})`,
     )
     showToast(
       language === "vi"
@@ -1599,13 +1953,29 @@ export const SCMSProvider = ({ children }) => {
     return { success: true, message: "Success" }
   }
 
-  const cancelBooking = (bookingId) => {
-    const bk = bookings.find((b) => b.id === bookingId)
+  const cancelBooking = async (bookingIdOrClassId, memberId) => {
+    const effectiveMemberId = memberId || currentUser?.id
+    const bk = bookings.find(
+      (b) =>
+        String(b.id) === String(bookingIdOrClassId) ||
+        (String(b.classId) === String(bookingIdOrClassId) &&
+          (String(b.memberId) === String(effectiveMemberId) ||
+            String(b.memberId) === String(currentUser?.id)) &&
+          b.status === "confirmed"),
+    )
     if (bk) {
-      setBookings((prev) => prev.filter((b) => b.id !== bookingId))
+      if (API_ENABLED) {
+        try {
+          await classEnrollmentApi.cancelMemberEnrollment(bk.classId, bk.memberId)
+        } catch (err) {
+          console.warn("Backend unenrollment sync error:", err)
+        }
+      }
+
+      setBookings((prev) => prev.filter((b) => b.id !== bk.id))
       setClasses((prev) =>
         prev.map((c) =>
-          c.id === bk.classId
+          String(c.id) === String(bk.classId)
             ? { ...c, enrolledCount: Math.max(0, c.enrolledCount - 1) }
             : c,
         ),
@@ -1622,6 +1992,196 @@ export const SCMSProvider = ({ children }) => {
           ? "Đã hủy đăng ký lớp thành công"
           : "Booking cancelled successfully",
         "info",
+      )
+      return { success: true }
+    }
+    return { success: false, message: "Không tìm thấy lượt đăng ký" }
+  }
+
+  const submitFeedback = async (feedbackData) => {
+    const targetMemberId = feedbackData.memberId || currentUser?.id
+    const existing = feedbacks.find(
+      (f) =>
+        (feedbackData.id && String(f.id) === String(feedbackData.id)) ||
+        (feedbackData.classId &&
+          String(f.classId) === String(feedbackData.classId) &&
+          String(f.memberId) === String(targetMemberId)),
+    )
+
+    const nowStr = new Date().toISOString().replace("T", " ").slice(0, 16)
+    const savedFeedback = {
+      ...(existing || {}),
+      id: existing?.id || feedbackData.id || `fb-${Date.now()}`,
+      classId: feedbackData.classId ?? existing?.classId,
+      className: feedbackData.className || existing?.className,
+      memberId: targetMemberId,
+      memberName: feedbackData.memberName || currentUser?.name || existing?.memberName,
+      coachId: feedbackData.coachId ?? existing?.coachId,
+      coachName: feedbackData.coachName || existing?.coachName,
+      date: feedbackData.date || existing?.date,
+      dayVi: feedbackData.dayVi || existing?.dayVi,
+      startTime: feedbackData.startTime || existing?.startTime,
+      endTime: feedbackData.endTime || existing?.endTime,
+      room: feedbackData.room || existing?.room,
+      rating: feedbackData.rating || existing?.rating || 5,
+      criteria: feedbackData.criteria || existing?.criteria || {},
+      tags: feedbackData.tags || [],
+      comment: feedbackData.comment ?? "",
+      isAnonymous: Boolean(feedbackData.isAnonymous),
+      isPrivateContactRequested: Boolean(feedbackData.isPrivateContactRequested),
+      coachReply:
+        feedbackData.coachReply !== undefined
+          ? feedbackData.coachReply
+          : existing?.coachReply,
+      createdAt: existing?.createdAt || feedbackData.createdAt || nowStr,
+      updatedAt: existing ? nowStr : undefined,
+    }
+
+    if (existing) {
+      setFeedbacks((prev) =>
+        prev.map((f) => (f.id === existing.id ? savedFeedback : f)),
+      )
+      addAuditLog(
+        "CLASS_FEEDBACK_UPDATED",
+        `Cập nhật đánh giá lớp ${savedFeedback.className}`,
+        `${existing.rating} sao`,
+        `${savedFeedback.rating} sao`,
+        `Hội viên ${savedFeedback.memberName} chỉnh sửa đánh giá cho HLV ${savedFeedback.coachName}`,
+      )
+    } else {
+      setFeedbacks((prev) => [savedFeedback, ...prev])
+      addAuditLog(
+        "CLASS_FEEDBACK",
+        `Đánh giá lớp ${savedFeedback.className}`,
+        "-",
+        `${savedFeedback.rating} sao`,
+        `Hội viên ${savedFeedback.memberName} gửi đánh giá cho HLV ${savedFeedback.coachName}`,
+      )
+    }
+
+    showToast(
+      language === "vi"
+        ? existing
+          ? "Đã cập nhật đánh giá buổi học thành công!"
+          : "Cảm ơn bạn đã gửi đánh giá buổi học!"
+        : existing
+          ? "Class feedback updated successfully!"
+          : "Thank you for your class feedback!",
+      "success",
+    )
+    return { success: true, feedback: savedFeedback, isUpdate: Boolean(existing) }
+  }
+
+  const submitLeaveRequest = async (leaveData) => {
+    const session = leaveData?.session || {}
+    const sessionId = session.id || session.bookingId || `${session.courseId || "course"}-session-${session.num || 1}`
+    const nowStr = new Date().toISOString().replace("T", " ").slice(0, 16)
+    const entry = {
+      id: `lv-${Date.now()}`,
+      sessionId,
+      courseId: session.courseId,
+      sessionNum: session.num,
+      className: session.className,
+      date: session.date,
+      dayVi: session.dayVi,
+      startTime: session.startTime,
+      endTime: session.endTime,
+      coachName: session.coach || session.coachName,
+      memberId: currentUser?.id || "mem-1",
+      memberName: currentUser?.name || "Hội viên",
+      type: leaveData?.type || "leave",
+      reason: leaveData?.reason || "",
+      note: leaveData?.note || "",
+      status: "approved",
+      createdAt: nowStr,
+    }
+
+    setLeaveRequests((prev) => {
+      const filtered = prev.filter((item) => item.sessionId !== sessionId)
+      return [entry, ...filtered]
+    })
+
+    addAuditLog(
+      entry.type === "swap" ? "SESSION_SWAP_REQUESTED" : "LEAVE_REQUESTED",
+      `${entry.className} (Buổi ${entry.sessionNum || 1} - ${entry.date})`,
+      "Upcoming",
+      entry.type === "swap" ? "Đăng ký đổi ca" : "Nghỉ phép có bảo lưu",
+      `${entry.reason}${entry.note ? ` (${entry.note})` : ""}`,
+    )
+
+    return { success: true, leaveRequest: entry }
+  }
+
+  const cancelLeaveRequest = (sessionId) => {
+    if (!sessionId) return { success: false }
+    const existing = leaveRequests.find((item) => item.sessionId === sessionId)
+    setLeaveRequests((prev) => prev.filter((item) => item.sessionId !== sessionId))
+    if (existing) {
+      addAuditLog(
+        "LEAVE_CANCELLED",
+        `${existing.className} (Buổi ${existing.sessionNum || 1} - ${existing.date})`,
+        existing.type === "swap" ? "Đăng ký đổi ca" : "Nghỉ phép có bảo lưu",
+        "Hủy yêu cầu (Tham gia bình thường)",
+        "Hội viên chủ động hủy đơn xin nghỉ/đổi ca",
+      )
+    }
+    return { success: true }
+  }
+
+  const reportAttendanceDispute = (disputeData) => {
+    const sessionId = disputeData?.sessionId
+    if (!sessionId) return { success: false }
+    const nowStr = new Date().toISOString().replace("T", " ").slice(0, 16)
+    const entry = {
+      id: `dsp-${Date.now()}`,
+      sessionId,
+      courseId: disputeData.courseId,
+      sessionNum: disputeData.sessionNum,
+      className: disputeData.className,
+      date: disputeData.date,
+      reason: disputeData.reason || "Đã có mặt tại sân nhưng cổng từ chưa ghi nhận",
+      memberId: currentUser?.id || "mem-1",
+      memberName: currentUser?.name || "Hội viên",
+      status: "pending_verification",
+      createdAt: nowStr,
+    }
+
+    setAttendanceDisputes((prev) => {
+      const filtered = prev.filter((d) => d.sessionId !== sessionId)
+      return [entry, ...filtered]
+    })
+
+    addAuditLog(
+      "ATTENDANCE_DISPUTE",
+      `Đối soát điểm danh: ${entry.className} (Buổi ${entry.sessionNum})`,
+      disputeData.currentAttendance || "present",
+      "Chờ đối soát camera 24h",
+      entry.reason,
+    )
+
+    return { success: true, dispute: entry }
+  }
+
+  const markCourseSessionCheckedIn = (sessionId, meta = {}) => {
+    if (!sessionId) return
+    const checkinTime = meta.checkinTime || "05:55"
+    setCheckedInCourseSessions((prev) => ({
+      ...prev,
+      [sessionId]: {
+        sessionId,
+        checkinTime,
+        attendance: "present",
+        checkedInAt: new Date().toISOString(),
+        ...meta,
+      },
+    }))
+    if (meta.className) {
+      addAuditLog(
+        "QR_GATE_CHECKIN",
+        `Check-in Fast Track: ${meta.className} (Buổi ${meta.sessionNum || 1})`,
+        "Check-in Open",
+        `Present (${checkinTime})`,
+        "Hội viên quét mã QR qua cổng soát vé tự động",
       )
     }
   }
@@ -2179,6 +2739,10 @@ export const SCMSProvider = ({ children }) => {
         rooms,
         bookings,
         attendance,
+        feedbacks,
+        leaveRequests,
+        attendanceDisputes,
+        checkedInCourseSessions,
         payments,
         auditLogs,
         trainingPlans,
@@ -2193,6 +2757,11 @@ export const SCMSProvider = ({ children }) => {
         bookClass,
         cancelBooking,
         recordAttendance,
+        submitFeedback,
+        submitLeaveRequest,
+        cancelLeaveRequest,
+        reportAttendanceDispute,
+        markCourseSessionCheckedIn,
         addClassSession,
         createSubject,
         updateSubject,
@@ -2259,6 +2828,10 @@ const fallbackContext = {
   rooms: [],
   bookings: [],
   attendance: [],
+  feedbacks: [],
+  leaveRequests: [],
+  attendanceDisputes: [],
+  checkedInCourseSessions: {},
   payments: [],
   auditLogs: [],
   trainingPlans: [],
@@ -2270,6 +2843,11 @@ const fallbackContext = {
   bookClass: () => {},
   cancelBooking: () => {},
   recordAttendance: () => {},
+  submitFeedback: () => {},
+  submitLeaveRequest: async () => ({ success: false }),
+  cancelLeaveRequest: () => ({ success: false }),
+  reportAttendanceDispute: () => ({ success: false }),
+  markCourseSessionCheckedIn: () => {},
   addClassSession: async () => ({ success: false }),
   createSubject: async () => {},
   updateSubject: async () => {},

@@ -185,6 +185,25 @@ function matchDateRange(clsDateStr, rangeOption) {
   return true
 }
 
+export function computeCourseEndDate(startDateStr, days, count = 12) {
+  if (!startDateStr || !Array.isArray(days) || days.length === 0) return ""
+  const current = new Date(startDateStr)
+  let sessionsRemaining = count
+  let safety = 0
+  while (sessionsRemaining > 0 && safety < 365) {
+    if (days.includes(current.getDay())) {
+      sessionsRemaining--
+      if (sessionsRemaining === 0) break
+    }
+    current.setDate(current.getDate() + 1)
+    safety++
+  }
+  const yyyy = current.getFullYear()
+  const mm = String(current.getMonth() + 1).padStart(2, "0")
+  const dd = String(current.getDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
+}
+
 function exportClassesToCsv(
   classesToExport,
   filenamePrefix = "danh_sach_lop_hoc",
@@ -533,8 +552,15 @@ function EditClassModal({
     }
   }
 
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState("")
+  // Tự động tính ngày bế giảng từ ngày khai giảng, các thứ trong tuần và số buổi học
+  useEffect(() => {
+    if (form.startDate && selectedDays && selectedDays.length > 0) {
+      const autoEnd = computeCourseEndDate(form.startDate, selectedDays, sessionCount)
+      if (autoEnd && autoEnd !== form.endDate) {
+        setForm((prev) => ({ ...prev, endDate: autoEnd }))
+      }
+    }
+  }, [form.startDate, selectedDays, sessionCount])
 
   const submit = async (e) => {
     e.preventDefault()
@@ -546,6 +572,18 @@ function EditClassModal({
       setError("Vui lòng chọn ít nhất một thứ trong tuần.")
       return
     }
+
+    // Kiểm tra tính hợp lệ: Ngày khai giảng phải rơi vào đúng một trong các thứ đã chọn
+    if (form.startDate || form.date) {
+      const startDay = new Date(form.startDate || form.date).getDay()
+      if (!selectedDays.includes(startDay)) {
+        const dayNames = { 1: "Thứ 2", 2: "Thứ 3", 3: "Thứ 4", 4: "Thứ 5", 5: "Thứ 6", 6: "Thứ 7", 0: "Chủ Nhật" }
+        const expected = selectedDays.map((d) => dayNames[d]).join(", ")
+        setError(`Ngày khai giảng (${form.startDate || form.date}) là ${dayNames[startDay]}, không trùng với các thứ đã chọn (${expected}). Vui lòng chọn ngày khai giảng đúng lịch học.`)
+        return
+      }
+    }
+
     if (conflict?.hasConflict) {
       setError(conflict.message)
       return
@@ -553,6 +591,7 @@ function EditClassModal({
     setSaving(true)
     setError("")
     try {
+      const calculatedEndDate = computeCourseEndDate(form.startDate, selectedDays, sessionCount) || form.endDate
       await onSave({
         ...form,
         name: form.name.trim(),
@@ -565,6 +604,7 @@ function EditClassModal({
             : 0,
         isFree: isFreeClass,
         selectedDays,
+        endDate: calculatedEndDate,
       })
       onClose()
     } catch (err) {
@@ -728,7 +768,7 @@ function EditClassModal({
                     {selectedCoachObj.specializationVi ||
                       selectedCoachObj.specialization ||
                       selectedCoachObj.specialty ||
-                      "Chưa cập nhật"}
+                      "Huấn luyện viên"}
                   </span>
                   {isCoachMatchingSport(selectedCoachObj, currentCategory) ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 font-medium">
@@ -738,13 +778,13 @@ function EditClassModal({
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80 font-medium">
                       <AlertTriangle className="w-3 h-3 text-amber-600" />
-                      Khác chuyên môn môn {currentCategory}
+                      Khác chuyên môn {currentCategory}
                     </span>
                   )}
                 </div>
               ) : (
-                <p className="text-xs text-stone-500 mt-1">
-                  Chưa phân công huấn luyện viên
+                <p className="text-[11px] text-amber-700 mt-1.5 font-medium flex items-center gap-1">
+                  <span>ℹ️ Chưa phân công: Danh mục học viên sẽ hiển thị "HLV sẽ được thông báo trước khai giảng".</span>
                 </p>
               )}
             </div>
@@ -905,14 +945,16 @@ function EditClassModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-stone-800 mb-1.5">
-                Ngày kết thúc
+              <label className="block text-xs font-semibold text-stone-800 mb-1.5 flex items-center justify-between">
+                <span>Ngày kết thúc (Bế giảng)</span>
+                <span className="text-[10px] text-stone-500 font-normal">Tự động ({sessionCount} buổi)</span>
               </label>
               <input
                 type="date"
+                readOnly
                 value={form.endDate}
-                onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                className="w-full h-11 px-3.5 bg-white border border-stone-300 rounded-xl text-sm"
+                className="w-full h-11 px-3.5 bg-stone-100 border border-stone-300 rounded-xl text-sm text-stone-600 cursor-not-allowed"
+                title={`Ngày bế giảng được tự động tính dựa trên ngày bắt đầu, lịch học trong tuần và ${sessionCount} buổi học`}
               />
             </div>
           </div>
@@ -1723,6 +1765,21 @@ export function ClassManagement() {
     "Chủ nhật",
   ]
 
+  const urgentCoachAlerts = useMemo(() => {
+    const nowTime = Date.now()
+    return (classes || []).filter((cls) => {
+      const isUnassigned =
+        !cls.coachId ||
+        cls.coachName === "Chưa phân công" ||
+        !cls.coachName ||
+        cls.coachName.includes("Chưa")
+      if (!isUnassigned) return false
+      const startDate = new Date(cls.startDate || cls.date)
+      const hours = (startDate.getTime() - nowTime) / (1000 * 60 * 60)
+      return hours > 0 && hours <= 48
+    })
+  }, [classes])
+
   return (
     <div className="space-y-5">
       {/* 1. HEADER: Gọn gàng trực tiếp trên nền trang (Bỏ card bọc tiêu đề) */}
@@ -1775,6 +1832,30 @@ export function ClassManagement() {
           </button>
         </div>
       </div>
+
+      {/* Cảnh báo Quản lý: Lớp sắp khai giảng trong vòng 48h chưa gán HLV */}
+      {urgentCoachAlerts.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Cảnh báo Quản lý:</strong> Có{" "}
+              <strong>{urgentCoachAlerts.length}</strong> lớp sắp khai giảng
+              trong vòng 48 giờ nhưng chưa được phân công Huấn luyện viên (
+              {urgentCoachAlerts.map((c) => c.nameVi || c.name).join(", ")}).
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (urgentCoachAlerts[0]) handleEdit(urgentCoachAlerts[0])
+            }}
+            className="text-[11px] font-bold text-amber-800 underline shrink-0 cursor-pointer hover:text-amber-950"
+          >
+            Phân công ngay &rarr;
+          </button>
+        </div>
+      )}
 
       {/* 2. TABS TRẠNG THÁI CÓ SỐ ĐẾM */}
       <div className="border-b border-stone-200 flex items-center gap-1 overflow-x-auto pb-px text-xs font-medium scrollbar-none">
@@ -2431,10 +2512,27 @@ export function ClassManagement() {
                                 })()}
                                 <div className="space-y-0.5 min-w-0">
                                   <div
-                                    className="font-medium text-stone-800 line-clamp-1 truncate"
+                                    className="font-medium text-stone-800 line-clamp-1 truncate flex items-center gap-1.5"
                                     title={cls.coachName || "Chưa phân công"}
                                   >
-                                    {cls.coachName || "Chưa phân công"}
+                                    <span>{cls.coachName || "Chưa phân công"}</span>
+                                    {(() => {
+                                      const isUnassigned =
+                                        !cls.coachId ||
+                                        cls.coachName === "Chưa phân công" ||
+                                        !cls.coachName ||
+                                        cls.coachName.includes("Chưa")
+                                      const startDt = new Date(cls.startDate || cls.date)
+                                      const hoursToStart = (startDt.getTime() - Date.now()) / (1000 * 60 * 60)
+                                      if (isUnassigned && hoursToStart > 0 && hoursToStart <= 48) {
+                                        return (
+                                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[10px] bg-rose-50 text-rose-700 border border-rose-200 font-bold shrink-0">
+                                            ⚠️ Chưa có HLV (&lt; 48h)
+                                          </span>
+                                        )
+                                      }
+                                      return null
+                                    })()}
                                   </div>
                                   {(() => {
                                     const isMismatch =

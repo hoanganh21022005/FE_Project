@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, UserCheck, Package, Calendar,
   ClipboardCheck, TrendingUp, CreditCard, BarChart3, History,
   Search, ChevronLeft, ChevronRight, Activity, Award,
-  Settings, HelpCircle, Library, X
+  Settings, HelpCircle, Library, X, MessageSquareHeart
 } from 'lucide-react';
 
 export function Sidebar({ mobileOpen = false, onCloseMobile }) {
@@ -57,6 +57,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           { path: '/member/my-membership', labelKey: 'myMembership', icon: Award },
           { path: '/member/catalog', labelKey: 'classCatalog', icon: Calendar },
           { path: '/member/attendance', labelKey: 'attendance', icon: ClipboardCheck },
+          { path: '/member/feedback', labelKey: 'feedback', label: language === 'vi' ? 'Đánh giá & Feedback' : 'Class Feedback', icon: MessageSquareHeart },
           { path: '/member/progress', labelKey: 'trainingProgress', icon: Activity }
         ];
 

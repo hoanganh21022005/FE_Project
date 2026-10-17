@@ -16,7 +16,7 @@ export function ReceptionClassBooking() {
 
   const handleDeskBooking = (classId, className) => {
     if (!selectedMember) return;
-    bookClass(selectedMember.id, classId, className);
+    bookClass(classId, selectedMember.id);
   };
 
   return (

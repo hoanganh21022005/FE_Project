@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react"
+import { useLocation } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import {
   Calendar,
@@ -15,6 +16,8 @@ import {
 
 export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
   const { language, setLanguage, currentUser, t } = useSCMS()
+  const location = useLocation()
+  const isMemberFeedback = location.pathname.startsWith('/member/feedback')
   const [isNotifOpen, setIsNotifOpen] = useState(false)
   const [notifications, setNotifications] = useState([
     {
@@ -158,35 +161,44 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
         >
           <Menu className="w-5 h-5" />
         </button>
-        <span className="hidden sm:inline text-slate-400 font-medium">VIBE Sport Center</span>
-        <ChevronRight className="hidden sm:inline w-3.5 h-3.5 text-slate-300" />
-        <span className="text-slate-900 font-bold truncate">
-          {currentTitle}
-        </span>
+        {isMemberFeedback ? (
+          <span className="text-xs font-sans tracking-[0.14em] uppercase font-semibold text-[#15171C]">
+            VIBE ATHLETIC CLUB · PHẢN HỒI
+          </span>
+        ) : (
+          <>
+            <span className="hidden sm:inline text-slate-400 font-medium">VIBE Athletic Club</span>
+            <ChevronRight className="hidden sm:inline w-3.5 h-3.5 text-slate-300" />
+            <span className="text-slate-900 font-bold truncate">
+              {currentTitle}
+            </span>
+          </>
+        )}
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex items-center gap-3 sm:gap-4">
         {/* Language Switcher (VI | EN) */}
-        <div className="flex items-center bg-[#F4F6F8] p-0.5 border border-stone-200/80 rounded-lg text-xs font-semibold">
+        <div className="flex items-center gap-1.5 text-xs font-medium">
           <button
             type="button"
             onClick={() => setLanguage("vi")}
-            className={`px-2 py-0.5 rounded-md text-[11px] transition-all cursor-pointer ${
+            className={`px-1 py-0.5 transition-colors cursor-pointer ${
               language === "vi"
-                ? "bg-[#E9ECEF] text-stone-800 shadow-2xs font-bold"
-                : "text-stone-500 hover:text-stone-800"
+                ? "text-[#15171C] font-semibold underline underline-offset-4 decoration-[#A8844F] decoration-2"
+                : "text-[#6A675F] hover:text-[#15171C]"
             }`}
           >
             VI
           </button>
+          <span className="text-[#6A675F]/40">|</span>
           <button
             type="button"
             onClick={() => setLanguage("en")}
-            className={`px-2 py-0.5 rounded-md text-[11px] transition-all cursor-pointer ${
+            className={`px-1 py-0.5 transition-colors cursor-pointer ${
               language === "en"
-                ? "bg-[#E9ECEF] text-stone-800 shadow-2xs font-bold"
-                : "text-stone-500 hover:text-stone-800"
+                ? "text-[#15171C] font-semibold underline underline-offset-4 decoration-[#A8844F] decoration-2"
+                : "text-[#6A675F] hover:text-[#15171C]"
             }`}
           >
             EN
@@ -208,7 +220,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
           >
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-[#A8844F] rounded-full ring-2 ring-white" />
             )}
           </button>
 
@@ -331,23 +343,23 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
         </div>
 
         {/* User Info & Avatar */}
-        <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-          <div className="w-7 h-7 rounded bg-slate-900 flex items-center justify-center text-white font-bold text-xs">
-            {currentUser.name.charAt(0)}
+        <div className="flex items-center gap-2.5 pl-2 sm:pl-3 border-l border-slate-200">
+          <div className="w-8 h-8 rounded-full border border-[rgba(21,23,28,0.15)] bg-[#FBF9F4] text-[#15171C] flex items-center justify-center font-medium text-xs shrink-0">
+            {(currentUser?.name || "B").charAt(0)}
           </div>
-          <div className="hidden lg:block text-left">
-            <div className="text-xs font-bold text-slate-900 leading-tight">
-              {currentUser.name}
+          <div className="hidden sm:block text-left">
+            <div className="text-xs font-semibold text-[#15171C] leading-tight truncate max-w-[140px]">
+              {currentUser?.name || "Bùi Văn Phúc"}
             </div>
-            <div className="text-[10px] text-slate-500">
-              {currentUser.email}
+            <div className="text-[10px] text-[#6A675F] font-normal leading-tight truncate max-w-[140px]">
+              {(currentUser?.email || "phuc.bui@vibeathletic.com").replace("@fitzone.vn", "@vibeathletic.com").replace("@scms.com", "@vibeathletic.com")}
             </div>
           </div>
           {onLogout && (
             <button
               id="header-logout-btn"
               onClick={onLogout}
-              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-[#15171C] hover:bg-slate-100 rounded transition-colors cursor-pointer ml-0.5"
               title={t("logout")}
               aria-label={t("logout")}
             >
