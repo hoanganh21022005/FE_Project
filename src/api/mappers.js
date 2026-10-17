@@ -128,13 +128,23 @@ export function mapClass(
     }
   }
 
-  const isPickleball = Boolean(
-    item.name && item.name.toLowerCase().includes("pickleball"),
-  )
-  const categoryName =
-    subject?.name ??
-    merged.category ??
-    (isPickleball ? "Pickleball" : "Cầu lông")
+  const itemNameLower = (item.name || "").toLowerCase()
+  let detectedCategory = subject?.name ?? merged.category ?? null
+  if (!detectedCategory || detectedCategory === "Gym" || detectedCategory === "Yoga") {
+    if (itemNameLower.includes("cầu lông") || itemNameLower.includes("badminton")) detectedCategory = "Cầu lông"
+    else if (itemNameLower.includes("pickleball")) detectedCategory = "Pickleball"
+    else if (itemNameLower.includes("bắn cung") || itemNameLower.includes("archery")) detectedCategory = "Bắn cung"
+    else if (itemNameLower.includes("bắn súng") || itemNameLower.includes("shooting")) detectedCategory = "Bắn súng"
+    else if (itemNameLower.includes("bóng bàn") || itemNameLower.includes("table tennis")) detectedCategory = "Bóng bàn"
+    else if (itemNameLower.includes("bóng đá") || itemNameLower.includes("football") || itemNameLower.includes("soccer")) detectedCategory = "Bóng đá"
+    else if (itemNameLower.includes("bóng rổ") || itemNameLower.includes("basketball")) detectedCategory = "Bóng rổ"
+    else if (itemNameLower.includes("bóng chuyền") || itemNameLower.includes("volleyball")) detectedCategory = "Bóng chuyền"
+    else if (itemNameLower.includes("quần vợt") || itemNameLower.includes("tennis")) detectedCategory = "Quần vợt"
+    else if (itemNameLower.includes("bơi") || itemNameLower.includes("swimming")) detectedCategory = "Bơi lội"
+    else detectedCategory = "Cầu lông"
+  }
+  const categoryName = detectedCategory
+  const isPickleball = categoryName === "Pickleball"
   const catLower = categoryName.toLowerCase()
 
   let defaultRoom = "Sân Cầu Lông 1"
