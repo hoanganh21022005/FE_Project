@@ -684,11 +684,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
         <section id="facilities" className="home-facilities-section scroll-mt-24" aria-labelledby="home-facilities-title">
           <div className="home-facilities-inner">
             <Reveal className="home-facilities-heading">
-              <p className="home-facilities-eyebrow">VIBE SPORT · SPACES</p>
               <h2 id="home-facilities-title">{isVi ? <>CƠ SỞ <span>VẬT CHẤT</span></> : <>OUR <span>FACILITIES</span></>}</h2>
-              <p>{isVi
-                ? "Khám phá không gian tập luyện dành cho từng bộ môn tại trung tâm."
-                : "Explore the training spaces available for every sport at our center."}</p>
             </Reveal>
             <div className="home-facilities-gallery">
               {publicCourses.map((course, index) => (
