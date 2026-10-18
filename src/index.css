@@ -1,12 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Inter:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;0,900;1,300;1,400;1,500;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import 'tailwindcss';
 
 @theme {
+  --font-serif: 'Playfair Display', 'Newsreader', Georgia, Cambria, 'Times New Roman', serif;
   --font-sans: 'Be Vietnam Pro', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-title: 'Bricolage Grotesque', 'Be Vietnam Pro', sans-serif;
   --font-mlc: 'Lexend', sans-serif;
-  --font-display: 'Be Vietnam Pro', 'Inter', sans-serif;
+  --font-display: 'Bricolage Grotesque', 'Be Vietnam Pro', sans-serif;
   --font-barlow: 'Barlow', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
@@ -72,6 +74,7 @@ body {
   font-family: var(--font-sans);
   background-color: var(--color-sc-paper);
   color: #ffffff;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 h1, h2, h3, h4, h5, h6 {
