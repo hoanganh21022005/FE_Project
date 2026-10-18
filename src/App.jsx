@@ -21,6 +21,7 @@ import {
 // Landing & Auth
 const HomeLandingView = React.lazy(() => import('./components/views/HomeLandingView').then(module => ({ default: module.HomeLandingView })));
 const CoachesView = React.lazy(() => import('./components/views/CoachesView').then(module => ({ default: module.CoachesView })));
+const FacilitiesView = React.lazy(() => import('./components/views/FacilitiesView').then(module => ({ default: module.FacilitiesView })));
 const AboutView = React.lazy(() => import('./components/views/AboutView').then(module => ({ default: module.AboutView })));
 const LoginView = React.lazy(() => import('./components/views/LoginView').then(module => ({ default: module.LoginView })));
 const PrivacyPolicyView = React.lazy(() => import('./components/views/PrivacyPolicyView').then(module => ({ default: module.PrivacyPolicyView })));
@@ -229,7 +230,7 @@ function SCMSApp() {
   }
 
   // Public Routes (Unauthenticated)
-  if (!isAuthenticated || ['/', '/about', '/coaches', '/privacy-policy'].includes(location.pathname) || location.pathname.startsWith('/courses/') || location.pathname.startsWith('/discipline/')) {
+  if (!isAuthenticated || ['/', '/about', '/coaches', '/facilities', '/privacy-policy'].includes(location.pathname) || location.pathname.startsWith('/courses/') || location.pathname.startsWith('/discipline/')) {
     return (
       <>
         <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full animate-spin"></div></div>}>
@@ -237,6 +238,7 @@ function SCMSApp() {
           <Routes>
             <Route path="/about" element={<AboutView />} />
             <Route path="/coaches" element={<CoachesView />} />
+            <Route path="/facilities" element={<FacilitiesView />} />
             <Route path="/courses/:sportId" element={<SportCourseView />} />
             <Route path="/" element={<HomeLandingView onOpenLogin={() => navigate('/login')} onOpenRegister={(pkgId) => { setTargetPackageId(pkgId || null); navigate('/register'); }} />} />
             <Route path="/discipline/pt" element={<PTDetailView />} />

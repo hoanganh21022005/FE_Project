@@ -395,7 +395,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
           title={onBackToHome ? (isVi ? 'Quay về Trang chủ' : 'Back to Home') : undefined}
         >
           <img
-            src="/images/vibe-sport-logo.png?v=2"
+            src="/images/MainPage/vibe-sport-logo.png?v=2"
             alt="Vibe Sport"
             className="h-20 w-32 object-contain sm:w-36 shrink-0 transition-transform group-hover:scale-[1.02]"
           />

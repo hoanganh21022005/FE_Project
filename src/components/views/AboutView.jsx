@@ -2,7 +2,6 @@ import React from "react"
 import { Link } from "react-router-dom"
 import { ArrowRight } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
-import { publicSports } from "../../data/publicCoaches"
 import { CoachesHeader } from "../layout/CoachesHeader"
 import { CoachEnrollmentFooter } from "../layout/CoachEnrollmentFooter"
 import "../../styles/coaches.css"
@@ -62,14 +61,6 @@ export function AboutView() {
           </div>
         </section>
 
-        <section className="bg-mlc-surface py-16 text-mlc-ink sm:py-20" aria-labelledby="about-sports-title">
-          <div className="mx-auto max-w-[1280px] px-5 sm:px-8 lg:px-12">
-            <h2 id="about-sports-title" className="font-display text-4xl font-extrabold uppercase sm:text-5xl">{isVi ? "Chín môn thể thao. Một hành trình của bạn." : "Nine sports. Your own journey."}</h2>
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {publicSports.map((sport) => <Link key={sport.id} to={`/courses/${sport.id}`} className="flex items-center justify-between gap-4 border border-mlc-border bg-white px-5 py-4 text-sm font-bold transition hover:border-mlc-red hover:text-mlc-red">{isVi ? sport.title : sport.titleEn}<ArrowRight className="h-4 w-4 shrink-0" /></Link>)}
-            </div>
-          </div>
-        </section>
       </main>
       <CoachEnrollmentFooter />
     </div>

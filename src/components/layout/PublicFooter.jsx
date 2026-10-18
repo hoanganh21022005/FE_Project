@@ -17,7 +17,7 @@ export function PublicFooter() {
               className="inline-flex items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
             >
               <img
-                src="/images/vibe-sport-logo.png?v=2"
+                src="/images/MainPage/vibe-sport-logo.png?v=2"
                 alt="Vibe Sport"
                 className="h-20 w-32 shrink-0 object-contain"
               />
@@ -70,7 +70,7 @@ export function PublicFooter() {
               </li>
               <li>
                 <Link
-                  to="/#facilities"
+                  to="/facilities"
                   className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
                   {isVi ? "Cơ sở vật chất" : "Facilities"}

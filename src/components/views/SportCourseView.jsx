@@ -103,7 +103,7 @@ export function SportCourseView() {
                 </div>
               </article>
               <article className="sport-course-space">
-                <img src={course.image} alt={isVi ? `Ảnh minh họa không gian tập ${title}` : `Illustrative ${title} practice space`} width="1600" height="900" loading="lazy" decoding="async" />
+                <img src={course.spaceImage || course.image} alt={isVi ? `Ảnh minh họa không gian tập ${title}` : `Illustrative ${title} practice space`} width="1600" height="900" loading="lazy" decoding="async" />
                 <div className="sport-course-space-copy">
                   <p className="sport-course-kicker text-white/70">{isVi ? "Cơ sở vật chất" : "Training environment"}</p>
                   <h3 className="mt-4 font-display text-3xl font-extrabold uppercase leading-tight sm:text-4xl">{isVi ? `Không gian tập luyện ${title}` : `${title} training space`}</h3>

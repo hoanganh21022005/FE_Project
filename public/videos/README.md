@@ -3,7 +3,7 @@
 `vibe-sport-montage-1080p.mp4` combines nine 3-second scenes into one 27-second loop.
 Encoding: 1920×1080, 30 fps, H.264 High / yuv420p, no audio, MP4 fast start.
 `vibe-sport-poster.jpg` is a frame from the montage, shown while the video loads.
-`../images/swimming-course.jpg` is a frame from the swimming scene, used for the swimming course on the homepage.
+`../images/MainPage/home-swimming.png` is a frame from the swimming scene, used for the swimming course on the homepage.
 
 ## Stock footage credits
 

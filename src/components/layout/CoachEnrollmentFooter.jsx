@@ -4,7 +4,7 @@ import { ArrowRight, Mail, Phone } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { publicSports } from "../../data/publicCoaches"
 
-export function CoachEnrollmentFooter({ defaultSportId = "" }) {
+export function CoachEnrollmentFooter({ defaultSportId = "", homePage = false }) {
   const { language } = useSCMS()
   const isVi = language === "vi"
   const navigate = useNavigate()
@@ -13,19 +13,22 @@ export function CoachEnrollmentFooter({ defaultSportId = "" }) {
     const enrollment = Object.fromEntries(new FormData(event.currentTarget))
     navigate("/register", { state: { enrollment } })
   }
+  const footerLinks = homePage
+    ? [["/", "Trang chủ", "Home"], ["/about", "Về chúng tôi", "About us"], ["/#courses", "Khóa học", "Courses"], ["/facilities", "Cơ sở vật chất", "Facilities"], ["/#contact-info", "Liên hệ", "Contact"], ["/#enrollment", "Tuyển sinh", "Admissions"]]
+    : [["/", "Trang chủ", "Home"], ["/about", "Về chúng tôi", "About us"], ["/#courses", "Khóa học", "Courses"], ["/coaches", "Huấn luyện viên", "Coaches"], ["/facilities", "Cơ sở vật chất", "Facilities"]]
 
   return (
     <footer id="enrollment" className="coaches-contact scroll-mt-24">
       <div className="coaches-contact-inner">
         <div className="coaches-contact-info">
           <Link to="/" className="inline-block">
-            <img src="/images/vibe-sport-logo.png?v=2" alt="VIBE Sport" width="144" height="96" className="h-24 w-36 object-contain" />
+            <img src="/images/MainPage/vibe-sport-logo.png?v=2" alt="VIBE Sport" width="144" height="96" className="h-24 w-36 object-contain" />
           </Link>
           <p className="mt-4 max-w-sm text-sm leading-7 text-white/60">
             {isVi ? "Vitality · Inspire · Balance · Energy. Cùng VIBE Sport tìm môn thể thao bạn yêu thích và bắt đầu hành trình của riêng mình." : "Vitality · Inspire · Balance · Energy. Find the sport you love and start your own journey with VIBE Sport."}
           </p>
           <div className="mt-10 grid gap-10 sm:grid-cols-[1.4fr_1fr]">
-            <div>
+            <div id={homePage ? "contact-info" : undefined}>
               <h2 className="font-display text-xl font-bold uppercase">{isVi ? "Thông tin liên hệ" : "Contact us"}</h2>
               <a href="tel:18006995" className="mt-5 flex items-start gap-3 text-sm leading-6 text-white/80 hover:text-white">
                 <Phone className="mt-1 h-4 w-4 shrink-0 text-mlc-red" />
@@ -39,7 +42,7 @@ export function CoachEnrollmentFooter({ defaultSportId = "" }) {
             <nav aria-label={isVi ? "Liên kết cuối trang" : "Footer links"}>
               <h2 className="font-display text-xl font-bold uppercase">{isVi ? "Liên kết" : "Explore"}</h2>
               <ul className="mt-5 space-y-3 text-sm text-white/80">
-                {[["/", "Trang chủ", "Home"], ["/about", "Về chúng tôi", "About us"], ["/#courses", "Khóa học", "Courses"], ["/coaches", "Huấn luyện viên", "Coaches"], ["/#facilities", "Cơ sở vật chất", "Facilities"]].map(([href, vi, en]) => (
+                {footerLinks.map(([href, vi, en]) => (
                   <li key={href}><Link to={href} className="hover:text-white">{isVi ? vi : en}</Link></li>
                 ))}
               </ul>

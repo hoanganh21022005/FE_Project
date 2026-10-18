@@ -40,7 +40,7 @@ export function CoachesHeader({ enrollmentHref = "#enrollment" }) {
     ["/about", "Về chúng tôi", "About us"],
     ["/#courses", "Khóa học", "Courses"],
     ["/coaches", "Huấn luyện viên", "Coaches"],
-    ["/#facilities", "Cơ sở vật chất", "Facilities"],
+    ["/facilities", "Cơ sở vật chất", "Facilities"],
     [enrollmentHref, "Tuyển sinh", "Admissions"],
   ]
   const renderLinks = (mobile = false) => links.map(([href, vi, en]) => href === "/#courses" ? (
@@ -78,7 +78,7 @@ export function CoachesHeader({ enrollmentHref = "#enrollment" }) {
     <header ref={headerRef} className="sticky top-0 z-50 border-b border-mlc-border bg-white/95 text-mlc-ink backdrop-blur-md">
       <div className="mx-auto flex h-[76px] max-w-[1440px] items-center justify-between gap-5 px-5 sm:px-8 lg:px-12">
         <Link to="/" aria-label={isVi ? "VIBE Sport, trang chủ" : "VIBE Sport, home"} className="shrink-0">
-          <img src="/images/vibe-sport-logo.png?v=2" alt="VIBE Sport" className="h-14 w-24 object-contain sm:h-16 sm:w-28" />
+          <img src="/images/MainPage/vibe-sport-logo.png?v=2" alt="VIBE Sport" className="h-14 w-24 object-contain sm:h-16 sm:w-28" />
         </Link>
         <nav aria-label={isVi ? "Điều hướng chính" : "Main navigation"} className="hidden items-center gap-4 xl:flex">
           {renderLinks()}

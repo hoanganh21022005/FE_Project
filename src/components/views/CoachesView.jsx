@@ -1,6 +1,6 @@
-import React, { useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
-import { ArrowDown, ArrowUpRight, Compass, Heart, Target, Users } from "lucide-react"
+import { ArrowDown, ArrowUpRight, Compass, Heart, Target, Users, X } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { publicCoaches, publicSports } from "../../data/publicCoaches"
 import { CoachesHeader } from "../layout/CoachesHeader"
@@ -12,7 +12,43 @@ export function CoachesView() {
   const { language } = useSCMS()
   const isVi = language === "vi"
   const [activeSport, setActiveSport] = useState("all")
+  const [selectedCoach, setSelectedCoach] = useState(null)
+  const dialogCloseRef = useRef(null)
+  const dialogRef = useRef(null)
+  const lastTriggerRef = useRef(null)
   const visibleCoaches = activeSport === "all" ? publicCoaches : publicCoaches.filter((coach) => coach.sportId === activeSport)
+  useEffect(() => {
+    if (!selectedCoach) return undefined
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    dialogCloseRef.current?.focus()
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setSelectedCoach(null)
+      }
+      if (event.key === "Tab") {
+        const focusable = dialogRef.current?.querySelectorAll("button, a[href]")
+        const first = focusable?.[0]
+        const last = focusable?.[focusable.length - 1]
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last?.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first?.focus()
+        }
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener("keydown", handleKeyDown)
+      lastTriggerRef.current?.focus()
+    }
+  }, [selectedCoach])
   const statistics = [
     ["09", "Huấn luyện viên", "Specialist coaches", Users],
     ["09", "Bộ môn thể thao", "Sports to discover", Target],
@@ -86,7 +122,16 @@ export function CoachesView() {
             </p>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 xl:gap-4" data-coach-grid>
               {visibleCoaches.map((coach) => (
-                <article key={coach.id} className="coaches-team-card">
+                <button
+                  key={coach.id}
+                  type="button"
+                  className="coaches-team-card"
+                  aria-label={isVi ? `Xem thông tin huấn luyện viên ${coach.name}` : `View coach ${coach.name}'s profile`}
+                  onClick={(event) => {
+                    lastTriggerRef.current = event.currentTarget
+                    setSelectedCoach(coach)
+                  }}
+                >
                   <img src={coach.image} alt={isVi ? `${coach.name} – ảnh minh họa môn ${coach.specialtyVi}` : `${coach.name} – illustrative ${coach.specialty} photo`} width="768" height="1024" loading="lazy" decoding="async" />
                   <div className="coaches-team-card-shade" aria-hidden="true" />
                   <span className="coaches-team-card-icon" aria-hidden="true"><Users className="h-5 w-5" /></span>
@@ -94,7 +139,7 @@ export function CoachesView() {
                     <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-white/80 sm:text-xs">{isVi ? coach.specialtyVi : coach.specialty}</p>
                     <h3 className="font-display text-2xl font-extrabold uppercase leading-[1.02] sm:text-3xl">{coach.name}</h3>
                   </div>
-                </article>
+                </button>
               ))}
             </div>
             <div className="mt-8 flex flex-wrap items-center justify-between gap-5 border-t border-white/10 pt-6">
@@ -105,6 +150,48 @@ export function CoachesView() {
         </section>
       </main>
       <CoachEnrollmentFooter />
+      {selectedCoach && (
+        <div
+          className="coaches-profile-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedCoach(null)
+          }}
+        >
+          <section
+            ref={dialogRef}
+            className="coaches-profile-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="coach-profile-name"
+            aria-describedby="coach-profile-description"
+          >
+            <div className="coaches-profile-photo-wrap">
+              <img src={selectedCoach.image} alt={isVi ? `Ảnh minh họa môn ${selectedCoach.specialtyVi}` : `Illustrative ${selectedCoach.specialty} photo`} className="coaches-profile-photo" />
+              <span className="coaches-profile-photo-label">VIBE SPORT · COACH</span>
+            </div>
+            <div className="coaches-profile-content">
+              <button ref={dialogCloseRef} type="button" className="coaches-profile-close" onClick={() => setSelectedCoach(null)} aria-label={isVi ? "Đóng hồ sơ" : "Close profile"}>
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+              <p className="coaches-eyebrow">{isVi ? "HUẤN LUYỆN VIÊN" : "COACH PROFILE"}</p>
+              <h2 id="coach-profile-name" className="coaches-profile-name">{selectedCoach.name}</h2>
+              <div className="coaches-profile-sport">
+                <Target className="h-5 w-5 text-mlc-red" aria-hidden="true" />
+                <span>{isVi ? selectedCoach.specialtyVi : selectedCoach.specialty}</span>
+              </div>
+              <p id="coach-profile-description" className="coaches-profile-description">
+                {isVi
+                  ? `Huấn luyện viên ${selectedCoach.specialtyVi} tại VIBE Sport. Hãy liên hệ để được tư vấn lớp học phù hợp với mục tiêu và trình độ của bạn.`
+                  : `A ${selectedCoach.specialty} coach at VIBE Sport. Get in touch to find a class that fits your goals and experience.`}
+              </p>
+              <a href="#enrollment" className="coaches-profile-cta" onClick={() => setSelectedCoach(null)}>
+                {isVi ? "Tư vấn khóa học" : "Ask about classes"}<ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              </a>
+              <p className="coaches-profile-note">{isVi ? "Ảnh huấn luyện viên mang tính minh họa." : "Coach photo is illustrative."}</p>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }

@@ -2,11 +2,12 @@ import React, { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { useReducedMotion } from "motion/react"
 import { useSCMS } from "../../context/SCMSContext"
-import { publicCoaches, publicSports } from "../../data/publicCoaches"
-import { PublicFooter } from "../layout/PublicFooter"
+import { publicCourses } from "../../data/publicCourses"
+import { CoachEnrollmentFooter } from "../layout/CoachEnrollmentFooter"
 import { Reveal, Stagger, Item } from "../common/Reveal"
-import { ArrowDown, ArrowRight, ChevronDown, Mail, Menu, Newspaper, Phone, Users, X } from "lucide-react"
+import { ArrowDown, ArrowRight, ChevronDown, Menu, X } from "lucide-react"
 import "../../styles/coaches.css"
+import "../../styles/home-facilities.css"
 
 const heroSlogan = ["Vitality", "Inspire", "Balance", "Energy"]
 
@@ -18,8 +19,7 @@ const courses = [
     description:
       "Rèn tốc độ, sự linh hoạt và khả năng phối hợp qua từng đường cầu.",
     descriptionEn: "Build speed, agility and coordination with every rally.",
-    image:
-      "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=85&w=900&auto=format&fit=crop",
+    image: "/images/MainPage/home-badminton.png",
   },
   {
     id: "table-tennis",
@@ -27,8 +27,7 @@ const courses = [
     titleEn: "Table tennis",
     description: "Luyện phản xạ, sự tập trung và khả năng kiểm soát bóng.",
     descriptionEn: "Train your reflexes, focus and ball control.",
-    image:
-      "https://images.unsplash.com/photo-1611251135345-18c56206b863?q=85&w=900&auto=format&fit=crop",
+    image: "/images/MainPage/table-tennis-room.png",
   },
   {
     id: "pickleball",
@@ -38,8 +37,7 @@ const courses = [
       "Môn thể thao năng động, dễ bắt đầu và vui khi chơi cùng nhau.",
     descriptionEn:
       "An energetic sport that is easy to pick up and fun to play together.",
-    image:
-      "https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?q=85&w=900&auto=format&fit=crop",
+    image: "/images/MainPage/home-pickleball.png",
   },
   {
     id: "basketball",
@@ -47,8 +45,7 @@ const courses = [
     titleEn: "Basketball",
     description: "Phát triển kỹ thuật, thể lực và tinh thần phối hợp đồng đội.",
     descriptionEn: "Develop your skills, fitness and teamwork on the court.",
-    image:
-      "https://images.unsplash.com/photo-1546519638-68e109498ffc?q=85&w=900&auto=format&fit=crop",
+    image: "/images/MainPage/home-basketball.png",
   },
   {
     id: "volleyball",
@@ -57,8 +54,7 @@ const courses = [
     description:
       "Học cách di chuyển, chuyền bóng và phối hợp trong mỗi pha bóng.",
     descriptionEn: "Learn movement, passing and teamwork through every play.",
-    image:
-      "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?q=85&w=900&auto=format&fit=crop",
+    image: "/images/MainPage/home-volleyball.jpeg",
   },
   {
     id: "archery",
@@ -67,8 +63,7 @@ const courses = [
     description:
       "Rèn sự tập trung, tư thế và khả năng kiểm soát từng phát bắn.",
     descriptionEn: "Practice focus, form and control with every shot.",
-    image:
-      "https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=85&w=900&auto=format&fit=crop",
+    image: "/images/MainPage/home-archery.png",
   },
   {
     id: "swimming",
@@ -76,7 +71,7 @@ const courses = [
     titleEn: "Swimming",
     description: "Rèn kỹ thuật bơi, điều hòa nhịp thở và nâng cao thể lực trong môi trường nước.",
     descriptionEn: "Build swimming technique, breathing control and fitness in the water.",
-    image: "/images/swimming-course.jpg",
+    image: "/images/MainPage/home-swimming.png",
   },
   {
     id: "football",
@@ -86,8 +81,7 @@ const courses = [
       "Nâng cao kỹ năng với bóng, tư duy chiến thuật và tinh thần đồng đội.",
     descriptionEn:
       "Build ball skills, game awareness and a team-first mindset.",
-    image:
-      "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=85&w=900&auto=format&fit=crop",
+    image: "/images/MainPage/home-football.png",
   },
   {
     id: "tennis",
@@ -97,8 +91,7 @@ const courses = [
       "Hoàn thiện kỹ thuật giao bóng, di chuyển và kiểm soát trận đấu.",
     descriptionEn:
       "Practice your serve, movement and control across the court.",
-    image:
-      "https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?q=85&w=900&auto=format&fit=crop",
+    image: "/images/MainPage/home-tennis.png",
   },
 ]
 
@@ -131,27 +124,6 @@ const values = [
   },
 ]
 
-const facilities = [
-  {
-    title: "Không gian tập luyện",
-    titleEn: "Training spaces",
-    image:
-      "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=85&w=1100&auto=format&fit=crop",
-  },
-  {
-    title: "Sân thể thao đa năng",
-    titleEn: "Multi-sport courts",
-    image:
-      "https://images.unsplash.com/photo-1521412644187-c49fa049e84d?q=85&w=1100&auto=format&fit=crop",
-  },
-  {
-    title: "Cùng nhau vận động",
-    titleEn: "Move together",
-    image:
-      "https://images.unsplash.com/photo-1526232761682-d26e03ac148e?q=85&w=1100&auto=format&fit=crop",
-  },
-]
-
 export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
   const { language, setLanguage } = useSCMS()
   const prefersReducedMotion = useReducedMotion()
@@ -160,13 +132,8 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [openDropdown, setOpenDropdown] = useState(null)
   const [activeCourse, setActiveCourse] = useState("all")
-  const [activeSport, setActiveSport] = useState("all")
-  const [selectedCoach, setSelectedCoach] = useState(null)
   const headerRef = useRef(null)
   const dropdownTriggerRefs = useRef({})
-  const coachTriggerRef = useRef(null)
-  const coachDialogRef = useRef(null)
-  const closeCoachButtonRef = useRef(null)
   const isVi = language === "vi"
 
   useEffect(() => {
@@ -180,45 +147,6 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       })
     }
   }, [heroMotionPaused])
-
-  useEffect(() => {
-    if (!selectedCoach) return undefined
-
-    const previousOverflow = document.body.style.overflow
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        setSelectedCoach(null)
-        return
-      }
-
-      if (event.key === "Tab") {
-        const focusable = coachDialogRef.current?.querySelectorAll(
-          'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
-        )
-        if (!focusable?.length) return
-
-        const first = focusable[0]
-        const last = focusable[focusable.length - 1]
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault()
-          last.focus()
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault()
-          first.focus()
-        }
-      }
-    }
-
-    document.body.style.overflow = "hidden"
-    window.addEventListener("keydown", handleKeyDown)
-    closeCoachButtonRef.current?.focus()
-
-    return () => {
-      document.body.style.overflow = previousOverflow
-      window.removeEventListener("keydown", handleKeyDown)
-      coachTriggerRef.current?.focus()
-    }
-  }, [selectedCoach])
 
   useEffect(() => {
     if (!openDropdown) return undefined
@@ -241,27 +169,6 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
     }
   }, [openDropdown])
 
-  const openCoachProfile = (coachCard, event) => {
-    coachTriggerRef.current = event.currentTarget
-    setSelectedCoach(coachCard)
-  }
-
-  const handleCoachKeyDown = (event, coachCard) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault()
-      openCoachProfile(coachCard, event)
-    }
-  }
-  const coaches = publicCoaches
-  const coachCards = coaches.map((coach) => ({
-    coach,
-    sport: courses.find((sport) => sport.id === coach.sportId),
-    image: coach.image,
-  }))
-  const visibleCoachCards =
-    activeSport === "all"
-      ? coachCards
-      : coachCards.filter(({ coach }) => coach.sportId === activeSport)
   const visibleCourses =
     activeCourse === "all"
       ? courses
@@ -288,8 +195,8 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
       ],
     },
     { href: "/coaches", label: isVi ? "Huấn luyện viên" : "Coaches" },
-    { href: "#facilities", label: isVi ? "Cơ sở vật chất" : "Facilities" },
-    { href: "#admission", label: isVi ? "Tuyển sinh" : "Admissions" },
+    { href: "/facilities", label: isVi ? "Cơ sở vật chất" : "Facilities" },
+    { href: "#enrollment", label: isVi ? "Tuyển sinh" : "Admissions" },
   ]
 
   return (
@@ -309,7 +216,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
             className="flex items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
           >
             <img
-              src="/images/vibe-sport-logo.png?v=2"
+              src="/images/MainPage/vibe-sport-logo.png?v=2"
               alt="Vibe Sport"
               className="h-14 w-24 shrink-0 object-contain sm:h-16 sm:w-32"
             />
@@ -774,353 +681,39 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
           </div>
         </section>
 
-        <section
-          id="coaches"
-          className="coaches-grid-background scroll-mt-24 bg-mlc-ink py-14 text-white sm:py-20"
-          aria-labelledby="home-coaches-title"
-        >
-          <div className="mx-auto max-w-[1280px] px-5 sm:px-8 lg:px-12">
-            <Reveal>
-              <p className="coaches-eyebrow">ALL TEAM</p>
-              <h2 id="home-coaches-title" className="mt-5 font-display text-[clamp(2.5rem,5vw,4.5rem)] font-extrabold uppercase leading-[1.03] tracking-tight">
-                {isVi ? "Huấn luyện viên" : "Coaches"}{" "}
-                <span className="text-mlc-red">VIBE SPORT</span>
-              </h2>
-              <Link to="/coaches" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-white/75 transition hover:text-white">
-                {isVi ? "Khám phá đội ngũ huấn luyện viên" : "Meet our coaching team"}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <div className="mb-9 mt-6 h-1 w-24 bg-mlc-red" />
+        <section id="facilities" className="home-facilities-section scroll-mt-24" aria-labelledby="home-facilities-title">
+          <div className="home-facilities-inner">
+            <Reveal className="home-facilities-heading">
+              <p className="home-facilities-eyebrow">VIBE SPORT · SPACES</p>
+              <h2 id="home-facilities-title">{isVi ? <>CƠ SỞ <span>VẬT CHẤT</span></> : <>OUR <span>FACILITIES</span></>}</h2>
+              <p>{isVi
+                ? "Khám phá không gian tập luyện dành cho từng bộ môn tại trung tâm."
+                : "Explore the training spaces available for every sport at our center."}</p>
             </Reveal>
-
-            <div
-              role="group"
-              aria-label={isVi ? "Lọc theo môn thể thao" : "Filter by sport"}
-              className="coaches-sport-filters"
-            >
-              {[{ id: "all", title: "Tất cả", titleEn: "All" }, ...publicSports].map((sport) => (
-                <button
-                  key={sport.id}
-                  type="button"
-                  aria-pressed={activeSport === sport.id}
-                  onClick={() => setActiveSport(sport.id)}
-                  className={`coaches-sport-filter focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white ${activeSport === sport.id ? "is-active" : ""}`}
-                >
-                  <span>{isVi ? sport.title : sport.titleEn}</span>
-                </button>
-              ))}
-            </div>
-
-            <p role="status" aria-live="polite" aria-atomic="true" className="mb-5 mt-6 text-xs text-white/50">
-              {isVi
-                ? `${visibleCoachCards.length} huấn luyện viên · ${activeSport === "all" ? "9 môn thể thao" : publicSports.find((sport) => sport.id === activeSport).title}`
-                : `${visibleCoachCards.length} ${visibleCoachCards.length === 1 ? "coach" : "coaches"} · ${activeSport === "all" ? "9 sports" : publicSports.find((sport) => sport.id === activeSport).titleEn}`}
-            </p>
-            {visibleCoachCards.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 xl:gap-4" data-coach-grid>
-                {visibleCoachCards.map(({ coach, sport, image }) => (
-                  <div
-                    key={coach.id}
-                    className="coaches-team-card cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
-                    role="button"
-                    tabIndex={0}
-                    aria-label={
-                      isVi
-                        ? `Xem hồ sơ huấn luyện viên ${coach.name}`
-                        : `View coach profile for ${coach.name}`
-                    }
-                    onClick={(event) => openCoachProfile({ coach, sport, image }, event)}
-                    onKeyDown={(event) =>
-                      handleCoachKeyDown(event, { coach, sport, image })
-                    }
-                  >
-                    <img
-                      src={image}
-                      alt={isVi ? `${coach.name} – ảnh minh họa môn ${coach.specialtyVi}` : `${coach.name} – illustrative ${coach.specialty} photo`}
-                      width="768"
-                      height="1024"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    <div className="coaches-team-card-shade" aria-hidden="true" />
-                    <span className="coaches-team-card-icon" aria-hidden="true"><Users className="h-5 w-5" /></span>
-                    <div className="coaches-team-card-copy">
-                      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-white/80 sm:text-xs">
-                        {isVi ? sport.title : sport.titleEn}
-                      </p>
-                      <h3 className="font-display text-2xl font-extrabold uppercase leading-[1.02] sm:text-3xl">
-                        {coach.name}
-                      </h3>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="border border-white/15 bg-white/5 p-6 text-sm text-white/70">
-                {coaches.length > 0
-                  ? isVi
-                    ? "Chưa có huấn luyện viên cho môn thể thao này."
-                    : "There are no coaches for this sport yet."
-                  : isVi
-                    ? "Thông tin huấn luyện viên sẽ sớm được cập nhật."
-                    : "Coach profiles will be available soon."}
-              </p>
-            )}
-            <p className="mt-8 border-t border-white/10 pt-6 text-xs leading-6 text-white/45">
-              {isVi ? "Hình ảnh huấn luyện viên mang tính minh họa." : "Coach images are illustrative."}
-            </p>
-          </div>
-        </section>
-
-        <section
-          id="facilities"
-          className="scroll-mt-24 bg-white py-20 sm:py-28"
-        >
-          <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
-            <Reveal className="mb-10 max-w-3xl sm:mb-14">
-              <p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-mlc-red">
-                {isVi ? "KHÔNG GIAN THỂ THAO" : "SPORTS FACILITIES"}
-              </p>
-              <h2 className="text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-6xl">
-                {isVi
-                  ? "SẴN SÀNG CHO BẠN TỎA SÁNG"
-                  : "A PLACE TO PLAY AND GROW"}
-              </h2>
-            </Reveal>
-            <Stagger className="grid gap-5 md:grid-cols-3">
-              {facilities.map((facility, index) => (
-                <Item
-                  key={facility.title}
-                  className={`group relative min-h-[300px] overflow-hidden rounded-2xl bg-mlc-ink sm:min-h-[380px] ${
-                    index === 1 ? "md:translate-y-8" : ""
-                  }`}
-                >
+            <div className="home-facilities-gallery">
+              {publicCourses.map((course, index) => (
+                <article key={course.id} className={`home-facility-tile ${index === 0 ? "is-featured" : ""}`}>
                   <img
-                    src={facility.image}
-                    alt=""
-                    loading="lazy"
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    src={course.spaceImage}
+                    alt={isVi ? `Không gian tập luyện ${course.title}` : `${course.titleEn} training space`}
+                    loading={index < 4 ? "eager" : "lazy"}
+                    decoding="async"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-mlc-ink/80 via-mlc-ink/10 to-transparent" />
-                  <h3 className="absolute bottom-5 left-5 right-5 text-xl font-bold text-white sm:bottom-7 sm:left-7">
-                    {isVi ? facility.title : facility.titleEn}
-                  </h3>
-                </Item>
+                  <div className="home-facility-tile-shade" aria-hidden="true" />
+                  <span className="home-facility-tile-number">{String(index + 1).padStart(2, "0")}</span>
+                  <h3>{isVi ? course.title : course.titleEn}</h3>
+                </article>
               ))}
-            </Stagger>
-          </div>
-        </section>
-
-        <section id="news" className="scroll-mt-24 bg-sc-paper py-20 text-white sm:py-24">
-          <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
-            <Reveal className="mb-8 max-w-3xl">
-              <p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-sc-primary">
-                {isVi ? "BẢN TIN VIBE Sport" : "VIBE Sport UPDATES"}
-              </p>
-              <h2 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl">
-                {isVi ? "TIN TỨC VÀ SỰ KIỆN" : "NEWS AND EVENTS"}
-              </h2>
-              <p className="mt-4 text-base leading-7 text-sc-muted">
-                {isVi
-                  ? "Cập nhật hoạt động và thông báo mới của trung tâm."
-                  : "Updates and announcements from the center."}
-              </p>
-            </Reveal>
-            <div className="flex min-h-44 items-center gap-5 border border-sc-border bg-white/[0.03] p-6 sm:p-8">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center bg-sc-primary/10 text-sc-primary">
-                <Newspaper className="h-6 w-6" aria-hidden="true" />
-              </span>
-              <p className="text-sm leading-6 text-sc-muted sm:text-base">
-                {isVi
-                  ? "Chưa có tin tức hoặc sự kiện nào được đăng. Nội dung mới sẽ xuất hiện tại đây."
-                  : "There are no news or event posts yet. New updates will appear here."}
-              </p>
             </div>
+            <Link to="/facilities" className="home-facilities-link">
+              {isVi ? "Xem chi tiết cơ sở vật chất" : "View facility details"}<ArrowRight aria-hidden="true" />
+            </Link>
           </div>
         </section>
 
-        <section id="contact" className="scroll-mt-24 bg-sc-ink py-20 text-white sm:py-24">
-          <div className="mx-auto grid max-w-[1440px] gap-10 px-5 sm:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:px-12">
-            <Reveal>
-              <p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-sc-primary">
-                {isVi ? "BỘ PHẬN QUAN HỆ HỘI VIÊN" : "MEMBER RELATIONS"}
-              </p>
-              <h2 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl">
-                {isVi ? "LIÊN HỆ VIBE Sport" : "CONTACT VIBE Sport"}
-              </h2>
-              <p className="mt-5 max-w-2xl text-base leading-7 text-white/70">
-                {isVi
-                  ? "Liên hệ bộ phận Quan hệ Hội viên nếu bạn cần hỗ trợ về tài khoản hoặc dịch vụ của trung tâm."
-                  : "Contact Member Relations for help with your account or center services."}
-              </p>
-            </Reveal>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-              <a
-                href="tel:18006995"
-                className="flex min-h-24 items-center gap-4 border border-white/15 bg-white/[0.03] p-5 transition hover:border-sc-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sc-primary"
-              >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-sc-primary/10 text-sc-primary">
-                  <Phone className="h-5 w-5" aria-hidden="true" />
-                </span>
-                <span>
-                  <span className="block text-xs font-semibold uppercase tracking-wide text-white/60">
-                    {isVi ? "Điện thoại" : "Phone"}
-                  </span>
-                  <span className="mt-1 block font-semibold">1800 6995</span>
-                </span>
-              </a>
-              <a
-                href="mailto:memberrelations@scms.vn"
-                className="flex min-h-24 items-center gap-4 border border-white/15 bg-white/[0.03] p-5 transition hover:border-sc-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sc-primary"
-              >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-sc-primary/10 text-sc-primary">
-                  <Mail className="h-5 w-5" aria-hidden="true" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-xs font-semibold uppercase tracking-wide text-white/60">
-                    Email
-                  </span>
-                  <span className="mt-1 block break-all font-semibold">memberrelations@scms.vn</span>
-                </span>
-              </a>
-            </div>
-          </div>
-        </section>
-
-        <section id="admission" className="scroll-mt-24 bg-mlc-red py-16 text-white sm:py-20">
-          <div className="mx-auto flex max-w-[1440px] flex-col gap-7 px-5 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-12">
-            <Reveal className="max-w-3xl">
-              <p className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-white/80">
-                {isVi ? "SẴN SÀNG BẮT ĐẦU?" : "READY TO GET STARTED?"}
-              </p>
-              <h2 className="text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl">
-                {isVi
-                  ? "CHỌN MÔN BẠN YÊU THÍCH. BẮT ĐẦU HÔM NAY."
-                  : "PICK YOUR SPORT. START TODAY."}
-              </h2>
-            </Reveal>
-            <button
-              type="button"
-              onClick={() => onOpenRegister()}
-              className="inline-flex min-h-14 shrink-0 items-center justify-center gap-3 self-start rounded-full bg-white px-7 text-sm font-bold text-mlc-red shadow-lg transition hover:bg-mlc-ink hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white md:self-center"
-            >
-              {isVi ? "Đăng ký ngay" : "Register now"}{" "}
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-        </section>
       </main>
 
-      {selectedCoach && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-6"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setSelectedCoach(null)
-          }}
-        >
-          <div
-            ref={coachDialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="coach-profile-name"
-            className="relative max-h-[calc(100vh-1.5rem)] w-full max-w-[1680px] overflow-y-auto border border-white/15 bg-mlc-ink p-3 text-white shadow-2xl sm:max-h-[calc(100vh-3rem)] sm:p-6"
-          >
-            <button
-              ref={closeCoachButtonRef}
-              type="button"
-              onClick={() => setSelectedCoach(null)}
-              aria-label={isVi ? "Đóng hồ sơ huấn luyện viên" : "Close coach profile"}
-              className="absolute right-5 top-5 z-20 flex h-11 w-11 items-center justify-center border border-white/30 bg-black/50 text-white transition hover:bg-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              <section
-                className="grid min-h-[560px] grid-rows-[1fr_auto] border border-white/15 bg-white/[0.06]"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px)",
-                  backgroundSize: "66px 66px",
-                }}
-              >
-                <div className="grid md:grid-cols-2">
-                  <div className="relative min-h-[340px] bg-black/30 md:min-h-0">
-                    <img
-                      src={selectedCoach.image}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover object-center"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-mlc-ink/70 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-mlc-ink/40" />
-                  </div>
-                  <div className="flex flex-col justify-center px-5 py-8 sm:px-8">
-                    <p className="mb-4 inline-flex w-fit -skew-x-6 bg-mlc-red px-4 py-2 font-display text-xs font-extrabold uppercase tracking-wider text-white">
-                      <span className="skew-x-6">
-                        {isVi
-                          ? `Huấn luyện viên ${selectedCoach.sport.title}`
-                          : `${selectedCoach.sport.titleEn} coach`}
-                      </span>
-                    </p>
-                    <h2
-                      id="coach-profile-name"
-                      className="font-display text-4xl font-extrabold uppercase leading-[0.95] text-mlc-red sm:text-5xl"
-                    >
-                      {selectedCoach.coach.name}
-                    </h2>
-                    <p className="mt-6 max-w-prose text-base font-medium leading-7 text-white/85 sm:text-lg sm:leading-8">
-                      {isVi
-                        ? `Huấn luyện viên ${selectedCoach.sport.title} tại VIBE Sport, đồng hành cùng học viên rèn kỹ thuật, phản xạ, tốc độ di chuyển và khả năng phối hợp chiến thuật trên sân.`
-                        : `A ${selectedCoach.sport.titleEn} coach at VIBE Sport, supporting members as they build technique, reflexes, court movement and tactical coordination.`}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-2 border-t border-white/15 p-3 sm:grid-cols-2 sm:p-4">
-                  <div className="flex min-h-16 items-center gap-3 border border-white/15 bg-white/[0.04] p-3 sm:p-4">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-mlc-red text-lg font-bold text-white">✓</span>
-                    <span className="text-sm font-semibold sm:text-base">
-                      {isVi ? "Kỹ thuật & phối hợp" : "Technique & coordination"}
-                    </span>
-                  </div>
-                  <div className="flex min-h-16 items-center gap-3 border border-white/15 bg-white/[0.04] p-3 sm:p-4">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-mlc-red text-lg font-bold text-white">✓</span>
-                    <span className="text-sm font-semibold sm:text-base">
-                      {isVi ? "Phản xạ & di chuyển" : "Reflexes & movement"}
-                    </span>
-                  </div>
-                </div>
-              </section>
-
-              <section className="group relative flex min-h-[420px] items-end overflow-hidden border-l-4 border-mlc-red bg-black sm:min-h-[560px]">
-                <img
-                  src={selectedCoach.sport.image}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 to-black/10" />
-                <div className="relative max-w-3xl p-6 sm:p-9 lg:p-10">
-                  <p className="mb-4 flex items-center gap-3 font-display text-sm font-extrabold uppercase tracking-[0.18em] text-white/80">
-                    <span className="h-2 w-10 -skew-x-12 bg-mlc-red" />
-                    {isVi ? "Cơ sở vật chất" : "Sports facilities"}
-                  </p>
-                  <h3 className="font-display text-3xl font-extrabold uppercase leading-[0.95] sm:text-5xl">
-                    {isVi
-                      ? `Không gian tập luyện ${selectedCoach.sport.title}`
-                      : `${selectedCoach.sport.titleEn} training space`}
-                  </h3>
-                  <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-white/90 sm:text-xl sm:leading-8">
-                    {isVi
-                      ? "Không gian dành cho các bài tập kỹ thuật, phản xạ và di chuyển, giúp học viên thực hành trực tiếp trên sân."
-                      : "A dedicated space for technique, reflex and movement drills, giving members room to practise on court."}
-                  </p>
-                </div>
-              </section>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <PublicFooter />
+      <CoachEnrollmentFooter homePage />
     </div>
   )
 }

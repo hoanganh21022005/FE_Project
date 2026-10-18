@@ -93,7 +93,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           <div className={`h-[56px] border-b border-slate-200 flex items-center justify-between ${collapsed ? 'px-2' : 'px-3.5'}`}>
             <div className="flex items-center gap-2.5 min-w-0">
               <img
-                src="/images/vibe-sport-logo.png?v=2"
+                src="/images/MainPage/vibe-sport-logo.png?v=2"
                 alt="Vibe Sport"
                 className={`object-contain flex-shrink-0 ${collapsed ? 'w-10 h-8' : 'w-12 h-9'}`}
               />
