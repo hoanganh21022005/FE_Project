@@ -17,6 +17,7 @@ import {
   toMembershipPackageRequest,
   mapMemberSubscription,
   toMemberPackageRequest,
+  mapSubscriptionOrder,
   normalizeSubscriptionStatus,
   normalizePackageStatus,
 } from '../src/api/membershipMappers.js';
@@ -86,6 +87,21 @@ assert.equal(mappedPkg.status, 'active');
 assert.deepEqual(mappedPkg.benefits, ['Gym', 'Sauna', 'Personal Trainer', 'VIP Lounge']);
 console.log('PASS: mapMembershipPackage accurately maps BE fields and parses benefits list');
 
+const beAdvancedPkg = {
+  id: 10,
+  name: 'Gói 1:1 Tennis Nâng Cao',
+  durationDays: 45,
+  price: 10000000,
+  benefits: '12 buổi học kèm 1:1',
+  status: 'ACTIVE',
+  packageType: 'Advanced',
+  totalCredit: 12,
+};
+const mappedAdvPkg = mapMembershipPackage(beAdvancedPkg);
+assert.equal(mappedAdvPkg.packageType, 'Advanced');
+assert.equal(mappedAdvPkg.totalCredit, 12);
+console.log('PASS: mapMembershipPackage preserves packageType and totalCredit from Swagger schema');
+
 // Empty / Null Package Handling
 const emptyPkg = mapMembershipPackage({});
 assert.equal(emptyPkg.id, null);
@@ -139,6 +155,47 @@ assert.equal(mappedSub.startDate, '2026-10-10');
 assert.equal(mappedSub.endDate, '2027-10-10');
 assert.equal(mappedSub.status, 'active');
 console.log('PASS: mapMemberSubscription maps subscription ID and status correctly');
+
+const beAdvancedSub = {
+  subscriptionId: 101,
+  memberId: 20,
+  memberName: 'Nguyen Van B',
+  packageId: 10,
+  packageName: 'Gói 1:1 Tennis Nâng Cao',
+  price: 10000000,
+  startDate: '2026-10-20',
+  endDate: '2026-12-04',
+  status: 'ACTIVE',
+  packageType: 'Advanced',
+  remainingCredit: 12,
+  validityDays: 45,
+};
+const mappedAdvSub = mapMemberSubscription(beAdvancedSub);
+assert.equal(mappedAdvSub.packageType, 'Advanced');
+assert.equal(mappedAdvSub.remainingCredit, 12);
+assert.equal(mappedAdvSub.validityDays, 45);
+console.log('PASS: mapMemberSubscription preserves packageType, remainingCredit, and validityDays');
+
+const orderSample = {
+  subscriptionId: 101,
+  invoiceId: 55,
+  invoiceCode: 'INV-2026-000055',
+  amount: 10000000,
+  paymentMethod: 'VNPAY',
+  status: 'PENDING',
+  expiresAt: '2026-10-20T16:05:00+07:00',
+  paymentUrl: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?test=1',
+};
+const mappedOrder = mapSubscriptionOrder(orderSample);
+assert.equal(mappedOrder.subscriptionId, 101);
+assert.equal(mappedOrder.invoiceId, 55);
+assert.equal(mappedOrder.invoiceCode, 'INV-2026-000055');
+assert.equal(mappedOrder.amount, 10000000);
+assert.equal(mappedOrder.paymentMethod, 'vnpay');
+assert.equal(mappedOrder.status, 'pending_payment');
+assert.equal(mappedOrder.expiresAt, '2026-10-20T16:05:00+07:00');
+assert.equal(mappedOrder.paymentUrl, 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?test=1');
+console.log('PASS: mapSubscriptionOrder maps SubscriptionOrderResponse fields accurately');
 
 // toMemberPackageRequest validation
 assert.throws(() => toMemberPackageRequest({}), /packageId.*không hợp lệ/i);
@@ -198,6 +255,26 @@ assert.equal(mappedInv.paymentMethod, 'cash');
 assert.equal(mappedInv.paymentStatus, 'successful');
 assert.equal(mappedInv.receptionistName, 'Pham Thi Thu');
 console.log('PASS: mapInvoice maps invoice fields, formats code INV-00042, and normalizes paymentStatus to successful');
+
+const beInvoiceWithCode = {
+  invoiceId: 55,
+  invoiceCode: 'INV-2026-000055',
+  amount: 10000000,
+  paymentMethod: 'ONLINE',
+  paymentStatus: 'PENDING',
+  expiresAt: '2026-10-20T16:05:00+07:00',
+  createdAt: '2026-10-20T16:00:00+07:00',
+  classId: 3,
+  className: 'Tennis Advanced',
+};
+const mappedInvWithCode = mapInvoice(beInvoiceWithCode);
+assert.equal(mappedInvWithCode.code, 'INV-2026-000055');
+assert.equal(mappedInvWithCode.invoiceCode, 'INV-2026-000055');
+assert.equal(mappedInvWithCode.expiresAt, '2026-10-20T16:05:00+07:00');
+assert.equal(mappedInvWithCode.createdAt, '2026-10-20T16:00:00+07:00');
+assert.equal(mappedInvWithCode.classId, 3);
+assert.equal(mappedInvWithCode.className, 'Tennis Advanced');
+console.log('PASS: mapInvoice preserves Swagger invoiceCode, expiresAt, createdAt, classId, and className');
 
 // Payment Method Normalization
 assert.equal(normalizePaymentMethod('CASH'), 'cash');
@@ -433,8 +510,98 @@ inProgressTransactionCache.delete('101');
 assert.equal(inProgressTransactionCache.get('101'), null);
 console.log('PASS: inProgressTransactionCache correctly retains and clears member partial transactions');
 
-// Restore httpClient.post
+// 6.6 getPublicPackages and subscribeMe
+httpClient.get = async (path) => {
+  if (path === '/api/public/membership-packages') {
+    return [
+      { id: 1, name: 'Goi Co Ban 1 Thang', price: 500000, durationDays: 30, benefits: 'Tap gym tu do' },
+    ];
+  }
+  if (path === '/api/members/me/invoices') {
+    return [
+      { invoiceId: 55, invoiceCode: 'INV-2026-000055', amount: 10000000, paymentStatus: 'PENDING' },
+    ];
+  }
+  if (path === '/api/members/me/invoices/55') {
+    return { invoiceId: 55, invoiceCode: 'INV-2026-000055', amount: 10000000, paymentStatus: 'PENDING' };
+  }
+  return origGet(path);
+};
+
+const pubPkgs = await membershipApi.getPublicPackages();
+assert.equal(pubPkgs.length, 1);
+assert.equal(pubPkgs[0].id, 1);
+console.log('PASS: getPublicPackages calls /api/public/membership-packages and maps packages');
+
+httpClient.post = async (path, body) => {
+  recordedPostPath = path;
+  recordedPostBody = body;
+  if (path === '/api/members/me/subscriptions') {
+    return {
+      subscriptionId: 101,
+      invoiceId: 55,
+      invoiceCode: 'INV-2026-000055',
+      amount: 10000000,
+      paymentMethod: body.paymentMethod,
+      status: 'PENDING',
+      expiresAt: '2026-10-20T16:05:00+07:00',
+      paymentUrl: 'https://sandbox.vnpayment.vn/pay?id=55',
+    };
+  }
+  if (path === '/api/invoices/55/confirm-cash') {
+    return {
+      invoiceId: 55,
+      invoiceCode: 'INV-2026-000055',
+      amount: 10000000,
+      paymentMethod: 'CASH',
+      paymentStatus: 'PAID',
+    };
+  }
+  if (path === '/api/invoices/55/pay-online') {
+    return {
+      paymentUrl: 'https://sandbox.vnpayment.vn/pay?id=55',
+    };
+  }
+  return origPost(path, body);
+};
+
+const subMeOrder = await membershipApi.subscribeMe({
+  packageId: 10,
+  paymentMethod: 'VNPay',
+});
+assert.equal(recordedPostPath, '/api/members/me/subscriptions');
+assert.equal(subMeOrder.subscriptionId, 101);
+assert.equal(subMeOrder.invoiceId, 55);
+assert.equal(subMeOrder.invoiceCode, 'INV-2026-000055');
+assert.equal(subMeOrder.paymentUrl, 'https://sandbox.vnpayment.vn/pay?id=55');
+console.log('PASS: subscribeMe sends payload to /api/members/me/subscriptions and returns mapped order');
+
+// 6.7 Swagger confirm-cash (no body) and pay-online
+const cashConfirmResult = await invoiceApi.confirmCashPayment(55);
+assert.equal(recordedPostPath, '/api/invoices/55/confirm-cash');
+assert.equal(cashConfirmResult.paymentStatus, 'successful');
+assert.equal(cashConfirmResult.invoiceCode, 'INV-2026-000055');
+console.log('PASS: confirmCashPayment sends POST to /api/invoices/55/confirm-cash without request body');
+
+const onlinePayResult = await invoiceApi.payInvoiceOnline(55);
+assert.equal(recordedPostPath, '/api/invoices/55/pay-online');
+assert.equal(onlinePayResult.paymentUrl, 'https://sandbox.vnpayment.vn/pay?id=55');
+console.log('PASS: payInvoiceOnline sends POST to /api/invoices/55/pay-online and returns paymentUrl');
+
+// 6.8 Member own invoices endpoints
+const ownInvoicesList = await invoiceApi.getMemberOwnInvoices();
+assert.equal(ownInvoicesList.length, 1);
+assert.equal(ownInvoicesList[0].invoiceCode, 'INV-2026-000055');
+console.log('PASS: getMemberOwnInvoices calls /api/members/me/invoices and returns mapped list');
+
+const ownInvoiceDetail = await invoiceApi.getMemberOwnInvoiceById(55);
+assert.equal(ownInvoiceDetail.invoiceId, 55);
+assert.equal(ownInvoiceDetail.invoiceCode, 'INV-2026-000055');
+console.log('PASS: getMemberOwnInvoiceById calls /api/members/me/invoices/55 and returns mapped invoice');
+
+// Restore httpClient.post and httpClient.get
 httpClient.post = origPost;
+httpClient.get = origGet;
 
 // --- 7. FAILURE-PATH & CONCURRENCY RESILIENCE TESTS ---
 console.log('\n--- 7. FAILURE-PATH & CONCURRENCY RESILIENCE ---');

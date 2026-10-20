@@ -4,11 +4,19 @@ import {
   toMembershipPackageRequest,
   mapMemberSubscription,
   toMemberPackageRequest,
+  mapSubscriptionOrder,
 } from './membershipMappers.js';
 import { extractList, isValidNumericId } from './schemaValidators.js';
 
 export const getPackages = async () => {
   const data = await httpClient.get('/api/packages');
+  const list = extractList(data);
+  return Array.isArray(list) ? list.map(mapMembershipPackage).filter(Boolean) : [];
+};
+
+export const getPublicPackages = async (centerId = null) => {
+  const query = centerId ? `?centerId=${encodeURIComponent(centerId)}` : '';
+  const data = await httpClient.get(`/api/public/membership-packages${query}`);
   const list = extractList(data);
   return Array.isArray(list) ? list.map(mapMembershipPackage).filter(Boolean) : [];
 };
@@ -44,7 +52,18 @@ export const updatePackageStatus = async (id, status) => {
   return mapMembershipPackage(updated);
 };
 
+export const getMemberOwnSubscriptions = async () => {
+  const data = await httpClient.get('/api/members/me/subscriptions').catch(async () => {
+    return httpClient.get('/api/member-packages');
+  });
+  const list = extractList(data);
+  return Array.isArray(list) ? list.map(mapMemberSubscription).filter(Boolean) : [];
+};
+
 export const getMemberSubscriptions = async (memberId) => {
+  if (memberId === 'me') {
+    return getMemberOwnSubscriptions();
+  }
   if (!isValidNumericId(memberId)) {
     throw new Error('ID hội viên không hợp lệ.');
   }
@@ -60,6 +79,12 @@ export const subscribePackage = async (memberId, data) => {
   const payload = toMemberPackageRequest(data);
   const response = await httpClient.post(`/api/members/${memberId}/packages`, payload);
   return mapMemberSubscription(response);
+};
+
+export const subscribeMe = async (data) => {
+  const payload = toMemberPackageRequest(data);
+  const response = await httpClient.post('/api/members/me/subscriptions', payload);
+  return mapSubscriptionOrder(response);
 };
 
 export const getAllSubscriptions = async () => {
@@ -78,12 +103,15 @@ export const updateSubscriptionStatus = async (id, status) => {
 
 export const membershipApi = {
   getPackages,
+  getPublicPackages,
   getPackageById,
   createPackage,
   updatePackage,
   updatePackageStatus,
+  getMemberOwnSubscriptions,
   getMemberSubscriptions,
   subscribePackage,
+  subscribeMe,
   getAllSubscriptions,
   updateSubscriptionStatus,
 };

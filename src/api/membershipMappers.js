@@ -53,6 +53,8 @@ export function mapMembershipPackage(item) {
     benefitsVi: benefits,
     status: normalizePackageStatus(item.status),
     rawStatus: item.status ?? null,
+    packageType: item.packageType || 'Normal',
+    totalCredit: asNumber(item.totalCredit) ?? (item.packageType === 'Advanced' ? 12 : null),
   };
 }
 
@@ -94,6 +96,9 @@ export function mapMemberSubscription(item) {
       endDate: null,
       status: 'none',
       rawStatus: null,
+      packageType: 'Normal',
+      remainingCredit: null,
+      validityDays: null,
     };
   }
 
@@ -114,6 +119,43 @@ export function mapMemberSubscription(item) {
     endDate: item.endDate || null,
     status: normalizeSubscriptionStatus(item.status),
     rawStatus: item.status ?? null,
+    packageType: item.packageType || 'Normal',
+    remainingCredit: asNumber(item.remainingCredit),
+    validityDays: asNumber(item.validityDays),
+  };
+}
+
+export function mapSubscriptionOrder(item) {
+  if (!item || typeof item !== 'object') {
+    return {
+      subscriptionId: null,
+      invoiceId: null,
+      invoiceCode: 'INV-00000',
+      amount: 0,
+      paymentMethod: 'cash',
+      rawPaymentMethod: null,
+      status: 'pending',
+      rawStatus: null,
+      expiresAt: null,
+      paymentUrl: null,
+    };
+  }
+
+  const subscriptionId = asNumber(item.subscriptionId ?? item.id);
+  const invoiceId = asNumber(item.invoiceId);
+  const amount = asNumber(item.amount) ?? 0;
+
+  return {
+    subscriptionId,
+    invoiceId,
+    invoiceCode: item.invoiceCode || (invoiceId !== null ? `INV-${String(invoiceId).padStart(5, '0')}` : 'INV-00000'),
+    amount,
+    paymentMethod: item.paymentMethod ? String(item.paymentMethod).toLowerCase() : 'cash',
+    rawPaymentMethod: item.paymentMethod ?? null,
+    status: normalizeSubscriptionStatus(item.status),
+    rawStatus: item.status ?? null,
+    expiresAt: item.expiresAt || null,
+    paymentUrl: item.paymentUrl || null,
   };
 }
 
