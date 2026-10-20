@@ -360,6 +360,18 @@ export function MyMembershipView() {
         </div>
       </div>
 
+      {/* Direct Registration Locked Notice in API Mode */}
+      {apiEnabled && !loading && !error && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-center gap-2">
+          <Info className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>
+            {language === 'vi'
+              ? 'Khóa đăng ký trực tuyến: Tính năng đăng ký và gia hạn gói trực tiếp trên ứng dụng hiện đang tạm khóa. Vui lòng liên hệ quầy tiếp tân để xử lý.'
+              : 'Direct Subscription Locked: Online package registration and renewal is temporarily disabled. Please contact the front desk.'}
+          </span>
+        </div>
+      )}
+
       {/* Loading & Error States in API Mode */}
       {apiEnabled && loading && (
         <div className="py-12 bg-white border border-slate-200 rounded-lg text-center">

@@ -1206,6 +1206,108 @@ assert.equal(settleMockPaymentFixture(paidReadback[0]).ok, false, 'Second cash c
 clearMockSettlements();
 console.log('PASS: Member request remains pending until one desk settlement, with cross-view readback');
 
+// --- FOCUSED REGRESSION TESTS (REVIEW ROUND 1/3 FIXES) ---
+
+// Test 9.1: Pending package request must NOT change currentPackageId of a paid/active package
+clearMockSettlements();
+const memberWithActivePaidPkg = {
+  id: 'mem-paid-1',
+  name: 'Active Paid Member',
+  currentPackageId: 'pkg-active-1',
+  currentPackageName: 'Gói Tiêu Chuẩn Đã Thanh Toán',
+  membershipStatus: 'active',
+  totalSpent: 1500000,
+};
+const upgradePendingPkg = {
+  id: 'pkg-upgrade-pending',
+  nameVi: 'Gói Nâng Cấp Chờ Duyệt',
+  price: 3000000,
+};
+const pendingUpgradeReq = createMockPendingPayment(
+  { member: memberWithActivePaidPkg, pkg: upgradePendingPkg, method: 'cash' },
+  fixturePendingPayments
+);
+assert.equal(pendingUpgradeReq.ok, true);
+
+// Verify: while the upgrade request is pending, member's currentPackageId MUST remain pkg-active-1!
+const derivedDuringPending = deriveMockMemberProfile(memberWithActivePaidPkg, fixturePendingPayments);
+assert.equal(
+  derivedDuringPending.currentPackageId,
+  'pkg-active-1',
+  'Pending package request must NOT overwrite currentPackageId of paid package'
+);
+assert.equal(
+  derivedDuringPending.currentPackageName,
+  'Gói Tiêu Chuẩn Đã Thanh Toán',
+  'Pending package request must NOT overwrite currentPackageName of paid package'
+);
+assert.equal(
+  derivedDuringPending.membershipStatus,
+  'active',
+  'Pending upgrade request must NOT downgrade active membership status'
+);
+assert.equal(derivedDuringPending.totalSpent, 1500000, 'Total spent must not include unpaid pending package');
+
+// Now settle the upgrade payment: currentPackageId should switch to the settled package
+const pendingList = applyMockPaymentSettlements(fixturePendingPayments);
+const pendingRow = pendingList.find((p) => p.id === pendingUpgradeReq.item.id);
+assert.ok(pendingRow, 'Pending row must exist');
+const upgradeSettled = settleMockPaymentFixture(pendingRow);
+assert.equal(upgradeSettled.ok, true);
+
+const derivedAfterUpgradeSettled = deriveMockMemberProfile(memberWithActivePaidPkg, fixturePendingPayments);
+assert.equal(
+  derivedAfterUpgradeSettled.currentPackageId,
+  'pkg-upgrade-pending',
+  'Once settled, currentPackageId must switch to the newly paid package'
+);
+assert.equal(derivedAfterUpgradeSettled.membershipStatus, 'active');
+assert.equal(derivedAfterUpgradeSettled.totalSpent, 4500000);
+clearMockSettlements();
+console.log('PASS: Pending package request does NOT change currentPackageId of paid package');
+
+// Test 9.2: sessionStorage write error must fail payment settlement closed (ok: false) and prevent success
+clearMockSettlements();
+const pendingPaymentForStorageError = {
+  id: 'pay-err-001',
+  code: 'INV-ERR-001',
+  memberId: 99,
+  memberName: 'Storage Error Member',
+  packageId: 5,
+  packageName: 'Gói Test Storage',
+  amount: 500000,
+  status: 'pending',
+  paymentStatus: 'pending',
+};
+
+// Mock sessionStorage.setItem to simulate QuotaExceededError / SecurityError
+const originalSetItem = globalThis.sessionStorage.setItem;
+globalThis.sessionStorage.setItem = () => {
+  throw new Error('QuotaExceededError: DOM Exception 22');
+};
+
+const failedSettlementResult = settleMockPaymentFixture(pendingPaymentForStorageError);
+assert.equal(failedSettlementResult.ok, false, 'Settlement must fail closed when sessionStorage write throws');
+assert.ok(
+  failedSettlementResult.error.includes('sessionStorage'),
+  'Error message must indicate storage persistence failure'
+);
+assert.equal(
+  isMockPaymentSettled(pendingPaymentForStorageError),
+  false,
+  'Record must NOT be marked as settled in memory when storage fails'
+);
+
+// Restore original setItem
+globalThis.sessionStorage.setItem = originalSetItem;
+
+// Now with working storage, settlement must succeed
+const retrySuccessSettlement = settleMockPaymentFixture(pendingPaymentForStorageError);
+assert.equal(retrySuccessSettlement.ok, true);
+assert.equal(isMockPaymentSettled(pendingPaymentForStorageError), true);
+clearMockSettlements();
+console.log('PASS: sessionStorage write error causes settlement to fail closed (ok: false) without false success');
+
 console.log('\n====================================================');
 console.log('ALL FE 2: MEMBERSHIP, INVOICE & PAYMENT TESTS PASSED (100%)');
 console.log('====================================================');

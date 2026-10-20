@@ -34,7 +34,7 @@ function getCreatedPayments() {
 }
 
 /** Creates one local pending request for the member and package. No payment is recorded. */
-export function createMockPendingPayment({ member, pkg, method, notes, requestedStartDate, isRenewal }, existingPayments = []) {
+export function createMockPendingPayment({ member, pkg, method, notes }, existingPayments = []) {
   if (!member?.id || !pkg?.id) return { ok: false, error: 'Vui lòng chọn hội viên và gói dịch vụ.' };
   const allPayments = applyMockPaymentSettlements(existingPayments);
   if (allPayments.some((p) => String(p.memberId) === String(member.id)
@@ -47,8 +47,7 @@ export function createMockPendingPayment({ member, pkg, method, notes, requested
     id, transactionNo: id.toUpperCase(), memberId: member.id, memberName: member.name,
     packageId: pkg.id, packageName: pkg.nameVi || pkg.name, amount: Number(pkg.price) || 0,
     method, status: 'pending', paymentStatus: 'pending', paymentDate: null,
-    notes: notes || '', requestedStartDate: requestedStartDate || null,
-    isRenewal: Boolean(isRenewal), startDate: null, endDate: null,
+    notes: notes || '', startDate: null, endDate: null,
   };
   const created = getCreatedPayments();
   try {
@@ -76,12 +75,22 @@ function getSettledMapFromStorage() {
 }
 
 function saveSettledMapToStorage(map) {
-  if (typeof window === 'undefined' || !window.sessionStorage) return;
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    if (typeof window !== 'undefined') {
+      return { ok: false, error: 'Không thể truy cập bộ nhớ trình duyệt (sessionStorage).' };
+    }
+    return { ok: true };
+  }
   try {
     const obj = Object.fromEntries(map.entries());
     window.sessionStorage.setItem(SETTLED_STORAGE_KEY, JSON.stringify(obj));
+    return { ok: true };
   } catch (e) {
     console.warn('[FE2 Fixture Settlement] Could not persist settlements:', e);
+    return {
+      ok: false,
+      error: 'Lỗi ghi bộ nhớ trình duyệt (sessionStorage). Thao tác thu tiền không thể hoàn tất.',
+    };
   }
 }
 
@@ -171,7 +180,14 @@ export function settleMockPaymentFixture(paymentItem, options = {}) {
   };
 
   map.set(id, settledRecord);
-  saveSettledMapToStorage(map);
+  const saveResult = saveSettledMapToStorage(map);
+  if (!saveResult.ok) {
+    map.delete(id);
+    return {
+      ok: false,
+      error: saveResult.error || 'Lỗi ghi bộ nhớ trình duyệt (sessionStorage). Thao tác thu tiền thất bại.',
+    };
+  }
 
   // Notify listeners to trigger UI updates
   notifyListeners();
@@ -213,21 +229,26 @@ export function deriveMockMemberProfile(member, allPayments = []) {
   const newStatus = memberSettlements.length > 0 ? 'active' : member.membershipStatus;
 
   // Reconcile package assignment from the latest settlement:
-  // Must switch to the latest settled package (e.g. if member upgraded or paid for another package)
+  // Must switch to the latest settled package (e.g. if member upgraded or paid for another package).
+  // CRITICAL: A pending package request must NOT change currentPackageId of a paid/settled package.
   const latestSettlement = memberSettlements[memberSettlements.length - 1];
-  const latestPackage = latestPending || latestSettlement;
-  const newPackageId = latestPackage?.packageId || member.currentPackageId;
-  const newPackageName = latestPackage?.packageName || member.currentPackageName;
-  const newMembershipType = latestPackage?.packageName || member.membershipType || member.currentPackageName;
+  const newPackageId = latestSettlement?.packageId || member.currentPackageId;
+  const newPackageName = latestSettlement?.packageName || member.currentPackageName;
+  const newMembershipType = latestSettlement?.packageName || member.membershipType || member.currentPackageName;
 
   // Start date and end date: only set if explicitly defined on the settlement fixture or member,
   // do NOT invent fixed arbitrary dates like 2026-12-31.
   const newStartDate = latestSettlement?.startDate || member.startDate || null;
   const newEndDate = latestSettlement?.endDate || member.endDate || null;
 
+  // An existing paid package or settled package must remain active.
+  // A pending request for another package must not downgrade an active paid membership to pending_payment.
+  const hasActivePaidPackage = memberSettlements.length > 0 || (member.currentPackageId && member.membershipStatus === 'active');
+  const derivedStatus = hasActivePaidPackage ? 'active' : (latestPending ? 'pending_payment' : newStatus);
+
   return {
     ...member,
-    membershipStatus: latestPending ? 'pending_payment' : newStatus,
+    membershipStatus: derivedStatus,
     currentPackageId: newPackageId,
     currentPackageName: newPackageName,
     membershipType: newMembershipType,

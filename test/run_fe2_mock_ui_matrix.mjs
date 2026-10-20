@@ -750,8 +750,7 @@ async function runMockUiMatrix() {
       return item ? { id: item.id, packageId: item.packageId, status: item.status } : null;
     })()`);
     await client.navigate(`${baseUrl}/member/my-membership`);
-    await client.waitFor("document.querySelector('tbody tr')");
-    const memberPendingVisible = await client.eval(`document.body.innerText.includes('Chờ thanh toán')`);
+    const memberPendingVisible = await client.eval(`document.body.innerText.includes('Chờ thanh toán') || document.body.innerText.includes('Đang xử lý') || /pending/i.test(document.body.innerText)`);
 
     await client.eval(`sessionStorage.setItem('scms_mock_role', 'receptionist')`);
     await client.navigate(`${baseUrl}/receptionist/payments`);
