@@ -47,6 +47,7 @@ import {
   resolveActiveSubscription,
   validateDirectSubscriptionPreflight,
   reconcileAndVerifySubscriptionSafety,
+  isPaymentModalMutationLocked,
 } from '../src/utils/memberSafetyHelpers.js';
 import {
   isMockPaymentSettled,
@@ -1307,6 +1308,84 @@ assert.equal(retrySuccessSettlement.ok, true);
 assert.equal(isMockPaymentSettled(pendingPaymentForStorageError), true);
 clearMockSettlements();
 console.log('PASS: sessionStorage write error causes settlement to fail closed (ok: false) without false success');
+
+// Test 9.3: createMockPendingPayment preserves requestedStartDate and isRenewal from MemberDetailView form
+clearMockSettlements();
+const renewalMemberProbe = {
+  id: 'mem-renew-probe',
+  name: 'Renewal Probe Member',
+  currentPackageId: 'pkg-active-1',
+  membershipStatus: 'active',
+};
+const renewalPkgProbe = {
+  id: 'pkg-upgrade-probe',
+  nameVi: 'Gói Thử Nghiệm Gia Hạn',
+  price: 2500000,
+};
+const pendingRenewalProbe = createMockPendingPayment({
+  member: renewalMemberProbe,
+  pkg: renewalPkgProbe,
+  method: 'cash',
+  notes: 'Đăng ký gia hạn từ form',
+  requestedStartDate: '2026-10-25',
+  isRenewal: true,
+});
+assert.equal(pendingRenewalProbe.ok, true);
+assert.equal(pendingRenewalProbe.item.requestedStartDate, '2026-10-25', 'Must preserve requestedStartDate');
+assert.equal(pendingRenewalProbe.item.isRenewal, true, 'Must preserve isRenewal flag');
+
+const pendingOverlayList = applyMockPaymentSettlements([]);
+const storedProbeItem = pendingOverlayList.find((p) => p.id === pendingRenewalProbe.item.id);
+assert.ok(storedProbeItem, 'Probe item must be present in storage overlay');
+assert.equal(storedProbeItem.requestedStartDate, '2026-10-25');
+assert.equal(storedProbeItem.isRenewal, true);
+
+// Verify settlement respects requestedStartDate when startDate is not explicitly overridden
+const settleProbeResult = settleMockPaymentFixture(storedProbeItem);
+assert.equal(settleProbeResult.ok, true);
+assert.equal(settleProbeResult.item.startDate, '2026-10-25', 'Settled record must fallback to requestedStartDate');
+clearMockSettlements();
+console.log('PASS: createMockPendingPayment preserves requestedStartDate and isRenewal with regression assertion');
+
+// --- 10. PAYMENTMODAL DEFAULT MUTATION LOCK SAFETY ---
+console.log('\n--- 10. PAYMENTMODAL DEFAULT MUTATION LOCK SAFETY ---');
+
+// Test 10.1: PaymentModal mutation remains locked in standard API mode when VITE_TEST_HARNESS is not enabled
+assert.equal(
+  isPaymentModalMutationLocked(true, undefined),
+  true,
+  'Mutation must be locked when apiEnabled=true and VITE_TEST_HARNESS is undefined'
+);
+assert.equal(
+  isPaymentModalMutationLocked(true, 'false'),
+  true,
+  'Mutation must be locked when apiEnabled=true and VITE_TEST_HARNESS=false'
+);
+assert.equal(
+  isPaymentModalMutationLocked(true, ''),
+  true,
+  'Mutation must be locked when apiEnabled=true and VITE_TEST_HARNESS is empty'
+);
+
+// Test 10.2: PaymentModal mutation is only unlocked when VITE_TEST_HARNESS is explicitly "true"
+assert.equal(
+  isPaymentModalMutationLocked(true, 'true'),
+  false,
+  'Mutation is only unlocked when VITE_TEST_HARNESS is explicitly string true'
+);
+
+// Test 10.3: Mock mode (apiEnabled=false) is always unlocked for local demo fixtures
+assert.equal(
+  isPaymentModalMutationLocked(false, undefined),
+  false,
+  'Mock mode must allow local fixture mutations at desk without network calls'
+);
+assert.equal(
+  isPaymentModalMutationLocked(false, 'false'),
+  false,
+  'Mock mode is not constrained by VITE_TEST_HARNESS'
+);
+console.log('PASS: PaymentModal locks mutation when apiEnabled=true and VITE_TEST_HARNESS is not enabled (no Render call)');
 
 console.log('\n====================================================');
 console.log('ALL FE 2: MEMBERSHIP, INVOICE & PAYMENT TESTS PASSED (100%)');

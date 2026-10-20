@@ -15,6 +15,8 @@ import {
   clearInProgressTransaction,
 } from '../../api/paymentSession.js';
 
+import { isPaymentModalMutationLocked } from '../../utils/memberSafetyHelpers.js';
+
 const isValidPositiveInt = (n) => typeof n === 'number' && Number.isInteger(n) && n > 0;
 
 export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }) {
@@ -30,7 +32,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
     showToast,
   } = useSCMS();
 
-  const isMutationLocked = apiEnabled && import.meta.env.VITE_TEST_HARNESS !== 'true';
+  const isMutationLocked = isPaymentModalMutationLocked(apiEnabled, import.meta.env.VITE_TEST_HARNESS);
 
   const [memberId, setMemberId] = useState('');
   const [packageId, setPackageId] = useState('');

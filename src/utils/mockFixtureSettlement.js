@@ -34,7 +34,7 @@ function getCreatedPayments() {
 }
 
 /** Creates one local pending request for the member and package. No payment is recorded. */
-export function createMockPendingPayment({ member, pkg, method, notes }, existingPayments = []) {
+export function createMockPendingPayment({ member, pkg, method, notes, requestedStartDate, isRenewal }, existingPayments = []) {
   if (!member?.id || !pkg?.id) return { ok: false, error: 'Vui lòng chọn hội viên và gói dịch vụ.' };
   const allPayments = applyMockPaymentSettlements(existingPayments);
   if (allPayments.some((p) => String(p.memberId) === String(member.id)
@@ -47,7 +47,8 @@ export function createMockPendingPayment({ member, pkg, method, notes }, existin
     id, transactionNo: id.toUpperCase(), memberId: member.id, memberName: member.name,
     packageId: pkg.id, packageName: pkg.nameVi || pkg.name, amount: Number(pkg.price) || 0,
     method, status: 'pending', paymentStatus: 'pending', paymentDate: null,
-    notes: notes || '', startDate: null, endDate: null,
+    notes: notes || '', requestedStartDate: requestedStartDate || null, isRenewal: Boolean(isRenewal),
+    startDate: null, endDate: null,
   };
   const created = getCreatedPayments();
   try {
@@ -175,7 +176,7 @@ export function settleMockPaymentFixture(paymentItem, options = {}) {
     packageId: paymentItem.packageId,
     packageName: paymentItem.packageName,
     amount: Number(paymentItem.amount) || 0,
-    startDate: options.startDate || paymentItem.startDate || null,
+    startDate: options.startDate || paymentItem.startDate || paymentItem.requestedStartDate || null,
     endDate: options.endDate || paymentItem.endDate || null,
   };
 
