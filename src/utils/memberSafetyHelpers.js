@@ -3,6 +3,10 @@
  * Guarantees strict profile ID separation, fail-closed reconciliation, and prevents
  * duplicate registration mutations or state pollution across role/account switches.
  */
+import { membershipApi } from '../api/membershipApi.js';
+import { invoiceApi } from '../api/invoiceApi.js';
+import { getErrorMessage } from '../api/apiErrors.js';
+import { createMockPendingPayment } from './mockFixtureSettlement.js';
 
 /**
  * Extracts a verified positive integer profile ID (memberId or profileId) from an object.
@@ -95,15 +99,65 @@ export const resolveActiveSubscription = (subscriptions = [], apiEnabled = false
 };
 
 /**
- * Validates preflight inputs for Member subscription before setting submitting state.
- * Returns failure immediately without setting submitting=true, preventing stuck UI states.
- * Requires the authenticated member profile and a valid package before submitting.
+ * Evaluates whether direct Member subscription mutations must remain locked.
+ * - Always locked (true) if target is Render backend (*.onrender.com), REGARDLESS of VITE_TEST_HARNESS.
+ * - In non-Render API mode: locked unless VITE_TEST_HARNESS is explicitly set to 'true'.
+ * - In mock mode (apiEnabled=false): unlocked for local mock fixtures.
+ */
+export const isRenderBackend = (target) => {
+  if (!target) {
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      const proxyTarget = import.meta.env.VITE_API_PROXY_TARGET || '';
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+      return /onrender\.com/i.test(proxyTarget) || /onrender\.com/i.test(baseUrl);
+    }
+    return false;
+  }
+  if (typeof target === 'boolean') return target;
+  if (typeof target === 'string') {
+    return /onrender\.com/i.test(target);
+  }
+  if (typeof target === 'object') {
+    if (target.isRender === true) return true;
+    const url =
+      target.targetUrl ||
+      target.baseUrl ||
+      target.url ||
+      target.VITE_API_PROXY_TARGET ||
+      target.VITE_API_BASE_URL ||
+      '';
+    return /onrender\.com/i.test(String(url));
+  }
+  return false;
+};
+
+export const isDirectSubscriptionLocked = (apiEnabled, harnessFlag, options = {}) => {
+  if (!apiEnabled) return false;
+
+  const isRender =
+    isRenderBackend(options) ||
+    (typeof import.meta !== 'undefined' &&
+      isRenderBackend(import.meta.env?.VITE_API_PROXY_TARGET || import.meta.env?.VITE_API_BASE_URL));
+
+  // HARD LOCK: Under no circumstances can VITE_TEST_HARNESS unlock POST to Render
+  if (isRender) {
+    return true;
+  }
+
+  return harnessFlag !== 'true';
+};
+
+/**
+ * Validates preflight inputs for Member subscription form.
+ * Checks selectedPackageId, positive integer package ID, and authoritative member profile ID.
+ * Kept independent from backend mutation lock so that form validation can be verified in API mode
+ * without prematurely triggering the mutation lock error.
  */
 export const validateDirectSubscriptionPreflight = ({
   memberProfileId,
   selectedPackageId,
-  hasAuthoritativeMemberId,
-  apiEnabled,
+  hasAuthoritativeMemberId = true,
+  apiEnabled = false,
   language = 'vi',
 }) => {
   const packageId = Number(selectedPackageId);
@@ -156,4 +210,619 @@ export const reconcileAndVerifySubscriptionSafety = ({
   }
 
   return { allowed: true };
+};
+
+/**
+ * Safely parses and validates a finite positive timestamp in milliseconds.
+ * Strictly rejects null, undefined, NaN, Infinity, -Infinity, non-finite values, and non-positive numbers.
+ */
+export const getFinitePositiveTime = (val) => {
+  if (val == null) return null;
+  if (typeof val === 'number') {
+    return Number.isFinite(val) && val > 0 ? val : null;
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed || trimmed === 'Infinity' || trimmed === '-Infinity' || trimmed === '+Infinity') return null;
+    if (/^\d+$/.test(trimmed)) {
+      const num = Number(trimmed);
+      return Number.isFinite(num) && num > 0 ? num : null;
+    }
+    const t = new Date(trimmed).getTime();
+    return typeof t === 'number' && Number.isFinite(t) && t > 0 ? t : null;
+  }
+  if (val instanceof Date) {
+    const t = val.getTime();
+    return typeof t === 'number' && Number.isFinite(t) && t > 0 ? t : null;
+  }
+  return null;
+};
+
+/**
+ * Reconciles an incomplete, timed-out, or ambiguous subscription order attempt against BE state.
+ * Queries existing invoices and subscriptions to determine if the order was created on BE.
+ * Strictly scopes reconciliation to the CURRENT attempt:
+ * - Requires positive integer ID and valid finite positive timestamp evidence.
+ * - Rejects Infinity, -Infinity, NaN, non-positive, or missing attemptStartedAt/timestamps.
+ * - Excludes pre-existing records via knownInvoiceIds / knownSubscriptionIds baseline ONLY when a valid ID is present to correlate.
+ * - Flags records matching package/status that lack valid ID or timestamp as ambiguous (confirmed: false, isAmbiguous: true), NEVER as 'not found'.
+ * - Confirms order ONLY when both invoice and subscription exist with valid identifiers and timestamps.
+ */
+export const reconcileIncompleteOrder = ({
+  targetPackageId,
+  invoices = [],
+  subscriptions = [],
+  attemptStartedAt = null,
+  knownInvoiceIds = [],
+  knownSubscriptionIds = [],
+}) => {
+  const numPkgId = Number(targetPackageId);
+  const knownInvSet = new Set(
+    (Array.isArray(knownInvoiceIds) ? knownInvoiceIds : []).map(String)
+  );
+  const knownSubSet = new Set(
+    (Array.isArray(knownSubscriptionIds) ? knownSubscriptionIds : []).map(String)
+  );
+
+  // Validate attemptStartedAt: strictly require a finite positive timestamp; reject null, NaN, Infinity, -Infinity, <= 0
+  const attemptTime = getFinitePositiveTime(attemptStartedAt);
+  if (attemptTime == null) {
+    const rawInvs = Array.isArray(invoices) ? invoices : [];
+    const rawSubs = Array.isArray(subscriptions) ? subscriptions : [];
+    const hasAnyRaw = rawInvs.length > 0 || rawSubs.length > 0;
+    return {
+      reconciled: true,
+      foundOnServer: hasAnyRaw,
+      confirmed: false,
+      isAmbiguous: true,
+      ambiguityReason: 'missing_attempt_timestamp',
+      invoice: null,
+      subscription: null,
+      invoiceId: null,
+      subscriptionId: null,
+    };
+  }
+
+  // Related invoice check: same package and pending/paid/successful status
+  const isRelatedInvoice = (inv) => {
+    if (!inv || typeof inv !== 'object') return false;
+    const invPkgId = Number(inv.packageId);
+    if (invPkgId !== numPkgId) return false;
+    const status = String(inv.paymentStatus || inv.status || '').toLowerCase();
+    return status === 'pending' || status === 'paid' || status === 'successful';
+  };
+
+  // Related subscription check: same package and pending_payment/active/pending status
+  const isRelatedSubscription = (sub) => {
+    if (!sub || typeof sub !== 'object') return false;
+    const subPkgId = Number(sub.packageId);
+    if (subPkgId !== numPkgId) return false;
+    const status = String(sub.status || '').toLowerCase();
+    return status === 'pending_payment' || status === 'active' || status === 'pending';
+  };
+
+  const rawInvoices = Array.isArray(invoices) ? invoices : [];
+  const rawSubs = Array.isArray(subscriptions) ? subscriptions : [];
+
+  const validNewInvoices = [];
+  const ambiguousInvoices = [];
+
+  for (const inv of rawInvoices) {
+    if (!isRelatedInvoice(inv)) continue;
+
+    const rawId = inv.id ?? inv.invoiceId;
+    const hasValidId = rawId != null && Number.isInteger(Number(rawId)) && Number(rawId) > 0;
+
+    // RULE: Do NOT exclude an old record from baseline unless it has a valid ID to correlate
+    if (hasValidId && knownInvSet.size > 0 && knownInvSet.has(String(rawId))) {
+      // Confirmed pre-existing baseline invoice belonging to prior attempt
+      continue;
+    }
+
+    if (!hasValidId) {
+      // Related record exists on server, but lacks a valid positive integer ID -> ambiguous
+      ambiguousInvoices.push({ inv, reason: 'missing_or_invalid_id' });
+      continue;
+    }
+
+    const rawTime = inv.createdAt || inv.createdDate || inv.issueDate || inv.date;
+    const invTime = getFinitePositiveTime(rawTime);
+
+    if (invTime == null) {
+      // Related record exists on server and not in baseline, but lacks valid finite timestamp evidence -> ambiguous
+      ambiguousInvoices.push({ inv, reason: 'missing_or_invalid_timestamp' });
+      continue;
+    }
+
+    if (invTime < attemptTime - 5000) {
+      // Confirmed stale record created prior to attempt window -> ignore from current attempt
+      continue;
+    }
+
+    validNewInvoices.push(inv);
+  }
+
+  const validNewSubs = [];
+  const ambiguousSubs = [];
+
+  for (const sub of rawSubs) {
+    if (!isRelatedSubscription(sub)) continue;
+
+    const rawId = sub.subscriptionId ?? sub.id;
+    const hasValidId = rawId != null && Number.isInteger(Number(rawId)) && Number(rawId) > 0;
+
+    // RULE: Do NOT exclude an old record from baseline unless it has a valid ID to correlate
+    if (hasValidId && knownSubSet.size > 0 && knownSubSet.has(String(rawId))) {
+      // Confirmed pre-existing baseline subscription belonging to prior attempt
+      continue;
+    }
+
+    if (!hasValidId) {
+      // Related record exists on server, but lacks a valid positive integer ID -> ambiguous
+      ambiguousSubs.push({ sub, reason: 'missing_or_invalid_id' });
+      continue;
+    }
+
+    const rawTime = sub.createdAt || sub.createdDate || sub.startDate;
+    const subTime = getFinitePositiveTime(rawTime);
+
+    if (subTime == null) {
+      // Related record exists on server and not in baseline, but lacks valid finite timestamp evidence -> ambiguous
+      ambiguousSubs.push({ sub, reason: 'missing_or_invalid_timestamp' });
+      continue;
+    }
+
+    if (subTime < attemptTime - 5000) {
+      // Confirmed stale record created prior to attempt window -> ignore from current attempt
+      continue;
+    }
+
+    validNewSubs.push(sub);
+  }
+
+  // Ambiguity Check 1: Defective candidate records present (missing ID, missing time, or non-finite timestamp)
+  // When records exist for the package/status but lack valid ID or timestamp, return ambiguous (confirmed: false, isAmbiguous: true)
+  // instead of falsely claiming not found.
+  if (ambiguousInvoices.length > 0 || ambiguousSubs.length > 0) {
+    const primaryAmbiguous = ambiguousInvoices[0] || ambiguousSubs[0];
+    return {
+      reconciled: true,
+      foundOnServer: true,
+      confirmed: false,
+      isAmbiguous: true,
+      ambiguityReason: primaryAmbiguous.reason === 'missing_or_invalid_id'
+        ? 'insufficient_identifiers'
+        : 'missing_or_invalid_timestamp',
+      invoice: validNewInvoices[0] || ambiguousInvoices[0]?.inv || null,
+      subscription: validNewSubs[0] || ambiguousSubs[0]?.sub || null,
+      invoiceId: validNewInvoices[0] ? (validNewInvoices[0].id ?? validNewInvoices[0].invoiceId) : null,
+      subscriptionId: validNewSubs[0] ? (validNewSubs[0].subscriptionId ?? validNewSubs[0].id) : null,
+    };
+  }
+
+  // Ambiguity Check 2: Multiple competing new records for the same package
+  if (validNewInvoices.length > 1 || validNewSubs.length > 1) {
+    return {
+      reconciled: true,
+      foundOnServer: true,
+      confirmed: false,
+      isAmbiguous: true,
+      ambiguityReason: 'multiple_competing_records',
+      invoice: null,
+      subscription: null,
+      invoiceId: null,
+      subscriptionId: null,
+    };
+  }
+
+  // Outcome 3: No new records and no ambiguous records found (all were confirmed baseline or none existed)
+  if (validNewInvoices.length === 0 && validNewSubs.length === 0) {
+    return {
+      reconciled: true,
+      foundOnServer: false,
+      confirmed: false,
+      isAmbiguous: false,
+      invoice: null,
+      subscription: null,
+      invoiceId: null,
+      subscriptionId: null,
+    };
+  }
+
+  // Outcome 4: Incomplete pair (only valid invoice or only valid subscription found)
+  if (validNewInvoices.length === 0 || validNewSubs.length === 0) {
+    const matchingInvoice = validNewInvoices[0] || null;
+    const matchingSub = validNewSubs[0] || null;
+    const invId = matchingInvoice ? (matchingInvoice.id ?? matchingInvoice.invoiceId) : null;
+    const subId = matchingSub ? (matchingSub.subscriptionId ?? matchingSub.id) : null;
+    return {
+      reconciled: true,
+      foundOnServer: true,
+      confirmed: false,
+      isAmbiguous: true,
+      ambiguityReason: 'missing_counterpart_record',
+      invoice: matchingInvoice,
+      subscription: matchingSub,
+      invoiceId: invId != null ? Number(invId) : null,
+      subscriptionId: subId != null ? Number(subId) : null,
+    };
+  }
+
+  // Outcome 5: Both valid invoice and subscription confirmed with valid identifiers and finite timestamps
+  const matchingInvoice = validNewInvoices[0];
+  const matchingSub = validNewSubs[0];
+  const invId = matchingInvoice.id ?? matchingInvoice.invoiceId;
+  const subId = matchingSub.subscriptionId ?? matchingSub.id;
+
+  return {
+    reconciled: true,
+    foundOnServer: true,
+    confirmed: true,
+    isAmbiguous: false,
+    invoice: matchingInvoice,
+    subscription: matchingSub,
+    invoiceId: Number(invId),
+    subscriptionId: Number(subId),
+  };
+};
+
+/**
+ * Partitioned storage helpers for persisting pending subscription orders across F5 session reloads.
+ * Uses member-scoped keys (scms_member_pending_order_${memberId}) to prevent cross-account
+ * pending order leakage upon account switching.
+ */
+const PENDING_ORDER_BASE_KEY = 'scms_member_pending_order';
+
+export const getPendingOrderStorageKey = (memberId) =>
+  memberId ? `${PENDING_ORDER_BASE_KEY}_${memberId}` : `${PENDING_ORDER_BASE_KEY}_default`;
+
+export const getStoredPendingOrder = (memberId) => {
+  try {
+    if (typeof window === 'undefined' || !window.sessionStorage) return null;
+    const key = getPendingOrderStorageKey(memberId);
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (memberId && parsed?.memberId && String(parsed.memberId) !== String(memberId)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+export const setStoredPendingOrder = (memberIdOrOrder, maybeOrder) => {
+  try {
+    if (typeof window === 'undefined' || !window.sessionStorage) return;
+    let memberId = null;
+    let order = null;
+    if (maybeOrder !== undefined) {
+      memberId = memberIdOrOrder;
+      order = maybeOrder;
+    } else {
+      order = memberIdOrOrder;
+      memberId = order?.memberId || null;
+    }
+
+    const key = getPendingOrderStorageKey(memberId);
+    if (!order) {
+      window.sessionStorage.removeItem(key);
+    } else {
+      const payloadWithMember = {
+        ...order,
+        memberId: memberId ?? order.memberId ?? null,
+      };
+      window.sessionStorage.setItem(key, JSON.stringify(payloadWithMember));
+    }
+  } catch {}
+};
+
+export const clearStoredPendingOrder = (memberId) => setStoredPendingOrder(memberId, null);
+
+export const clearAllStoredPendingOrdersExcept = (currentMemberId) => {
+  try {
+    if (typeof window === 'undefined' || !window.sessionStorage) return;
+    const targetKey = currentMemberId ? getPendingOrderStorageKey(currentMemberId) : null;
+    const keysToRemove = [];
+    for (let i = 0; i < window.sessionStorage.length; i++) {
+      const key = window.sessionStorage.key(i);
+      if (key && key.startsWith(PENDING_ORDER_BASE_KEY)) {
+        if (targetKey && key === targetKey) {
+          continue;
+        }
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => window.sessionStorage.removeItem(k));
+  } catch {}
+};
+
+/**
+ * Evaluates whether PaymentModal mutations must remain locked.
+ * - Always locked (true) if target is Render backend (*.onrender.com), REGARDLESS of VITE_TEST_HARNESS.
+ * - In non-Render API mode: locked unless VITE_TEST_HARNESS is explicitly set to 'true'.
+ * - In mock mode (apiEnabled=false): unlocked for local mock fixtures.
+ */
+export const isPaymentModalMutationLocked = (apiEnabled, harnessFlag, options = {}) => {
+  if (!apiEnabled) return false;
+
+  const isRender =
+    isRenderBackend(options) ||
+    (typeof import.meta !== 'undefined' &&
+      isRenderBackend(import.meta.env?.VITE_API_PROXY_TARGET || import.meta.env?.VITE_API_BASE_URL));
+
+  // HARD LOCK: Under no circumstances can VITE_TEST_HARNESS unlock POST to Render
+  if (isRender) {
+    return true;
+  }
+
+  return harnessFlag !== 'true';
+};
+
+/**
+ * Shared executor for direct member subscription submissions.
+ * Used by MyMembershipView and tested directly to verify:
+ * 1. Synchronous mutex lock preventing duplicate POSTs in the same tick.
+ * 2. Fail-closed pre-POST invoice baseline check (stops before POST with 0 POSTs on error).
+ * 3. GET reconciliation upon network timeout or POST error.
+ * 4. Confirmation only when both invoice and subscription exist with valid identifiers.
+ */
+export const executeDirectSubscriptionSubmit = async ({
+  submittingRef,
+  memberProfileId,
+  selectedPackageId,
+  hasAuthoritativeMemberId = true,
+  isMemberMutationLocked = false,
+  apiEnabled = false,
+  paymentMethod = 'cash',
+  subNotes = '',
+  activeSubscription = null,
+  language = 'vi',
+  currentMember = null,
+  contextPackages = [],
+  contextPayments = [],
+  apis = {},
+  callbacks = {},
+  createMockPendingPaymentFn = null,
+}) => {
+  // 1. Synchronous mutex lock to prevent concurrent or duplicate handler invocation
+  if (submittingRef?.current) {
+    return { executed: false, blockedByMutex: true };
+  }
+  if (submittingRef) {
+    submittingRef.current = true;
+  }
+
+  // 2. Form preflight input validation before engaging submitting state
+  const preflight = validateDirectSubscriptionPreflight({
+    memberProfileId,
+    selectedPackageId,
+    hasAuthoritativeMemberId,
+    apiEnabled,
+    language,
+  });
+
+  if (!preflight.ok) {
+    if (submittingRef) submittingRef.current = false;
+    callbacks.setSubmitError?.(preflight.error);
+    return { executed: false, error: preflight.error };
+  }
+
+  // 3. Strict mutation lock: keep direct POST to Render strictly locked
+  if (isMemberMutationLocked) {
+    if (submittingRef) submittingRef.current = false;
+    const lockMsg =
+      language === 'vi'
+        ? 'Thao tác đăng ký trực tuyến từ phía hội viên tạm thời bị khóa: Backend chưa xác nhận tài khoản/hồ sơ test được phép phát sinh giao dịch và cấu hình sandbox. Vui lòng thanh toán tại quầy Tiếp tân.'
+        : 'Direct member subscription is locked: Waiting for Backend confirmation of test profile permissions and sandbox configuration. Please pay at the reception desk.';
+    callbacks.setSubmitError?.(lockMsg);
+    return { executed: false, error: lockMsg };
+  }
+
+  callbacks.setSubmitting?.(true);
+  callbacks.setSubmitError?.(null);
+
+  const numericPkgId = preflight.numericPackageId;
+
+  if (apiEnabled) {
+    const membershipApiInstance = apis.membershipApi || membershipApi;
+    const invoiceApiInstance = apis.invoiceApi || invoiceApi;
+
+    try {
+      // Step A: fetch existing subscriptions
+      let existingSubs;
+      try {
+        existingSubs = await membershipApiInstance.getMemberSubscriptions(memberProfileId);
+      } catch (getErr) {
+        throw new Error(
+          language === 'vi'
+            ? `Không thể kiểm tra đăng ký hiện tại (${getErrorMessage(getErr, 'Lỗi kết nối')}). Thao tác tạm dừng để đảm bảo an toàn.`
+            : `Failed to verify existing subscriptions (${getErrorMessage(getErr, 'Network error')}). Operation halted for safety.`
+        );
+      }
+
+      const knownSubscriptionIds = (existingSubs || [])
+        .map((sub) => sub.subscriptionId ?? sub.id)
+        .filter(Boolean);
+
+      // Step B: safety check against existing active/pending registrations
+      const safetyCheck = reconcileAndVerifySubscriptionSafety({
+        existingSubscriptions: existingSubs,
+        targetPackageId: numericPkgId,
+        language,
+      });
+
+      if (!safetyCheck.allowed) {
+        throw new Error(safetyCheck.error);
+      }
+
+      // Step C: Query fresh invoice baseline IMMEDIATELY before POST
+      // Fail-closed: If GET baseline fails, STOP immediately before POST, NEVER fallback to cache!
+      let baselineInvoices;
+      try {
+        baselineInvoices = await invoiceApiInstance.getMemberOwnInvoices();
+      } catch (invErr) {
+        throw new Error(
+          language === 'vi'
+            ? `Không thể kiểm tra hóa đơn hiện tại (${getErrorMessage(invErr, 'Lỗi kết nối')}). Thao tác tạm dừng để đảm bảo an toàn.`
+            : `Failed to verify existing invoices (${getErrorMessage(invErr, 'Network error')}). Operation halted for safety.`
+        );
+      }
+
+      const knownInvoiceIds = (baselineInvoices || [])
+        .map((inv) => inv.id ?? inv.invoiceId)
+        .filter(Boolean);
+      const attemptStartedAt = Date.now();
+
+      // Step D: Submit via subscribeMe (OpenAPI POST /api/members/me/subscriptions)
+      const payload = {
+        packageId: numericPkgId,
+        paymentMethod: paymentMethod.toUpperCase(),
+        isRenewal: Boolean(activeSubscription),
+        notes: (subNotes || '').trim() || undefined,
+      };
+
+      let result;
+      try {
+        result = await membershipApiInstance.subscribeMe(payload);
+      } catch (postErr) {
+        // Step E: Timeout / POST failure -> perform GET reconciliation before allowing retry
+        let reconciledState = null;
+        try {
+          const [freshInvs, freshSubs] = await Promise.all([
+            invoiceApiInstance.getMemberOwnInvoices(),
+            membershipApiInstance.getMemberSubscriptions(memberProfileId),
+          ]);
+          reconciledState = reconcileIncompleteOrder({
+            targetPackageId: numericPkgId,
+            invoices: freshInvs,
+            subscriptions: freshSubs,
+            attemptStartedAt,
+            knownInvoiceIds,
+            knownSubscriptionIds,
+          });
+        } catch {
+          // Reconciliation query failed
+        }
+
+        // Only confirm if BOTH invoice and subscription are present with valid identifiers
+        if (
+          reconciledState?.foundOnServer &&
+          reconciledState?.confirmed &&
+          !reconciledState?.isAmbiguous
+        ) {
+          setStoredPendingOrder(memberProfileId, {
+            memberId: memberProfileId,
+            subscriptionId: reconciledState.subscriptionId,
+            invoiceId: reconciledState.invoiceId,
+            invoiceCode: reconciledState.invoice?.invoiceCode,
+            amount: reconciledState.invoice?.amount,
+            packageId: numericPkgId,
+            paymentMethod,
+          });
+          callbacks.showToast?.(
+            language === 'vi'
+              ? `Yêu cầu đã được ghi nhận trên máy chủ (Mã HĐ: #${reconciledState.invoice?.invoiceCode || reconciledState.invoiceId}). Vui lòng không gửi lại.`
+              : `Subscription already recorded on server (Invoice #${reconciledState.invoice?.invoiceCode || reconciledState.invoiceId}). Please do not resubmit.`,
+            'info'
+          );
+          callbacks.setIsSubscribeModalOpen?.(false);
+          callbacks.setSubNotes?.('');
+          await callbacks.fetchMemberData?.();
+          return { executed: true, success: true, reconciled: true, order: reconciledState };
+        }
+
+        if (
+          reconciledState?.isAmbiguous ||
+          (reconciledState?.foundOnServer && !reconciledState?.confirmed)
+        ) {
+          // Ambiguous state (e.g. only 1 record found or missing timestamp evidence):
+          // keep safe state, do not claim success, instruct user to check history
+          const ambiguousMsg =
+            language === 'vi'
+              ? 'Giao dịch chưa xác định rõ kết quả trên máy chủ. Đơn có thể đã được tiếp nhận một phần; để đảm bảo an toàn, vui lòng không gửi lại và kiểm tra lịch sử hóa đơn hoặc liên hệ quầy Tiếp tân.'
+              : 'Transaction outcome on server is ambiguous. Please do not retry; verify invoice history or contact reception desk.';
+          callbacks.setSubmitError?.(ambiguousMsg);
+          return {
+            executed: true,
+            success: false,
+            ambiguous: true,
+            reconciledState,
+            error: ambiguousMsg,
+          };
+        }
+
+        throw postErr;
+      }
+
+      // Normal POST success
+      setStoredPendingOrder(memberProfileId, {
+        memberId: memberProfileId,
+        subscriptionId: result?.subscriptionId,
+        invoiceId: result?.invoiceId,
+        invoiceCode: result?.invoiceCode,
+        amount: result?.amount,
+        packageId: numericPkgId,
+        paymentMethod: result?.paymentMethod || paymentMethod,
+        paymentUrl: result?.paymentUrl || null,
+      });
+
+      callbacks.showToast?.(
+        language === 'vi'
+          ? 'Đăng ký gói thành công! Vui lòng hoàn tất thanh toán hóa đơn để kích hoạt.'
+          : 'Package registered! Please complete invoice payment to activate.',
+        'success'
+      );
+
+      callbacks.setIsSubscribeModalOpen?.(false);
+      callbacks.setSubNotes?.('');
+      await callbacks.fetchMemberData?.();
+      return { executed: true, success: true, reconciled: false, result };
+    } catch (err) {
+      const errMsg = getErrorMessage(
+        err,
+        language === 'vi'
+          ? 'Không thể hoàn tất đăng ký gói. Đơn có thể đã được tạo; vui lòng kiểm tra lịch sử hóa đơn trước khi thử lại.'
+          : 'Failed to complete registration. Please check invoice history before retrying.'
+      );
+      callbacks.setSubmitError?.(errMsg);
+      return { executed: true, success: false, error: errMsg };
+    } finally {
+      if (submittingRef) submittingRef.current = false;
+      callbacks.setSubmitting?.(false);
+    }
+  } else {
+    if (submittingRef) submittingRef.current = false;
+    const chosenPkg = (contextPackages || []).find(
+      (p) => String(p.id) === String(selectedPackageId)
+    );
+    const mockFn = createMockPendingPaymentFn || createMockPendingPayment;
+    const result = mockFn
+      ? mockFn(
+          {
+            member: currentMember,
+            pkg: chosenPkg,
+            method: paymentMethod,
+            notes: (subNotes || '').trim(),
+          },
+          contextPayments
+        )
+      : { ok: false, error: 'Mock payment handler unavailable' };
+
+    if (!result.ok) {
+      callbacks.setSubmitError?.(result.error);
+      callbacks.setSubmitting?.(false);
+      return { executed: true, success: false, error: result.error };
+    }
+    callbacks.showToast?.(
+      language === 'vi'
+        ? 'Đã ghi nhận yêu cầu đăng ký gói. Vui lòng hoàn tất thanh toán tại quầy.'
+        : 'Membership request recorded. Please complete payment at the desk.',
+      'info'
+    );
+    callbacks.setIsSubscribeModalOpen?.(false);
+    callbacks.setSubmitting?.(false);
+    return { executed: true, success: true, mockResult: result };
+  }
 };

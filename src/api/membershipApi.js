@@ -4,11 +4,19 @@ import {
   toMembershipPackageRequest,
   mapMemberSubscription,
   toMemberPackageRequest,
+  mapSubscriptionOrder,
 } from './membershipMappers.js';
 import { extractList, isValidNumericId } from './schemaValidators.js';
 
 export const getPackages = async () => {
   const data = await httpClient.get('/api/packages');
+  const list = extractList(data);
+  return Array.isArray(list) ? list.map(mapMembershipPackage).filter(Boolean) : [];
+};
+
+export const getPublicPackages = async (centerId = null) => {
+  const query = centerId ? `?centerId=${encodeURIComponent(centerId)}` : '';
+  const data = await httpClient.get(`/api/public/membership-packages${query}`);
   const list = extractList(data);
   return Array.isArray(list) ? list.map(mapMembershipPackage).filter(Boolean) : [];
 };
@@ -65,7 +73,22 @@ export const subscribePackage = async (memberId, data) => {
 export const subscribeMe = async (data) => {
   const payload = toMemberPackageRequest(data);
   const response = await httpClient.post('/api/members/me/subscriptions', payload);
-  return mapMemberSubscription(response);
+  const mapped = mapSubscriptionOrder(response);
+
+  const hasValidSubscriptionId = isValidNumericId(mapped?.subscriptionId);
+  const hasValidInvoiceId = isValidNumericId(mapped?.invoiceId);
+
+  if (!hasValidSubscriptionId || !hasValidInvoiceId) {
+    const error = new Error(
+      'Phản hồi tạo đơn thiếu định danh bắt buộc (subscriptionId hoặc invoiceId). Đơn có thể đã được tạo trên hệ thống; vui lòng thực hiện GET đối soát, không tự gửi lại yêu cầu đăng ký.'
+    );
+    error.name = 'IncompleteOrderResponseError';
+    error.partialOrder = mapped;
+    error.requiresReconciliation = true;
+    throw error;
+  }
+
+  return mapped;
 };
 export const getAllSubscriptions = async () => {
   const data = await httpClient.get('/api/member-packages');
@@ -83,6 +106,7 @@ export const updateSubscriptionStatus = async (id, status) => {
 
 export const membershipApi = {
   getPackages,
+  getPublicPackages,
   getPackageById,
   createPackage,
   updatePackage,

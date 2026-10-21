@@ -1,6 +1,9 @@
 import { httpClient } from './httpClient.js';
 import {
   mapInvoice,
+  toInvoiceRequest,
+  toInvoicePaymentRequest,
+  toInvoiceStatusRequest,
 } from './invoiceMappers.js';
 import { extractList, isValidNumericId } from './schemaValidators.js';
 
@@ -82,14 +85,64 @@ export const cancelInvoice = async (id) => {
   return mapInvoice(response);
 };
 
+export const createInvoice = async (data) => {
+  const payload = toInvoiceRequest(data);
+  const created = await httpClient.post('/api/invoices', payload);
+  return mapInvoice(created);
+};
+
+export const payInvoice = async (id, paymentData) => {
+  if (!isValidNumericId(id)) throw new Error('ID hóa đơn không hợp lệ.');
+  const payload = toInvoicePaymentRequest(paymentData);
+  const response = await httpClient.post(`/api/invoices/${id}/pay`, payload);
+  return mapInvoice(response);
+};
+
+export const updateInvoiceStatus = async (id, status) => {
+  if (!isValidNumericId(id)) throw new Error('ID hóa đơn không hợp lệ.');
+  const payload = toInvoiceStatusRequest({ status });
+  const response = await httpClient.patch(`/api/invoices/${id}/status`, payload);
+  return mapInvoice(response);
+};
+
+export const getMemberOwnInvoices = async () => {
+  const data = await httpClient.get('/api/members/me/invoices');
+  const list = extractList(data);
+  return Array.isArray(list) ? list.map(mapInvoice).filter(Boolean) : [];
+};
+
+export const getMemberOwnInvoiceById = async (id) => {
+  if (!isValidNumericId(id)) {
+    throw new Error('ID hóa đơn không hợp lệ.');
+  }
+  const data = await httpClient.get(`/api/members/me/invoices/${id}`);
+  return mapInvoice(data);
+};
+
+export const payInvoiceOnline = async (id) => {
+  if (!isValidNumericId(id)) {
+    throw new Error('ID hóa đơn không hợp lệ.');
+  }
+  const response = await httpClient.post(`/api/invoices/${id}/pay-online`);
+  return {
+    paymentUrl: response?.paymentUrl || null,
+  };
+};
+
 export const invoiceApi = {
   getInvoices,
   getMyInvoices,
   getInvoiceById,
   getMyInvoiceById,
+  getMemberOwnInvoices,
+  getMemberOwnInvoiceById,
+  createInvoice,
+  payInvoice,
+  updateInvoiceStatus,
   confirmCashPayment,
   startOnlinePayment,
   cancelInvoice,
+  payInvoiceOnline,
 };
 
 export default invoiceApi;

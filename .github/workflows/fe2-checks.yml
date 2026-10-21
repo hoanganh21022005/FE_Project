@@ -1,0 +1,27 @@
+name: FE 2 checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/components/modals/PaymentModal.jsx'
+      - 'src/components/views/MyMembershipView.jsx'
+      - 'src/api/invoiceMappers.js'
+      - 'src/components/common/Badge.jsx'
+      - 'src/utils/memberSafetyHelpers.js'
+      - 'test/fe2_membership_payment_test.mjs'
+      - '.github/workflows/fe2-checks.yml'
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: node test/fe2_membership_payment_test.mjs
+      - run: npm run build
+      - run: npm run build:local

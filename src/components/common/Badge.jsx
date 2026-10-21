@@ -44,6 +44,12 @@ export function StatusBadge({ type, status }) {
       case 'reversed':
         colorClasses = 'bg-[#F1F5F9] text-[#475569] border-[#CBD5E1]';
         break;
+      case 'expired':
+        colorClasses = 'bg-rose-50 text-rose-800 border-rose-200';
+        break;
+      case 'cancelled':
+        colorClasses = 'bg-slate-100 text-slate-600 border-slate-300';
+        break;
     }
   } else if (type === 'class') {
     switch (status) {

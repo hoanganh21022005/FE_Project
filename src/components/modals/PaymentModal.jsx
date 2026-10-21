@@ -15,6 +15,8 @@ import {
   clearInProgressTransaction,
 } from '../../api/paymentSession.js';
 
+import { isPaymentModalMutationLocked } from '../../utils/memberSafetyHelpers.js';
+
 const isValidPositiveInt = (n) => typeof n === 'number' && Number.isInteger(n) && n > 0;
 
 export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }) {
@@ -29,6 +31,8 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
     currentUser,
     showToast,
   } = useSCMS();
+
+  const isMutationLocked = isPaymentModalMutationLocked(apiEnabled, import.meta.env.VITE_TEST_HARNESS);
 
   const [memberId, setMemberId] = useState('');
   const [packageId, setPackageId] = useState('');
@@ -156,6 +160,15 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
   const handleResetInProgress = async () => {
     if (submitting) return;
 
+    if (isMutationLocked) {
+      const lockMsg =
+        language === 'vi'
+          ? 'Hiện chưa thể hủy phiên này. Vui lòng thử lại sau.'
+          : 'This session cannot be cancelled right now. Please try again later.';
+      setSubmitError(lockMsg);
+      showToast?.(lockMsg, 'warning');
+      return;
+    }
     const invIdToCancel = createdInvoiceId;
     const subIdToCancel = createdSubscriptionId;
 
@@ -292,7 +305,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
 
       Promise.all([
         memberApi.getMembers(),
-        membershipApi.getPackages(),
+        membershipApi.getPublicPackages(),
       ])
         .then(([mList, pList]) => {
           if (!isMounted) return;
@@ -358,6 +371,15 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
     const numericMemberId = Number(memberId);
     const numericPackageId = Number(packageId);
 
+    if (isMutationLocked) {
+      setSubmitError(
+        language === 'vi'
+          ? 'Hiện chưa thể ghi nhận giao dịch. Vui lòng thử lại sau.'
+          : 'This transaction cannot be recorded right now. Please try again later.'
+      );
+      setSubmitting(false);
+      return;
+    }
     if (apiEnabled) {
       try {
         // Ensure a session reference exists for this transaction attempt
@@ -614,7 +636,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
               onClick={() => {
                 setLoadingData(true);
                 setFetchError(null);
-                Promise.all([memberApi.getMembers(), membershipApi.getPackages()])
+                Promise.all([memberApi.getMembers(), membershipApi.getPublicPackages()])
                   .then(([mList, pList]) => {
                     setApiMembers(mList);
                     setApiPackages(pList);
@@ -655,8 +677,10 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                   <button
                     type="button"
                     onClick={handleResetInProgress}
-                    disabled={submitting}
-                    className='text-[11px] font-bold underline text-rose-700 hover:text-rose-900 cursor-pointer'
+                    disabled={submitting || isMutationLocked}
+                    className={`text-[11px] font-bold underline ${
+                      isMutationLocked ? 'text-slate-400 cursor-not-allowed opacity-60' : 'text-rose-700 hover:text-rose-900 cursor-pointer'
+                    }`}
                   >
                     {language === 'vi' ? 'Hủy phiên & Bắt đầu lại' : 'Discard & Reset'}
                   </button>
@@ -968,13 +992,20 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
               </button>
               <button
                 type="submit"
-                disabled={submitting || !memberId || !packageId}
-                className='min-h-[44px] px-5 py-2 bg-[#BA0000] hover:bg-[#8E0000] text-white font-bold rounded shadow-xs flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50'
+                disabled={submitting || isMutationLocked || (isTransactionResumed ? false : (!memberId || !packageId))}
+                title={isMutationLocked ? (language === 'vi' ? 'Thao tác tạm thời bị khóa' : 'Temporarily unavailable') : undefined}
+                className={`min-h-[44px] px-5 py-2 font-bold rounded shadow-xs flex items-center gap-2 cursor-pointer transition-colors ${
+                  isMutationLocked
+                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-75'
+                    : 'bg-[#BA0000] hover:bg-[#8E0000] text-white disabled:opacity-50'
+                }`}
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 <span>
                   {submitting
                     ? (language === 'vi' ? 'Đang xử lý...' : 'Processing...')
+                    : isMutationLocked
+                    ? (language === 'vi' ? 'Tạm khóa' : 'Temporarily locked')
                     : createdInvoiceId && method === 'cash'
                     ? (language === 'vi' ? 'Thử lại bước thu tiền mặt' : 'Retry Cash Collection')
                     : createdSubscriptionId
