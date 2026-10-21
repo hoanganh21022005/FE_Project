@@ -49,6 +49,11 @@ import {
   validateDirectSubscriptionPreflight,
   reconcileAndVerifySubscriptionSafety,
   isPaymentModalMutationLocked,
+  isDirectSubscriptionLocked,
+  reconcileIncompleteOrder,
+  getStoredPendingOrder,
+  setStoredPendingOrder,
+  clearStoredPendingOrder,
 } from '../src/utils/memberSafetyHelpers.js';
 import {
   isMockPaymentSettled,
@@ -1677,6 +1682,114 @@ assert.equal(
   'Mock mode is not constrained by VITE_TEST_HARNESS'
 );
 console.log('PASS: PaymentModal locks mutation when apiEnabled=true and VITE_TEST_HARNESS is not enabled (no Render call)');
+
+// --- 11. DIRECT MEMBER SUBSCRIPTION MUTATION LOCK, SINGLE-POST & RECONCILIATION ---
+console.log('\n--- 11. DIRECT MEMBER SUBSCRIPTION MUTATION LOCK, SINGLE-POST & RECONCILIATION ---');
+
+// Test 11.1: isDirectSubscriptionLocked enforces lock unless VITE_TEST_HARNESS is explicitly "true"
+assert.equal(
+  isDirectSubscriptionLocked(true, undefined),
+  true,
+  'Direct subscription must be locked when apiEnabled=true and harnessFlag is undefined'
+);
+assert.equal(
+  isDirectSubscriptionLocked(true, 'false'),
+  true,
+  'Direct subscription must be locked when harnessFlag is false'
+);
+assert.equal(
+  isDirectSubscriptionLocked(true, 'true'),
+  false,
+  'Direct subscription unlocks when harnessFlag is explicitly "true"'
+);
+assert.equal(
+  isDirectSubscriptionLocked(false, undefined),
+  false,
+  'Mock mode is not locked by harnessFlag'
+);
+console.log('PASS: isDirectSubscriptionLocked enforces Render safety lock and allows test harness');
+
+// Test 11.2: validateDirectSubscriptionPreflight validates inputs and blocks locked live mutations
+const preflightNoPkg = validateDirectSubscriptionPreflight({
+  selectedPackageId: '',
+  apiEnabled: false,
+});
+assert.equal(preflightNoPkg.ok, false);
+assert.ok(preflightNoPkg.error.includes('chọn một gói') || preflightNoPkg.error.includes('select'));
+
+const preflightInvalidId = validateDirectSubscriptionPreflight({
+  selectedPackageId: 'abc',
+  apiEnabled: false,
+});
+assert.equal(preflightInvalidId.ok, false);
+
+const preflightLocked = validateDirectSubscriptionPreflight({
+  selectedPackageId: '3',
+  apiEnabled: true,
+  harnessFlag: 'false',
+});
+assert.equal(preflightLocked.ok, false);
+assert.ok(preflightLocked.error.includes('khóa') || preflightLocked.error.includes('locked'));
+
+const preflightUnlocked = validateDirectSubscriptionPreflight({
+  selectedPackageId: '3',
+  apiEnabled: true,
+  harnessFlag: 'true',
+});
+assert.equal(preflightUnlocked.ok, true);
+assert.equal(preflightUnlocked.numericPackageId, 3);
+console.log('PASS: validateDirectSubscriptionPreflight validates IDs and blocks locked live mutations');
+
+// Test 11.3: reconcileIncompleteOrder detects existing invoice or subscription on BE
+const sampleInvoices = [
+  { id: 10, invoiceCode: 'INV-10', packageId: 2, paymentStatus: 'paid' },
+  { id: 11, invoiceCode: 'INV-11', packageId: 3, paymentStatus: 'pending', amount: 1500000 },
+];
+const sampleSubs = [
+  { subscriptionId: 20, packageId: 3, status: 'pending_payment' },
+];
+
+const foundReconciliation = reconcileIncompleteOrder({
+  targetPackageId: 3,
+  invoices: sampleInvoices,
+  subscriptions: sampleSubs,
+});
+assert.equal(foundReconciliation.foundOnServer, true);
+assert.equal(foundReconciliation.invoiceId, 11);
+assert.equal(foundReconciliation.subscriptionId, 20);
+
+const notFoundReconciliation = reconcileIncompleteOrder({
+  targetPackageId: 99,
+  invoices: sampleInvoices,
+  subscriptions: sampleSubs,
+});
+assert.equal(notFoundReconciliation.foundOnServer, false);
+assert.equal(notFoundReconciliation.invoiceId, null);
+assert.equal(notFoundReconciliation.subscriptionId, null);
+console.log('PASS: reconcileIncompleteOrder accurately detects created records on server to prevent duplicate POST');
+
+// Test 11.4: sessionStorage pending order persistence across simulated F5 reload
+clearStoredPendingOrder();
+assert.equal(getStoredPendingOrder(), null);
+
+const pendingOrderPayload = {
+  subscriptionId: 20,
+  invoiceId: 11,
+  invoiceCode: 'INV-11',
+  amount: 1500000,
+  packageId: 3,
+  paymentMethod: 'cash',
+};
+setStoredPendingOrder(pendingOrderPayload);
+const retrievedOrder = getStoredPendingOrder();
+assert.ok(retrievedOrder);
+assert.equal(retrievedOrder.subscriptionId, 20);
+assert.equal(retrievedOrder.invoiceCode, 'INV-11');
+assert.equal(retrievedOrder.amount, 1500000);
+
+clearStoredPendingOrder();
+assert.equal(getStoredPendingOrder(), null);
+console.log('PASS: Pending order is safely preserved and cleared in sessionStorage across F5 reload');
 
 console.log('\n====================================================');
 console.log('ALL FE 2: MEMBERSHIP, INVOICE & PAYMENT TESTS PASSED (100%)');

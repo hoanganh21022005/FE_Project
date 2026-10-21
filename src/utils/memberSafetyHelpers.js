@@ -95,15 +95,24 @@ export const resolveActiveSubscription = (subscriptions = [], apiEnabled = false
 };
 
 /**
+ * Evaluates whether direct Member subscription mutations must remain locked.
+ * Locks mutation in API mode unless VITE_TEST_HARNESS is explicitly set to 'true'.
+ * Prevents unintended direct POST mutations to Render without BE confirmation of test profile permissions and sandbox configuration.
+ */
+export const isDirectSubscriptionLocked = (apiEnabled, harnessFlag) =>
+  Boolean(apiEnabled && harnessFlag !== 'true');
+
+/**
  * Validates preflight inputs for Member subscription before setting submitting state.
  * Returns failure immediately without setting submitting=true, preventing stuck UI states.
- * Keeps Member write disabled in API mode until BE confirms server-side idempotency/concurrency and renewal semantics.
+ * Keeps Member write disabled in API mode until BE confirms test account/profile permissions and sandbox configuration.
  */
 export const validateDirectSubscriptionPreflight = ({
   memberProfileId,
   selectedPackageId,
   hasAuthoritativeMemberId,
   apiEnabled,
+  harnessFlag,
   language = 'vi',
 }) => {
   if (!selectedPackageId) {
@@ -113,19 +122,27 @@ export const validateDirectSubscriptionPreflight = ({
     };
   }
 
-  if (apiEnabled) {
+  const numericPkgId = Number(selectedPackageId);
+  if (!Number.isInteger(numericPkgId) || numericPkgId <= 0) {
+    return {
+      ok: false,
+      error: language === 'vi' ? 'Mã gói dịch vụ không hợp lệ.' : 'Invalid package ID.',
+    };
+  }
+
+  if (isDirectSubscriptionLocked(apiEnabled, harnessFlag)) {
     return {
       ok: false,
       error:
         language === 'vi'
-          ? 'Thao tác đăng ký trực tuyến từ phía hội viên tạm thời bị khóa: Backend chưa xác nhận hợp đồng chống trùng lặp tại máy chủ (idempotency key / concurrency) và quy tắc gia hạn gói. Vui lòng liên hệ quầy Tiếp tân.'
-          : 'Direct member subscription is locked: Server-side idempotency contract and renewal semantics are pending Backend confirmation. Please contact reception.',
+          ? 'Thao tác đăng ký trực tuyến từ phía hội viên tạm thời bị khóa: Backend chưa xác nhận tài khoản/hồ sơ test được phép phát sinh giao dịch và cấu hình sandbox. Vui lòng thanh toán tại quầy Tiếp tân.'
+          : 'Direct member subscription is locked: Waiting for Backend confirmation of test profile permissions and sandbox configuration. Please pay at the reception desk.',
     };
   }
 
   return {
     ok: true,
-    numericPackageId: Number(selectedPackageId),
+    numericPackageId: numericPkgId,
   };
 };
 
@@ -167,6 +184,73 @@ export const reconcileAndVerifySubscriptionSafety = ({
 
   return { allowed: true };
 };
+
+/**
+ * Reconciles an incomplete, timed-out, or ambiguous subscription order attempt against BE state.
+ * Queries existing invoices and subscriptions to determine if the order was created on BE.
+ */
+export const reconcileIncompleteOrder = ({
+  targetPackageId,
+  invoices = [],
+  subscriptions = [],
+}) => {
+  const numPkgId = Number(targetPackageId);
+  const matchingInvoice = Array.isArray(invoices)
+    ? invoices.find((inv) => Number(inv.packageId) === numPkgId && (inv.paymentStatus === 'pending' || inv.paymentStatus === 'paid'))
+    : null;
+
+  const matchingSub = Array.isArray(subscriptions)
+    ? subscriptions.find((sub) => Number(sub.packageId) === numPkgId && (sub.status === 'pending_payment' || sub.status === 'active' || sub.status === 'pending'))
+    : null;
+
+  if (matchingInvoice || matchingSub) {
+    return {
+      reconciled: true,
+      foundOnServer: true,
+      invoice: matchingInvoice || null,
+      subscription: matchingSub || null,
+      invoiceId: matchingInvoice?.id ?? matchingInvoice?.invoiceId ?? null,
+      subscriptionId: matchingSub?.subscriptionId ?? matchingSub?.id ?? null,
+    };
+  }
+
+  return {
+    reconciled: true,
+    foundOnServer: false,
+    invoice: null,
+    subscription: null,
+    invoiceId: null,
+    subscriptionId: null,
+  };
+};
+
+/**
+ * Storage helpers for persisting pending subscription orders across F5 session reloads.
+ */
+const PENDING_ORDER_STORAGE_KEY = 'scms_member_pending_order';
+
+export const getStoredPendingOrder = () => {
+  try {
+    if (typeof window === 'undefined' || !window.sessionStorage) return null;
+    const raw = window.sessionStorage.getItem(PENDING_ORDER_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const setStoredPendingOrder = (order) => {
+  try {
+    if (typeof window === 'undefined' || !window.sessionStorage) return;
+    if (!order) {
+      window.sessionStorage.removeItem(PENDING_ORDER_STORAGE_KEY);
+    } else {
+      window.sessionStorage.setItem(PENDING_ORDER_STORAGE_KEY, JSON.stringify(order));
+    }
+  } catch {}
+};
+
+export const clearStoredPendingOrder = () => setStoredPendingOrder(null);
 
 /**
  * Evaluates whether PaymentModal mutations must remain locked.
