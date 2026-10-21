@@ -265,6 +265,8 @@ const ROUTE_TAB_MAP = {
 
   // Member routes
   "/member/dashboard": { role: ROLE_MEMBER, tab: "member_dashboard" },
+  "/member/enrollments": { role: ROLE_MEMBER, tab: "member_schedule" },
+  "/member/schedule": { role: ROLE_MEMBER, tab: "member_schedule" },
   "/member/my-membership": { role: ROLE_MEMBER, tab: "member_my_membership" },
   "/member/catalog": { role: ROLE_MEMBER, tab: "member_class_catalog" },
   "/member/class-catalog": { role: ROLE_MEMBER, tab: "member_class_catalog" },
@@ -326,6 +328,7 @@ const TAB_ROUTE_MAP = {
   // Member
   member_dashboard: "/member/dashboard",
   member_my_membership: "/member/my-membership",
+  member_schedule: "/member/schedule",
   member_class_catalog: "/member/class-catalog",
   member_attendance_history: "/member/attendance-history",
   member_feedback: "/member/feedback",

@@ -15,11 +15,11 @@ import {
 } from "lucide-react"
 
 export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
-  const { language, setLanguage, currentUser, t } = useSCMS()
+  const { language, setLanguage, currentUser, t, apiEnabled } = useSCMS()
   const location = useLocation()
   const isMemberFeedback = location.pathname.startsWith('/member/feedback')
   const [isNotifOpen, setIsNotifOpen] = useState(false)
-  const [notifications, setNotifications] = useState([
+  const [notifications, setNotifications] = useState(() => apiEnabled ? [] : [
     {
       id: "n1",
       titleVi: "Cảnh báo thời gian gia hạn 72 giờ",

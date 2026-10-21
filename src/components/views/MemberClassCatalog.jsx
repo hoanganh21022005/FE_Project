@@ -6,6 +6,7 @@ import { CancelClassBookingModal } from '../modals/CancelClassBookingModal';
 import { EnrollClassModal } from '../modals/EnrollClassModal';
 import { publicCourses } from '../../data/publicCourses';
 import { publicCoaches } from '../../data/publicCoaches';
+import { MemberCourseCatalog } from './MemberCourseCatalog';
 import {
   Users,
   Clock,
@@ -433,6 +434,11 @@ function SportSquareBadge({ category = '' }) {
 }
 
 export function MemberClassCatalog() {
+  const { apiEnabled } = useSCMS();
+  return apiEnabled ? <MemberCourseCatalog /> : <LegacyMemberClassCatalog />;
+}
+
+function LegacyMemberClassCatalog() {
   const navigate = useNavigate();
   const {
     classes,

@@ -1,50 +1,22 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Save, UserRound } from 'lucide-react';
 import { useSCMS } from '../../context/SCMSContext';
+import { memberApi } from '../../api/memberApi';
+import { getErrorMessage } from '../../api/apiErrors';
 
+const EMPTY = { name: '', email: '', phone: '', address: '', gender: '', dateOfBirth: '', goal: '', healthNote: '' };
 export function PersonalProfileView() {
-  const { currentUser, t } = useSCMS();
-  const userName = currentUser?.name || 'User';
-  const userEmail = currentUser?.email || '';
-  const userId = currentUser?.id ?? 'N/A';
-  const role = currentUser?.role || 'member';
-
-  const roleLabel = t(
-    role === 'admin'
-      ? 'roleAdmin'
-      : role === 'manager'
-        ? 'roleManager'
-        : role === 'coach'
-          ? 'roleCoach'
-          : role === 'receptionist'
-            ? 'roleReceptionist'
-            : 'roleMember'
-  );
-
-  return (
-    <div className="max-w-2xl mx-auto bg-white border border-stone-200 rounded-lg p-6 shadow-xs space-y-6">
-      <div className="flex items-center gap-4 border-b border-stone-200 pb-6">
-        <div className="w-14 h-14 rounded-lg bg-[#181818] text-[#D62323] flex items-center justify-center text-xl font-bold">
-          {userName.charAt(0)}
-        </div>
-        <div>
-          <h2 className="text-base font-bold text-[#181818]">{userName}</h2>
-          <p className="text-xs text-stone-500">{userEmail}</p>
-          <span className="inline-flex items-center justify-center min-w-[140px] mt-1.5 px-3 py-1 rounded text-[11px] font-bold uppercase tracking-wider bg-red-50 text-[#BA0000] border border-red-200 text-center">
-            {roleLabel}
-          </span>
-        </div>
-      </div>
-
-      <div className="space-y-3 text-xs text-stone-700">
-        <div className="p-3 bg-stone-50 rounded border border-stone-200 flex items-center justify-between">
-          <span className="text-stone-500">ID Người Dùng:</span>
-          <span className="font-mono text-stone-900 font-bold tabular-nums">{userId}</span>
-        </div>
-        <div className="p-3 bg-stone-50 rounded border border-stone-200 flex items-center justify-between">
-          <span className="text-stone-500">Trạng Thái Tài Khoản:</span>
-          <span className="font-bold text-emerald-800">Đang hoạt động (Active)</span>
-        </div>
-      </div>
-    </div>
-  );
+  const { currentUser, language } = useSCMS(); const isVi = language === 'vi';
+  if (currentUser?.role !== 'member') return <div className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white p-6"><h1 className="text-xl font-bold">{currentUser?.name || (isVi ? 'Hồ sơ cá nhân' : 'Personal profile')}</h1><p className="mt-2 text-sm text-slate-500">{currentUser?.email || ''}</p></div>;
+  const memberId = Number(currentUser?.memberId); const valid = Number.isInteger(memberId) && memberId > 0;
+  const [profile, setProfile] = useState(EMPTY); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState('');
+  const refresh = useCallback(async () => { if (!valid) { setLoading(false); return; } setLoading(true); setError(''); try { const m = await memberApi.getMemberById(memberId); setProfile({ ...EMPTY, ...m, dateOfBirth: m.dateOfBirth ? String(m.dateOfBirth).slice(0, 10) : '' }); } catch (e) { setError(getErrorMessage(e, isVi ? 'Không tải được hồ sơ hội viên.' : 'Could not load member profile.')); } finally { setLoading(false); } }, [isVi, memberId, valid]);
+  useEffect(() => { refresh(); }, [refresh]);
+  const change = (event) => setProfile((old) => ({ ...old, [event.target.name]: event.target.value }));
+  const submit = async (event) => { event.preventDefault(); if (!valid || saving) return; setSaving(true); setError(''); setNotice(''); try { const saved = await memberApi.updateMember(memberId, { name: profile.name, email: profile.email, phone: profile.phone, address: profile.address, gender: profile.gender, dateOfBirth: profile.dateOfBirth, goal: profile.goal, healthNote: profile.healthNote }); setProfile({ ...EMPTY, ...saved, dateOfBirth: saved.dateOfBirth ? String(saved.dateOfBirth).slice(0, 10) : '' }); setNotice(isVi ? 'Đã cập nhật thông tin cá nhân.' : 'Profile updated.'); } catch (e) { setError(getErrorMessage(e, isVi ? 'Không thể cập nhật hồ sơ.' : 'Could not update profile.')); } finally { setSaving(false); } };
+  const fields = [['name', isVi ? 'Họ và tên' : 'Full name', true], ['email', 'Email', true], ['phone', isVi ? 'Số điện thoại' : 'Phone'], ['dateOfBirth', isVi ? 'Ngày sinh' : 'Date of birth', false, 'date'], ['gender', isVi ? 'Giới tính' : 'Gender'], ['address', isVi ? 'Địa chỉ' : 'Address'], ['goal', isVi ? 'Mục tiêu tập luyện' : 'Training goal'], ['healthNote', isVi ? 'Lưu ý sức khỏe' : 'Health notes']];
+  return <main className="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-7 sm:py-8"><header><p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">VIBE SPORT · MEMBER</p><h1 className="mt-2 text-3xl font-black text-slate-950">{isVi ? 'Thông tin cá nhân' : 'Personal information'}</h1><p className="mt-2 text-sm text-slate-500">{isVi ? 'Cập nhật hồ sơ hội viên dùng cho việc đăng ký và huấn luyện.' : 'Update your member profile for registration and coaching.'}</p></header>
+    {!valid && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{isVi ? 'Tài khoản chưa được liên kết với hồ sơ hội viên. Hãy liên hệ lễ tân để đồng bộ thông tin.' : 'No member profile is linked to this account. Contact reception to link it.'}</div>}{error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</div>}{notice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{notice}</div>}
+    <form onSubmit={submit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"><div className="mb-5 flex items-center gap-3 border-b border-slate-100 pb-4"><span className="grid h-11 w-11 place-items-center rounded-xl bg-red-50 text-red-700"><UserRound className="h-5 w-5"/></span><div><h2 className="font-extrabold text-slate-900">{profile.name || currentUser?.name || (isVi ? 'Hồ sơ hội viên' : 'Member profile')}</h2><p className="text-xs text-slate-500">{isVi ? `Mã hồ sơ: ${memberId || 'chưa liên kết'}` : `Member ID: ${memberId || 'not linked'}`}</p></div></div>
+      {loading ? <p className="py-8 text-center text-sm text-slate-500">{isVi ? 'Đang tải hồ sơ…' : 'Loading profile…'}</p> : <><div className="grid gap-4 sm:grid-cols-2">{fields.map(([name, label, required, type]) => <label key={name} className={`${name === 'address' || name === 'goal' || name === 'healthNote' ? 'sm:col-span-2' : ''} space-y-1.5`}><span className="text-xs font-bold text-slate-700">{label}{required && <span className="text-red-700"> *</span>}</span>{name === 'address' || name === 'goal' || name === 'healthNote' ? <textarea name={name} value={profile[name] || ''} onChange={change} rows={name === 'healthNote' ? 3 : 2} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-red-500"/> : <input name={name} type={type || 'text'} required={required} value={profile[name] || ''} onChange={change} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-red-500"/>}</label>)}</div><div className="mt-6 flex justify-end"><button type="submit" disabled={!valid || saving} className="inline-flex items-center gap-2 rounded-lg bg-red-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-800 disabled:opacity-50"><Save className="h-4 w-4"/>{saving ? (isVi ? 'Đang lưu…' : 'Saving…') : (isVi ? 'Lưu thay đổi' : 'Save changes')}</button></div></>}</form></main>;
 }

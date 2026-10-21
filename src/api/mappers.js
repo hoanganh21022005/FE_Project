@@ -30,6 +30,11 @@ export const mapSubject = (subject) => ({
   id: subject.id,
   name: subject.name,
   description: subject.description ?? null,
+  normalPrice: asNumber(subject.normalPrice),
+  advancedPrice: asNumber(subject.advancedPrice),
+  slug: subject.slug ?? null,
+  status: normalizeStatus(subject.status, "active"),
+  outdoor: subject.outdoor ?? null,
 })
 
 const LEGACY_ROOM_MAP = {
@@ -129,7 +134,7 @@ export function mapClass(
   }
 
   const itemNameLower = (item.name || "").toLowerCase()
-  let detectedCategory = subject?.name ?? merged.category ?? null
+  let detectedCategory = subject?.name ?? item.subjectName ?? merged.category ?? null
   if (!detectedCategory || detectedCategory === "Gym" || detectedCategory === "Yoga") {
     if (itemNameLower.includes("cầu lông") || itemNameLower.includes("badminton")) detectedCategory = "Cầu lông"
     else if (itemNameLower.includes("pickleball")) detectedCategory = "Pickleball"
@@ -206,13 +211,15 @@ export function mapClass(
   else if (catLower.includes("cầu lông")) defaultPrice = 600000
   else if (catLower.includes("bóng bàn")) defaultPrice = 600000
 
-  const price = asNumber(item.price) ?? asNumber(merged.price) ?? defaultPrice
+  const price = asNumber(item.tuitionFee ?? item.price) ?? asNumber(merged.price) ?? defaultPrice
 
   return {
     id: item.id,
     name: item.name,
     nameVi: item.name,
     subjectId: item.subjectId ?? null,
+    classType: item.classType ?? merged.classType ?? "Normal",
+    totalSessions: asNumber(item.totalSessions) ?? asNumber(merged.totalSessions) ?? 12,
     coachId: item.coachId ?? null,
     coachName: coach?.name ?? merged.coachName ?? "Chưa phân công",
     coachSpecialty,
@@ -240,7 +247,7 @@ export function mapClass(
         : item.name?.includes("Trung cấp")
           ? "Trung cấp"
           : "Cơ bản"),
-    sessionCount: merged.sessionCount ?? 12,
+    sessionCount: asNumber(item.totalSessions) ?? merged.sessionCount ?? 12,
     minCapacity: merged.minCapacity ?? (isPickleball ? 2 : 4),
     selectedDays: initialDays ?? [1, 3, 5],
   }
@@ -278,7 +285,9 @@ export const toClassRequest = (item) => ({
   maxCapacity: asNumber(item.maxCapacity ?? item.capacity),
   startDate: item.startDate ?? item.date ?? null,
   endDate: item.endDate ?? item.date ?? null,
-  price: asNumber(item.price),
+  tuitionFee: asNumber(item.tuitionFee ?? item.price),
+  classType: item.classType ?? 'Normal',
+  totalSessions: asNumber(item.totalSessions ?? item.sessionCount),
   status:
     item.apiStatus ?? (item.status === "published" ? "Open" : item.status),
 })

@@ -29,7 +29,6 @@ export function StaffManagement() {
     currentUser,
     t,
     language,
-    apiEnabled
   } = useSCMS();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,26 +53,12 @@ export function StaffManagement() {
   });
 
   const handleStatusChange = (staffMember) => {
-    if (apiEnabled) {
-      alert(
-        language === 'vi'
-          ? 'Thao tác cập nhật trạng thái nhân viên đang bị tạm dừng (G4.5 Blocked: Chưa xác minh contract PATCH /api/staff/{id}/status với BE).'
-          : 'Staff status mutation is suspended (G4.5 Blocked: Contract PATCH /api/staff/{id}/status unverified with BE).'
-      );
-      return;
-    }
-
-    const nextStatus = staffMember.status === 'active' ? 'suspended' : 'active';
+    const nextStatus = staffMember.status === 'active' ? 'locked' : 'active';
     const message = language === 'vi'
-      ? `Bạn có chắc muốn ${nextStatus === 'active' ? 'MỞ KHÓA' : 'TẠM KHÓA'} tài khoản ${staffMember.name}?`
-      : `Are you sure you want to ${nextStatus === 'active' ? 'UNLOCK' : 'LOCK'} ${staffMember.name}'s account?`;
-
+      ? `Bạn có chắc muốn ${nextStatus === 'active' ? 'mở khóa' : 'tạm khóa'} tài khoản ${staffMember.name}?`
+      : `Are you sure you want to ${nextStatus === 'active' ? 'unlock' : 'lock'} ${staffMember.name}'s account?`;
     if (window.confirm(message)) {
-      updateStaffStatus(
-        staffMember.id,
-        nextStatus,
-        nextStatus === 'active' ? 'Kích hoạt lại tài khoản nhân viên' : 'Tạm khóa quyền truy cập'
-      );
+      updateStaffStatus(staffMember.id, nextStatus, message);
     }
   };
 
@@ -295,18 +280,11 @@ export function StaffManagement() {
                           <span>{language === 'vi' ? 'Sửa' : 'Edit'}</span>
                         </button>
 
-                        {/* Status Toggle or G4.5 Blocked Indicator */}
+                        {/* Status Toggle */}
                         {s.id === currentUser?.id ? (
                           <span className="px-2 py-1 text-stone-400 text-[10px] font-medium inline-flex items-center gap-1">
                             <ShieldCheck className="w-3 h-3" />
                             <span>{language === 'vi' ? 'Tôi' : 'Self'}</span>
-                          </span>
-                        ) : apiEnabled ? (
-                          <span
-                            className="px-2 py-1 bg-stone-100 text-stone-500 rounded text-[10px] font-medium border border-stone-200 cursor-not-allowed"
-                            title={language === 'vi' ? 'G4.5 Blocked: Chưa xác minh contract PATCH status với BE' : 'G4.5 Blocked: PATCH status contract unverified'}
-                          >
-                            {language === 'vi' ? 'Chỉ đọc (G4.5)' : 'Read-only (G4.5)'}
                           </span>
                         ) : s.status === 'active' ? (
                           <button

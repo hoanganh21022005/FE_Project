@@ -15,6 +15,7 @@ export function extractList(body) {
     if (Array.isArray(body.content)) return body.content;
     if (Array.isArray(body.data)) return body.data;
     if (Array.isArray(body.items)) return body.items;
+    if (Array.isArray(body.value)) return body.value;
   }
   return null;
 }

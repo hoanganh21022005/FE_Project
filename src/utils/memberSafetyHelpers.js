@@ -157,46 +157,44 @@ export const validateDirectSubscriptionPreflight = ({
   memberProfileId,
   selectedPackageId,
   hasAuthoritativeMemberId = true,
+  apiEnabled = false,
   language = 'vi',
 }) => {
-  if (!hasAuthoritativeMemberId || !memberProfileId) {
-    return {
-      ok: false,
-      error:
-        language === 'vi'
-          ? 'Không tìm thấy ID hội viên đã xác thực từ phiên đăng nhập để thực hiện đăng ký.'
-          : 'Authenticated member ID not found in session to perform subscription.',
-    };
-  }
-
   if (!selectedPackageId) {
     return {
       ok: false,
       error: language === 'vi' ? 'Vui lòng chọn một gói dịch vụ.' : 'Please select a membership package.',
     };
   }
-
-  const numericPkgId = Number(selectedPackageId);
-  if (!Number.isInteger(numericPkgId) || numericPkgId <= 0) {
+  const packageId = Number(selectedPackageId);
+  if (!Number.isInteger(packageId) || packageId <= 0) {
     return {
       ok: false,
-      error: language === 'vi' ? 'Mã gói dịch vụ không hợp lệ.' : 'Invalid package ID.',
+      error: language === 'vi' ? 'Gói hội viên không hợp lệ.' : 'The membership package is invalid.',
     };
   }
-
-  return {
-    ok: true,
-    numericPackageId: numericPkgId,
-  };
+  if (apiEnabled || !hasAuthoritativeMemberId || !memberProfileId) {
+    const memberId = Number(memberProfileId);
+    if (!hasAuthoritativeMemberId || !memberProfileId || !Number.isInteger(memberId) || memberId <= 0) {
+      return {
+        ok: false,
+        error:
+          language === 'vi'
+            ? 'Không tìm thấy ID hội viên đã xác thực từ phiên đăng nhập để thực hiện đăng ký.'
+            : 'Authenticated member ID not found in session to perform subscription.',
+      };
+    }
+  }
+  return { ok: true, numericPackageId: packageId };
 };
 
 /**
- * Reconciles existing subscriptions against a target package ID before POST.
- * Blocks duplicate active or pending registrations.
+ * Reconciles existing subscriptions before POST and blocks duplicate pending registrations.
  */
 export const reconcileAndVerifySubscriptionSafety = ({
   existingSubscriptions = [],
   targetPackageId,
+  isRenewal = false,
   language = 'vi',
 }) => {
   const numericPkgId = Number(targetPackageId);
@@ -205,7 +203,7 @@ export const reconcileAndVerifySubscriptionSafety = ({
   const duplicatePendingOrActive = subsList.find(
     (s) =>
       String(s.packageId) === String(numericPkgId) &&
-      (s.status === 'active' || s.status === 'grace_period' || s.status === 'pending_payment' || s.status === 'pending')
+      (((s.status === 'active' || s.status === 'grace_period') && !isRenewal) || s.status === 'pending_payment' || s.status === 'pending')
   );
 
   if (duplicatePendingOrActive) {
@@ -617,6 +615,7 @@ export const executeDirectSubscriptionSubmit = async ({
       memberProfileId,
       selectedPackageId,
       hasAuthoritativeMemberId,
+      apiEnabled,
       language,
     });
 
@@ -662,9 +661,11 @@ export const executeDirectSubscriptionSubmit = async ({
         .filter(Boolean);
 
       // Step B: safety check against existing active/pending registrations
+      const isRenewal = Boolean(activeSubscription && String(activeSubscription.packageId) === String(numericPkgId));
       const safetyCheck = reconcileAndVerifySubscriptionSafety({
         existingSubscriptions: existingSubs,
         targetPackageId: numericPkgId,
+        isRenewal,
         language,
       });
 
