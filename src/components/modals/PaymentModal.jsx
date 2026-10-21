@@ -306,7 +306,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
 
       Promise.all([
         memberApi.getMembers(),
-        membershipApi.getPackages(),
+        membershipApi.getPublicPackages(),
       ])
         .then(([mList, pList]) => {
           if (!isMounted) return;
@@ -730,7 +730,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
               onClick={() => {
                 setLoadingData(true);
                 setFetchError(null);
-                Promise.all([memberApi.getMembers(), membershipApi.getPackages()])
+                Promise.all([memberApi.getMembers(), membershipApi.getPublicPackages()])
                   .then(([mList, pList]) => {
                     setApiMembers(mList);
                     setApiPackages(pList);

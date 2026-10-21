@@ -93,15 +93,23 @@ export function MyMembershipView() {
     setError(null);
     const errorMessages = [];
 
-    // 1. Fetch public packages catalog
+    // 1. Fetch public packages catalog via public endpoint
     try {
-      const pkgsData = await membershipApi.getPackages();
+      const pkgsData = await membershipApi.getPublicPackages();
       setPackages(Array.isArray(pkgsData) ? pkgsData : []);
     } catch (pkgErr) {
       errorMessages.push(`Danh mục gói tập: ${getErrorMessage(pkgErr, 'Lỗi kết nối')}`);
     }
 
-    // 2. Fetch member subscriptions and invoices only if memberProfileId is valid
+    // 2. Fetch member invoices via own-read endpoint (/api/members/me/invoices)
+    try {
+      const invsData = await invoiceApi.getMemberOwnInvoices();
+      setInvoices(Array.isArray(invsData) ? invsData : []);
+    } catch (invErr) {
+      errorMessages.push(`Hóa đơn hội viên: ${getErrorMessage(invErr, 'Lỗi kết nối')}`);
+    }
+
+    // 3. Fetch member subscriptions if memberProfileId is valid, otherwise report clear error
     if (memberProfileId) {
       try {
         const subsData = await membershipApi.getMemberSubscriptions(memberProfileId);
@@ -109,20 +117,19 @@ export function MyMembershipView() {
       } catch (subErr) {
         errorMessages.push(`Đăng ký gói hội viên: ${getErrorMessage(subErr, 'Lỗi kết nối')}`);
       }
-
-      try {
-        const invsData = await invoiceApi.getInvoices({ memberId: memberProfileId });
-        setInvoices(Array.isArray(invsData) ? invsData : []);
-      } catch (invErr) {
-        errorMessages.push(`Hóa đơn hội viên: ${getErrorMessage(invErr, 'Lỗi kết nối')}`);
-      }
+    } else {
+      errorMessages.push(
+        language === 'vi'
+          ? 'Không tìm thấy ID hội viên đã xác thực từ phiên đăng nhập để tải gói đăng ký.'
+          : 'Authenticated member ID not found in session to load subscriptions.'
+      );
     }
 
     if (errorMessages.length > 0) {
       setError(errorMessages.join('; '));
     }
     setLoading(false);
-  }, [apiEnabled, memberProfileId]);
+  }, [apiEnabled, memberProfileId, language]);
 
   useEffect(() => {
     if (apiEnabled) {
