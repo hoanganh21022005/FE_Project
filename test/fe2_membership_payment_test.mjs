@@ -340,6 +340,7 @@ assert.equal(normalizePaymentMethod('Tiền mặt'), 'cash');
 assert.equal(normalizePaymentMethod('BANK_TRANSFER'), 'bank_transfer');
 assert.equal(normalizePaymentMethod('VietQR'), 'bank_transfer');
 assert.equal(normalizePaymentMethod('CARD_POS'), 'card_pos');
+assert.equal(normalizePaymentMethod('CreditCard'), 'card_pos');
 assert.equal(normalizePaymentMethod('ONLINE'), 'online');
 assert.equal(normalizePaymentMethod('VNPAY'), 'online');
 console.log('PASS: normalizePaymentMethod handles cash, bank_transfer, online, card_pos correctly');
@@ -351,6 +352,7 @@ assert.equal(normalizePaymentStatus('PENDING'), 'pending');
 assert.equal(normalizePaymentStatus('UNPAID'), 'pending');
 assert.equal(normalizePaymentStatus('FAILED'), 'failed');
 assert.equal(normalizePaymentStatus('CANCELLED'), 'cancelled');
+assert.equal(normalizePaymentStatus('Expired'), 'expired');
 console.log('PASS: normalizePaymentStatus normalizes PAID/PENDING/CANCELLED accurately');
 
 // toInvoiceRequest validation

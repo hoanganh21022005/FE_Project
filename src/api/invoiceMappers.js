@@ -6,7 +6,7 @@ export function normalizePaymentMethod(method) {
   const m = String(method).trim().toUpperCase();
   if (['CASH', 'TIỀN MẶT', 'TIEN_MAT'].includes(m)) return 'cash';
   if (['BANK_TRANSFER', 'CHUYỂN KHOẢN', 'CHUYEN_KHOAN', 'VIETQR', 'TRANSFER'].includes(m)) return 'bank_transfer';
-  if (['CARD_POS', 'POS', 'CARD', 'THẺ'].includes(m)) return 'card_pos';
+  if (['CARD_POS', 'POS', 'CARD', 'THẺ', 'CREDITCARD', 'CREDIT_CARD'].includes(m)) return 'card_pos';
   if (['ONLINE', 'GATEWAY', 'VNPAY', 'PAYOS', 'MOMO'].includes(m)) return 'online';
   return String(method).toLowerCase();
 }
@@ -19,6 +19,7 @@ export function normalizePaymentStatus(status) {
   if (['FAILED', 'THẤT BÀI', 'ERROR'].includes(s)) return 'failed';
   if (['CANCELLED', 'CANCELED', 'ĐÃ HỦY', 'REVOKED'].includes(s)) return 'cancelled';
   if (['REVERSED', 'HOÀN TIỀN', 'REFUNDED'].includes(s)) return 'reversed';
+  if (['EXPIRED', 'HẾT HẠN', 'HET_HAN'].includes(s)) return 'expired';
   return String(status).toLowerCase();
 }
 

@@ -6,6 +6,9 @@ on:
     paths:
       - 'src/components/modals/PaymentModal.jsx'
       - 'src/components/views/MyMembershipView.jsx'
+      - 'src/api/invoiceMappers.js'
+      - 'src/components/common/Badge.jsx'
+      - 'test/fe2_membership_payment_test.mjs'
       - '.github/workflows/fe2-checks.yml'
 
 jobs:
