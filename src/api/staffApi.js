@@ -2,30 +2,30 @@ import { httpClient } from './httpClient.js';
 import { mapStaff, toStaffRequest } from './staffMappers.js';
 import { extractList } from './schemaValidators.js';
 
-export const getStaff = async () => {
-  const data = await httpClient.get('/api/staff');
+export const getStaff = async (options) => {
+  const data = await httpClient.get('/api/staff', options);
   const list = extractList(data);
   return Array.isArray(list) ? list.map(mapStaff).filter(Boolean) : [];
 };
 
-export const createStaff = async (data) => {
+export const createStaff = async (data, options) => {
   const payload = toStaffRequest(data);
-  const created = await httpClient.post('/api/staff', payload);
+  const created = await httpClient.post('/api/staff', payload, options);
   return mapStaff(created);
 };
 
-export const updateStaff = async (id, data) => {
+export const updateStaff = async (id, data, options) => {
   if (id === null || id === undefined || id === '') {
     throw new Error('ID nhân viên không hợp lệ.');
   }
   const payload = toStaffRequest(data);
-  const updated = await httpClient.put(`/api/staff/${id}`, payload);
+  const updated = await httpClient.put(`/api/staff/${id}`, payload, options);
   return mapStaff(updated);
 };
 
-export const updateStaffStatus = async (id, status) => {
+export const updateStaffStatus = async (id, status, options) => {
   if (id === null || id === undefined || id === '') throw new Error('Staff ID is required.');
-  const updated = await httpClient.patch(`/api/staff/${id}/status`, { status: String(status).toUpperCase() });
+  const updated = await httpClient.patch(`/api/staff/${id}/status`, { status: String(status).toUpperCase() }, options);
   return mapStaff(updated);
 };
 

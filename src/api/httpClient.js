@@ -58,7 +58,7 @@ export async function httpRequest(path, options = {}) {
         detail: { path, method: options.method || 'GET', body, status: 403 },
       }));
     }
-    throw createApiError(response.status, body, response.statusText);
+    throw createApiError(response.status, body);
   }
 
   return body;

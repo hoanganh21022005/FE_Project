@@ -6,7 +6,7 @@ import { formatCurrency } from '../../locales/translations';
 
 const emptyPackage = { name: '', durationMonths: 1, price: 0, benefits: [], status: 'active' };
 
-function PackageModal({ item, language, onClose, onSave }) {
+function PackageModal({ item, language, apiMode, onClose, onSave }) {
   const [form, setForm] = useState(item || emptyPackage);
   const [benefitsText, setBenefitsText] = useState((item?.benefits || []).join('\n'));
   const [saving, setSaving] = useState(false);
@@ -37,8 +37,8 @@ function PackageModal({ item, language, onClose, onSave }) {
           {error && <div className="p-2 rounded border border-rose-200 bg-rose-50 text-xs text-rose-700">{error}</div>}
           <label className="block text-xs font-bold">{language === 'vi' ? 'Tên gói' : 'Package name'}<input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="block mt-1 w-full border rounded px-3 py-2 font-normal" /></label>
           <div className="grid grid-cols-2 gap-3">
-            <label className="block text-xs font-bold">{language === 'vi' ? 'Thời hạn (tháng)' : 'Duration (months)'}<input required min="1" type="number" value={form.durationMonths ?? 1} onChange={e => setForm({ ...form, durationMonths: e.target.value })} className="block mt-1 w-full border rounded px-3 py-2 font-normal" /></label>
-            <label className="block text-xs font-bold">{language === 'vi' ? 'Giá' : 'Price'}<input required min="0" type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="block mt-1 w-full border rounded px-3 py-2 font-normal" /></label>
+            <label className="block text-xs font-bold">{language === 'vi' ? 'Thời hạn (tháng)' : 'Duration (months)'}<input required min="1" type="number" value={apiMode && item && form.durationMonths == null ? '' : form.durationMonths ?? 1} onChange={e => setForm({ ...form, durationMonths: e.target.value })} className="block mt-1 w-full border rounded px-3 py-2 font-normal" /></label>
+            <label className="block text-xs font-bold">{language === 'vi' ? 'Giá' : 'Price'}<input required min="0" type="number" value={form.price ?? ''} onChange={e => setForm({ ...form, price: e.target.value })} className="block mt-1 w-full border rounded px-3 py-2 font-normal" /></label>
           </div>
           <label className="block text-xs font-bold">{language === 'vi' ? 'Quyền lợi (mỗi dòng một mục)' : 'Benefits (one per line)'}<textarea rows="5" value={benefitsText} onChange={e => setBenefitsText(e.target.value)} className="block mt-1 w-full border rounded px-3 py-2 font-normal" /></label>
           <label className="block text-xs font-bold">{language === 'vi' ? 'Trạng thái' : 'Status'}<select value={form.status || 'active'} onChange={e => setForm({ ...form, status: e.target.value })} className="block mt-1 w-full border rounded px-3 py-2 font-normal"><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
@@ -53,7 +53,7 @@ function PackageModal({ item, language, onClose, onSave }) {
 }
 
 export function PackageManagement() {
-  const { packages, createPackage, updatePackage, updatePackageStatus, showToast, t, language } = useSCMS();
+  const { packages, createPackage, updatePackage, updatePackageStatus, showToast, t, language, apiEnabled } = useSCMS();
   const [editor, setEditor] = useState(null);
   const [busyId, setBusyId] = useState(null);
 
@@ -91,7 +91,7 @@ export function PackageManagement() {
               <div><span className="text-[10px] font-bold text-[#BA0000] uppercase">Package {index + 1}</span><h3 className="text-base font-bold text-[#181818] mt-1">{language === 'vi' ? (pkg.nameVi || pkg.name) : pkg.name}</h3></div>
               <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded ${pkg.status === 'active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-stone-100 text-stone-600 border border-stone-200'}`}>{pkg.status}</span>
             </div>
-            <div className="mt-4 bg-stone-50 border border-stone-200 rounded p-3"><div className="text-xl font-bold text-[#181818]">{formatCurrency(pkg.price, language)}</div><div className="text-xs text-stone-500">{pkg.durationMonths ?? Math.round((pkg.durationDays || 0) / 30)} {language === 'vi' ? 'tháng' : 'months'}</div></div>
+            <div className="mt-4 bg-stone-50 border border-stone-200 rounded p-3"><div className="text-xl font-bold text-[#181818]">{pkg.price == null ? '—' : formatCurrency(pkg.price, language)}</div><div className="text-xs text-stone-500">{pkg.durationMonths ?? (pkg.durationDays == null ? '—' : Math.round(pkg.durationDays / 30))} {language === 'vi' ? 'tháng' : 'months'}</div></div>
             <div className="mt-4 space-y-2 flex-1">{(pkg.benefits || []).map((benefit, benefitIndex) => <div key={benefitIndex} className="flex gap-2 text-xs text-stone-700"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /><span>{benefit}</span></div>)}</div>
             <div className="mt-5 pt-4 border-t flex gap-2">
               <button onClick={() => setEditor({ item: pkg })} className="flex-1 py-2 bg-stone-100 hover:bg-stone-200 rounded text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"><Edit3 className="w-3.5 h-3.5" />{language === 'vi' ? 'Sửa' : 'Edit'}</button>
@@ -101,7 +101,7 @@ export function PackageManagement() {
         ))}
       </div>
       {!packages.length && <div className="bg-white border rounded p-10 text-center text-xs text-stone-500">{language === 'vi' ? 'Chưa có gói thành viên.' : 'No packages.'}</div>}
-      {editor && <PackageModal item={editor.item} language={language} onClose={() => setEditor(null)} onSave={save} />}
+      {editor && <PackageModal item={editor.item} language={language} apiMode={apiEnabled} onClose={() => setEditor(null)} onSave={save} />}
     </div>
   );
 }

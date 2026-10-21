@@ -88,6 +88,9 @@ const LEGACY_CLASS_NAMES = [
 ]
 
 export const filterActiveClasses = (list) => {
+  // Backend results are authoritative in API mode; local demo cleanup is mock-only.
+  if (API_ENABLED) return Array.isArray(list) ? list : []
+
   const deleted = getDeletedClassIds()
   return (list || []).filter((item) => {
     const strId = String(item.id)
@@ -104,6 +107,35 @@ export const filterActiveClasses = (list) => {
     if (LEGACY_CLASS_NAMES.includes(nameLower)) return false
     return true
   })
+}
+
+const formatManagerLoadError = (resource, error, language = "vi") => {
+  const status = error?.status ?? error?.response?.status ?? 0
+  const detail = getErrorMessage(error)
+  const prefix = `${resource}: `
+
+  if (status === 401) {
+    return `${prefix}${language === "vi" ? "Phiên đăng nhập không hợp lệ hoặc đã hết hạn" : "The login session is invalid or expired"} (HTTP 401): ${detail}`
+  }
+  if (status === 403) {
+    return `${prefix}${language === "vi" ? "Bạn không có quyền truy cập dữ liệu này" : "You do not have permission to access this data"} (HTTP 403): ${detail}`
+  }
+  if (status === 404) {
+    return `${prefix}${language === "vi" ? "Không tìm thấy tài nguyên" : "Resource not found"} (HTTP 404): ${detail}`
+  }
+  if (status === 0) {
+    return `${prefix}${language === "vi" ? "Không thể kết nối máy chủ" : "Could not connect to the server"}: ${detail}`
+  }
+
+  const statusLabel = status ? `HTTP ${status}` : language === "vi" ? "Lỗi tải dữ liệu" : "Data loading error"
+  return `${prefix}${statusLabel}: ${detail}`
+}
+
+const mergeManagerLoadError = (previous, message, resource) => {
+  const lines = String(previous || "")
+    .split("\n")
+    .filter((line) => line && !line.startsWith(`${resource}:`))
+  return [...lines, message].join("\n")
 }
 
 // Initial Seed Data
@@ -1250,6 +1282,8 @@ export const SCMSProvider = ({ children }) => {
       const detail = event?.detail
       const message =
         detail?.body?.message ||
+        detail?.body?.error ||
+        detail?.body?.detail ||
         "Bạn không có quyền thực hiện thao tác này (403 Forbidden)."
       const request = detail?.path
         ? ` (${detail?.method || "GET"} ${detail.path})`
@@ -1327,7 +1361,6 @@ export const SCMSProvider = ({ children }) => {
         "Không thể tải danh sách hội viên từ máy chủ.",
       )
       setMembersError(msg)
-      setMembers([]) // In API mode, never fallback to mock
       throw err
     } finally {
       setMembersLoading(false)
@@ -1342,7 +1375,7 @@ export const SCMSProvider = ({ children }) => {
     setStaffLoading(true)
     setStaffError(null)
     try {
-      const data = await staffApi.getStaff()
+      const data = await staffApi.getStaff({ notifyForbidden: false })
       setStaff(data)
       return data
     } catch (err) {
@@ -1351,7 +1384,6 @@ export const SCMSProvider = ({ children }) => {
         "Không thể tải danh sách nhân viên từ máy chủ.",
       )
       setStaffError(msg)
-      setStaff([]) // In API mode, never fallback to mock
       throw err
     } finally {
       setStaffLoading(false)
@@ -1390,47 +1422,90 @@ export const SCMSProvider = ({ children }) => {
       return undefined
 
     let active = true
+    const errors = []
     setManagerDataLoading(true)
     setManagerDataError(null)
 
     ;(async () => {
+      const loadResource = async (resource, request, onSuccess, previousValue) => {
+        try {
+          const value = await request()
+          if (active) onSuccess(value)
+          return value
+        } catch (error) {
+          errors.push(formatManagerLoadError(resource, error, language))
+          return previousValue
+        }
+      }
+
+      const subjectsTask = loadResource(
+        language === "vi" ? "Môn học" : "Subjects",
+        () => managerApi.getSubjects({ notifyForbidden: false }),
+        setSubjects,
+        subjects,
+      )
+      const staffTask = loadResource(
+        language === "vi" ? "Nhân viên" : "Staff",
+        () => staffApi.getStaff({ notifyForbidden: false }),
+        setStaff,
+        staff,
+      )
+
+      const roomsTask = loadResource(
+        language === "vi" ? "Phòng tập" : "Rooms",
+        () => managerApi.getRooms({ notifyForbidden: false }),
+        setRooms,
+        rooms,
+      )
+      const packagesTask = loadResource(
+        language === "vi" ? "Gói hội viên" : "Packages",
+        () => managerApi.getPackages({ notifyForbidden: false }),
+        setPackages,
+        packages,
+      )
+      const dashboardTask = loadResource(
+        language === "vi" ? "Bảng điều khiển" : "Dashboard",
+        () => managerApi.getDashboard({ notifyForbidden: false }),
+        setDashboard,
+        dashboard,
+      )
+      const auditLogsTask = loadResource(
+        language === "vi" ? "Nhật ký hoạt động" : "Audit logs",
+        () => managerApi.getAuditLogs({ notifyForbidden: false }),
+        setAuditLogs,
+        auditLogs,
+      )
+      const classesTask = Promise.all([subjectsTask, staffTask]).then(
+        ([loadedSubjects, loadedStaff]) => loadResource(
+          language === "vi" ? "Danh sách lớp" : "Classes",
+          () => managerApi.getClasses({
+            subjects: loadedSubjects || [],
+            coaches: loadedStaff || [],
+          }, { notifyForbidden: false }),
+          (loadedClasses) => setClasses(loadedClasses || []),
+          classes,
+        ),
+      )
+
       try {
-        const [loadedSubjects, loadedStaff] = await Promise.all([
-          managerApi.getSubjects(),
-          staffApi.getStaff().catch(() => staff),
-        ])
-        const [
-          loadedRooms,
-          loadedClasses,
-          loadedPackages,
-          loadedDashboard,
-          loadedAuditLogs,
-        ] = await Promise.all([
-          managerApi.getRooms(),
-          managerApi.getClasses({
-            subjects: loadedSubjects,
-            coaches: loadedStaff,
-          }),
-          managerApi.getPackages(),
-          managerApi.getDashboard(),
-          managerApi.getAuditLogs(),
+        await Promise.all([
+          subjectsTask,
+          staffTask,
+          roomsTask,
+          packagesTask,
+          dashboardTask,
+          auditLogsTask,
+          classesTask,
         ])
         if (!active) return
-        setSubjects(loadedSubjects)
-        setRooms(loadedRooms)
 
-        setClasses(filterActiveClasses(loadedClasses || []))
-
-        setPackages(loadedPackages)
-        setDashboard(loadedDashboard)
-        setAuditLogs(loadedAuditLogs)
-      } catch (error) {
-        if (!active) return
-
-        setClasses([])
-
-        const message = getErrorMessage(error)
-        setManagerDataError(message)
+        if (errors.length > 0) {
+          const message = errors.join("\n")
+          setManagerDataError(message)
+          showToast(message, "error")
+        } else {
+          setManagerDataError(null)
+        }
       } finally {
         if (active) setManagerDataLoading(false)
       }
@@ -1663,7 +1738,7 @@ export const SCMSProvider = ({ children }) => {
 
   const addStaff = async (staffData) => {
     if (API_ENABLED) {
-      const created = await staffApi.createStaff(staffData)
+      const created = await staffApi.createStaff(staffData, { notifyForbidden: false })
       setStaff((prev) => [created, ...prev.filter((s) => s.id !== created.id)])
       addAuditLog(
         "CREATE_STAFF",
@@ -1714,7 +1789,7 @@ export const SCMSProvider = ({ children }) => {
 
   const updateStaff = async (id, staffData) => {
     if (API_ENABLED) {
-      const updated = await staffApi.updateStaff(id, staffData)
+      const updated = await staffApi.updateStaff(id, staffData, { notifyForbidden: false })
       setStaff((prev) =>
         prev.map((s) => (s.id === id ? { ...s, ...updated } : s)),
       )
@@ -2246,12 +2321,6 @@ export const SCMSProvider = ({ children }) => {
     for (const existing of classes) {
       const conflict = checkSingleClassConflict(data, existing)
       if (conflict) {
-        showToast(
-          language === "vi"
-            ? "Không thể tạo lớp: HLV hoặc Sân tập đã có lịch hoạt động"
-            : "Cannot create class: Coach or facility schedule conflict",
-          "error",
-        )
         return { success: false, message: conflict.message }
       }
     }
@@ -2261,37 +2330,12 @@ export const SCMSProvider = ({ children }) => {
         const created = await managerApi.createClass(data, {
           subjects,
           coaches: staff,
-        })
-        if (typeof window !== "undefined" && created?.id) {
-          try {
-            const meta = JSON.parse(
-              localStorage.getItem("scms_class_metadata") || "{}",
-            )
-            meta[created.id] = {
-              room: data.room,
-              roomVi: data.roomVi,
-              startTime: data.startTime,
-              endTime: data.endTime,
-              durationMinutes: data.durationMinutes,
-              category: data.category,
-              price: data.price,
-              minTierRequired: data.minTierRequired,
-              date: data.startDate || data.date,
-              level: data.level,
-              sessionCount: data.sessionCount,
-              minCapacity: data.minCapacity,
-              selectedDays: data.selectedDays,
-            }
-            localStorage.setItem("scms_class_metadata", JSON.stringify(meta))
-          } catch {
-            // ignore
-          }
-        }
+        }, { notifyForbidden: false })
         setClasses((prev) => [created, ...prev])
         managerApi
-          .getAuditLogs()
+          .getAuditLogs({ notifyForbidden: false })
           .then(setAuditLogs)
-          .catch(() => {})
+          .catch((error) => showToast(getErrorMessage(error), "error"))
         showToast(
           language === "vi"
             ? "Đã tạo lớp học thành công!"
@@ -2300,22 +2344,7 @@ export const SCMSProvider = ({ children }) => {
         )
         return { success: true, data: created }
       } catch (error) {
-        const status = error.response?.status
-        const backendMsg =
-          error.response?.data?.message ||
-          error.response?.data?.error ||
-          error.message
-        const isConflict =
-          status === 409 || status === 422 || /conflict|trùng/i.test(backendMsg)
-        const errMsg = isConflict
-          ? language === "vi"
-            ? `Không thể tạo lớp: HLV hoặc Sân tập đã có lịch hoạt động`
-            : `Cannot create class: Schedule conflict`
-          : backendMsg ||
-            (language === "vi"
-              ? "Không thể tạo lớp học."
-              : "Failed to create class.")
-        showToast(errMsg, "error")
+        const errMsg = getErrorMessage(error, language === "vi" ? "Không thể lưu lớp học." : "Could not save the class.")
         return { success: false, message: errMsg }
       }
     }
@@ -2356,7 +2385,7 @@ export const SCMSProvider = ({ children }) => {
     const current = staff.find((item) => item.id === staffId)
     if (!current) return
     const updated = API_ENABLED
-      ? await staffApi.updateStaffStatus(staffId, status)
+      ? await staffApi.updateStaffStatus(staffId, status, { notifyForbidden: false })
       : { ...current, status }
     setStaff((prev) => prev.map((item) => item.id === staffId ? updated : item))
     addAuditLog("STAFF_STATUS_CHANGED", `Tài khoản nhân viên: ${current.name}`, current.status, status, reason)
@@ -2395,7 +2424,7 @@ export const SCMSProvider = ({ children }) => {
       setSubjects((prev) => [created, ...prev])
       return created
     }
-    const created = await managerApi.createSubject(data)
+    const created = await managerApi.createSubject(data, { notifyForbidden: false })
     setSubjects((prev) => [created, ...prev])
     return created
   }
@@ -2412,7 +2441,7 @@ export const SCMSProvider = ({ children }) => {
       )
       return updated
     }
-    const updated = await managerApi.updateSubject(id, data)
+    const updated = await managerApi.updateSubject(id, data, { notifyForbidden: false })
     setSubjects((prev) => prev.map((item) => (item.id === id ? updated : item)))
     return updated
   }
@@ -2422,7 +2451,7 @@ export const SCMSProvider = ({ children }) => {
       setSubjects((prev) => prev.filter((item) => item.id !== id))
       return
     }
-    await managerApi.deleteSubject(id)
+    await managerApi.deleteSubject(id, { notifyForbidden: false })
     setSubjects((prev) => prev.filter((item) => item.id !== id))
   }
 
@@ -2432,7 +2461,7 @@ export const SCMSProvider = ({ children }) => {
       setRooms((prev) => [created, ...prev])
       return created
     }
-    const created = await managerApi.createRoom(data)
+    const created = await managerApi.createRoom(data, { notifyForbidden: false })
     setRooms((prev) => [created, ...prev])
     return created
   }
@@ -2443,7 +2472,7 @@ export const SCMSProvider = ({ children }) => {
       setRooms((prev) => prev.map((item) => (item.id === id ? updated : item)))
       return updated
     }
-    const updated = await managerApi.updateRoom(id, data)
+    const updated = await managerApi.updateRoom(id, data, { notifyForbidden: false })
     setRooms((prev) => prev.map((item) => (item.id === id ? updated : item)))
     return updated
   }
@@ -2454,7 +2483,7 @@ export const SCMSProvider = ({ children }) => {
       setRooms((prev) => prev.map((item) => (item.id === id ? updated : item)))
       return updated
     }
-    const updated = await managerApi.updateRoomStatus(id, status)
+    const updated = await managerApi.updateRoomStatus(id, status, { notifyForbidden: false })
     setRooms((prev) => prev.map((item) => (item.id === id ? updated : item)))
     return updated
   }
@@ -2468,12 +2497,6 @@ export const SCMSProvider = ({ children }) => {
       if (String(existing.id) === String(id)) continue
       const conflict = checkSingleClassConflict(payload, existing)
       if (conflict) {
-        showToast(
-          language === "vi"
-            ? "Không thể cập nhật lớp: HLV hoặc Sân tập đã có lịch hoạt động"
-            : "Cannot update class: Coach or facility schedule conflict",
-          "error",
-        )
         throw new Error(
           conflict.message ||
             (language === "vi"
@@ -2483,11 +2506,10 @@ export const SCMSProvider = ({ children }) => {
       }
     }
 
-    if (typeof window !== "undefined" && id) {
+    const persistClassMetadata = () => {
+      if (API_ENABLED || typeof window === "undefined" || !id) return
       try {
-        const meta = JSON.parse(
-          localStorage.getItem("scms_class_metadata") || "{}",
-        )
+        const meta = JSON.parse(localStorage.getItem("scms_class_metadata") || "{}")
         meta[id] = {
           ...(meta[id] || {}),
           room: payload.room,
@@ -2511,6 +2533,7 @@ export const SCMSProvider = ({ children }) => {
     }
 
     if (!API_ENABLED) {
+      persistClassMetadata()
       setClasses((prev) =>
         prev.map((item) => (item.id === id ? payload : item)),
       )
@@ -2528,7 +2551,8 @@ export const SCMSProvider = ({ children }) => {
         subjects,
         coaches: staff,
         fallback: payload,
-      })
+      }, { notifyForbidden: false })
+      persistClassMetadata()
       setClasses((prev) =>
         prev.map((item) => (item.id === id ? updated : item)),
       )
@@ -2540,23 +2564,7 @@ export const SCMSProvider = ({ children }) => {
       )
       return updated
     } catch (error) {
-      const status = error.response?.status
-      const backendMsg =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        error.message
-      const isConflict =
-        status === 409 || status === 422 || /conflict|trùng/i.test(backendMsg)
-      const errMsg = isConflict
-        ? language === "vi"
-          ? `Không thể cập nhật lớp: HLV hoặc Sân tập đã có lịch hoạt động`
-          : `Cannot update class: Schedule conflict`
-        : backendMsg ||
-          (language === "vi"
-            ? "Không thể cập nhật lớp học."
-            : "Failed to update class.")
-      showToast(errMsg, "error")
-      throw new Error(errMsg)
+      throw error
     }
   }
 
@@ -2582,7 +2590,7 @@ export const SCMSProvider = ({ children }) => {
       subjects,
       coaches: staff,
       fallback: current,
-    })
+    }, { notifyForbidden: false })
     setClasses((prev) => prev.map((item) => (item.id === id ? updated : item)))
     return updated
   }
@@ -2594,16 +2602,34 @@ export const SCMSProvider = ({ children }) => {
       return
     }
     try {
-      const loaded = await managerApi.getClasses({ subjects, coaches: staff })
-      const filtered = filterActiveClasses(loaded)
-      setClasses(filtered)
-      return filtered
-    } catch (e) {
-      setClasses([])
+      const loaded = await managerApi.getClasses({ subjects, coaches: staff }, { notifyForbidden: false })
+      const currentClasses = Array.isArray(loaded) ? loaded : []
+      setClasses(currentClasses)
+      setManagerDataError((previous) => {
+        const remaining = String(previous || "")
+          .split("\n")
+          .filter((line) => line && !line.startsWith(language === "vi" ? "Danh sách lớp:" : "Classes:"))
+        return remaining.length ? remaining.join("\n") : null
+      })
+      return currentClasses
+    } catch (error) {
+      const resource = language === "vi" ? "Danh sách lớp" : "Classes"
+      const message = formatManagerLoadError(resource, error, language)
+      setManagerDataError((previous) => mergeManagerLoadError(previous, message, resource))
+      showToast(message, "error")
+      return classes
     }
   }
 
   const deleteClass = async (id) => {
+    if (API_ENABLED) {
+      const message = language === "vi"
+        ? "Backend hiện chưa hỗ trợ xóa lớp. Không có dữ liệu nào bị thay đổi."
+        : "The backend does not support class deletion yet. No data was changed."
+      showToast(message, "error")
+      return { success: false, unsupported: true, message }
+    }
+
     const strId = String(id)
     try {
       const stored = JSON.parse(
@@ -2626,6 +2652,10 @@ export const SCMSProvider = ({ children }) => {
   }
 
   const restoreDefaultClasses = async () => {
+    if (API_ENABLED) {
+      return reloadClasses()
+    }
+
     try {
       localStorage.removeItem("scms_deleted_class_ids")
     } catch {
@@ -2649,7 +2679,7 @@ export const SCMSProvider = ({ children }) => {
       setPackages((prev) => [created, ...prev])
       return created
     }
-    const created = await managerApi.createPackage(data)
+    const created = await managerApi.createPackage(data, { notifyForbidden: false })
     setPackages((prev) => [created, ...prev])
     return created
   }
@@ -2666,7 +2696,7 @@ export const SCMSProvider = ({ children }) => {
       )
       return updated
     }
-    const updated = await managerApi.updatePackage(id, data)
+    const updated = await managerApi.updatePackage(id, data, { notifyForbidden: false })
     setPackages((prev) => prev.map((item) => (item.id === id ? updated : item)))
     return updated
   }
@@ -2679,7 +2709,7 @@ export const SCMSProvider = ({ children }) => {
       )
       return updated
     }
-    const updated = await managerApi.updatePackageStatus(id, status)
+    const updated = await managerApi.updatePackageStatus(id, status, { notifyForbidden: false })
     setPackages((prev) => prev.map((item) => (item.id === id ? updated : item)))
     return updated
   }

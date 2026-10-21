@@ -92,8 +92,9 @@ function formatWeekdaysList(days) {
   return days.map((d) => WEEKDAY_NAMES_MAP[d] || d).join(", ")
 }
 
-function getWeekdaysArray(days, category) {
+function getWeekdaysArray(days, category, apiMode = false) {
   if (!days || !Array.isArray(days) || days.length === 0) {
+    if (apiMode) return []
     if (category && category.toLowerCase().includes("pickleball")) {
       return ["T7", "CN"]
     }
@@ -102,10 +103,11 @@ function getWeekdaysArray(days, category) {
   const mapped = days
     .map((d) => WEEKDAY_NAMES_MAP[d] || (typeof d === "string" ? d.trim() : d))
     .filter(Boolean)
-  return mapped.length > 0 ? mapped : ["T2", "T4", "T6"]
+  return mapped.length > 0 ? mapped : apiMode ? [] : ["T2", "T4", "T6"]
 }
 
-function formatScheduleTime(cls) {
+function formatScheduleTime(cls, apiMode = false) {
+  if (apiMode && (!cls?.startTime || !cls?.endTime)) return "—"
   if (!cls) return "06:00 - 07:30"
   const isPickleball = Boolean(
     (cls.category && cls.category.toLowerCase().includes("pickleball")) ||
@@ -207,6 +209,7 @@ export function computeCourseEndDate(startDateStr, days, count = 12) {
 function exportClassesToCsv(
   classesToExport,
   filenamePrefix = "danh_sach_lop_hoc",
+  { apiMode = false } = {},
 ) {
   if (!classesToExport || classesToExport.length === 0) return
   const headers = [
@@ -226,12 +229,14 @@ function exportClassesToCsv(
     "Trạng thái",
   ]
   const rows = classesToExport.map((cls) => {
-    const numericPrice = Number(cls.price)
+    const numericPrice = cls.price === null || cls.price === undefined ? null : Number(cls.price)
     const isFree = cls.isFree || numericPrice === 0
-    const resolvedPrice = isFree
-      ? 0
-      : numericPrice > 0
-        ? numericPrice
+    const resolvedPrice = apiMode
+      ? numericPrice
+      : isFree
+        ? 0
+        : numericPrice > 0
+          ? numericPrice
         : (cls.category || cls.nameVi || cls.name || "")
               .toLowerCase()
               .includes("pickleball")
@@ -246,19 +251,19 @@ function exportClassesToCsv(
               ? 900000
               : 600000
     return [
-      cls.code || `CLS-${cls.id}`,
-      cls.nameVi || cls.name,
-      cls.category || "",
-      cls.level || "Cơ bản",
-      cls.sessionCount || 12,
-      getWeekdaysArray(cls.selectedDays, cls.category).join(", "),
-      formatScheduleTime(cls),
+      cls.code || (apiMode ? "—" : `CLS-${cls.id}`),
+      cls.nameVi || cls.name || "—",
+      cls.category || "—",
+      cls.level || (apiMode ? "—" : "Cơ bản"),
+      cls.sessionCount ?? (apiMode ? "—" : 12),
+      getWeekdaysArray(cls.selectedDays, cls.category, apiMode).join(", ") || "—",
+      formatScheduleTime(cls, apiMode),
       formatViDate(cls.startDate || cls.date),
-      cls.roomVi || cls.room || "",
+      cls.roomVi || cls.room || "—",
       cls.coachName || "Chưa phân công",
-      cls.enrolledCount || 0,
-      cls.capacity || 8,
-      isFree ? "Miễn phí (0 đ)" : `${resolvedPrice.toLocaleString("vi-VN")} đ`,
+      cls.enrolledCount ?? (apiMode ? "—" : 0),
+      cls.capacity ?? (apiMode ? "—" : 8),
+      resolvedPrice === null ? "—" : isFree ? "Miễn phí (0 đ)" : `${resolvedPrice.toLocaleString("vi-VN")} đ`,
       STATUS_CONFIG[normalizeClassStatus(cls.status)]?.label || cls.status,
     ]
   })
@@ -383,6 +388,7 @@ function StatusPill({ status }) {
 // -------------------------------------------------------------
 function EditClassModal({
   item,
+  apiMode = false,
   subjects,
   staff,
   coaches,
@@ -403,12 +409,14 @@ function EditClassModal({
         .includes("huấn"),
   )
 
-  const initialPrice = Number(item.price)
-  const isInitialFree = item.isFree || initialPrice === 0
+  const initialPrice = item.price === null || item.price === undefined ? null : Number(item.price)
+  const isInitialFree = initialPrice === 0 || (!apiMode && item.isFree)
   const resolvedInitialPrice = isInitialFree
     ? 0
-    : initialPrice > 0
+    : initialPrice !== null && initialPrice > 0
       ? initialPrice
+      : apiMode
+        ? null
       : (item.category || item.nameVi || item.name || "")
             .toLowerCase()
             .includes("pickleball")
@@ -423,29 +431,31 @@ function EditClassModal({
             ? 900000
             : 600000
 
-  const sessionCount = item.sessionCount || 12
+  const sessionCount = item.sessionCount ?? (apiMode ? null : 12)
   const [pricingMode, setPricingMode] = useState("total") // 'total' | 'per_session'
   const [isFreeClass, setIsFreeClass] = useState(isInitialFree)
   const lastNonZeroPriceRef = useRef(
-    resolvedInitialPrice > 0 ? resolvedInitialPrice : 600000,
+    resolvedInitialPrice > 0 ? resolvedInitialPrice : apiMode ? null : 600000,
   )
   const [perSessionPriceInput, setPerSessionPriceInput] = useState(() =>
     isInitialFree
       ? 0
-      : Math.round(resolvedInitialPrice / sessionCount / 1000) * 1000,
+      : resolvedInitialPrice === null || !sessionCount
+        ? ""
+        : Math.round(resolvedInitialPrice / sessionCount / 1000) * 1000,
   )
 
   const [form, setForm] = useState(() => ({
     ...item,
     name: item.nameVi || item.name || "",
-    capacity: item.capacity || 8,
-    minCapacity: item.minCapacity || 4,
+    capacity: item.capacity ?? (apiMode ? "" : 8),
+    minCapacity: item.minCapacity ?? (apiMode ? null : 4),
     price: resolvedInitialPrice,
-    startDate: item.startDate || item.date || "2026-10-12",
-    endDate: item.endDate || "2026-11-06",
-    startTime: item.startTime || "06:00",
-    endTime: item.endTime || "07:30",
-    status: item.status || "published",
+    startDate: item.startDate || item.date || (apiMode ? "" : "2026-10-12"),
+    endDate: item.endDate || (apiMode ? "" : "2026-11-06"),
+    startTime: item.startTime || (apiMode ? "" : "06:00"),
+    endTime: item.endTime || (apiMode ? "" : "07:30"),
+    status: item.status || (apiMode ? "" : "published"),
   }))
 
   const currentCategory = form.category || item.category || ""
@@ -527,7 +537,7 @@ function EditClassModal({
     if (Array.isArray(item.selectedDays) && item.selectedDays.length > 0) {
       return item.selectedDays
     }
-    return [1, 3, 5]
+    return apiMode ? [] : [1, 3, 5]
   })
 
   const { conflict, isChecking: isCheckingConflict } = useScheduleConflict({
@@ -554,13 +564,13 @@ function EditClassModal({
 
   // Tự động tính ngày bế giảng từ ngày khai giảng, các thứ trong tuần và số buổi học
   useEffect(() => {
-    if (form.startDate && selectedDays && selectedDays.length > 0) {
+    if (!apiMode && form.startDate && selectedDays && selectedDays.length > 0) {
       const autoEnd = computeCourseEndDate(form.startDate, selectedDays, sessionCount)
       if (autoEnd && autoEnd !== form.endDate) {
         setForm((prev) => ({ ...prev, endDate: autoEnd }))
       }
     }
-  }, [form.startDate, selectedDays, sessionCount])
+  }, [apiMode, form.startDate, selectedDays, sessionCount])
 
   const submit = async (e) => {
     e.preventDefault()
@@ -568,13 +578,13 @@ function EditClassModal({
       setError("Vui lòng nhập tên lớp học.")
       return
     }
-    if (!selectedDays.length) {
+    if (!apiMode && !selectedDays.length) {
       setError("Vui lòng chọn ít nhất một thứ trong tuần.")
       return
     }
 
     // Kiểm tra tính hợp lệ: Ngày khai giảng phải rơi vào đúng một trong các thứ đã chọn
-    if (form.startDate || form.date) {
+    if (!apiMode && (form.startDate || form.date)) {
       const startDay = new Date(form.startDate || form.date).getDay()
       if (!selectedDays.includes(startDay)) {
         const dayNames = { 1: "Thứ 2", 2: "Thứ 3", 3: "Thứ 4", 4: "Thứ 5", 5: "Thứ 6", 6: "Thứ 7", 0: "Chủ Nhật" }
@@ -591,19 +601,23 @@ function EditClassModal({
     setSaving(true)
     setError("")
     try {
-      const calculatedEndDate = computeCourseEndDate(form.startDate, selectedDays, sessionCount) || form.endDate
+      const calculatedEndDate = apiMode
+        ? form.endDate
+        : computeCourseEndDate(form.startDate, selectedDays, sessionCount) || form.endDate
       await onSave({
         ...form,
         name: form.name.trim(),
         nameVi: form.name.trim(),
-        capacity: Number(form.capacity) || 8,
-        price: isFreeClass
+        capacity: apiMode ? Number(form.capacity) : Number(form.capacity) || 8,
+        price: apiMode && form.price === ""
+          ? null
+          : isFreeClass
           ? 0
           : Number(form.price) >= 0
             ? Number(form.price)
             : 0,
         isFree: isFreeClass,
-        selectedDays,
+        selectedDays: apiMode ? null : selectedDays,
         endDate: calculatedEndDate,
       })
       onClose()
@@ -799,14 +813,14 @@ function EditClassModal({
                 required
                 min="1"
                 type="number"
-                value={form.capacity}
+                value={form.capacity ?? ""}
                 onFocus={(e) => e.target.select()}
                 onClick={(e) => {
                   if (e.target.selectionStart === e.target.selectionEnd)
                     e.target.select()
                 }}
                 onBlur={() => {
-                  if (!form.capacity || form.capacity < 1) {
+                  if (!apiMode && (!form.capacity || form.capacity < 1)) {
                     setForm({ ...form, capacity: 12 })
                   }
                 }}
@@ -836,7 +850,13 @@ function EditClassModal({
           </div>
 
           {/* Học phí: InputGroup tách biệt + Đảo chiều 2-way + Dấu chấm phân cách + Làm tròn hàng nghìn + Checkbox miễn phí */}
-          <div className="space-y-2 p-3.5 bg-stone-50/70 border border-stone-200 rounded-xl">
+          {apiMode ? (
+            <div className="space-y-2 p-3.5 bg-stone-50/70 border border-stone-200 rounded-xl">
+              <label className="block text-xs font-semibold text-stone-800">Học phí
+                <input type="number" min="0" value={form.price ?? ""} onChange={(event) => setForm({ ...form, price: event.target.value === "" ? "" : Number(event.target.value) })} className="mt-1 w-full h-11 px-3.5 bg-white border border-stone-300 rounded-xl text-sm" />
+              </label>
+            </div>
+          ) : <div className="space-y-2 p-3.5 bg-stone-50/70 border border-stone-200 rounded-xl">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-semibold text-stone-800">
                 {pricingMode === "total"
@@ -924,7 +944,7 @@ function EditClassModal({
                 Lớp học miễn phí (Hội viên tham gia không mất phí)
               </span>
             </label>
-          </div>
+          </div>}
 
           <div className="grid grid-cols-2 gap-3.5">
             <div>
@@ -933,7 +953,7 @@ function EditClassModal({
               </label>
               <input
                 type="date"
-                value={form.startDate}
+                value={form.startDate || ""}
                 onChange={(e) =>
                   setForm({
                     ...form,
@@ -947,18 +967,19 @@ function EditClassModal({
             <div>
               <label className="block text-xs font-semibold text-stone-800 mb-1.5 flex items-center justify-between">
                 <span>Ngày kết thúc (Bế giảng)</span>
-                <span className="text-[10px] text-stone-500 font-normal">Tự động ({sessionCount} buổi)</span>
+                <span className="text-[10px] text-stone-500 font-normal">{apiMode ? "" : `Tự động (${sessionCount} buổi)`}</span>
               </label>
               <input
                 type="date"
                 readOnly
-                value={form.endDate}
+                value={form.endDate || ""}
                 className="w-full h-11 px-3.5 bg-stone-100 border border-stone-300 rounded-xl text-sm text-stone-600 cursor-not-allowed"
                 title={`Ngày bế giảng được tự động tính dựa trên ngày bắt đầu, lịch học trong tuần và ${sessionCount} buổi học`}
               />
             </div>
           </div>
 
+          {!apiMode && <>
           <div className="grid grid-cols-2 gap-3.5">
             <div>
               <label className="block text-xs font-semibold text-stone-800 mb-1.5">
@@ -966,7 +987,7 @@ function EditClassModal({
               </label>
               <input
                 type="text"
-                value={form.startTime}
+                value={form.startTime || ""}
                 onChange={(e) =>
                   setForm({ ...form, startTime: e.target.value })
                 }
@@ -980,7 +1001,7 @@ function EditClassModal({
               </label>
               <input
                 type="text"
-                value={form.endTime}
+                value={form.endTime || ""}
                 onChange={(e) => setForm({ ...form, endTime: e.target.value })}
                 className="w-full h-11 px-3.5 bg-white border border-stone-300 rounded-xl text-sm"
                 placeholder="07:30"
@@ -1025,8 +1046,10 @@ function EditClassModal({
             </p>
           </div>
 
+          </>}
+
           {/* Banner cảnh báo trùng lịch */}
-          {conflict?.hasConflict && (
+          {!apiMode && conflict?.hasConflict && (
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 space-y-1 shadow-2xs">
               <div className="flex items-center gap-1.5 font-bold text-rose-800">
                 <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -1079,6 +1102,7 @@ function RowActionMenu({
   onCancelClass,
   onDelete,
   onCopyLink,
+  apiMode = false,
   alignUp = false,
 }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -1209,20 +1233,22 @@ function RowActionMenu({
               setIsOpen(false)
               onDelete(cls)
             }}
-            disabled={hasEnrollments}
+            disabled={hasEnrollments || apiMode}
             title={
-              hasEnrollments
+              apiMode
+                ? "Backend hiện chưa hỗ trợ xóa lớp. Không có dữ liệu nào bị thay đổi."
+                : hasEnrollments
                 ? "Không thể xóa lớp đã có học viên đăng ký. Vui lòng chọn Hủy lớp học."
                 : "Xóa vĩnh viễn lớp học này"
             }
             className={`w-full px-3.5 py-2 text-left flex items-center gap-2.5 transition-colors ${
-              hasEnrollments
+              hasEnrollments || apiMode
                 ? "text-stone-300 cursor-not-allowed"
                 : "text-rose-600 hover:bg-rose-50 cursor-pointer"
             }`}
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Xóa lớp học</span>
+            <span>{apiMode ? "Xóa lớp học (chưa hỗ trợ)" : "Xóa lớp học"}</span>
           </button>
         </div>
       )}
@@ -1247,6 +1273,7 @@ export function ClassManagement() {
     classes,
     setClasses,
     reloadClasses,
+    apiEnabled,
     subjects,
     staff,
     coaches,
@@ -1454,17 +1481,18 @@ export function ClassManagement() {
           cmp = (Number(a.id) || 0) - (Number(b.id) || 0)
         }
       } else if (sortConfig.key === "enrollment") {
-        const capA = a.capacity || 8
-        const enrolledA = a.enrolledCount || 0
-        const percentA = capA > 0 ? enrolledA / capA : 0
-
-        const capB = b.capacity || 8
-        const enrolledB = b.enrolledCount || 0
-        const percentB = capB > 0 ? enrolledB / capB : 0
-
-        cmp = percentA - percentB
+        const percentFor = (cls) => cls.capacity > 0 && cls.enrolledCount != null
+          ? cls.enrolledCount / cls.capacity
+          : null
+        const percentA = percentFor(a)
+        const percentB = percentFor(b)
+        cmp = percentA === null
+          ? percentB === null ? 0 : 1
+          : percentB === null ? -1 : percentA - percentB
       } else if (sortConfig.key === "price") {
-        const getP = (c) =>
+        const getP = (c) => apiEnabled
+          ? c.price == null ? null : Number(c.price)
+          :
           Number(c.price) > 0
             ? Number(c.price)
             : (c.category || c.nameVi || c.name || "")
@@ -1480,7 +1508,11 @@ export function ClassManagement() {
                       .includes("bắn cung")
                   ? 900000
                   : 600000
-        cmp = getP(a) - getP(b)
+        const priceA = getP(a)
+        const priceB = getP(b)
+        cmp = priceA === null
+          ? priceB === null ? 0 : 1
+          : priceB === null ? -1 : priceA - priceB
       }
       return sortConfig.direction === "desc" ? -cmp : cmp
     })
@@ -1632,7 +1664,7 @@ export function ClassManagement() {
       selectedClassIds.includes(c.id),
     )
     if (!targets.length) return
-    exportClassesToCsv(targets, `danh_sach_${targets.length}_lop_da_chon`)
+    exportClassesToCsv(targets, `danh_sach_${targets.length}_lop_da_chon`, { apiMode: apiEnabled })
     showToast(
       `Đã xuất ${targets.length} lớp học ra file Excel (CSV)!`,
       "success",
@@ -1726,8 +1758,13 @@ export function ClassManagement() {
     if (!deletingClassTarget) return
     setIsDeleting(true)
     try {
+      let result
       if (typeof deleteClass === "function") {
-        await deleteClass(deletingClassTarget.id)
+        result = await deleteClass(deletingClassTarget.id)
+      }
+      if (result?.success === false) {
+        setDeletingClassTarget(null)
+        return
       }
       showToast(
         `Đã xóa lớp "${deletingClassTarget.nameVi || deletingClassTarget.name}" thành công!`,
@@ -2152,6 +2189,7 @@ export function ClassManagement() {
                   exportClassesToCsv(
                     filteredAndSortedClasses,
                     "danh_sach_lop_hoc",
+                    { apiMode: apiEnabled },
                   )
                 }
                 className="h-9 px-3.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
@@ -2346,13 +2384,13 @@ export function ClassManagement() {
                   </thead>
                   <tbody className="divide-y divide-[#F1F3F5]">
                     {paginatedClasses.map((cls, idx) => {
-                      const capacity = cls.capacity || 8
-                      const enrolled = cls.enrolledCount || 0
-                      const minCap = cls.minCapacity || 4
-                      const percent = Math.min(
-                        100,
-                        Math.round((enrolled / capacity) * 100),
-                      )
+                      const capacity = cls.capacity ?? (apiEnabled ? null : 8)
+                      const enrolled = cls.enrolledCount ?? (apiEnabled ? null : 0)
+                      const minCap = cls.minCapacity ?? (apiEnabled ? null : 4)
+                      const percent = capacity > 0 && enrolled !== null
+                        ? Math.min(100, Math.round((enrolled / capacity) * 100))
+                        : null
+                      const sessionCount = cls.sessionCount ?? (apiEnabled ? null : 12)
                       const isOngoing =
                         normalizeClassStatus(cls.status) === "ongoing"
                       const isSelected = selectedClassIds.includes(cls.id)
@@ -2410,13 +2448,13 @@ export function ClassManagement() {
                               </div>
                               <div
                                 className="text-[11px] text-stone-500 flex items-center gap-1.5 flex-wrap"
-                                title={`${cls.category || "Thể thao"} • ${cls.level || "Cơ bản"} • ${cls.sessionCount || 12} buổi`}
+                                title={`${cls.category || (apiEnabled ? "—" : "Thể thao")} • ${cls.level || (apiEnabled ? "—" : "Cơ bản")} • ${sessionCount ?? "—"} buổi`}
                               >
-                                <span>{cls.category || "Thể thao"}</span>
+                                <span>{cls.category || (apiEnabled ? "—" : "Thể thao")}</span>
                                 <span>&bull;</span>
-                                <span>{cls.level || "Cơ bản"}</span>
+                                <span>{cls.level || (apiEnabled ? "—" : "Cơ bản")}</span>
                                 <span>&bull;</span>
-                                <span>{cls.sessionCount || 12} buổi</span>
+                                <span>{sessionCount ?? "—"} buổi</span>
                               </div>
                             </div>
                           </td>
@@ -2429,6 +2467,7 @@ export function ClassManagement() {
                                   {getWeekdaysArray(
                                     cls.selectedDays,
                                     cls.category,
+                                    apiEnabled,
                                   ).map((day) => (
                                     <span
                                       key={day}
@@ -2439,23 +2478,26 @@ export function ClassManagement() {
                                   ))}
                                   <span
                                     className="text-xs font-semibold text-stone-800 ml-0.5"
-                                    title={`Khung giờ học: ${formatScheduleTime(cls)}`}
+                                    title={`Khung giờ học: ${formatScheduleTime(cls, apiEnabled)}`}
                                   >
-                                    {formatScheduleTime(cls)}
+                                    {formatScheduleTime(cls, apiEnabled)}
                                   </span>
                                 </div>
                                 <div
                                   className="text-[11px] text-stone-500"
                                   title={
                                     isOngoing
-                                      ? `Buổi tiếp theo: 14/10 • 3/${cls.sessionCount || 12} buổi`
+                                    ? apiEnabled
+                                      ? `Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`
+                                      : `Buổi tiếp theo: 14/10 • 3/${sessionCount ?? 12} buổi`
                                       : `Khai giảng: ${formatViDate(cls.startDate || cls.date)}`
                                   }
                                 >
                                   {isOngoing ? (
                                     <span className="text-emerald-700 font-medium">
-                                      Buổi tiếp theo: 14/10 &bull; 3/
-                                      {cls.sessionCount || 12} buổi
+                                      {apiEnabled
+                                        ? `Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`
+                                        : <>Buổi tiếp theo: 14/10 &bull; 3/{sessionCount ?? 12} buổi</>}
                                     </span>
                                   ) : (
                                     <span>
@@ -2475,17 +2517,17 @@ export function ClassManagement() {
                                 <div
                                   className="font-medium text-stone-800 line-clamp-1 truncate"
                                   title={
-                                    cls.roomVi || cls.room || "Sân tiêu chuẩn"
+                                    cls.roomVi || cls.room || (apiEnabled ? "—" : "Sân tiêu chuẩn")
                                   }
                                 >
-                                  {cls.roomVi || cls.room || "Sân tiêu chuẩn"}
+                                  {cls.roomVi || cls.room || (apiEnabled ? "—" : "Sân tiêu chuẩn")}
                                 </div>
                                 <div
                                   className="text-[11px] text-stone-500 line-clamp-1 truncate"
-                                  title={`Sức chứa ${capacity} • ${cls.roomSpec || "Thảm PVC tiêu chuẩn"}`}
+                                  title={`Sức chứa ${capacity ?? "—"} • ${cls.roomSpec || (apiEnabled ? "—" : "Thảm PVC tiêu chuẩn")}`}
                                 >
-                                  Sức chứa {capacity} &bull;{" "}
-                                  {cls.roomSpec || "Thảm PVC"}
+                                  Sức chứa {capacity ?? "—"} &bull;{" "}
+                                  {cls.roomSpec || (apiEnabled ? "—" : "Thảm PVC")}
                                 </div>
                               </div>
                             </td>
@@ -2537,6 +2579,7 @@ export function ClassManagement() {
                                   {(() => {
                                     const isMismatch =
                                       cls.coachName &&
+                                      cls.coachSpecialty &&
                                       cls.coachName !== "Chưa phân công" &&
                                       !isCoachMatchingSport(
                                         {
@@ -2548,7 +2591,7 @@ export function ClassManagement() {
                                     return (
                                       <div
                                         className="text-[11px] text-stone-500 line-clamp-1 truncate flex items-center gap-1.5"
-                                        title={`Chuyên môn: ${cls.coachSpecialty || cls.category || "HLV"}${
+                                        title={`Chuyên môn: ${cls.coachSpecialty || (apiEnabled ? "—" : cls.category || "HLV")}${
                                           isMismatch
                                             ? " (Khác với bộ môn của lớp)"
                                             : ""
@@ -2556,9 +2599,7 @@ export function ClassManagement() {
                                       >
                                         <span>
                                           Chuyên môn:{" "}
-                                          {cls.coachSpecialty ||
-                                            cls.category ||
-                                            "HLV"}
+                                          {cls.coachSpecialty || (apiEnabled ? "—" : cls.category || "HLV")}
                                         </span>
                                         {isMismatch && (
                                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[10px] bg-amber-50 text-amber-700 border border-amber-200/80 font-medium shrink-0">
@@ -2583,7 +2624,7 @@ export function ClassManagement() {
                                     {enrolled}/{capacity}
                                   </span>
                                   <span className="text-[11px] font-medium text-stone-500 tabular-nums">
-                                    {percent}%
+                                    {percent ?? "—"}{percent === null ? "" : "%"}
                                   </span>
                                 </div>
 
@@ -2591,21 +2632,23 @@ export function ClassManagement() {
                                 <div className="w-full h-2 bg-[#E9ECEF] rounded-full overflow-hidden my-1.5">
                                   <div
                                     className={`h-full transition-all duration-300 rounded-full ${
-                                      enrolled >= capacity
+                                      enrolled !== null && capacity !== null && enrolled >= capacity
                                         ? "bg-emerald-600"
-                                        : enrolled >= minCap
+                                        : enrolled !== null && minCap !== null && enrolled >= minCap
                                           ? "bg-emerald-500"
                                           : percent > 0
                                             ? "bg-emerald-500"
                                             : "bg-transparent"
                                     }`}
-                                    style={{ width: `${percent}%` }}
+                                    style={{ width: percent === null ? "0%" : percent + "%" }}
                                   />
                                 </div>
 
                                 {/* Dòng text trạng thái / cảnh báo màu xám nhạt #6C757D */}
                                 <div className="text-[11px] leading-tight text-[#6C757D]">
-                                  {enrolled < minCap ? (
+                                  {enrolled === null || capacity === null || minCap === null ? (
+                                    <span>—</span>
+                                  ) : enrolled < minCap ? (
                                     <span>
                                       Cần thêm {minCap - enrolled} để mở lớp
                                     </span>
@@ -2626,10 +2669,14 @@ export function ClassManagement() {
                           {/* Cột Học phí (Dành cho Sales & Ban quản lý) */}
                           {columnVisibility.price &&
                             (() => {
-                              const numericPrice = Number(cls.price)
-                              const isFree = cls.isFree || numericPrice === 0
-                              const resolvedPrice = isFree
-                                ? 0
+                              const numericPrice = cls.price === null || cls.price === undefined ? null : Number(cls.price)
+                              const isFree = apiEnabled
+                                ? numericPrice === 0
+                                : cls.isFree || numericPrice === 0
+                              const resolvedPrice = apiEnabled
+                                ? numericPrice
+                                : isFree
+                                  ? 0
                                 : numericPrice > 0
                                   ? numericPrice
                                   : (
@@ -2660,16 +2707,17 @@ export function ClassManagement() {
                                             .includes("bắn cung")
                                         ? 900000
                                         : 600000
-                              const sessionCount = cls.sessionCount || 12
-                              const perSession =
-                                Math.round(
-                                  resolvedPrice / sessionCount / 1000,
-                                ) * 1000
+                              const sessionCount = cls.sessionCount ?? (apiEnabled ? null : 12)
+                              const perSession = resolvedPrice === null || sessionCount === null || sessionCount === 0
+                                ? null
+                                : Math.round(resolvedPrice / sessionCount / 1000) * 1000
 
                               return (
                                 <td className="py-4 px-4 align-middle whitespace-nowrap">
                                   <div className="space-y-0.5">
-                                    {isFree || resolvedPrice === 0 ? (
+                                    {resolvedPrice === null ? (
+                                      <div>—</div>
+                                    ) : isFree || resolvedPrice === 0 ? (
                                       <>
                                         <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                           Miễn phí
@@ -2687,7 +2735,7 @@ export function ClassManagement() {
                                           đ
                                         </div>
                                         <div className="text-[11px] text-stone-500 tabular-nums">
-                                          ~{perSession.toLocaleString("vi-VN")}{" "}
+                                          ~{perSession?.toLocaleString("vi-VN") ?? "—"}{" "}
                                           đ/buổi
                                         </div>
                                       </>
@@ -2723,6 +2771,7 @@ export function ClassManagement() {
                               onCancelClass={handleCancelClass}
                               onDelete={(c) => setDeletingClassTarget(c)}
                               onCopyLink={handleCopyLink}
+                              apiMode={apiEnabled}
                             />
                           </td>
                         </tr>
@@ -2904,6 +2953,11 @@ export function ClassManagement() {
                 quan sẽ bị xóa vĩnh viễn và không thể hoàn tác.
               </p>
             </div>
+            {apiEnabled && (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-900">
+                Backend hiện chưa hỗ trợ xóa lớp. Dữ liệu sẽ không bị thay đổi.
+              </p>
+            )}
             <div className="pt-2 flex items-center justify-end gap-2.5">
               <button
                 type="button"
@@ -2915,10 +2969,10 @@ export function ClassManagement() {
               <button
                 type="button"
                 onClick={handleConfirmDelete}
-                disabled={isDeleting}
+                disabled={isDeleting || apiEnabled}
                 className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-xs cursor-pointer disabled:opacity-50"
               >
-                {isDeleting ? "Đang xóa..." : "Xóa lớp học"}
+                {isDeleting ? "Đang xóa..." : apiEnabled ? "Chưa hỗ trợ API" : "Xóa lớp học"}
               </button>
             </div>
           </div>
@@ -2980,6 +3034,7 @@ export function ClassManagement() {
       {editingClass && (
         <EditClassModal
           item={editingClass}
+          apiMode={apiEnabled}
           subjects={subjects}
           staff={staff}
           coaches={coaches}
