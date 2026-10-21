@@ -143,8 +143,9 @@ export function mapSubscriptionOrder(item) {
     };
   }
 
-  const subscriptionId = asNumber(item.subscriptionId ?? item.id);
-  const invoiceId = asNumber(item.invoiceId);
+  const rawSubId = item.subscriptionId ?? item.id;
+  const subscriptionId = isValidNumericId(rawSubId) ? asNumber(rawSubId) : null;
+  const invoiceId = isValidNumericId(item.invoiceId) ? asNumber(item.invoiceId) : null;
   const amount = asNumber(item.amount);
 
   return {

@@ -243,7 +243,17 @@ const noInvoiceCodeOrder = mapSubscriptionOrder({ subscriptionId: 101, invoiceId
 assert.equal(noInvoiceCodeOrder.subscriptionId, 101);
 assert.equal(noInvoiceCodeOrder.invoiceId, 55);
 assert.equal(noInvoiceCodeOrder.invoiceCode, null, 'mapSubscriptionOrder must NOT synthesize INV-00055 from invoiceId');
-console.log('PASS: mapSubscriptionOrder does NOT invent invoiceCode, amount, or status for empty, missing-ID, or missing-code response');
+
+// Malformed subscriptionId and invoiceId handling in mapSubscriptionOrder (-1, 0, decimal, boolean, missing)
+const malformedIds = [-1, 0, 10.5, true, false, 'abc'];
+for (const badId of malformedIds) {
+  const badSubOrder = mapSubscriptionOrder({ subscriptionId: badId, invoiceId: 55 });
+  assert.equal(badSubOrder.subscriptionId, null, `Malformed subscriptionId ${badId} must map to null`);
+
+  const badInvOrder = mapSubscriptionOrder({ subscriptionId: 101, invoiceId: badId });
+  assert.equal(badInvOrder.invoiceId, null, `Malformed invoiceId ${badId} must map to null`);
+}
+console.log('PASS: mapSubscriptionOrder does NOT invent invoiceCode, amount, or status for empty, missing-ID, or malformed ID response');
 
 // toMemberPackageRequest validation
 assert.throws(() => toMemberPackageRequest({}), /packageId.*không hợp lệ/i);
@@ -624,31 +634,46 @@ assert.equal(subMeOrder.invoiceCode, 'INV-2026-000055');
 assert.equal(subMeOrder.paymentUrl, 'https://sandbox.vnpayment.vn/pay?id=55');
 console.log('PASS: subscribeMe sends payload to /api/members/me/subscriptions and returns mapped order');
 
-// Test subscribeMe rejection when response lacks mandatory identifiers (e.g. missing invoiceId or subscriptionId)
-let postCounter = 0;
-const prevPost = httpClient.post;
-httpClient.post = async (path, body) => {
-  postCounter++;
-  return {
-    subscriptionId: 101,
-    // invoiceId is omitted
-  };
-};
+// Test subscribeMe rejection when response lacks mandatory identifiers or has malformed IDs (-1, 0, decimal, boolean, missing)
+const malformedIdCases = [
+  { desc: 'missing invoiceId', response: { subscriptionId: 101 } },
+  { desc: 'missing subscriptionId', response: { invoiceId: 55 } },
+  { desc: 'negative subscriptionId (-1)', response: { subscriptionId: -1, invoiceId: 55 } },
+  { desc: 'negative invoiceId (-1)', response: { subscriptionId: 101, invoiceId: -1 } },
+  { desc: 'zero subscriptionId (0)', response: { subscriptionId: 0, invoiceId: 55 } },
+  { desc: 'zero invoiceId (0)', response: { subscriptionId: 101, invoiceId: 0 } },
+  { desc: 'decimal subscriptionId (10.5)', response: { subscriptionId: 10.5, invoiceId: 55 } },
+  { desc: 'decimal invoiceId (55.5)', response: { subscriptionId: 101, invoiceId: 55.5 } },
+  { desc: 'boolean subscriptionId (true)', response: { subscriptionId: true, invoiceId: 55 } },
+  { desc: 'boolean invoiceId (false)', response: { subscriptionId: 101, invoiceId: false } },
+  { desc: 'empty object response', response: {} },
+  { desc: 'null response', response: null },
+];
 
-await assert.rejects(
-  () => membershipApi.subscribeMe({ packageId: 10, paymentMethod: 'VNPay' }),
-  (err) => {
-    assert.match(err.message, /thiếu định danh bắt buộc/i);
-    assert.match(err.message, /GET đối soát/i);
-    assert.match(err.message, /không tự gửi lại yêu cầu/i);
-    assert.equal(err.requiresReconciliation, true);
-    return true;
-  },
-  'subscribeMe must fail closed when response is missing mandatory identifiers and warn to reconcile via GET'
-);
-assert.equal(postCounter, 1, 'subscribeMe must NOT automatically retry POST on missing mandatory identifiers');
-console.log('PASS: subscribeMe rejects incomplete response, demands GET reconciliation, and sends exactly one POST');
-httpClient.post = prevPost;
+for (const tc of malformedIdCases) {
+  let casePostCount = 0;
+  const restorePost = httpClient.post;
+  httpClient.post = async () => {
+    casePostCount++;
+    return tc.response;
+  };
+
+  await assert.rejects(
+    () => membershipApi.subscribeMe({ packageId: 10, paymentMethod: 'VNPay' }),
+    (err) => {
+      assert.match(err.message, /thiếu định danh bắt buộc/i);
+      assert.match(err.message, /GET đối soát/i);
+      assert.match(err.message, /không tự gửi lại yêu cầu/i);
+      assert.equal(err.name, 'IncompleteOrderResponseError');
+      assert.equal(err.requiresReconciliation, true);
+      return true;
+    },
+    `subscribeMe must reject ${tc.desc} as incomplete order and warn to reconcile via GET`
+  );
+  assert.equal(casePostCount, 1, `subscribeMe must send exactly one POST and NOT retry for ${tc.desc}`);
+  httpClient.post = restorePost;
+}
+console.log('PASS: subscribeMe rejects all malformed ID responses (-1, 0, decimal, boolean, missing) for both IDs and sends exactly one POST');
 
 // 6.7 Swagger confirm-cash (no body) and pay-online
 const cashConfirmResult = await invoiceApi.confirmCashPayment(55);

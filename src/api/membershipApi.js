@@ -75,7 +75,10 @@ export const subscribeMe = async (data) => {
   const response = await httpClient.post('/api/members/me/subscriptions', payload);
   const mapped = mapSubscriptionOrder(response);
 
-  if (!mapped.subscriptionId || !mapped.invoiceId) {
+  const hasValidSubscriptionId = isValidNumericId(mapped?.subscriptionId);
+  const hasValidInvoiceId = isValidNumericId(mapped?.invoiceId);
+
+  if (!hasValidSubscriptionId || !hasValidInvoiceId) {
     const error = new Error(
       'Phản hồi tạo đơn thiếu định danh bắt buộc (subscriptionId hoặc invoiceId). Đơn có thể đã được tạo trên hệ thống; vui lòng thực hiện GET đối soát, không tự gửi lại yêu cầu đăng ký.'
     );
