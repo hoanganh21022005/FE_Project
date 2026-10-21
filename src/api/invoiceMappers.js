@@ -62,7 +62,7 @@ export function mapInvoice(item) {
   return {
     id: invoiceId,
     invoiceId,
-    code: formatInvoiceCode(invoiceId),
+    code: item.invoiceCode || formatInvoiceCode(invoiceId),
     memberId,
     memberName: item.memberName || '',
     memberEmail: item.memberEmail || '',

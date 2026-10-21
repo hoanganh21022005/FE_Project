@@ -4,8 +4,8 @@ import { useSCMS } from '../../context/SCMSContext';
 import {
   LayoutDashboard, Users, UserCheck, Package, Calendar,
   ClipboardCheck, TrendingUp, CreditCard, BarChart3, History,
-  Search, ChevronLeft, ChevronRight, Activity, Award,
-  Settings, HelpCircle, Library, X, MessageSquareHeart
+  Search, ChevronLeft, ChevronRight, Activity,
+  Settings, HelpCircle, Library, X, UserRound, Dumbbell
 } from 'lucide-react';
 
 export function Sidebar({ mobileOpen = false, onCloseMobile }) {
@@ -54,11 +54,11 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
       case 'member':
         return [
           { path: '/member/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
-          { path: '/member/my-membership', labelKey: 'myMembership', icon: Award },
-          { path: '/member/catalog', labelKey: 'classCatalog', icon: Calendar },
+          { path: '/member/catalog', label: language === 'vi' ? 'Đăng ký khóa học' : 'Course registration', icon: Dumbbell },
+          { path: '/member/enrollments', label: language === 'vi' ? 'Khóa học đã đăng ký' : 'Enrolled courses', icon: CreditCard },
+          { path: '/member/schedule', label: language === 'vi' ? 'Lịch học của tôi' : 'My schedule', icon: Calendar },
           { path: '/member/attendance', labelKey: 'attendance', icon: ClipboardCheck },
-          { path: '/member/feedback', labelKey: 'feedback', label: language === 'vi' ? 'Đánh giá & Feedback' : 'Class Feedback', icon: MessageSquareHeart },
-          { path: '/member/progress', labelKey: 'trainingProgress', icon: Activity }
+          { path: '/member/progress', label: language === 'vi' ? 'Tiến độ tập luyện' : 'Training progress', icon: Activity }
         ];
 
       default:
@@ -168,6 +168,15 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
 
         {/* Footer Settings & Support */}
         <div className="p-2 border-t border-slate-200 space-y-1">
+          {role === 'member' && <button
+            type="button"
+            onClick={() => handleNav('/profile')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded text-xs font-medium transition-all cursor-pointer ${location.pathname === '/profile' ? 'bg-red-50 text-[#BA0000] font-bold border-l-2 border-[#BA0000]' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+            title={collapsed ? (language === 'vi' ? 'Thông tin cá nhân' : 'Profile') : undefined}
+          >
+            <UserRound className="w-4 h-4 text-slate-500 flex-shrink-0" />
+            {(!collapsed || mobileOpen) && <span className="truncate">{language === 'vi' ? 'Thông tin cá nhân' : 'Profile'}</span>}
+          </button>}
           <button
             type="button"
             onClick={() => handleNav('/settings')}

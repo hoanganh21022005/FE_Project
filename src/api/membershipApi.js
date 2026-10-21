@@ -62,6 +62,11 @@ export const subscribePackage = async (memberId, data) => {
   return mapMemberSubscription(response);
 };
 
+export const subscribeMe = async (data) => {
+  const payload = toMemberPackageRequest(data);
+  const response = await httpClient.post('/api/members/me/subscriptions', payload);
+  return mapMemberSubscription(response);
+};
 export const getAllSubscriptions = async () => {
   const data = await httpClient.get('/api/member-packages');
   const list = extractList(data);
@@ -84,6 +89,7 @@ export const membershipApi = {
   updatePackageStatus,
   getMemberSubscriptions,
   subscribePackage,
+  subscribeMe,
   getAllSubscriptions,
   updateSubscriptionStatus,
 };

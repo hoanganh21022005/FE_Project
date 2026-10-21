@@ -23,11 +23,10 @@ export const updateStaff = async (id, data) => {
   return mapStaff(updated);
 };
 
-/**
- * G4.5 Blocked: PATCH /api/staff/{id}/status is blocked pending BE specification of body key and enum.
- */
-export const updateStaffStatus = async (_id, _status) => {
-  throw new Error('Thao tác cập nhật trạng thái nhân sự (G4.5) đang bị khóa do Backend chưa công bố cấu trúc body và enum.');
+export const updateStaffStatus = async (id, status) => {
+  if (id === null || id === undefined || id === '') throw new Error('Staff ID is required.');
+  const updated = await httpClient.patch(`/api/staff/${id}/status`, { status: String(status).toUpperCase() });
+  return mapStaff(updated);
 };
 
 export const staffApi = {

@@ -3,7 +3,9 @@ import { createApiError } from './apiErrors.js';
 export const UNAUTHORIZED_EVENT = 'scms:unauthorized';
 export const FORBIDDEN_EVENT = 'scms:forbidden';
 
-const API_BASE_URL = String(import.meta?.env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+const API_BASE_URL = String(
+  import.meta?.env?.VITE_API_BASE_URL || (import.meta?.env?.DEV ? '' : 'https://scms-app-p1gy.onrender.com'),
+).replace(/\/+$/, '');
 
 function resolveUrl(path) {
   if (/^https?:\/\//i.test(path)) return path;
@@ -52,7 +54,9 @@ export async function httpRequest(path, options = {}) {
     if (response.status === 403
       && options.notifyForbidden !== false
       && typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent(FORBIDDEN_EVENT, { detail: { path, body, status: 403 } }));
+      window.dispatchEvent(new CustomEvent(FORBIDDEN_EVENT, {
+        detail: { path, method: options.method || 'GET', body, status: 403 },
+      }));
     }
     throw createApiError(response.status, body, response.statusText);
   }

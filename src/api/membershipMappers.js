@@ -105,6 +105,11 @@ export function mapMemberSubscription(item) {
   return {
     subscriptionId: subId,
     id: subId,
+    invoiceId: asNumber(item.invoiceId),
+    invoiceCode: item.invoiceCode || '',
+    paymentUrl: item.paymentUrl || '',
+    expiresAt: item.expiresAt || null,
+    amount: asNumber(item.amount),
     memberId,
     memberName: item.memberName || '',
     packageId,

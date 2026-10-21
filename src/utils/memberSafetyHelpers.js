@@ -97,7 +97,7 @@ export const resolveActiveSubscription = (subscriptions = [], apiEnabled = false
 /**
  * Validates preflight inputs for Member subscription before setting submitting state.
  * Returns failure immediately without setting submitting=true, preventing stuck UI states.
- * Keeps Member write disabled in API mode until BE confirms server-side idempotency/concurrency and renewal semantics.
+ * Requires the authenticated member profile and a valid package before submitting.
  */
 export const validateDirectSubscriptionPreflight = ({
   memberProfileId,
@@ -106,36 +106,26 @@ export const validateDirectSubscriptionPreflight = ({
   apiEnabled,
   language = 'vi',
 }) => {
-  if (!selectedPackageId) {
-    return {
-      ok: false,
-      error: language === 'vi' ? 'Vui lòng chọn một gói dịch vụ.' : 'Please select a membership package.',
-    };
+  const packageId = Number(selectedPackageId);
+  if (!Number.isInteger(packageId) || packageId <= 0) {
+    return { ok: false, error: language === 'vi' ? 'Gói hội viên không hợp lệ.' : 'The membership package is invalid.' };
   }
-
   if (apiEnabled) {
-    return {
-      ok: false,
-      error:
-        language === 'vi'
-          ? 'Thao tác đăng ký trực tuyến từ phía hội viên tạm thời bị khóa: Backend chưa xác nhận hợp đồng chống trùng lặp tại máy chủ (idempotency key / concurrency) và quy tắc gia hạn gói. Vui lòng liên hệ quầy Tiếp tân.'
-          : 'Direct member subscription is locked: Server-side idempotency contract and renewal semantics are pending Backend confirmation. Please contact reception.',
-    };
+    const memberId = Number(memberProfileId);
+    if (!hasAuthoritativeMemberId || !Number.isInteger(memberId) || memberId <= 0) {
+      return { ok: false, error: language === 'vi' ? 'Không xác định được hồ sơ hội viên hợp lệ.' : 'A valid member profile could not be identified.' };
+    }
   }
-
-  return {
-    ok: true,
-    numericPackageId: Number(selectedPackageId),
-  };
+  return { ok: true, numericPackageId: packageId };
 };
 
 /**
- * Reconciles existing subscriptions against a target package ID before POST.
- * Blocks duplicate active or pending registrations.
+ * Reconciles existing subscriptions before POST and blocks duplicate pending registrations.
  */
 export const reconcileAndVerifySubscriptionSafety = ({
   existingSubscriptions = [],
   targetPackageId,
+  isRenewal = false,
   language = 'vi',
 }) => {
   const numericPkgId = Number(targetPackageId);
@@ -144,7 +134,7 @@ export const reconcileAndVerifySubscriptionSafety = ({
   const duplicatePendingOrActive = subsList.find(
     (s) =>
       String(s.packageId) === String(numericPkgId) &&
-      (s.status === 'active' || s.status === 'grace_period' || s.status === 'pending_payment' || s.status === 'pending')
+      (((s.status === 'active' || s.status === 'grace_period') && !isRenewal) || s.status === 'pending_payment' || s.status === 'pending')
   );
 
   if (duplicatePendingOrActive) {

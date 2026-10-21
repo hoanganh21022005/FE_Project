@@ -1,9 +1,6 @@
 import { httpClient } from './httpClient.js';
 import {
   mapInvoice,
-  toInvoiceRequest,
-  toInvoicePaymentRequest,
-  toInvoiceStatusRequest,
 } from './invoiceMappers.js';
 import { extractList, isValidNumericId } from './schemaValidators.js';
 
@@ -39,6 +36,13 @@ export const getInvoices = async (filters = {}) => {
   return Array.isArray(list) ? list.map(mapInvoice).filter(Boolean) : [];
 };
 
+// Member-only endpoint: the backend resolves ownership from the current session.
+export const getMyInvoices = async () => {
+  const data = await httpClient.get('/api/members/me/invoices');
+  const list = extractList(data);
+  return Array.isArray(list) ? list.map(mapInvoice).filter(Boolean) : [];
+};
+
 export const getInvoiceById = async (id) => {
   if (!isValidNumericId(id)) {
     throw new Error('ID hóa đơn không hợp lệ.');
@@ -47,36 +51,45 @@ export const getInvoiceById = async (id) => {
   return mapInvoice(data);
 };
 
-export const createInvoice = async (data) => {
-  const payload = toInvoiceRequest(data);
-  const created = await httpClient.post('/api/invoices', payload);
-  return mapInvoice(created);
+export const getMyInvoiceById = async (id) => {
+  if (!isValidNumericId(id)) {
+    throw new Error('Invalid invoice ID.');
+  }
+  const data = await httpClient.get(`/api/members/me/invoices/${id}`);
+  return mapInvoice(data);
 };
 
-export const payInvoice = async (id, paymentData) => {
+export const confirmCashPayment = async (id) => {
   if (!isValidNumericId(id)) {
     throw new Error('ID hóa đơn không hợp lệ.');
   }
-  const payload = toInvoicePaymentRequest(paymentData);
-  const response = await httpClient.post(`/api/invoices/${id}/pay`, payload);
+  const response = await httpClient.post(`/api/invoices/${id}/confirm-cash`);
   return mapInvoice(response);
 };
 
-export const updateInvoiceStatus = async (id, status) => {
+export const startOnlinePayment = async (id) => {
   if (!isValidNumericId(id)) {
     throw new Error('ID hóa đơn không hợp lệ.');
   }
-  const payload = toInvoiceStatusRequest({ status });
-  const response = await httpClient.patch(`/api/invoices/${id}/status`, payload);
+  return httpClient.post(`/api/invoices/${id}/pay-online`);
+};
+
+export const cancelInvoice = async (id) => {
+  if (!isValidNumericId(id)) {
+    throw new Error('Invalid invoice ID.');
+  }
+  const response = await httpClient.post(`/api/invoices/${id}/cancel`);
   return mapInvoice(response);
 };
 
 export const invoiceApi = {
   getInvoices,
+  getMyInvoices,
   getInvoiceById,
-  createInvoice,
-  payInvoice,
-  updateInvoiceStatus,
+  getMyInvoiceById,
+  confirmCashPayment,
+  startOnlinePayment,
+  cancelInvoice,
 };
 
 export default invoiceApi;

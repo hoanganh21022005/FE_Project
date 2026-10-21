@@ -30,7 +30,9 @@ import { checkSingleClassConflict } from "../components/classes/hooks/useSchedul
 import { buildCurrentUser } from "../utils/memberSafetyHelpers.js"
 
 export const SCMSContext = createContext(undefined)
-const API_ENABLED = import.meta.env.VITE_API_ENABLED === "true"
+const API_ENABLED = import.meta.env.VITE_API_ENABLED
+  ? import.meta.env.VITE_API_ENABLED === "true"
+  : import.meta.env.MODE !== "mock"
 const UNSUPPORTED_ROLE_MESSAGE =
   "Vai trò người dùng không được hỗ trợ trong hệ thống."
 
@@ -1180,9 +1182,9 @@ export const SCMSProvider = ({ children }) => {
   const [staffLoading, setStaffLoading] = useState(false)
   const [staffError, setStaffError] = useState(null)
   const [packages, setPackages] = useState(API_ENABLED ? [] : INITIAL_PACKAGES)
-  const [classes, setClasses] = useState(INITIAL_CLASSES)
-  const [subjects, setSubjects] = useState(INITIAL_SUBJECTS)
-  const [rooms, setRooms] = useState(INITIAL_ROOMS)
+  const [classes, setClasses] = useState(API_ENABLED ? [] : INITIAL_CLASSES)
+  const [subjects, setSubjects] = useState(API_ENABLED ? [] : INITIAL_SUBJECTS)
+  const [rooms, setRooms] = useState(API_ENABLED ? [] : INITIAL_ROOMS)
   const [dashboard, setDashboard] = useState(null)
   const [bookings, setBookings] = useState(INITIAL_BOOKINGS)
   const [attendance, setAttendance] = useState(INITIAL_ATTENDANCE)
@@ -1249,7 +1251,10 @@ export const SCMSProvider = ({ children }) => {
       const message =
         detail?.body?.message ||
         "Bạn không có quyền thực hiện thao tác này (403 Forbidden)."
-      showToast(message, "error")
+      const request = detail?.path
+        ? ` (${detail?.method || "GET"} ${detail.path})`
+        : ""
+      showToast(`${message}${request}`, "error")
     }
     window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)
     window.addEventListener(FORBIDDEN_EVENT, handleForbidden)
@@ -1413,19 +1418,17 @@ export const SCMSProvider = ({ children }) => {
         if (!active) return
         setSubjects(loadedSubjects)
         setRooms(loadedRooms)
-        const finalClasses =
-          loadedClasses && loadedClasses.length > 0
-            ? loadedClasses
-            : INITIAL_CLASSES
-        const activeClasses = filterActiveClasses(finalClasses)
-        setClasses(activeClasses.length > 0 ? activeClasses : INITIAL_CLASSES)
+
+        setClasses(filterActiveClasses(loadedClasses || []))
+
         setPackages(loadedPackages)
         setDashboard(loadedDashboard)
         setAuditLogs(loadedAuditLogs)
       } catch (error) {
         if (!active) return
-        const fallback = filterActiveClasses(INITIAL_CLASSES)
-        setClasses(fallback.length > 0 ? fallback : INITIAL_CLASSES)
+
+        setClasses([])
+
         const message = getErrorMessage(error)
         setManagerDataError(message)
       } finally {
@@ -1618,28 +1621,13 @@ export const SCMSProvider = ({ children }) => {
 
   const updateMemberStatus = async (memberId, status) => {
     if (API_ENABLED) {
-      showToast(
-        language === "vi"
-          ? "Thao tác đổi trạng thái hội viên (G4.5) đang bị khóa do Backend chưa công bố cấu trúc body và enum."
-          : "Member status update is blocked pending BE contract verification.",
-        "error",
-      )
-      throw new Error(
-        "Thao tác cập nhật trạng thái hội viên (G4.5) đang bị khóa do Backend chưa công bố cấu trúc body và enum.",
-      )
+      const updated = await memberApi.updateMemberStatus(memberId, status)
+      setMembers((prev) => prev.map((member) => member.id === memberId ? updated : member))
+    } else {
+      setMembers((prev) => prev.map((member) => member.id === memberId ? { ...member, accountStatus: status, status } : member))
     }
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.id === memberId ? { ...m, accountStatus: status, status } : m,
-      ),
-    )
-    showToast(
-      language === "vi"
-        ? "Đã cập nhật trạng thái hội viên"
-        : "Member status updated",
-    )
+    showToast(language === "vi" ? "Đã cập nhật trạng thái hội viên" : "Member status updated")
   }
-
   const addMemberPackage = (memberId, packageId) => {
     const member = members.find((m) => m.id === memberId)
     const pkg = packages.find((p) => p.id === packageId)
@@ -1795,7 +1783,25 @@ export const SCMSProvider = ({ children }) => {
   }
 
   const bookClass = async (classId, memberId) => {
-    const effectiveMemberId = memberId || currentUser?.id
+    const requestedMemberId = Number(memberId)
+    const effectiveMemberId = API_ENABLED
+      ? (Number.isInteger(requestedMemberId) && requestedMemberId > 0 ? requestedMemberId : null)
+      : (memberId || currentUser?.id)
+    if (!effectiveMemberId) {
+      return {
+        success: false,
+        message: language === "vi"
+          ? "Tài khoản chưa liên kết hồ sơ hội viên nên chưa thể đăng ký lớp."
+          : "This account is not linked to a member profile, so class enrollment is unavailable.",
+      }
+    }
+    // In API mode, let the backend validate current membership, capacity and schedule.
+    // The member portal does not have manager-only class/member lists in context.
+    if (API_ENABLED) {
+      const result = await classEnrollmentApi.enrollMemberInClass(classId, effectiveMemberId)
+      showToast(language === "vi" ? "Đã gửi đăng ký khóa học." : "Course enrollment submitted.", "success")
+      return { success: true, data: result }
+    }
     const cls = classes.find((c) => String(c.id) === String(classId))
     const member = members.find((m) => String(m.id) === String(effectiveMemberId)) || currentUser
 
@@ -1913,14 +1919,6 @@ export const SCMSProvider = ({ children }) => {
         ),
       )
       return { success: false, message: t("bookingDeniedTier") }
-    }
-
-    if (API_ENABLED) {
-      try {
-        await classEnrollmentApi.enrollMemberInClass(classId, member.id)
-      } catch (err) {
-        console.warn("Backend enrollment transaction sync warning (falling back to local state):", err)
-      }
     }
 
     // Create booking
@@ -2355,39 +2353,15 @@ export const SCMSProvider = ({ children }) => {
   }
 
   const updateStaffStatus = async (staffId, status, reason) => {
-    if (API_ENABLED) {
-      showToast(
-        language === "vi"
-          ? "Thao tác đổi trạng thái nhân sự (G4.5) đang bị khóa do Backend chưa công bố cấu trúc body và enum."
-          : "Staff status update is blocked pending BE contract verification.",
-        "error",
-      )
-      throw new Error(
-        "Thao tác cập nhật trạng thái nhân sự (G4.5) đang bị khóa do Backend chưa công bố cấu trúc body và enum.",
-      )
-    }
-    const stf = staff.find((s) => s.id === staffId)
-    if (stf) {
-      setStaff((prev) =>
-        prev.map((s) => (s.id === staffId ? { ...s, status } : s)),
-      )
-      addAuditLog(
-        "STAFF_STATUS_CHANGED",
-        `Tài khoản nhân viên: ${stf.name}`,
-        stf.status,
-        status,
-        reason,
-      )
-      showToast(
-        language === "vi"
-          ? `Đã ${
-              status === "active" ? "kích hoạt" : "tạm khóa"
-            } tài khoản ${stf.name}`
-          : `Staff ${stf.name} status updated to ${status}`,
-      )
-    }
+    const current = staff.find((item) => item.id === staffId)
+    if (!current) return
+    const updated = API_ENABLED
+      ? await staffApi.updateStaffStatus(staffId, status)
+      : { ...current, status }
+    setStaff((prev) => prev.map((item) => item.id === staffId ? updated : item))
+    addAuditLog("STAFF_STATUS_CHANGED", `Tài khoản nhân viên: ${current.name}`, current.status, status, reason)
+    showToast(language === "vi" ? `Đã cập nhật trạng thái tài khoản ${current.name}` : `Staff ${current.name} status updated to ${status}`)
   }
-
   const updateTrainingPlan = (planData) => {
     if (!planData.id) return
     setTrainingPlans((prev) =>
@@ -2622,11 +2596,10 @@ export const SCMSProvider = ({ children }) => {
     try {
       const loaded = await managerApi.getClasses({ subjects, coaches: staff })
       const filtered = filterActiveClasses(loaded)
-      setClasses(filtered.length > 0 ? filtered : INITIAL_CLASSES)
+      setClasses(filtered)
       return filtered
     } catch (e) {
-      const fallback = filterActiveClasses(INITIAL_CLASSES)
-      setClasses(fallback.length > 0 ? fallback : INITIAL_CLASSES)
+      setClasses([])
     }
   }
 
