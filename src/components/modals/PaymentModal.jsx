@@ -169,7 +169,6 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
       showToast?.(lockMsg, 'warning');
       return;
     }
-
     const invIdToCancel = createdInvoiceId;
     const subIdToCancel = createdSubscriptionId;
 
@@ -181,7 +180,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
       setSubmitting(true);
       if (isValidPositiveInt(invIdToCancel)) {
         try {
-          await invoiceApi.updateInvoiceStatus(invIdToCancel, 'CANCELLED');
+          await invoiceApi.cancelInvoice(invIdToCancel);
           invoiceCancelled = true;
         } catch (err) {
           cancellationErrors.push(`Hóa đơn #${invIdToCancel}: ${err.message || 'Lỗi cập nhật'}`);
@@ -381,7 +380,6 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
       setSubmitting(false);
       return;
     }
-
     if (apiEnabled) {
       try {
         // Ensure a session reference exists for this transaction attempt
@@ -392,6 +390,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
         }
 
         let currentSubId = createdSubscriptionId;
+        let currentInvoiceId = createdInvoiceId;
 
         // Step 1: Subscribe member to package on BE (with strict deduplication check)
         if (!currentSubId) {
@@ -472,6 +471,8 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
               );
             }
             currentSubId = subId;
+            currentInvoiceId = sub?.invoiceId ?? null;
+            setCreatedInvoiceId(currentInvoiceId);
           }
 
           setCreatedSubscriptionId(currentSubId);
@@ -479,7 +480,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
             String(numericMemberId),
             {
               subscriptionId: currentSubId,
-              invoiceId: createdInvoiceId,
+              invoiceId: currentInvoiceId,
               packageId: numericPackageId,
               method,
               sessionRef: currentSessionRef,
@@ -491,111 +492,16 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
           setMemberSessions(inProgressTransactionCache.getAllSessionsForMember(numericMemberId, currentActorId));
         }
 
-        // Step 2: Invoice creation / Correlating with BE to avoid duplicate invoice
-        let invId = createdInvoiceId;
-        if (!invId) {
-          // Strict GET query - fail closed on error, never swallow error as empty list
-          let existingPendingInvoices;
-          try {
-            existingPendingInvoices = await invoiceApi.getInvoices({
-              memberId: numericMemberId,
-              packageId: numericPackageId,
-              status: 'pending',
-            });
-          } catch (getErr) {
-            throw new Error(
-              language === 'vi'
-                ? `Không thể kiểm tra hóa đơn hiện tại trên máy chủ (${getErr.message || 'Lỗi kết nối'}). Giao dịch tạm dừng để tránh tạo hóa đơn trùng lặp.`
-                : `Failed to verify existing invoices on server (${getErr.message || 'Network error'}). Transaction halted to prevent duplicate invoices.`
-            );
-          }
-
-          // Strict correlation check:
-          // An invoice belongs to THIS transaction session only if its gatewayTransactionRef matches currentSessionRef
-          // or its retained ID matches createdInvoiceId. Note: OpenAPI mapper does not return notes for invoices.
-          const correlatedInvoice = Array.isArray(existingPendingInvoices)
-            ? existingPendingInvoices.find(
-                (inv) =>
-                  (currentSessionRef && inv.gatewayTransactionRef === currentSessionRef) ||
-                  (isValidPositiveInt(createdInvoiceId) && (inv.id === createdInvoiceId || inv.invoiceId === createdInvoiceId))
-              )
-            : null;
-
-          if (correlatedInvoice) {
-            const invIdNum = correlatedInvoice.id ?? correlatedInvoice.invoiceId;
-            if (!isValidPositiveInt(invIdNum)) {
-              throw new Error(
-                language === 'vi'
-                  ? 'Mã hóa đơn liên kết không hợp lệ (yêu cầu số nguyên dương).'
-                  : 'Correlated invoice ID is invalid (positive integer required).'
-              );
-            }
-            invId = invIdNum;
-          } else {
-            // Check if there are unmatched pending invoices
-            const unmatchedInvoice = Array.isArray(existingPendingInvoices)
-              ? existingPendingInvoices.find(
-                  (inv) =>
-                    !currentSessionRef ||
-                    inv.gatewayTransactionRef !== currentSessionRef
-                )
-              : null;
-
-            if (
-              unmatchedInvoice &&
-              (!preservedUnmatchedInvoice ||
-                (preservedUnmatchedInvoice.id !== unmatchedInvoice.id &&
-                  preservedUnmatchedInvoice.invoiceId !== unmatchedInvoice.id))
-            ) {
-              // Unmatched pending invoice found: STOP and offer explicit "Tạo phiên mới"
-              setUnresolvedPendingInvoice(unmatchedInvoice);
-              setSubmitting(false);
-              return;
-            }
-
-            // Create new invoice with sessionRef
-            const invoicePayload = {
-              memberId: numericMemberId,
-              packageId: numericPackageId,
-              receptionistId: currentUser?.id ? Number(currentUser.id) : undefined,
-              amount: currentAmount,
-              paymentMethod: method.toUpperCase(),
-              paymentStatus: 'PENDING',
-              gatewayTransactionRef: gatewayRef.trim() || currentSessionRef,
-              notes: notes.trim()
-                ? `${notes.trim()} [SessionRef: ${currentSessionRef}]`
-                : `[SessionRef: ${currentSessionRef}]`,
-            };
-            const inv = await invoiceApi.createInvoice(invoicePayload);
-            const invIdNum = inv?.id ?? inv?.invoiceId;
-            if (!isValidPositiveInt(invIdNum)) {
-              throw new Error(
-                language === 'vi'
-                  ? 'Hóa đơn đã được khởi tạo nhưng máy chủ không trả về mã hóa đơn (ID) số nguyên dương hợp lệ. Không thể hoàn tất bước thu tiền.'
-                  : 'Invoice creation requested but server response did not include a valid positive integer invoice ID.'
-              );
-            }
-            invId = invIdNum;
-          }
-
-          setCreatedInvoiceId(invId);
-          inProgressTransactionCache.set(
-            String(numericMemberId),
-            {
-              subscriptionId: currentSubId,
-              invoiceId: invId,
-              packageId: numericPackageId,
-              method,
-              sessionRef: currentSessionRef,
-              preservedUnmatchedInvoice,
-            },
-            currentActorId,
-            currentSessionRef
+        // Subscription creation also creates its invoice; use the returned ID.
+        let invId = currentInvoiceId;
+        if (!isValidPositiveInt(invId)) {
+          throw new Error(
+            language === 'vi'
+              ? 'Máy chủ không trả về mã hóa đơn cho đăng ký gói này.'
+              : 'The server did not return an invoice ID for this subscription.',
           );
-          setMemberSessions(inProgressTransactionCache.getAllSessionsForMember(numericMemberId, currentActorId));
         }
-
-        // Step 3: Cash Payment or Online/Bank settlement acknowledgment
+        // Step 2: Settle cash or start the online payment gateway.
         if (method === 'cash') {
           if (!isValidPositiveInt(invId)) {
             throw new Error(
@@ -604,11 +510,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                 : 'Missing valid positive integer invoice ID to execute cash payment.'
             );
           }
-          await invoiceApi.payInvoice(invId, {
-            paymentMethod: 'CASH',
-            receptionistId: currentUser?.id ? Number(currentUser.id) : undefined,
-            notes: notes.trim() || (language === 'vi' ? 'Thanh toán tiền mặt tại quầy' : 'Cash desk collection'),
-          });
+          await invoiceApi.confirmCashPayment(invId);
 
           showToast?.(
             language === 'vi'
@@ -617,7 +519,11 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
             'success',
           );
         } else {
-          // Online or Bank Transfer: invoice created in PENDING status, awaiting external settlement/audit
+          if (method === 'online') {
+            const payment = await invoiceApi.startOnlinePayment(invId);
+            const paymentUrl = payment?.paymentUrl || payment?.url;
+            if (paymentUrl) window.location.assign(paymentUrl);
+          }
           showToast?.(
             language === 'vi'
               ? 'Đã lập đăng ký gói và hóa đơn chờ thanh toán (Trạng thái: Chờ đối soát).'
@@ -1018,11 +924,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                     key={item.key}
                     onClick={() => setMethod(item.key)}
                     disabled={submitting || isTransactionResumed}
-                    className={`min-h-[44px] py-2 px-2 rounded text-xs font-bold border text-center transition-all cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed ${
-                      method === item.key
-                        ? 'bg-[#181818] text-white border-[#181818] shadow-xs'
-                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
+                    className='min-h-[44px] px-5 py-2 bg-[#BA0000] hover:bg-[#8E0000] text-white font-bold rounded shadow-xs flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50'
                   >
                     {item.label}
                   </button>
@@ -1107,7 +1009,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                     : createdInvoiceId && method === 'cash'
                     ? (language === 'vi' ? 'Thử lại bước thu tiền mặt' : 'Retry Cash Collection')
                     : createdSubscriptionId
-                    ? (language === 'vi' ? 'Thử lại bước tạo hóa đơn' : 'Retry Invoice Creation')
+                    ? (language === 'vi' ? 'Thử lại bước tạo hóa đơn' : 'Retry Payment')
                     : (language === 'vi' ? 'Xác nhận & Ghi nhận' : 'Confirm & Record')}
                 </span>
               </button>

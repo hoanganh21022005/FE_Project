@@ -8,6 +8,10 @@ import {
 import { useScheduleConflict } from "../classes/hooks/useScheduleConflict"
 import { CurrencyInput } from "../common/CurrencyInput"
 import {
+  previewRecurringSessions,
+  generateRecurringSessions,
+} from "../../api/managerApi"
+import {
   ArrowLeft,
   Calendar,
   AlertCircle,
@@ -421,6 +425,7 @@ function DatePicker({ value, onChange, min, error }) {
 export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const {
     addClassSession,
+    updateClass,
     staff,
     coaches: contextCoaches,
     subjects,
@@ -444,6 +449,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
   const validCenterRooms = useMemo(() => {
     return (rooms || []).filter((r) => {
+      if (apiEnabled) return ["available", "active", "open"].includes(String(r.status || "").toLowerCase())
       const name = (r.name || "").toLowerCase()
       return (
         !name.includes("yoga") &&
@@ -453,7 +459,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         (r.status === "available" || r.status === "active")
       )
     })
-  }, [rooms])
+  }, [apiEnabled, rooms])
 
   // Form states
   const [selectedSportId, setSelectedSportId] = useState("badminton")
@@ -492,6 +498,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const [touched, setTouched] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
+  const [pendingCreatedClass, setPendingCreatedClass] = useState(null)
+  const [generatedScheduleEndDate, setGeneratedScheduleEndDate] = useState(null)
 
   const currentSport = useMemo(
     () =>
@@ -503,8 +511,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const sportCourts = useMemo(() => currentSport.courts || [], [currentSport])
 
   const allAvailableRooms = useMemo(() => {
-    return [...sportCourts, ...validCenterRooms]
-  }, [sportCourts, validCenterRooms])
+    return apiEnabled ? validCenterRooms : [...sportCourts, ...validCenterRooms]
+  }, [apiEnabled, sportCourts, validCenterRooms])
 
   // Filter coaches by sport specialization
   const { matchedCoaches, otherCoaches } = useMemo(() => {
@@ -538,7 +546,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
       setCapacity(currentSport.defaultCapacity || 8)
 
       // Auto-select first dedicated court of the sport
-      if (currentSport.courts && currentSport.courts.length > 0) {
+      if (!apiEnabled && currentSport.courts && currentSport.courts.length > 0) {
         setRoomId(String(currentSport.courts[0].id))
       } else if (validCenterRooms.length > 0) {
         setRoomId(String(validCenterRooms[0].id))
@@ -554,7 +562,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         setCoachId("")
       }
     }
-  }, [currentSport?.id, level, classes, coaches, validCenterRooms])
+  }, [apiEnabled, currentSport?.id, level, classes, coaches, validCenterRooms])
 
   // Handle prefilled clone / duplicate class
   useEffect(() => {
@@ -663,8 +671,26 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     })
     return matchedSubject
       ? matchedSubject.id
-      : currentSport.backendSubjectId || 1
-  }, [subjects, currentSport])
+      : apiEnabled ? null : currentSport.backendSubjectId || 1
+  }, [subjects, currentSport, apiEnabled])
+  const selectedSubject = useMemo(
+    () => (subjects || []).find((subject) => String(subject.id) === String(targetSubjectId)),
+    [subjects, targetSubjectId],
+  )
+  const normalPrice = Number(selectedSubject?.normalPrice ?? selectedSubject?.normal_price)
+
+  useEffect(() => {
+    if (apiEnabled && Number.isFinite(normalPrice) && normalPrice >= 0) {
+      setPrice(normalPrice)
+      setIsFreeClass(false)
+    }
+  }, [apiEnabled, targetSubjectId, normalPrice])
+  useEffect(() => {
+    if (apiEnabled) {
+      setSessionCount(12)
+      setEndMode("sessions")
+    }
+  }, [apiEnabled])
 
   // Projected session dates
   const projectedSessions = useMemo(() => {
@@ -870,6 +896,27 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
       )
       return
     }
+    if (apiEnabled && capacity > 15) {
+      showToast("Lớp Normal không được vượt quá 15 học viên.", "error")
+      return
+    }
+    if (apiEnabled) {
+      const durationMinutes = (Number(endTime.split(":")[0]) - Number(startTime.split(":")[0])) * 60
+        + Number(endTime.split(":")[1]) - Number(startTime.split(":")[1])
+      if (durationMinutes !== 90) {
+        showToast("Theo API, mỗi buổi học phải kéo dài đúng 90 phút.", "error")
+        return
+      }
+      const isOutdoor = Boolean(selectedSubject?.outdoor)
+      if (isOutdoor && ["09:30", "13:00"].includes(startTime)) {
+        showToast("Môn ngoài trời không được xếp vào ca 3 hoặc ca 4.", "error")
+        return
+      }
+    }
+    if (apiEnabled && targetStatus !== "Draft" && (!targetSubjectId || !Number.isFinite(normalPrice) || !selectedRoomObj?.id)) {
+      showToast("Thiếu môn học, normalPrice hoặc sân/phòng từ API. Vui lòng tải lại danh mục.", "error")
+      return
+    }
 
     setIsSubmitting(true)
     try {
@@ -895,12 +942,93 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         minCapacity: Number(minCapacity),
         status: targetStatus === "Draft" ? "draft" : "published",
         apiStatus: targetStatus,
-        price: isFreeClass ? 0 : Number(price),
-        isFree: isFreeClass,
-        sessionCount: Number(sessionCount),
+        price: apiEnabled ? normalPrice : isFreeClass ? 0 : Number(price),
+        isFree: apiEnabled ? false : isFreeClass,
+        sessionCount: apiEnabled ? 12 : Number(sessionCount),
+        totalSessions: apiEnabled ? 12 : Number(sessionCount),
+        classType: "Normal",
         minTierRequired: 1,
         selectedDays: [...selectedDays],
         level,
+      }
+
+      if (apiEnabled && targetStatus !== "Draft") {
+        const draftPayload = { ...payload, status: "draft", apiStatus: "Draft" }
+        let classRecord = pendingCreatedClass
+        let finalEndDate = generatedScheduleEndDate
+
+        if (!classRecord) {
+          const createResult = await addClassSession(draftPayload)
+          if (!createResult?.success || !createResult.data?.id) {
+            throw new Error(createResult?.message || "API chưa trả về mã lớp học mới.")
+          }
+          classRecord = createResult.data
+          setPendingCreatedClass(classRecord)
+        } else {
+          classRecord = await updateClass(classRecord.id, { ...draftPayload, id: classRecord.id })
+          setPendingCreatedClass(classRecord)
+        }
+
+        if (!generatedScheduleEndDate) {
+          const roomBackendId = Number(selectedRoomObj?.id)
+          const classBackendId = Number(classRecord.id)
+          if (!Number.isInteger(roomBackendId) || roomBackendId <= 0 || !Number.isInteger(classBackendId) || classBackendId <= 0) {
+            throw new Error("Mã lớp hoặc mã sân/phòng từ API không hợp lệ.")
+          }
+          const recurringRequest = {
+            classId: classBackendId,
+            roomId: roomBackendId,
+            startDate,
+            daysOfWeek: selectedDays.map(Number),
+            startTime,
+            endTime,
+          }
+          const preview = await previewRecurringSessions(recurringRequest)
+          const previewSessions = Array.isArray(preview?.sessions) ? preview.sessions : []
+          const hasSessionConflict = previewSessions.some((session) => session.hasConflict)
+          if (preview?.hasConflict || hasSessionConflict || previewSessions.length !== 12) {
+            const firstConflict = previewSessions.find((session) => session.hasConflict)
+            const details = firstConflict?.conflictDetails?.join("; ")
+            throw new Error(details || "API xem trước lịch chưa trả về đủ 12 buổi hợp lệ. Kiểm tra xung đột và thử lại.")
+          }
+
+          const skipped = Array.isArray(preview?.skippedHolidays) ? preview.skippedHolidays : []
+          const previewLines = previewSessions.map((session) =>
+            `${session.sessionNumber}. ${session.date} (${session.startTime || startTime}–${session.endTime || endTime})`,
+          )
+          const holidayLines = skipped.map((holiday) => `• ${holiday.date}: ${holiday.holidayName}`)
+          const confirmation = [
+            `Lớp "${className}" đã được lưu ở trạng thái Bản nháp.`,
+            "",
+            "Lịch 12 buổi do API tính:",
+            ...previewLines,
+            ...(holidayLines.length ? ["", "Ngày nghỉ được bỏ qua:", ...holidayLines] : []),
+            "",
+            "Tạo các buổi học và mở đăng ký?",
+          ].join("\n")
+          if (!window.confirm(confirmation)) return
+
+          await generateRecurringSessions(recurringRequest)
+          const endDateFromApi = previewSessions[previewSessions.length - 1]?.date
+          finalEndDate = endDateFromApi || calculatedEndDate
+          setGeneratedScheduleEndDate(finalEndDate)
+        }
+
+        await updateClass(classRecord.id, {
+          ...payload,
+          id: classRecord.id,
+          startDate,
+          endDate: finalEndDate || calculatedEndDate,
+          status: "published",
+          apiStatus: "Open",
+          classType: "Normal",
+          totalSessions: 12,
+          sessionCount: 12,
+          price: normalPrice,
+        })
+        showToast("Đã tạo lớp Normal và sinh đủ 12 buổi theo API.", "success")
+        onClose()
+        return
       }
 
       if (typeof onSubmit === "function") {
@@ -1260,14 +1388,27 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                 Lặp lại vào
               </label>
               <div className="flex items-center gap-2 flex-wrap">
-                {WEEKDAYS.map((day) => {
-                  const isSelected = selectedDays.includes(day.dayOfWeek)
+                {(apiEnabled
+                  ? [
+                      { id: "mon-wed-fri", label: "T2 · T4 · T6", days: [1, 3, 5] },
+                      { id: "tue-thu-sat", label: "T3 · T5 · T7", days: [2, 4, 6] },
+                    ]
+                  : WEEKDAYS.map((day) => ({ id: day.id, label: day.label, days: [day.dayOfWeek] }))
+                ).map((day) => {
+                  const isSelected = day.days.every((weekday) => selectedDays.includes(weekday))
                   return (
                     <button
                       key={day.id}
                       type="button"
-                      onClick={() => toggleWeekday(day.dayOfWeek)}
-                      className={`w-12 h-10 text-sm rounded-xl transition-colors cursor-pointer text-center font-medium ${
+                      onClick={() => {
+                        if (apiEnabled) {
+                          setSelectedDays(day.days)
+                          setStartDate(getNextValidUpcomingDate(day.days, startTime))
+                        } else {
+                          toggleWeekday(day.days[0])
+                        }
+                      }}
+                      className={`${apiEnabled ? "w-auto px-4" : "w-12"} h-10 text-sm rounded-xl transition-colors cursor-pointer text-center font-medium ${
                         isSelected
                           ? "bg-[#18181B] text-white border border-stone-900"
                           : "bg-white text-stone-800 border border-stone-200 hover:bg-stone-50"
@@ -1281,7 +1422,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             </div>
 
             {/* Kết thúc: Theo số buổi vs Theo ngày */}
-            <div>
+            {!apiEnabled && <div>
               <label className="text-sm font-medium text-stone-800 block mb-2">
                 Kết thúc
               </label>
@@ -1309,7 +1450,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   Theo ngày
                 </button>
               </div>
-            </div>
+            </div>}
 
             {/* Tổng số buổi (Stepper + 4 Chips) */}
             {endMode === "sessions" ? (
@@ -1322,6 +1463,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   <div className="h-10 flex items-center border border-stone-300 rounded-xl overflow-hidden bg-white">
                     <button
                       type="button"
+                      disabled={apiEnabled}
                       onClick={() =>
                         updateSessionCount(Math.max(1, sessionCount - 1))
                       }
@@ -1331,6 +1473,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                     </button>
                     <input
                       type="number"
+                      disabled={apiEnabled}
                       min="1"
                       max="100"
                       value={sessionCount}
@@ -1351,6 +1494,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                     />
                     <button
                       type="button"
+                      disabled={apiEnabled}
                       onClick={() =>
                         updateSessionCount((Number(sessionCount) || 0) + 1)
                       }
@@ -1361,7 +1505,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   </div>
 
                   {/* Chips */}
-                  {[8, 12, 16, 24].map((cnt) => {
+                  {(apiEnabled ? [12] : [8, 12, 16, 24]).map((cnt) => {
                     const isSelected = sessionCount === cnt
                     return (
                       <button
@@ -1449,7 +1593,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
               <input
                 type="number"
                 min="1"
-                max={selectedRoomObj?.capacity || 30}
+                max={apiEnabled ? Math.min(15, selectedRoomObj?.capacity || 15) : selectedRoomObj?.capacity || 30}
                 value={capacity}
                 onFocus={(e) => e.target.select()}
                 onClick={(e) => {
@@ -1475,7 +1619,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                 }`}
               />
               <div className="text-xs text-stone-500 mt-1">
-                Sân chứa tối đa {selectedRoomObj?.capacity || 8}
+                {apiEnabled ? "Normal tối đa 15 học viên. " : ""}Sân chứa tối đa {selectedRoomObj?.capacity || 8}
               </div>
               {capacityError && (
                 <p className="text-xs text-orange-600 mt-1 font-medium flex items-center gap-1">
@@ -1533,11 +1677,13 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-stone-800">
-                  {pricingMode === "total"
+                  {apiEnabled
+                    ? "Học phí Normal theo giá chuẩn môn học"
+                    : pricingMode === "total"
                     ? "Học phí trọn khóa"
                     : "Học phí mỗi buổi"}
                 </label>
-                <button
+                {!apiEnabled && <button
                   type="button"
                   onClick={handleTogglePricingMode}
                   disabled={isFreeClass}
@@ -1554,17 +1700,17 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                       ? "Đổi sang: Nhập theo buổi"
                       : "Đổi sang: Nhập trọn khóa"}
                   </span>
-                </button>
+                </button>}
               </div>
 
               {/* Ô nhập tiền tệ chuẩn cao cấp với Auto-select, Gợi ý nhanh & Xóa 1 chạm */}
               <CurrencyInput
                 id="class-price"
-                disabled={isFreeClass}
+                disabled={isFreeClass || apiEnabled}
                 value={pricingMode === "total" ? price : perSessionPriceInput}
                 onChange={handleNumericPriceChange}
                 placeholder="0"
-                suffix={pricingMode === "total" ? "đ" : "đ / buổi"}
+                suffix={apiEnabled || pricingMode === "total" ? "đ" : "đ / buổi"}
                 presets={
                   pricingMode === "total"
                     ? [200000, 500000, 800000, 1000000, 1200000, 1500000]
@@ -1606,7 +1752,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
               </div>
 
               {/* Checkbox Lớp học miễn phí */}
-              <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none group">
+              {!apiEnabled && <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none group">
                 <input
                   type="checkbox"
                   checked={isFreeClass}
@@ -1616,7 +1762,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                 <span className="text-xs text-stone-700 font-medium group-hover:text-stone-900 transition-colors">
                   Lớp học miễn phí (Hội viên tham gia không mất phí)
                 </span>
-              </label>
+              </label>}
             </div>
 
             {/* Toggle Switch: Mở đăng ký ngay */}

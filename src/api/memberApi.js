@@ -31,11 +31,10 @@ export const updateMember = async (id, data) => {
   return mapMember(updated);
 };
 
-/**
- * G4.5 Blocked: PATCH /api/members/{id}/status is blocked pending BE specification of body key and enum.
- */
-export const updateMemberStatus = async (_id, _status) => {
-  throw new Error('Thao tác cập nhật trạng thái hội viên (G4.5) đang bị khóa do Backend chưa công bố cấu trúc body và enum.');
+export const updateMemberStatus = async (id, status) => {
+  if (id === null || id === undefined || id === '') throw new Error('Member ID is required.');
+  const updated = await httpClient.patch(`/api/members/${id}/status`, { status: String(status).toUpperCase() });
+  return mapMember(updated);
 };
 
 export const memberApi = {

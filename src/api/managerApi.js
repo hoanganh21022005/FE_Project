@@ -9,8 +9,13 @@ import {
   toClassRequest,
   toPackageRequest,
 } from './mappers.js';
+import { extractList } from './schemaValidators.js';
 
-export const getSubjects = async () => (await httpClient.get('/api/subjects')).map(mapSubject);
+export const getSubjects = async () => {
+  const data = await httpClient.get('/api/subjects');
+  const list = extractList(data);
+  return Array.isArray(list) ? list.map(mapSubject) : [];
+};
 export const createSubject = async (data) => mapSubject(await httpClient.post('/api/subjects', data));
 export const updateSubject = async (id, data) => mapSubject(await httpClient.put(`/api/subjects/${id}`, data));
 export const deleteSubject = (id) => httpClient.delete(`/api/subjects/${id}`);
@@ -20,11 +25,19 @@ export const createRoom = async (data) => mapRoom(await httpClient.post('/api/ro
 export const updateRoom = async (id, data) => mapRoom(await httpClient.put(`/api/rooms/${id}`, data));
 export const updateRoomStatus = async (id, status) => mapRoom(await httpClient.patch(`/api/rooms/${id}/status`, { status }));
 
-export const getClasses = async (lookups) => (await httpClient.get('/api/classes')).map((item) => mapClass(item, lookups));
+export const getClasses = async (lookups) => {
+  const data = await httpClient.get('/api/classes');
+  const list = extractList(data);
+  return Array.isArray(list) ? list.map((item) => mapClass(item, lookups)) : [];
+};
 export const createClass = async (data, lookups) => mapClass(
   await httpClient.post('/api/classes', toClassRequest(data)),
   { ...lookups, fallback: data },
 );
+export const previewRecurringSessions = (data) =>
+  httpClient.post('/api/sessions/preview-recurring', data);
+export const generateRecurringSessions = (data) =>
+  httpClient.post('/api/sessions/generate', data);
 export const updateClass = async (id, data, lookups) => mapClass(
   await httpClient.put(`/api/classes/${id}`, toClassRequest(data)),
   { ...lookups, fallback: data },

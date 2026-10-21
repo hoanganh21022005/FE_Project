@@ -90,7 +90,6 @@ export const subscribeMe = async (data) => {
 
   return mapped;
 };
-
 export const getAllSubscriptions = async () => {
   const data = await httpClient.get('/api/member-packages');
   const list = extractList(data);
