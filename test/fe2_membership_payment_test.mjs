@@ -2520,7 +2520,54 @@ assert.equal(onlyOldInvoicesReturned.confirmed, false);
 httpClient.get = savedGet;
 httpClient.post = savedPost;
 clearAllStoredPendingOrdersExcept(null);
-console.log('PASS: Incomplete orders lacking either counterpart record or valid timestamp evidence remain unconfirmed and ambiguous');
+// Test 11.9: executeDirectSubscriptionSubmit in Mock Mode
+// Verifies string IDs (pkg-2, mem-3) are supported, empty package is rejected, and modal closes cleanly
+let mockToastShown = false;
+let mockModalClosed = false;
+let mockSubNotesReset = false;
+const mockRef = { current: false };
+
+const mockSubmitSuccess = await executeDirectSubscriptionSubmit({
+  submittingRef: mockRef,
+  memberProfileId: 'mem-3',
+  selectedPackageId: 'pkg-2',
+  hasAuthoritativeMemberId: true,
+  isMemberMutationLocked: false,
+  apiEnabled: false,
+  paymentMethod: 'cash',
+  subNotes: 'Gia hạn gói',
+  currentMember: { id: 'mem-3', name: 'Phạm Thanh Hương' },
+  contextPackages: [{ id: 'pkg-2', name: 'Gói 6 Tháng' }],
+  contextPayments: [],
+  callbacks: {
+    showToast: () => { mockToastShown = true; },
+    setIsSubscribeModalOpen: (isOpen) => { if (!isOpen) mockModalClosed = true; },
+    setSubNotes: (val) => { if (val === '') mockSubNotesReset = true; },
+  },
+  createMockPendingPaymentFn: () => ({ ok: true, id: 'req-mock-1' }),
+});
+
+assert.equal(mockSubmitSuccess.success, true, 'Mock mode submit must succeed with string package and member IDs');
+assert.equal(mockToastShown, true, 'Mock mode must show confirmation toast');
+assert.equal(mockModalClosed, true, 'Mock mode must close subscribe modal');
+assert.equal(mockSubNotesReset, true, 'Mock mode must reset subNotes');
+assert.equal(mockRef.current, false, 'Submitting ref must be released');
+
+// Empty package selection in mock mode fails safely
+let mockErrorMsg = null;
+const mockSubmitEmptyPkg = await executeDirectSubscriptionSubmit({
+  submittingRef: mockRef,
+  memberProfileId: 'mem-3',
+  selectedPackageId: '',
+  apiEnabled: false,
+  callbacks: {
+    setSubmitError: (msg) => { mockErrorMsg = msg; },
+  },
+});
+
+assert.equal(mockSubmitEmptyPkg.success, false, 'Mock mode submit must reject empty package selection');
+assert.ok(mockErrorMsg && (mockErrorMsg.includes('chọn một gói') || mockErrorMsg.includes('select')), 'Must display package selection error');
+console.log('PASS: Mock mode direct subscription supports string IDs and enforces package selection validation');
 
 console.log('\n====================================================');
 console.log('ALL FE 2: MEMBERSHIP, INVOICE & PAYMENT TESTS PASSED (100%)');
