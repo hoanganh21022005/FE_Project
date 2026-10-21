@@ -53,9 +53,7 @@ export const updatePackageStatus = async (id, status) => {
 };
 
 export const getMemberOwnSubscriptions = async () => {
-  const data = await httpClient.get('/api/members/me/subscriptions').catch(async () => {
-    return httpClient.get('/api/member-packages');
-  });
+  const data = await httpClient.get('/api/members/me/subscriptions');
   const list = extractList(data);
   return Array.isArray(list) ? list.map(mapMemberSubscription).filter(Boolean) : [];
 };

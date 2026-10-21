@@ -102,12 +102,32 @@ assert.equal(mappedAdvPkg.packageType, 'Advanced');
 assert.equal(mappedAdvPkg.totalCredit, 12);
 console.log('PASS: mapMembershipPackage preserves packageType and totalCredit from Swagger schema');
 
+// Render live 5-field public package fixture: must NOT invent packageType or totalCredit
+const renderPublicPkgFixture = {
+  id: 1,
+  name: 'Goi Co Ban 1 Thang',
+  price: 500000,
+  durationDays: 30,
+  benefits: 'Tap gym tu do, khong kem HLV',
+};
+const mappedPublicPkg = mapMembershipPackage(renderPublicPkgFixture);
+assert.equal(mappedPublicPkg.id, 1);
+assert.equal(mappedPublicPkg.name, 'Goi Co Ban 1 Thang');
+assert.equal(mappedPublicPkg.price, 500000);
+assert.equal(mappedPublicPkg.durationDays, 30);
+assert.deepEqual(mappedPublicPkg.benefits, ['Tap gym tu do, khong kem HLV']);
+assert.equal(mappedPublicPkg.packageType, null, 'Public package from Render must not invent packageType');
+assert.equal(mappedPublicPkg.totalCredit, null, 'Public package from Render must not invent totalCredit');
+console.log('PASS: mapMembershipPackage does not invent packageType or credit for Render 5-field public package');
+
 // Empty / Null Package Handling
 const emptyPkg = mapMembershipPackage({});
 assert.equal(emptyPkg.id, null);
 assert.equal(emptyPkg.name, '');
 assert.equal(emptyPkg.price, 0);
 assert.equal(emptyPkg.status, 'active');
+assert.equal(emptyPkg.packageType, null);
+assert.equal(emptyPkg.totalCredit, null);
 console.log('PASS: mapMembershipPackage handles empty object safely');
 
 // toMembershipPackageRequest validation
@@ -196,6 +216,28 @@ assert.equal(mappedOrder.status, 'pending_payment');
 assert.equal(mappedOrder.expiresAt, '2026-10-20T16:05:00+07:00');
 assert.equal(mappedOrder.paymentUrl, 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?test=1');
 console.log('PASS: mapSubscriptionOrder maps SubscriptionOrderResponse fields accurately');
+
+// Test mapSubscriptionOrder with null/empty response does not create fake invoice code, amount, or status
+const emptyOrder = mapSubscriptionOrder({});
+assert.equal(emptyOrder.subscriptionId, null);
+assert.equal(emptyOrder.invoiceId, null);
+assert.equal(emptyOrder.invoiceCode, null, 'Empty order must NOT invent INV-00000');
+assert.equal(emptyOrder.amount, null, 'Empty order must NOT invent amount 0');
+assert.equal(emptyOrder.paymentMethod, null, 'Empty order must NOT invent cash method');
+assert.equal(emptyOrder.status, 'none', 'Empty order must NOT invent pending status');
+
+const nullOrder = mapSubscriptionOrder(null);
+assert.equal(nullOrder.invoiceCode, null);
+assert.equal(nullOrder.amount, null);
+assert.equal(nullOrder.status, 'none');
+
+const missingInvoiceOrder = mapSubscriptionOrder({ subscriptionId: 101 });
+assert.equal(missingInvoiceOrder.subscriptionId, 101);
+assert.equal(missingInvoiceOrder.invoiceId, null);
+assert.equal(missingInvoiceOrder.invoiceCode, null, 'Missing invoice ID must NOT invent invoice code');
+assert.equal(missingInvoiceOrder.amount, null);
+assert.equal(missingInvoiceOrder.status, 'none');
+console.log('PASS: mapSubscriptionOrder does NOT invent invoiceCode, amount, or status for empty or missing-ID response');
 
 // toMemberPackageRequest validation
 assert.throws(() => toMemberPackageRequest({}), /packageId.*không hợp lệ/i);
@@ -616,6 +658,16 @@ httpClient.get = async (path) => {
     err.status = 500;
     throw err;
   }
+  if (path.includes('/api/members/202/packages')) {
+    const err = new Error('403 Forbidden: Insufficient permissions to read foreign member packages');
+    err.status = 403;
+    throw err;
+  }
+  if (path.includes('/api/members/me/subscriptions')) {
+    const err = new Error('401 Unauthorized: Session Token Expired');
+    err.status = 401;
+    throw err;
+  }
   if (path.includes('/api/invoices')) {
     const err = new Error('401 Unauthorized: Session Token Expired');
     err.status = 401;
@@ -631,11 +683,23 @@ await assert.rejects(
 );
 
 await assert.rejects(
+  () => membershipApi.getMemberSubscriptions(202),
+  /403 Forbidden/,
+  'membershipApi.getMemberSubscriptions must propagate 403 without falling back to /api/member-packages'
+);
+
+await assert.rejects(
+  () => membershipApi.getMemberOwnSubscriptions(),
+  /401 Unauthorized/,
+  'getMemberOwnSubscriptions must throw 401 directly without falling back to /api/member-packages'
+);
+
+await assert.rejects(
   () => invoiceApi.getInvoices({ memberId: 101, status: 'pending' }),
   /401 Unauthorized/,
   'invoiceApi.getInvoices must throw and NOT swallow 401 as []'
 );
-console.log('PASS: GET queries strictly propagate 401/500 errors to fail closed and block duplicate POSTs');
+console.log('PASS: GET queries strictly propagate 401/403/500 errors to fail closed and block duplicate POSTs');
 
 // 7.2 PATCH cancellation rejection propagation
 httpClient.patch = async (path, body) => {

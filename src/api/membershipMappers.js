@@ -33,6 +33,8 @@ export function mapMembershipPackage(item) {
       benefitsVi: [],
       status: 'active',
       rawStatus: null,
+      packageType: null,
+      totalCredit: null,
     };
   }
 
@@ -53,8 +55,8 @@ export function mapMembershipPackage(item) {
     benefitsVi: benefits,
     status: normalizePackageStatus(item.status),
     rawStatus: item.status ?? null,
-    packageType: item.packageType || 'Normal',
-    totalCredit: asNumber(item.totalCredit) ?? (item.packageType === 'Advanced' ? 12 : null),
+    packageType: item.packageType ? String(item.packageType) : null,
+    totalCredit: asNumber(item.totalCredit),
   };
 }
 
@@ -96,7 +98,7 @@ export function mapMemberSubscription(item) {
       endDate: null,
       status: 'none',
       rawStatus: null,
-      packageType: 'Normal',
+      packageType: null,
       remainingCredit: null,
       validityDays: null,
     };
@@ -119,7 +121,7 @@ export function mapMemberSubscription(item) {
     endDate: item.endDate || null,
     status: normalizeSubscriptionStatus(item.status),
     rawStatus: item.status ?? null,
-    packageType: item.packageType || 'Normal',
+    packageType: item.packageType ? String(item.packageType) : null,
     remainingCredit: asNumber(item.remainingCredit),
     validityDays: asNumber(item.validityDays),
   };
@@ -130,11 +132,11 @@ export function mapSubscriptionOrder(item) {
     return {
       subscriptionId: null,
       invoiceId: null,
-      invoiceCode: 'INV-00000',
-      amount: 0,
-      paymentMethod: 'cash',
+      invoiceCode: null,
+      amount: null,
+      paymentMethod: null,
       rawPaymentMethod: null,
-      status: 'pending',
+      status: 'none',
       rawStatus: null,
       expiresAt: null,
       paymentUrl: null,
@@ -143,16 +145,16 @@ export function mapSubscriptionOrder(item) {
 
   const subscriptionId = asNumber(item.subscriptionId ?? item.id);
   const invoiceId = asNumber(item.invoiceId);
-  const amount = asNumber(item.amount) ?? 0;
+  const amount = asNumber(item.amount);
 
   return {
     subscriptionId,
     invoiceId,
-    invoiceCode: item.invoiceCode || (invoiceId !== null ? `INV-${String(invoiceId).padStart(5, '0')}` : 'INV-00000'),
+    invoiceCode: item.invoiceCode ? String(item.invoiceCode) : (invoiceId !== null ? `INV-${String(invoiceId).padStart(5, '0')}` : null),
     amount,
-    paymentMethod: item.paymentMethod ? String(item.paymentMethod).toLowerCase() : 'cash',
+    paymentMethod: item.paymentMethod ? String(item.paymentMethod).toLowerCase() : null,
     rawPaymentMethod: item.paymentMethod ?? null,
-    status: normalizeSubscriptionStatus(item.status),
+    status: item.status ? normalizeSubscriptionStatus(item.status) : 'none',
     rawStatus: item.status ?? null,
     expiresAt: item.expiresAt || null,
     paymentUrl: item.paymentUrl || null,
