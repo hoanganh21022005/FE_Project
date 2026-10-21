@@ -7,6 +7,10 @@ globalThis.sessionStorage = {
   setItem: (k, v) => nodeSessionStorageStore.set(k, String(v)),
   removeItem: (k) => nodeSessionStorageStore.delete(k),
   clear: () => nodeSessionStorageStore.clear(),
+  get length() {
+    return nodeSessionStorageStore.size;
+  },
+  key: (i) => Array.from(nodeSessionStorageStore.keys())[i] || null,
 };
 globalThis.window = {
   sessionStorage: globalThis.sessionStorage,
@@ -48,7 +52,16 @@ import {
   resolveActiveSubscription,
   validateDirectSubscriptionPreflight,
   reconcileAndVerifySubscriptionSafety,
+  isRenderBackend,
   isPaymentModalMutationLocked,
+  isDirectSubscriptionLocked,
+  getFinitePositiveTime,
+  reconcileIncompleteOrder,
+  getStoredPendingOrder,
+  setStoredPendingOrder,
+  clearStoredPendingOrder,
+  clearAllStoredPendingOrdersExcept,
+  executeDirectSubscriptionSubmit,
 } from '../src/utils/memberSafetyHelpers.js';
 import {
   isMockPaymentSettled,
@@ -1178,39 +1191,40 @@ const subsWithGrace = [
 assert.equal(resolveActiveSubscription(subsWithGrace, true)?.subscriptionId, 104);
 console.log('PASS: resolveActiveSubscription strictly matches active/grace_period and rejects pending/expired');
 
-// 8.5 Preflight Validation & Submitting State Reset Protection
+// 8.5 Preflight Validation & Form Input Checking (Decoupled from Render Lock)
 const emptyPkgPreflight = validateDirectSubscriptionPreflight({
   selectedPackageId: '',
   memberProfileId: 7,
   hasAuthoritativeMemberId: true,
-  apiEnabled: true,
   language: 'vi',
 });
 assert.equal(emptyPkgPreflight.ok, false);
 assert.match(emptyPkgPreflight.error, /chọn một gói/i);
 
-// In API mode: Direct member mutation is locked pending server-side idempotency/renewal contract
-const apiLockedPreflight = validateDirectSubscriptionPreflight({
+// Missing authoritative member profile ID rejects preflight
+const missingMemberPreflight = validateDirectSubscriptionPreflight({
   selectedPackageId: '12',
-  memberProfileId: 7,
-  hasAuthoritativeMemberId: true,
-  apiEnabled: true,
+  memberProfileId: null,
+  hasAuthoritativeMemberId: false,
   language: 'vi',
 });
-assert.equal(apiLockedPreflight.ok, false);
-assert.match(apiLockedPreflight.error, /tạm thời bị khóa/i);
+assert.equal(missingMemberPreflight.ok, false);
+assert.match(missingMemberPreflight.error, /ID hội viên đã xác thực/i);
 
-// In Mock mode: Allowed with selected package
-const mockValidPreflight = validateDirectSubscriptionPreflight({
+// In API mode: Form inputs are validly checked and accepted
+const validApiPreflight = validateDirectSubscriptionPreflight({
   selectedPackageId: '12',
   memberProfileId: 7,
   hasAuthoritativeMemberId: true,
-  apiEnabled: false,
   language: 'vi',
 });
-assert.equal(mockValidPreflight.ok, true);
-assert.equal(mockValidPreflight.numericPackageId, 12);
-console.log('PASS: Preflight validation keeps direct Member mutation locked in API mode and halts before submitting=true');
+assert.equal(validApiPreflight.ok, true);
+assert.equal(validApiPreflight.numericPackageId, 12);
+
+// Mutation lock check independently ensures Render mutation remains strictly locked
+assert.equal(isDirectSubscriptionLocked(true, undefined), true);
+assert.equal(isDirectSubscriptionLocked(true, 'true', { isRender: true }), true);
+console.log('PASS: Preflight validation tests form inputs in API mode while mutation lock keeps Render strictly locked');
 
 // 8.6 Safe Reconciliation: Read-Before-Write Duplicate Prevention
 const existingPendingSubsFixture = [
@@ -1251,7 +1265,7 @@ console.log('PASS: Reconcile safety rejects duplicate pending/active registratio
 const originalPost = httpClient.post;
 const originalGet = httpClient.get;
 
-// Case 1: Preflight halts direct POST in API mode; if adapter executed, GET failure fails closed
+// Case 1: Form preflight passes valid inputs in API mode, but mutation lock halts POST
 let postCalled = false;
 httpClient.get = async () => {
   throw new Error('500 GET subscriptions server failure');
@@ -1265,9 +1279,12 @@ const preflightApi = validateDirectSubscriptionPreflight({
   memberProfileId: 7,
   selectedPackageId: '12',
   hasAuthoritativeMemberId: true,
-  apiEnabled: true,
 });
-assert.equal(preflightApi.ok, false, 'Preflight MUST halt before mutation in API mode');
+assert.equal(preflightApi.ok, true, 'Preflight validates form inputs successfully in API mode');
+assert.equal(preflightApi.numericPackageId, 12);
+
+const mutationLocked = isDirectSubscriptionLocked(true, undefined);
+assert.equal(mutationLocked, true, 'Mutation lock must halt before POST in API mode');
 
 let getErrorCaught = false;
 try {
@@ -1638,34 +1655,51 @@ assert.equal(settleProbeResult.item.startDate, '2026-10-25', 'Settled record mus
 clearMockSettlements();
 console.log('PASS: createMockPendingPayment preserves requestedStartDate and isRenewal with regression assertion');
 
-// --- 10. PAYMENTMODAL DEFAULT MUTATION LOCK SAFETY ---
-console.log('\n--- 10. PAYMENTMODAL DEFAULT MUTATION LOCK SAFETY ---');
+// --- 10. PAYMENTMODAL & RENDER BACKEND MUTATION LOCK SAFETY ---
+console.log('\n--- 10. PAYMENTMODAL & RENDER BACKEND MUTATION LOCK SAFETY ---');
 
-// Test 10.1: PaymentModal mutation remains locked in standard API mode when VITE_TEST_HARNESS is not enabled
+// Test 10.1: isRenderBackend accurately identifies Render URLs and objects
+assert.equal(isRenderBackend('https://swp391-be.onrender.com/api'), true);
+assert.equal(isRenderBackend('http://gym-app.onrender.com'), true);
+assert.equal(isRenderBackend({ targetUrl: 'https://swp391-be.onrender.com' }), true);
+assert.equal(isRenderBackend({ baseUrl: 'https://swp391-be.onrender.com/api' }), true);
+assert.equal(isRenderBackend({ isRender: true }), true);
+assert.equal(isRenderBackend('http://localhost:8080'), false);
+assert.equal(isRenderBackend('http://127.0.0.1:3000'), false);
+assert.equal(isRenderBackend({ targetUrl: 'http://localhost:8080' }), false);
+assert.equal(isRenderBackend(null), false);
+console.log('PASS: isRenderBackend accurately classifies Render vs local targets');
+
+// Test 10.2: PaymentModal mutation remains locked when target is Render, EVEN IF VITE_TEST_HARNESS='true'
+assert.equal(
+  isPaymentModalMutationLocked(true, 'true', { isRender: true }),
+  true,
+  'VITE_TEST_HARNESS must NOT unlock PaymentModal POST to Render'
+);
+assert.equal(
+  isPaymentModalMutationLocked(true, 'true', { targetUrl: 'https://swp391-be.onrender.com' }),
+  true,
+  'VITE_TEST_HARNESS must NOT unlock PaymentModal POST to onrender.com'
+);
 assert.equal(
   isPaymentModalMutationLocked(true, undefined),
   true,
-  'Mutation must be locked when apiEnabled=true and VITE_TEST_HARNESS is undefined'
+  'Mutation must be locked when apiEnabled=true and harnessFlag is undefined'
 );
 assert.equal(
   isPaymentModalMutationLocked(true, 'false'),
   true,
-  'Mutation must be locked when apiEnabled=true and VITE_TEST_HARNESS=false'
-);
-assert.equal(
-  isPaymentModalMutationLocked(true, ''),
-  true,
-  'Mutation must be locked when apiEnabled=true and VITE_TEST_HARNESS is empty'
+  'Mutation must be locked when harnessFlag is false'
 );
 
-// Test 10.2: PaymentModal mutation is only unlocked when VITE_TEST_HARNESS is explicitly "true"
+// Test 10.3: Non-Render local harness can unlock for local integration testing
 assert.equal(
-  isPaymentModalMutationLocked(true, 'true'),
+  isPaymentModalMutationLocked(true, 'true', { targetUrl: 'http://localhost:8080' }),
   false,
-  'Mutation is only unlocked when VITE_TEST_HARNESS is explicitly string true'
+  'Local non-Render environment allows harness testing'
 );
 
-// Test 10.3: Mock mode (apiEnabled=false) is always unlocked for local demo fixtures
+// Test 10.4: Mock mode (apiEnabled=false) is always unlocked for local demo fixtures
 assert.equal(
   isPaymentModalMutationLocked(false, undefined),
   false,
@@ -1676,7 +1710,817 @@ assert.equal(
   false,
   'Mock mode is not constrained by VITE_TEST_HARNESS'
 );
-console.log('PASS: PaymentModal locks mutation when apiEnabled=true and VITE_TEST_HARNESS is not enabled (no Render call)');
+console.log('PASS: PaymentModal strictly locks mutation to Render and prevents VITE_TEST_HARNESS bypass');
+
+// --- 11. DIRECT MEMBER SUBSCRIPTION MUTATION LOCK, SINGLE-POST & RECONCILIATION ---
+console.log('\n--- 11. DIRECT MEMBER SUBSCRIPTION MUTATION LOCK, SINGLE-POST & RECONCILIATION ---');
+
+// Test 11.1: isDirectSubscriptionLocked prevents VITE_TEST_HARNESS from unlocking Render
+assert.equal(
+  isDirectSubscriptionLocked(true, 'true', { isRender: true }),
+  true,
+  'VITE_TEST_HARNESS must NOT unlock direct Member subscription POST to Render'
+);
+assert.equal(
+  isDirectSubscriptionLocked(true, 'true', { targetUrl: 'https://swp391-be.onrender.com' }),
+  true,
+  'VITE_TEST_HARNESS must NOT unlock direct Member subscription POST to onrender.com'
+);
+assert.equal(
+  isDirectSubscriptionLocked(true, undefined),
+  true,
+  'Direct subscription must be locked when apiEnabled=true and harnessFlag is undefined'
+);
+assert.equal(
+  isDirectSubscriptionLocked(true, 'false'),
+  true,
+  'Direct subscription must be locked when harnessFlag is false'
+);
+assert.equal(
+  isDirectSubscriptionLocked(true, 'true', { targetUrl: 'http://localhost:8080' }),
+  false,
+  'Direct subscription unlocks ONLY for local non-Render test harness'
+);
+assert.equal(
+  isDirectSubscriptionLocked(false, undefined),
+  false,
+  'Mock mode is not locked by harnessFlag'
+);
+console.log('PASS: isDirectSubscriptionLocked prevents VITE_TEST_HARNESS from opening POST to Render');
+
+// Test 11.2: validateDirectSubscriptionPreflight validates form inputs in API mode independently of Render lock
+const preflightNoPkg = validateDirectSubscriptionPreflight({
+  selectedPackageId: '',
+  memberProfileId: 101,
+  hasAuthoritativeMemberId: true,
+  language: 'vi',
+});
+assert.equal(preflightNoPkg.ok, false);
+assert.ok(preflightNoPkg.error.includes('chọn một gói') || preflightNoPkg.error.includes('select'));
+
+const preflightInvalidId = validateDirectSubscriptionPreflight({
+  selectedPackageId: 'abc',
+  memberProfileId: 101,
+  hasAuthoritativeMemberId: true,
+  language: 'vi',
+});
+assert.equal(preflightInvalidId.ok, false);
+assert.ok(preflightInvalidId.error.includes('không hợp lệ') || preflightInvalidId.error.includes('Invalid'));
+
+const preflightNoMember = validateDirectSubscriptionPreflight({
+  selectedPackageId: '3',
+  memberProfileId: null,
+  hasAuthoritativeMemberId: false,
+  language: 'vi',
+});
+assert.equal(preflightNoMember.ok, false);
+assert.ok(preflightNoMember.error.includes('ID hội viên') || preflightNoMember.error.includes('member ID'));
+
+// Valid form input passes preflight in API mode so that form state can be validated
+const preflightValid = validateDirectSubscriptionPreflight({
+  selectedPackageId: '3',
+  memberProfileId: 101,
+  hasAuthoritativeMemberId: true,
+  language: 'vi',
+});
+assert.equal(preflightValid.ok, true);
+assert.equal(preflightValid.numericPackageId, 3);
+
+// But POST to Render remains strictly locked by isDirectSubscriptionLocked
+assert.equal(isDirectSubscriptionLocked(true, 'true', { isRender: true }), true);
+console.log('PASS: Form validation runs in API mode while POST to Render remains unconditionally locked');
+
+// Test 11.3: reconcileIncompleteOrder ONLY accepts new records belonging to the CURRENT attempt
+const attemptStartTime = Date.now();
+const oldInvoiceId = 10;
+const newInvoiceId = 11;
+
+const existingInvoicesBaseline = [
+  { id: oldInvoiceId, invoiceCode: 'INV-10', packageId: 3, paymentStatus: 'pending', createdAt: new Date(attemptStartTime - 3600000).toISOString() },
+];
+const existingSubsBaseline = [
+  { subscriptionId: 20, packageId: 3, status: 'pending_payment', createdAt: new Date(attemptStartTime - 3600000).toISOString() },
+];
+
+// If reconciliation runs and server only returns the OLD invoice from an earlier attempt:
+const reconcileOldOnly = reconcileIncompleteOrder({
+  targetPackageId: 3,
+  invoices: existingInvoicesBaseline,
+  subscriptions: existingSubsBaseline,
+  attemptStartedAt: attemptStartTime,
+  knownInvoiceIds: [oldInvoiceId],
+  knownSubscriptionIds: [20],
+});
+assert.equal(
+  reconcileOldOnly.foundOnServer,
+  false,
+  'Reconciliation must NOT adopt pre-existing invoice from an earlier attempt for the same package'
+);
+assert.equal(reconcileOldOnly.invoiceId, null);
+assert.equal(reconcileOldOnly.subscriptionId, null);
+
+// If server returns both the OLD invoice AND a genuinely NEW invoice created during this attempt:
+const freshInvoicesFromServer = [
+  ...existingInvoicesBaseline,
+  { id: newInvoiceId, invoiceCode: 'INV-11', packageId: 3, paymentStatus: 'pending', amount: 1500000, createdAt: new Date(attemptStartTime + 200).toISOString() },
+];
+const reconcileWithNewRecord = reconcileIncompleteOrder({
+  targetPackageId: 3,
+  invoices: freshInvoicesFromServer,
+  subscriptions: existingSubsBaseline,
+  attemptStartedAt: attemptStartTime,
+  knownInvoiceIds: [oldInvoiceId],
+  knownSubscriptionIds: [20],
+});
+assert.equal(reconcileWithNewRecord.foundOnServer, true);
+assert.equal(reconcileWithNewRecord.invoiceId, newInvoiceId, 'Must identify the new invoice belonging to current attempt');
+assert.equal(reconcileWithNewRecord.subscriptionId, null, 'Must ignore old subscription baseline');
+
+// Timestamp boundary check: old invoice not in knownInvoiceIds but with timestamp before attempt is rejected
+const staleInvoiceNotInKnown = [
+  { id: 999, invoiceCode: 'INV-999', packageId: 3, paymentStatus: 'pending', createdAt: new Date(attemptStartTime - 60000).toISOString() },
+];
+const reconcileStaleTimestamp = reconcileIncompleteOrder({
+  targetPackageId: 3,
+  invoices: staleInvoiceNotInKnown,
+  attemptStartedAt: attemptStartTime,
+  knownInvoiceIds: [],
+});
+assert.equal(reconcileStaleTimestamp.foundOnServer, false, 'Must reject stale invoice with timestamp prior to attempt');
+console.log('PASS: reconcileIncompleteOrder strictly verifies current attempt baseline and excludes pre-existing records');
+
+// Test 11.4: Partitioned pending order storage & cross-account isolation
+clearAllStoredPendingOrdersExcept(null);
+
+const memberA = 101;
+const memberB = 202;
+
+setStoredPendingOrder(memberA, {
+  memberId: memberA,
+  subscriptionId: 50,
+  invoiceId: 60,
+  invoiceCode: 'INV-A-60',
+  amount: 2500000,
+});
+
+// Member A reads their own pending order
+const orderA = getStoredPendingOrder(memberA);
+assert.ok(orderA);
+assert.equal(orderA.memberId, memberA);
+assert.equal(orderA.invoiceCode, 'INV-A-60');
+
+// Member B attempts to read pending order: must receive null
+const orderB = getStoredPendingOrder(memberB);
+assert.equal(orderB, null, 'Member B must NOT see Member A pending order');
+
+// Account switch cleanup: Member B logs in and purges foreign orders
+clearAllStoredPendingOrdersExcept(memberB);
+
+// Member A stored order must now be purged from storage
+assert.equal(getStoredPendingOrder(memberA), null, 'Foreign pending order must be cleared upon account switch');
+console.log('PASS: Partitioned storage guarantees complete isolation between Member accounts');
+
+// Test 11.5: Component Submit Flow - Baseline GET Failure Halts Before POST (0 POSTs)
+const savedGet = httpClient.get;
+const savedPost = httpClient.post;
+
+let baselinePostAttempts = 0;
+httpClient.get = async (path) => {
+  if (path === '/api/members/me/invoices') {
+    throw new Error('500 Internal Server Error: Failed to fetch baseline invoices');
+  }
+  if (path.includes('/api/members/101/packages')) {
+    return [];
+  }
+  return savedGet(path);
+};
+httpClient.post = async (path, body) => {
+  if (path === '/api/members/me/subscriptions') {
+    baselinePostAttempts++;
+  }
+  return savedPost(path, body);
+};
+
+let baselineErrorCaught = null;
+const baselineTestSubmittingRef = { current: false };
+const baselineResult = await executeDirectSubscriptionSubmit({
+  submittingRef: baselineTestSubmittingRef,
+  memberProfileId: 101,
+  selectedPackageId: '3',
+  hasAuthoritativeMemberId: true,
+  isMemberMutationLocked: false,
+  apiEnabled: true,
+  paymentMethod: 'cash',
+  language: 'vi',
+  callbacks: {
+    setSubmitError: (msg) => { baselineErrorCaught = msg; },
+  },
+});
+
+assert.equal(baselinePostAttempts, 0, 'Baseline invoice GET failure must halt before POST, generating exactly 0 POSTs');
+assert.equal(baselineResult.success, false, 'Submit must fail closed when baseline GET fails');
+assert.equal(baselineTestSubmittingRef.current, false, 'Submitting ref must be released on failure');
+assert.match(baselineErrorCaught, /Không thể kiểm tra hóa đơn hiện tại/i, 'Error message must reflect invoice baseline check failure');
+console.log('PASS: Baseline invoice GET failure halts immediately before POST, generating exactly 0 POSTs');
+
+// Test 11.6: Component Submit Flow - Synchronous Mutex Lock Limits Repeat Submissions to At Most 1 POST
+let repeatPostAttempts = 0;
+httpClient.get = async (path) => {
+  if (path === '/api/members/me/invoices') {
+    return [];
+  }
+  if (path.includes('/api/members/101/packages')) {
+    return [];
+  }
+  return savedGet(path);
+};
+httpClient.post = async (path, body) => {
+  if (path === '/api/members/me/subscriptions') {
+    repeatPostAttempts++;
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    return {
+      subscriptionId: 201,
+      invoiceId: 301,
+      invoiceCode: 'INV-0301',
+      amount: 2500000,
+      paymentMethod: 'CASH',
+    };
+  }
+  return savedPost(path, body);
+};
+
+const sharedSubmittingRef = { current: false };
+const p1 = executeDirectSubscriptionSubmit({
+  submittingRef: sharedSubmittingRef,
+  memberProfileId: 101,
+  selectedPackageId: '3',
+  hasAuthoritativeMemberId: true,
+  isMemberMutationLocked: false,
+  apiEnabled: true,
+  paymentMethod: 'cash',
+  language: 'vi',
+});
+const p2 = executeDirectSubscriptionSubmit({
+  submittingRef: sharedSubmittingRef,
+  memberProfileId: 101,
+  selectedPackageId: '3',
+  hasAuthoritativeMemberId: true,
+  isMemberMutationLocked: false,
+  apiEnabled: true,
+  paymentMethod: 'cash',
+  language: 'vi',
+});
+
+const [res1, res2] = await Promise.all([p1, p2]);
+
+assert.equal(repeatPostAttempts, 1, 'Synchronous ref mutex must strictly block repeated submit calls, producing at most 1 POST');
+assert.ok(
+  (res1.executed === true && res2.blockedByMutex === true) ||
+  (res2.executed === true && res1.blockedByMutex === true),
+  'One call must execute while the concurrent call is blocked by synchronous mutex'
+);
+assert.equal(sharedSubmittingRef.current, false, 'Mutex ref must be released after completion');
+console.log('PASS: Component submit flow with synchronous mutex strictly limits rapid repeat submissions to at most 1 POST');
+
+// Test 11.7: Component Submit Flow - Network Timeout Triggers GET Đối Soát & Confirms Complete Order
+const memberTestId = 101;
+const targetPackage = 3;
+const prePostBaselineTime = Date.now();
+const existingInvoiceId = 42;
+
+let postAttemptsMade = 0;
+let isPostTimeoutTriggered = false;
+
+httpClient.get = async (path) => {
+  if (path === '/api/members/me/invoices') {
+    if (!isPostTimeoutTriggered) {
+      // Baseline check before POST
+      return [
+        { id: existingInvoiceId, invoiceId: existingInvoiceId, invoiceCode: 'INV-0042', packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date(prePostBaselineTime - 600000).toISOString() },
+      ];
+    }
+    // Reconciliation check after POST timeout: server created genuine new invoice
+    return [
+      { id: existingInvoiceId, invoiceId: existingInvoiceId, invoiceCode: 'INV-0042', packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date(prePostBaselineTime - 600000).toISOString() },
+      { id: 88, invoiceId: 88, invoiceCode: 'INV-0088', packageId: targetPackage, amount: 2000000, paymentStatus: 'pending', createdAt: new Date().toISOString() },
+    ];
+  }
+  if (path.includes('/api/members/101/packages')) {
+    if (!isPostTimeoutTriggered) {
+      // Safety check before POST
+      return [];
+    }
+    // Reconciliation check after POST timeout: server created genuine new subscription
+    return [
+      { subscriptionId: 99, packageId: targetPackage, status: 'pending_payment', startDate: new Date().toISOString(), createdAt: new Date().toISOString() },
+    ];
+  }
+  return savedGet(path);
+};
+
+httpClient.post = async (path, body) => {
+  if (path === '/api/members/me/subscriptions') {
+    postAttemptsMade++;
+    isPostTimeoutTriggered = true;
+    const timeoutError = new Error('504 Gateway Timeout: POST /api/members/me/subscriptions');
+    timeoutError.status = 504;
+    throw timeoutError;
+  }
+  return savedPost(path, body);
+};
+
+let toastRecordedMessage = null;
+let modalClosed = false;
+clearStoredPendingOrder(memberTestId);
+
+const timeoutReconcileResult = await executeDirectSubscriptionSubmit({
+  submittingRef: { current: false },
+  memberProfileId: memberTestId,
+  selectedPackageId: String(targetPackage),
+  hasAuthoritativeMemberId: true,
+  isMemberMutationLocked: false,
+  apiEnabled: true,
+  paymentMethod: 'cash',
+  language: 'vi',
+  callbacks: {
+    showToast: (msg) => { toastRecordedMessage = msg; },
+    setIsSubscribeModalOpen: (open) => { if (!open) modalClosed = true; },
+  },
+});
+
+assert.equal(postAttemptsMade, 1, 'Exactly one POST must be attempted before timeout');
+assert.equal(timeoutReconcileResult.success, true, 'Component flow must recover and succeed via GET reconciliation');
+assert.equal(timeoutReconcileResult.reconciled, true, 'Result must be marked as reconciled');
+assert.equal(timeoutReconcileResult.order?.confirmed, true, 'Order with both invoice and subscription must be confirmed');
+assert.equal(getStoredPendingOrder(memberTestId)?.invoiceId, 88, 'Confirmed invoice ID must be saved in member pending storage');
+assert.equal(getStoredPendingOrder(memberTestId)?.subscriptionId, 99, 'Confirmed subscription ID must be saved in member pending storage');
+assert.match(toastRecordedMessage, /INV-0088/, 'Toast must inform user that order was recorded with invoice code');
+assert.equal(modalClosed, true, 'Modal must close after successful reconciliation');
+console.log('PASS: Network timeout automatically triggers GET đối soát, confirming order when both invoice and subscription exist');
+
+// Test 11.8: Component Submit Flow - Incomplete Orders (Missing One Record or Evidence) Are NOT Confirmed
+// Subcase A: Server only created invoice (missing subscription counterpart)
+let singleSidedToastShown = false;
+let singleSidedSubmitError = null;
+isPostTimeoutTriggered = false;
+clearStoredPendingOrder(memberTestId);
+
+httpClient.get = async (path) => {
+  if (path === '/api/members/me/invoices') {
+    if (!isPostTimeoutTriggered) {
+      return [{ id: existingInvoiceId, invoiceId: existingInvoiceId, invoiceCode: 'INV-0042', packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date(prePostBaselineTime - 600000).toISOString() }];
+    }
+    // Returns new invoice
+    return [
+      { id: existingInvoiceId, invoiceId: existingInvoiceId, invoiceCode: 'INV-0042', packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date(prePostBaselineTime - 600000).toISOString() },
+      { id: 89, invoiceId: 89, invoiceCode: 'INV-0089', packageId: targetPackage, amount: 2000000, paymentStatus: 'pending', createdAt: new Date().toISOString() },
+    ];
+  }
+  if (path.includes('/api/members/101/packages')) {
+    // Missing subscription counterpart on server!
+    return [];
+  }
+  return savedGet(path);
+};
+
+const missingSubResult = await executeDirectSubscriptionSubmit({
+  submittingRef: { current: false },
+  memberProfileId: memberTestId,
+  selectedPackageId: String(targetPackage),
+  hasAuthoritativeMemberId: true,
+  isMemberMutationLocked: false,
+  apiEnabled: true,
+  paymentMethod: 'cash',
+  language: 'vi',
+  callbacks: {
+    showToast: () => { singleSidedToastShown = true; },
+    setSubmitError: (msg) => { singleSidedSubmitError = msg; },
+  },
+});
+
+assert.equal(missingSubResult.success, false, 'Single-sided order lacking subscription counterpart must NOT be confirmed as success');
+assert.equal(missingSubResult.ambiguous, true, 'Result must be flagged as ambiguous');
+assert.equal(missingSubResult.reconciledState?.confirmed, false, 'Confirmed flag must be false for single-sided order');
+assert.equal(missingSubResult.reconciledState?.isAmbiguous, true);
+assert.equal(missingSubResult.reconciledState?.ambiguityReason, 'missing_counterpart_record');
+assert.equal(singleSidedToastShown, false, 'Must NOT show success or recorded toast for incomplete single-sided order');
+assert.equal(getStoredPendingOrder(memberTestId), null, 'Must NOT save unconfirmed incomplete order to member storage');
+assert.match(singleSidedSubmitError, /chưa xác định rõ kết quả/i, 'Must present ambiguous safety warning to user');
+
+// Subcase B: Server only created subscription (missing invoice counterpart)
+const missingInvOrder = reconcileIncompleteOrder({
+  targetPackageId: targetPackage,
+  invoices: [],
+  subscriptions: [
+    { subscriptionId: 105, packageId: targetPackage, status: 'pending_payment', createdAt: new Date().toISOString() },
+  ],
+  attemptStartedAt: Date.now(),
+  knownInvoiceIds: [],
+  knownSubscriptionIds: [],
+});
+assert.equal(missingInvOrder.confirmed, false, 'Missing invoice counterpart must NOT be confirmed');
+assert.equal(missingInvOrder.isAmbiguous, true);
+assert.equal(missingInvOrder.ambiguityReason, 'missing_counterpart_record');
+
+// Subcase C: Missing, non-positive, or infinite attemptStartedAt
+assert.equal(getFinitePositiveTime(Infinity), null);
+assert.equal(getFinitePositiveTime(-Infinity), null);
+assert.equal(getFinitePositiveTime('Infinity'), null);
+assert.equal(getFinitePositiveTime('-Infinity'), null);
+assert.equal(getFinitePositiveTime('+Infinity'), null);
+assert.equal(getFinitePositiveTime(NaN), null);
+assert.equal(getFinitePositiveTime(0), null);
+assert.equal(getFinitePositiveTime(-100), null);
+assert.equal(getFinitePositiveTime(null), null);
+assert.equal(getFinitePositiveTime(undefined), null);
+assert.equal(getFinitePositiveTime(1700000000000), 1700000000000);
+assert.equal(getFinitePositiveTime('1700000000000'), 1700000000000);
+
+const missingAttemptTimeOrder = reconcileIncompleteOrder({
+  targetPackageId: targetPackage,
+  invoices: [{ id: 88, packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date().toISOString() }],
+  subscriptions: [{ subscriptionId: 99, packageId: targetPackage, status: 'pending_payment', createdAt: new Date().toISOString() }],
+  attemptStartedAt: null,
+});
+assert.equal(missingAttemptTimeOrder.confirmed, false, 'Missing attemptStartedAt must NOT be confirmed');
+assert.equal(missingAttemptTimeOrder.isAmbiguous, true);
+assert.equal(missingAttemptTimeOrder.ambiguityReason, 'missing_attempt_timestamp');
+
+const zeroAttemptTimeOrder = reconcileIncompleteOrder({
+  targetPackageId: targetPackage,
+  invoices: [{ id: 88, packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date().toISOString() }],
+  subscriptions: [{ subscriptionId: 99, packageId: targetPackage, status: 'pending_payment', createdAt: new Date().toISOString() }],
+  attemptStartedAt: 0,
+});
+assert.equal(zeroAttemptTimeOrder.confirmed, false, 'Non-positive attemptStartedAt must NOT be confirmed');
+assert.equal(zeroAttemptTimeOrder.isAmbiguous, true);
+assert.equal(zeroAttemptTimeOrder.ambiguityReason, 'missing_attempt_timestamp');
+
+const infAttemptTimeOrder = reconcileIncompleteOrder({
+  targetPackageId: targetPackage,
+  invoices: [{ id: 88, packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date().toISOString() }],
+  subscriptions: [{ subscriptionId: 99, packageId: targetPackage, status: 'pending_payment', createdAt: new Date().toISOString() }],
+  attemptStartedAt: Infinity,
+});
+assert.equal(infAttemptTimeOrder.confirmed, false, 'Infinity attemptStartedAt must NOT be confirmed');
+assert.equal(infAttemptTimeOrder.isAmbiguous, true);
+assert.equal(infAttemptTimeOrder.ambiguityReason, 'missing_attempt_timestamp');
+
+const negInfAttemptTimeOrder = reconcileIncompleteOrder({
+  targetPackageId: targetPackage,
+  invoices: [{ id: 88, packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date().toISOString() }],
+  subscriptions: [{ subscriptionId: 99, packageId: targetPackage, status: 'pending_payment', createdAt: new Date().toISOString() }],
+  attemptStartedAt: -Infinity,
+});
+assert.equal(negInfAttemptTimeOrder.confirmed, false, '-Infinity attemptStartedAt must NOT be confirmed');
+assert.equal(negInfAttemptTimeOrder.isAmbiguous, true);
+assert.equal(negInfAttemptTimeOrder.ambiguityReason, 'missing_attempt_timestamp');
+
+// Subcase D: Both records lacking valid positive integer ID
+// D1. reconcileIncompleteOrder unit check
+const bothRecordsMissingId = reconcileIncompleteOrder({
+  targetPackageId: targetPackage,
+  invoices: [
+    { packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date().toISOString() },
+  ],
+  subscriptions: [
+    { packageId: targetPackage, status: 'pending_payment', createdAt: new Date().toISOString() },
+  ],
+  attemptStartedAt: Date.now(),
+  knownInvoiceIds: [],
+  knownSubscriptionIds: [],
+});
+assert.equal(bothRecordsMissingId.confirmed, false, 'Both records lacking ID must NOT be confirmed');
+assert.equal(bothRecordsMissingId.isAmbiguous, true, 'Both records lacking ID must be flagged as ambiguous');
+assert.equal(bothRecordsMissingId.foundOnServer, true, 'Both records lacking ID must report foundOnServer: true');
+assert.equal(bothRecordsMissingId.ambiguityReason, 'insufficient_identifiers');
+
+// D2. Component timeout flow via executeDirectSubscriptionSubmit: both records lacking ID
+let missingIdToastShown = false;
+let missingIdSubmitError = null;
+isPostTimeoutTriggered = false;
+clearStoredPendingOrder(memberTestId);
+
+httpClient.get = async (path) => {
+  if (path === '/api/members/me/invoices') {
+    if (!isPostTimeoutTriggered) {
+      return [{ id: existingInvoiceId, invoiceId: existingInvoiceId, invoiceCode: 'INV-0042', packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date(prePostBaselineTime - 600000).toISOString() }];
+    }
+    return [
+      { packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date().toISOString() },
+    ];
+  }
+  if (path.includes('/api/members/101/packages')) {
+    if (!isPostTimeoutTriggered) return [];
+    return [
+      { packageId: targetPackage, status: 'pending_payment', createdAt: new Date().toISOString() },
+    ];
+  }
+  return savedGet(path);
+};
+
+const bothMissingIdFlowResult = await executeDirectSubscriptionSubmit({
+  submittingRef: { current: false },
+  memberProfileId: memberTestId,
+  selectedPackageId: String(targetPackage),
+  hasAuthoritativeMemberId: true,
+  isMemberMutationLocked: false,
+  apiEnabled: true,
+  paymentMethod: 'cash',
+  language: 'vi',
+  callbacks: {
+    showToast: () => { missingIdToastShown = true; },
+    setSubmitError: (msg) => { missingIdSubmitError = msg; },
+  },
+});
+
+assert.equal(bothMissingIdFlowResult.success, false, 'Timeout flow with both records lacking ID must NOT report success');
+assert.equal(bothMissingIdFlowResult.ambiguous, true, 'Result must be ambiguous');
+assert.equal(bothMissingIdFlowResult.reconciledState?.confirmed, false);
+assert.equal(bothMissingIdFlowResult.reconciledState?.isAmbiguous, true);
+assert.equal(bothMissingIdFlowResult.reconciledState?.foundOnServer, true);
+assert.equal(missingIdToastShown, false, 'Must NOT show success toast when records lack ID');
+assert.equal(getStoredPendingOrder(memberTestId), null, 'Must NOT save unconfirmed order to storage when records lack ID');
+assert.match(missingIdSubmitError, /chưa xác định rõ kết quả/i);
+
+// Subcase E: Both records lacking timestamp evidence
+// E1. reconcileIncompleteOrder unit check
+const bothRecordsMissingTime = reconcileIncompleteOrder({
+  targetPackageId: targetPackage,
+  invoices: [
+    { id: 91, invoiceId: 91, invoiceCode: 'INV-0091', packageId: targetPackage, paymentStatus: 'pending' },
+  ],
+  subscriptions: [
+    { subscriptionId: 92, packageId: targetPackage, status: 'pending_payment' },
+  ],
+  attemptStartedAt: Date.now(),
+  knownInvoiceIds: [],
+  knownSubscriptionIds: [],
+});
+assert.equal(bothRecordsMissingTime.confirmed, false, 'Both records lacking time must NOT be confirmed');
+assert.equal(bothRecordsMissingTime.isAmbiguous, true, 'Both records lacking time must be flagged as ambiguous');
+assert.equal(bothRecordsMissingTime.foundOnServer, true, 'Both records lacking time must report foundOnServer: true');
+assert.equal(bothRecordsMissingTime.ambiguityReason, 'missing_or_invalid_timestamp');
+
+// E2. Component timeout flow via executeDirectSubscriptionSubmit: both records lacking timestamp
+let missingTimeToastShown = false;
+let missingTimeSubmitError = null;
+isPostTimeoutTriggered = false;
+clearStoredPendingOrder(memberTestId);
+
+httpClient.get = async (path) => {
+  if (path === '/api/members/me/invoices') {
+    if (!isPostTimeoutTriggered) {
+      return [{ id: existingInvoiceId, invoiceId: existingInvoiceId, invoiceCode: 'INV-0042', packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date(prePostBaselineTime - 600000).toISOString() }];
+    }
+    return [
+      { id: 91, invoiceId: 91, invoiceCode: 'INV-0091', packageId: targetPackage, paymentStatus: 'pending' },
+    ];
+  }
+  if (path.includes('/api/members/101/packages')) {
+    if (!isPostTimeoutTriggered) return [];
+    return [
+      { subscriptionId: 92, packageId: targetPackage, status: 'pending_payment' },
+    ];
+  }
+  return savedGet(path);
+};
+
+const bothMissingTimeFlowResult = await executeDirectSubscriptionSubmit({
+  submittingRef: { current: false },
+  memberProfileId: memberTestId,
+  selectedPackageId: String(targetPackage),
+  hasAuthoritativeMemberId: true,
+  isMemberMutationLocked: false,
+  apiEnabled: true,
+  paymentMethod: 'cash',
+  language: 'vi',
+  callbacks: {
+    showToast: () => { missingTimeToastShown = true; },
+    setSubmitError: (msg) => { missingTimeSubmitError = msg; },
+  },
+});
+
+assert.equal(bothMissingTimeFlowResult.success, false, 'Timeout flow with both records lacking time must NOT report success');
+assert.equal(bothMissingTimeFlowResult.ambiguous, true, 'Result must be ambiguous');
+assert.equal(bothMissingTimeFlowResult.reconciledState?.confirmed, false);
+assert.equal(bothMissingTimeFlowResult.reconciledState?.isAmbiguous, true);
+assert.equal(bothMissingTimeFlowResult.reconciledState?.foundOnServer, true);
+assert.equal(missingTimeToastShown, false, 'Must NOT show success toast when records lack timestamp');
+assert.equal(getStoredPendingOrder(memberTestId), null, 'Must NOT save unconfirmed order to storage when records lack timestamp');
+assert.match(missingTimeSubmitError, /chưa xác định rõ kết quả/i);
+
+// Subcase F: Infinite timestamps (Infinity and -Infinity)
+// F1. reconcileIncompleteOrder unit check
+const infiniteTimestampOrder = reconcileIncompleteOrder({
+  targetPackageId: targetPackage,
+  invoices: [
+    { id: 93, invoiceId: 93, invoiceCode: 'INV-0093', packageId: targetPackage, paymentStatus: 'pending', createdAt: Infinity },
+  ],
+  subscriptions: [
+    { subscriptionId: 94, packageId: targetPackage, status: 'pending_payment', createdAt: Infinity },
+  ],
+  attemptStartedAt: Date.now(),
+  knownInvoiceIds: [],
+  knownSubscriptionIds: [],
+});
+assert.equal(infiniteTimestampOrder.confirmed, false, 'Infinity timestamp must NOT be confirmed');
+assert.equal(infiniteTimestampOrder.isAmbiguous, true, 'Infinity timestamp must be flagged ambiguous');
+assert.equal(infiniteTimestampOrder.foundOnServer, true, 'Infinity timestamp must report foundOnServer: true');
+assert.equal(infiniteTimestampOrder.ambiguityReason, 'missing_or_invalid_timestamp');
+
+const negInfiniteTimestampOrder = reconcileIncompleteOrder({
+  targetPackageId: targetPackage,
+  invoices: [
+    { id: 95, invoiceId: 95, invoiceCode: 'INV-0095', packageId: targetPackage, paymentStatus: 'pending', createdAt: -Infinity },
+  ],
+  subscriptions: [
+    { subscriptionId: 96, packageId: targetPackage, status: 'pending_payment', createdAt: -Infinity },
+  ],
+  attemptStartedAt: Date.now(),
+  knownInvoiceIds: [],
+  knownSubscriptionIds: [],
+});
+assert.equal(negInfiniteTimestampOrder.confirmed, false, '-Infinity timestamp must NOT be confirmed');
+assert.equal(negInfiniteTimestampOrder.isAmbiguous, true);
+assert.equal(negInfiniteTimestampOrder.foundOnServer, true);
+assert.equal(negInfiniteTimestampOrder.ambiguityReason, 'missing_or_invalid_timestamp');
+
+const strInfiniteTimestampOrder = reconcileIncompleteOrder({
+  targetPackageId: targetPackage,
+  invoices: [
+    { id: 97, invoiceId: 97, invoiceCode: 'INV-0097', packageId: targetPackage, paymentStatus: 'pending', createdAt: 'Infinity' },
+  ],
+  subscriptions: [
+    { subscriptionId: 98, packageId: targetPackage, status: 'pending_payment', createdAt: '-Infinity' },
+  ],
+  attemptStartedAt: Date.now(),
+  knownInvoiceIds: [],
+  knownSubscriptionIds: [],
+});
+assert.equal(strInfiniteTimestampOrder.confirmed, false, 'String Infinity timestamp must NOT be confirmed');
+assert.equal(strInfiniteTimestampOrder.isAmbiguous, true);
+assert.equal(strInfiniteTimestampOrder.foundOnServer, true);
+assert.equal(strInfiniteTimestampOrder.ambiguityReason, 'missing_or_invalid_timestamp');
+
+// F2. Component timeout flow via executeDirectSubscriptionSubmit: Infinity timestamps
+let infToastShown = false;
+let infSubmitError = null;
+isPostTimeoutTriggered = false;
+clearStoredPendingOrder(memberTestId);
+
+httpClient.get = async (path) => {
+  if (path === '/api/members/me/invoices') {
+    if (!isPostTimeoutTriggered) {
+      return [{ id: existingInvoiceId, invoiceId: existingInvoiceId, invoiceCode: 'INV-0042', packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date(prePostBaselineTime - 600000).toISOString() }];
+    }
+    return [
+      { id: 93, invoiceId: 93, invoiceCode: 'INV-0093', packageId: targetPackage, paymentStatus: 'pending', createdAt: Infinity },
+    ];
+  }
+  if (path.includes('/api/members/101/packages')) {
+    if (!isPostTimeoutTriggered) return [];
+    return [
+      { subscriptionId: 94, packageId: targetPackage, status: 'pending_payment', createdAt: Infinity },
+    ];
+  }
+  return savedGet(path);
+};
+
+const infTimeoutFlowResult = await executeDirectSubscriptionSubmit({
+  submittingRef: { current: false },
+  memberProfileId: memberTestId,
+  selectedPackageId: String(targetPackage),
+  hasAuthoritativeMemberId: true,
+  isMemberMutationLocked: false,
+  apiEnabled: true,
+  paymentMethod: 'cash',
+  language: 'vi',
+  callbacks: {
+    showToast: () => { infToastShown = true; },
+    setSubmitError: (msg) => { infSubmitError = msg; },
+  },
+});
+
+assert.equal(infTimeoutFlowResult.success, false, 'Timeout flow with Infinity timestamp must NOT report success');
+assert.equal(infTimeoutFlowResult.ambiguous, true, 'Result must be ambiguous');
+assert.equal(infTimeoutFlowResult.reconciledState?.confirmed, false);
+assert.equal(infTimeoutFlowResult.reconciledState?.isAmbiguous, true);
+assert.equal(infTimeoutFlowResult.reconciledState?.foundOnServer, true);
+assert.equal(infToastShown, false, 'Must NOT show success toast when timestamp is Infinity');
+assert.equal(getStoredPendingOrder(memberTestId), null, 'Must NOT save unconfirmed order to storage when timestamp is Infinity');
+assert.match(infSubmitError, /chưa xác định rõ kết quả/i);
+
+// F3. Component timeout flow via executeDirectSubscriptionSubmit: -Infinity timestamps
+let negInfToastShown = false;
+let negInfSubmitError = null;
+isPostTimeoutTriggered = false;
+clearStoredPendingOrder(memberTestId);
+
+httpClient.get = async (path) => {
+  if (path === '/api/members/me/invoices') {
+    if (!isPostTimeoutTriggered) {
+      return [{ id: existingInvoiceId, invoiceId: existingInvoiceId, invoiceCode: 'INV-0042', packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date(prePostBaselineTime - 600000).toISOString() }];
+    }
+    return [
+      { id: 95, invoiceId: 95, invoiceCode: 'INV-0095', packageId: targetPackage, paymentStatus: 'pending', createdAt: -Infinity },
+    ];
+  }
+  if (path.includes('/api/members/101/packages')) {
+    if (!isPostTimeoutTriggered) return [];
+    return [
+      { subscriptionId: 96, packageId: targetPackage, status: 'pending_payment', createdAt: -Infinity },
+    ];
+  }
+  return savedGet(path);
+};
+
+const negInfTimeoutFlowResult = await executeDirectSubscriptionSubmit({
+  submittingRef: { current: false },
+  memberProfileId: memberTestId,
+  selectedPackageId: String(targetPackage),
+  hasAuthoritativeMemberId: true,
+  isMemberMutationLocked: false,
+  apiEnabled: true,
+  paymentMethod: 'cash',
+  language: 'vi',
+  callbacks: {
+    showToast: () => { negInfToastShown = true; },
+    setSubmitError: (msg) => { negInfSubmitError = msg; },
+  },
+});
+
+assert.equal(negInfTimeoutFlowResult.success, false, 'Timeout flow with -Infinity timestamp must NOT report success');
+assert.equal(negInfTimeoutFlowResult.ambiguous, true);
+assert.equal(negInfToastShown, false);
+assert.equal(getStoredPendingOrder(memberTestId), null);
+
+// Subcase G: Do not exclude old record from baseline without ID to correlate
+// When knownInvoiceIds = [42], but returned invoice has NO ID:
+// It must NOT be excluded as baseline; instead, it is an ambiguous server record (foundOnServer: true, isAmbiguous: true)
+const missingIdWithBaseline = reconcileIncompleteOrder({
+  targetPackageId: targetPackage,
+  invoices: [
+    { packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date().toISOString() },
+  ],
+  subscriptions: [],
+  attemptStartedAt: Date.now(),
+  knownInvoiceIds: [42],
+  knownSubscriptionIds: [],
+});
+assert.equal(missingIdWithBaseline.foundOnServer, true, 'Record lacking ID must NOT be dropped as baseline');
+assert.equal(missingIdWithBaseline.isAmbiguous, true, 'Record lacking ID must be flagged as ambiguous');
+assert.equal(missingIdWithBaseline.confirmed, false, 'Record lacking ID must NOT be confirmed');
+assert.equal(missingIdWithBaseline.ambiguityReason, 'insufficient_identifiers');
+
+// Compare with: Record with valid ID 42 matching baseline IS safely excluded:
+const validIdMatchingBaseline = reconcileIncompleteOrder({
+  targetPackageId: targetPackage,
+  invoices: [
+    { id: 42, invoiceId: 42, packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date().toISOString() },
+  ],
+  subscriptions: [],
+  attemptStartedAt: Date.now(),
+  knownInvoiceIds: [42],
+  knownSubscriptionIds: [],
+});
+assert.equal(validIdMatchingBaseline.foundOnServer, false, 'Record with valid ID matching baseline IS safely excluded');
+assert.equal(validIdMatchingBaseline.isAmbiguous, false);
+assert.equal(validIdMatchingBaseline.confirmed, false);
+
+// Subcase H: Ambiguous multiple competing new records for same package
+const ambiguousCompetingInvoices = reconcileIncompleteOrder({
+  targetPackageId: targetPackage,
+  invoices: [
+    { id: 101, invoiceId: 101, invoiceCode: 'INV-101', packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date().toISOString() },
+    { id: 102, invoiceId: 102, invoiceCode: 'INV-102', packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date().toISOString() },
+  ],
+  subscriptions: [
+    { subscriptionId: 99, packageId: targetPackage, status: 'pending_payment', createdAt: new Date().toISOString() },
+  ],
+  attemptStartedAt: Date.now(),
+  knownInvoiceIds: [],
+});
+assert.equal(ambiguousCompetingInvoices.isAmbiguous, true);
+assert.equal(ambiguousCompetingInvoices.confirmed, false, 'Ambiguous competing records must NOT be confirmed');
+assert.equal(ambiguousCompetingInvoices.ambiguityReason, 'multiple_competing_records');
+
+// Subcase I: Only pre-existing invoices returned with valid IDs in baseline -> foundOnServer is false
+const onlyOldInvoicesReturned = reconcileIncompleteOrder({
+  targetPackageId: targetPackage,
+  invoices: [{ id: existingInvoiceId, invoiceId: existingInvoiceId, packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date().toISOString() }],
+  subscriptions: [],
+  attemptStartedAt: Date.now(),
+  knownInvoiceIds: [existingInvoiceId],
+});
+assert.equal(onlyOldInvoicesReturned.foundOnServer, false);
+assert.equal(onlyOldInvoicesReturned.confirmed, false);
+
+// Restore original httpClient methods
+httpClient.get = savedGet;
+httpClient.post = savedPost;
+clearAllStoredPendingOrdersExcept(null);
+console.log('PASS: Incomplete orders lacking either counterpart record or valid timestamp evidence remain unconfirmed and ambiguous');
 
 console.log('\n====================================================');
 console.log('ALL FE 2: MEMBERSHIP, INVOICE & PAYMENT TESTS PASSED (100%)');

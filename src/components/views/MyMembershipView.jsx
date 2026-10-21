@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useId, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useId, useMemo, useRef } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatDate, formatCurrency } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
@@ -9,8 +9,12 @@ import {
   getAuthoritativeProfileId,
   resolveCurrentMemberProfile,
   resolveActiveSubscription,
-  validateDirectSubscriptionPreflight,
-  reconcileAndVerifySubscriptionSafety,
+  isDirectSubscriptionLocked,
+  getStoredPendingOrder,
+  setStoredPendingOrder,
+  clearStoredPendingOrder,
+  clearAllStoredPendingOrdersExcept,
+  executeDirectSubscriptionSubmit,
 } from '../../utils/memberSafetyHelpers';
 import {
   Award,
@@ -67,6 +71,13 @@ export function MyMembershipView() {
   const currentMember = apiEnabled ? rawMember : deriveMockMemberProfile(rawMember, contextPayments);
   const memberProfileId = apiEnabled ? authoritativeMemberId : (currentMember?.id ?? 1);
 
+  // Clear pending orders belonging to other accounts when switching members
+  useEffect(() => {
+    if (memberProfileId) {
+      clearAllStoredPendingOrdersExcept(memberProfileId);
+    }
+  }, [memberProfileId]);
+
   // API State
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -80,6 +91,7 @@ export function MyMembershipView() {
   const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' | 'bank_transfer' | 'online'
   const [subNotes, setSubNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [submitError, setSubmitError] = useState(null);
 
   const packageSelectId = useId();
@@ -180,136 +192,78 @@ export function MyMembershipView() {
 
   const displayedSubscriptions = apiEnabled ? subscriptions : mockSubscriptions;
 
+  const isMemberMutationLocked = isDirectSubscriptionLocked(apiEnabled, import.meta.env.VITE_TEST_HARNESS);
+
+  // Derive active pending invoice from BE invoices or sessionStorage (strictly partitioned by memberProfileId)
+  const pendingInvoice = useMemo(() => {
+    if (apiEnabled) {
+      const fromBE = invoices.find((inv) => inv.paymentStatus === 'pending');
+      if (fromBE) return fromBE;
+      const stored = getStoredPendingOrder(memberProfileId);
+      if (stored) {
+        // If stored invoice is now paid in BE invoices, clear storage
+        const matchingPaid = invoices.find(
+          (inv) =>
+            (String(inv.id) === String(stored.invoiceId) || inv.invoiceCode === stored.invoiceCode) &&
+            inv.paymentStatus === 'paid'
+        );
+        if (matchingPaid) {
+          clearStoredPendingOrder(memberProfileId);
+          return null;
+        }
+        // If stored invoice is expired, clear storage
+        const matchingExpired = invoices.find(
+          (inv) =>
+            (String(inv.id) === String(stored.invoiceId) || inv.invoiceCode === stored.invoiceCode) &&
+            inv.paymentStatus === 'expired'
+        );
+        if (matchingExpired) {
+          clearStoredPendingOrder(memberProfileId);
+          return null;
+        }
+        return stored;
+      }
+      return null;
+    } else {
+      const mockPending = mockPayments.find((p) => p.status === 'pending');
+      return mockPending || null;
+    }
+  }, [apiEnabled, invoices, mockPayments, memberProfileId]);
+
   // Handle Subscribe / Renew Submit
   const handleSubscribeSubmit = async (e) => {
     e?.preventDefault?.();
-    if (submitting) return;
-
-    if (apiEnabled) {
-      setSubmitError(
-        language === 'vi'
-          ? 'Tính năng đăng ký trực tuyến hiện đang được bảo trì. Vui lòng liên hệ quầy tiếp tân để được hỗ trợ.'
-          : 'Online registration is currently under maintenance. Please contact reception desk.'
-      );
-      setSubmitting(false);
-      return;
-    }
-
-    // 1. Preflight validation before engaging submitting state
-    const preflight = validateDirectSubscriptionPreflight({
+    return executeDirectSubscriptionSubmit({
+      submittingRef,
       memberProfileId,
       selectedPackageId,
       hasAuthoritativeMemberId,
+      isMemberMutationLocked,
       apiEnabled,
+      paymentMethod,
+      subNotes,
+      activeSubscription,
       language,
+      currentMember,
+      contextPackages,
+      contextPayments,
+      apis: { membershipApi, invoiceApi },
+      callbacks: {
+        setSubmitting,
+        setSubmitError,
+        showToast,
+        setIsSubscribeModalOpen,
+        setSubNotes,
+        fetchMemberData,
+      },
     });
-
-    if (!preflight.ok) {
-      setSubmitError(preflight.error);
-      return;
-    }
-
-    setSubmitting(true);
-    setSubmitError(null);
-
-    const numericPkgId = preflight.numericPackageId;
-
-    if (apiEnabled) {
-      try {
-        // 2. Safe read-before-write: fetch existing subscriptions on BE to prevent duplicate registration
-        let existingSubs;
-        try {
-          existingSubs = await membershipApi.getMemberSubscriptions(memberProfileId);
-        } catch (getErr) {
-          throw new Error(
-            language === 'vi'
-              ? `Không thể kiểm tra đăng ký hiện tại (${getErrorMessage(getErr, 'Lỗi kết nối')}). Thao tác tạm dừng để đảm bảo an toàn.`
-              : `Failed to verify existing subscriptions (${getErrorMessage(getErr, 'Network error')}). Operation halted for safety.`
-          );
-        }
-
-        // 3. Reconcile safety against existing active/pending records
-        const safetyCheck = reconcileAndVerifySubscriptionSafety({
-          existingSubscriptions: existingSubs,
-          targetPackageId: numericPkgId,
-          language,
-        });
-
-        if (!safetyCheck.allowed) {
-          throw new Error(safetyCheck.error);
-        }
-
-        // 4. Submit subscription to BE (do not assume correlation via notes)
-        const payload = {
-          packageId: numericPkgId,
-          paymentMethod: paymentMethod.toUpperCase(),
-          isRenewal: Boolean(activeSubscription),
-          notes: subNotes.trim() || undefined,
-        };
-
-        const result = await membershipApi.subscribePackage(memberProfileId, payload);
-        const newSubId = result?.subscriptionId ?? result?.id;
-        if (typeof newSubId !== 'number' || newSubId <= 0) {
-          throw new Error(
-            language === 'vi'
-              ? 'Đăng ký gói đã gửi nhưng không nhận được mã đăng ký hợp lệ. Vui lòng đối soát lại danh sách.'
-              : 'Subscription submitted but server did not return a valid subscription ID.'
-          );
-        }
-
-        showToast?.(
-          language === 'vi'
-            ? 'Đăng ký gói thành công! Vui lòng hoàn tất thanh toán để kích hoạt.'
-            : 'Package registered! Please complete payment to activate.',
-          'success',
-        );
-
-        setIsSubscribeModalOpen(false);
-        setSubNotes('');
-        await fetchMemberData();
-      } catch (err) {
-        setSubmitError(getErrorMessage(err, language === 'vi' ? 'Không thể hoàn tất đăng ký gói. Vui lòng thử lại sau.' : 'Failed to complete package registration. Please try again later.'));
-      } finally {
-        setSubmitting(false);
-      }
-    } else {
-      // A local request remains pending until the desk confirms collection.
-      const chosenPkg = contextPackages.find((p) => String(p.id) === String(selectedPackageId));
-      const result = createMockPendingPayment({
-        member: currentMember,
-        pkg: chosenPkg,
-        method: paymentMethod,
-        notes: subNotes.trim(),
-      }, contextPayments);
-      if (!result.ok) {
-        setSubmitError(result.error);
-        setSubmitting(false);
-        return;
-      }
-      showToast?.(
-        language === 'vi'
-          ? 'Đã ghi nhận yêu cầu đăng ký gói. Vui lòng hoàn tất thanh toán tại quầy.'
-          : 'Membership request recorded. Please complete payment at the desk.',
-        'info',
-      );
-      setIsSubscribeModalOpen(false);
-      setSubmitting(false);
-    }
   };
 
   const openSubscribeModal = (initialPkgId = '') => {
-    if (apiEnabled) {
-      showToast?.(
-        language === 'vi'
-          ? 'Tính năng đăng ký trực tuyến hiện đang được bảo trì. Vui lòng liên hệ quầy tiếp tân để được hỗ trợ.'
-          : 'Online registration is currently under maintenance. Please contact reception desk.',
-        'warning'
-      );
-      return;
-    }
+    const available = apiEnabled ? packages : contextPackages;
     const defaultPkg = initialPkgId
       ? String(initialPkgId)
-      : (contextPackages[0]?.id ? String(contextPackages[0].id) : '');
+      : (available[0]?.id ? String(available[0].id) : '');
     setSelectedPackageId(defaultPkg);
     setSubmitError(null);
     setSubNotes('');
@@ -349,13 +303,8 @@ export function MyMembershipView() {
 
           <button
             onClick={() => openSubscribeModal()}
-            disabled={apiEnabled}
-            title={apiEnabled ? (language === 'vi' ? 'Tính năng đang bảo trì, vui lòng liên hệ quầy tiếp tân' : 'Feature temporarily unavailable, please contact reception') : undefined}
-            className={`min-h-[44px] px-4 py-2 rounded text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors ${
-              apiEnabled
-                ? 'bg-slate-200 text-slate-500 border border-slate-300 cursor-not-allowed opacity-75'
-                : 'bg-[#BA0000] hover:bg-[#8E0000] text-white cursor-pointer'
-            }`}
+            disabled={submitting}
+            className="min-h-[44px] px-4 py-2 rounded text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors bg-[#BA0000] hover:bg-[#8E0000] text-white cursor-pointer"
           >
             <PlusCircle className="w-4 h-4" />
             <span>
@@ -368,13 +317,13 @@ export function MyMembershipView() {
       </div>
 
       {/* Direct Registration Locked Notice in API Mode */}
-      {apiEnabled && !loading && !error && (
+      {apiEnabled && isMemberMutationLocked && !loading && !error && (
         <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-center gap-2">
           <Info className="w-4 h-4 text-amber-600 shrink-0" />
           <span>
             {language === 'vi'
-              ? 'Khóa đăng ký trực tuyến: Tính năng đăng ký và gia hạn gói trực tiếp trên ứng dụng hiện đang tạm khóa. Vui lòng liên hệ quầy tiếp tân để xử lý.'
-              : 'Direct Subscription Locked: Online package registration and renewal is temporarily disabled. Please contact the front desk.'}
+              ? 'Khóa đăng ký trực tuyến: Tính năng đăng ký và gia hạn gói trực tiếp trên ứng dụng hiện đang chờ Backend xác nhận tài khoản/hồ sơ test được phép phát sinh giao dịch và cấu hình sandbox. Vui lòng liên hệ quầy tiếp tân để xử lý.'
+              : 'Direct Subscription Locked: Online package registration and renewal is waiting for Backend confirmation of test profile permissions and sandbox configuration. Please contact the front desk.'}
           </span>
         </div>
       )}
@@ -401,6 +350,51 @@ export function MyMembershipView() {
             <RefreshCw className="w-3.5 h-3.5" />
             <span>{language === 'vi' ? 'Thử lại' : 'Retry'}</span>
           </button>
+        </div>
+      )}
+
+      {/* Pending Invoice Notification Banner */}
+      {pendingInvoice && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-start gap-3">
+            <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-amber-900">
+                  {language === 'vi' ? 'Hóa đơn đang chờ thanh toán' : 'Pending Invoice'}
+                </span>
+                <StatusBadge type="payment" status="pending" />
+              </div>
+              <p className="text-xs text-amber-800 mt-1">
+                Mã HĐ: <strong className="font-mono">{pendingInvoice.invoiceCode || pendingInvoice.code || `#${pendingInvoice.id ?? pendingInvoice.invoiceId}`}</strong>
+                {pendingInvoice.amount ? (
+                  <span className="ml-2">
+                    - Số tiền: <strong className="font-mono text-[#BA0000]">{formatCurrency(pendingInvoice.amount, language)}</strong>
+                  </span>
+                ) : null}
+                {pendingInvoice.expiresAt ? (
+                  <span className="ml-2">
+                    - Hạn thanh toán: <span>{formatDate(pendingInvoice.expiresAt, language)}</span>
+                  </span>
+                ) : null}
+              </p>
+              <p className="text-[11px] text-amber-700 mt-0.5">
+                {String(pendingInvoice.paymentMethod || pendingInvoice.method).toLowerCase() === 'cash'
+                  ? (language === 'vi' ? 'Vui lòng hoàn tất thanh toán tiền mặt tại quầy Tiếp tân.' : 'Please complete cash payment at the reception desk.')
+                  : (language === 'vi' ? 'Vui lòng hoàn tất thanh toán để kích hoạt gói hội viên.' : 'Please complete payment to activate your package.')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={fetchMemberData}
+              className="min-h-[36px] px-3 py-1.5 bg-white hover:bg-slate-50 border border-amber-300 text-amber-900 text-xs font-semibold rounded flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>{language === 'vi' ? 'Làm mới trạng thái' : 'Refresh'}</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -567,14 +561,11 @@ export function MyMembershipView() {
                       <button
                         type="button"
                         onClick={() => openSubscribeModal(pkg.id)}
-                        disabled={apiEnabled}
-                        title={apiEnabled ? (language === 'vi' ? 'Thao tác tạm thời bị khóa' : 'Temporarily unavailable') : undefined}
-                        className={`w-full min-h-[44px] py-2 px-3 rounded text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
-                          apiEnabled
-                            ? 'bg-slate-200 text-slate-500 border border-slate-300 cursor-not-allowed opacity-75'
-                            : isCurrent
-                            ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 cursor-pointer'
-                            : 'bg-[#BA0000] hover:bg-[#8E0000] text-white shadow-xs cursor-pointer'
+                        disabled={submitting}
+                        className={`w-full min-h-[44px] py-2 px-3 rounded text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                          isCurrent
+                            ? 'bg-slate-100 hover:bg-slate-200 text-slate-800'
+                            : 'bg-[#BA0000] hover:bg-[#8E0000] text-white shadow-xs'
                         }`}
                       >
                         <PlusCircle className="w-3.5 h-3.5" />
@@ -823,6 +814,18 @@ export function MyMembershipView() {
                 />
               </div>
 
+              {/* Mutation Lock Notice */}
+              {isMemberMutationLocked && (
+                <div role="status" className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-900 flex items-start gap-2">
+                  <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <div>
+                    {language === 'vi'
+                      ? 'Backend chưa xác nhận tài khoản/hồ sơ test được phép phát sinh giao dịch và cấu hình sandbox. Nút đăng ký trực tiếp được khóa để bảo vệ hệ thống, vui lòng thanh toán tại quầy Lễ tân.'
+                      : 'Direct transaction mutation is safely locked until Backend confirms test account permissions and sandbox setup. Please pay at Reception Desk.'}
+                  </div>
+                </div>
+              )}
+
               {/* Actions */}
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
                 <button
@@ -835,20 +838,22 @@ export function MyMembershipView() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || apiEnabled}
-                  title={apiEnabled ? (language === 'vi' ? 'Thao tác tạm thời bị khóa' : 'Temporarily unavailable') : undefined}
-                  className={`min-h-[44px] px-5 py-2 text-xs font-bold rounded flex items-center gap-2 cursor-pointer transition-colors ${
-                    apiEnabled
+                  disabled={submitting || isMemberMutationLocked}
+                  title={isMemberMutationLocked ? (language === 'vi' ? 'Backend chưa xác nhận quyền phát sinh giao dịch và cấu hình sandbox' : 'Waiting for Backend confirmation of test profile permissions and sandbox configuration') : undefined}
+                  className={`min-h-[44px] px-5 py-2 text-xs font-bold rounded flex items-center gap-2 transition-colors ${
+                    isMemberMutationLocked
                       ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-75'
-                      : 'bg-[#BA0000] hover:bg-[#8E0000] text-white disabled:opacity-50'
+                      : 'bg-[#BA0000] hover:bg-[#8E0000] text-white disabled:opacity-50 cursor-pointer'
                   }`}
                 >
                   {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                   <span>
                     {submitting
                       ? (language === 'vi' ? 'Đang gửi...' : 'Submitting...')
-                      : apiEnabled
+                      : isMemberMutationLocked
                       ? (language === 'vi' ? 'Tạm khóa' : 'Temporarily locked')
+                      : activeSubscription
+                      ? (language === 'vi' ? 'Xác nhận gia hạn' : 'Confirm Renewal')
                       : (language === 'vi' ? 'Xác nhận đăng ký' : 'Confirm Subscription')}
                   </span>
                 </button>
