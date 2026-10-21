@@ -203,9 +203,10 @@ export function ImportClassesModal({ isOpen, onClose, onImportSuccess }) {
 
         if (typeof addClassSession === "function") {
           const res = await addClassSession(payload)
-          if (res && res.success !== false) {
-            successCount++
+          if (res?.success === false) {
+            throw new Error(res.message || "Không thể nhập lớp học.")
           }
+          successCount++
         }
       }
 

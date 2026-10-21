@@ -45,7 +45,9 @@ function formatViDate(dateInput) {
 }
 
 function formatNumber(num) {
-  return new Intl.NumberFormat("vi-VN").format(num || 0)
+  return num === null || num === undefined
+    ? "—"
+    : new Intl.NumberFormat("vi-VN").format(num)
 }
 
 const WEEKDAY_NAMES_MAP = {
@@ -70,6 +72,7 @@ export function ClassDetailDrawer({
   const { members, language, showToast, apiEnabled } = useSCMS()
   const [enrollments, setEnrollments] = useState([])
   const [loading, setLoading] = useState(true)
+  const [enrollmentLoadFailed, setEnrollmentLoadFailed] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddingMember, setIsAddingMember] = useState(false)
   const [selectedNewMemberId, setSelectedNewMemberId] = useState("")
@@ -94,6 +97,7 @@ export function ClassDetailDrawer({
       if (apiEnabled) {
         const data = await getEnrollmentsByClass(classId)
         setEnrollments(data || [])
+        setEnrollmentLoadFailed(false)
       } else {
         const enrolledCount = cls.enrolledCount || 0
         const mockList = (members || [])
@@ -111,7 +115,7 @@ export function ClassDetailDrawer({
         setEnrollments(mockList)
       }
     } catch {
-      setEnrollments([])
+      setEnrollmentLoadFailed(true)
     } finally {
       setLoading(false)
     }
@@ -125,8 +129,8 @@ export function ClassDetailDrawer({
     if (Array.isArray(cls?.selectedDays) && cls.selectedDays.length > 0) {
       return cls.selectedDays.map((d) => WEEKDAY_NAMES_MAP[d] || d)
     }
-    return ["T2", "T4", "T6"]
-  }, [cls?.selectedDays])
+    return apiEnabled ? [] : ["T2", "T4", "T6"]
+  }, [apiEnabled, cls?.selectedDays])
 
   // Filtered members in enrolled tab
   const filteredEnrollments = useMemo(() => {
@@ -152,17 +156,25 @@ export function ClassDetailDrawer({
 
   if (!cls) return null
 
-  const capacity = cls.capacity || 8
-  const enrolled = enrollments.length || cls.enrolledCount || 0
-  const minCap = cls.minCapacity || 4
+  const capacity = cls.capacity ?? (apiEnabled ? null : 8)
+  const enrolled = apiEnabled
+    ? (loading || enrollmentLoadFailed ? cls.enrolledCount : enrollments.length)
+    : enrollments.length || cls.enrolledCount || 0
+  const minCap = cls.minCapacity ?? (apiEnabled ? null : 4)
   const percent =
-    capacity > 0 ? Math.min(100, Math.round((enrolled / capacity) * 100)) : 0
-  const numericPrice = Number(cls.price)
-  const isFree = cls.isFree || numericPrice === 0
-  const price = isFree
-    ? 0
-    : numericPrice > 0
-      ? numericPrice
+    capacity > 0 && enrolled !== null
+      ? Math.min(100, Math.round((enrolled / capacity) * 100))
+      : null
+  const numericPrice = cls.price === null || cls.price === undefined ? null : Number(cls.price)
+  const isFree = apiEnabled
+    ? numericPrice === 0
+    : cls.isFree || numericPrice === 0
+  const price = apiEnabled
+    ? numericPrice
+    : isFree
+      ? 0
+      : numericPrice > 0
+        ? numericPrice
       : (cls.category || cls.nameVi || cls.name || "")
             .toLowerCase()
             .includes("pickleball")
@@ -176,9 +188,13 @@ export function ClassDetailDrawer({
                 .includes("bắn cung")
             ? 900000
             : 600000
-  const sessionCount = cls.sessionCount || 12
-  const perSessionPrice = Math.round(price / sessionCount / 1000) * 1000
-  const estimatedRevenue = enrolled * price
+  const sessionCount = cls.sessionCount ?? (apiEnabled ? null : 12)
+  const perSessionPrice = price === null || sessionCount === null || sessionCount === 0
+    ? null
+    : Math.round(price / sessionCount / 1000) * 1000
+  const estimatedRevenue = apiEnabled || enrolled === null || price === null
+    ? null
+    : enrolled * price
 
   const handleAddMember = async (e) => {
     e.preventDefault()
@@ -254,7 +270,9 @@ export function ClassDetailDrawer({
     },
   }
 
-  const currentStatus = statusConfig[cls.status] || statusConfig.published
+  const currentStatus = statusConfig[cls.status] || (apiEnabled
+    ? { label: "—", bg: "bg-stone-100", text: "text-stone-500", border: "border-stone-200" }
+    : statusConfig.published)
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
@@ -272,7 +290,7 @@ export function ClassDetailDrawer({
             <div className="space-y-1.5 flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-2 py-0.5 rounded-md text-[10.5px] font-bold font-mono bg-stone-200/80 text-stone-700">
-                  {cls.code || `CLS-${cls.id}`}
+                  {apiEnabled ? (cls.code || '—') : (cls.code || 'CLS-' + cls.id)}
                 </span>
                 <span
                   className={`px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${currentStatus.bg} ${currentStatus.text} ${currentStatus.border}`}
@@ -280,7 +298,7 @@ export function ClassDetailDrawer({
                   {currentStatus.label}
                 </span>
                 <span className="text-xs text-stone-500 font-medium">
-                  {cls.category || "Thể thao"} &bull; {cls.level || "Cơ bản"}
+                  {cls.category || (apiEnabled ? "—" : "Thể thao")} &bull; {cls.level || (apiEnabled ? "—" : "Cơ bản")}
                 </span>
               </div>
               <h2 className="text-lg font-bold text-stone-900 truncate">
@@ -344,13 +362,13 @@ export function ClassDetailDrawer({
                 <div className="w-full bg-stone-200 rounded-full h-1.5 mt-2 overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${
-                      percent >= 80
+                      percent !== null && percent >= 80
                         ? "bg-[#2B8A3E]"
-                        : percent >= 40
+                        : percent !== null && percent >= 40
                           ? "bg-amber-500"
                           : "bg-stone-400"
                     }`}
-                    style={{ width: `${percent}%` }}
+                    style={{ width: percent === null ? "0%" : percent + "%" }}
                   />
                 </div>
               </div>
@@ -360,10 +378,12 @@ export function ClassDetailDrawer({
                   Tỷ lệ lấp đầy
                 </span>
                 <div className="text-base font-bold text-stone-900 mt-0.5">
-                  {percent}%
+                  {percent === null ? "—" : percent + "%"}
                 </div>
                 <span className="text-[10px] text-stone-500 block mt-1">
-                  {enrolled >= minCap ? (
+                  {enrolled === null || minCap === null ? (
+                    "—"
+                  ) : enrolled >= minCap ? (
                     <span className="text-emerald-700 font-medium">
                       Đủ điều kiện mở
                     </span>
@@ -393,7 +413,9 @@ export function ClassDetailDrawer({
                   Học phí / Buổi
                 </span>
                 <div className="text-base font-bold text-stone-900 mt-0.5 tabular-nums">
-                  {price === 0 ? (
+                  {price === null ? (
+                    "—"
+                  ) : price === 0 ? (
                     <span className="text-emerald-700 font-semibold text-sm">
                       Miễn phí
                     </span>
@@ -405,7 +427,7 @@ export function ClassDetailDrawer({
                   )}
                 </div>
                 <span className="text-[10px] text-stone-500 block mt-1">
-                  Tổng {sessionCount} buổi
+                  Tổng {sessionCount ?? "—"} buổi
                 </span>
               </div>
             </div>
@@ -426,7 +448,7 @@ export function ClassDetailDrawer({
                     </span>
                     <div className="font-semibold text-stone-800 mt-0.5 flex items-center gap-1.5 flex-wrap">
                       <div className="flex items-center gap-1">
-                        {weekdays.map((day) => (
+                        {weekdays.length === 0 ? <span>—</span> : weekdays.map((day) => (
                           <span
                             key={day}
                             className="px-1.5 py-0.5 rounded text-[10.5px] font-bold bg-white text-stone-800 border border-stone-200 shadow-2xs"
@@ -436,7 +458,7 @@ export function ClassDetailDrawer({
                         ))}
                       </div>
                       <span className="text-stone-900 font-bold ml-1">
-                        {cls.startTime || "06:00"} - {cls.endTime || "07:30"}
+                        {cls.startTime || (apiEnabled ? "—" : "06:00")} - {cls.endTime || (apiEnabled ? "—" : "07:30")}
                       </span>
                     </div>
                   </div>
@@ -449,10 +471,10 @@ export function ClassDetailDrawer({
                       Sân tập & Tiêu chuẩn
                     </span>
                     <p className="font-semibold text-stone-800 mt-0.5">
-                      {cls.roomVi || cls.room || "Sân tập tiêu chuẩn"}
+                      {cls.roomVi || cls.room || (apiEnabled ? "—" : "Sân tập tiêu chuẩn")}
                     </p>
                     <p className="text-[11px] text-stone-500">
-                      {cls.roomSpec || "Sức chứa tiêu chuẩn 8 - 12 người"}
+                      {cls.roomSpec || (apiEnabled ? "—" : "Sức chứa tiêu chuẩn 8 - 12 người")}
                     </p>
                   </div>
                 </div>
@@ -476,7 +498,7 @@ export function ClassDetailDrawer({
                       Dự kiến kết thúc
                     </span>
                     <p className="font-semibold text-stone-800 mt-0.5">
-                      {formatViDate(cls.endDate) || "Theo lộ trình 12 buổi"}
+                      {cls.endDate ? formatViDate(cls.endDate) : apiEnabled ? "—" : "Theo lộ trình 12 buổi"}
                     </p>
                   </div>
                 </div>
@@ -509,9 +531,7 @@ export function ClassDetailDrawer({
                   </div>
                   <div className="text-xs text-stone-500">
                     Chuyên môn:{" "}
-                    {cls.coachSpecialty ||
-                      cls.category ||
-                      "Thể thao chuyên nghiệp"}
+                    {cls.coachSpecialty || (apiEnabled ? "—" : cls.category || "Thể thao chuyên nghiệp")}
                   </div>
                 </div>
               </div>

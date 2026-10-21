@@ -314,7 +314,7 @@ assert.ok(
   "Network error must NOT be UnauthorizedError",
 )
 assert.strictEqual(errNetwork.status, 0)
-assert.strictEqual(errNetwork.message, "Không thể kết nối đến máy chủ.")
+assert.strictEqual(errNetwork.message, "Không thể kết nối đến máy chủ. Kiểm tra kết nối mạng rồi thử lại.")
 
 console.log("PASS: 2.2 Error classes correctly mapped by HTTP status")
 
@@ -450,7 +450,7 @@ try {
       "httpRequest on network failure must throw ApiError",
     )
     assert.strictEqual(error.status, 0)
-    assert.strictEqual(error.message, "Failed to fetch")
+    assert.strictEqual(error.message, "Không thể kết nối đến máy chủ. Kiểm tra kết nối mạng rồi thử lại.")
   }
   assert.ok(threwNetwork, "httpRequest on network failure must throw an error")
   assert.strictEqual(

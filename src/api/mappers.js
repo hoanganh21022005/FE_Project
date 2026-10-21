@@ -37,19 +37,15 @@ export const mapSubject = (subject) => ({
   outdoor: subject.outdoor ?? null,
 })
 
-const LEGACY_ROOM_MAP = {
-  "Phong Yoga A": "Sân Cầu Lông & Pickleball A1",
-  "Phong Gym B": "Phòng Bóng Bàn VIP B2",
-  "Phong Vo C": "Trường Bắn Cung & Bắn Súng C3",
-  "Phong Cardio D": "Sân Quần Vợt & Tennis D4",
-}
-
 export const mapRoom = (room) => ({
   id: room.id,
-  name: LEGACY_ROOM_MAP[room.name] || room.name,
+  name: room.name ?? null,
   location: room.location ?? null,
-  capacity: asNumber(room.capacity) ?? 20,
-  status: normalizeStatus(room.status, "active"),
+  capacity: asNumber(room.capacity),
+  status: normalizeStatus(room.status, null),
+  rawStatus: room.status ?? null,
+  facilityType: room.facilityType ?? null,
+  outdoor: typeof room.outdoor === "boolean" ? room.outdoor : null,
 })
 
 export function mapPackage(item) {
@@ -59,7 +55,7 @@ export function mapPackage(item) {
     id: item.id,
     name: item.name,
     nameVi: item.name,
-    price: asNumber(item.price) ?? 0,
+    price: asNumber(item.price),
     durationDays,
     durationMonths:
       durationDays === null ? null : Math.round(durationDays / 30),
@@ -69,12 +65,16 @@ export function mapPackage(item) {
     benefitsVi: benefits,
     maxClassesPerMonth: null,
     tier: null,
-    status: normalizeStatus(item.status, "active"),
+    status: normalizeStatus(item.status, null),
+    rawStatus: item.status ?? null,
+    packageType: item.packageType ?? null,
+    totalCredit: asNumber(item.totalCredit),
   }
 }
 
-const classStatus = (status) => {
-  const normalized = normalizeStatus(status, "draft")
+const classStatus = (status, fallback = "draft") => {
+  const normalized = normalizeStatus(status, fallback)
+  if (normalized === null) return null
   if (["open", "ongoing", "active"].includes(normalized)) return "published"
   if (normalized === "closed") return "completed"
   return normalized
@@ -82,8 +82,53 @@ const classStatus = (status) => {
 
 export function mapClass(
   item,
-  { subjects = [], coaches = [], fallback = {} } = {},
+  { subjects = [], coaches = [], fallback = {}, apiMode = false } = {},
 ) {
+  if (apiMode) {
+    const subject = subjects.find(
+      (entry) => String(entry.id) === String(item.subjectId),
+    )
+    const coach = coaches.find(
+      (entry) => idNumber(entry.id) === asNumber(item.coachId),
+    )
+    return {
+      id: item.id ?? null,
+      name: item.name ?? null,
+      nameVi: item.name ?? null,
+      subjectId: item.subjectId ?? null,
+      subjectName: item.subjectName ?? subject?.name ?? null,
+      coachId: item.coachId ?? null,
+      coachName: item.coachName ?? coach?.name ?? null,
+      coachSpecialty:
+        coach?.specializationVi ?? coach?.specialization ?? coach?.specialtyVi ?? coach?.specialty ?? null,
+      maxCapacity: asNumber(item.maxCapacity),
+      capacity: asNumber(item.maxCapacity),
+      tuitionFee: asNumber(item.tuitionFee),
+      price: asNumber(item.tuitionFee),
+      startDate: item.startDate ?? null,
+      endDate: item.endDate ?? null,
+      date: item.startDate ?? null,
+      status: classStatus(item.status, null),
+      apiStatus: item.status ?? null,
+      enrolledCount: asNumber(item.enrolledCount),
+      classType: item.classType ?? null,
+      totalSessions: asNumber(item.totalSessions),
+      sessionCount: asNumber(item.totalSessions),
+      category: item.subjectName ?? subject?.name ?? null,
+      room: null,
+      roomVi: null,
+      roomSpec: null,
+      startTime: null,
+      endTime: null,
+      durationMinutes: null,
+      code: null,
+      level: null,
+      minTierRequired: null,
+      minCapacity: null,
+      selectedDays: null,
+    }
+  }
+
   const subject = subjects.find(
     (entry) => String(entry.id) === String(item.subjectId),
   )
@@ -272,11 +317,24 @@ export function mapAuditLog(item) {
 }
 
 export const mapDashboard = (item) => ({
-  totalUsers: asNumber(item.totalUsers) ?? 0,
-  totalMembers: asNumber(item.totalMembers) ?? 0,
-  totalClasses: asNumber(item.totalClasses) ?? 0,
-  totalPackages: asNumber(item.totalPackages) ?? 0,
+  totalUsers: asNumber(item.totalUsers),
+  totalMembers: asNumber(item.totalMembers),
+  totalClasses: asNumber(item.totalClasses),
+  totalPackages: asNumber(item.totalPackages),
+  totalRevenue: asNumber(item.totalRevenue),
+  totalInvoices: asNumber(item.totalInvoices),
+  activeSubscriptions: asNumber(item.activeSubscriptions),
+  todaySessions: asNumber(item.todaySessions),
 })
+
+const API_CLASS_STATUSES = {
+  open: "Open",
+  published: "Open",
+  ongoing: "Ongoing",
+  closed: "Closed",
+  completed: "Closed",
+  cancelled: "Cancelled",
+}
 
 export const toClassRequest = (item) => ({
   name: item.name || item.nameVi,
@@ -284,12 +342,11 @@ export const toClassRequest = (item) => ({
   coachId: idNumber(item.coachId),
   maxCapacity: asNumber(item.maxCapacity ?? item.capacity),
   startDate: item.startDate ?? item.date ?? null,
-  endDate: item.endDate ?? item.date ?? null,
+  endDate: item.endDate ?? null,
   tuitionFee: asNumber(item.tuitionFee ?? item.price),
-  classType: item.classType ?? 'Normal',
+  classType: item.classType ?? null,
   totalSessions: asNumber(item.totalSessions ?? item.sessionCount),
-  status:
-    item.apiStatus ?? (item.status === "published" ? "Open" : item.status),
+  status: API_CLASS_STATUSES[normalizeStatus(item.status ?? item.apiStatus)] ?? undefined,
 })
 
 export const toPackageRequest = (item) => {
@@ -298,10 +355,16 @@ export const toPackageRequest = (item) => {
   return {
     name: item.name,
     durationDays:
-      durationDays ??
-      (durationMonths === null ? null : Math.round(durationMonths * 30)),
+      durationDays !== null &&
+      (durationMonths === null || Math.round(durationDays / 30) === durationMonths)
+        ? durationDays
+        : durationMonths === null
+          ? null
+          : Math.round(durationMonths * 30),
     price: asNumber(item.price),
     benefits: serializeBenefits(item.benefits),
     status: item.status,
+    packageType: item.packageType ?? null,
+    totalCredit: asNumber(item.totalCredit),
   }
 }

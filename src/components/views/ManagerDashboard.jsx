@@ -24,14 +24,14 @@ export function ManagerDashboard({ onNavigate }) {
   const visiblePayments = apiEnabled ? [] : payments;
   const visibleBookings = apiEnabled ? [] : bookings;
 
-  const totalMembersCount = apiEnabled ? (dashboard?.totalMembers ?? 0) : visibleMembers.length;
-  const activeMembersCount = visibleMembers.filter(m => m.membershipStatus === 'active').length;
-  const pendingPaymentCount = visibleMembers.filter(m => m.membershipStatus === 'pending_payment').length;
-  const gracePeriodCount = visibleMembers.filter(m => m.membershipStatus === 'grace_period').length;
+  const totalMembersCount = apiEnabled ? dashboard?.totalMembers ?? null : visibleMembers.length;
+  const activeMembersCount = apiEnabled ? dashboard?.activeSubscriptions ?? null : visibleMembers.filter(m => m.membershipStatus === 'active').length;
+  const pendingPaymentCount = apiEnabled ? null : visibleMembers.filter(m => m.membershipStatus === 'pending_payment').length;
+  const gracePeriodCount = apiEnabled ? null : visibleMembers.filter(m => m.membershipStatus === 'grace_period').length;
 
   const successfulPayments = visiblePayments.filter(p => p.status === 'successful');
-  const totalRevenue = successfulPayments.reduce((acc, p) => acc + p.amount, 0);
-  const pendingPaymentsCount = visiblePayments.filter(p => p.status === 'pending').length;
+  const totalRevenue = apiEnabled ? dashboard?.totalRevenue ?? null : successfulPayments.reduce((acc, p) => acc + p.amount, 0);
+  const pendingPaymentsCount = apiEnabled ? null : visiblePayments.filter(p => p.status === 'pending').length;
 
   // Monthly Revenue Data for Area Chart
   const revenueTrendData = apiEnabled ? [] : [
@@ -63,15 +63,15 @@ export function ManagerDashboard({ onNavigate }) {
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-stone-900 tabular-nums">{totalMembersCount}</span>
-            <span className="text-xs text-emerald-700 font-bold flex items-center">
+            <span className="text-2xl font-bold text-stone-900 tabular-nums">{totalMembersCount ?? '—'}</span>
+            {!apiEnabled && <span className="text-xs text-emerald-700 font-bold flex items-center">
               <ArrowUpRight className="w-3.5 h-3.5" /> +12%
-            </span>
+            </span>}
           </div>
           <div className="mt-2 text-[11px] text-stone-500 flex items-center gap-1.5 whitespace-nowrap">
-            <span className="text-emerald-700 font-bold">{activeMembersCount} {language === 'vi' ? 'Hoạt động' : 'Active'}</span>
+            <span className="text-emerald-700 font-bold">{activeMembersCount ?? '—'} {language === 'vi' ? 'Hoạt động' : 'Active'}</span>
             <span>&bull;</span>
-            <span className="text-amber-700 font-medium">{pendingPaymentCount} {language === 'vi' ? 'Chờ thanh toán' : 'Pending'}</span>
+            <span className="text-amber-700 font-medium">{pendingPaymentCount ?? '—'} {language === 'vi' ? 'Chờ thanh toán' : 'Pending'}</span>
           </div>
         </div>
 
@@ -86,7 +86,7 @@ export function ManagerDashboard({ onNavigate }) {
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-[#BA0000] tabular-nums">{gracePeriodCount}</span>
+            <span className="text-2xl font-bold text-[#BA0000] tabular-nums">{gracePeriodCount ?? '—'}</span>
             <span className="text-xs text-stone-600 font-semibold whitespace-nowrap">{language === 'vi' ? 'Tài khoản chờ gia hạn' : 'Grace accounts'}</span>
           </div>
           <p className="mt-2 text-[11px] text-stone-500 whitespace-nowrap">
@@ -103,11 +103,11 @@ export function ManagerDashboard({ onNavigate }) {
             </div>
           </div>
           <div className="mt-2">
-            <span className="text-2xl font-bold text-emerald-700 tabular-nums">{formatCurrency(totalRevenue, language)}</span>
+            <span className="text-2xl font-bold text-emerald-700 tabular-nums">{totalRevenue === null ? '—' : formatCurrency(totalRevenue, language)}</span>
           </div>
           <div className="mt-2 text-[11px] text-stone-500 flex items-center justify-between gap-1 whitespace-nowrap">
-            <span>{successfulPayments.length} {language === 'vi' ? 'Thành công' : 'Success'}</span>
-            <span className="text-amber-700 font-medium">{pendingPaymentsCount} {language === 'vi' ? 'Đang xử lý' : 'Pending'}</span>
+            <span>{apiEnabled ? dashboard?.totalInvoices ?? '—' : successfulPayments.length} {language === 'vi' ? 'Thành công' : 'Success'}</span>
+            <span className="text-amber-700 font-medium">{pendingPaymentsCount ?? '—'} {language === 'vi' ? 'Đang xử lý' : 'Pending'}</span>
           </div>
         </div>
 
@@ -120,12 +120,12 @@ export function ManagerDashboard({ onNavigate }) {
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-stone-900 tabular-nums">{apiEnabled ? (dashboard?.totalClasses ?? classes.length) : classes.length}</span>
-            <span className="text-xs text-[#BA0000] font-medium whitespace-nowrap">{visibleBookings.length} {language === 'vi' ? 'đăng ký' : 'bookings'}</span>
+            <span className="text-2xl font-bold text-stone-900 tabular-nums">{apiEnabled ? dashboard?.todaySessions ?? '—' : classes.length}</span>
+            <span className="text-xs text-[#BA0000] font-medium whitespace-nowrap">{apiEnabled ? '—' : visibleBookings.length} {language === 'vi' ? 'đăng ký' : 'bookings'}</span>
           </div>
           <div className="mt-2 text-[11px] text-stone-500 flex items-center gap-1.5 whitespace-nowrap">
             <Activity className="w-3.5 h-3.5 text-[#BA0000] shrink-0" />
-            <span>{language === 'vi' ? 'Tỷ lệ điểm danh:' : 'Attendance:'} <strong className="text-stone-900">94.5%</strong></span>
+            <span>{language === 'vi' ? 'Tỷ lệ điểm danh:' : 'Attendance:'} <strong className="text-stone-900">{apiEnabled ? '—' : '94.5%'}</strong></span>
           </div>
         </div>
       </div>
@@ -171,18 +171,18 @@ export function ManagerDashboard({ onNavigate }) {
                   <tr key={cls.id} className="hover:bg-stone-50 transition-colors h-[48px]">
                     <td className="py-2 px-3 font-semibold text-stone-900 whitespace-nowrap">
                       <div>{language === 'vi' ? cls.nameVi : cls.name}</div>
-                      <div className="text-[11px] text-stone-500 tabular-nums">{cls.code} &bull; {cls.startTime} ({cls.durationMinutes} {language === 'vi' ? 'phút' : 'min'})</div>
+                      <div className="text-[11px] text-stone-500 tabular-nums">{apiEnabled ? '—' : `${cls.code} • ${cls.startTime} (${cls.durationMinutes} ${language === 'vi' ? 'phút' : 'min'})`}</div>
                     </td>
                     <td className="py-2 px-2.5 whitespace-nowrap">
                       <span className="px-2 py-0.5 rounded bg-stone-100 text-stone-700 font-mono text-[10px]">
-                        {cls.category}
+                        {cls.category || '—'}
                       </span>
                     </td>
                     <td className="py-2 px-2.5 font-medium text-stone-800 whitespace-nowrap">{cls.coachName}</td>
-                    <td className="py-2 px-2.5 text-stone-600 whitespace-nowrap">{language === 'vi' ? (cls.roomVi || cls.room) : cls.room}</td>
+                    <td className="py-2 px-2.5 text-stone-600 whitespace-nowrap">{apiEnabled ? '—' : language === 'vi' ? (cls.roomVi || cls.room) : cls.room}</td>
                     <td className="py-2 px-2 text-center tabular-nums whitespace-nowrap">
-                      <span className={cls.enrolledCount >= cls.capacity ? 'text-rose-700 font-bold' : 'text-stone-800'}>
-                        {cls.enrolledCount}/{cls.capacity}
+                      <span className={cls.enrolledCount != null && cls.capacity != null && cls.enrolledCount >= cls.capacity ? 'text-rose-700 font-bold' : 'text-stone-800'}>
+                        {cls.enrolledCount ?? '—'}/{cls.capacity ?? '—'}
                       </span>
                     </td>
                     <td className="py-2 px-3 text-center whitespace-nowrap">
