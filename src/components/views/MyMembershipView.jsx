@@ -9,14 +9,12 @@ import {
   getAuthoritativeProfileId,
   resolveCurrentMemberProfile,
   resolveActiveSubscription,
-  validateDirectSubscriptionPreflight,
-  reconcileAndVerifySubscriptionSafety,
   isDirectSubscriptionLocked,
-  reconcileIncompleteOrder,
   getStoredPendingOrder,
   setStoredPendingOrder,
   clearStoredPendingOrder,
   clearAllStoredPendingOrdersExcept,
+  executeDirectSubscriptionSubmit,
 } from '../../utils/memberSafetyHelpers';
 import {
   Award,
@@ -235,202 +233,30 @@ export function MyMembershipView() {
   // Handle Subscribe / Renew Submit
   const handleSubscribeSubmit = async (e) => {
     e?.preventDefault?.();
-    // Synchronous mutex lock to prevent concurrent or duplicate handler invocation
-    if (submittingRef.current || submitting) return;
-    submittingRef.current = true;
-
-    // 1. Form preflight input validation before engaging submitting state
-    const preflight = validateDirectSubscriptionPreflight({
+    return executeDirectSubscriptionSubmit({
+      submittingRef,
       memberProfileId,
       selectedPackageId,
       hasAuthoritativeMemberId,
+      isMemberMutationLocked,
+      apiEnabled,
+      paymentMethod,
+      subNotes,
+      activeSubscription,
       language,
+      currentMember,
+      contextPackages,
+      contextPayments,
+      apis: { membershipApi, invoiceApi },
+      callbacks: {
+        setSubmitting,
+        setSubmitError,
+        showToast,
+        setIsSubscribeModalOpen,
+        setSubNotes,
+        fetchMemberData,
+      },
     });
-
-    if (!preflight.ok) {
-      submittingRef.current = false;
-      setSubmitError(preflight.error);
-      return;
-    }
-
-    // 2. Strict mutation lock: keep direct POST to Render strictly locked
-    if (isMemberMutationLocked) {
-      submittingRef.current = false;
-      setSubmitError(
-        language === 'vi'
-          ? 'Thao tác đăng ký trực tuyến từ phía hội viên tạm thời bị khóa: Backend chưa xác nhận tài khoản/hồ sơ test được phép phát sinh giao dịch và cấu hình sandbox. Vui lòng thanh toán tại quầy Tiếp tân.'
-          : 'Direct member subscription is locked: Waiting for Backend confirmation of test profile permissions and sandbox configuration. Please pay at the reception desk.'
-      );
-      return;
-    }
-
-    setSubmitting(true);
-    setSubmitError(null);
-
-    const numericPkgId = preflight.numericPackageId;
-
-    if (apiEnabled) {
-      try {
-        // 3. Safe read-before-write: fetch existing subscriptions on BE to prevent duplicate registration
-        let existingSubs;
-        try {
-          existingSubs = await membershipApi.getMemberSubscriptions(memberProfileId);
-        } catch (getErr) {
-          throw new Error(
-            language === 'vi'
-              ? `Không thể kiểm tra đăng ký hiện tại (${getErrorMessage(getErr, 'Lỗi kết nối')}). Thao tác tạm dừng để đảm bảo an toàn.`
-              : `Failed to verify existing subscriptions (${getErrorMessage(getErr, 'Network error')}). Operation halted for safety.`
-          );
-        }
-
-        const knownSubscriptionIds = (existingSubs || []).map((sub) => sub.subscriptionId ?? sub.id).filter(Boolean);
-
-        // 4. Reconcile safety against existing active/pending records
-        const safetyCheck = reconcileAndVerifySubscriptionSafety({
-          existingSubscriptions: existingSubs,
-          targetPackageId: numericPkgId,
-          language,
-        });
-
-        if (!safetyCheck.allowed) {
-          throw new Error(safetyCheck.error);
-        }
-
-        // 5. Query fresh invoice baseline IMMEDIATELY before POST to strictly scope reconciliation
-        let baselineInvoices = [];
-        try {
-          baselineInvoices = await invoiceApi.getMemberOwnInvoices();
-        } catch {
-          baselineInvoices = invoices || [];
-        }
-
-        const attemptStartedAt = Date.now();
-        const knownInvoiceIds = (baselineInvoices || []).map((inv) => inv.id ?? inv.invoiceId).filter(Boolean);
-
-        // 6. Submit via subscribeMe (OpenAPI POST /api/members/me/subscriptions)
-        const payload = {
-          packageId: numericPkgId,
-          paymentMethod: paymentMethod.toUpperCase(),
-          isRenewal: Boolean(activeSubscription),
-          notes: subNotes.trim() || undefined,
-        };
-
-        let result;
-        try {
-          result = await membershipApi.subscribeMe(payload);
-        } catch (postErr) {
-          // If response was incomplete or network failed, perform GET reconciliation before allowing retry
-          let reconciledState = null;
-          try {
-            const [freshInvs, freshSubs] = await Promise.all([
-              invoiceApi.getMemberOwnInvoices(),
-              membershipApi.getMemberSubscriptions(memberProfileId),
-            ]);
-            reconciledState = reconcileIncompleteOrder({
-              targetPackageId: numericPkgId,
-              invoices: freshInvs,
-              subscriptions: freshSubs,
-              attemptStartedAt,
-              knownInvoiceIds,
-              knownSubscriptionIds,
-            });
-          } catch {
-            // reconciliation query failed
-          }
-
-          if (reconciledState?.foundOnServer && reconciledState?.confirmed && !reconciledState?.isAmbiguous) {
-            setStoredPendingOrder(memberProfileId, {
-              memberId: memberProfileId,
-              subscriptionId: reconciledState.subscriptionId,
-              invoiceId: reconciledState.invoiceId,
-              invoiceCode: reconciledState.invoice?.invoiceCode,
-              amount: reconciledState.invoice?.amount,
-              packageId: numericPkgId,
-              paymentMethod,
-            });
-            showToast?.(
-              language === 'vi'
-                ? `Yêu cầu đã được ghi nhận trên máy chủ (Mã HĐ: #${reconciledState.invoice?.invoiceCode || reconciledState.invoiceId}). Vui lòng không gửi lại.`
-                : `Subscription already recorded on server (Invoice #${reconciledState.invoice?.invoiceCode || reconciledState.invoiceId}). Please do not resubmit.`,
-              'info'
-            );
-            setIsSubscribeModalOpen(false);
-            setSubNotes('');
-            await fetchMemberData();
-            return;
-          }
-
-          if (reconciledState?.isAmbiguous || (reconciledState?.foundOnServer && !reconciledState?.confirmed)) {
-            // Ambiguous state: keep safe state, do not claim success, instruct user to check history
-            setSubmitError(
-              language === 'vi'
-                ? 'Giao dịch chưa xác định rõ kết quả trên máy chủ. Đơn có thể đã được tiếp nhận một phần; để đảm bảo an toàn, vui lòng không gửi lại và kiểm tra lịch sử hóa đơn hoặc liên hệ quầy Tiếp tân.'
-                : 'Transaction outcome on server is ambiguous. Please do not retry; verify invoice history or contact reception desk.'
-            );
-            return;
-          }
-
-          throw postErr;
-        }
-
-        setStoredPendingOrder(memberProfileId, {
-          memberId: memberProfileId,
-          subscriptionId: result?.subscriptionId,
-          invoiceId: result?.invoiceId,
-          invoiceCode: result?.invoiceCode,
-          amount: result?.amount,
-          packageId: numericPkgId,
-          paymentMethod: result?.paymentMethod || paymentMethod,
-          paymentUrl: result?.paymentUrl || null,
-        });
-
-        showToast?.(
-          language === 'vi'
-            ? 'Đăng ký gói thành công! Vui lòng hoàn tất thanh toán hóa đơn để kích hoạt.'
-            : 'Package registered! Please complete invoice payment to activate.',
-          'success',
-        );
-
-        setIsSubscribeModalOpen(false);
-        setSubNotes('');
-        await fetchMemberData();
-      } catch (err) {
-        setSubmitError(
-          getErrorMessage(
-            err,
-            language === 'vi'
-              ? 'Không thể hoàn tất đăng ký gói. Đơn có thể đã được tạo; vui lòng kiểm tra lịch sử hóa đơn trước khi thử lại.'
-              : 'Failed to complete registration. Please check invoice history before retrying.'
-          )
-        );
-      } finally {
-        submittingRef.current = false;
-        setSubmitting(false);
-      }
-    } else {
-      submittingRef.current = false;
-      // A local request remains pending until the desk confirms collection.
-      const chosenPkg = contextPackages.find((p) => String(p.id) === String(selectedPackageId));
-      const result = createMockPendingPayment({
-        member: currentMember,
-        pkg: chosenPkg,
-        method: paymentMethod,
-        notes: subNotes.trim(),
-      }, contextPayments);
-      if (!result.ok) {
-        setSubmitError(result.error);
-        setSubmitting(false);
-        return;
-      }
-      showToast?.(
-        language === 'vi'
-          ? 'Đã ghi nhận yêu cầu đăng ký gói. Vui lòng hoàn tất thanh toán tại quầy.'
-          : 'Membership request recorded. Please complete payment at the desk.',
-        'info',
-      );
-      setIsSubscribeModalOpen(false);
-      setSubmitting(false);
-    }
   };
 
   const openSubscribeModal = (initialPkgId = '') => {

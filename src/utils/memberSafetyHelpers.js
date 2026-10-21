@@ -3,6 +3,10 @@
  * Guarantees strict profile ID separation, fail-closed reconciliation, and prevents
  * duplicate registration mutations or state pollution across role/account switches.
  */
+import { membershipApi } from '../api/membershipApi.js';
+import { invoiceApi } from '../api/invoiceApi.js';
+import { getErrorMessage } from '../api/apiErrors.js';
+import { createMockPendingPayment } from './mockFixtureSettlement.js';
 
 /**
  * Extracts a verified positive integer profile ID (memberId or profileId) from an object.
@@ -226,12 +230,40 @@ export const reconcileAndVerifySubscriptionSafety = ({
 };
 
 /**
+ * Safely parses and validates a finite positive timestamp in milliseconds.
+ * Strictly rejects null, undefined, NaN, Infinity, -Infinity, non-finite values, and non-positive numbers.
+ */
+export const getFinitePositiveTime = (val) => {
+  if (val == null) return null;
+  if (typeof val === 'number') {
+    return Number.isFinite(val) && val > 0 ? val : null;
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed || trimmed === 'Infinity' || trimmed === '-Infinity' || trimmed === '+Infinity') return null;
+    if (/^\d+$/.test(trimmed)) {
+      const num = Number(trimmed);
+      return Number.isFinite(num) && num > 0 ? num : null;
+    }
+    const t = new Date(trimmed).getTime();
+    return typeof t === 'number' && Number.isFinite(t) && t > 0 ? t : null;
+  }
+  if (val instanceof Date) {
+    const t = val.getTime();
+    return typeof t === 'number' && Number.isFinite(t) && t > 0 ? t : null;
+  }
+  return null;
+};
+
+/**
  * Reconciles an incomplete, timed-out, or ambiguous subscription order attempt against BE state.
  * Queries existing invoices and subscriptions to determine if the order was created on BE.
  * Strictly scopes reconciliation to the CURRENT attempt:
- * - Requires positive integer ID and valid timestamp evidence (does not treat records lacking ID or time proof as new).
- * - Excludes pre-existing records via knownInvoiceIds / knownSubscriptionIds baseline.
- * - Confirms order only when sufficient clear information is present; flags ambiguous states (e.g., competing records, missing identifiers) to keep safe state and prevent false success claims.
+ * - Requires positive integer ID and valid finite positive timestamp evidence.
+ * - Rejects Infinity, -Infinity, NaN, non-positive, or missing attemptStartedAt/timestamps.
+ * - Excludes pre-existing records via knownInvoiceIds / knownSubscriptionIds baseline ONLY when a valid ID is present to correlate.
+ * - Flags records matching package/status that lack valid ID or timestamp as ambiguous (confirmed: false, isAmbiguous: true), NEVER as 'not found'.
+ * - Confirms order ONLY when both invoice and subscription exist with valid identifiers and timestamps.
  */
 export const reconcileIncompleteOrder = ({
   targetPackageId,
@@ -249,76 +281,144 @@ export const reconcileIncompleteOrder = ({
     (Array.isArray(knownSubscriptionIds) ? knownSubscriptionIds : []).map(String)
   );
 
-  const matchingInvoices = Array.isArray(invoices)
-    ? invoices.filter((inv) => {
-        if (!inv || typeof inv !== 'object') return false;
-        const invPkgId = Number(inv.packageId);
-        if (invPkgId !== numPkgId) return false;
-        if (inv.paymentStatus !== 'pending' && inv.paymentStatus !== 'paid') return false;
+  // Validate attemptStartedAt: strictly require a finite positive timestamp; reject null, NaN, Infinity, -Infinity, <= 0
+  const attemptTime = getFinitePositiveTime(attemptStartedAt);
+  if (attemptTime == null) {
+    const rawInvs = Array.isArray(invoices) ? invoices : [];
+    const rawSubs = Array.isArray(subscriptions) ? subscriptions : [];
+    const hasAnyRaw = rawInvs.length > 0 || rawSubs.length > 0;
+    return {
+      reconciled: true,
+      foundOnServer: hasAnyRaw,
+      confirmed: false,
+      isAmbiguous: true,
+      ambiguityReason: 'missing_attempt_timestamp',
+      invoice: null,
+      subscription: null,
+      invoiceId: null,
+      subscriptionId: null,
+    };
+  }
 
-        const invId = inv.id ?? inv.invoiceId;
-        // 1. Mandatory ID evidence: record lacking valid positive integer ID is NOT new proof
-        if (invId == null || !Number.isInteger(Number(invId)) || Number(invId) <= 0) {
-          return false;
-        }
+  // Related invoice check: same package and pending/paid/successful status
+  const isRelatedInvoice = (inv) => {
+    if (!inv || typeof inv !== 'object') return false;
+    const invPkgId = Number(inv.packageId);
+    if (invPkgId !== numPkgId) return false;
+    const status = String(inv.paymentStatus || inv.status || '').toLowerCase();
+    return status === 'pending' || status === 'paid' || status === 'successful';
+  };
 
-        // 2. Exclude pre-existing invoices belonging to earlier attempts
-        if (knownInvSet.size > 0 && knownInvSet.has(String(invId))) {
-          return false;
-        }
+  // Related subscription check: same package and pending_payment/active/pending status
+  const isRelatedSubscription = (sub) => {
+    if (!sub || typeof sub !== 'object') return false;
+    const subPkgId = Number(sub.packageId);
+    if (subPkgId !== numPkgId) return false;
+    const status = String(sub.status || '').toLowerCase();
+    return status === 'pending_payment' || status === 'active' || status === 'pending';
+  };
 
-        // 3. Mandatory time evidence: if attempt baseline is set, record lacking time proof is NOT new
-        if (attemptStartedAt != null) {
-          const rawTime = inv.createdAt || inv.createdDate || inv.issueDate || inv.date;
-          if (!rawTime) {
-            return false;
-          }
-          const invTime = new Date(rawTime).getTime();
-          if (Number.isNaN(invTime) || invTime < attemptStartedAt - 5000) {
-            return false;
-          }
-        }
+  const rawInvoices = Array.isArray(invoices) ? invoices : [];
+  const rawSubs = Array.isArray(subscriptions) ? subscriptions : [];
 
-        return true;
-      })
-    : [];
+  const validNewInvoices = [];
+  const ambiguousInvoices = [];
 
-  const matchingSubs = Array.isArray(subscriptions)
-    ? subscriptions.filter((sub) => {
-        if (!sub || typeof sub !== 'object') return false;
-        const subPkgId = Number(sub.packageId);
-        if (subPkgId !== numPkgId) return false;
-        if (sub.status !== 'pending_payment' && sub.status !== 'active' && sub.status !== 'pending') return false;
+  for (const inv of rawInvoices) {
+    if (!isRelatedInvoice(inv)) continue;
 
-        const subId = sub.subscriptionId ?? sub.id;
-        // 1. Mandatory ID evidence
-        if (subId == null || !Number.isInteger(Number(subId)) || Number(subId) <= 0) {
-          return false;
-        }
+    const rawId = inv.id ?? inv.invoiceId;
+    const hasValidId = rawId != null && Number.isInteger(Number(rawId)) && Number(rawId) > 0;
 
-        // 2. Exclude pre-existing subscriptions belonging to earlier attempts
-        if (knownSubSet.size > 0 && knownSubSet.has(String(subId))) {
-          return false;
-        }
+    // RULE: Do NOT exclude an old record from baseline unless it has a valid ID to correlate
+    if (hasValidId && knownInvSet.size > 0 && knownInvSet.has(String(rawId))) {
+      // Confirmed pre-existing baseline invoice belonging to prior attempt
+      continue;
+    }
 
-        // 3. Mandatory time evidence
-        if (attemptStartedAt != null) {
-          const rawTime = sub.createdAt || sub.createdDate || sub.startDate;
-          if (!rawTime) {
-            return false;
-          }
-          const subTime = new Date(rawTime).getTime();
-          if (Number.isNaN(subTime) || subTime < attemptStartedAt - 5000) {
-            return false;
-          }
-        }
+    if (!hasValidId) {
+      // Related record exists on server, but lacks a valid positive integer ID -> ambiguous
+      ambiguousInvoices.push({ inv, reason: 'missing_or_invalid_id' });
+      continue;
+    }
 
-        return true;
-      })
-    : [];
+    const rawTime = inv.createdAt || inv.createdDate || inv.issueDate || inv.date;
+    const invTime = getFinitePositiveTime(rawTime);
 
-  // Ambiguity check 1: Multiple competing new records for the same package
-  if (matchingInvoices.length > 1 || matchingSubs.length > 1) {
+    if (invTime == null) {
+      // Related record exists on server and not in baseline, but lacks valid finite timestamp evidence -> ambiguous
+      ambiguousInvoices.push({ inv, reason: 'missing_or_invalid_timestamp' });
+      continue;
+    }
+
+    if (invTime < attemptTime - 5000) {
+      // Confirmed stale record created prior to attempt window -> ignore from current attempt
+      continue;
+    }
+
+    validNewInvoices.push(inv);
+  }
+
+  const validNewSubs = [];
+  const ambiguousSubs = [];
+
+  for (const sub of rawSubs) {
+    if (!isRelatedSubscription(sub)) continue;
+
+    const rawId = sub.subscriptionId ?? sub.id;
+    const hasValidId = rawId != null && Number.isInteger(Number(rawId)) && Number(rawId) > 0;
+
+    // RULE: Do NOT exclude an old record from baseline unless it has a valid ID to correlate
+    if (hasValidId && knownSubSet.size > 0 && knownSubSet.has(String(rawId))) {
+      // Confirmed pre-existing baseline subscription belonging to prior attempt
+      continue;
+    }
+
+    if (!hasValidId) {
+      // Related record exists on server, but lacks a valid positive integer ID -> ambiguous
+      ambiguousSubs.push({ sub, reason: 'missing_or_invalid_id' });
+      continue;
+    }
+
+    const rawTime = sub.createdAt || sub.createdDate || sub.startDate;
+    const subTime = getFinitePositiveTime(rawTime);
+
+    if (subTime == null) {
+      // Related record exists on server and not in baseline, but lacks valid finite timestamp evidence -> ambiguous
+      ambiguousSubs.push({ sub, reason: 'missing_or_invalid_timestamp' });
+      continue;
+    }
+
+    if (subTime < attemptTime - 5000) {
+      // Confirmed stale record created prior to attempt window -> ignore from current attempt
+      continue;
+    }
+
+    validNewSubs.push(sub);
+  }
+
+  // Ambiguity Check 1: Defective candidate records present (missing ID, missing time, or non-finite timestamp)
+  // When records exist for the package/status but lack valid ID or timestamp, return ambiguous (confirmed: false, isAmbiguous: true)
+  // instead of falsely claiming not found.
+  if (ambiguousInvoices.length > 0 || ambiguousSubs.length > 0) {
+    const primaryAmbiguous = ambiguousInvoices[0] || ambiguousSubs[0];
+    return {
+      reconciled: true,
+      foundOnServer: true,
+      confirmed: false,
+      isAmbiguous: true,
+      ambiguityReason: primaryAmbiguous.reason === 'missing_or_invalid_id'
+        ? 'insufficient_identifiers'
+        : 'missing_or_invalid_timestamp',
+      invoice: validNewInvoices[0] || ambiguousInvoices[0]?.inv || null,
+      subscription: validNewSubs[0] || ambiguousSubs[0]?.sub || null,
+      invoiceId: validNewInvoices[0] ? (validNewInvoices[0].id ?? validNewInvoices[0].invoiceId) : null,
+      subscriptionId: validNewSubs[0] ? (validNewSubs[0].subscriptionId ?? validNewSubs[0].id) : null,
+    };
+  }
+
+  // Ambiguity Check 2: Multiple competing new records for the same package
+  if (validNewInvoices.length > 1 || validNewSubs.length > 1) {
     return {
       reconciled: true,
       foundOnServer: true,
@@ -332,10 +432,8 @@ export const reconcileIncompleteOrder = ({
     };
   }
 
-  const matchingInvoice = matchingInvoices[0] || null;
-  const matchingSub = matchingSubs[0] || null;
-
-  if (!matchingInvoice && !matchingSub) {
+  // Outcome 3: No new records and no ambiguous records found (all were confirmed baseline or none existed)
+  if (validNewInvoices.length === 0 && validNewSubs.length === 0) {
     return {
       reconciled: true,
       foundOnServer: false,
@@ -348,28 +446,31 @@ export const reconcileIncompleteOrder = ({
     };
   }
 
-  const invId = matchingInvoice ? (matchingInvoice.id ?? matchingInvoice.invoiceId) : null;
-  const subId = matchingSub ? (matchingSub.subscriptionId ?? matchingSub.id) : null;
-
-  const hasValidInvId = invId != null && Number.isInteger(Number(invId)) && Number(invId) > 0;
-  const hasValidSubId = subId != null && Number.isInteger(Number(subId)) && Number(subId) > 0;
-
-  // Ambiguity check 2: Lacks sufficient confirmed identifiers
-  if (!hasValidInvId && !hasValidSubId) {
+  // Outcome 4: Incomplete pair (only valid invoice or only valid subscription found)
+  if (validNewInvoices.length === 0 || validNewSubs.length === 0) {
+    const matchingInvoice = validNewInvoices[0] || null;
+    const matchingSub = validNewSubs[0] || null;
+    const invId = matchingInvoice ? (matchingInvoice.id ?? matchingInvoice.invoiceId) : null;
+    const subId = matchingSub ? (matchingSub.subscriptionId ?? matchingSub.id) : null;
     return {
       reconciled: true,
       foundOnServer: true,
       confirmed: false,
       isAmbiguous: true,
-      ambiguityReason: 'insufficient_identifiers',
+      ambiguityReason: 'missing_counterpart_record',
       invoice: matchingInvoice,
       subscription: matchingSub,
-      invoiceId: null,
-      subscriptionId: null,
+      invoiceId: invId != null ? Number(invId) : null,
+      subscriptionId: subId != null ? Number(subId) : null,
     };
   }
 
-  // Clear, non-ambiguous confirmed record found
+  // Outcome 5: Both valid invoice and subscription confirmed with valid identifiers and finite timestamps
+  const matchingInvoice = validNewInvoices[0];
+  const matchingSub = validNewSubs[0];
+  const invId = matchingInvoice.id ?? matchingInvoice.invoiceId;
+  const subId = matchingSub.subscriptionId ?? matchingSub.id;
+
   return {
     reconciled: true,
     foundOnServer: true,
@@ -377,8 +478,8 @@ export const reconcileIncompleteOrder = ({
     isAmbiguous: false,
     invoice: matchingInvoice,
     subscription: matchingSub,
-    invoiceId: hasValidInvId ? Number(invId) : null,
-    subscriptionId: hasValidSubId ? Number(subId) : null,
+    invoiceId: Number(invId),
+    subscriptionId: Number(subId),
   };
 };
 
@@ -474,4 +575,270 @@ export const isPaymentModalMutationLocked = (apiEnabled, harnessFlag, options = 
   }
 
   return harnessFlag !== 'true';
+};
+
+/**
+ * Shared executor for direct member subscription submissions.
+ * Used by MyMembershipView and tested directly to verify:
+ * 1. Synchronous mutex lock preventing duplicate POSTs in the same tick.
+ * 2. Fail-closed pre-POST invoice baseline check (stops before POST with 0 POSTs on error).
+ * 3. GET reconciliation upon network timeout or POST error.
+ * 4. Confirmation only when both invoice and subscription exist with valid identifiers.
+ */
+export const executeDirectSubscriptionSubmit = async ({
+  submittingRef,
+  memberProfileId,
+  selectedPackageId,
+  hasAuthoritativeMemberId = true,
+  isMemberMutationLocked = false,
+  apiEnabled = false,
+  paymentMethod = 'cash',
+  subNotes = '',
+  activeSubscription = null,
+  language = 'vi',
+  currentMember = null,
+  contextPackages = [],
+  contextPayments = [],
+  apis = {},
+  callbacks = {},
+  createMockPendingPaymentFn = null,
+}) => {
+  // 1. Synchronous mutex lock to prevent concurrent or duplicate handler invocation
+  if (submittingRef?.current) {
+    return { executed: false, blockedByMutex: true };
+  }
+  if (submittingRef) {
+    submittingRef.current = true;
+  }
+
+  // 2. Form preflight input validation before engaging submitting state
+  const preflight = validateDirectSubscriptionPreflight({
+    memberProfileId,
+    selectedPackageId,
+    hasAuthoritativeMemberId,
+    language,
+  });
+
+  if (!preflight.ok) {
+    if (submittingRef) submittingRef.current = false;
+    callbacks.setSubmitError?.(preflight.error);
+    return { executed: false, error: preflight.error };
+  }
+
+  // 3. Strict mutation lock: keep direct POST to Render strictly locked
+  if (isMemberMutationLocked) {
+    if (submittingRef) submittingRef.current = false;
+    const lockMsg =
+      language === 'vi'
+        ? 'Thao tác đăng ký trực tuyến từ phía hội viên tạm thời bị khóa: Backend chưa xác nhận tài khoản/hồ sơ test được phép phát sinh giao dịch và cấu hình sandbox. Vui lòng thanh toán tại quầy Tiếp tân.'
+        : 'Direct member subscription is locked: Waiting for Backend confirmation of test profile permissions and sandbox configuration. Please pay at the reception desk.';
+    callbacks.setSubmitError?.(lockMsg);
+    return { executed: false, error: lockMsg };
+  }
+
+  callbacks.setSubmitting?.(true);
+  callbacks.setSubmitError?.(null);
+
+  const numericPkgId = preflight.numericPackageId;
+
+  if (apiEnabled) {
+    const membershipApiInstance = apis.membershipApi || membershipApi;
+    const invoiceApiInstance = apis.invoiceApi || invoiceApi;
+
+    try {
+      // Step A: fetch existing subscriptions
+      let existingSubs;
+      try {
+        existingSubs = await membershipApiInstance.getMemberSubscriptions(memberProfileId);
+      } catch (getErr) {
+        throw new Error(
+          language === 'vi'
+            ? `Không thể kiểm tra đăng ký hiện tại (${getErrorMessage(getErr, 'Lỗi kết nối')}). Thao tác tạm dừng để đảm bảo an toàn.`
+            : `Failed to verify existing subscriptions (${getErrorMessage(getErr, 'Network error')}). Operation halted for safety.`
+        );
+      }
+
+      const knownSubscriptionIds = (existingSubs || [])
+        .map((sub) => sub.subscriptionId ?? sub.id)
+        .filter(Boolean);
+
+      // Step B: safety check against existing active/pending registrations
+      const safetyCheck = reconcileAndVerifySubscriptionSafety({
+        existingSubscriptions: existingSubs,
+        targetPackageId: numericPkgId,
+        language,
+      });
+
+      if (!safetyCheck.allowed) {
+        throw new Error(safetyCheck.error);
+      }
+
+      // Step C: Query fresh invoice baseline IMMEDIATELY before POST
+      // Fail-closed: If GET baseline fails, STOP immediately before POST, NEVER fallback to cache!
+      let baselineInvoices;
+      try {
+        baselineInvoices = await invoiceApiInstance.getMemberOwnInvoices();
+      } catch (invErr) {
+        throw new Error(
+          language === 'vi'
+            ? `Không thể kiểm tra hóa đơn hiện tại (${getErrorMessage(invErr, 'Lỗi kết nối')}). Thao tác tạm dừng để đảm bảo an toàn.`
+            : `Failed to verify existing invoices (${getErrorMessage(invErr, 'Network error')}). Operation halted for safety.`
+        );
+      }
+
+      const knownInvoiceIds = (baselineInvoices || [])
+        .map((inv) => inv.id ?? inv.invoiceId)
+        .filter(Boolean);
+      const attemptStartedAt = Date.now();
+
+      // Step D: Submit via subscribeMe (OpenAPI POST /api/members/me/subscriptions)
+      const payload = {
+        packageId: numericPkgId,
+        paymentMethod: paymentMethod.toUpperCase(),
+        isRenewal: Boolean(activeSubscription),
+        notes: (subNotes || '').trim() || undefined,
+      };
+
+      let result;
+      try {
+        result = await membershipApiInstance.subscribeMe(payload);
+      } catch (postErr) {
+        // Step E: Timeout / POST failure -> perform GET reconciliation before allowing retry
+        let reconciledState = null;
+        try {
+          const [freshInvs, freshSubs] = await Promise.all([
+            invoiceApiInstance.getMemberOwnInvoices(),
+            membershipApiInstance.getMemberSubscriptions(memberProfileId),
+          ]);
+          reconciledState = reconcileIncompleteOrder({
+            targetPackageId: numericPkgId,
+            invoices: freshInvs,
+            subscriptions: freshSubs,
+            attemptStartedAt,
+            knownInvoiceIds,
+            knownSubscriptionIds,
+          });
+        } catch {
+          // Reconciliation query failed
+        }
+
+        // Only confirm if BOTH invoice and subscription are present with valid identifiers
+        if (
+          reconciledState?.foundOnServer &&
+          reconciledState?.confirmed &&
+          !reconciledState?.isAmbiguous
+        ) {
+          setStoredPendingOrder(memberProfileId, {
+            memberId: memberProfileId,
+            subscriptionId: reconciledState.subscriptionId,
+            invoiceId: reconciledState.invoiceId,
+            invoiceCode: reconciledState.invoice?.invoiceCode,
+            amount: reconciledState.invoice?.amount,
+            packageId: numericPkgId,
+            paymentMethod,
+          });
+          callbacks.showToast?.(
+            language === 'vi'
+              ? `Yêu cầu đã được ghi nhận trên máy chủ (Mã HĐ: #${reconciledState.invoice?.invoiceCode || reconciledState.invoiceId}). Vui lòng không gửi lại.`
+              : `Subscription already recorded on server (Invoice #${reconciledState.invoice?.invoiceCode || reconciledState.invoiceId}). Please do not resubmit.`,
+            'info'
+          );
+          callbacks.setIsSubscribeModalOpen?.(false);
+          callbacks.setSubNotes?.('');
+          await callbacks.fetchMemberData?.();
+          return { executed: true, success: true, reconciled: true, order: reconciledState };
+        }
+
+        if (
+          reconciledState?.isAmbiguous ||
+          (reconciledState?.foundOnServer && !reconciledState?.confirmed)
+        ) {
+          // Ambiguous state (e.g. only 1 record found or missing timestamp evidence):
+          // keep safe state, do not claim success, instruct user to check history
+          const ambiguousMsg =
+            language === 'vi'
+              ? 'Giao dịch chưa xác định rõ kết quả trên máy chủ. Đơn có thể đã được tiếp nhận một phần; để đảm bảo an toàn, vui lòng không gửi lại và kiểm tra lịch sử hóa đơn hoặc liên hệ quầy Tiếp tân.'
+              : 'Transaction outcome on server is ambiguous. Please do not retry; verify invoice history or contact reception desk.';
+          callbacks.setSubmitError?.(ambiguousMsg);
+          return {
+            executed: true,
+            success: false,
+            ambiguous: true,
+            reconciledState,
+            error: ambiguousMsg,
+          };
+        }
+
+        throw postErr;
+      }
+
+      // Normal POST success
+      setStoredPendingOrder(memberProfileId, {
+        memberId: memberProfileId,
+        subscriptionId: result?.subscriptionId,
+        invoiceId: result?.invoiceId,
+        invoiceCode: result?.invoiceCode,
+        amount: result?.amount,
+        packageId: numericPkgId,
+        paymentMethod: result?.paymentMethod || paymentMethod,
+        paymentUrl: result?.paymentUrl || null,
+      });
+
+      callbacks.showToast?.(
+        language === 'vi'
+          ? 'Đăng ký gói thành công! Vui lòng hoàn tất thanh toán hóa đơn để kích hoạt.'
+          : 'Package registered! Please complete invoice payment to activate.',
+        'success'
+      );
+
+      callbacks.setIsSubscribeModalOpen?.(false);
+      callbacks.setSubNotes?.('');
+      await callbacks.fetchMemberData?.();
+      return { executed: true, success: true, reconciled: false, result };
+    } catch (err) {
+      const errMsg = getErrorMessage(
+        err,
+        language === 'vi'
+          ? 'Không thể hoàn tất đăng ký gói. Đơn có thể đã được tạo; vui lòng kiểm tra lịch sử hóa đơn trước khi thử lại.'
+          : 'Failed to complete registration. Please check invoice history before retrying.'
+      );
+      callbacks.setSubmitError?.(errMsg);
+      return { executed: true, success: false, error: errMsg };
+    } finally {
+      if (submittingRef) submittingRef.current = false;
+      callbacks.setSubmitting?.(false);
+    }
+  } else {
+    if (submittingRef) submittingRef.current = false;
+    const chosenPkg = (contextPackages || []).find(
+      (p) => String(p.id) === String(selectedPackageId)
+    );
+    const mockFn = createMockPendingPaymentFn || createMockPendingPayment;
+    const result = mockFn
+      ? mockFn(
+          {
+            member: currentMember,
+            pkg: chosenPkg,
+            method: paymentMethod,
+            notes: (subNotes || '').trim(),
+          },
+          contextPayments
+        )
+      : { ok: false, error: 'Mock payment handler unavailable' };
+
+    if (!result.ok) {
+      callbacks.setSubmitError?.(result.error);
+      callbacks.setSubmitting?.(false);
+      return { executed: true, success: false, error: result.error };
+    }
+    callbacks.showToast?.(
+      language === 'vi'
+        ? 'Đã ghi nhận yêu cầu đăng ký gói. Vui lòng hoàn tất thanh toán tại quầy.'
+        : 'Membership request recorded. Please complete payment at the desk.',
+      'info'
+    );
+    callbacks.setIsSubscribeModalOpen?.(false);
+    callbacks.setSubmitting?.(false);
+    return { executed: true, success: true, mockResult: result };
+  }
 };
