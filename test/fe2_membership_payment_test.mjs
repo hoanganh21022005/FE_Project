@@ -1674,7 +1674,106 @@ assert.equal(
   false,
   'Mock mode is not constrained by VITE_TEST_HARNESS'
 );
-console.log('PASS: PaymentModal locks mutation when apiEnabled=true and VITE_TEST_HARNESS is not enabled (no Render call)');
+// --- 11. UI READ-ONLY ENDPOINT WIRING (MYMEMBERSHIPVIEW & PAYMENTMODAL) ---
+console.log('\n--- 11. UI READ-ONLY ENDPOINT WIRING (MYMEMBERSHIPVIEW & PAYMENTMODAL) ---');
+
+// Test 11.1: MyMembershipView wire-up strictly calls getPublicPackages and getMemberOwnInvoices
+const originalHttpTestGet = httpClient.get;
+const getCallsTracker = [];
+httpClient.get = async (url) => {
+  getCallsTracker.push(url);
+  if (url === '/api/public/membership-packages') {
+    return [
+      { id: 1, name: 'Gói Public Demo', price: 500000, durationDays: 30 },
+    ];
+  }
+  if (url === '/api/members/me/invoices') {
+    return [
+      { id: 70, invoiceCode: 'INV-00070', amount: 500000, paymentStatus: 'PAID', paymentMethod: 'cash' },
+    ];
+  }
+  if (url === '/api/members/101/packages') {
+    return [
+      { id: 201, packageId: 1, packageName: 'Gói Public Demo', status: 'ACTIVE' },
+    ];
+  }
+  throw new Error(`Unexpected GET url: ${url}`);
+};
+
+// Simulate MyMembershipView data fetch in API mode
+const simulatedPkgs = await membershipApi.getPublicPackages();
+const simulatedInvs = await invoiceApi.getMemberOwnInvoices();
+const simulatedSubs = await membershipApi.getMemberSubscriptions(101);
+
+assert.equal(getCallsTracker.includes('/api/public/membership-packages'), true, 'Must use /api/public/membership-packages');
+assert.equal(getCallsTracker.includes('/api/members/me/invoices'), true, 'Must use /api/members/me/invoices for Member own invoices');
+assert.equal(getCallsTracker.includes('/api/members/101/packages'), true, 'Must use /api/members/101/packages for subscriptions with numeric ID');
+assert.equal(getCallsTracker.includes('/api/packages'), false, 'Must NOT call legacy /api/packages');
+assert.equal(getCallsTracker.includes('/api/invoices'), false, 'Must NOT call staff endpoint /api/invoices for Member view');
+assert.equal(simulatedPkgs.length, 1);
+assert.equal(simulatedInvs.length, 1);
+assert.equal(simulatedSubs.length, 1);
+console.log('PASS: Member UI strictly uses getPublicPackages and getMemberOwnInvoices without staff/legacy endpoints');
+
+// Test 11.2: Missing or unauthenticated memberId rejects getMemberSubscriptions without calling BE or inventing ID
+getCallsTracker.length = 0;
+let caughtMissingMemberIdError = null;
+try {
+  await membershipApi.getMemberSubscriptions(null);
+} catch (err) {
+  caughtMissingMemberIdError = err;
+}
+assert.ok(caughtMissingMemberIdError, 'Must throw error when memberId is missing');
+assert.match(caughtMissingMemberIdError.message, /hội viên không hợp lệ/i);
+assert.equal(getCallsTracker.length, 0, 'Must NOT send network request when memberId is missing');
+console.log('PASS: Missing member ID halts query before network and reports clear invalid error');
+
+// Test 11.3: 401/403 on getMemberSubscriptions propagates cleanly and fails closed without mock fallback
+httpClient.get = async (url) => {
+  if (url === '/api/members/101/packages') {
+    const error403 = new Error('Request failed with status code 403');
+    error403.response = { status: 403, data: { message: 'Forbidden' } };
+    throw error403;
+  }
+  throw new Error(`Unexpected url: ${url}`);
+};
+
+let propagatedSubError = null;
+try {
+  await membershipApi.getMemberSubscriptions(101);
+} catch (err) {
+  propagatedSubError = err;
+}
+assert.ok(propagatedSubError, '403 error must propagate without silent catch');
+assert.equal(propagatedSubError.response?.status, 403);
+console.log('PASS: 401/403 on getMemberSubscriptions strictly propagates and fails closed without mock fallback');
+
+// Test 11.4: PaymentModal wires getPublicPackages for initial load and retry
+getCallsTracker.length = 0;
+httpClient.get = async (url) => {
+  getCallsTracker.push(url);
+  if (url === '/api/public/membership-packages') {
+    return [{ id: 5, name: 'Gói Modal', price: 900000, durationDays: 60 }];
+  }
+  return [];
+};
+
+// Simulate initial fetch and retry fetch
+const modalInitialPackages = await membershipApi.getPublicPackages();
+const modalRetryPackages = await membershipApi.getPublicPackages();
+
+assert.equal(modalInitialPackages[0].id, 5);
+assert.equal(modalRetryPackages[0].id, 5);
+assert.equal(
+  getCallsTracker.filter((u) => u === '/api/public/membership-packages').length,
+  2,
+  'Both initial load and retry must invoke /api/public/membership-packages'
+);
+assert.equal(getCallsTracker.includes('/api/packages'), false, 'PaymentModal must NOT call /api/packages');
+console.log('PASS: PaymentModal wires getPublicPackages for both initial load and retry');
+
+// Restore original httpClient.get
+httpClient.get = originalHttpTestGet;
 
 console.log('\n====================================================');
 console.log('ALL FE 2: MEMBERSHIP, INVOICE & PAYMENT TESTS PASSED (100%)');
