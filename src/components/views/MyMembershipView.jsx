@@ -16,6 +16,7 @@ import {
   getStoredPendingOrder,
   setStoredPendingOrder,
   clearStoredPendingOrder,
+  clearAllStoredPendingOrdersExcept,
 } from '../../utils/memberSafetyHelpers';
 import {
   Award,
@@ -71,6 +72,13 @@ export function MyMembershipView() {
   const rawMember = resolveCurrentMemberProfile({ currentUser, contextMembers, apiEnabled });
   const currentMember = apiEnabled ? rawMember : deriveMockMemberProfile(rawMember, contextPayments);
   const memberProfileId = apiEnabled ? authoritativeMemberId : (currentMember?.id ?? 1);
+
+  // Clear pending orders belonging to other accounts when switching members
+  useEffect(() => {
+    if (memberProfileId) {
+      clearAllStoredPendingOrdersExcept(memberProfileId);
+    }
+  }, [memberProfileId]);
 
   // API State
   const [loading, setLoading] = useState(false);
@@ -187,12 +195,12 @@ export function MyMembershipView() {
 
   const isMemberMutationLocked = isDirectSubscriptionLocked(apiEnabled, import.meta.env.VITE_TEST_HARNESS);
 
-  // Derive active pending invoice from BE invoices or sessionStorage
+  // Derive active pending invoice from BE invoices or sessionStorage (strictly partitioned by memberProfileId)
   const pendingInvoice = useMemo(() => {
     if (apiEnabled) {
       const fromBE = invoices.find((inv) => inv.paymentStatus === 'pending');
       if (fromBE) return fromBE;
-      const stored = getStoredPendingOrder();
+      const stored = getStoredPendingOrder(memberProfileId);
       if (stored) {
         // If stored invoice is now paid in BE invoices, clear storage
         const matchingPaid = invoices.find(
@@ -201,7 +209,7 @@ export function MyMembershipView() {
             inv.paymentStatus === 'paid'
         );
         if (matchingPaid) {
-          clearStoredPendingOrder();
+          clearStoredPendingOrder(memberProfileId);
           return null;
         }
         // If stored invoice is expired, clear storage
@@ -211,7 +219,7 @@ export function MyMembershipView() {
             inv.paymentStatus === 'expired'
         );
         if (matchingExpired) {
-          clearStoredPendingOrder();
+          clearStoredPendingOrder(memberProfileId);
           return null;
         }
         return stored;
@@ -221,25 +229,33 @@ export function MyMembershipView() {
       const mockPending = mockPayments.find((p) => p.status === 'pending');
       return mockPending || null;
     }
-  }, [apiEnabled, invoices, mockPayments]);
+  }, [apiEnabled, invoices, mockPayments, memberProfileId]);
 
   // Handle Subscribe / Renew Submit
   const handleSubscribeSubmit = async (e) => {
     e?.preventDefault?.();
     if (submitting) return;
 
-    // 1. Preflight validation before engaging submitting state
+    // 1. Form preflight input validation before engaging submitting state
     const preflight = validateDirectSubscriptionPreflight({
       memberProfileId,
       selectedPackageId,
       hasAuthoritativeMemberId,
-      apiEnabled,
-      harnessFlag: import.meta.env.VITE_TEST_HARNESS,
       language,
     });
 
     if (!preflight.ok) {
       setSubmitError(preflight.error);
+      return;
+    }
+
+    // 2. Strict mutation lock: keep direct POST to Render strictly locked
+    if (isMemberMutationLocked) {
+      setSubmitError(
+        language === 'vi'
+          ? 'Thao tác đăng ký trực tuyến từ phía hội viên tạm thời bị khóa: Backend chưa xác nhận tài khoản/hồ sơ test được phép phát sinh giao dịch và cấu hình sandbox. Vui lòng thanh toán tại quầy Tiếp tân.'
+          : 'Direct member subscription is locked: Waiting for Backend confirmation of test profile permissions and sandbox configuration. Please pay at the reception desk.'
+      );
       return;
     }
 
@@ -250,7 +266,11 @@ export function MyMembershipView() {
 
     if (apiEnabled) {
       try {
-        // 2. Safe read-before-write: fetch existing subscriptions on BE to prevent duplicate registration
+        // Snapshot attempt baseline to strictly scope GET reconciliation to the current attempt
+        const attemptStartedAt = Date.now();
+        const knownInvoiceIds = (invoices || []).map((inv) => inv.id ?? inv.invoiceId).filter(Boolean);
+
+        // 3. Safe read-before-write: fetch existing subscriptions on BE to prevent duplicate registration
         let existingSubs;
         try {
           existingSubs = await membershipApi.getMemberSubscriptions(memberProfileId);
@@ -262,7 +282,9 @@ export function MyMembershipView() {
           );
         }
 
-        // 3. Reconcile safety against existing active/pending records
+        const knownSubscriptionIds = (existingSubs || []).map((sub) => sub.subscriptionId ?? sub.id).filter(Boolean);
+
+        // 4. Reconcile safety against existing active/pending records
         const safetyCheck = reconcileAndVerifySubscriptionSafety({
           existingSubscriptions: existingSubs,
           targetPackageId: numericPkgId,
@@ -273,7 +295,7 @@ export function MyMembershipView() {
           throw new Error(safetyCheck.error);
         }
 
-        // 4. Submit via subscribeMe (OpenAPI POST /api/members/me/subscriptions)
+        // 5. Submit via subscribeMe (OpenAPI POST /api/members/me/subscriptions)
         const payload = {
           packageId: numericPkgId,
           paymentMethod: paymentMethod.toUpperCase(),
@@ -296,13 +318,17 @@ export function MyMembershipView() {
               targetPackageId: numericPkgId,
               invoices: freshInvs,
               subscriptions: freshSubs,
+              attemptStartedAt,
+              knownInvoiceIds,
+              knownSubscriptionIds,
             });
           } catch {
             // reconciliation query failed
           }
 
           if (reconciledState?.foundOnServer) {
-            setStoredPendingOrder({
+            setStoredPendingOrder(memberProfileId, {
+              memberId: memberProfileId,
               subscriptionId: reconciledState.subscriptionId,
               invoiceId: reconciledState.invoiceId,
               invoiceCode: reconciledState.invoice?.invoiceCode,
@@ -325,7 +351,8 @@ export function MyMembershipView() {
           throw postErr;
         }
 
-        setStoredPendingOrder({
+        setStoredPendingOrder(memberProfileId, {
+          memberId: memberProfileId,
           subscriptionId: result?.subscriptionId,
           invoiceId: result?.invoiceId,
           invoiceCode: result?.invoiceCode,

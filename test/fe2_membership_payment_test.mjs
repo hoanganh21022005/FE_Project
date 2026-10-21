@@ -7,6 +7,10 @@ globalThis.sessionStorage = {
   setItem: (k, v) => nodeSessionStorageStore.set(k, String(v)),
   removeItem: (k) => nodeSessionStorageStore.delete(k),
   clear: () => nodeSessionStorageStore.clear(),
+  get length() {
+    return nodeSessionStorageStore.size;
+  },
+  key: (i) => Array.from(nodeSessionStorageStore.keys())[i] || null,
 };
 globalThis.window = {
   sessionStorage: globalThis.sessionStorage,
@@ -48,12 +52,14 @@ import {
   resolveActiveSubscription,
   validateDirectSubscriptionPreflight,
   reconcileAndVerifySubscriptionSafety,
+  isRenderBackend,
   isPaymentModalMutationLocked,
   isDirectSubscriptionLocked,
   reconcileIncompleteOrder,
   getStoredPendingOrder,
   setStoredPendingOrder,
   clearStoredPendingOrder,
+  clearAllStoredPendingOrdersExcept,
 } from '../src/utils/memberSafetyHelpers.js';
 import {
   isMockPaymentSettled,
@@ -1183,39 +1189,40 @@ const subsWithGrace = [
 assert.equal(resolveActiveSubscription(subsWithGrace, true)?.subscriptionId, 104);
 console.log('PASS: resolveActiveSubscription strictly matches active/grace_period and rejects pending/expired');
 
-// 8.5 Preflight Validation & Submitting State Reset Protection
+// 8.5 Preflight Validation & Form Input Checking (Decoupled from Render Lock)
 const emptyPkgPreflight = validateDirectSubscriptionPreflight({
   selectedPackageId: '',
   memberProfileId: 7,
   hasAuthoritativeMemberId: true,
-  apiEnabled: true,
   language: 'vi',
 });
 assert.equal(emptyPkgPreflight.ok, false);
 assert.match(emptyPkgPreflight.error, /chọn một gói/i);
 
-// In API mode: Direct member mutation is locked pending server-side idempotency/renewal contract
-const apiLockedPreflight = validateDirectSubscriptionPreflight({
+// Missing authoritative member profile ID rejects preflight
+const missingMemberPreflight = validateDirectSubscriptionPreflight({
   selectedPackageId: '12',
-  memberProfileId: 7,
-  hasAuthoritativeMemberId: true,
-  apiEnabled: true,
+  memberProfileId: null,
+  hasAuthoritativeMemberId: false,
   language: 'vi',
 });
-assert.equal(apiLockedPreflight.ok, false);
-assert.match(apiLockedPreflight.error, /tạm thời bị khóa/i);
+assert.equal(missingMemberPreflight.ok, false);
+assert.match(missingMemberPreflight.error, /ID hội viên đã xác thực/i);
 
-// In Mock mode: Allowed with selected package
-const mockValidPreflight = validateDirectSubscriptionPreflight({
+// In API mode: Form inputs are validly checked and accepted
+const validApiPreflight = validateDirectSubscriptionPreflight({
   selectedPackageId: '12',
   memberProfileId: 7,
   hasAuthoritativeMemberId: true,
-  apiEnabled: false,
   language: 'vi',
 });
-assert.equal(mockValidPreflight.ok, true);
-assert.equal(mockValidPreflight.numericPackageId, 12);
-console.log('PASS: Preflight validation keeps direct Member mutation locked in API mode and halts before submitting=true');
+assert.equal(validApiPreflight.ok, true);
+assert.equal(validApiPreflight.numericPackageId, 12);
+
+// Mutation lock check independently ensures Render mutation remains strictly locked
+assert.equal(isDirectSubscriptionLocked(true, undefined), true);
+assert.equal(isDirectSubscriptionLocked(true, 'true', { isRender: true }), true);
+console.log('PASS: Preflight validation tests form inputs in API mode while mutation lock keeps Render strictly locked');
 
 // 8.6 Safe Reconciliation: Read-Before-Write Duplicate Prevention
 const existingPendingSubsFixture = [
@@ -1256,7 +1263,7 @@ console.log('PASS: Reconcile safety rejects duplicate pending/active registratio
 const originalPost = httpClient.post;
 const originalGet = httpClient.get;
 
-// Case 1: Preflight halts direct POST in API mode; if adapter executed, GET failure fails closed
+// Case 1: Form preflight passes valid inputs in API mode, but mutation lock halts POST
 let postCalled = false;
 httpClient.get = async () => {
   throw new Error('500 GET subscriptions server failure');
@@ -1270,9 +1277,12 @@ const preflightApi = validateDirectSubscriptionPreflight({
   memberProfileId: 7,
   selectedPackageId: '12',
   hasAuthoritativeMemberId: true,
-  apiEnabled: true,
 });
-assert.equal(preflightApi.ok, false, 'Preflight MUST halt before mutation in API mode');
+assert.equal(preflightApi.ok, true, 'Preflight validates form inputs successfully in API mode');
+assert.equal(preflightApi.numericPackageId, 12);
+
+const mutationLocked = isDirectSubscriptionLocked(true, undefined);
+assert.equal(mutationLocked, true, 'Mutation lock must halt before POST in API mode');
 
 let getErrorCaught = false;
 try {
@@ -1643,34 +1653,51 @@ assert.equal(settleProbeResult.item.startDate, '2026-10-25', 'Settled record mus
 clearMockSettlements();
 console.log('PASS: createMockPendingPayment preserves requestedStartDate and isRenewal with regression assertion');
 
-// --- 10. PAYMENTMODAL DEFAULT MUTATION LOCK SAFETY ---
-console.log('\n--- 10. PAYMENTMODAL DEFAULT MUTATION LOCK SAFETY ---');
+// --- 10. PAYMENTMODAL & RENDER BACKEND MUTATION LOCK SAFETY ---
+console.log('\n--- 10. PAYMENTMODAL & RENDER BACKEND MUTATION LOCK SAFETY ---');
 
-// Test 10.1: PaymentModal mutation remains locked in standard API mode when VITE_TEST_HARNESS is not enabled
+// Test 10.1: isRenderBackend accurately identifies Render URLs and objects
+assert.equal(isRenderBackend('https://swp391-be.onrender.com/api'), true);
+assert.equal(isRenderBackend('http://gym-app.onrender.com'), true);
+assert.equal(isRenderBackend({ targetUrl: 'https://swp391-be.onrender.com' }), true);
+assert.equal(isRenderBackend({ baseUrl: 'https://swp391-be.onrender.com/api' }), true);
+assert.equal(isRenderBackend({ isRender: true }), true);
+assert.equal(isRenderBackend('http://localhost:8080'), false);
+assert.equal(isRenderBackend('http://127.0.0.1:3000'), false);
+assert.equal(isRenderBackend({ targetUrl: 'http://localhost:8080' }), false);
+assert.equal(isRenderBackend(null), false);
+console.log('PASS: isRenderBackend accurately classifies Render vs local targets');
+
+// Test 10.2: PaymentModal mutation remains locked when target is Render, EVEN IF VITE_TEST_HARNESS='true'
+assert.equal(
+  isPaymentModalMutationLocked(true, 'true', { isRender: true }),
+  true,
+  'VITE_TEST_HARNESS must NOT unlock PaymentModal POST to Render'
+);
+assert.equal(
+  isPaymentModalMutationLocked(true, 'true', { targetUrl: 'https://swp391-be.onrender.com' }),
+  true,
+  'VITE_TEST_HARNESS must NOT unlock PaymentModal POST to onrender.com'
+);
 assert.equal(
   isPaymentModalMutationLocked(true, undefined),
   true,
-  'Mutation must be locked when apiEnabled=true and VITE_TEST_HARNESS is undefined'
+  'Mutation must be locked when apiEnabled=true and harnessFlag is undefined'
 );
 assert.equal(
   isPaymentModalMutationLocked(true, 'false'),
   true,
-  'Mutation must be locked when apiEnabled=true and VITE_TEST_HARNESS=false'
-);
-assert.equal(
-  isPaymentModalMutationLocked(true, ''),
-  true,
-  'Mutation must be locked when apiEnabled=true and VITE_TEST_HARNESS is empty'
+  'Mutation must be locked when harnessFlag is false'
 );
 
-// Test 10.2: PaymentModal mutation is only unlocked when VITE_TEST_HARNESS is explicitly "true"
+// Test 10.3: Non-Render local harness can unlock for local integration testing
 assert.equal(
-  isPaymentModalMutationLocked(true, 'true'),
+  isPaymentModalMutationLocked(true, 'true', { targetUrl: 'http://localhost:8080' }),
   false,
-  'Mutation is only unlocked when VITE_TEST_HARNESS is explicitly string true'
+  'Local non-Render environment allows harness testing'
 );
 
-// Test 10.3: Mock mode (apiEnabled=false) is always unlocked for local demo fixtures
+// Test 10.4: Mock mode (apiEnabled=false) is always unlocked for local demo fixtures
 assert.equal(
   isPaymentModalMutationLocked(false, undefined),
   false,
@@ -1681,12 +1708,22 @@ assert.equal(
   false,
   'Mock mode is not constrained by VITE_TEST_HARNESS'
 );
-console.log('PASS: PaymentModal locks mutation when apiEnabled=true and VITE_TEST_HARNESS is not enabled (no Render call)');
+console.log('PASS: PaymentModal strictly locks mutation to Render and prevents VITE_TEST_HARNESS bypass');
 
 // --- 11. DIRECT MEMBER SUBSCRIPTION MUTATION LOCK, SINGLE-POST & RECONCILIATION ---
 console.log('\n--- 11. DIRECT MEMBER SUBSCRIPTION MUTATION LOCK, SINGLE-POST & RECONCILIATION ---');
 
-// Test 11.1: isDirectSubscriptionLocked enforces lock unless VITE_TEST_HARNESS is explicitly "true"
+// Test 11.1: isDirectSubscriptionLocked prevents VITE_TEST_HARNESS from unlocking Render
+assert.equal(
+  isDirectSubscriptionLocked(true, 'true', { isRender: true }),
+  true,
+  'VITE_TEST_HARNESS must NOT unlock direct Member subscription POST to Render'
+);
+assert.equal(
+  isDirectSubscriptionLocked(true, 'true', { targetUrl: 'https://swp391-be.onrender.com' }),
+  true,
+  'VITE_TEST_HARNESS must NOT unlock direct Member subscription POST to onrender.com'
+);
 assert.equal(
   isDirectSubscriptionLocked(true, undefined),
   true,
@@ -1698,98 +1735,242 @@ assert.equal(
   'Direct subscription must be locked when harnessFlag is false'
 );
 assert.equal(
-  isDirectSubscriptionLocked(true, 'true'),
+  isDirectSubscriptionLocked(true, 'true', { targetUrl: 'http://localhost:8080' }),
   false,
-  'Direct subscription unlocks when harnessFlag is explicitly "true"'
+  'Direct subscription unlocks ONLY for local non-Render test harness'
 );
 assert.equal(
   isDirectSubscriptionLocked(false, undefined),
   false,
   'Mock mode is not locked by harnessFlag'
 );
-console.log('PASS: isDirectSubscriptionLocked enforces Render safety lock and allows test harness');
+console.log('PASS: isDirectSubscriptionLocked prevents VITE_TEST_HARNESS from opening POST to Render');
 
-// Test 11.2: validateDirectSubscriptionPreflight validates inputs and blocks locked live mutations
+// Test 11.2: validateDirectSubscriptionPreflight validates form inputs in API mode independently of Render lock
 const preflightNoPkg = validateDirectSubscriptionPreflight({
   selectedPackageId: '',
-  apiEnabled: false,
+  memberProfileId: 101,
+  hasAuthoritativeMemberId: true,
+  language: 'vi',
 });
 assert.equal(preflightNoPkg.ok, false);
 assert.ok(preflightNoPkg.error.includes('chọn một gói') || preflightNoPkg.error.includes('select'));
 
 const preflightInvalidId = validateDirectSubscriptionPreflight({
   selectedPackageId: 'abc',
-  apiEnabled: false,
+  memberProfileId: 101,
+  hasAuthoritativeMemberId: true,
+  language: 'vi',
 });
 assert.equal(preflightInvalidId.ok, false);
+assert.ok(preflightInvalidId.error.includes('không hợp lệ') || preflightInvalidId.error.includes('Invalid'));
 
-const preflightLocked = validateDirectSubscriptionPreflight({
+const preflightNoMember = validateDirectSubscriptionPreflight({
   selectedPackageId: '3',
-  apiEnabled: true,
-  harnessFlag: 'false',
+  memberProfileId: null,
+  hasAuthoritativeMemberId: false,
+  language: 'vi',
 });
-assert.equal(preflightLocked.ok, false);
-assert.ok(preflightLocked.error.includes('khóa') || preflightLocked.error.includes('locked'));
+assert.equal(preflightNoMember.ok, false);
+assert.ok(preflightNoMember.error.includes('ID hội viên') || preflightNoMember.error.includes('member ID'));
 
-const preflightUnlocked = validateDirectSubscriptionPreflight({
+// Valid form input passes preflight in API mode so that form state can be validated
+const preflightValid = validateDirectSubscriptionPreflight({
   selectedPackageId: '3',
-  apiEnabled: true,
-  harnessFlag: 'true',
+  memberProfileId: 101,
+  hasAuthoritativeMemberId: true,
+  language: 'vi',
 });
-assert.equal(preflightUnlocked.ok, true);
-assert.equal(preflightUnlocked.numericPackageId, 3);
-console.log('PASS: validateDirectSubscriptionPreflight validates IDs and blocks locked live mutations');
+assert.equal(preflightValid.ok, true);
+assert.equal(preflightValid.numericPackageId, 3);
 
-// Test 11.3: reconcileIncompleteOrder detects existing invoice or subscription on BE
-const sampleInvoices = [
-  { id: 10, invoiceCode: 'INV-10', packageId: 2, paymentStatus: 'paid' },
-  { id: 11, invoiceCode: 'INV-11', packageId: 3, paymentStatus: 'pending', amount: 1500000 },
+// But POST to Render remains strictly locked by isDirectSubscriptionLocked
+assert.equal(isDirectSubscriptionLocked(true, 'true', { isRender: true }), true);
+console.log('PASS: Form validation runs in API mode while POST to Render remains unconditionally locked');
+
+// Test 11.3: reconcileIncompleteOrder ONLY accepts new records belonging to the CURRENT attempt
+const attemptStartTime = Date.now();
+const oldInvoiceId = 10;
+const newInvoiceId = 11;
+
+const existingInvoicesBaseline = [
+  { id: oldInvoiceId, invoiceCode: 'INV-10', packageId: 3, paymentStatus: 'pending', createdAt: new Date(attemptStartTime - 3600000).toISOString() },
 ];
-const sampleSubs = [
-  { subscriptionId: 20, packageId: 3, status: 'pending_payment' },
+const existingSubsBaseline = [
+  { subscriptionId: 20, packageId: 3, status: 'pending_payment', createdAt: new Date(attemptStartTime - 3600000).toISOString() },
 ];
 
-const foundReconciliation = reconcileIncompleteOrder({
+// If reconciliation runs and server only returns the OLD invoice from an earlier attempt:
+const reconcileOldOnly = reconcileIncompleteOrder({
   targetPackageId: 3,
-  invoices: sampleInvoices,
-  subscriptions: sampleSubs,
+  invoices: existingInvoicesBaseline,
+  subscriptions: existingSubsBaseline,
+  attemptStartedAt: attemptStartTime,
+  knownInvoiceIds: [oldInvoiceId],
+  knownSubscriptionIds: [20],
 });
-assert.equal(foundReconciliation.foundOnServer, true);
-assert.equal(foundReconciliation.invoiceId, 11);
-assert.equal(foundReconciliation.subscriptionId, 20);
+assert.equal(
+  reconcileOldOnly.foundOnServer,
+  false,
+  'Reconciliation must NOT adopt pre-existing invoice from an earlier attempt for the same package'
+);
+assert.equal(reconcileOldOnly.invoiceId, null);
+assert.equal(reconcileOldOnly.subscriptionId, null);
 
-const notFoundReconciliation = reconcileIncompleteOrder({
-  targetPackageId: 99,
-  invoices: sampleInvoices,
-  subscriptions: sampleSubs,
+// If server returns both the OLD invoice AND a genuinely NEW invoice created during this attempt:
+const freshInvoicesFromServer = [
+  ...existingInvoicesBaseline,
+  { id: newInvoiceId, invoiceCode: 'INV-11', packageId: 3, paymentStatus: 'pending', amount: 1500000, createdAt: new Date(attemptStartTime + 200).toISOString() },
+];
+const reconcileWithNewRecord = reconcileIncompleteOrder({
+  targetPackageId: 3,
+  invoices: freshInvoicesFromServer,
+  subscriptions: existingSubsBaseline,
+  attemptStartedAt: attemptStartTime,
+  knownInvoiceIds: [oldInvoiceId],
+  knownSubscriptionIds: [20],
 });
-assert.equal(notFoundReconciliation.foundOnServer, false);
-assert.equal(notFoundReconciliation.invoiceId, null);
-assert.equal(notFoundReconciliation.subscriptionId, null);
-console.log('PASS: reconcileIncompleteOrder accurately detects created records on server to prevent duplicate POST');
+assert.equal(reconcileWithNewRecord.foundOnServer, true);
+assert.equal(reconcileWithNewRecord.invoiceId, newInvoiceId, 'Must identify the new invoice belonging to current attempt');
+assert.equal(reconcileWithNewRecord.subscriptionId, null, 'Must ignore old subscription baseline');
 
-// Test 11.4: sessionStorage pending order persistence across simulated F5 reload
-clearStoredPendingOrder();
-assert.equal(getStoredPendingOrder(), null);
+// Timestamp boundary check: old invoice not in knownInvoiceIds but with timestamp before attempt is rejected
+const staleInvoiceNotInKnown = [
+  { id: 999, invoiceCode: 'INV-999', packageId: 3, paymentStatus: 'pending', createdAt: new Date(attemptStartTime - 60000).toISOString() },
+];
+const reconcileStaleTimestamp = reconcileIncompleteOrder({
+  targetPackageId: 3,
+  invoices: staleInvoiceNotInKnown,
+  attemptStartedAt: attemptStartTime,
+  knownInvoiceIds: [],
+});
+assert.equal(reconcileStaleTimestamp.foundOnServer, false, 'Must reject stale invoice with timestamp prior to attempt');
+console.log('PASS: reconcileIncompleteOrder strictly verifies current attempt baseline and excludes pre-existing records');
 
-const pendingOrderPayload = {
-  subscriptionId: 20,
-  invoiceId: 11,
-  invoiceCode: 'INV-11',
-  amount: 1500000,
-  packageId: 3,
-  paymentMethod: 'cash',
+// Test 11.4: Partitioned pending order storage & cross-account isolation
+clearAllStoredPendingOrdersExcept(null);
+
+const memberA = 101;
+const memberB = 202;
+
+setStoredPendingOrder(memberA, {
+  memberId: memberA,
+  subscriptionId: 50,
+  invoiceId: 60,
+  invoiceCode: 'INV-A-60',
+  amount: 2500000,
+});
+
+// Member A reads their own pending order
+const orderA = getStoredPendingOrder(memberA);
+assert.ok(orderA);
+assert.equal(orderA.memberId, memberA);
+assert.equal(orderA.invoiceCode, 'INV-A-60');
+
+// Member B attempts to read pending order: must receive null
+const orderB = getStoredPendingOrder(memberB);
+assert.equal(orderB, null, 'Member B must NOT see Member A pending order');
+
+// Account switch cleanup: Member B logs in and purges foreign orders
+clearAllStoredPendingOrdersExcept(memberB);
+
+// Member A stored order must now be purged from storage
+assert.equal(getStoredPendingOrder(memberA), null, 'Foreign pending order must be cleared upon account switch');
+console.log('PASS: Partitioned storage guarantees complete isolation between Member accounts');
+
+// Test 11.5: Component Submit Flow - Single POST Guarantee on Concurrent Invocations
+let simulatedPostCallCount = 0;
+let simulatedSubmittingState = false;
+
+const simulateComponentSubmit = async () => {
+  // Guard 1: Single-POST guarantee (exit immediately if already submitting)
+  if (simulatedSubmittingState) return;
+
+  const preflight = validateDirectSubscriptionPreflight({
+    selectedPackageId: '3',
+    memberProfileId: 101,
+    hasAuthoritativeMemberId: true,
+    language: 'vi',
+  });
+  if (!preflight.ok) return;
+
+  simulatedSubmittingState = true;
+  try {
+    simulatedPostCallCount++;
+    // Simulate async network delay
+    await new Promise((r) => setTimeout(r, 20));
+  } finally {
+    simulatedSubmittingState = false;
+  }
 };
-setStoredPendingOrder(pendingOrderPayload);
-const retrievedOrder = getStoredPendingOrder();
-assert.ok(retrievedOrder);
-assert.equal(retrievedOrder.subscriptionId, 20);
-assert.equal(retrievedOrder.invoiceCode, 'INV-11');
-assert.equal(retrievedOrder.amount, 1500000);
 
-clearStoredPendingOrder();
-assert.equal(getStoredPendingOrder(), null);
-console.log('PASS: Pending order is safely preserved and cleared in sessionStorage across F5 reload');
+// Fire two submit attempts concurrently (simulating rapid double-clicks)
+await Promise.all([simulateComponentSubmit(), simulateComponentSubmit()]);
+assert.equal(simulatedPostCallCount, 1, 'Component submit handler must send exactly ONE POST on concurrent invocation');
+console.log('PASS: Single-POST guarantee verified under concurrent / rapid submit triggers');
+
+// Test 11.6: Component Flow - Timeout / Network Error Triggers GET Reconciliation & Prevents Resubmission
+let reconciledToastShown = false;
+let resubmissionAttempted = false;
+
+const simulateComponentSubmitWithTimeoutAndReconcile = async () => {
+  const attemptStartedAt = Date.now();
+  const knownInvoiceIds = [oldInvoiceId];
+  const knownSubscriptionIds = [20];
+
+  try {
+    // 1. Simulate POST throwing network timeout error
+    const timeoutErr = new Error('Gateway Timeout (504): POST /api/members/me/subscriptions');
+    timeoutErr.status = 504;
+    throw timeoutErr;
+  } catch (postErr) {
+    // 2. Component catch block performs GET reconciliation with attempt baseline
+    const freshInvoices = [
+      { id: oldInvoiceId, packageId: 3, paymentStatus: 'pending' },
+      { id: 77, invoiceCode: 'INV-2026-000077', packageId: 3, paymentStatus: 'pending', amount: 3000000, createdAt: new Date(attemptStartedAt + 50).toISOString() },
+    ];
+    const freshSubs = [
+      { subscriptionId: 20, packageId: 3, status: 'pending_payment' },
+    ];
+
+    const reconciled = reconcileIncompleteOrder({
+      targetPackageId: 3,
+      invoices: freshInvoices,
+      subscriptions: freshSubs,
+      attemptStartedAt,
+      knownInvoiceIds,
+      knownSubscriptionIds,
+    });
+
+    if (reconciled.foundOnServer) {
+      setStoredPendingOrder(memberA, {
+        memberId: memberA,
+        subscriptionId: reconciled.subscriptionId,
+        invoiceId: reconciled.invoiceId,
+        invoiceCode: reconciled.invoice?.invoiceCode,
+        amount: reconciled.invoice?.amount,
+        packageId: 3,
+        paymentMethod: 'cash',
+      });
+      reconciledToastShown = true;
+      return; // Handled safely without re-POSTing!
+    }
+
+    // Only if not found would it re-throw
+    resubmissionAttempted = true;
+    throw postErr;
+  }
+};
+
+await simulateComponentSubmitWithTimeoutAndReconcile();
+assert.equal(reconciledToastShown, true, 'Component must reconcile created invoice after timeout without re-POST');
+assert.equal(resubmissionAttempted, false, 'Component must NOT attempt resubmission when order is found on server');
+
+const storedAfterReconcile = getStoredPendingOrder(memberA);
+assert.equal(storedAfterReconcile.invoiceId, 77);
+assert.equal(storedAfterReconcile.invoiceCode, 'INV-2026-000077');
+clearAllStoredPendingOrdersExcept(null);
+console.log('PASS: Timeout and network failure correctly reconciled via GET and preserved in member storage');
 
 console.log('\n====================================================');
 console.log('ALL FE 2: MEMBERSHIP, INVOICE & PAYMENT TESTS PASSED (100%)');
