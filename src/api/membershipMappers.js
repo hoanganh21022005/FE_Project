@@ -33,6 +33,8 @@ export function mapMembershipPackage(item) {
       benefitsVi: [],
       status: 'active',
       rawStatus: null,
+      packageType: null,
+      totalCredit: null,
     };
   }
 
@@ -53,6 +55,8 @@ export function mapMembershipPackage(item) {
     benefitsVi: benefits,
     status: normalizePackageStatus(item.status),
     rawStatus: item.status ?? null,
+    packageType: item.packageType ? String(item.packageType) : null,
+    totalCredit: asNumber(item.totalCredit),
   };
 }
 
@@ -94,6 +98,9 @@ export function mapMemberSubscription(item) {
       endDate: null,
       status: 'none',
       rawStatus: null,
+      packageType: null,
+      remainingCredit: null,
+      validityDays: null,
     };
   }
 
@@ -114,6 +121,44 @@ export function mapMemberSubscription(item) {
     endDate: item.endDate || null,
     status: normalizeSubscriptionStatus(item.status),
     rawStatus: item.status ?? null,
+    packageType: item.packageType ? String(item.packageType) : null,
+    remainingCredit: asNumber(item.remainingCredit),
+    validityDays: asNumber(item.validityDays),
+  };
+}
+
+export function mapSubscriptionOrder(item) {
+  if (!item || typeof item !== 'object') {
+    return {
+      subscriptionId: null,
+      invoiceId: null,
+      invoiceCode: null,
+      amount: null,
+      paymentMethod: null,
+      rawPaymentMethod: null,
+      status: 'none',
+      rawStatus: null,
+      expiresAt: null,
+      paymentUrl: null,
+    };
+  }
+
+  const rawSubId = item.subscriptionId ?? item.id;
+  const subscriptionId = isValidNumericId(rawSubId) ? asNumber(rawSubId) : null;
+  const invoiceId = isValidNumericId(item.invoiceId) ? asNumber(item.invoiceId) : null;
+  const amount = asNumber(item.amount);
+
+  return {
+    subscriptionId,
+    invoiceId,
+    invoiceCode: item.invoiceCode ? String(item.invoiceCode) : null,
+    amount,
+    paymentMethod: item.paymentMethod ? String(item.paymentMethod).toLowerCase() : null,
+    rawPaymentMethod: item.paymentMethod ?? null,
+    status: item.status ? normalizeSubscriptionStatus(item.status) : 'none',
+    rawStatus: item.status ?? null,
+    expiresAt: item.expiresAt || null,
+    paymentUrl: item.paymentUrl || null,
   };
 }
 

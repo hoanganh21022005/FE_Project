@@ -17,6 +17,7 @@ import {
   toMembershipPackageRequest,
   mapMemberSubscription,
   toMemberPackageRequest,
+  mapSubscriptionOrder,
   normalizeSubscriptionStatus,
   normalizePackageStatus,
 } from '../src/api/membershipMappers.js';
@@ -47,6 +48,7 @@ import {
   resolveActiveSubscription,
   validateDirectSubscriptionPreflight,
   reconcileAndVerifySubscriptionSafety,
+  isPaymentModalMutationLocked,
 } from '../src/utils/memberSafetyHelpers.js';
 import {
   isMockPaymentSettled,
@@ -85,12 +87,47 @@ assert.equal(mappedPkg.status, 'active');
 assert.deepEqual(mappedPkg.benefits, ['Gym', 'Sauna', 'Personal Trainer', 'VIP Lounge']);
 console.log('PASS: mapMembershipPackage accurately maps BE fields and parses benefits list');
 
+const beAdvancedPkg = {
+  id: 10,
+  name: 'Gói 1:1 Tennis Nâng Cao',
+  durationDays: 45,
+  price: 10000000,
+  benefits: '12 buổi học kèm 1:1',
+  status: 'ACTIVE',
+  packageType: 'Advanced',
+  totalCredit: 12,
+};
+const mappedAdvPkg = mapMembershipPackage(beAdvancedPkg);
+assert.equal(mappedAdvPkg.packageType, 'Advanced');
+assert.equal(mappedAdvPkg.totalCredit, 12);
+console.log('PASS: mapMembershipPackage preserves packageType and totalCredit from Swagger schema');
+
+// Render live 5-field public package fixture: must NOT invent packageType or totalCredit
+const renderPublicPkgFixture = {
+  id: 1,
+  name: 'Goi Co Ban 1 Thang',
+  price: 500000,
+  durationDays: 30,
+  benefits: 'Tap gym tu do, khong kem HLV',
+};
+const mappedPublicPkg = mapMembershipPackage(renderPublicPkgFixture);
+assert.equal(mappedPublicPkg.id, 1);
+assert.equal(mappedPublicPkg.name, 'Goi Co Ban 1 Thang');
+assert.equal(mappedPublicPkg.price, 500000);
+assert.equal(mappedPublicPkg.durationDays, 30);
+assert.deepEqual(mappedPublicPkg.benefits, ['Tap gym tu do, khong kem HLV']);
+assert.equal(mappedPublicPkg.packageType, null, 'Public package from Render must not invent packageType');
+assert.equal(mappedPublicPkg.totalCredit, null, 'Public package from Render must not invent totalCredit');
+console.log('PASS: mapMembershipPackage does not invent packageType or credit for Render 5-field public package');
+
 // Empty / Null Package Handling
 const emptyPkg = mapMembershipPackage({});
 assert.equal(emptyPkg.id, null);
 assert.equal(emptyPkg.name, '');
 assert.equal(emptyPkg.price, 0);
 assert.equal(emptyPkg.status, 'active');
+assert.equal(emptyPkg.packageType, null);
+assert.equal(emptyPkg.totalCredit, null);
 console.log('PASS: mapMembershipPackage handles empty object safely');
 
 // toMembershipPackageRequest validation
@@ -138,6 +175,85 @@ assert.equal(mappedSub.startDate, '2026-10-10');
 assert.equal(mappedSub.endDate, '2027-10-10');
 assert.equal(mappedSub.status, 'active');
 console.log('PASS: mapMemberSubscription maps subscription ID and status correctly');
+
+const beAdvancedSub = {
+  subscriptionId: 101,
+  memberId: 20,
+  memberName: 'Nguyen Van B',
+  packageId: 10,
+  packageName: 'Gói 1:1 Tennis Nâng Cao',
+  price: 10000000,
+  startDate: '2026-10-20',
+  endDate: '2026-12-04',
+  status: 'ACTIVE',
+  packageType: 'Advanced',
+  remainingCredit: 12,
+  validityDays: 45,
+};
+const mappedAdvSub = mapMemberSubscription(beAdvancedSub);
+assert.equal(mappedAdvSub.packageType, 'Advanced');
+assert.equal(mappedAdvSub.remainingCredit, 12);
+assert.equal(mappedAdvSub.validityDays, 45);
+console.log('PASS: mapMemberSubscription preserves packageType, remainingCredit, and validityDays');
+
+const orderSample = {
+  subscriptionId: 101,
+  invoiceId: 55,
+  invoiceCode: 'INV-2026-000055',
+  amount: 10000000,
+  paymentMethod: 'VNPAY',
+  status: 'PENDING',
+  expiresAt: '2026-10-20T16:05:00+07:00',
+  paymentUrl: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?test=1',
+};
+const mappedOrder = mapSubscriptionOrder(orderSample);
+assert.equal(mappedOrder.subscriptionId, 101);
+assert.equal(mappedOrder.invoiceId, 55);
+assert.equal(mappedOrder.invoiceCode, 'INV-2026-000055');
+assert.equal(mappedOrder.amount, 10000000);
+assert.equal(mappedOrder.paymentMethod, 'vnpay');
+assert.equal(mappedOrder.status, 'pending_payment');
+assert.equal(mappedOrder.expiresAt, '2026-10-20T16:05:00+07:00');
+assert.equal(mappedOrder.paymentUrl, 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?test=1');
+console.log('PASS: mapSubscriptionOrder maps SubscriptionOrderResponse fields accurately');
+
+// Test mapSubscriptionOrder with null/empty response does not create fake invoice code, amount, or status
+const emptyOrder = mapSubscriptionOrder({});
+assert.equal(emptyOrder.subscriptionId, null);
+assert.equal(emptyOrder.invoiceId, null);
+assert.equal(emptyOrder.invoiceCode, null, 'Empty order must NOT invent INV-00000');
+assert.equal(emptyOrder.amount, null, 'Empty order must NOT invent amount 0');
+assert.equal(emptyOrder.paymentMethod, null, 'Empty order must NOT invent cash method');
+assert.equal(emptyOrder.status, 'none', 'Empty order must NOT invent pending status');
+
+const nullOrder = mapSubscriptionOrder(null);
+assert.equal(nullOrder.invoiceCode, null);
+assert.equal(nullOrder.amount, null);
+assert.equal(nullOrder.status, 'none');
+
+const missingInvoiceOrder = mapSubscriptionOrder({ subscriptionId: 101 });
+assert.equal(missingInvoiceOrder.subscriptionId, 101);
+assert.equal(missingInvoiceOrder.invoiceId, null);
+assert.equal(missingInvoiceOrder.invoiceCode, null, 'Missing invoice ID must NOT invent invoice code');
+assert.equal(missingInvoiceOrder.amount, null);
+assert.equal(missingInvoiceOrder.status, 'none');
+
+// If BE returns subscriptionId and invoiceId, but NO invoiceCode: invoiceCode must be strictly null
+const noInvoiceCodeOrder = mapSubscriptionOrder({ subscriptionId: 101, invoiceId: 55 });
+assert.equal(noInvoiceCodeOrder.subscriptionId, 101);
+assert.equal(noInvoiceCodeOrder.invoiceId, 55);
+assert.equal(noInvoiceCodeOrder.invoiceCode, null, 'mapSubscriptionOrder must NOT synthesize INV-00055 from invoiceId');
+
+// Malformed subscriptionId and invoiceId handling in mapSubscriptionOrder (-1, 0, decimal, boolean, missing)
+const malformedIds = [-1, 0, 10.5, true, false, 'abc'];
+for (const badId of malformedIds) {
+  const badSubOrder = mapSubscriptionOrder({ subscriptionId: badId, invoiceId: 55 });
+  assert.equal(badSubOrder.subscriptionId, null, `Malformed subscriptionId ${badId} must map to null`);
+
+  const badInvOrder = mapSubscriptionOrder({ subscriptionId: 101, invoiceId: badId });
+  assert.equal(badInvOrder.invoiceId, null, `Malformed invoiceId ${badId} must map to null`);
+}
+console.log('PASS: mapSubscriptionOrder does NOT invent invoiceCode, amount, or status for empty, missing-ID, or malformed ID response');
 
 // toMemberPackageRequest validation
 assert.throws(() => toMemberPackageRequest({}), /packageId.*không hợp lệ/i);
@@ -197,6 +313,26 @@ assert.equal(mappedInv.paymentMethod, 'cash');
 assert.equal(mappedInv.paymentStatus, 'successful');
 assert.equal(mappedInv.receptionistName, 'Pham Thi Thu');
 console.log('PASS: mapInvoice maps invoice fields, formats code INV-00042, and normalizes paymentStatus to successful');
+
+const beInvoiceWithCode = {
+  invoiceId: 55,
+  invoiceCode: 'INV-2026-000055',
+  amount: 10000000,
+  paymentMethod: 'ONLINE',
+  paymentStatus: 'PENDING',
+  expiresAt: '2026-10-20T16:05:00+07:00',
+  createdAt: '2026-10-20T16:00:00+07:00',
+  classId: 3,
+  className: 'Tennis Advanced',
+};
+const mappedInvWithCode = mapInvoice(beInvoiceWithCode);
+assert.equal(mappedInvWithCode.code, 'INV-2026-000055');
+assert.equal(mappedInvWithCode.invoiceCode, 'INV-2026-000055');
+assert.equal(mappedInvWithCode.expiresAt, '2026-10-20T16:05:00+07:00');
+assert.equal(mappedInvWithCode.createdAt, '2026-10-20T16:00:00+07:00');
+assert.equal(mappedInvWithCode.classId, 3);
+assert.equal(mappedInvWithCode.className, 'Tennis Advanced');
+console.log('PASS: mapInvoice preserves Swagger invoiceCode, expiresAt, createdAt, classId, and className');
 
 // Payment Method Normalization
 assert.equal(normalizePaymentMethod('CASH'), 'cash');
@@ -432,8 +568,139 @@ inProgressTransactionCache.delete('101');
 assert.equal(inProgressTransactionCache.get('101'), null);
 console.log('PASS: inProgressTransactionCache correctly retains and clears member partial transactions');
 
-// Restore httpClient.post
+// 6.6 getPublicPackages and subscribeMe
+httpClient.get = async (path) => {
+  if (path === '/api/public/membership-packages') {
+    return [
+      { id: 1, name: 'Goi Co Ban 1 Thang', price: 500000, durationDays: 30, benefits: 'Tap gym tu do' },
+    ];
+  }
+  if (path === '/api/members/me/invoices') {
+    return [
+      { invoiceId: 55, invoiceCode: 'INV-2026-000055', amount: 10000000, paymentStatus: 'PENDING' },
+    ];
+  }
+  if (path === '/api/members/me/invoices/55') {
+    return { invoiceId: 55, invoiceCode: 'INV-2026-000055', amount: 10000000, paymentStatus: 'PENDING' };
+  }
+  return origGet(path);
+};
+
+const pubPkgs = await membershipApi.getPublicPackages();
+assert.equal(pubPkgs.length, 1);
+assert.equal(pubPkgs[0].id, 1);
+console.log('PASS: getPublicPackages calls /api/public/membership-packages and maps packages');
+
+httpClient.post = async (path, body) => {
+  recordedPostPath = path;
+  recordedPostBody = body;
+  if (path === '/api/members/me/subscriptions') {
+    return {
+      subscriptionId: 101,
+      invoiceId: 55,
+      invoiceCode: 'INV-2026-000055',
+      amount: 10000000,
+      paymentMethod: body.paymentMethod,
+      status: 'PENDING',
+      expiresAt: '2026-10-20T16:05:00+07:00',
+      paymentUrl: 'https://sandbox.vnpayment.vn/pay?id=55',
+    };
+  }
+  if (path === '/api/invoices/55/confirm-cash') {
+    return {
+      invoiceId: 55,
+      invoiceCode: 'INV-2026-000055',
+      amount: 10000000,
+      paymentMethod: 'CASH',
+      paymentStatus: 'PAID',
+    };
+  }
+  if (path === '/api/invoices/55/pay-online') {
+    return {
+      paymentUrl: 'https://sandbox.vnpayment.vn/pay?id=55',
+    };
+  }
+  return origPost(path, body);
+};
+
+const subMeOrder = await membershipApi.subscribeMe({
+  packageId: 10,
+  paymentMethod: 'VNPay',
+});
+assert.equal(recordedPostPath, '/api/members/me/subscriptions');
+assert.equal(subMeOrder.subscriptionId, 101);
+assert.equal(subMeOrder.invoiceId, 55);
+assert.equal(subMeOrder.invoiceCode, 'INV-2026-000055');
+assert.equal(subMeOrder.paymentUrl, 'https://sandbox.vnpayment.vn/pay?id=55');
+console.log('PASS: subscribeMe sends payload to /api/members/me/subscriptions and returns mapped order');
+
+// Test subscribeMe rejection when response lacks mandatory identifiers or has malformed IDs (-1, 0, decimal, boolean, missing)
+const malformedIdCases = [
+  { desc: 'missing invoiceId', response: { subscriptionId: 101 } },
+  { desc: 'missing subscriptionId', response: { invoiceId: 55 } },
+  { desc: 'negative subscriptionId (-1)', response: { subscriptionId: -1, invoiceId: 55 } },
+  { desc: 'negative invoiceId (-1)', response: { subscriptionId: 101, invoiceId: -1 } },
+  { desc: 'zero subscriptionId (0)', response: { subscriptionId: 0, invoiceId: 55 } },
+  { desc: 'zero invoiceId (0)', response: { subscriptionId: 101, invoiceId: 0 } },
+  { desc: 'decimal subscriptionId (10.5)', response: { subscriptionId: 10.5, invoiceId: 55 } },
+  { desc: 'decimal invoiceId (55.5)', response: { subscriptionId: 101, invoiceId: 55.5 } },
+  { desc: 'boolean subscriptionId (true)', response: { subscriptionId: true, invoiceId: 55 } },
+  { desc: 'boolean invoiceId (false)', response: { subscriptionId: 101, invoiceId: false } },
+  { desc: 'empty object response', response: {} },
+  { desc: 'null response', response: null },
+];
+
+for (const tc of malformedIdCases) {
+  let casePostCount = 0;
+  const restorePost = httpClient.post;
+  httpClient.post = async () => {
+    casePostCount++;
+    return tc.response;
+  };
+
+  await assert.rejects(
+    () => membershipApi.subscribeMe({ packageId: 10, paymentMethod: 'VNPay' }),
+    (err) => {
+      assert.match(err.message, /thiếu định danh bắt buộc/i);
+      assert.match(err.message, /GET đối soát/i);
+      assert.match(err.message, /không tự gửi lại yêu cầu/i);
+      assert.equal(err.name, 'IncompleteOrderResponseError');
+      assert.equal(err.requiresReconciliation, true);
+      return true;
+    },
+    `subscribeMe must reject ${tc.desc} as incomplete order and warn to reconcile via GET`
+  );
+  assert.equal(casePostCount, 1, `subscribeMe must send exactly one POST and NOT retry for ${tc.desc}`);
+  httpClient.post = restorePost;
+}
+console.log('PASS: subscribeMe rejects all malformed ID responses (-1, 0, decimal, boolean, missing) for both IDs and sends exactly one POST');
+
+// 6.7 Swagger confirm-cash (no body) and pay-online
+const cashConfirmResult = await invoiceApi.confirmCashPayment(55);
+assert.equal(recordedPostPath, '/api/invoices/55/confirm-cash');
+assert.equal(cashConfirmResult.paymentStatus, 'successful');
+assert.equal(cashConfirmResult.invoiceCode, 'INV-2026-000055');
+console.log('PASS: confirmCashPayment sends POST to /api/invoices/55/confirm-cash without request body');
+
+const onlinePayResult = await invoiceApi.payInvoiceOnline(55);
+assert.equal(recordedPostPath, '/api/invoices/55/pay-online');
+assert.equal(onlinePayResult.paymentUrl, 'https://sandbox.vnpayment.vn/pay?id=55');
+console.log('PASS: payInvoiceOnline sends POST to /api/invoices/55/pay-online and returns paymentUrl');
+
+// 6.8 Member own invoices endpoints
+const ownInvoicesList = await invoiceApi.getMemberOwnInvoices();
+assert.equal(ownInvoicesList.length, 1);
+assert.equal(ownInvoicesList[0].invoiceCode, 'INV-2026-000055');
+console.log('PASS: getMemberOwnInvoices calls /api/members/me/invoices and returns mapped list');
+
+const ownInvoiceDetail = await invoiceApi.getMemberOwnInvoiceById(55);
+assert.equal(ownInvoiceDetail.invoiceId, 55);
+assert.equal(ownInvoiceDetail.invoiceCode, 'INV-2026-000055');
+console.log('PASS: getMemberOwnInvoiceById calls /api/members/me/invoices/55 and returns mapped invoice');
+
+// Restore httpClient.post and httpClient.get
 httpClient.post = origPost;
+httpClient.get = origGet;
 
 // --- 7. FAILURE-PATH & CONCURRENCY RESILIENCE TESTS ---
 console.log('\n--- 7. FAILURE-PATH & CONCURRENCY RESILIENCE ---');
@@ -446,6 +713,11 @@ httpClient.get = async (path) => {
   if (path.includes('/api/members/101/packages')) {
     const err = new Error('500 Internal Server Error: Database Connection Pool Exhausted');
     err.status = 500;
+    throw err;
+  }
+  if (path.includes('/api/members/202/packages')) {
+    const err = new Error('403 Forbidden: Insufficient permissions to read foreign member packages');
+    err.status = 403;
     throw err;
   }
   if (path.includes('/api/invoices')) {
@@ -463,11 +735,29 @@ await assert.rejects(
 );
 
 await assert.rejects(
+  () => membershipApi.getMemberSubscriptions(202),
+  /403 Forbidden/,
+  'membershipApi.getMemberSubscriptions must propagate 403 without falling back to /api/member-packages'
+);
+
+await assert.rejects(
+  () => membershipApi.getMemberSubscriptions('me'),
+  /ID hội viên không hợp lệ/,
+  'membershipApi.getMemberSubscriptions must reject non-numeric "me" and fail closed without calling non-existent GET'
+);
+
+await assert.rejects(
+  () => membershipApi.getMemberSubscriptions(null),
+  /ID hội viên không hợp lệ/,
+  'membershipApi.getMemberSubscriptions must reject null ID'
+);
+
+await assert.rejects(
   () => invoiceApi.getInvoices({ memberId: 101, status: 'pending' }),
   /401 Unauthorized/,
   'invoiceApi.getInvoices must throw and NOT swallow 401 as []'
 );
-console.log('PASS: GET queries strictly propagate 401/500 errors to fail closed and block duplicate POSTs');
+console.log('PASS: GET queries strictly propagate 401/403/500 errors to fail closed and block duplicate POSTs');
 
 // 7.2 PATCH cancellation rejection propagation
 httpClient.patch = async (path, body) => {
@@ -1205,6 +1495,186 @@ assert.equal(deriveMockMemberProfile(requestMember, fixturePendingPayments).tota
 assert.equal(settleMockPaymentFixture(paidReadback[0]).ok, false, 'Second cash confirmation must fail');
 clearMockSettlements();
 console.log('PASS: Member request remains pending until one desk settlement, with cross-view readback');
+
+// --- FOCUSED REGRESSION TESTS (REVIEW ROUND 1/3 FIXES) ---
+
+// Test 9.1: Pending package request must NOT change currentPackageId of a paid/active package
+clearMockSettlements();
+const memberWithActivePaidPkg = {
+  id: 'mem-paid-1',
+  name: 'Active Paid Member',
+  currentPackageId: 'pkg-active-1',
+  currentPackageName: 'Gói Tiêu Chuẩn Đã Thanh Toán',
+  membershipStatus: 'active',
+  totalSpent: 1500000,
+};
+const upgradePendingPkg = {
+  id: 'pkg-upgrade-pending',
+  nameVi: 'Gói Nâng Cấp Chờ Duyệt',
+  price: 3000000,
+};
+const pendingUpgradeReq = createMockPendingPayment(
+  { member: memberWithActivePaidPkg, pkg: upgradePendingPkg, method: 'cash' },
+  fixturePendingPayments
+);
+assert.equal(pendingUpgradeReq.ok, true);
+
+// Verify: while the upgrade request is pending, member's currentPackageId MUST remain pkg-active-1!
+const derivedDuringPending = deriveMockMemberProfile(memberWithActivePaidPkg, fixturePendingPayments);
+assert.equal(
+  derivedDuringPending.currentPackageId,
+  'pkg-active-1',
+  'Pending package request must NOT overwrite currentPackageId of paid package'
+);
+assert.equal(
+  derivedDuringPending.currentPackageName,
+  'Gói Tiêu Chuẩn Đã Thanh Toán',
+  'Pending package request must NOT overwrite currentPackageName of paid package'
+);
+assert.equal(
+  derivedDuringPending.membershipStatus,
+  'active',
+  'Pending upgrade request must NOT downgrade active membership status'
+);
+assert.equal(derivedDuringPending.totalSpent, 1500000, 'Total spent must not include unpaid pending package');
+
+// Now settle the upgrade payment: currentPackageId should switch to the settled package
+const pendingList = applyMockPaymentSettlements(fixturePendingPayments);
+const pendingRow = pendingList.find((p) => p.id === pendingUpgradeReq.item.id);
+assert.ok(pendingRow, 'Pending row must exist');
+const upgradeSettled = settleMockPaymentFixture(pendingRow);
+assert.equal(upgradeSettled.ok, true);
+
+const derivedAfterUpgradeSettled = deriveMockMemberProfile(memberWithActivePaidPkg, fixturePendingPayments);
+assert.equal(
+  derivedAfterUpgradeSettled.currentPackageId,
+  'pkg-upgrade-pending',
+  'Once settled, currentPackageId must switch to the newly paid package'
+);
+assert.equal(derivedAfterUpgradeSettled.membershipStatus, 'active');
+assert.equal(derivedAfterUpgradeSettled.totalSpent, 4500000);
+clearMockSettlements();
+console.log('PASS: Pending package request does NOT change currentPackageId of paid package');
+
+// Test 9.2: sessionStorage write error must fail payment settlement closed (ok: false) and prevent success
+clearMockSettlements();
+const pendingPaymentForStorageError = {
+  id: 'pay-err-001',
+  code: 'INV-ERR-001',
+  memberId: 99,
+  memberName: 'Storage Error Member',
+  packageId: 5,
+  packageName: 'Gói Test Storage',
+  amount: 500000,
+  status: 'pending',
+  paymentStatus: 'pending',
+};
+
+// Mock sessionStorage.setItem to simulate QuotaExceededError / SecurityError
+const originalSetItem = globalThis.sessionStorage.setItem;
+globalThis.sessionStorage.setItem = () => {
+  throw new Error('QuotaExceededError: DOM Exception 22');
+};
+
+const failedSettlementResult = settleMockPaymentFixture(pendingPaymentForStorageError);
+assert.equal(failedSettlementResult.ok, false, 'Settlement must fail closed when sessionStorage write throws');
+assert.ok(
+  failedSettlementResult.error.includes('sessionStorage'),
+  'Error message must indicate storage persistence failure'
+);
+assert.equal(
+  isMockPaymentSettled(pendingPaymentForStorageError),
+  false,
+  'Record must NOT be marked as settled in memory when storage fails'
+);
+
+// Restore original setItem
+globalThis.sessionStorage.setItem = originalSetItem;
+
+// Now with working storage, settlement must succeed
+const retrySuccessSettlement = settleMockPaymentFixture(pendingPaymentForStorageError);
+assert.equal(retrySuccessSettlement.ok, true);
+assert.equal(isMockPaymentSettled(pendingPaymentForStorageError), true);
+clearMockSettlements();
+console.log('PASS: sessionStorage write error causes settlement to fail closed (ok: false) without false success');
+
+// Test 9.3: createMockPendingPayment preserves requestedStartDate and isRenewal from MemberDetailView form
+clearMockSettlements();
+const renewalMemberProbe = {
+  id: 'mem-renew-probe',
+  name: 'Renewal Probe Member',
+  currentPackageId: 'pkg-active-1',
+  membershipStatus: 'active',
+};
+const renewalPkgProbe = {
+  id: 'pkg-upgrade-probe',
+  nameVi: 'Gói Thử Nghiệm Gia Hạn',
+  price: 2500000,
+};
+const pendingRenewalProbe = createMockPendingPayment({
+  member: renewalMemberProbe,
+  pkg: renewalPkgProbe,
+  method: 'cash',
+  notes: 'Đăng ký gia hạn từ form',
+  requestedStartDate: '2026-10-25',
+  isRenewal: true,
+});
+assert.equal(pendingRenewalProbe.ok, true);
+assert.equal(pendingRenewalProbe.item.requestedStartDate, '2026-10-25', 'Must preserve requestedStartDate');
+assert.equal(pendingRenewalProbe.item.isRenewal, true, 'Must preserve isRenewal flag');
+
+const pendingOverlayList = applyMockPaymentSettlements([]);
+const storedProbeItem = pendingOverlayList.find((p) => p.id === pendingRenewalProbe.item.id);
+assert.ok(storedProbeItem, 'Probe item must be present in storage overlay');
+assert.equal(storedProbeItem.requestedStartDate, '2026-10-25');
+assert.equal(storedProbeItem.isRenewal, true);
+
+// Verify settlement respects requestedStartDate when startDate is not explicitly overridden
+const settleProbeResult = settleMockPaymentFixture(storedProbeItem);
+assert.equal(settleProbeResult.ok, true);
+assert.equal(settleProbeResult.item.startDate, '2026-10-25', 'Settled record must fallback to requestedStartDate');
+clearMockSettlements();
+console.log('PASS: createMockPendingPayment preserves requestedStartDate and isRenewal with regression assertion');
+
+// --- 10. PAYMENTMODAL DEFAULT MUTATION LOCK SAFETY ---
+console.log('\n--- 10. PAYMENTMODAL DEFAULT MUTATION LOCK SAFETY ---');
+
+// Test 10.1: PaymentModal mutation remains locked in standard API mode when VITE_TEST_HARNESS is not enabled
+assert.equal(
+  isPaymentModalMutationLocked(true, undefined),
+  true,
+  'Mutation must be locked when apiEnabled=true and VITE_TEST_HARNESS is undefined'
+);
+assert.equal(
+  isPaymentModalMutationLocked(true, 'false'),
+  true,
+  'Mutation must be locked when apiEnabled=true and VITE_TEST_HARNESS=false'
+);
+assert.equal(
+  isPaymentModalMutationLocked(true, ''),
+  true,
+  'Mutation must be locked when apiEnabled=true and VITE_TEST_HARNESS is empty'
+);
+
+// Test 10.2: PaymentModal mutation is only unlocked when VITE_TEST_HARNESS is explicitly "true"
+assert.equal(
+  isPaymentModalMutationLocked(true, 'true'),
+  false,
+  'Mutation is only unlocked when VITE_TEST_HARNESS is explicitly string true'
+);
+
+// Test 10.3: Mock mode (apiEnabled=false) is always unlocked for local demo fixtures
+assert.equal(
+  isPaymentModalMutationLocked(false, undefined),
+  false,
+  'Mock mode must allow local fixture mutations at desk without network calls'
+);
+assert.equal(
+  isPaymentModalMutationLocked(false, 'false'),
+  false,
+  'Mock mode is not constrained by VITE_TEST_HARNESS'
+);
+console.log('PASS: PaymentModal locks mutation when apiEnabled=true and VITE_TEST_HARNESS is not enabled (no Render call)');
 
 console.log('\n====================================================');
 console.log('ALL FE 2: MEMBERSHIP, INVOICE & PAYMENT TESTS PASSED (100%)');

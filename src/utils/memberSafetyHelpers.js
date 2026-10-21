@@ -167,3 +167,11 @@ export const reconcileAndVerifySubscriptionSafety = ({
 
   return { allowed: true };
 };
+
+/**
+ * Evaluates whether PaymentModal mutations must remain locked.
+ * Locks mutation in API mode unless VITE_TEST_HARNESS is explicitly set to 'true'.
+ * Prevents unintended direct POST mutations to live backend without proper contract verification.
+ */
+export const isPaymentModalMutationLocked = (apiEnabled, harnessFlag) =>
+  Boolean(apiEnabled && harnessFlag !== 'true');

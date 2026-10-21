@@ -33,6 +33,7 @@ export function mapInvoice(item) {
       id: null,
       invoiceId: null,
       code: 'INV-00000',
+      invoiceCode: 'INV-00000',
       memberId: null,
       memberName: '',
       memberEmail: '',
@@ -49,6 +50,10 @@ export function mapInvoice(item) {
       rawPaymentStatus: null,
       paymentDate: null,
       gatewayTransactionRef: null,
+      createdAt: null,
+      expiresAt: null,
+      classId: null,
+      className: null,
     };
   }
 
@@ -58,11 +63,13 @@ export function mapInvoice(item) {
   const receptionistId = asNumber(item.receptionistId);
   const durationDays = asNumber(item.durationDays);
   const amount = asNumber(item.amount) ?? 0;
+  const invoiceCode = item.invoiceCode || formatInvoiceCode(invoiceId);
 
   return {
     id: invoiceId,
     invoiceId,
-    code: formatInvoiceCode(invoiceId),
+    code: invoiceCode,
+    invoiceCode,
     memberId,
     memberName: item.memberName || '',
     memberEmail: item.memberEmail || '',
@@ -79,6 +86,10 @@ export function mapInvoice(item) {
     rawPaymentStatus: item.paymentStatus ?? null,
     paymentDate: item.paymentDate || null,
     gatewayTransactionRef: item.gatewayTransactionRef || null,
+    createdAt: item.createdAt || null,
+    expiresAt: item.expiresAt || null,
+    classId: asNumber(item.classId),
+    className: item.className || null,
   };
 }
 

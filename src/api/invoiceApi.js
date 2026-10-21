@@ -71,11 +71,47 @@ export const updateInvoiceStatus = async (id, status) => {
   return mapInvoice(response);
 };
 
+export const getMemberOwnInvoices = async () => {
+  const data = await httpClient.get('/api/members/me/invoices');
+  const list = extractList(data);
+  return Array.isArray(list) ? list.map(mapInvoice).filter(Boolean) : [];
+};
+
+export const getMemberOwnInvoiceById = async (id) => {
+  if (!isValidNumericId(id)) {
+    throw new Error('ID hóa đơn không hợp lệ.');
+  }
+  const data = await httpClient.get(`/api/members/me/invoices/${id}`);
+  return mapInvoice(data);
+};
+
+export const confirmCashPayment = async (id) => {
+  if (!isValidNumericId(id)) {
+    throw new Error('ID hóa đơn không hợp lệ.');
+  }
+  const response = await httpClient.post(`/api/invoices/${id}/confirm-cash`);
+  return mapInvoice(response);
+};
+
+export const payInvoiceOnline = async (id) => {
+  if (!isValidNumericId(id)) {
+    throw new Error('ID hóa đơn không hợp lệ.');
+  }
+  const response = await httpClient.post(`/api/invoices/${id}/pay-online`);
+  return {
+    paymentUrl: response?.paymentUrl || null,
+  };
+};
+
 export const invoiceApi = {
   getInvoices,
   getInvoiceById,
+  getMemberOwnInvoices,
+  getMemberOwnInvoiceById,
   createInvoice,
   payInvoice,
+  confirmCashPayment,
+  payInvoiceOnline,
   updateInvoiceStatus,
 };
 

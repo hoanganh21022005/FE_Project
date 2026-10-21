@@ -24,6 +24,7 @@ export function extractList(body) {
  * Disallows decimals (e.g., 1.5), non-integers, negative numbers, and zero.
  */
 export function isValidNumericId(val) {
+  if (typeof val === 'boolean') return false;
   const n = asNumber(val);
   return n !== null && Number.isInteger(n) && n > 0 && n <= 2147483647;
 }
