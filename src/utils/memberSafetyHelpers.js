@@ -228,9 +228,10 @@ export const reconcileAndVerifySubscriptionSafety = ({
 /**
  * Reconciles an incomplete, timed-out, or ambiguous subscription order attempt against BE state.
  * Queries existing invoices and subscriptions to determine if the order was created on BE.
- * Strictly scopes reconciliation to the CURRENT attempt: excludes pre-existing records via
- * knownInvoiceIds / knownSubscriptionIds and verifies attempt timestamp to prevent adopting
- * old invoices/subscriptions for the same package.
+ * Strictly scopes reconciliation to the CURRENT attempt:
+ * - Requires positive integer ID and valid timestamp evidence (does not treat records lacking ID or time proof as new).
+ * - Excludes pre-existing records via knownInvoiceIds / knownSubscriptionIds baseline.
+ * - Confirms order only when sufficient clear information is present; flags ambiguous states (e.g., competing records, missing identifiers) to keep safe state and prevent false success claims.
  */
 export const reconcileIncompleteOrder = ({
   targetPackageId,
@@ -248,75 +249,136 @@ export const reconcileIncompleteOrder = ({
     (Array.isArray(knownSubscriptionIds) ? knownSubscriptionIds : []).map(String)
   );
 
-  const matchingInvoice = Array.isArray(invoices)
-    ? invoices.find((inv) => {
+  const matchingInvoices = Array.isArray(invoices)
+    ? invoices.filter((inv) => {
+        if (!inv || typeof inv !== 'object') return false;
         const invPkgId = Number(inv.packageId);
         if (invPkgId !== numPkgId) return false;
         if (inv.paymentStatus !== 'pending' && inv.paymentStatus !== 'paid') return false;
 
         const invId = inv.id ?? inv.invoiceId;
-        // Exclude pre-existing invoices belonging to earlier attempts
-        if (knownInvSet.size > 0 && invId != null) {
-          if (knownInvSet.has(String(invId))) {
-            return false;
-          }
+        // 1. Mandatory ID evidence: record lacking valid positive integer ID is NOT new proof
+        if (invId == null || !Number.isInteger(Number(invId)) || Number(invId) <= 0) {
+          return false;
         }
 
-        // Check timestamp if available
-        if (attemptStartedAt && inv.createdAt) {
-          const invTime = new Date(inv.createdAt).getTime();
-          if (!Number.isNaN(invTime) && invTime < attemptStartedAt - 5000) {
+        // 2. Exclude pre-existing invoices belonging to earlier attempts
+        if (knownInvSet.size > 0 && knownInvSet.has(String(invId))) {
+          return false;
+        }
+
+        // 3. Mandatory time evidence: if attempt baseline is set, record lacking time proof is NOT new
+        if (attemptStartedAt != null) {
+          const rawTime = inv.createdAt || inv.createdDate || inv.issueDate || inv.date;
+          if (!rawTime) {
+            return false;
+          }
+          const invTime = new Date(rawTime).getTime();
+          if (Number.isNaN(invTime) || invTime < attemptStartedAt - 5000) {
             return false;
           }
         }
 
         return true;
       })
-    : null;
+    : [];
 
-  const matchingSub = Array.isArray(subscriptions)
-    ? subscriptions.find((sub) => {
+  const matchingSubs = Array.isArray(subscriptions)
+    ? subscriptions.filter((sub) => {
+        if (!sub || typeof sub !== 'object') return false;
         const subPkgId = Number(sub.packageId);
         if (subPkgId !== numPkgId) return false;
         if (sub.status !== 'pending_payment' && sub.status !== 'active' && sub.status !== 'pending') return false;
 
         const subId = sub.subscriptionId ?? sub.id;
-        // Exclude pre-existing subscriptions belonging to earlier attempts
-        if (knownSubSet.size > 0 && subId != null) {
-          if (knownSubSet.has(String(subId))) {
-            return false;
-          }
+        // 1. Mandatory ID evidence
+        if (subId == null || !Number.isInteger(Number(subId)) || Number(subId) <= 0) {
+          return false;
         }
 
-        if (attemptStartedAt && sub.createdAt) {
-          const subTime = new Date(sub.createdAt).getTime();
-          if (!Number.isNaN(subTime) && subTime < attemptStartedAt - 5000) {
+        // 2. Exclude pre-existing subscriptions belonging to earlier attempts
+        if (knownSubSet.size > 0 && knownSubSet.has(String(subId))) {
+          return false;
+        }
+
+        // 3. Mandatory time evidence
+        if (attemptStartedAt != null) {
+          const rawTime = sub.createdAt || sub.createdDate || sub.startDate;
+          if (!rawTime) {
+            return false;
+          }
+          const subTime = new Date(rawTime).getTime();
+          if (Number.isNaN(subTime) || subTime < attemptStartedAt - 5000) {
             return false;
           }
         }
 
         return true;
       })
-    : null;
+    : [];
 
-  if (matchingInvoice || matchingSub) {
+  // Ambiguity check 1: Multiple competing new records for the same package
+  if (matchingInvoices.length > 1 || matchingSubs.length > 1) {
     return {
       reconciled: true,
       foundOnServer: true,
-      invoice: matchingInvoice || null,
-      subscription: matchingSub || null,
-      invoiceId: matchingInvoice?.id ?? matchingInvoice?.invoiceId ?? null,
-      subscriptionId: matchingSub?.subscriptionId ?? matchingSub?.id ?? null,
+      confirmed: false,
+      isAmbiguous: true,
+      ambiguityReason: 'multiple_competing_records',
+      invoice: null,
+      subscription: null,
+      invoiceId: null,
+      subscriptionId: null,
     };
   }
 
+  const matchingInvoice = matchingInvoices[0] || null;
+  const matchingSub = matchingSubs[0] || null;
+
+  if (!matchingInvoice && !matchingSub) {
+    return {
+      reconciled: true,
+      foundOnServer: false,
+      confirmed: false,
+      isAmbiguous: false,
+      invoice: null,
+      subscription: null,
+      invoiceId: null,
+      subscriptionId: null,
+    };
+  }
+
+  const invId = matchingInvoice ? (matchingInvoice.id ?? matchingInvoice.invoiceId) : null;
+  const subId = matchingSub ? (matchingSub.subscriptionId ?? matchingSub.id) : null;
+
+  const hasValidInvId = invId != null && Number.isInteger(Number(invId)) && Number(invId) > 0;
+  const hasValidSubId = subId != null && Number.isInteger(Number(subId)) && Number(subId) > 0;
+
+  // Ambiguity check 2: Lacks sufficient confirmed identifiers
+  if (!hasValidInvId && !hasValidSubId) {
+    return {
+      reconciled: true,
+      foundOnServer: true,
+      confirmed: false,
+      isAmbiguous: true,
+      ambiguityReason: 'insufficient_identifiers',
+      invoice: matchingInvoice,
+      subscription: matchingSub,
+      invoiceId: null,
+      subscriptionId: null,
+    };
+  }
+
+  // Clear, non-ambiguous confirmed record found
   return {
     reconciled: true,
-    foundOnServer: false,
-    invoice: null,
-    subscription: null,
-    invoiceId: null,
-    subscriptionId: null,
+    foundOnServer: true,
+    confirmed: true,
+    isAmbiguous: false,
+    invoice: matchingInvoice,
+    subscription: matchingSub,
+    invoiceId: hasValidInvId ? Number(invId) : null,
+    subscriptionId: hasValidSubId ? Number(subId) : null,
   };
 };
 

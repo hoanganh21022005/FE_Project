@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useId, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useId, useMemo, useRef } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatDate, formatCurrency } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
@@ -93,6 +93,7 @@ export function MyMembershipView() {
   const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' | 'bank_transfer' | 'online'
   const [subNotes, setSubNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [submitError, setSubmitError] = useState(null);
 
   const packageSelectId = useId();
@@ -234,7 +235,9 @@ export function MyMembershipView() {
   // Handle Subscribe / Renew Submit
   const handleSubscribeSubmit = async (e) => {
     e?.preventDefault?.();
-    if (submitting) return;
+    // Synchronous mutex lock to prevent concurrent or duplicate handler invocation
+    if (submittingRef.current || submitting) return;
+    submittingRef.current = true;
 
     // 1. Form preflight input validation before engaging submitting state
     const preflight = validateDirectSubscriptionPreflight({
@@ -245,12 +248,14 @@ export function MyMembershipView() {
     });
 
     if (!preflight.ok) {
+      submittingRef.current = false;
       setSubmitError(preflight.error);
       return;
     }
 
     // 2. Strict mutation lock: keep direct POST to Render strictly locked
     if (isMemberMutationLocked) {
+      submittingRef.current = false;
       setSubmitError(
         language === 'vi'
           ? 'Thao tác đăng ký trực tuyến từ phía hội viên tạm thời bị khóa: Backend chưa xác nhận tài khoản/hồ sơ test được phép phát sinh giao dịch và cấu hình sandbox. Vui lòng thanh toán tại quầy Tiếp tân.'
@@ -266,10 +271,6 @@ export function MyMembershipView() {
 
     if (apiEnabled) {
       try {
-        // Snapshot attempt baseline to strictly scope GET reconciliation to the current attempt
-        const attemptStartedAt = Date.now();
-        const knownInvoiceIds = (invoices || []).map((inv) => inv.id ?? inv.invoiceId).filter(Boolean);
-
         // 3. Safe read-before-write: fetch existing subscriptions on BE to prevent duplicate registration
         let existingSubs;
         try {
@@ -295,7 +296,18 @@ export function MyMembershipView() {
           throw new Error(safetyCheck.error);
         }
 
-        // 5. Submit via subscribeMe (OpenAPI POST /api/members/me/subscriptions)
+        // 5. Query fresh invoice baseline IMMEDIATELY before POST to strictly scope reconciliation
+        let baselineInvoices = [];
+        try {
+          baselineInvoices = await invoiceApi.getMemberOwnInvoices();
+        } catch {
+          baselineInvoices = invoices || [];
+        }
+
+        const attemptStartedAt = Date.now();
+        const knownInvoiceIds = (baselineInvoices || []).map((inv) => inv.id ?? inv.invoiceId).filter(Boolean);
+
+        // 6. Submit via subscribeMe (OpenAPI POST /api/members/me/subscriptions)
         const payload = {
           packageId: numericPkgId,
           paymentMethod: paymentMethod.toUpperCase(),
@@ -326,7 +338,7 @@ export function MyMembershipView() {
             // reconciliation query failed
           }
 
-          if (reconciledState?.foundOnServer) {
+          if (reconciledState?.foundOnServer && reconciledState?.confirmed && !reconciledState?.isAmbiguous) {
             setStoredPendingOrder(memberProfileId, {
               memberId: memberProfileId,
               subscriptionId: reconciledState.subscriptionId,
@@ -345,6 +357,16 @@ export function MyMembershipView() {
             setIsSubscribeModalOpen(false);
             setSubNotes('');
             await fetchMemberData();
+            return;
+          }
+
+          if (reconciledState?.isAmbiguous || (reconciledState?.foundOnServer && !reconciledState?.confirmed)) {
+            // Ambiguous state: keep safe state, do not claim success, instruct user to check history
+            setSubmitError(
+              language === 'vi'
+                ? 'Giao dịch chưa xác định rõ kết quả trên máy chủ. Đơn có thể đã được tiếp nhận một phần; để đảm bảo an toàn, vui lòng không gửi lại và kiểm tra lịch sử hóa đơn hoặc liên hệ quầy Tiếp tân.'
+                : 'Transaction outcome on server is ambiguous. Please do not retry; verify invoice history or contact reception desk.'
+            );
             return;
           }
 
@@ -382,9 +404,11 @@ export function MyMembershipView() {
           )
         );
       } finally {
+        submittingRef.current = false;
         setSubmitting(false);
       }
     } else {
+      submittingRef.current = false;
       // A local request remains pending until the desk confirms collection.
       const chosenPkg = contextPackages.find((p) => String(p.id) === String(selectedPackageId));
       const result = createMockPendingPayment({
@@ -410,18 +434,10 @@ export function MyMembershipView() {
   };
 
   const openSubscribeModal = (initialPkgId = '') => {
-    if (apiEnabled) {
-      showToast?.(
-        language === 'vi'
-          ? 'Tính năng đăng ký trực tuyến hiện đang được bảo trì. Vui lòng liên hệ quầy tiếp tân để được hỗ trợ.'
-          : 'Online registration is currently under maintenance. Please contact reception desk.',
-        'warning'
-      );
-      return;
-    }
+    const available = apiEnabled ? packages : contextPackages;
     const defaultPkg = initialPkgId
       ? String(initialPkgId)
-      : (contextPackages[0]?.id ? String(contextPackages[0].id) : '');
+      : (available[0]?.id ? String(available[0].id) : '');
     setSelectedPackageId(defaultPkg);
     setSubmitError(null);
     setSubNotes('');
