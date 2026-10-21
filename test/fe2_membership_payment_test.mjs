@@ -237,7 +237,13 @@ assert.equal(missingInvoiceOrder.invoiceId, null);
 assert.equal(missingInvoiceOrder.invoiceCode, null, 'Missing invoice ID must NOT invent invoice code');
 assert.equal(missingInvoiceOrder.amount, null);
 assert.equal(missingInvoiceOrder.status, 'none');
-console.log('PASS: mapSubscriptionOrder does NOT invent invoiceCode, amount, or status for empty or missing-ID response');
+
+// If BE returns subscriptionId and invoiceId, but NO invoiceCode: invoiceCode must be strictly null
+const noInvoiceCodeOrder = mapSubscriptionOrder({ subscriptionId: 101, invoiceId: 55 });
+assert.equal(noInvoiceCodeOrder.subscriptionId, 101);
+assert.equal(noInvoiceCodeOrder.invoiceId, 55);
+assert.equal(noInvoiceCodeOrder.invoiceCode, null, 'mapSubscriptionOrder must NOT synthesize INV-00055 from invoiceId');
+console.log('PASS: mapSubscriptionOrder does NOT invent invoiceCode, amount, or status for empty, missing-ID, or missing-code response');
 
 // toMemberPackageRequest validation
 assert.throws(() => toMemberPackageRequest({}), /packageId.*không hợp lệ/i);
@@ -618,6 +624,32 @@ assert.equal(subMeOrder.invoiceCode, 'INV-2026-000055');
 assert.equal(subMeOrder.paymentUrl, 'https://sandbox.vnpayment.vn/pay?id=55');
 console.log('PASS: subscribeMe sends payload to /api/members/me/subscriptions and returns mapped order');
 
+// Test subscribeMe rejection when response lacks mandatory identifiers (e.g. missing invoiceId or subscriptionId)
+let postCounter = 0;
+const prevPost = httpClient.post;
+httpClient.post = async (path, body) => {
+  postCounter++;
+  return {
+    subscriptionId: 101,
+    // invoiceId is omitted
+  };
+};
+
+await assert.rejects(
+  () => membershipApi.subscribeMe({ packageId: 10, paymentMethod: 'VNPay' }),
+  (err) => {
+    assert.match(err.message, /thiếu định danh bắt buộc/i);
+    assert.match(err.message, /GET đối soát/i);
+    assert.match(err.message, /không tự gửi lại yêu cầu/i);
+    assert.equal(err.requiresReconciliation, true);
+    return true;
+  },
+  'subscribeMe must fail closed when response is missing mandatory identifiers and warn to reconcile via GET'
+);
+assert.equal(postCounter, 1, 'subscribeMe must NOT automatically retry POST on missing mandatory identifiers');
+console.log('PASS: subscribeMe rejects incomplete response, demands GET reconciliation, and sends exactly one POST');
+httpClient.post = prevPost;
+
 // 6.7 Swagger confirm-cash (no body) and pay-online
 const cashConfirmResult = await invoiceApi.confirmCashPayment(55);
 assert.equal(recordedPostPath, '/api/invoices/55/confirm-cash');
@@ -663,11 +695,6 @@ httpClient.get = async (path) => {
     err.status = 403;
     throw err;
   }
-  if (path.includes('/api/members/me/subscriptions')) {
-    const err = new Error('401 Unauthorized: Session Token Expired');
-    err.status = 401;
-    throw err;
-  }
   if (path.includes('/api/invoices')) {
     const err = new Error('401 Unauthorized: Session Token Expired');
     err.status = 401;
@@ -689,9 +716,15 @@ await assert.rejects(
 );
 
 await assert.rejects(
-  () => membershipApi.getMemberOwnSubscriptions(),
-  /401 Unauthorized/,
-  'getMemberOwnSubscriptions must throw 401 directly without falling back to /api/member-packages'
+  () => membershipApi.getMemberSubscriptions('me'),
+  /ID hội viên không hợp lệ/,
+  'membershipApi.getMemberSubscriptions must reject non-numeric "me" and fail closed without calling non-existent GET'
+);
+
+await assert.rejects(
+  () => membershipApi.getMemberSubscriptions(null),
+  /ID hội viên không hợp lệ/,
+  'membershipApi.getMemberSubscriptions must reject null ID'
 );
 
 await assert.rejects(

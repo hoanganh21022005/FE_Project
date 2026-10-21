@@ -150,7 +150,7 @@ export function mapSubscriptionOrder(item) {
   return {
     subscriptionId,
     invoiceId,
-    invoiceCode: item.invoiceCode ? String(item.invoiceCode) : (invoiceId !== null ? `INV-${String(invoiceId).padStart(5, '0')}` : null),
+    invoiceCode: item.invoiceCode ? String(item.invoiceCode) : null,
     amount,
     paymentMethod: item.paymentMethod ? String(item.paymentMethod).toLowerCase() : null,
     rawPaymentMethod: item.paymentMethod ?? null,

@@ -997,7 +997,7 @@ async function main() {
     await client.send('Page.reload');
     await client.waitFor("window.location.pathname === '/member/my-membership'", 10000);
     await client.waitFor("document.querySelector('main') !== null", 10000);
-    await client.waitFor("!document.querySelector('main .animate-spin')", 10000);
+    await client.waitFor("Boolean(document.querySelector('main')?.innerText?.includes('Lỗi kết nối máy chủ') || document.querySelector('main')?.innerText?.includes('Server Error'))", 10000);
 
     const t9ErrorState = await client.eval(`
       (() => {

@@ -52,16 +52,7 @@ export const updatePackageStatus = async (id, status) => {
   return mapMembershipPackage(updated);
 };
 
-export const getMemberOwnSubscriptions = async () => {
-  const data = await httpClient.get('/api/members/me/subscriptions');
-  const list = extractList(data);
-  return Array.isArray(list) ? list.map(mapMemberSubscription).filter(Boolean) : [];
-};
-
 export const getMemberSubscriptions = async (memberId) => {
-  if (memberId === 'me') {
-    return getMemberOwnSubscriptions();
-  }
   if (!isValidNumericId(memberId)) {
     throw new Error('ID hội viên không hợp lệ.');
   }
@@ -82,7 +73,19 @@ export const subscribePackage = async (memberId, data) => {
 export const subscribeMe = async (data) => {
   const payload = toMemberPackageRequest(data);
   const response = await httpClient.post('/api/members/me/subscriptions', payload);
-  return mapSubscriptionOrder(response);
+  const mapped = mapSubscriptionOrder(response);
+
+  if (!mapped.subscriptionId || !mapped.invoiceId) {
+    const error = new Error(
+      'Phản hồi tạo đơn thiếu định danh bắt buộc (subscriptionId hoặc invoiceId). Đơn có thể đã được tạo trên hệ thống; vui lòng thực hiện GET đối soát, không tự gửi lại yêu cầu đăng ký.'
+    );
+    error.name = 'IncompleteOrderResponseError';
+    error.partialOrder = mapped;
+    error.requiresReconciliation = true;
+    throw error;
+  }
+
+  return mapped;
 };
 
 export const getAllSubscriptions = async () => {
@@ -106,7 +109,6 @@ export const membershipApi = {
   createPackage,
   updatePackage,
   updatePackageStatus,
-  getMemberOwnSubscriptions,
   getMemberSubscriptions,
   subscribePackage,
   subscribeMe,
