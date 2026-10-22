@@ -158,9 +158,6 @@ export function EnrollClassModal({
                 <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-slate-900 text-white">
                   {classItem.category || 'Thể thao'}
                 </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">
-                  {classItem.level || 'Cơ bản'} &bull; {classItem.batch || 'K01'}
-                </span>
               </div>
 
               <div>

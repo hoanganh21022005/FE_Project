@@ -298,7 +298,7 @@ export function ClassDetailDrawer({
                   {currentStatus.label}
                 </span>
                 <span className="text-xs text-stone-500 font-medium">
-                  {cls.category || (apiEnabled ? "—" : "Thể thao")} &bull; {cls.level || (apiEnabled ? "—" : "Cơ bản")}
+                  {cls.category || (apiEnabled ? "—" : "Thể thao")}
                 </span>
               </div>
               <h2 className="text-lg font-bold text-stone-900 truncate">

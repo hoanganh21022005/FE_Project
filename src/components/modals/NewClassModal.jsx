@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo, useRef } from "react"
 import { useSCMS } from "../../context/SCMSContext"
 import {
   SPORT_DISCIPLINES,
-  CLASS_LEVELS,
   isCoachMatchingSport,
 } from "../classes/sportDisciplines"
+import { validateClassName, MAX_CLASS_NAME_LENGTH } from "../../api/classValidation"
 import { useScheduleConflict } from "../classes/hooks/useScheduleConflict"
 import { CurrencyInput } from "../common/CurrencyInput"
 import {
@@ -467,8 +467,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
   // Form states
   const [selectedSportId, setSelectedSportId] = useState("badminton")
-  const [className, setClassName] = useState("Cầu lông Cơ bản K01")
-  const [level, setLevel] = useState("Cơ bản")
+  const [className, setClassName] = useState("")
   const [description, setDescription] = useState("")
 
   const [coachId, setCoachId] = useState("")
@@ -505,6 +504,13 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const [pendingCreatedClass, setPendingCreatedClass] = useState(null)
   const [generatedScheduleEndDate, setGeneratedScheduleEndDate] = useState(null)
 
+  useEffect(() => {
+    if (!isOpen) return
+    setClassName("")
+    setTouched({})
+    setIsDirty(false)
+  }, [isOpen])
+
   const currentSport = useMemo(
     () =>
       SPORT_DISCIPLINES.find((s) => s.id === selectedSportId) ||
@@ -526,26 +532,9 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     return { matchedCoaches: matched, otherCoaches: other }
   }, [coaches, currentSport])
 
-  // When sport or level changes: Auto-generate class name with auto-increment K01, K02...
+  // Keep sport-based defaults for capacity, room, and coach.
   useEffect(() => {
     if (currentSport) {
-      const prefix = `${currentSport.name} ${level}`
-      const regex = new RegExp(
-        `^${currentSport.name}\\s+${level}\\s+K(\\d+)`,
-        "i",
-      )
-      let maxCohort = 0
-      ;(classes || []).forEach((c) => {
-        const name = c.nameVi || c.name || ""
-        const m = name.match(regex)
-        if (m) {
-          const num = parseInt(m[1], 10)
-          if (num > maxCohort) maxCohort = num
-        }
-      })
-      const nextK = `K${String(maxCohort + 1).padStart(2, "0")}`
-      setClassName(`${prefix} ${nextK}`)
-
       // Auto-set sport default capacity
       setCapacity(currentSport.defaultCapacity || 8)
 
@@ -566,7 +555,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         setCoachId("")
       }
     }
-  }, [apiEnabled, currentSport?.id, level, classes, coaches, validCenterRooms])
+  }, [apiEnabled, currentSport?.id, coaches, validCenterRooms])
 
   // Handle prefilled clone / duplicate class
   useEffect(() => {
@@ -579,20 +568,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     )
     if (sp) setSelectedSportId(sp.id)
 
-    // Auto increment K cohort number
-    const currentName = cloneFrom.nameVi || cloneFrom.name || ""
-    const matchK = currentName.match(/K(\d+)/i)
-    if (matchK) {
-      const nextNum = String(Number(matchK[1]) + 1).padStart(
-        matchK[1].length,
-        "0",
-      )
-      setClassName(currentName.replace(/K\d+/i, `K${nextNum}`))
-    } else {
-      setClassName(`${currentName} (Khóa mới)`)
-    }
-
-    if (cloneFrom.level) setLevel(cloneFrom.level)
     if (cloneFrom.coachId) setCoachId(String(cloneFrom.coachId))
     if (cloneFrom.roomId || cloneFrom.room) {
       const matchedR = allAvailableRooms.find(
@@ -786,8 +761,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   }, [startDate])
 
   // Field validation checks
-  const nameError =
-    touched.className && !className.trim() ? "Vui lòng nhập tên lớp học." : ""
+  const nameError = touched.className ? validateClassName(className) : ""
   const capacityError =
     touched.capacity &&
     selectedRoomObj?.capacity &&
@@ -879,8 +853,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
       price: true,
     })
 
-    if (!className.trim()) {
-      showToast("Vui lòng nhập tên lớp học.", "error")
+    if (validateClassName(className)) {
+      showToast(validateClassName(className), "error")
       return
     }
     if (isFirstSessionInPast) {
@@ -958,7 +932,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         classType: "Normal",
         minTierRequired: 1,
         selectedDays: [...selectedDays],
-        level,
       }
 
       if (apiEnabled && targetStatus !== "Draft") {
@@ -1123,55 +1096,26 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
               </div>
             </div>
 
-            {/* Tên lớp học */}
-            {/* Tên lớp học (Tự động sinh từ Bộ môn, Cấp độ và Khóa - Không cho nhập tay để tránh mâu thuẫn) */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm font-medium text-stone-800">
+              <label htmlFor="new-class-name" className="text-sm font-medium text-stone-800 block mb-1.5">
                   Tên lớp học
-                </label>
-                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                  Tự động sinh chuẩn hóa
-                </span>
-              </div>
-              <input
-                type="text"
-                readOnly
-                value={className}
-                className="w-full h-11 px-3.5 text-sm font-semibold bg-stone-100/80 border border-stone-200 text-stone-800 rounded-xl cursor-not-allowed select-none"
-              />
-              <div className="text-xs text-stone-500 mt-1">
-                Tên hiển thị được sinh tự động từ Bộ môn, Cấp độ và Số khóa (K01, K02...) để đảm bảo đồng bộ tuyệt đối.
-              </div>
-            </div>
-
-            {/* Cấp độ: 2x2 Segmented Control */}
-            <div>
-              <label className="text-sm font-medium text-stone-800 block mb-1.5">
-                Cấp độ
               </label>
-              <div className="grid grid-cols-2 gap-1.5 p-1.5 bg-[#F1F3F5] rounded-xl">
-                {CLASS_LEVELS.map((lvl) => {
-                  const isActive = level === lvl
-                  return (
-                    <button
-                      key={lvl}
-                      type="button"
-                      onClick={() => {
-                        setIsDirty(true)
-                        setLevel(lvl)
-                      }}
-                      className={`h-9 px-3 text-sm rounded-lg transition-all text-center cursor-pointer ${
-                        isActive
-                          ? "bg-white text-stone-900 font-semibold shadow-xs"
-                          : "text-stone-600 hover:text-stone-900 font-normal"
-                      }`}
-                    >
-                      {lvl}
-                    </button>
-                  )
-                })}
-              </div>
+              <input
+                id="new-class-name"
+                type="text"
+                value={className}
+                maxLength={MAX_CLASS_NAME_LENGTH}
+                onChange={(event) => {
+                  setIsDirty(true)
+                  setClassName(event.target.value)
+                }}
+                onBlur={() => setTouched((prev) => ({ ...prev, className: true }))}
+                aria-invalid={Boolean(nameError)}
+                aria-describedby={nameError ? "new-class-name-error" : undefined}
+                placeholder="Nhập tên lớp học"
+                className={`w-full h-11 px-3.5 text-sm font-semibold bg-white border ${nameError ? "border-rose-400" : "border-stone-300"} text-stone-800 rounded-xl focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800`}
+              />
+              {nameError && <p id="new-class-name-error" role="alert" className="text-xs text-rose-600 mt-1">{nameError}</p>}
             </div>
 
             {/* Mô tả khóa học (không bắt buộc) */}
@@ -1809,13 +1753,12 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
           <div className="bg-white rounded-2xl border border-stone-200/80 p-6 space-y-4 shadow-2xs">
             <h2 className="text-base font-bold text-stone-900">Tóm tắt</h2>
 
-            {/* Tiêu đề lớp & phân loại */}
             <div>
               <h3 className="text-lg font-bold text-stone-900 leading-snug">
                 {className || "Chưa đặt tên lớp"}
               </h3>
               <div className="text-xs text-stone-500 mt-0.5 capitalize">
-                {currentSport.name}, {level.toLowerCase()}
+                {currentSport.name}
               </div>
             </div>
 

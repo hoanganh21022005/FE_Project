@@ -2534,7 +2534,6 @@ export const SCMSProvider = ({ children }) => {
           price: payload.price,
           minTierRequired: payload.minTierRequired,
           date: payload.startDate || payload.date,
-          level: payload.level,
           sessionCount: payload.sessionCount,
           minCapacity: payload.minCapacity,
           selectedDays: payload.selectedDays,
