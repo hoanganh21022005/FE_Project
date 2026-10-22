@@ -251,7 +251,6 @@ export const SPORT_DISCIPLINES = [
   },
 ]
 
-export const CLASS_LEVELS = ["Cơ bản", "Trung cấp", "Nâng cao", "Mọi cấp độ"]
 
 export const SPORT_SYNONYMS = {
   "quần vợt": ["quần vợt", "tennis", "quan vot", "qv"],

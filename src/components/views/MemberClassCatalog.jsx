@@ -459,7 +459,6 @@ function LegacyMemberClassCatalog() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedLevel, setSelectedLevel] = useState('all'); // 'all' | 'Cơ bản' | 'Nâng cao' | 'Mọi cấp độ'
   const [selectedTimeOfDay, setSelectedTimeOfDay] = useState('all'); // 'all' | 'morning' | 'afternoon' | 'evening'
   const [selectedAvailability, setSelectedAvailability] = useState('all'); // 'all' | 'available' | 'booked'
   const [sortBy, setSortBy] = useState('default'); // 'default' | 'price_asc' | 'price_desc' | 'spots_desc'
@@ -582,7 +581,7 @@ function LegacyMemberClassCatalog() {
   // Reset page when category or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCategory, selectedLevel, selectedTimeOfDay, selectedAvailability, sortBy]);
+  }, [selectedCategory, selectedTimeOfDay, selectedAvailability, sortBy]);
 
   // Polling data every 30 seconds for real-time capacity updates silently in background
   useEffect(() => {
@@ -644,12 +643,7 @@ function LegacyMemberClassCatalog() {
         return false;
       }
 
-      // 2. Level
-      if (selectedLevel !== 'all' && cls.level !== selectedLevel) {
-        return false;
-      }
-
-      // 3. Time of day
+      // 2. Time of day
       if (selectedTimeOfDay !== 'all') {
         const startHour = parseInt((cls.startTime || '00:00').split(':')[0], 10);
         if (selectedTimeOfDay === 'morning' && startHour >= 12) return false;
@@ -657,7 +651,7 @@ function LegacyMemberClassCatalog() {
         if (selectedTimeOfDay === 'evening' && startHour < 18) return false;
       }
 
-      // 4. Availability
+      // 3. Availability
       const isBooked = (bookings || []).some(
         b => String(b.classId) === String(cls.id) &&
              String(b.memberId) === String(member?.id) &&
@@ -669,7 +663,7 @@ function LegacyMemberClassCatalog() {
         if (!status.isOpen || isBooked) return false;
       }
 
-      // 5. Smart Search term
+      // 4. Smart Search term
       if (debouncedSearch) {
         const term = debouncedSearch.toLowerCase();
         const matchName = (cls.name || '').toLowerCase().includes(term);
@@ -716,7 +710,6 @@ function LegacyMemberClassCatalog() {
   }, [
     publishedClasses,
     selectedCategory,
-    selectedLevel,
     selectedTimeOfDay,
     selectedAvailability,
     debouncedSearch,
@@ -775,7 +768,6 @@ function LegacyMemberClassCatalog() {
     setSelectedCategory('all');
     setSearchInput('');
     setDebouncedSearch('');
-    setSelectedLevel('all');
     setSelectedTimeOfDay('all');
     setSelectedAvailability('all');
     setSortBy('default');
@@ -785,7 +777,6 @@ function LegacyMemberClassCatalog() {
   const hasActiveFilters =
     selectedCategory !== 'all' ||
     debouncedSearch !== '' ||
-    selectedLevel !== 'all' ||
     selectedTimeOfDay !== 'all' ||
     selectedAvailability !== 'all' ||
     sortBy !== 'default';
@@ -1069,19 +1060,6 @@ function LegacyMemberClassCatalog() {
             </span>
           )}
 
-          {selectedLevel !== 'all' && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#161B22] text-slate-200 text-[11px] font-semibold border border-slate-700">
-              <span>Trình độ: {selectedLevel}</span>
-              <button
-                type="button"
-                onClick={() => setSelectedLevel('all')}
-                className="hover:text-red-400 cursor-pointer"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          )}
-
           {selectedTimeOfDay !== 'all' && (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#161B22] text-slate-200 text-[11px] font-semibold border border-slate-700">
               <span>
@@ -1150,23 +1128,6 @@ function LegacyMemberClassCatalog() {
               <option value="morning">{language === 'vi' ? 'Buổi sáng (trước 12:00)' : 'Morning (Before 12:00)'}</option>
               <option value="afternoon">{language === 'vi' ? 'Buổi chiều (12:00 - 18:00)' : 'Afternoon (12:00 - 18:00)'}</option>
               <option value="evening">{language === 'vi' ? 'Buổi tối (sau 18:00)' : 'Evening (After 18:00)'}</option>
-            </select>
-          </div>
-
-          {/* Filter by Level */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-300 mb-1">
-              {language === 'vi' ? 'Trình độ lớp' : 'Skill Level'}
-            </label>
-            <select
-              value={selectedLevel}
-              onChange={(e) => setSelectedLevel(e.target.value)}
-              className="w-full bg-[#0F141C] border border-slate-700 rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-hidden focus:ring-1 focus:ring-[#BA0000]"
-            >
-              <option value="all">{language === 'vi' ? 'Tất cả trình độ' : 'All Levels'}</option>
-              <option value="Cơ bản">{language === 'vi' ? 'Cơ bản (Beginner)' : 'Beginner'}</option>
-              <option value="Nâng cao">{language === 'vi' ? 'Nâng cao (Advanced)' : 'Advanced'}</option>
-              <option value="Mọi cấp độ">{language === 'vi' ? 'Mọi cấp độ (All levels)' : 'All Levels'}</option>
             </select>
           </div>
 
@@ -1357,14 +1318,9 @@ function LegacyMemberClassCatalog() {
                   {/* Card Content Body */}
                   <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
                     <div className="space-y-3">
-                      {/* Skill Level Kicker (small gray uppercase text above title) */}
-                      <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
-                        {cls.level || 'Cơ bản'}
-                      </div>
-
                       {/* Class Title (Bold Uppercase White) */}
                       <h3 className="text-lg font-black text-white uppercase tracking-wide group-hover:text-red-400 transition-colors leading-tight">
-                        {cls.category} {cls.batch || (cls.code ? cls.code.replace('CLS-', 'K') : 'K01')}
+                        {cls.nameVi || cls.name}
                       </h3>
 
                       {/* Tuition / Price line (From screenshot: "Từ 2.200.000 đ / 12 buổi") */}

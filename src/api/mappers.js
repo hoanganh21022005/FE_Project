@@ -147,7 +147,6 @@ export function mapClass(
       endTime: null,
       durationMinutes: null,
       code: null,
-      level: null,
       minTierRequired: null,
       minCapacity: null,
       selectedDays: null,
@@ -310,13 +309,6 @@ export function mapClass(
     roomSpec: merged.roomSpec ?? defaultRoomSpec,
     price,
     minTierRequired: merged.minTierRequired ?? 1,
-    level:
-      merged.level ??
-      (item.name?.includes("Nâng cao")
-        ? "Nâng cao"
-        : item.name?.includes("Trung cấp")
-          ? "Trung cấp"
-          : "Cơ bản"),
     sessionCount: asNumber(item.totalSessions) ?? merged.sessionCount ?? 12,
     minCapacity: merged.minCapacity ?? (isPickleball ? 2 : 4),
     selectedDays: initialDays ?? [1, 3, 5],

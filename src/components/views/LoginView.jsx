@@ -647,7 +647,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
             )}
 
             {/* Form */}
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} autoComplete="off" className="space-y-4">
               {/* Email field */}
               <div>
                 <label
@@ -659,7 +659,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 <input
                   id="login-email"
                   type="email"
-                  autoComplete="username"
+                  autoComplete="off"
                   value={loginEmail}
                   onChange={e => setLoginEmail(e.target.value)}
                   placeholder={adminEntry ? 'admin@scms.com' : 'manager@scms.com'}
@@ -679,7 +679,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   <input
                     id="login-password"
                     type={showLoginPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
+                    autoComplete="off"
                     value={loginPassword}
                     onChange={e => setLoginPassword(e.target.value)}
                     placeholder="••••••••"
@@ -896,7 +896,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
             </div>
 
             {/* Form */}
-            <form onSubmit={handleRegister} className="space-y-4">
+            <form onSubmit={handleRegister} autoComplete="off" className="space-y-4">
               {enrollmentSport && (
                 <p className="border-l-2 border-mlc-red bg-rose-50 px-3 py-2 text-xs leading-6 text-stone-700">
                   {isVi ? `Môn quan tâm: ${enrollmentSport.title}` : `Interested in: ${enrollmentSport.titleEn}`}
@@ -908,6 +908,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 <input
                   type="text"
                   required
+                  autoComplete="off"
                   value={regName}
                   onChange={e => {
                     setRegName(e.target.value);
@@ -928,6 +929,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 <input
                   type="tel"
                   required
+                  autoComplete="off"
                   value={regPhone}
                   onChange={e => {
                     setRegPhone(e.target.value);
@@ -948,6 +950,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                 <input
                   type="email"
                   required
+                  autoComplete="off"
                   value={regEmail}
                   onChange={e => {
                     setRegEmail(e.target.value);
@@ -969,6 +972,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   <input
                     type={showRegPassword ? 'text' : 'password'}
                     required
+                    autoComplete="new-password"
                     value={regPassword}
                     onChange={e => {
                       setRegPassword(e.target.value);
@@ -995,6 +999,7 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
                   <input
                     type={showRegPassword ? 'text' : 'password'}
                     required
+                    autoComplete="new-password"
                     value={regConfirmPassword}
                     onChange={e => {
                       setRegConfirmPassword(e.target.value);

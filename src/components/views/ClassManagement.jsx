@@ -216,7 +216,6 @@ function exportClassesToCsv(
     "Mã lớp",
     "Tên lớp",
     "Bộ môn",
-    "Trình độ",
     "Số buổi",
     "Thứ học",
     "Giờ học",
@@ -254,7 +253,6 @@ function exportClassesToCsv(
       cls.code || (apiMode ? "—" : `CLS-${cls.id}`),
       cls.nameVi || cls.name || "—",
       cls.category || "—",
-      cls.level || (apiMode ? "—" : "Cơ bản"),
       cls.sessionCount ?? (apiMode ? "—" : 12),
       getWeekdaysArray(cls.selectedDays, cls.category, apiMode).join(", ") || "—",
       formatScheduleTime(cls, apiMode),
@@ -2448,11 +2446,9 @@ export function ClassManagement() {
                               </div>
                               <div
                                 className="text-[11px] text-stone-500 flex items-center gap-1.5 flex-wrap"
-                                title={`${cls.category || (apiEnabled ? "—" : "Thể thao")} • ${cls.level || (apiEnabled ? "—" : "Cơ bản")} • ${sessionCount ?? "—"} buổi`}
+                                title={`${cls.category || (apiEnabled ? "—" : "Thể thao")} • ${sessionCount ?? "—"} buổi`}
                               >
                                 <span>{cls.category || (apiEnabled ? "—" : "Thể thao")}</span>
-                                <span>&bull;</span>
-                                <span>{cls.level || (apiEnabled ? "—" : "Cơ bản")}</span>
                                 <span>&bull;</span>
                                 <span>{sessionCount ?? "—"} buổi</span>
                               </div>
