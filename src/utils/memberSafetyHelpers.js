@@ -160,14 +160,29 @@ export const validateDirectSubscriptionPreflight = ({
   apiEnabled = false,
   language = 'vi',
 }) => {
+  if (!selectedPackageId) {
+    return {
+      ok: false,
+      error: language === 'vi' ? 'Vui lòng chọn một gói dịch vụ.' : 'Please select a membership package.',
+    };
+  }
   const packageId = Number(selectedPackageId);
   if (!Number.isInteger(packageId) || packageId <= 0) {
-    return { ok: false, error: language === 'vi' ? 'Gói hội viên không hợp lệ.' : 'The membership package is invalid.' };
+    return {
+      ok: false,
+      error: language === 'vi' ? 'Gói hội viên không hợp lệ.' : 'The membership package is invalid.',
+    };
   }
-  if (apiEnabled) {
+  if (apiEnabled || !hasAuthoritativeMemberId || !memberProfileId) {
     const memberId = Number(memberProfileId);
-    if (!hasAuthoritativeMemberId || !Number.isInteger(memberId) || memberId <= 0) {
-      return { ok: false, error: language === 'vi' ? 'Không xác định được hồ sơ hội viên hợp lệ.' : 'A valid member profile could not be identified.' };
+    if (!hasAuthoritativeMemberId || !memberProfileId || !Number.isInteger(memberId) || memberId <= 0) {
+      return {
+        ok: false,
+        error:
+          language === 'vi'
+            ? 'Không tìm thấy ID hội viên đã xác thực từ phiên đăng nhập để thực hiện đăng ký.'
+            : 'Authenticated member ID not found in session to perform subscription.',
+      };
     }
   }
   return { ok: true, numericPackageId: packageId };
@@ -594,38 +609,37 @@ export const executeDirectSubscriptionSubmit = async ({
     submittingRef.current = true;
   }
 
-  // 2. Form preflight input validation before engaging submitting state
-  const preflight = validateDirectSubscriptionPreflight({
-    memberProfileId,
-    selectedPackageId,
-    hasAuthoritativeMemberId,
-    apiEnabled,
-    language,
-  });
-
-  if (!preflight.ok) {
-    if (submittingRef) submittingRef.current = false;
-    callbacks.setSubmitError?.(preflight.error);
-    return { executed: false, error: preflight.error };
-  }
-
-  // 3. Strict mutation lock: keep direct POST to Render strictly locked
-  if (isMemberMutationLocked) {
-    if (submittingRef) submittingRef.current = false;
-    const lockMsg =
-      language === 'vi'
-        ? 'Thao tác đăng ký trực tuyến từ phía hội viên tạm thời bị khóa: Backend chưa xác nhận tài khoản/hồ sơ test được phép phát sinh giao dịch và cấu hình sandbox. Vui lòng thanh toán tại quầy Tiếp tân.'
-        : 'Direct member subscription is locked: Waiting for Backend confirmation of test profile permissions and sandbox configuration. Please pay at the reception desk.';
-    callbacks.setSubmitError?.(lockMsg);
-    return { executed: false, error: lockMsg };
-  }
-
-  callbacks.setSubmitting?.(true);
-  callbacks.setSubmitError?.(null);
-
-  const numericPkgId = preflight.numericPackageId;
-
   if (apiEnabled) {
+    // 2. Form preflight input validation before engaging submitting state
+    const preflight = validateDirectSubscriptionPreflight({
+      memberProfileId,
+      selectedPackageId,
+      hasAuthoritativeMemberId,
+      apiEnabled,
+      language,
+    });
+
+    if (!preflight.ok) {
+      if (submittingRef) submittingRef.current = false;
+      callbacks.setSubmitError?.(preflight.error);
+      return { executed: false, error: preflight.error };
+    }
+
+    // 3. Strict mutation lock: keep direct POST to Render strictly locked
+    if (isMemberMutationLocked) {
+      if (submittingRef) submittingRef.current = false;
+      const lockMsg =
+        language === 'vi'
+          ? 'Thao tác đăng ký trực tuyến từ phía hội viên tạm thời bị khóa: Backend chưa xác nhận tài khoản/hồ sơ test được phép phát sinh giao dịch và cấu hình sandbox. Vui lòng thanh toán tại quầy Tiếp tân.'
+          : 'Direct member subscription is locked: Waiting for Backend confirmation of test profile permissions and sandbox configuration. Please pay at the reception desk.';
+      callbacks.setSubmitError?.(lockMsg);
+      return { executed: false, error: lockMsg };
+    }
+
+    callbacks.setSubmitting?.(true);
+    callbacks.setSubmitError?.(null);
+
+    const numericPkgId = preflight.numericPackageId;
     const membershipApiInstance = apis.membershipApi || membershipApi;
     const invoiceApiInstance = apis.invoiceApi || invoiceApi;
 
@@ -647,9 +661,11 @@ export const executeDirectSubscriptionSubmit = async ({
         .filter(Boolean);
 
       // Step B: safety check against existing active/pending registrations
+      const isRenewal = Boolean(activeSubscription && String(activeSubscription.packageId) === String(numericPkgId));
       const safetyCheck = reconcileAndVerifySubscriptionSafety({
         existingSubscriptions: existingSubs,
         targetPackageId: numericPkgId,
+        isRenewal,
         language,
       });
 
@@ -793,6 +809,17 @@ export const executeDirectSubscriptionSubmit = async ({
       callbacks.setSubmitting?.(false);
     }
   } else {
+    if (!selectedPackageId) {
+      if (submittingRef) submittingRef.current = false;
+      const errorMsg =
+        language === 'vi' ? 'Vui lòng chọn một gói dịch vụ.' : 'Please select a membership package.';
+      callbacks.setSubmitError?.(errorMsg);
+      return { executed: false, success: false, error: errorMsg };
+    }
+
+    callbacks.setSubmitting?.(true);
+    callbacks.setSubmitError?.(null);
+
     if (submittingRef) submittingRef.current = false;
     const chosenPkg = (contextPackages || []).find(
       (p) => String(p.id) === String(selectedPackageId)
@@ -822,6 +849,7 @@ export const executeDirectSubscriptionSubmit = async ({
       'info'
     );
     callbacks.setIsSubscribeModalOpen?.(false);
+    callbacks.setSubNotes?.('');
     callbacks.setSubmitting?.(false);
     return { executed: true, success: true, mockResult: result };
   }

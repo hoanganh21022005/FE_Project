@@ -471,6 +471,8 @@ httpClient.post = async (path, body) => {
   if (path === '/api/members/101/packages') {
     return {
       subscriptionId: 99,
+      invoiceId: 42,
+      invoiceCode: 'INV-00042',
       memberId: 101,
       packageId: body.packageId,
       packageName: 'VIP Elite Club',
@@ -478,6 +480,18 @@ httpClient.post = async (path, body) => {
       startDate: body.startDate || '2026-10-10',
       endDate: '2027-10-10',
       status: 'ACTIVE',
+    };
+  }
+  if (path === '/api/invoices/42/confirm-cash') {
+    return {
+      invoiceId: 42,
+      invoiceCode: 'INV-00042',
+      memberId: 101,
+      packageId: 12,
+      amount: 11500000,
+      paymentMethod: 'CASH',
+      paymentStatus: 'PAID',
+      paymentDate: '2026-10-10T10:00:00Z',
     };
   }
   if (path === '/api/invoices/42/pay') {
@@ -494,7 +508,7 @@ httpClient.post = async (path, body) => {
   return origPost(path, body);
 };
 
-// 6.1 Subscribe member to package
+// 6.1 Subscribe member to package (returns subscriptionId + invoiceId without second POST /api/invoices)
 const subResult = await membershipApi.subscribePackage(101, {
   packageId: 12,
   startDate: '2026-10-10',
@@ -506,8 +520,15 @@ assert.equal(recordedPostPath, '/api/members/101/packages');
 assert.equal(recordedPostBody.packageId, 12);
 assert.equal(recordedPostBody.paymentMethod, 'CASH');
 assert.equal(subResult.subscriptionId, 99);
+assert.equal(subResult.invoiceId, 42);
+assert.equal(subResult.invoiceCode, 'INV-00042');
 assert.equal(subResult.status, 'active');
-console.log('PASS: subscribePackage sends correct payload to /api/members/101/packages and maps response');
+
+const subCashConfirmResult = await invoiceApi.confirmCashPayment(subResult.invoiceId);
+assert.equal(recordedPostPath, '/api/invoices/42/confirm-cash');
+assert.equal(subCashConfirmResult.invoiceId, 42);
+assert.equal(subCashConfirmResult.paymentStatus, 'successful');
+console.log('PASS: subscribePackage returns invoiceId directly and settles cash via /api/invoices/42/confirm-cash without second POST /api/invoices');
 
 // 6.2 Pay invoice via Receptionist cash confirmation
 const payResult = await invoiceApi.payInvoice(42, {
@@ -2520,7 +2541,54 @@ assert.equal(onlyOldInvoicesReturned.confirmed, false);
 httpClient.get = savedGet;
 httpClient.post = savedPost;
 clearAllStoredPendingOrdersExcept(null);
-console.log('PASS: Incomplete orders lacking either counterpart record or valid timestamp evidence remain unconfirmed and ambiguous');
+// Test 11.9: executeDirectSubscriptionSubmit in Mock Mode
+// Verifies string IDs (pkg-2, mem-3) are supported, empty package is rejected, and modal closes cleanly
+let mockToastShown = false;
+let mockModalClosed = false;
+let mockSubNotesReset = false;
+const mockRef = { current: false };
+
+const mockSubmitSuccess = await executeDirectSubscriptionSubmit({
+  submittingRef: mockRef,
+  memberProfileId: 'mem-3',
+  selectedPackageId: 'pkg-2',
+  hasAuthoritativeMemberId: true,
+  isMemberMutationLocked: false,
+  apiEnabled: false,
+  paymentMethod: 'cash',
+  subNotes: 'Gia hạn gói',
+  currentMember: { id: 'mem-3', name: 'Phạm Thanh Hương' },
+  contextPackages: [{ id: 'pkg-2', name: 'Gói 6 Tháng' }],
+  contextPayments: [],
+  callbacks: {
+    showToast: () => { mockToastShown = true; },
+    setIsSubscribeModalOpen: (isOpen) => { if (!isOpen) mockModalClosed = true; },
+    setSubNotes: (val) => { if (val === '') mockSubNotesReset = true; },
+  },
+  createMockPendingPaymentFn: () => ({ ok: true, id: 'req-mock-1' }),
+});
+
+assert.equal(mockSubmitSuccess.success, true, 'Mock mode submit must succeed with string package and member IDs');
+assert.equal(mockToastShown, true, 'Mock mode must show confirmation toast');
+assert.equal(mockModalClosed, true, 'Mock mode must close subscribe modal');
+assert.equal(mockSubNotesReset, true, 'Mock mode must reset subNotes');
+assert.equal(mockRef.current, false, 'Submitting ref must be released');
+
+// Empty package selection in mock mode fails safely
+let mockErrorMsg = null;
+const mockSubmitEmptyPkg = await executeDirectSubscriptionSubmit({
+  submittingRef: mockRef,
+  memberProfileId: 'mem-3',
+  selectedPackageId: '',
+  apiEnabled: false,
+  callbacks: {
+    setSubmitError: (msg) => { mockErrorMsg = msg; },
+  },
+});
+
+assert.equal(mockSubmitEmptyPkg.success, false, 'Mock mode submit must reject empty package selection');
+assert.ok(mockErrorMsg && (mockErrorMsg.includes('chọn một gói') || mockErrorMsg.includes('select')), 'Must display package selection error');
+console.log('PASS: Mock mode direct subscription supports string IDs and enforces package selection validation');
 
 console.log('\n====================================================');
 console.log('ALL FE 2: MEMBERSHIP, INVOICE & PAYMENT TESTS PASSED (100%)');
