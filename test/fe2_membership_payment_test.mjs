@@ -471,6 +471,8 @@ httpClient.post = async (path, body) => {
   if (path === '/api/members/101/packages') {
     return {
       subscriptionId: 99,
+      invoiceId: 42,
+      invoiceCode: 'INV-00042',
       memberId: 101,
       packageId: body.packageId,
       packageName: 'VIP Elite Club',
@@ -478,6 +480,18 @@ httpClient.post = async (path, body) => {
       startDate: body.startDate || '2026-10-10',
       endDate: '2027-10-10',
       status: 'ACTIVE',
+    };
+  }
+  if (path === '/api/invoices/42/confirm-cash') {
+    return {
+      invoiceId: 42,
+      invoiceCode: 'INV-00042',
+      memberId: 101,
+      packageId: 12,
+      amount: 11500000,
+      paymentMethod: 'CASH',
+      paymentStatus: 'PAID',
+      paymentDate: '2026-10-10T10:00:00Z',
     };
   }
   if (path === '/api/invoices/42/pay') {
@@ -494,7 +508,7 @@ httpClient.post = async (path, body) => {
   return origPost(path, body);
 };
 
-// 6.1 Subscribe member to package
+// 6.1 Subscribe member to package (returns subscriptionId + invoiceId without second POST /api/invoices)
 const subResult = await membershipApi.subscribePackage(101, {
   packageId: 12,
   startDate: '2026-10-10',
@@ -506,8 +520,15 @@ assert.equal(recordedPostPath, '/api/members/101/packages');
 assert.equal(recordedPostBody.packageId, 12);
 assert.equal(recordedPostBody.paymentMethod, 'CASH');
 assert.equal(subResult.subscriptionId, 99);
+assert.equal(subResult.invoiceId, 42);
+assert.equal(subResult.invoiceCode, 'INV-00042');
 assert.equal(subResult.status, 'active');
-console.log('PASS: subscribePackage sends correct payload to /api/members/101/packages and maps response');
+
+const subCashConfirmResult = await invoiceApi.confirmCashPayment(subResult.invoiceId);
+assert.equal(recordedPostPath, '/api/invoices/42/confirm-cash');
+assert.equal(subCashConfirmResult.invoiceId, 42);
+assert.equal(subCashConfirmResult.paymentStatus, 'successful');
+console.log('PASS: subscribePackage returns invoiceId directly and settles cash via /api/invoices/42/confirm-cash without second POST /api/invoices');
 
 // 6.2 Pay invoice via Receptionist cash confirmation
 const payResult = await invoiceApi.payInvoice(42, {

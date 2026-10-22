@@ -236,6 +236,8 @@ async function main() {
           subscribeCalls: [],
           memberSubscriptionCalls: [],
           createInvoiceCalls: [],
+          confirmCashCalls: [],
+          payOnlineCalls: [],
           payInvoiceCalls: [],
           cancelInvoiceCalls: [],
           cancelSubscriptionCalls: [],
@@ -401,32 +403,77 @@ async function main() {
             }), { status: 200, headers: { 'Content-Type': 'application/json' } });
           }
 
-          // Mock subscribe package
+          // Mock subscribe package (also creates and returns invoiceId per BE contract)
           if (urlStr.includes('/api/members/') && urlStr.includes('/packages') && method === 'POST') {
             const body = init.body ? JSON.parse(init.body) : {};
             window.__fe2NetworkCalls.subscribeCalls.push({ url: urlStr, body });
+            if (window.__fe2MockConfig.missingInvoiceId) {
+              // Intentionally return response missing invoiceId
+              return new Response(JSON.stringify({
+                subscriptionId: 99,
+                memberId: 101,
+                packageId: body.packageId,
+                status: 'PENDING'
+              }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
             return new Response(JSON.stringify({
               subscriptionId: 99,
+              invoiceId: 42,
+              invoiceCode: 'INV-00042',
               memberId: 101,
               packageId: body.packageId,
-              status: 'ACTIVE'
+              amount: 11500000,
+              paymentMethod: body.paymentMethod || 'CASH',
+              status: 'PENDING'
             }), { status: 200, headers: { 'Content-Type': 'application/json' } });
           }
 
-          // Mock create invoice
-          if (urlStr.includes('/api/invoices') && method === 'POST' && !urlStr.includes('/pay')) {
-            const body = init.body ? JSON.parse(init.body) : {};
-            window.__fe2NetworkCalls.createInvoiceCalls.push({ url: urlStr, body });
+          // Mock confirm cash payment (POST /api/invoices/{id}/confirm-cash)
+          if (urlStr.includes('/api/invoices/') && urlStr.includes('/confirm-cash') && method === 'POST') {
+            if (!window.__fe2NetworkCalls.confirmCashCalls) {
+              window.__fe2NetworkCalls.confirmCashCalls = [];
+            }
+            window.__fe2NetworkCalls.confirmCashCalls.push({ url: urlStr });
+            window.__fe2NetworkCalls.payInvoiceCalls.push({ url: urlStr });
 
-            if (window.__fe2MockConfig.missingInvoiceId) {
-              // Intentionally return response missing id and invoiceId
+            if (window.__fe2MockConfig.failPayInvoice) {
               return new Response(JSON.stringify({
-                memberId: body.memberId,
-                amount: body.amount,
-                paymentStatus: 'PENDING'
-              }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+                message: 'Lỗi hệ thống thu tiền mặt (500 Internal Error)'
+              }), { status: 500, headers: { 'Content-Type': 'application/json' } });
             }
 
+            return new Response(JSON.stringify({
+              invoiceId: 42,
+              invoiceCode: 'INV-00042',
+              paymentStatus: 'PAID',
+              paymentMethod: 'CASH'
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
+
+          // Mock start online payment (POST /api/invoices/{id}/pay-online)
+          if (urlStr.includes('/api/invoices/') && urlStr.includes('/pay-online') && method === 'POST') {
+            if (!window.__fe2NetworkCalls.payOnlineCalls) {
+              window.__fe2NetworkCalls.payOnlineCalls = [];
+            }
+            window.__fe2NetworkCalls.payOnlineCalls.push({ url: urlStr });
+            return new Response(JSON.stringify({
+              paymentUrl: ''
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
+
+          // Mock Cancel Invoice (POST /api/invoices/{id}/cancel)
+          if (urlStr.includes('/api/invoices/') && urlStr.includes('/cancel') && method === 'POST') {
+            window.__fe2NetworkCalls.cancelInvoiceCalls.push({ url: urlStr });
+            return new Response(JSON.stringify({
+              invoiceId: 42,
+              paymentStatus: 'CANCELLED'
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
+
+          // Mock create invoice (legacy POST /api/invoices - should NOT be called by PaymentModal)
+          if (urlStr.includes('/api/invoices') && method === 'POST' && !urlStr.includes('/confirm-cash') && !urlStr.includes('/pay-online') && !urlStr.includes('/cancel') && !urlStr.includes('/pay')) {
+            const body = init.body ? JSON.parse(init.body) : {};
+            window.__fe2NetworkCalls.createInvoiceCalls.push({ url: urlStr, body });
             return new Response(JSON.stringify({
               invoiceId: 42,
               memberId: body.memberId,
@@ -437,17 +484,10 @@ async function main() {
             }), { status: 200, headers: { 'Content-Type': 'application/json' } });
           }
 
-          // Mock pay invoice
-          if (urlStr.includes('/api/invoices/') && urlStr.includes('/pay') && method === 'POST') {
+          // Mock pay invoice (legacy POST /api/invoices/{id}/pay)
+          if (urlStr.includes('/api/invoices/') && urlStr.includes('/pay') && !urlStr.includes('/pay-online') && method === 'POST') {
             const body = init.body ? JSON.parse(init.body) : {};
             window.__fe2NetworkCalls.payInvoiceCalls.push({ url: urlStr, body });
-
-            if (window.__fe2MockConfig.failPayInvoice) {
-              return new Response(JSON.stringify({
-                message: 'Lỗi hệ thống thu tiền mặt (500 Internal Error)'
-              }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-            }
-
             return new Response(JSON.stringify({
               invoiceId: 42,
               paymentStatus: 'PAID',
@@ -544,7 +584,7 @@ async function main() {
     );
 
     // -------------------------------------------------------------------------
-    // TEST 2: Missing invoice ID raises explicit error, skips pay, no success toast
+    // TEST 2: Missing invoice ID raises explicit error, skips confirm-cash, no second POST /api/invoices
     // -------------------------------------------------------------------------
     await client.eval(`
       (() => {
@@ -552,6 +592,7 @@ async function main() {
         window.__fe2MockConfig.failPayInvoice = false;
         window.__fe2NetworkCalls.subscribeCalls = [];
         window.__fe2NetworkCalls.createInvoiceCalls = [];
+        window.__fe2NetworkCalls.confirmCashCalls = [];
         window.__fe2NetworkCalls.payInvoiceCalls = [];
       })()
     `);
@@ -579,6 +620,7 @@ async function main() {
           toastText: toast ? toast.textContent : null,
           subscribeCount: window.__fe2NetworkCalls.subscribeCalls.length,
           createInvoiceCount: window.__fe2NetworkCalls.createInvoiceCalls.length,
+          confirmCashCount: (window.__fe2NetworkCalls.confirmCashCalls || []).length,
           payInvoiceCount: window.__fe2NetworkCalls.payInvoiceCalls.length,
         };
       })()
@@ -587,29 +629,47 @@ async function main() {
     const t2Pass =
       t2State.hasAlert &&
       t2State.isModalOpen &&
+      t2State.createInvoiceCount === 0 &&
+      t2State.confirmCashCount === 0 &&
       t2State.payInvoiceCount === 0 &&
       t2State.subscribeCount === 1 &&
       /mã hóa đơn/i.test(t2State.alertText);
 
     record(
       'FE2-MISSING-INVOICE-ID-GUARD',
-      'Missing invoice ID raises explicit error alert, does NOT call payInvoice, does NOT show success',
+      'Missing invoice ID raises explicit error alert, does NOT call confirm-cash or second POST /api/invoices, does NOT show success',
       t2Pass,
       t2State
     );
 
     // -------------------------------------------------------------------------
-    // TEST 3: Cash Pay failure retains partial state & freezes fields in resumed mode
+    // TEST 3: Cash confirm-cash failure retains partial state & freezes fields in resumed mode
     // -------------------------------------------------------------------------
+    // First discard the incomplete session from Test 2 (which lacked invoiceId)
     await client.eval(`
       (() => {
-        // Discard missing ID, enable failPayInvoice
+        const dialog = document.querySelector('div[role="dialog"]');
+        const discardBtn = dialog ? Array.from(dialog.querySelectorAll('button')).find(b =>
+          b.textContent.includes('Hủy phiên & Bắt đầu lại')
+        ) : null;
+        if (discardBtn) discardBtn.click();
+      })()
+    `);
+    await new Promise(r => setTimeout(r, 350));
+
+    await client.eval(`
+      (() => {
+        // Enable valid invoiceId from subscribePackage, simulate confirm-cash failure
         window.__fe2MockConfig.missingInvoiceId = false;
         window.__fe2MockConfig.failPayInvoice = true;
+        window.__fe2NetworkCalls.subscribeCalls = [];
+        window.__fe2NetworkCalls.createInvoiceCalls = [];
+        window.__fe2NetworkCalls.confirmCashCalls = [];
+        window.__fe2NetworkCalls.payInvoiceCalls = [];
       })()
     `);
 
-    // Click submit again to trigger invoice creation + pay failure
+    // Click submit to trigger subscription (with returned invoiceId #42) + confirm-cash failure
     await client.eval(`
       (() => {
         const dialog = document.querySelector('div[role="dialog"]');
@@ -618,7 +678,7 @@ async function main() {
       })()
     `);
 
-    // Wait for in-progress resumed banner to render and submitting state to settle
+    // Wait for in-progress resumed banner with both #99 and #42 to render and submitting state to settle
     await client.waitFor(`
       (() => {
         const dialog = document.querySelector('div[role="dialog"]');
@@ -626,6 +686,7 @@ async function main() {
         return (
           dialog &&
           dialog.textContent.includes('Tiến trình giao dịch đang thực hiện dở dang') &&
+          dialog.textContent.includes('ID #42') &&
           submitBtn &&
           !submitBtn.disabled
         );
@@ -646,6 +707,8 @@ async function main() {
           allSelectsDisabled,
           submitBtnText: submitBtn ? submitBtn.textContent : '',
           toastText: toast ? toast.textContent : null,
+          createInvoiceCount: window.__fe2NetworkCalls.createInvoiceCalls.length,
+          confirmCashCount: (window.__fe2NetworkCalls.confirmCashCalls || []).length,
           payInvoiceCount: window.__fe2NetworkCalls.payInvoiceCalls.length,
         };
       })()
@@ -656,17 +719,19 @@ async function main() {
       t3State.hasSubInfo &&
       t3State.hasInvInfo &&
       t3State.allSelectsDisabled &&
+      t3State.createInvoiceCount === 0 &&
+      t3State.confirmCashCount === 1 &&
       /Thử lại bước thu tiền/i.test(t3State.submitBtnText);
 
     record(
       'FE2-CASH-PAY-FAILURE-FREEZE',
-      'Cash pay failure keeps modal open, displays partial banner, freezes member/package fields, and offers retry',
+      'Cash confirm-cash failure keeps modal open, displays partial banner (#99 & #42), freezes fields, and offers retry with zero POST /api/invoices',
       t3Pass,
       t3State
     );
 
     // -------------------------------------------------------------------------
-    // TEST 4: Retry cash payment succeeds with ZERO duplicate calls
+    // TEST 4: Retry cash payment via confirm-cash succeeds with ZERO duplicate calls
     // -------------------------------------------------------------------------
     await client.eval(`
       (() => {
@@ -689,11 +754,14 @@ async function main() {
       (() => {
         const dialog = document.querySelector('div[role="dialog"]');
         const toast = document.querySelector('#scms-toast');
+        const confirmCalls = window.__fe2NetworkCalls.confirmCashCalls || [];
         return {
           isModalClosed: !dialog,
           toastText: toast ? toast.textContent : '',
           subscribeTotal: window.__fe2NetworkCalls.subscribeCalls.length,
           createInvoiceTotal: window.__fe2NetworkCalls.createInvoiceCalls.length,
+          confirmCashTotal: confirmCalls.length,
+          lastConfirmCashUrl: confirmCalls[confirmCalls.length - 1]?.url || '',
           payInvoiceTotal: window.__fe2NetworkCalls.payInvoiceCalls.length,
         };
       })()
@@ -703,24 +771,26 @@ async function main() {
       t4State.isModalClosed &&
       /thu tiền mặt thành công/i.test(t4State.toastText) &&
       t4State.subscribeTotal === 1 && // Not duplicated!
-      t4State.createInvoiceTotal === 2 && // 1 from test 2 (missing ID) + 1 from test 3 (failed pay) -> 0 extra created on retry!
-      t4State.payInvoiceTotal === 2; // Retried payInvoice
+      t4State.createInvoiceTotal === 0 && // Zero second POST /api/invoices!
+      t4State.confirmCashTotal === 2 && // 1 failed in Test 3 + 1 succeeded on retry in Test 4
+      t4State.lastConfirmCashUrl.includes('/api/invoices/42/confirm-cash');
 
     record(
       'FE2-RETRY-ZERO-DUPLICATES',
-      'Retry completes cash payment cleanly with zero duplicate subscriptions or invoices',
+      'Retry completes cash payment via confirm-cash cleanly with zero duplicate subscriptions or POST /api/invoices',
       t4Pass,
       t4State
     );
 
     // -------------------------------------------------------------------------
-    // TEST 5: Online / Bank transfer creates pending invoice without pay call
+    // TEST 5: Bank transfer creates subscription & pending invoice without confirm-cash or second POST /api/invoices
     // -------------------------------------------------------------------------
     // Re-open modal
     await client.eval(`
       (() => {
         window.__fe2NetworkCalls.subscribeCalls = [];
         window.__fe2NetworkCalls.createInvoiceCalls = [];
+        window.__fe2NetworkCalls.confirmCashCalls = [];
         window.__fe2NetworkCalls.payInvoiceCalls = [];
 
         const btn = Array.from(document.querySelectorAll('button')).find(b =>
@@ -767,22 +837,26 @@ async function main() {
           toastText: toast ? toast.textContent : '',
           subscribeTotal: window.__fe2NetworkCalls.subscribeCalls.length,
           createInvoiceTotal: window.__fe2NetworkCalls.createInvoiceCalls.length,
+          confirmCashTotal: (window.__fe2NetworkCalls.confirmCashCalls || []).length,
           payInvoiceTotal: window.__fe2NetworkCalls.payInvoiceCalls.length,
-          invoiceCreatedStatus: window.__fe2NetworkCalls.createInvoiceCalls[0]?.body?.paymentStatus,
+          subscribedPaymentMethod: window.__fe2NetworkCalls.subscribeCalls[0]?.body?.paymentMethod,
         };
       })()
     `);
 
     const t5Pass =
       t5State.isModalClosed &&
+      t5State.subscribeTotal === 1 &&
+      t5State.createInvoiceTotal === 0 && // No second POST /api/invoices!
+      t5State.confirmCashTotal === 0 &&
       t5State.payInvoiceTotal === 0 && // No pay call!
-      t5State.invoiceCreatedStatus === 'PENDING' &&
+      t5State.subscribedPaymentMethod === 'BANK_TRANSFER' &&
       /Chờ đối soát|Chờ thanh toán/i.test(t5State.toastText) &&
       !/đã thanh toán|hoàn tất/i.test(t5State.toastText);
 
     record(
       'FE2-BANK-TRANSFER-PENDING-STATUS',
-      'Bank transfer creates pending invoice without calling payInvoice and displays pending status toast',
+      'Bank transfer creates subscription & pending invoice without calling confirm-cash or second POST /api/invoices and displays pending toast',
       t5Pass,
       t5State
     );
