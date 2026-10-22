@@ -2,7 +2,7 @@ import React, { useState, useEffect, useId } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency } from '../../locales/translations';
 import { memberApi } from '../../api/memberApi';
-import { membershipApi } from '../../api/membershipApi';
+import { membershipApi, executePaymentModalSubmit, executePaymentModalDiscard } from '../../api/membershipApi';
 import { invoiceApi } from '../../api/invoiceApi';
 import { getErrorMessage } from '../../api/apiErrors';
 import { createMockPendingPayment } from '../../utils/mockFixtureSettlement';
@@ -55,6 +55,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
   const [preservedUnmatchedInvoice, setPreservedUnmatchedInvoice] = useState(null);
   const [memberSessions, setMemberSessions] = useState([]);
   const [ambiguousPendingSubInfo, setAmbiguousPendingSubInfo] = useState(null);
+  const [sessionNeedsReconciliation, setSessionNeedsReconciliation] = useState(false);
 
   const currentActorId = currentUser?.id ?? currentUser?.userId ?? 'anonymous';
 
@@ -63,7 +64,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
   const notesInputId = useId();
   const gatewayRefId = useId();
 
-  const isTransactionResumed = Boolean(createdSubscriptionId || createdInvoiceId);
+  const isTransactionResumed = Boolean(createdSubscriptionId || createdInvoiceId || sessionNeedsReconciliation);
 
   // Sync partial progress if exists for member and current actor
   const syncInProgressForMember = (mid) => {
@@ -71,6 +72,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
       setCreatedSubscriptionId(null);
       setCreatedInvoiceId(null);
       setSessionRef(null);
+      setSessionNeedsReconciliation(false);
       setUnresolvedPendingInvoice(null);
       setPreservedUnmatchedInvoice(null);
       setAmbiguousPendingSubInfo(null);
@@ -85,6 +87,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
       setCreatedSubscriptionId(cached.subscriptionId || null);
       setCreatedInvoiceId(cached.invoiceId || null);
       setSessionRef(cached.sessionRef || null);
+      setSessionNeedsReconciliation(Boolean(cached.needsReconciliation));
       setPreservedUnmatchedInvoice(cached.preservedUnmatchedInvoice || null);
       if (cached.packageId) setPackageId(String(cached.packageId));
       if (cached.method) setMethod(cached.method);
@@ -92,6 +95,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
       setCreatedSubscriptionId(null);
       setCreatedInvoiceId(null);
       setSessionRef(null);
+      setSessionNeedsReconciliation(false);
       setPreservedUnmatchedInvoice(null);
     }
     setUnresolvedPendingInvoice(null);
@@ -120,6 +124,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
     setSessionRef(newSessionRef);
     setCreatedSubscriptionId(null);
     setCreatedInvoiceId(null);
+    setSessionNeedsReconciliation(false);
     setPreservedUnmatchedInvoice(oldInvoice);
     setUnresolvedPendingInvoice(null);
     setAmbiguousPendingSubInfo(null);
@@ -140,6 +145,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
       setCreatedSubscriptionId(resumed.subscriptionId || null);
       setCreatedInvoiceId(resumed.invoiceId || null);
       setSessionRef(resumed.sessionRef);
+      setSessionNeedsReconciliation(Boolean(resumed.needsReconciliation));
       setPreservedUnmatchedInvoice(resumed.preservedUnmatchedInvoice || null);
       if (resumed.packageId) setPackageId(String(resumed.packageId));
       if (resumed.method) setMethod(resumed.method);
@@ -169,95 +175,51 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
       showToast?.(lockMsg, 'warning');
       return;
     }
-    const invIdToCancel = createdInvoiceId;
-    const subIdToCancel = createdSubscriptionId;
 
-    let invoiceCancelled = false;
-    let subscriptionCancelled = false;
-    const cancellationErrors = [];
-
-    if (apiEnabled) {
-      setSubmitting(true);
-      if (isValidPositiveInt(invIdToCancel)) {
-        try {
-          await invoiceApi.cancelInvoice(invIdToCancel);
-          invoiceCancelled = true;
-        } catch (err) {
-          cancellationErrors.push(`Hóa đơn #${invIdToCancel}: ${err.message || 'Lỗi cập nhật'}`);
-        }
-      } else {
-        invoiceCancelled = true; // No invoice was created on BE
-      }
-
-      if (isValidPositiveInt(subIdToCancel)) {
-        try {
-          await membershipApi.updateSubscriptionStatus(subIdToCancel, 'CANCELLED');
-          subscriptionCancelled = true;
-        } catch (err) {
-          cancellationErrors.push(`Gói đăng ký #${subIdToCancel}: ${err.message || 'Lỗi cập nhật'}`);
-        }
-      } else {
-        subscriptionCancelled = true; // No subscription was created on BE
-      }
+    setSubmitting(true);
+    try {
+      await executePaymentModalDiscard({
+        numericMemberId: Number(memberId) || memberId,
+        currentActorId,
+        sessionRef,
+        createdSubscriptionId,
+        createdInvoiceId,
+        sessionNeedsReconciliation,
+        apiEnabled,
+        isMutationLocked,
+        language,
+        setters: {
+          setCreatedSubscriptionId,
+          setCreatedInvoiceId,
+          setSessionRef,
+          setSessionNeedsReconciliation,
+          setMemberSessions,
+          setUnresolvedPendingInvoice,
+          setPreservedUnmatchedInvoice,
+          setAmbiguousPendingSubInfo,
+          setSubmitError,
+        },
+        apis: {
+          membershipApi,
+          invoiceApi,
+        },
+        cache: inProgressTransactionCache,
+        callbacks: {
+          showToast,
+        },
+      });
+    } catch (err) {
+      setSubmitError(
+        getErrorMessage(
+          err,
+          language === 'vi'
+            ? 'Không thể hủy phiên giao dịch. Vui lòng kiểm tra lại.'
+            : 'Failed to cancel transaction session. Please try again.'
+        )
+      );
+    } finally {
       setSubmitting(false);
-    } else {
-      invoiceCancelled = true;
-      subscriptionCancelled = true;
     }
-
-    if (cancellationErrors.length > 0) {
-      // Partial or complete failure on server:
-      // DO NOT delete local cache. Preserve failed records so the operator knows they are still pending on server!
-      const remainingSubId = subscriptionCancelled ? null : subIdToCancel;
-      const remainingInvId = invoiceCancelled ? null : invIdToCancel;
-
-      setCreatedSubscriptionId(remainingSubId);
-      setCreatedInvoiceId(remainingInvId);
-
-      if (memberId) {
-        inProgressTransactionCache.set(
-          String(memberId),
-          {
-            subscriptionId: remainingSubId,
-            invoiceId: remainingInvId,
-            packageId: Number(packageId) || undefined,
-            method,
-            sessionRef,
-            preservedUnmatchedInvoice,
-          },
-          currentActorId,
-          sessionRef
-        );
-        setMemberSessions(inProgressTransactionCache.getAllSessionsForMember(memberId, currentActorId));
-      }
-
-      const errMsg =
-        language === 'vi'
-          ? `Không thể hủy hoàn tất bản ghi trên máy chủ (${cancellationErrors.join('; ')}). Tiến trình dở dang vẫn được bảo lưu để tránh mất đồng bộ với máy chủ.`
-          : `Failed to cancel records on server (${cancellationErrors.join('; ')}). In-progress state retained to prevent server desynchronization.`;
-
-      setSubmitError(errMsg);
-      showToast?.(errMsg, 'error');
-      return;
-    }
-
-    // All cancelled on server (or mock mode): safe to clear local state & cache for this session
-    if (memberId) {
-      inProgressTransactionCache.delete(String(memberId), currentActorId, sessionRef);
-      setMemberSessions(inProgressTransactionCache.getAllSessionsForMember(memberId, currentActorId));
-    }
-    setCreatedSubscriptionId(null);
-    setCreatedInvoiceId(null);
-    setSessionRef(null);
-    setUnresolvedPendingInvoice(null);
-    setAmbiguousPendingSubInfo(null);
-    setSubmitError(null);
-    showToast?.(
-      language === 'vi'
-        ? 'Đã hủy thành công các bản ghi dở dang trên máy chủ và giải phóng phiên làm việc.'
-        : 'In-progress records successfully cancelled on server and transaction session cleared.',
-      'info'
-    );
   };
 
   const handleClose = () => {
@@ -388,166 +350,42 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
     }
     if (apiEnabled) {
       try {
-        // Ensure a session reference exists for this transaction attempt
-        const currentSessionRef =
-          sessionRef || `TXN-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-        if (!sessionRef) {
-          setSessionRef(currentSessionRef);
-        }
-
-        let currentSubId = createdSubscriptionId;
-        let currentInvoiceId = createdInvoiceId;
-
-        // Step 1: Subscribe member to package on BE (with strict deduplication check)
-        if (!currentSubId) {
-          // Strict GET query - fail closed on error, never swallow error as empty list
-          let existingSubs;
-          try {
-            existingSubs = await membershipApi.getMemberSubscriptions(numericMemberId);
-          } catch (getErr) {
-            throw new Error(
-              language === 'vi'
-                ? `Không thể kiểm tra đăng ký hiện tại trên máy chủ (${getErr.message || 'Lỗi kết nối'}). Giao dịch tạm dừng để tránh tạo trùng lặp.`
-                : `Failed to verify existing subscriptions on server (${getErr.message || 'Network error'}). Transaction halted to prevent duplicates.`
-            );
-          }
-
-          // Correlated subscription strictly verified by retained positive numeric ID
-          // Note: MemberPackageResponse and OpenAPI mapper do NOT include notes or sessionRef,
-          // so correlation must strictly rely on locally retained positive numeric IDs.
-          const correlatedSub = Array.isArray(existingSubs)
-            ? existingSubs.find(
-                (s) =>
-                  String(s.packageId) === String(numericPackageId) &&
-                  (s.status === 'pending_payment' || s.status === 'pending') &&
-                  isValidPositiveInt(createdSubscriptionId) &&
-                  (s.subscriptionId === createdSubscriptionId || s.id === createdSubscriptionId)
-              )
-            : null;
-
-          // Ambiguous pending subscription for this package not correlated to current session
-          const ambiguousPendingSub = Array.isArray(existingSubs)
-            ? existingSubs.find(
-                (s) =>
-                  String(s.packageId) === String(numericPackageId) &&
-                  (s.status === 'pending_payment' || s.status === 'pending') &&
-                  !correlatedSub
-              )
-            : null;
-
-          if (correlatedSub) {
-            const subId = correlatedSub.subscriptionId ?? correlatedSub.id;
-            if (!isValidPositiveInt(subId)) {
-              throw new Error(
-                language === 'vi'
-                  ? 'Mã đăng ký gói liên kết không hợp lệ (yêu cầu số nguyên dương).'
-                  : 'Correlated subscription ID is invalid (positive integer required).'
-              );
-            }
-            currentSubId = subId;
-          } else if (ambiguousPendingSub) {
-            // Ambiguous pending subscription found: STOP BEFORE MUTATION
-            const ambigId = ambiguousPendingSub.subscriptionId ?? ambiguousPendingSub.id;
-            const owningSession = (memberSessions || []).find((s) => s.subscriptionId === ambigId);
-            setAmbiguousPendingSubInfo({
-              subId: ambigId,
-              packageId: numericPackageId,
-              matchingSessionRef: owningSession?.sessionRef || null,
-            });
-            throw new Error(
-              language === 'vi'
-                ? `Phát hiện đăng ký gói đang chờ (#${ambigId}) của hội viên này trên máy chủ. Do OpenAPI/mapper không trả sessionRef trong bản ghi đăng ký gói, phiên mới không thể tự động gán để tránh tạo trùng lặp. Vui lòng kiểm tra danh sách phiên bảo lưu bên dưới để tiếp tục phiên tương ứng hoặc đối soát trên hệ thống.`
-                : `Ambiguous pending subscription (#${ambigId}) found on server without session correlation in OpenAPI mapper. Halting before mutation to prevent duplicate subscriptions. Please resume from preserved sessions or audit.`
-            );
-          } else {
-            const subPayload = {
-              packageId: numericPackageId,
-              paymentMethod: method.toUpperCase(),
-              notes: notes.trim()
-                ? `${notes.trim()} [SessionRef: ${currentSessionRef}]`
-                : `[SessionRef: ${currentSessionRef}]`,
-            };
-            const sub = await membershipApi.subscribePackage(numericMemberId, subPayload);
-            const subId = sub?.subscriptionId ?? sub?.id;
-            if (!isValidPositiveInt(subId)) {
-              throw new Error(
-                language === 'vi'
-                  ? 'Đăng ký gói đã gửi nhưng máy chủ không trả về mã đăng ký (ID) số nguyên dương hợp lệ. Giao dịch tạm dừng để bảo toàn dữ liệu.'
-                  : 'Subscription requested but server did not return a valid positive integer subscription ID.'
-              );
-            }
-            currentSubId = subId;
-            currentInvoiceId = sub?.invoiceId ?? null;
-            setCreatedInvoiceId(currentInvoiceId);
-          }
-
-          setCreatedSubscriptionId(currentSubId);
-          inProgressTransactionCache.set(
-            String(numericMemberId),
-            {
-              subscriptionId: currentSubId,
-              invoiceId: currentInvoiceId,
-              packageId: numericPackageId,
-              method,
-              sessionRef: currentSessionRef,
-              preservedUnmatchedInvoice,
-            },
-            currentActorId,
-            currentSessionRef
-          );
-          setMemberSessions(inProgressTransactionCache.getAllSessionsForMember(numericMemberId, currentActorId));
-        }
-
-        // Subscription creation also creates its invoice; use the returned ID.
-        let invId = currentInvoiceId;
-        if (!isValidPositiveInt(invId)) {
-          throw new Error(
-            language === 'vi'
-              ? 'Máy chủ không trả về mã hóa đơn cho đăng ký gói này.'
-              : 'The server did not return an invoice ID for this subscription.',
-          );
-        }
-        // Step 2: Settle cash or start the online payment gateway.
-        if (method === 'cash') {
-          if (!isValidPositiveInt(invId)) {
-            throw new Error(
-              language === 'vi'
-                ? 'Thiếu mã hóa đơn hợp lệ (số nguyên dương) để thực hiện thu tiền mặt.'
-                : 'Missing valid positive integer invoice ID to execute cash payment.'
-            );
-          }
-          await invoiceApi.confirmCashPayment(invId);
-
-          showToast?.(
-            language === 'vi'
-              ? 'Đã đăng ký gói và thu tiền mặt thành công (Hóa đơn đã thanh toán)!'
-              : 'Package registered and cash payment completed successfully!',
-            'success',
-          );
-        } else {
-          if (method === 'online') {
-            const payment = await invoiceApi.startOnlinePayment(invId);
-            const paymentUrl = payment?.paymentUrl || payment?.url;
-            if (paymentUrl) window.location.assign(paymentUrl);
-          }
-          showToast?.(
-            language === 'vi'
-              ? 'Đã lập đăng ký gói và hóa đơn chờ thanh toán (Trạng thái: Chờ đối soát).'
-              : 'Subscription & pending invoice created (Status: Pending verification).',
-            'info',
-          );
-        }
-
-        // Complete transaction: clear in-progress cache for this specific session
-        inProgressTransactionCache.delete(String(numericMemberId), currentActorId, currentSessionRef);
-        setCreatedSubscriptionId(null);
-        setCreatedInvoiceId(null);
-        setSessionRef(null);
-        setUnresolvedPendingInvoice(null);
-        setPreservedUnmatchedInvoice(null);
-
-        onSuccess?.();
-        onClose();
+        await executePaymentModalSubmit({
+          numericMemberId,
+          numericPackageId,
+          method,
+          notes,
+          amountOverride,
+          currentActorId,
+          sessionRef,
+          createdSubscriptionId,
+          createdInvoiceId,
+          sessionNeedsReconciliation,
+          preservedUnmatchedInvoice,
+          memberSessions,
+          apiEnabled,
+          isMutationLocked,
+          language,
+          setters: {
+            setSessionRef,
+            setCreatedSubscriptionId,
+            setCreatedInvoiceId,
+            setSessionNeedsReconciliation,
+            setMemberSessions,
+            setAmbiguousPendingSubInfo,
+            setSubmitError,
+          },
+          apis: {
+            membershipApi,
+            invoiceApi,
+          },
+          cache: inProgressTransactionCache,
+          callbacks: {
+            showToast,
+            onSuccess,
+            onClose,
+          },
+        });
       } catch (err) {
         setSubmitError(
           getErrorMessage(
@@ -700,6 +538,15 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                   {createdInvoiceId && (
                     <p>
                       • {language === 'vi' ? `Đã lập hóa đơn (ID #${createdInvoiceId}, Trạng thái: Chờ thanh toán)` : `Invoice created (ID #${createdInvoiceId}, Status: Pending settlement)`}
+                    </p>
+                  )}
+                  {sessionNeedsReconciliation && (
+                    <p className="font-semibold text-rose-800">
+                      • {language === 'vi'
+                          ? (!createdSubscriptionId && !createdInvoiceId
+                              ? 'Đơn hàng đang cần đối soát với máy chủ do phản hồi trước đó thiếu định danh. Vui lòng không gửi lại yêu cầu để tránh tạo trùng lặp.'
+                              : 'Đơn hàng đang cần đối soát với máy chủ do phản hồi trước đó chưa hoàn chỉnh. Vui lòng không gửi lại yêu cầu để tránh tạo trùng lặp.')
+                          : 'Order requires server reconciliation due to incomplete registration response. Do not resubmit to prevent duplicates.'}
                     </p>
                   )}
                 </div>

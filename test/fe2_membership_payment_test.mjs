@@ -42,7 +42,7 @@ import {
   validateInvoiceItem,
   validateInvoiceSchema,
 } from '../src/api/schemaValidators.js';
-import { membershipApi } from '../src/api/membershipApi.js';
+import { membershipApi, executePaymentModalSubmit, executePaymentModalDiscard } from '../src/api/membershipApi.js';
 import { invoiceApi } from '../src/api/invoiceApi.js';
 import { httpClient } from '../src/api/httpClient.js';
 import {
@@ -141,7 +141,7 @@ console.log('PASS: mapMembershipPackage does not invent packageType or credit fo
 const emptyPkg = mapMembershipPackage({});
 assert.equal(emptyPkg.id, null);
 assert.equal(emptyPkg.name, '');
-assert.equal(emptyPkg.price, 0);
+assert.equal(emptyPkg.price, null);
 assert.equal(emptyPkg.status, 'active');
 assert.equal(emptyPkg.packageType, null);
 assert.equal(emptyPkg.totalCredit, null);
@@ -322,14 +322,14 @@ const beInvoiceSample = {
 const mappedInv = mapInvoice(beInvoiceSample);
 assert.equal(mappedInv.invoiceId, 42);
 assert.equal(mappedInv.id, 42);
-assert.equal(mappedInv.code, 'INV-00042');
+assert.equal(mappedInv.code, null);
 assert.equal(mappedInv.memberId, 101);
 assert.equal(mappedInv.memberName, 'Nguyen Van A');
 assert.equal(mappedInv.amount, 11500000);
 assert.equal(mappedInv.paymentMethod, 'cash');
 assert.equal(mappedInv.paymentStatus, 'successful');
 assert.equal(mappedInv.receptionistName, 'Pham Thi Thu');
-console.log('PASS: mapInvoice maps invoice fields, formats code INV-00042, and normalizes paymentStatus to successful');
+console.log('PASS: mapInvoice maps invoice fields, preserves null code when invoiceCode is missing, and normalizes paymentStatus to successful');
 
 const beInvoiceWithCode = {
   invoiceId: 55,
@@ -590,8 +590,8 @@ httpClient.post = async (path) => {
 };
 
 const brokenInv = await invoiceApi.createInvoice({ memberId: 101, amount: 11500000 });
-assert.equal(brokenInv.id, null);
-assert.equal(brokenInv.invoiceId, null);
+assert.equal(brokenInv, null);
+
 console.log('PASS: invoiceApi maps missing ID safely to null so callers can explicitly guard against it');
 
 // 6.5 In-progress transaction cache retain and discard
@@ -714,6 +714,32 @@ for (const tc of malformedIdCases) {
   httpClient.post = restorePost;
 }
 console.log('PASS: subscribeMe rejects all malformed ID responses (-1, 0, decimal, boolean, missing) for both IDs and sends exactly one POST');
+
+// Test subscribePackage rejection when response lacks mandatory identifiers or has malformed IDs
+for (const tc of malformedIdCases) {
+  let casePostCount = 0;
+  const restorePost = httpClient.post;
+  httpClient.post = async () => {
+    casePostCount++;
+    return tc.response;
+  };
+
+  await assert.rejects(
+    () => membershipApi.subscribePackage(101, { packageId: 10, paymentMethod: 'CASH' }),
+    (err) => {
+      assert.match(err.message, /thiếu định danh bắt buộc/i);
+      assert.match(err.message, /đối soát/i);
+      assert.match(err.message, /không tự gửi lại yêu cầu/i);
+      assert.equal(err.name, 'IncompleteOrderResponseError');
+      assert.equal(err.requiresReconciliation, true);
+      return true;
+    },
+    `subscribePackage must reject ${tc.desc} as incomplete order and halt before retry`
+  );
+  assert.equal(casePostCount, 1, `subscribePackage must send exactly one POST and NOT retry for ${tc.desc}`);
+  httpClient.post = restorePost;
+}
+console.log('PASS: subscribePackage rejects all malformed ID responses for SubscriptionOrderResponse and halts for reconciliation');
 
 // 6.7 Swagger confirm-cash (no body) and pay-online
 const cashConfirmResult = await invoiceApi.confirmCashPayment(55);
@@ -1341,7 +1367,7 @@ httpClient.get = async () => [];
 httpClient.post = async (url, data) => {
   postCalled = true;
   submittedPayload = data;
-  return { id: 890, subscriptionId: 890, status: 'PENDING_PAYMENT' };
+  return { id: 890, subscriptionId: 890, invoiceId: 942, status: 'PENDING_PAYMENT' };
 };
 
 const clearSubs = await membershipApi.getMemberSubscriptions(7);
@@ -2801,6 +2827,438 @@ assert.strictEqual(rowNoDates.endDateDisplay, '—');
 assert.strictEqual(rowNoDates.hasValidityDays, false);
 assert.strictEqual(rowNoDates.validityLabel, null);
 console.log('PASS: Helper resolveSubscriptionRowDisplay renders em-dash for missing endDate and labels validity duration cleanly');
+
+// --- 13. PAYMENT MODAL RECONCILIATION GUARD & SINGLE-POST BEHAVIOR ---
+console.log('\n--- 13. PAYMENT MODAL RECONCILIATION GUARD & SINGLE-POST BEHAVIOR ---');
+
+// Test 13.1: Response lacking both IDs sets needsReconciliation, restricts initial submit to 1 POST, and blocks subsequent submit / reopen from posting again
+{
+  const testMemberId = 701;
+  const testActorId = 'staff-reconcile-test-1';
+  inProgressTransactionCache.delete(String(testMemberId), testActorId);
+
+  let postCount = 0;
+  const originalGetMemberSubscriptions = membershipApi.getMemberSubscriptions;
+  const originalPost = httpClient.post;
+  membershipApi.getMemberSubscriptions = async () => [];
+  httpClient.post = async () => {
+    postCount++;
+    return { status: 'PENDING' }; // Missing both subscriptionId and invoiceId
+  };
+
+  let currentSessionRef = null;
+  let currentSubscriptionId = null;
+  let currentInvoiceId = null;
+  let currentNeedsReconciliation = false;
+  let lastSubmitError = null;
+
+  const setters = {
+    setSessionRef: (val) => { currentSessionRef = val; },
+    setCreatedSubscriptionId: (val) => { currentSubscriptionId = val; },
+    setCreatedInvoiceId: (val) => { currentInvoiceId = val; },
+    setSessionNeedsReconciliation: (val) => { currentNeedsReconciliation = val; },
+    setSubmitError: (val) => { lastSubmitError = val; },
+    setMemberSessions: () => {},
+    setAmbiguousPendingSubInfo: () => {},
+  };
+
+  // Attempt 1: First submit must perform exactly 1 POST and fail into reconciliation
+  await assert.rejects(
+    () =>
+      executePaymentModalSubmit({
+        numericMemberId: testMemberId,
+        numericPackageId: 10,
+        method: 'cash',
+        currentActorId: testActorId,
+        sessionRef: currentSessionRef,
+        createdSubscriptionId: currentSubscriptionId,
+        createdInvoiceId: currentInvoiceId,
+        sessionNeedsReconciliation: currentNeedsReconciliation,
+        isMutationLocked: false,
+        setters,
+      }),
+    (err) => {
+      assert.equal(err.name, 'IncompleteOrderResponseError');
+      assert.equal(err.requiresReconciliation, true);
+      assert.match(err.message, /thiếu định danh bắt buộc/i);
+      return true;
+    },
+    'Initial submit must fail with IncompleteOrderResponseError'
+  );
+
+  assert.equal(postCount, 1, 'Initial submit must send at most 1 POST');
+  assert.equal(currentNeedsReconciliation, true, 'Session state must be flagged for reconciliation');
+  assert.equal(currentSubscriptionId, null, 'SubscriptionId must remain null');
+  assert.equal(currentInvoiceId, null, 'InvoiceId must remain null');
+  assert.ok(currentSessionRef, 'A session reference must be generated and persisted');
+
+  const cachedSession = inProgressTransactionCache.get(String(testMemberId), testActorId, currentSessionRef);
+  assert.ok(cachedSession, 'Incomplete order session must be persisted in cache');
+  assert.equal(cachedSession.needsReconciliation, true, 'Cache must flag needsReconciliation = true');
+  assert.equal(cachedSession.subscriptionId, null);
+  assert.equal(cachedSession.invoiceId, null);
+
+  // Attempt 2: Resubmit on same modal before reconciliation must be blocked with 0 new POSTs
+  await assert.rejects(
+    () =>
+      executePaymentModalSubmit({
+        numericMemberId: testMemberId,
+        numericPackageId: 10,
+        method: 'cash',
+        currentActorId: testActorId,
+        sessionRef: currentSessionRef,
+        createdSubscriptionId: currentSubscriptionId,
+        createdInvoiceId: currentInvoiceId,
+        sessionNeedsReconciliation: currentNeedsReconciliation,
+        isMutationLocked: false,
+        setters,
+      }),
+    (err) => {
+      assert.equal(err.name, 'ReconciliationRequiredError');
+      assert.equal(err.requiresReconciliation, true);
+      assert.match(err.message, /cần đối soát/i);
+      return true;
+    },
+    'Resubmission must be blocked by ReconciliationRequiredError'
+  );
+  assert.equal(postCount, 1, 'Resubmit must NOT send any additional POSTs (remains exactly 1 POST)');
+
+  // Attempt 3: Close modal and reopen (simulate syncInProgressForMember restoring session from cache)
+  const restoredFromCache = inProgressTransactionCache.get(String(testMemberId), testActorId);
+  assert.ok(restoredFromCache, 'Reopening modal must load existing in-progress session');
+  assert.equal(restoredFromCache.needsReconciliation, true);
+
+  const reopenedSessionRef = restoredFromCache.sessionRef;
+  const reopenedSubscriptionId = restoredFromCache.subscriptionId || null;
+  const reopenedInvoiceId = restoredFromCache.invoiceId || null;
+  const reopenedNeedsReconciliation = Boolean(restoredFromCache.needsReconciliation);
+
+  await assert.rejects(
+    () =>
+      executePaymentModalSubmit({
+        numericMemberId: testMemberId,
+        numericPackageId: 10,
+        method: 'cash',
+        currentActorId: testActorId,
+        sessionRef: reopenedSessionRef,
+        createdSubscriptionId: reopenedSubscriptionId,
+        createdInvoiceId: reopenedInvoiceId,
+        sessionNeedsReconciliation: reopenedNeedsReconciliation,
+        isMutationLocked: false,
+        setters,
+      }),
+    (err) => {
+      assert.equal(err.name, 'ReconciliationRequiredError');
+      assert.equal(err.requiresReconciliation, true);
+      return true;
+    },
+    'Reopened modal submit must be blocked by ReconciliationRequiredError'
+  );
+  assert.equal(postCount, 1, 'Reopened modal resubmit must NOT increase POST count (remains exactly 1 POST)');
+
+  // Attempt 4: Unverified discard attempt ('Hủy phiên & Bắt đầu lại' without verified BE proof) MUST fail closed
+  await assert.rejects(
+    () =>
+      executePaymentModalDiscard({
+        numericMemberId: testMemberId,
+        currentActorId: testActorId,
+        sessionRef: reopenedSessionRef,
+        createdSubscriptionId: reopenedSubscriptionId,
+        createdInvoiceId: reopenedInvoiceId,
+        sessionNeedsReconciliation: reopenedNeedsReconciliation,
+        isMutationLocked: false,
+        setters,
+      }),
+    (err) => {
+      assert.equal(err.name, 'ReconciliationRequiredError');
+      assert.equal(err.requiresReconciliation, true);
+      assert.match(err.message, /chưa có bằng chứng xác minh chắc chắn từ máy chủ/i);
+      return true;
+    },
+    'Discarding unverified reconciliation session must be rejected with ReconciliationRequiredError'
+  );
+
+  // Verify cache and flags remain strictly retained after unverified discard attempt
+  const unverifiedCache = inProgressTransactionCache.get(String(testMemberId), testActorId, reopenedSessionRef);
+  assert.ok(unverifiedCache, 'Cache must NOT be cleared when discard lacks verified server proof');
+  assert.equal(unverifiedCache.needsReconciliation, true, 'Cache must maintain needsReconciliation = true');
+  assert.equal(reopenedNeedsReconciliation, true, 'State flag must stay true');
+
+  // Attempt 5: Resubmission attempt after unverified discard must remain locked with 0 new POSTs
+  await assert.rejects(
+    () =>
+      executePaymentModalSubmit({
+        numericMemberId: testMemberId,
+        numericPackageId: 10,
+        method: 'cash',
+        currentActorId: testActorId,
+        sessionRef: reopenedSessionRef,
+        createdSubscriptionId: reopenedSubscriptionId,
+        createdInvoiceId: reopenedInvoiceId,
+        sessionNeedsReconciliation: reopenedNeedsReconciliation,
+        isMutationLocked: false,
+        setters,
+      }),
+    (err) => {
+      assert.equal(err.name, 'ReconciliationRequiredError');
+      assert.equal(err.requiresReconciliation, true);
+      return true;
+    },
+    'Resubmission after unverified discard must remain locked'
+  );
+  assert.equal(postCount, 1, 'POST count must strictly remain 1; NO second POST allowed after unverified discard');
+
+  // Attempt 6: Only release session when verified reconciliation proof is explicitly provided
+  const verifiedDiscardResult = await executePaymentModalDiscard({
+    numericMemberId: testMemberId,
+    currentActorId: testActorId,
+    sessionRef: reopenedSessionRef,
+    createdSubscriptionId: reopenedSubscriptionId,
+    createdInvoiceId: reopenedInvoiceId,
+    sessionNeedsReconciliation: reopenedNeedsReconciliation,
+    verifiedReconciliationProof: { confirmed: true, source: 'backend_manual_audit' },
+    isMutationLocked: false,
+    setters,
+  });
+  assert.equal(verifiedDiscardResult.success, true);
+  assert.equal(inProgressTransactionCache.get(String(testMemberId), testActorId), null, 'Cache cleanly released after verified BE reconciliation');
+  assert.equal(currentNeedsReconciliation, false, 'Reconciliation flag cleared only after verified proof');
+
+  membershipApi.getMemberSubscriptions = originalGetMemberSubscriptions;
+  httpClient.post = originalPost;
+  inProgressTransactionCache.delete(String(testMemberId), testActorId);
+}
+console.log('PASS: Modal submit flow strictly locks reconciliation when response lacks both IDs (1 POST max, discard blocked without BE proof, 0 new POSTs)');
+
+// Test 13.2: Response missing only invoiceId (has valid subscriptionId) sets reconciliation and blocks repeat registration POST
+{
+  const testMemberId = 702;
+  const testActorId = 'staff-reconcile-test-2';
+  inProgressTransactionCache.delete(String(testMemberId), testActorId);
+
+  let postCount = 0;
+  const originalGetMemberSubscriptions = membershipApi.getMemberSubscriptions;
+  const originalPost = httpClient.post;
+  membershipApi.getMemberSubscriptions = async () => [];
+  httpClient.post = async () => {
+    postCount++;
+    return { id: 99, subscriptionId: 99, status: 'PENDING' }; // Missing invoiceId
+  };
+
+  let currentSessionRef = null;
+  let currentSubscriptionId = null;
+  let currentInvoiceId = null;
+  let currentNeedsReconciliation = false;
+
+  const setters = {
+    setSessionRef: (val) => { currentSessionRef = val; },
+    setCreatedSubscriptionId: (val) => { currentSubscriptionId = val; },
+    setCreatedInvoiceId: (val) => { currentInvoiceId = val; },
+    setSessionNeedsReconciliation: (val) => { currentNeedsReconciliation = val; },
+    setSubmitError: () => {},
+    setMemberSessions: () => {},
+    setAmbiguousPendingSubInfo: () => {},
+  };
+
+  // Attempt 1: First submit
+  await assert.rejects(
+    () =>
+      executePaymentModalSubmit({
+        numericMemberId: testMemberId,
+        numericPackageId: 10,
+        method: 'cash',
+        currentActorId: testActorId,
+        sessionRef: currentSessionRef,
+        createdSubscriptionId: currentSubscriptionId,
+        createdInvoiceId: currentInvoiceId,
+        sessionNeedsReconciliation: currentNeedsReconciliation,
+        isMutationLocked: false,
+        setters,
+      }),
+    (err) => {
+      assert.equal(err.name, 'IncompleteOrderResponseError');
+      assert.equal(err.requiresReconciliation, true);
+      assert.match(err.message, /mã hóa đơn/i);
+      return true;
+    }
+  );
+
+  assert.equal(postCount, 1, 'Initial submit sends exactly 1 POST');
+  assert.equal(currentSubscriptionId, 99, 'SubscriptionId 99 must be captured');
+  assert.equal(currentInvoiceId, null, 'InvoiceId must be null');
+  assert.equal(currentNeedsReconciliation, true, 'Session must flag needsReconciliation = true');
+
+  const cached = inProgressTransactionCache.get(String(testMemberId), testActorId, currentSessionRef);
+  assert.ok(cached);
+  assert.equal(cached.subscriptionId, 99);
+  assert.equal(cached.invoiceId, null);
+  assert.equal(cached.needsReconciliation, true);
+
+  // Attempt 2: Resubmit on same modal
+  await assert.rejects(
+    () =>
+      executePaymentModalSubmit({
+        numericMemberId: testMemberId,
+        numericPackageId: 10,
+        method: 'cash',
+        currentActorId: testActorId,
+        sessionRef: currentSessionRef,
+        createdSubscriptionId: currentSubscriptionId,
+        createdInvoiceId: currentInvoiceId,
+        sessionNeedsReconciliation: currentNeedsReconciliation,
+        isMutationLocked: false,
+        setters,
+      }),
+    (err) => {
+      assert.equal(err.name, 'ReconciliationRequiredError');
+      return true;
+    }
+  );
+  assert.equal(postCount, 1, 'Resubmit when missing invoiceId sends 0 new POSTs (total 1)');
+
+  // Attempt 3: Reopen modal and submit
+  const restored = inProgressTransactionCache.get(String(testMemberId), testActorId);
+  await assert.rejects(
+    () =>
+      executePaymentModalSubmit({
+        numericMemberId: testMemberId,
+        numericPackageId: 10,
+        method: 'cash',
+        currentActorId: testActorId,
+        sessionRef: restored.sessionRef,
+        createdSubscriptionId: restored.subscriptionId,
+        createdInvoiceId: restored.invoiceId,
+        sessionNeedsReconciliation: Boolean(restored.needsReconciliation),
+        isMutationLocked: false,
+        setters,
+      }),
+    (err) => {
+      assert.equal(err.name, 'ReconciliationRequiredError');
+      return true;
+    }
+  );
+  assert.equal(postCount, 1, 'Reopening modal when missing invoiceId sends 0 new POSTs (total 1)');
+
+  membershipApi.getMemberSubscriptions = originalGetMemberSubscriptions;
+  httpClient.post = originalPost;
+  inProgressTransactionCache.delete(String(testMemberId), testActorId);
+}
+console.log('PASS: Modal submit flow strictly locks reconciliation when response lacks only invoiceId (1 POST max, 0 on retry/reopen)');
+
+// Test 13.3: Response missing only subscriptionId (has valid invoiceId) sets reconciliation and blocks repeat registration POST
+{
+  const testMemberId = 703;
+  const testActorId = 'staff-reconcile-test-3';
+  inProgressTransactionCache.delete(String(testMemberId), testActorId);
+
+  let postCount = 0;
+  const originalGetMemberSubscriptions = membershipApi.getMemberSubscriptions;
+  const originalPost = httpClient.post;
+  membershipApi.getMemberSubscriptions = async () => [];
+  httpClient.post = async () => {
+    postCount++;
+    return { invoiceId: 42, status: 'PENDING' }; // Missing subscriptionId
+  };
+
+  let currentSessionRef = null;
+  let currentSubscriptionId = null;
+  let currentInvoiceId = null;
+  let currentNeedsReconciliation = false;
+
+  const setters = {
+    setSessionRef: (val) => { currentSessionRef = val; },
+    setCreatedSubscriptionId: (val) => { currentSubscriptionId = val; },
+    setCreatedInvoiceId: (val) => { currentInvoiceId = val; },
+    setSessionNeedsReconciliation: (val) => { currentNeedsReconciliation = val; },
+    setSubmitError: () => {},
+    setMemberSessions: () => {},
+    setAmbiguousPendingSubInfo: () => {},
+  };
+
+  // Attempt 1: First submit
+  await assert.rejects(
+    () =>
+      executePaymentModalSubmit({
+        numericMemberId: testMemberId,
+        numericPackageId: 10,
+        method: 'cash',
+        currentActorId: testActorId,
+        sessionRef: currentSessionRef,
+        createdSubscriptionId: currentSubscriptionId,
+        createdInvoiceId: currentInvoiceId,
+        sessionNeedsReconciliation: currentNeedsReconciliation,
+        isMutationLocked: false,
+        setters,
+      }),
+    (err) => {
+      assert.equal(err.name, 'IncompleteOrderResponseError');
+      assert.equal(err.requiresReconciliation, true);
+      assert.match(err.message, /mã đăng ký/i);
+      return true;
+    }
+  );
+
+  assert.equal(postCount, 1, 'Initial submit sends exactly 1 POST');
+  assert.equal(currentSubscriptionId, null, 'SubscriptionId must be null');
+  assert.equal(currentInvoiceId, 42, 'InvoiceId 42 must be captured');
+  assert.equal(currentNeedsReconciliation, true, 'Session must flag needsReconciliation = true');
+
+  const cached = inProgressTransactionCache.get(String(testMemberId), testActorId, currentSessionRef);
+  assert.ok(cached);
+  assert.equal(cached.subscriptionId, null);
+  assert.equal(cached.invoiceId, 42);
+  assert.equal(cached.needsReconciliation, true);
+
+  // Attempt 2: Resubmit on same modal
+  await assert.rejects(
+    () =>
+      executePaymentModalSubmit({
+        numericMemberId: testMemberId,
+        numericPackageId: 10,
+        method: 'cash',
+        currentActorId: testActorId,
+        sessionRef: currentSessionRef,
+        createdSubscriptionId: currentSubscriptionId,
+        createdInvoiceId: currentInvoiceId,
+        sessionNeedsReconciliation: currentNeedsReconciliation,
+        isMutationLocked: false,
+        setters,
+      }),
+    (err) => {
+      assert.equal(err.name, 'ReconciliationRequiredError');
+      return true;
+    }
+  );
+  assert.equal(postCount, 1, 'Resubmit when missing subscriptionId sends 0 new POSTs (total 1)');
+
+  // Attempt 3: Reopen modal and submit
+  const restored = inProgressTransactionCache.get(String(testMemberId), testActorId);
+  await assert.rejects(
+    () =>
+      executePaymentModalSubmit({
+        numericMemberId: testMemberId,
+        numericPackageId: 10,
+        method: 'cash',
+        currentActorId: testActorId,
+        sessionRef: restored.sessionRef,
+        createdSubscriptionId: restored.subscriptionId,
+        createdInvoiceId: restored.invoiceId,
+        sessionNeedsReconciliation: Boolean(restored.needsReconciliation),
+        isMutationLocked: false,
+        setters,
+      }),
+    (err) => {
+      assert.equal(err.name, 'ReconciliationRequiredError');
+      return true;
+    }
+  );
+  assert.equal(postCount, 1, 'Reopening modal when missing subscriptionId sends 0 new POSTs (total 1)');
+
+  membershipApi.getMemberSubscriptions = originalGetMemberSubscriptions;
+  httpClient.post = originalPost;
+  inProgressTransactionCache.delete(String(testMemberId), testActorId);
+}
+console.log('PASS: Modal submit flow strictly locks reconciliation when response lacks only subscriptionId (1 POST max, 0 on retry/reopen)');
 
 console.log('\n====================================================');
 console.log('ALL FE 2: MEMBERSHIP, INVOICE & PAYMENT TESTS PASSED (100%)');
