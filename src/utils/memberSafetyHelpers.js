@@ -854,3 +854,163 @@ export const executeDirectSubscriptionSubmit = async ({
     return { executed: true, success: true, mockResult: result };
   }
 };
+
+/**
+ * Calculates countdown and expiration status from an invoice's expiresAt timestamp.
+ * Strictly fail-closed: does not infer or fabricate expiration when expiresAt is missing or invalid.
+ *
+ * @param {string|number|null} expiresAt ISO 8601 string or numeric timestamp
+ * @param {number} [now=Date.now()] Reference timestamp in ms (for deterministic testing)
+ * @returns {{
+ *   hasExpiry: boolean,
+ *   isExpired: boolean,
+ *   remainingMs: number|null,
+ *   formattedTime: string|null,
+ *   totalSeconds: number|null
+ * }}
+ */
+export const calculateInvoiceExpiry = (expiresAt, now = Date.now()) => {
+  if (!expiresAt) {
+    return {
+      hasExpiry: false,
+      isExpired: false,
+      remainingMs: null,
+      formattedTime: null,
+      totalSeconds: null,
+    };
+  }
+
+  const targetTime = typeof expiresAt === 'number' ? expiresAt : Date.parse(expiresAt);
+  if (Number.isNaN(targetTime)) {
+    return {
+      hasExpiry: false,
+      isExpired: false,
+      remainingMs: null,
+      formattedTime: null,
+      totalSeconds: null,
+    };
+  }
+
+  const current = typeof now === 'number' ? now : Date.now();
+  const diffMs = targetTime - current;
+  const isExpired = diffMs <= 0;
+  const remainingMs = Math.max(0, diffMs);
+
+  const totalSeconds = Math.floor(remainingMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  let formattedTime;
+  if (isExpired) {
+    formattedTime = '00:00';
+  } else if (hours > 0) {
+    formattedTime = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  } else {
+    formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  return {
+    hasExpiry: true,
+    isExpired,
+    remainingMs,
+    formattedTime,
+    totalSeconds,
+  };
+};
+
+/**
+ * Resolves optional credit and validity fields from active subscription response.
+ * Strictly avoids defaulting to 12 Credit or 45 days when BE fields are missing/null.
+ *
+ * @param {object|null} activeSubscription
+ * @returns {{
+ *   hasCredit: boolean,
+ *   remainingCredit: number|null,
+ *   hasValidityDays: boolean,
+ *   validityDays: number|null,
+ *   packageType: string|null
+ * }}
+ */
+export const resolveActiveSubscriptionDetails = (activeSubscription) => {
+  if (!activeSubscription || typeof activeSubscription !== 'object') {
+    return {
+      hasCredit: false,
+      remainingCredit: null,
+      hasValidityDays: false,
+      validityDays: null,
+      packageType: null,
+    };
+  }
+
+  const hasCredit =
+    typeof activeSubscription.remainingCredit === 'number' &&
+    Number.isFinite(activeSubscription.remainingCredit) &&
+    activeSubscription.remainingCredit >= 0;
+
+  const hasValidityDays =
+    typeof activeSubscription.validityDays === 'number' &&
+    Number.isInteger(activeSubscription.validityDays) &&
+    activeSubscription.validityDays > 0;
+
+  return {
+    hasCredit,
+    remainingCredit: hasCredit ? activeSubscription.remainingCredit : null,
+    hasValidityDays,
+    validityDays: hasValidityDays ? activeSubscription.validityDays : null,
+    packageType: activeSubscription.packageType || null,
+  };
+};
+
+/**
+ * Resolves authoritative display status for pending invoice banner.
+ * Guarantees that the invoice status badge strictly adheres to BE paymentStatus,
+ * and does NOT overwrite or mutate paymentStatus to 'expired' based purely on local timer.
+ *
+ * @param {object|null} pendingInvoice
+ * @param {object|null} invoiceExpiry
+ * @returns {{
+ *   authoritativeStatus: string,
+ *   isPastReservationWindow: boolean,
+ *   showWindowWarning: boolean
+ * }}
+ */
+export const resolvePendingInvoiceBannerState = (pendingInvoice, invoiceExpiry) => {
+  const beStatus = pendingInvoice?.paymentStatus || pendingInvoice?.status || 'pending';
+  const isPastWindow = Boolean(invoiceExpiry?.isExpired);
+
+  return {
+    authoritativeStatus: beStatus,
+    isPastReservationWindow: isPastWindow,
+    showWindowWarning: isPastWindow,
+  };
+};
+
+/**
+ * Resolves subscription row display values for history table.
+ * Strictly guarantees that missing endDate renders as '—', and validity duration
+ * is cleanly separated with an explicit label, never placed into the date column.
+ *
+ * @param {object|null} sub
+ * @param {string} [language='vi']
+ * @returns {{
+ *   hasEndDate: boolean,
+ *   endDateDisplay: string|null,
+ *   hasValidityDays: boolean,
+ *   validityLabel: string|null
+ * }}
+ */
+export const resolveSubscriptionRowDisplay = (sub, language = 'vi') => {
+  const hasEndDate = Boolean(sub?.endDate);
+  const hasValidityDays = typeof sub?.validityDays === 'number' && sub.validityDays > 0;
+  const validityLabel = hasValidityDays
+    ? (language === 'vi' ? `Thời lượng: ${sub.validityDays} ngày` : `Duration: ${sub.validityDays}d`)
+    : null;
+
+  return {
+    hasEndDate,
+    endDateDisplay: hasEndDate ? sub.endDate : '—',
+    hasValidityDays,
+    validityLabel,
+  };
+};
