@@ -11,12 +11,14 @@ const list = async (path) => {
 // /api/sessions is a general schedule lookup and is not member-scoped by the API contract.
 export const getMemberClasses = (memberId) => getMemberEnrollments(memberId);
 export const getMemberAttendances = (memberId) => list(`/api/attendances?memberId=${encodeURIComponent(memberId)}`);
+export const getMemberCheckinCode = () => httpClient.get('/api/members/me/checkin-code');
 export const getMemberTrainingPlans = (memberId) => list(`/api/training-plans?memberId=${encodeURIComponent(memberId)}`);
 export const getMemberTrainingResults = (memberId) => list(`/api/training-results?memberId=${encodeURIComponent(memberId)}`);
 
 export const memberPortalApi = {
   getMemberClasses,
   getMemberAttendances,
+  getMemberCheckinCode,
   getMemberTrainingPlans,
   getMemberTrainingResults,
 };

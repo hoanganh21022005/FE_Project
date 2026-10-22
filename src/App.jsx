@@ -56,7 +56,7 @@ const ReceptionPaymentsView = React.lazy(() => import('./components/views/Recept
 const MemberDashboard = React.lazy(() => import('./components/views/MemberDashboard').then(module => ({ default: module.MemberDashboard })));
 const MyMembershipView = React.lazy(() => import('./components/views/MyMembershipView').then(module => ({ default: module.MyMembershipView })));
 const MemberClassCatalog = React.lazy(() => import('./components/views/MemberClassCatalog').then(module => ({ default: module.MemberClassCatalog })));
-const MemberAttendanceView = React.lazy(() => import('./components/views/MemberAttendanceView').then(module => ({ default: module.MemberAttendanceView })));
+const MemberCheckinView = React.lazy(() => import('./components/views/MemberCheckinView').then(module => ({ default: module.MemberCheckinView })));
 const MemberFeedbackView = React.lazy(() => import('./components/views/MemberFeedbackView').then(module => ({ default: module.MemberFeedbackView })));
 const MemberHomeView = React.lazy(() => import('./components/views/MemberHomeView').then(module => ({ default: module.MemberHomeView })));
 const MemberScheduleView = React.lazy(() => import('./components/views/MemberScheduleView').then(module => ({ default: module.MemberScheduleView })));
@@ -385,8 +385,8 @@ function SCMSApp() {
                   <Route path="/member/class-catalog" element={<Navigate to="/member/catalog" replace />} />
                   <Route path="/member/enrollments" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberScheduleView /></RequireRole>} />
                   <Route path="/member/schedule" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberScheduleView /></RequireRole>} />
-                  <Route path="/member/attendance" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberAttendanceHistoryView /></RequireRole>} />
-                  <Route path="/member/attendance-history" element={<Navigate to="/member/attendance" replace />} />
+                  <Route path="/member/attendance" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberCheckinView /></RequireRole>} />
+                  <Route path="/member/attendance-history" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberAttendanceHistoryView /></RequireRole>} />
                   <Route path="/member/feedback" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberFeedbackView /></RequireRole>} />
                   <Route path="/member/progress" element={<RequireRole allowedRoles={[ROLE_MEMBER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberTrainingView /></RequireRole>} />
 

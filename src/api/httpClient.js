@@ -58,7 +58,12 @@ export async function httpRequest(path, options = {}) {
         detail: { path, method: options.method || 'GET', body, status: 403 },
       }));
     }
-    throw createApiError(response.status, body);
+    const apiError = createApiError(response.status, body);
+    apiError.endpoint = path;
+    apiError.requestId = response.headers.get('x-request-id')
+      || response.headers.get('request-id')
+      || response.headers.get('traceparent');
+    throw apiError;
   }
 
   return body;
