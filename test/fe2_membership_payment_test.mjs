@@ -141,7 +141,7 @@ console.log('PASS: mapMembershipPackage does not invent packageType or credit fo
 const emptyPkg = mapMembershipPackage({});
 assert.equal(emptyPkg.id, null);
 assert.equal(emptyPkg.name, '');
-assert.equal(emptyPkg.price, 0);
+assert.equal(emptyPkg.price, null);
 assert.equal(emptyPkg.status, 'active');
 assert.equal(emptyPkg.packageType, null);
 assert.equal(emptyPkg.totalCredit, null);
@@ -322,14 +322,14 @@ const beInvoiceSample = {
 const mappedInv = mapInvoice(beInvoiceSample);
 assert.equal(mappedInv.invoiceId, 42);
 assert.equal(mappedInv.id, 42);
-assert.equal(mappedInv.code, 'INV-00042');
+assert.equal(mappedInv.code, null);
 assert.equal(mappedInv.memberId, 101);
 assert.equal(mappedInv.memberName, 'Nguyen Van A');
 assert.equal(mappedInv.amount, 11500000);
 assert.equal(mappedInv.paymentMethod, 'cash');
 assert.equal(mappedInv.paymentStatus, 'successful');
 assert.equal(mappedInv.receptionistName, 'Pham Thi Thu');
-console.log('PASS: mapInvoice maps invoice fields, formats code INV-00042, and normalizes paymentStatus to successful');
+console.log('PASS: mapInvoice maps invoice fields, preserves null code when invoiceCode is missing, and normalizes paymentStatus to successful');
 
 const beInvoiceWithCode = {
   invoiceId: 55,
@@ -590,8 +590,8 @@ httpClient.post = async (path) => {
 };
 
 const brokenInv = await invoiceApi.createInvoice({ memberId: 101, amount: 11500000 });
-assert.equal(brokenInv.id, null);
-assert.equal(brokenInv.invoiceId, null);
+assert.equal(brokenInv, null);
+
 console.log('PASS: invoiceApi maps missing ID safely to null so callers can explicitly guard against it');
 
 // 6.5 In-progress transaction cache retain and discard
