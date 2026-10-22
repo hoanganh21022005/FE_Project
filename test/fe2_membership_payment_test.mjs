@@ -62,6 +62,10 @@ import {
   clearStoredPendingOrder,
   clearAllStoredPendingOrdersExcept,
   executeDirectSubscriptionSubmit,
+  calculateInvoiceExpiry,
+  resolveActiveSubscriptionDetails,
+  resolvePendingInvoiceBannerState,
+  resolveSubscriptionRowDisplay,
 } from '../src/utils/memberSafetyHelpers.js';
 import {
   isMockPaymentSettled,
@@ -471,6 +475,8 @@ httpClient.post = async (path, body) => {
   if (path === '/api/members/101/packages') {
     return {
       subscriptionId: 99,
+      invoiceId: 42,
+      invoiceCode: 'INV-00042',
       memberId: 101,
       packageId: body.packageId,
       packageName: 'VIP Elite Club',
@@ -478,6 +484,18 @@ httpClient.post = async (path, body) => {
       startDate: body.startDate || '2026-10-10',
       endDate: '2027-10-10',
       status: 'ACTIVE',
+    };
+  }
+  if (path === '/api/invoices/42/confirm-cash') {
+    return {
+      invoiceId: 42,
+      invoiceCode: 'INV-00042',
+      memberId: 101,
+      packageId: 12,
+      amount: 11500000,
+      paymentMethod: 'CASH',
+      paymentStatus: 'PAID',
+      paymentDate: '2026-10-10T10:00:00Z',
     };
   }
   if (path === '/api/invoices/42/pay') {
@@ -494,7 +512,7 @@ httpClient.post = async (path, body) => {
   return origPost(path, body);
 };
 
-// 6.1 Subscribe member to package
+// 6.1 Subscribe member to package (returns subscriptionId + invoiceId without second POST /api/invoices)
 const subResult = await membershipApi.subscribePackage(101, {
   packageId: 12,
   startDate: '2026-10-10',
@@ -506,8 +524,15 @@ assert.equal(recordedPostPath, '/api/members/101/packages');
 assert.equal(recordedPostBody.packageId, 12);
 assert.equal(recordedPostBody.paymentMethod, 'CASH');
 assert.equal(subResult.subscriptionId, 99);
+assert.equal(subResult.invoiceId, 42);
+assert.equal(subResult.invoiceCode, 'INV-00042');
 assert.equal(subResult.status, 'active');
-console.log('PASS: subscribePackage sends correct payload to /api/members/101/packages and maps response');
+
+const subCashConfirmResult = await invoiceApi.confirmCashPayment(subResult.invoiceId);
+assert.equal(recordedPostPath, '/api/invoices/42/confirm-cash');
+assert.equal(subCashConfirmResult.invoiceId, 42);
+assert.equal(subCashConfirmResult.paymentStatus, 'successful');
+console.log('PASS: subscribePackage returns invoiceId directly and settles cash via /api/invoices/42/confirm-cash without second POST /api/invoices');
 
 // 6.2 Pay invoice via Receptionist cash confirmation
 const payResult = await invoiceApi.payInvoice(42, {
@@ -2520,7 +2545,262 @@ assert.equal(onlyOldInvoicesReturned.confirmed, false);
 httpClient.get = savedGet;
 httpClient.post = savedPost;
 clearAllStoredPendingOrdersExcept(null);
-console.log('PASS: Incomplete orders lacking either counterpart record or valid timestamp evidence remain unconfirmed and ambiguous');
+// Test 11.9: executeDirectSubscriptionSubmit in Mock Mode
+// Verifies string IDs (pkg-2, mem-3) are supported, empty package is rejected, and modal closes cleanly
+let mockToastShown = false;
+let mockModalClosed = false;
+let mockSubNotesReset = false;
+const mockRef = { current: false };
+
+const mockSubmitSuccess = await executeDirectSubscriptionSubmit({
+  submittingRef: mockRef,
+  memberProfileId: 'mem-3',
+  selectedPackageId: 'pkg-2',
+  hasAuthoritativeMemberId: true,
+  isMemberMutationLocked: false,
+  apiEnabled: false,
+  paymentMethod: 'cash',
+  subNotes: 'Gia hạn gói',
+  currentMember: { id: 'mem-3', name: 'Phạm Thanh Hương' },
+  contextPackages: [{ id: 'pkg-2', name: 'Gói 6 Tháng' }],
+  contextPayments: [],
+  callbacks: {
+    showToast: () => { mockToastShown = true; },
+    setIsSubscribeModalOpen: (isOpen) => { if (!isOpen) mockModalClosed = true; },
+    setSubNotes: (val) => { if (val === '') mockSubNotesReset = true; },
+  },
+  createMockPendingPaymentFn: () => ({ ok: true, id: 'req-mock-1' }),
+});
+
+assert.equal(mockSubmitSuccess.success, true, 'Mock mode submit must succeed with string package and member IDs');
+assert.equal(mockToastShown, true, 'Mock mode must show confirmation toast');
+assert.equal(mockModalClosed, true, 'Mock mode must close subscribe modal');
+assert.equal(mockSubNotesReset, true, 'Mock mode must reset subNotes');
+assert.equal(mockRef.current, false, 'Submitting ref must be released');
+
+// Empty package selection in mock mode fails safely
+let mockErrorMsg = null;
+const mockSubmitEmptyPkg = await executeDirectSubscriptionSubmit({
+  submittingRef: mockRef,
+  memberProfileId: 'mem-3',
+  selectedPackageId: '',
+  apiEnabled: false,
+  callbacks: {
+    setSubmitError: (msg) => { mockErrorMsg = msg; },
+  },
+});
+
+assert.equal(mockSubmitEmptyPkg.success, false, 'Mock mode submit must reject empty package selection');
+assert.ok(mockErrorMsg && (mockErrorMsg.includes('chọn một gói') || mockErrorMsg.includes('select')), 'Must display package selection error');
+console.log('PASS: Mock mode direct subscription supports string IDs and enforces package selection validation');
+
+// ==============================================================================
+// 12. READ-ONLY DATA COMPLETION: REMAINING CREDIT, VALIDITY DAYS & INVOICE EXPIRATION
+// ==============================================================================
+console.log('\n--- 12. READ-ONLY DATA COMPLETION: REMAINING CREDIT, VALIDITY DAYS & INVOICE EXPIRATION ---');
+
+// Test 12.1: resolveActiveSubscriptionDetails with full data
+const fullActiveSub = {
+  packageId: 10,
+  packageName: 'Gói 1:1 Tennis Nâng Cao',
+  packageType: 'Advanced',
+  remainingCredit: 12,
+  validityDays: 45,
+  status: 'active',
+};
+const fullDetails = resolveActiveSubscriptionDetails(fullActiveSub);
+assert.strictEqual(fullDetails.hasCredit, true, 'Must identify presence of remainingCredit');
+assert.strictEqual(fullDetails.remainingCredit, 12, 'Must capture exact remaining credit');
+assert.strictEqual(fullDetails.hasValidityDays, true, 'Must identify presence of validityDays');
+assert.strictEqual(fullDetails.validityDays, 45, 'Must capture exact validity days');
+assert.strictEqual(fullDetails.packageType, 'Advanced', 'Must capture packageType');
+
+// Test 12.2: resolveActiveSubscriptionDetails with zero credit (boundary check)
+const zeroCreditSub = {
+  packageId: 10,
+  remainingCredit: 0,
+  validityDays: 15,
+};
+const zeroCreditDetails = resolveActiveSubscriptionDetails(zeroCreditSub);
+assert.strictEqual(zeroCreditDetails.hasCredit, true, '0 credit is valid remainingCredit (out of credit)');
+assert.strictEqual(zeroCreditDetails.remainingCredit, 0);
+
+// Test 12.3: resolveActiveSubscriptionDetails with missing / null fields (ZERO hardcoding)
+const missingFieldsSub = {
+  packageId: 1,
+  packageName: 'Gói Cơ Bản',
+  status: 'active',
+};
+const missingDetails = resolveActiveSubscriptionDetails(missingFieldsSub);
+assert.strictEqual(missingDetails.hasCredit, false, 'Must NOT infer credit when missing');
+assert.strictEqual(missingDetails.remainingCredit, null, 'Must NOT default to 12 credit');
+assert.strictEqual(missingDetails.hasValidityDays, false, 'Must NOT infer validity days when missing');
+assert.strictEqual(missingDetails.validityDays, null, 'Must NOT default to 45 days');
+assert.strictEqual(missingDetails.packageType, null);
+
+// Test 12.4: resolveActiveSubscriptionDetails with invalid / malformed fields
+const malformedSub = {
+  remainingCredit: -5,
+  validityDays: '45_days',
+};
+const malformedDetails = resolveActiveSubscriptionDetails(malformedSub);
+assert.strictEqual(malformedDetails.hasCredit, false, 'Must reject negative credit');
+assert.strictEqual(malformedDetails.remainingCredit, null);
+assert.strictEqual(malformedDetails.hasValidityDays, false, 'Must reject non-numeric validityDays');
+assert.strictEqual(malformedDetails.validityDays, null);
+
+// Null / undefined safety
+const nullDetails = resolveActiveSubscriptionDetails(null);
+assert.strictEqual(nullDetails.hasCredit, false);
+assert.strictEqual(nullDetails.remainingCredit, null);
+assert.strictEqual(nullDetails.hasValidityDays, false);
+assert.strictEqual(nullDetails.validityDays, null);
+console.log('PASS: resolveActiveSubscriptionDetails accurately captures credit/validity and strictly rejects defaults/fabrications');
+
+// Test 12.5: calculateInvoiceExpiry with missing, null, or invalid expiresAt
+assert.deepStrictEqual(calculateInvoiceExpiry(null), {
+  hasExpiry: false,
+  isExpired: false,
+  remainingMs: null,
+  formattedTime: null,
+  totalSeconds: null,
+}, 'null expiresAt must return clean false state without fake countdown');
+
+assert.deepStrictEqual(calculateInvoiceExpiry(undefined), {
+  hasExpiry: false,
+  isExpired: false,
+  remainingMs: null,
+  formattedTime: null,
+  totalSeconds: null,
+});
+
+assert.deepStrictEqual(calculateInvoiceExpiry(''), {
+  hasExpiry: false,
+  isExpired: false,
+  remainingMs: null,
+  formattedTime: null,
+  totalSeconds: null,
+});
+
+assert.deepStrictEqual(calculateInvoiceExpiry('not-a-date'), {
+  hasExpiry: false,
+  isExpired: false,
+  remainingMs: null,
+  formattedTime: null,
+  totalSeconds: null,
+}, 'invalid date string must fail closed without fake countdown');
+
+// Test 12.6: calculateInvoiceExpiry countdown formatting for future timestamps
+const mockNow = 1700000000000;
+// 5 minutes remaining (300,000 ms)
+const exp5m = calculateInvoiceExpiry(mockNow + 300000, mockNow);
+assert.strictEqual(exp5m.hasExpiry, true);
+assert.strictEqual(exp5m.isExpired, false);
+assert.strictEqual(exp5m.remainingMs, 300000);
+assert.strictEqual(exp5m.formattedTime, '05:00', '300s must format to 05:00');
+
+// 3 minutes 42 seconds remaining (222,000 ms)
+const exp3m42s = calculateInvoiceExpiry(mockNow + 222000, mockNow);
+assert.strictEqual(exp3m42s.formattedTime, '03:42', '222s must format to 03:42');
+
+// 1 hour 15 minutes 30 seconds remaining (4,530,000 ms)
+const expOverHour = calculateInvoiceExpiry(mockNow + 4530000, mockNow);
+assert.strictEqual(expOverHour.formattedTime, '1:15:30', 'Over 1 hour must format as H:MM:SS');
+
+// Test 12.7: calculateInvoiceExpiry exact boundary and past timestamps (expiration behavior)
+// Exact boundary (0 ms diff)
+const expBoundary = calculateInvoiceExpiry(mockNow, mockNow);
+assert.strictEqual(expBoundary.hasExpiry, true);
+assert.strictEqual(expBoundary.isExpired, true, 'Exact boundary must be marked as expired');
+assert.strictEqual(expBoundary.remainingMs, 0);
+assert.strictEqual(expBoundary.formattedTime, '00:00');
+
+// Past timestamp (expired 10 seconds ago)
+const expPast = calculateInvoiceExpiry(mockNow - 10000, mockNow);
+assert.strictEqual(expPast.hasExpiry, true);
+assert.strictEqual(expPast.isExpired, true, 'Past timestamp must be marked as expired');
+assert.strictEqual(expPast.remainingMs, 0);
+assert.strictEqual(expPast.formattedTime, '00:00');
+
+// Test 12.8: Dynamic countdown ticker simulation across time
+const targetExpiry = mockNow + 3000; // expires in 3s
+const tick0 = calculateInvoiceExpiry(targetExpiry, mockNow);
+assert.strictEqual(tick0.formattedTime, '00:03');
+assert.strictEqual(tick0.isExpired, false);
+
+const tick1 = calculateInvoiceExpiry(targetExpiry, mockNow + 1000);
+assert.strictEqual(tick1.formattedTime, '00:02');
+assert.strictEqual(tick1.isExpired, false);
+
+const tick2 = calculateInvoiceExpiry(targetExpiry, mockNow + 2000);
+assert.strictEqual(tick2.formattedTime, '00:01');
+assert.strictEqual(tick2.isExpired, false);
+
+const tick3 = calculateInvoiceExpiry(targetExpiry, mockNow + 3000);
+assert.strictEqual(tick3.formattedTime, '00:00');
+assert.strictEqual(tick3.isExpired, true, 'Must transition to expired when now reaches target');
+
+const tick4 = calculateInvoiceExpiry(targetExpiry, mockNow + 5000);
+assert.strictEqual(tick4.formattedTime, '00:00');
+assert.strictEqual(tick4.isExpired, true);
+assert.strictEqual(tick4.remainingMs, 0);
+console.log('PASS: calculateInvoiceExpiry handles future countdowns, boundary transitions, and past expirations deterministically');
+
+// Test 12.9: Helper test for resolvePendingInvoiceBannerState when BE invoice is still pending after countdown reaches 0 (no status mutation)
+const pastExpiryInvoice = {
+  id: 88,
+  invoiceId: 88,
+  invoiceCode: 'INV-00088',
+  amount: 500000,
+  paymentStatus: 'pending',
+  paymentMethod: 'cash',
+  expiresAt: new Date(mockNow - 60000).toISOString(), // 1 minute in the past
+};
+const pastExpiry = calculateInvoiceExpiry(pastExpiryInvoice.expiresAt, mockNow);
+assert.strictEqual(pastExpiry.isExpired, true, 'Countdown has reached 0 (past reservation window)');
+assert.strictEqual(pastExpiry.formattedTime, '00:00');
+
+const bannerState = resolvePendingInvoiceBannerState(pastExpiryInvoice, pastExpiry);
+// Crucial: Authoritative badge status strictly reflects BE paymentStatus, NOT mutated to 'expired'
+assert.strictEqual(bannerState.authoritativeStatus, 'pending', 'Must retain BE paymentStatus (pending), never mutated to expired');
+assert.strictEqual(bannerState.isPastReservationWindow, true, 'Must flag that reservation window has elapsed');
+assert.strictEqual(bannerState.showWindowWarning, true, 'Must display warning message without altering BE status badge');
+console.log('PASS: Helper resolvePendingInvoiceBannerState retains BE pending status and flags past reservation window without mutation');
+
+// Test 12.10: Helper test for resolveSubscriptionRowDisplay when subscription history row is missing endDate
+const subMissingEndDate = {
+  subscriptionId: 105,
+  packageName: 'Gói 1:1 Tennis Nâng Cao',
+  packageType: 'Advanced',
+  price: 10000000,
+  startDate: '2026-10-22',
+  endDate: null, // missing endDate
+  validityDays: 45, // duration in days
+  remainingCredit: 12,
+  status: 'active',
+};
+
+const rowDisplayVi = resolveSubscriptionRowDisplay(subMissingEndDate, 'vi');
+assert.strictEqual(rowDisplayVi.hasEndDate, false, 'Identifies that endDate is missing');
+assert.strictEqual(rowDisplayVi.endDateDisplay, '—', 'Missing endDate column MUST display em-dash —, never fabricated date or duration');
+assert.strictEqual(rowDisplayVi.hasValidityDays, true, 'Identifies presence of validity duration');
+assert.strictEqual(rowDisplayVi.validityLabel, 'Thời lượng: 45 ngày', 'Validity duration MUST have explicit label, placed outside date column');
+
+const rowDisplayEn = resolveSubscriptionRowDisplay(subMissingEndDate, 'en');
+assert.strictEqual(rowDisplayEn.validityLabel, 'Duration: 45d', 'English validity duration formatted with explicit label');
+
+// Sub without validityDays and without endDate
+const subNoDates = {
+  subscriptionId: 106,
+  packageName: 'Gói Thử Nghiệm',
+  endDate: null,
+  validityDays: null,
+};
+const rowNoDates = resolveSubscriptionRowDisplay(subNoDates, 'vi');
+assert.strictEqual(rowNoDates.endDateDisplay, '—');
+assert.strictEqual(rowNoDates.hasValidityDays, false);
+assert.strictEqual(rowNoDates.validityLabel, null);
+console.log('PASS: Helper resolveSubscriptionRowDisplay renders em-dash for missing endDate and labels validity duration cleanly');
 
 console.log('\n====================================================');
 console.log('ALL FE 2: MEMBERSHIP, INVOICE & PAYMENT TESTS PASSED (100%)');

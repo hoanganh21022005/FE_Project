@@ -10,6 +10,7 @@
  * 6. Close & reopen reconciliation: in-progress transaction restored and can be discarded.
  */
 
+import assert from 'node:assert';
 import { spawn } from 'child_process';
 import os from 'os';
 import path from 'path';
@@ -161,19 +162,41 @@ async function main() {
     }
   }
 
-  const vitePort = await getFreePort();
-  const viteServer = await createServer({
-    server: { port: vitePort },
+  const failClosedPort = await getFreePort();
+  const loopbackFailClosedTarget = `http://127.0.0.1:${failClosedPort}`;
+
+  function assertLoopbackProxy(serverInstance, label) {
+    const proxyConfig = serverInstance.config.server?.proxy?.['/api'];
+    const actualProxyTarget = typeof proxyConfig === 'string' ? proxyConfig : (proxyConfig?.target || '');
+    assert.ok(actualProxyTarget, `[${label}] Vite dev server proxy target /api must be defined`);
+    assert.ok(!/onrender\.com/i.test(actualProxyTarget), `[${label}] Vite dev server proxy target must NOT point to Render: ${actualProxyTarget}`);
+    assert.ok(/^https?:\/\/(127\.0\.0\.1|localhost)/.test(actualProxyTarget), `[${label}] Vite dev server proxy target must point to loopback: ${actualProxyTarget}`);
+    return actualProxyTarget;
+  }
+
+  let vitePort = await getFreePort();
+  let viteServer = await createServer({
+    server: {
+      port: vitePort,
+      proxy: {
+        '/api': {
+          target: loopbackFailClosedTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+      },
+    },
     mode: 'development',
     define: {
       'import.meta.env.VITE_TEST_HARNESS': JSON.stringify('true'),
       'import.meta.env.VITE_API_ENABLED': JSON.stringify('true'),
+      'import.meta.env.VITE_API_PROXY_TARGET': JSON.stringify(loopbackFailClosedTarget),
       'import.meta.env.VITE_API_BASE_URL': JSON.stringify(''),
-      'import.meta.env.VITE_API_PROXY_TARGET': JSON.stringify(''),
     },
   });
   await viteServer.listen();
-  console.log(`[Setup] Vite test server listening at http://localhost:${vitePort}`);
+  const actualHarnessProxy = assertLoopbackProxy(viteServer, 'Receptionist Harness');
+  console.log(`[Setup] Vite test server listening at http://localhost:${vitePort} (proxy: ${actualHarnessProxy})`);
 
   const { client, proc, tempDir } = await spawnIsolatedChrome();
   console.log('[Setup] Isolated Chromium instance launched');
@@ -196,7 +219,7 @@ async function main() {
   };
 
   try {
-    const baseUrl = `http://localhost:${vitePort}`;
+    let baseUrl = `http://localhost:${vitePort}`;
 
     // Install mock fetch and auth interception into every new document
     await client.send('Page.addScriptToEvaluateOnNewDocument', {
@@ -209,8 +232,12 @@ async function main() {
         }
 
         window.__fe2NetworkCalls = window.__fe2NetworkCalls || {
+          allPostCalls: [],
           subscribeCalls: [],
+          memberSubscriptionCalls: [],
           createInvoiceCalls: [],
+          confirmCashCalls: [],
+          payOnlineCalls: [],
           payInvoiceCalls: [],
           cancelInvoiceCalls: [],
           cancelSubscriptionCalls: [],
@@ -225,7 +252,30 @@ async function main() {
         const origFetch = window.fetch;
         window.fetch = async (input, init = {}) => {
           const urlStr = typeof input === 'string' ? input : (input && input.url ? input.url : '');
-          const method = (init.method || 'GET').toUpperCase();
+          const method = (init.method || (input && input.method) || 'GET').toUpperCase();
+
+          // Intercept and record all POST requests
+          if (method === 'POST') {
+            let parsedBody = null;
+            try {
+              if (typeof init.body === 'string') {
+                parsedBody = JSON.parse(init.body);
+              } else if (init.body) {
+                parsedBody = init.body;
+              }
+            } catch (e) {
+              parsedBody = init.body;
+            }
+            if (!window.__fe2NetworkCalls.allPostCalls) {
+              window.__fe2NetworkCalls.allPostCalls = [];
+            }
+            window.__fe2NetworkCalls.allPostCalls.push({
+              url: urlStr,
+              method,
+              body: parsedBody,
+              timestamp: Date.now(),
+            });
+          }
 
           // Mock Login
           if (urlStr.includes('/api/auth/login') && method === 'POST') {
@@ -322,7 +372,7 @@ async function main() {
           }
 
           // Mock packages
-          if (urlStr.includes('/api/public/membership-packages') && method === 'GET') {
+          if ((urlStr.includes('/api/packages') || urlStr.includes('/api/public/membership-packages')) && method === 'GET') {
             const failData = sessionStorage.getItem('fe2_mock_fail_member_data') === 'true' || Boolean(window.__fe2MockConfig?.failMemberData);
             if (failData) {
               return new Response(JSON.stringify({
@@ -335,32 +385,95 @@ async function main() {
             ]), { status: 200, headers: { 'Content-Type': 'application/json' } });
           }
 
-          // Mock subscribe package
-          if (urlStr.includes('/api/members/') && urlStr.includes('/packages') && method === 'POST') {
-            const body = init.body ? JSON.parse(init.body) : {};
+          // Mock direct member subscription (POST /api/members/me/subscriptions)
+          if (urlStr.includes('/api/members/me/subscriptions') && method === 'POST') {
+            const body = init.body ? (typeof init.body === 'string' ? JSON.parse(init.body) : init.body) : {};
+            if (!window.__fe2NetworkCalls.memberSubscriptionCalls) {
+              window.__fe2NetworkCalls.memberSubscriptionCalls = [];
+            }
+            window.__fe2NetworkCalls.memberSubscriptionCalls.push({ url: urlStr, body });
             window.__fe2NetworkCalls.subscribeCalls.push({ url: urlStr, body });
             return new Response(JSON.stringify({
-              subscriptionId: 99,
-              memberId: 101,
-              packageId: body.packageId,
-              status: 'ACTIVE'
+              subscriptionId: 100,
+              invoiceId: 1001,
+              packageId: body.packageId || 12,
+              status: 'ACTIVE',
+              startDate: new Date().toISOString().split('T')[0],
+              endDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
             }), { status: 200, headers: { 'Content-Type': 'application/json' } });
           }
 
-          // Mock create invoice
-          if (urlStr.includes('/api/invoices') && method === 'POST' && !urlStr.includes('/pay')) {
+          // Mock subscribe package (also creates and returns invoiceId per BE contract)
+          if (urlStr.includes('/api/members/') && urlStr.includes('/packages') && method === 'POST') {
             const body = init.body ? JSON.parse(init.body) : {};
-            window.__fe2NetworkCalls.createInvoiceCalls.push({ url: urlStr, body });
-
+            window.__fe2NetworkCalls.subscribeCalls.push({ url: urlStr, body });
             if (window.__fe2MockConfig.missingInvoiceId) {
-              // Intentionally return response missing id and invoiceId
+              // Intentionally return response missing invoiceId
               return new Response(JSON.stringify({
-                memberId: body.memberId,
-                amount: body.amount,
-                paymentStatus: 'PENDING'
+                subscriptionId: 99,
+                memberId: 101,
+                packageId: body.packageId,
+                status: 'PENDING'
               }), { status: 200, headers: { 'Content-Type': 'application/json' } });
             }
+            return new Response(JSON.stringify({
+              subscriptionId: 99,
+              invoiceId: 42,
+              invoiceCode: 'INV-00042',
+              memberId: 101,
+              packageId: body.packageId,
+              amount: 11500000,
+              paymentMethod: body.paymentMethod || 'CASH',
+              status: 'PENDING'
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
 
+          // Mock confirm cash payment (POST /api/invoices/{id}/confirm-cash)
+          if (urlStr.includes('/api/invoices/') && urlStr.includes('/confirm-cash') && method === 'POST') {
+            if (!window.__fe2NetworkCalls.confirmCashCalls) {
+              window.__fe2NetworkCalls.confirmCashCalls = [];
+            }
+            window.__fe2NetworkCalls.confirmCashCalls.push({ url: urlStr });
+            window.__fe2NetworkCalls.payInvoiceCalls.push({ url: urlStr });
+
+            if (window.__fe2MockConfig.failPayInvoice) {
+              return new Response(JSON.stringify({
+                message: 'Lỗi hệ thống thu tiền mặt (500 Internal Error)'
+              }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+            }
+
+            return new Response(JSON.stringify({
+              invoiceId: 42,
+              invoiceCode: 'INV-00042',
+              paymentStatus: 'PAID',
+              paymentMethod: 'CASH'
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
+
+          // Mock start online payment (POST /api/invoices/{id}/pay-online)
+          if (urlStr.includes('/api/invoices/') && urlStr.includes('/pay-online') && method === 'POST') {
+            if (!window.__fe2NetworkCalls.payOnlineCalls) {
+              window.__fe2NetworkCalls.payOnlineCalls = [];
+            }
+            window.__fe2NetworkCalls.payOnlineCalls.push({ url: urlStr });
+            return new Response(JSON.stringify({
+              paymentUrl: ''
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
+
+          // Mock Cancel Invoice (POST /api/invoices/{id}/cancel)
+          if (urlStr.includes('/api/invoices/') && urlStr.includes('/cancel') && method === 'POST') {
+            window.__fe2NetworkCalls.cancelInvoiceCalls.push({ url: urlStr });
+            return new Response(JSON.stringify({
+              invoiceId: 42,
+              paymentStatus: 'CANCELLED'
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
+
+          // Mock create invoice (legacy POST /api/invoices - should NOT be called by PaymentModal)
+          if (urlStr.includes('/api/invoices') && method === 'POST' && !urlStr.includes('/confirm-cash') && !urlStr.includes('/pay-online') && !urlStr.includes('/cancel') && !urlStr.includes('/pay')) {
+            const body = init.body ? JSON.parse(init.body) : {};
+            window.__fe2NetworkCalls.createInvoiceCalls.push({ url: urlStr, body });
             return new Response(JSON.stringify({
               invoiceId: 42,
               memberId: body.memberId,
@@ -371,17 +484,10 @@ async function main() {
             }), { status: 200, headers: { 'Content-Type': 'application/json' } });
           }
 
-          // Mock pay invoice
-          if (urlStr.includes('/api/invoices/') && urlStr.includes('/pay') && method === 'POST') {
+          // Mock pay invoice (legacy POST /api/invoices/{id}/pay)
+          if (urlStr.includes('/api/invoices/') && urlStr.includes('/pay') && !urlStr.includes('/pay-online') && method === 'POST') {
             const body = init.body ? JSON.parse(init.body) : {};
             window.__fe2NetworkCalls.payInvoiceCalls.push({ url: urlStr, body });
-
-            if (window.__fe2MockConfig.failPayInvoice) {
-              return new Response(JSON.stringify({
-                message: 'Lỗi hệ thống thu tiền mặt (500 Internal Error)'
-              }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-            }
-
             return new Response(JSON.stringify({
               invoiceId: 42,
               paymentStatus: 'PAID',
@@ -478,7 +584,7 @@ async function main() {
     );
 
     // -------------------------------------------------------------------------
-    // TEST 2: Missing invoice ID raises explicit error, skips pay, no success toast
+    // TEST 2: Missing invoice ID raises explicit error, skips confirm-cash, no second POST /api/invoices
     // -------------------------------------------------------------------------
     await client.eval(`
       (() => {
@@ -486,6 +592,7 @@ async function main() {
         window.__fe2MockConfig.failPayInvoice = false;
         window.__fe2NetworkCalls.subscribeCalls = [];
         window.__fe2NetworkCalls.createInvoiceCalls = [];
+        window.__fe2NetworkCalls.confirmCashCalls = [];
         window.__fe2NetworkCalls.payInvoiceCalls = [];
       })()
     `);
@@ -513,6 +620,7 @@ async function main() {
           toastText: toast ? toast.textContent : null,
           subscribeCount: window.__fe2NetworkCalls.subscribeCalls.length,
           createInvoiceCount: window.__fe2NetworkCalls.createInvoiceCalls.length,
+          confirmCashCount: (window.__fe2NetworkCalls.confirmCashCalls || []).length,
           payInvoiceCount: window.__fe2NetworkCalls.payInvoiceCalls.length,
         };
       })()
@@ -521,29 +629,47 @@ async function main() {
     const t2Pass =
       t2State.hasAlert &&
       t2State.isModalOpen &&
+      t2State.createInvoiceCount === 0 &&
+      t2State.confirmCashCount === 0 &&
       t2State.payInvoiceCount === 0 &&
       t2State.subscribeCount === 1 &&
       /mã hóa đơn/i.test(t2State.alertText);
 
     record(
       'FE2-MISSING-INVOICE-ID-GUARD',
-      'Missing invoice ID raises explicit error alert, does NOT call payInvoice, does NOT show success',
+      'Missing invoice ID raises explicit error alert, does NOT call confirm-cash or second POST /api/invoices, does NOT show success',
       t2Pass,
       t2State
     );
 
     // -------------------------------------------------------------------------
-    // TEST 3: Cash Pay failure retains partial state & freezes fields in resumed mode
+    // TEST 3: Cash confirm-cash failure retains partial state & freezes fields in resumed mode
     // -------------------------------------------------------------------------
+    // First discard the incomplete session from Test 2 (which lacked invoiceId)
     await client.eval(`
       (() => {
-        // Discard missing ID, enable failPayInvoice
+        const dialog = document.querySelector('div[role="dialog"]');
+        const discardBtn = dialog ? Array.from(dialog.querySelectorAll('button')).find(b =>
+          b.textContent.includes('Hủy phiên & Bắt đầu lại')
+        ) : null;
+        if (discardBtn) discardBtn.click();
+      })()
+    `);
+    await new Promise(r => setTimeout(r, 350));
+
+    await client.eval(`
+      (() => {
+        // Enable valid invoiceId from subscribePackage, simulate confirm-cash failure
         window.__fe2MockConfig.missingInvoiceId = false;
         window.__fe2MockConfig.failPayInvoice = true;
+        window.__fe2NetworkCalls.subscribeCalls = [];
+        window.__fe2NetworkCalls.createInvoiceCalls = [];
+        window.__fe2NetworkCalls.confirmCashCalls = [];
+        window.__fe2NetworkCalls.payInvoiceCalls = [];
       })()
     `);
 
-    // Click submit again to trigger invoice creation + pay failure
+    // Click submit to trigger subscription (with returned invoiceId #42) + confirm-cash failure
     await client.eval(`
       (() => {
         const dialog = document.querySelector('div[role="dialog"]');
@@ -552,7 +678,7 @@ async function main() {
       })()
     `);
 
-    // Wait for in-progress resumed banner to render and submitting state to settle
+    // Wait for in-progress resumed banner with both #99 and #42 to render and submitting state to settle
     await client.waitFor(`
       (() => {
         const dialog = document.querySelector('div[role="dialog"]');
@@ -560,6 +686,7 @@ async function main() {
         return (
           dialog &&
           dialog.textContent.includes('Tiến trình giao dịch đang thực hiện dở dang') &&
+          dialog.textContent.includes('ID #42') &&
           submitBtn &&
           !submitBtn.disabled
         );
@@ -580,6 +707,8 @@ async function main() {
           allSelectsDisabled,
           submitBtnText: submitBtn ? submitBtn.textContent : '',
           toastText: toast ? toast.textContent : null,
+          createInvoiceCount: window.__fe2NetworkCalls.createInvoiceCalls.length,
+          confirmCashCount: (window.__fe2NetworkCalls.confirmCashCalls || []).length,
           payInvoiceCount: window.__fe2NetworkCalls.payInvoiceCalls.length,
         };
       })()
@@ -590,17 +719,19 @@ async function main() {
       t3State.hasSubInfo &&
       t3State.hasInvInfo &&
       t3State.allSelectsDisabled &&
+      t3State.createInvoiceCount === 0 &&
+      t3State.confirmCashCount === 1 &&
       /Thử lại bước thu tiền/i.test(t3State.submitBtnText);
 
     record(
       'FE2-CASH-PAY-FAILURE-FREEZE',
-      'Cash pay failure keeps modal open, displays partial banner, freezes member/package fields, and offers retry',
+      'Cash confirm-cash failure keeps modal open, displays partial banner (#99 & #42), freezes fields, and offers retry with zero POST /api/invoices',
       t3Pass,
       t3State
     );
 
     // -------------------------------------------------------------------------
-    // TEST 4: Retry cash payment succeeds with ZERO duplicate calls
+    // TEST 4: Retry cash payment via confirm-cash succeeds with ZERO duplicate calls
     // -------------------------------------------------------------------------
     await client.eval(`
       (() => {
@@ -623,11 +754,14 @@ async function main() {
       (() => {
         const dialog = document.querySelector('div[role="dialog"]');
         const toast = document.querySelector('#scms-toast');
+        const confirmCalls = window.__fe2NetworkCalls.confirmCashCalls || [];
         return {
           isModalClosed: !dialog,
           toastText: toast ? toast.textContent : '',
           subscribeTotal: window.__fe2NetworkCalls.subscribeCalls.length,
           createInvoiceTotal: window.__fe2NetworkCalls.createInvoiceCalls.length,
+          confirmCashTotal: confirmCalls.length,
+          lastConfirmCashUrl: confirmCalls[confirmCalls.length - 1]?.url || '',
           payInvoiceTotal: window.__fe2NetworkCalls.payInvoiceCalls.length,
         };
       })()
@@ -637,24 +771,26 @@ async function main() {
       t4State.isModalClosed &&
       /thu tiền mặt thành công/i.test(t4State.toastText) &&
       t4State.subscribeTotal === 1 && // Not duplicated!
-      t4State.createInvoiceTotal === 2 && // 1 from test 2 (missing ID) + 1 from test 3 (failed pay) -> 0 extra created on retry!
-      t4State.payInvoiceTotal === 2; // Retried payInvoice
+      t4State.createInvoiceTotal === 0 && // Zero second POST /api/invoices!
+      t4State.confirmCashTotal === 2 && // 1 failed in Test 3 + 1 succeeded on retry in Test 4
+      t4State.lastConfirmCashUrl.includes('/api/invoices/42/confirm-cash');
 
     record(
       'FE2-RETRY-ZERO-DUPLICATES',
-      'Retry completes cash payment cleanly with zero duplicate subscriptions or invoices',
+      'Retry completes cash payment via confirm-cash cleanly with zero duplicate subscriptions or POST /api/invoices',
       t4Pass,
       t4State
     );
 
     // -------------------------------------------------------------------------
-    // TEST 5: Online / Bank transfer creates pending invoice without pay call
+    // TEST 5: Bank transfer creates subscription & pending invoice without confirm-cash or second POST /api/invoices
     // -------------------------------------------------------------------------
     // Re-open modal
     await client.eval(`
       (() => {
         window.__fe2NetworkCalls.subscribeCalls = [];
         window.__fe2NetworkCalls.createInvoiceCalls = [];
+        window.__fe2NetworkCalls.confirmCashCalls = [];
         window.__fe2NetworkCalls.payInvoiceCalls = [];
 
         const btn = Array.from(document.querySelectorAll('button')).find(b =>
@@ -701,22 +837,26 @@ async function main() {
           toastText: toast ? toast.textContent : '',
           subscribeTotal: window.__fe2NetworkCalls.subscribeCalls.length,
           createInvoiceTotal: window.__fe2NetworkCalls.createInvoiceCalls.length,
+          confirmCashTotal: (window.__fe2NetworkCalls.confirmCashCalls || []).length,
           payInvoiceTotal: window.__fe2NetworkCalls.payInvoiceCalls.length,
-          invoiceCreatedStatus: window.__fe2NetworkCalls.createInvoiceCalls[0]?.body?.paymentStatus,
+          subscribedPaymentMethod: window.__fe2NetworkCalls.subscribeCalls[0]?.body?.paymentMethod,
         };
       })()
     `);
 
     const t5Pass =
       t5State.isModalClosed &&
+      t5State.subscribeTotal === 1 &&
+      t5State.createInvoiceTotal === 0 && // No second POST /api/invoices!
+      t5State.confirmCashTotal === 0 &&
       t5State.payInvoiceTotal === 0 && // No pay call!
-      t5State.invoiceCreatedStatus === 'PENDING' &&
+      t5State.subscribedPaymentMethod === 'BANK_TRANSFER' &&
       /Chờ đối soát|Chờ thanh toán/i.test(t5State.toastText) &&
       !/đã thanh toán|hoàn tất/i.test(t5State.toastText);
 
     record(
       'FE2-BANK-TRANSFER-PENDING-STATUS',
-      'Bank transfer creates pending invoice without calling payInvoice and displays pending status toast',
+      'Bank transfer creates subscription & pending invoice without calling confirm-cash or second POST /api/invoices and displays pending toast',
       t5Pass,
       t5State
     );
@@ -929,10 +1069,38 @@ async function main() {
     // =========================================================================
     // MEMBER VIEW TESTS (Tests 8 to 12)
     // =========================================================================
+    // Switch Vite dev server to Member API mode (VITE_TEST_HARNESS: 'false')
+    // to strictly verify fail-closed mutation locking for direct member self-subscription
+    await viteServer.close();
+    await new Promise(r => setTimeout(r, 200));
+    viteServer = await createServer({
+      server: {
+        port: vitePort,
+        proxy: {
+          '/api': {
+            target: loopbackFailClosedTarget,
+            changeOrigin: true,
+            secure: false,
+          },
+        },
+      },
+      mode: 'development',
+      define: {
+        'import.meta.env.VITE_TEST_HARNESS': JSON.stringify('false'),
+        'import.meta.env.VITE_API_ENABLED': JSON.stringify('true'),
+        'import.meta.env.VITE_API_PROXY_TARGET': JSON.stringify(loopbackFailClosedTarget),
+        'import.meta.env.VITE_API_BASE_URL': JSON.stringify(''),
+      },
+    });
+    await viteServer.listen();
+    const actualMemberProxy = assertLoopbackProxy(viteServer, 'Member Server');
+    console.log(`[Setup] Vite member test server listening at http://localhost:${vitePort} (proxy: ${actualMemberProxy})`);
 
-    // Switch session to Member role with active subscription seed for Test 8
+    // TEST 8: MEMBER VIEW IDENTITY ISOLATION (Foreign member profile ID 13 vs userId 13)
+    await client.navigate(`${baseUrl}/member/my-membership`);
     await client.eval(`
       (() => {
+        sessionStorage.setItem('scms_mock_authenticated', 'true');
         sessionStorage.setItem('scms_mock_role', 'member');
         sessionStorage.setItem('fe2_mock_fail_member_data', 'false');
         sessionStorage.setItem('fe2_mock_member_subs', JSON.stringify([
@@ -949,9 +1117,7 @@ async function main() {
         ]));
       })()
     `);
-
-    // TEST 8: MEMBER VIEW IDENTITY ISOLATION (Foreign member profile ID 13 vs userId 13)
-    await client.navigate(`${baseUrl}/member/my-membership`);
+    await client.send('Page.reload');
     await client.waitFor("window.location.pathname === '/member/my-membership'", 10000);
     await client.waitFor("document.querySelector('main h2') !== null", 10000);
     await client.waitFor("!document.querySelector('main .animate-spin')", 10000);
@@ -1106,7 +1272,7 @@ async function main() {
           hasPackageName: text.includes('VIP Elite Club'),
           hasContractId: text.includes('#100'),
           hasRenewBtn: Boolean(renewBtn),
-          renewBtnDisabled: renewBtn ? renewBtn.disabled : false,
+          canOpenModal: Boolean(renewBtn && !renewBtn.disabled),
         };
       })()
     `);
@@ -1116,56 +1282,124 @@ async function main() {
       t11ActiveState.hasPackageName &&
       t11ActiveState.hasContractId &&
       t11ActiveState.hasRenewBtn &&
-      t11ActiveState.renewBtnDisabled;
+      t11ActiveState.canOpenModal;
 
     record(
       'FE2-MEMBER-VIEW-ACTIVE-SUB-RENEWAL-STATE',
-      'Active subscription (#100) displays active package details and disables renewal button in API mode pending BE contract',
+      'Active subscription (#100) displays active package details and allows opening renewal modal in API mode',
       t11Pass,
       t11ActiveState
     );
 
+
     // TEST 12: DIRECT MEMBER POST MUTATION IS LOCKED (0 POST CALLS)
-    const t12MutationLock = await client.eval(`
+    const initialCounters = await client.eval(`
       (() => {
-        const initialPostCount = window.__fe2NetworkCalls.subscribeCalls.length;
+        const net = window.__fe2NetworkCalls || {};
+        return {
+          allPostCount: (net.allPostCalls || []).length,
+          memberSubPostCount: (net.memberSubscriptionCalls || []).length,
+          subscribePostCount: (net.subscribeCalls || []).length,
+        };
+      })()
+    `);
+
+    // Open modal via action button to verify form access
+    const btnCount = await client.eval(`
+      (() => {
         const btns = Array.from(document.querySelectorAll('button')).filter(b =>
           b.textContent.includes('Gia hạn / Đổi gói') ||
           b.textContent.includes('Đăng ký gói') ||
           b.textContent.includes('Chọn gói này')
         );
+        if (btns.length > 0) {
+          btns[0].click();
+        }
+        return btns.length;
+      })()
+    `);
 
-        // Attempt clicking disabled buttons
-        btns.forEach(b => {
-          try { b.click(); } catch(e) {}
-        });
+    await client.waitFor("document.querySelector('div[role=\"dialog\"]')", 5000);
 
-        const finalPostCount = window.__fe2NetworkCalls.subscribeCalls.length;
-        const mainText = document.querySelector('main')?.innerText || '';
-        const hasLockNotice = mainText.includes('Khóa đăng ký trực tuyến') ||
-                              mainText.includes('Direct Subscription Locked');
+    const t12MutationLock = await client.eval(`
+      (async () => {
+        const dialog = document.querySelector('div[role="dialog"]');
+        const hasModal = Boolean(dialog);
+        const submitBtn = dialog ? dialog.querySelector('button[type="submit"]') : null;
+        const form = dialog ? dialog.querySelector('form') : null;
+        const isSubmitLocked = Boolean(
+          submitBtn &&
+          (submitBtn.disabled || submitBtn.getAttribute('disabled') !== null) &&
+          (submitBtn.textContent.includes('Tạm khóa') || submitBtn.textContent.includes('Temporarily locked'))
+        );
+
+        // Attempt clicking or activating the locked submit button and submitting form
+        if (submitBtn) {
+          try {
+            submitBtn.click();
+            submitBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+          } catch (e) {}
+        }
+        if (form) {
+          try {
+            form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+          } catch (e) {}
+        }
+
+        // Wait for asynchronous flows (such as baseline GETs or any chained POSTs) to settle completely
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // Snapshot counters BEFORE closing modal
+        const net = window.__fe2NetworkCalls || {};
+        const finalAllPostCount = (net.allPostCalls || []).length;
+        const finalMemberSubPostCount = (net.memberSubscriptionCalls || []).length;
+        const finalSubscribePostCount = (net.subscribeCalls || []).length;
+
+        // ONLY close modal AFTER snapshotting the counters
+        const cancelBtn = dialog ? Array.from(dialog.querySelectorAll('button')).find(b => /Hủy|Cancel/i.test(b.innerText)) : null;
+        if (cancelBtn) {
+          cancelBtn.click();
+        }
 
         return {
-          btnCount: btns.length,
-          allDisabled: btns.every(b => b.disabled),
-          initialPostCount,
-          finalPostCount,
-          hasLockNotice
+          hasModal,
+          hasSubmitBtn: Boolean(submitBtn),
+          isSubmitLocked,
+          submitBtnText: submitBtn ? submitBtn.textContent.trim() : '',
+          finalAllPostCount,
+          finalMemberSubPostCount,
+          finalSubscribePostCount,
         };
       })()
     `);
 
+    const noNewAllPosts = (t12MutationLock.finalAllPostCount === initialCounters.allPostCount);
+    const noNewMemberSubPosts = (t12MutationLock.finalMemberSubPostCount === initialCounters.memberSubPostCount);
+    const noNewSubscribePosts = (t12MutationLock.finalSubscribePostCount === initialCounters.subscribePostCount);
+    const postCountUnchanged = noNewAllPosts && noNewMemberSubPosts && noNewSubscribePosts;
+
     const t12Pass =
-      t12MutationLock.btnCount > 0 &&
-      t12MutationLock.allDisabled &&
-      t12MutationLock.finalPostCount === 0 &&
-      t12MutationLock.hasLockNotice;
+      btnCount > 0 &&
+      t12MutationLock.hasModal &&
+      t12MutationLock.hasSubmitBtn &&
+      t12MutationLock.isSubmitLocked &&
+      noNewAllPosts &&
+      noNewMemberSubPosts &&
+      noNewSubscribePosts;
 
     record(
       'FE2-MEMBER-VIEW-DIRECT-POST-MUTATION-LOCKED',
-      'Direct Member POST mutation is strictly locked in API mode: all action buttons disabled and zero POST network calls made',
+      'Direct Member POST mutation submit button is locked in modal; async flows settled without generating any POST calls (including POST /api/members/me/subscriptions)',
       t12Pass,
-      t12MutationLock
+      {
+        btnCount,
+        ...t12MutationLock,
+        initialCounters,
+        postCountUnchanged,
+        noNewAllPosts,
+        noNewMemberSubPosts,
+        noNewSubscribePosts,
+      }
     );
 
     // =========================================================================
@@ -1185,7 +1419,7 @@ async function main() {
     client.close();
     try { proc.kill('SIGKILL'); } catch (e) {}
     try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (e) {}
-    await viteServer.close();
+    try { await viteServer?.close(); } catch (e) {}
   }
 }
 

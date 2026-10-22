@@ -15,6 +15,10 @@ import {
   clearStoredPendingOrder,
   clearAllStoredPendingOrdersExcept,
   executeDirectSubscriptionSubmit,
+  calculateInvoiceExpiry,
+  resolveActiveSubscriptionDetails,
+  resolvePendingInvoiceBannerState,
+  resolveSubscriptionRowDisplay,
 } from '../../utils/memberSafetyHelpers';
 import {
   Award,
@@ -230,6 +234,32 @@ export function MyMembershipView() {
     }
   }, [apiEnabled, invoices, mockPayments, memberProfileId]);
 
+  const activeDetails = useMemo(() => {
+    return resolveActiveSubscriptionDetails(activeSubscription);
+  }, [activeSubscription]);
+
+  const [currentTimestamp, setCurrentTimestamp] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!pendingInvoice?.expiresAt) return;
+    const expiry = calculateInvoiceExpiry(pendingInvoice.expiresAt);
+    if (!expiry.hasExpiry) return;
+
+    const interval = setInterval(() => {
+      setCurrentTimestamp(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [pendingInvoice?.expiresAt]);
+
+  const invoiceExpiry = useMemo(() => {
+    return calculateInvoiceExpiry(pendingInvoice?.expiresAt, currentTimestamp);
+  }, [pendingInvoice?.expiresAt, currentTimestamp]);
+
+  const pendingInvoiceBannerState = useMemo(() => {
+    return resolvePendingInvoiceBannerState(pendingInvoice, invoiceExpiry);
+  }, [pendingInvoice, invoiceExpiry]);
+
   // Handle Subscribe / Renew Submit
   const handleSubscribeSubmit = async (e) => {
     e?.preventDefault?.();
@@ -355,15 +385,22 @@ export function MyMembershipView() {
 
       {/* Pending Invoice Notification Banner */}
       {pendingInvoice && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs">
+        <div className={`border rounded-lg p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs ${
+          pendingInvoiceBannerState.isPastReservationWindow ? 'bg-amber-50/90 border-amber-300' : 'bg-amber-50 border-amber-200'
+        }`}>
           <div className="flex items-start gap-3">
             <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold text-amber-900">
                   {language === 'vi' ? 'Hóa đơn đang chờ thanh toán' : 'Pending Invoice'}
                 </span>
-                <StatusBadge type="payment" status="pending" />
+                <StatusBadge type="payment" status={pendingInvoiceBannerState.authoritativeStatus} />
+                {pendingInvoiceBannerState.isPastReservationWindow && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-200 text-amber-900 border border-amber-300 uppercase tracking-tight">
+                    {language === 'vi' ? 'Đã qua thời gian giữ chỗ' : 'Past reservation window'}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-amber-800 mt-1">
                 Mã HĐ: <strong className="font-mono">{pendingInvoice.invoiceCode || pendingInvoice.code || `#${pendingInvoice.id ?? pendingInvoice.invoiceId}`}</strong>
@@ -377,11 +414,28 @@ export function MyMembershipView() {
                     - Hạn thanh toán: <span>{formatDate(pendingInvoice.expiresAt, language)}</span>
                   </span>
                 ) : null}
+                {invoiceExpiry.hasExpiry && (
+                  <span className="ml-2 inline-flex items-center gap-1">
+                    - {language === 'vi' ? 'Thời gian giữ chỗ:' : 'Reservation time:'}{' '}
+                    <strong className={`font-mono px-1.5 py-0.5 rounded text-xs ${
+                      invoiceExpiry.isExpired
+                        ? 'bg-rose-100 text-rose-900 font-bold'
+                        : 'bg-amber-100 text-amber-900 font-bold'
+                    }`}>
+                      {invoiceExpiry.formattedTime}
+                      {invoiceExpiry.isExpired && (language === 'vi' ? ' (Hết giờ giữ chỗ)' : ' (Window expired)')}
+                    </strong>
+                  </span>
+                )}
               </p>
-              <p className="text-[11px] text-amber-700 mt-0.5">
-                {String(pendingInvoice.paymentMethod || pendingInvoice.method).toLowerCase() === 'cash'
-                  ? (language === 'vi' ? 'Vui lòng hoàn tất thanh toán tiền mặt tại quầy Tiếp tân.' : 'Please complete cash payment at the reception desk.')
-                  : (language === 'vi' ? 'Vui lòng hoàn tất thanh toán để kích hoạt gói hội viên.' : 'Please complete payment to activate your package.')}
+              <p className={`text-[11px] mt-0.5 ${pendingInvoiceBannerState.isPastReservationWindow ? 'text-amber-900 font-medium' : 'text-amber-700'}`}>
+                {pendingInvoiceBannerState.isPastReservationWindow
+                  ? (language === 'vi'
+                      ? 'Đã qua thời gian giữ chỗ thanh toán theo thời hạn của hóa đơn. Hóa đơn trên máy chủ có thể đã hết hạn hoặc bị hủy; vui lòng bấm "Làm mới trạng thái" để kiểm tra dữ liệu mới nhất từ máy chủ.'
+                      : 'The payment reservation window based on the invoice expiration time has passed. The invoice on the server may be expired or cancelled; please click "Refresh" to verify latest status.')
+                  : String(pendingInvoice.paymentMethod || pendingInvoice.method).toLowerCase() === 'cash'
+                    ? (language === 'vi' ? 'Vui lòng hoàn tất thanh toán tiền mặt tại quầy Tiếp tân.' : 'Please complete cash payment at the reception desk.')
+                    : (language === 'vi' ? 'Vui lòng hoàn tất thanh toán để kích hoạt gói hội viên.' : 'Please complete payment to activate your package.')}
               </p>
             </div>
           </div>
@@ -405,9 +459,16 @@ export function MyMembershipView() {
             <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-xs space-y-6">
               <div className="border-b border-slate-200 pb-4 flex flex-col md:flex-row justify-between gap-4">
                 <div>
-                  <span className="text-[10px] font-mono font-bold uppercase text-[#BA0000] bg-red-50 px-2.5 py-1 rounded border border-red-200">
-                    GÓI DỊCH VỤ ĐANG HOẠT ĐỘNG
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-mono font-bold uppercase text-[#BA0000] bg-red-50 px-2.5 py-1 rounded border border-red-200">
+                      GÓI DỊCH VỤ ĐANG HOẠT ĐỘNG
+                    </span>
+                    {activeDetails.packageType && (
+                      <span className="text-[10px] font-mono font-bold uppercase text-blue-700 bg-blue-50 px-2.5 py-1 rounded border border-blue-200">
+                        {activeDetails.packageType}
+                      </span>
+                    )}
+                  </div>
                   <h3 className="text-xl font-extrabold text-slate-900 mt-2">
                     {apiEnabled
                       ? (activeSubscription?.packageName || 'Gói thành viên')
@@ -420,6 +481,11 @@ export function MyMembershipView() {
                         Mã hợp đồng: <strong className="font-mono text-slate-900 tabular-nums">#{activeSubscription.subscriptionId}</strong>
                       </span>
                     )}
+                    {apiEnabled && activeDetails.hasCredit && (
+                      <span className="ml-3">
+                        Số dư: <strong className="font-mono text-emerald-700 font-bold tabular-nums">{activeDetails.remainingCredit} credit</strong>
+                      </span>
+                    )}
                   </p>
                 </div>
 
@@ -429,8 +495,12 @@ export function MyMembershipView() {
                     {apiEnabled ? (
                       activeSubscription?.startDate && activeSubscription?.endDate ? (
                         `${formatDate(activeSubscription.startDate, language)} → ${formatDate(activeSubscription.endDate, language)}`
+                      ) : activeDetails.hasValidityDays ? (
+                        `${activeDetails.validityDays} ${language === 'vi' ? 'ngày' : 'days'}`
                       ) : (
-                        <span className="text-slate-400 italic font-normal">Chưa xác định thời hạn</span>
+                        <span className="text-slate-400 italic font-normal">
+                          {language === 'vi' ? 'Chưa xác định thời hạn' : 'Undetermined validity period'}
+                        </span>
                       )
                     ) : currentMember.startDate && currentMember.endDate ? (
                       `${formatDate(currentMember.startDate, language)} → ${formatDate(currentMember.endDate, language)}`
@@ -440,6 +510,12 @@ export function MyMembershipView() {
                       </span>
                     )}
                   </div>
+                  {apiEnabled && activeDetails.hasValidityDays && activeSubscription?.startDate && activeSubscription?.endDate && (
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {language === 'vi' ? 'Thời lượng hiệu lực:' : 'Validity duration:'}{' '}
+                      <strong className="font-mono text-slate-800 tabular-nums">{activeDetails.validityDays} {language === 'vi' ? 'ngày' : 'days'}</strong>
+                    </div>
+                  )}
                   <div className="text-xs text-slate-500 mt-1">
                     Giá gói: <strong className="font-mono text-[#BA0000] tabular-nums">
                       {apiEnabled
@@ -453,7 +529,21 @@ export function MyMembershipView() {
               </div>
 
               {/* Benefits & Details Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              <div className={`grid grid-cols-1 ${activeDetails.hasCredit ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4 text-xs`}>
+                {activeDetails.hasCredit && (
+                  <div className="p-4 bg-emerald-50 rounded border border-emerald-200 space-y-1">
+                    <div className="font-bold text-emerald-900 flex items-center gap-1.5">
+                      <Award className="w-4 h-4 text-emerald-700" />
+                      <span>{language === 'vi' ? 'Số Dư Buổi Học (Credit)' : 'Session Credits Balance'}</span>
+                    </div>
+                    <div className="text-2xl font-black font-mono text-emerald-700 tabular-nums pt-1">
+                      {activeDetails.remainingCredit} <span className="text-xs font-semibold text-emerald-800 font-sans">{language === 'vi' ? 'Credit còn lại' : 'Credits left'}</span>
+                    </div>
+                    <p className="text-[11px] text-emerald-800">
+                      {language === 'vi' ? 'Sử dụng để đặt lịch ca học 1:1 cùng Huấn luyện viên.' : 'Available for booking 1:1 sessions with coaches.'}
+                    </p>
+                  </div>
+                )}
                 <div className="p-4 bg-slate-50 rounded border border-slate-200 space-y-1">
                   <div className="font-bold text-slate-900 flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-600" />
@@ -602,26 +692,46 @@ export function MyMembershipView() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 text-slate-800">
-                    {displayedSubscriptions.map((sub) => (
-                      <tr key={sub.subscriptionId || sub.id} className="hover:bg-slate-50 h-[38px]">
-                        <td className="py-2 px-3 font-mono font-bold text-slate-900 tabular-nums">
-                          #{sub.subscriptionId || sub.id}
-                        </td>
-                        <td className="py-2 px-3 font-semibold">{sub.packageName}</td>
-                        <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 tabular-nums">
-                          {sub.price == null ? '—' : formatCurrency(sub.price, language)}
-                        </td>
-                        <td className="py-2 px-3 font-mono text-slate-600 tabular-nums">
-                          {sub.startDate ? formatDate(sub.startDate, language) : '—'}
-                        </td>
-                        <td className="py-2 px-3 font-mono text-slate-600 tabular-nums">
-                          {sub.endDate ? formatDate(sub.endDate, language) : '—'}
-                        </td>
-                        <td className="py-2 px-3 text-center">
-                          <StatusBadge type="membership" status={sub.status} />
-                        </td>
-                      </tr>
-                    ))}
+                    {displayedSubscriptions.map((sub) => {
+                      const rowDisplay = resolveSubscriptionRowDisplay(sub, language);
+                      return (
+                        <tr key={sub.subscriptionId || sub.id} className="hover:bg-slate-50 h-[38px]">
+                          <td className="py-2 px-3 font-mono font-bold text-slate-900 tabular-nums">
+                            #{sub.subscriptionId || sub.id}
+                          </td>
+                          <td className="py-2 px-3 font-semibold">
+                            <span>{sub.packageName}</span>
+                            {sub.packageType && (
+                              <span className="ml-1.5 text-[10px] font-mono px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded">
+                                {sub.packageType}
+                              </span>
+                            )}
+                            {rowDisplay.validityLabel && (
+                              <span className="ml-1.5 text-[10px] font-mono px-1.5 py-0.5 bg-slate-100 text-slate-700 border border-slate-300 rounded">
+                                {rowDisplay.validityLabel}
+                              </span>
+                            )}
+                            {typeof sub.remainingCredit === 'number' && Number.isFinite(sub.remainingCredit) && (
+                              <span className="ml-1.5 text-[10px] font-mono font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">
+                                {sub.remainingCredit} Credit
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 tabular-nums">
+                            {sub.price == null ? '—' : formatCurrency(sub.price, language)}
+                          </td>
+                          <td className="py-2 px-3 font-mono text-slate-600 tabular-nums">
+                            {sub.startDate ? formatDate(sub.startDate, language) : '—'}
+                          </td>
+                          <td className="py-2 px-3 font-mono text-slate-600 tabular-nums">
+                            {sub.endDate ? formatDate(sub.endDate, language) : '—'}
+                          </td>
+                          <td className="py-2 px-3 text-center">
+                            <StatusBadge type="membership" status={sub.status} />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

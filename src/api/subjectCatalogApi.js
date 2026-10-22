@@ -13,8 +13,8 @@ export async function getMemberSubjectCatalog() {
     return readSubjectList(data);
   } catch (error) {
     if (![401, 403, 404].includes(error?.status)) throw error;
-    // The public response currently omits NormalPrice and AdvancedPrice.
-    // The member view supplies the published fee table when those values are absent.
+    // The public response may omit NormalPrice and AdvancedPrice; the member view
+    // keeps those prices unavailable until the API supplies them.
     const data = await httpClient.get('/api/public/subjects');
     return readSubjectList(data);
   }
