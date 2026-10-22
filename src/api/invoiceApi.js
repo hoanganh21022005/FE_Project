@@ -7,7 +7,7 @@ import {
 } from './invoiceMappers.js';
 import { extractList, isValidNumericId } from './schemaValidators.js';
 
-export const getInvoices = async (filters = {}) => {
+export const getInvoices = async (filters = {}, options = {}) => {
   const query = new URLSearchParams();
 
   if (filters.memberId !== undefined && filters.memberId !== null && filters.memberId !== '') {
@@ -31,10 +31,13 @@ export const getInvoices = async (filters = {}) => {
   if (filters.endDate) {
     query.set('endDate', filters.endDate);
   }
+  if (filters.keyword && String(filters.keyword).trim()) {
+    query.set('keyword', String(filters.keyword).trim());
+  }
 
   const queryString = query.toString();
   const path = queryString ? `/api/invoices?${queryString}` : '/api/invoices';
-  const data = await httpClient.get(path);
+  const data = await httpClient.get(path, options);
   const list = extractList(data);
   return Array.isArray(list) ? list.map(mapInvoice).filter(Boolean) : [];
 };
@@ -46,11 +49,11 @@ export const getMyInvoices = async () => {
   return Array.isArray(list) ? list.map(mapInvoice).filter(Boolean) : [];
 };
 
-export const getInvoiceById = async (id) => {
+export const getInvoiceById = async (id, options = {}) => {
   if (!isValidNumericId(id)) {
     throw new Error('ID hóa đơn không hợp lệ.');
   }
-  const data = await httpClient.get(`/api/invoices/${id}`);
+  const data = await httpClient.get(`/api/invoices/${id}`, options);
   return mapInvoice(data);
 };
 
@@ -62,11 +65,11 @@ export const getMyInvoiceById = async (id) => {
   return mapInvoice(data);
 };
 
-export const confirmCashPayment = async (id) => {
+export const confirmCashPayment = async (id, options = {}) => {
   if (!isValidNumericId(id)) {
     throw new Error('ID hóa đơn không hợp lệ.');
   }
-  const response = await httpClient.post(`/api/invoices/${id}/confirm-cash`);
+  const response = await httpClient.post(`/api/invoices/${id}/confirm-cash`, undefined, options);
   return mapInvoice(response);
 };
 

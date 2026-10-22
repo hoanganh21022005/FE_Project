@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useId } from 'react';
+import React, { useState, useEffect, useCallback, useId, useRef } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency, formatDateTime } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
@@ -51,29 +51,52 @@ export function ReceptionPaymentsView() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const invoicesRequestId = useRef(0);
 
   // Cash confirmation modal
   const [confirmingInvoice, setConfirmingInvoice] = useState(null);
   const [cashNotes, setCashNotes] = useState('');
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState(null);
+  const confirmingRequestRef = useRef(false);
 
   const searchInputId = useId();
   const statusSelectId = useId();
 
+  const canConfirmCash = !apiEnabled || (
+    String(currentUser?.role || '').toLowerCase() === 'receptionist'
+    && Array.isArray(currentUser?.authorities)
+    && currentUser.authorities.includes('MANAGE_INVOICES')
+  );
+
   const fetchInvoices = useCallback(async () => {
     if (!apiEnabled) return;
+    const requestId = ++invoicesRequestId.current;
     setLoading(true);
     setError(null);
     try {
-      const data = await invoiceApi.getInvoices();
-      setInvoices(Array.isArray(data) ? data : []);
+      const backendStatus = statusFilter === 'successful'
+        ? 'Paid'
+        : statusFilter === 'pending'
+          ? 'Pending'
+          : statusFilter === 'cancelled'
+            ? 'Cancelled'
+            : statusFilter === 'expired'
+              ? 'Expired'
+              : statusFilter === 'failed'
+                ? 'Failed'
+            : undefined;
+      const data = await invoiceApi.getInvoices({
+        status: backendStatus,
+        keyword: searchTerm,
+      }, { notifyForbidden: false });
+      if (requestId === invoicesRequestId.current) setInvoices(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(getErrorMessage(err, 'Không thể tải danh sách giao dịch thu tiền từ máy chủ.'));
+      if (requestId === invoicesRequestId.current) setError(getErrorMessage(err, 'Không thể tải danh sách giao dịch thu tiền từ máy chủ.'));
     } finally {
-      setLoading(false);
+      if (requestId === invoicesRequestId.current) setLoading(false);
     }
-  }, [apiEnabled]);
+  }, [apiEnabled, statusFilter, searchTerm]);
 
   useEffect(() => {
     if (apiEnabled) {
@@ -83,7 +106,7 @@ export function ReceptionPaymentsView() {
 
   const rawList = apiEnabled ? invoices : applyMockPaymentSettlements(contextPayments);
 
-  const filteredPayments = rawList.filter((item) => {
+  const filteredResults = rawList.filter((item) => {
     const itemStatus = apiEnabled ? item.paymentStatus : item.status;
     if (statusFilter !== 'all' && itemStatus !== statusFilter) {
       return false;
@@ -100,22 +123,39 @@ export function ReceptionPaymentsView() {
 
     return true;
   });
+  const filteredPayments = apiEnabled && error && invoices.length > 0 ? invoices : filteredResults;
 
   // Action: Confirm Cash Payment for Pending Invoice
   const handleExecuteCashPayment = async (e) => {
     e.preventDefault();
-    if (!confirmingInvoice || isConfirming) return;
+    if (!confirmingInvoice || confirmingRequestRef.current) return;
 
+    confirmingRequestRef.current = true;
     setIsConfirming(true);
     setConfirmError(null);
 
     if (apiEnabled) {
-      setConfirmError(
-        language === 'vi'
-          ? 'Thao tác thanh toán trực tiếp tạm thời bị khóa. Vui lòng thử lại sau.'
-          : 'Direct payment action is temporarily unavailable. Please try again later.'
-      );
-      setIsConfirming(false);
+      try {
+        const updatedInvoice = await invoiceApi.confirmCashPayment(confirmingInvoice.invoiceId, { notifyForbidden: false });
+        if (updatedInvoice) {
+          setInvoices((previous) => previous.map((invoice) => (
+            String(invoice.invoiceId) === String(updatedInvoice.invoiceId) ? updatedInvoice : invoice
+          )));
+        }
+        showToast?.(
+          language === 'vi'
+            ? `Đã xác nhận thu tiền mặt cho hóa đơn #${updatedInvoice?.code || confirmingInvoice.code || confirmingInvoice.invoiceId} thành công!`
+            : 'Cash payment confirmed successfully!',
+          'success'
+        );
+        setConfirmingInvoice(null);
+        await fetchInvoices();
+      } catch (err) {
+        setConfirmError(getErrorMessage(err, language === 'vi' ? 'Không thể xác nhận thanh toán hóa đơn.' : 'Could not confirm invoice payment.'));
+      } finally {
+        confirmingRequestRef.current = false;
+        setIsConfirming(false);
+      }
       return;
     } else {
       // Mock mode: settle original pending fixture in-place (no duplicate record)
@@ -126,6 +166,7 @@ export function ReceptionPaymentsView() {
 
       if (!res.ok) {
         setConfirmError(res.error);
+        confirmingRequestRef.current = false;
         setIsConfirming(false);
         return;
       }
@@ -137,6 +178,7 @@ export function ReceptionPaymentsView() {
         'success'
       );
       setConfirmingInvoice(null);
+      confirmingRequestRef.current = false;
       setIsConfirming(false);
     }
   };
@@ -172,13 +214,13 @@ export function ReceptionPaymentsView() {
             </button>
           )}
 
-          <button
+          {!apiEnabled && <button
             onClick={() => setIsPayOpen(true)}
             className="min-h-[44px] px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-2 cursor-pointer transition-colors"
           >
             <PlusCircle className="w-4 h-4" />
             <span>{language === 'vi' ? 'Ghi Nhận Giao Dịch Mới' : 'New Desk Payment'}</span>
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -212,6 +254,10 @@ export function ReceptionPaymentsView() {
             <option value="pending">{language === 'vi' ? 'Chờ thu tiền (Pending)' : 'Pending'}</option>
             <option value="successful">{language === 'vi' ? 'Đã thu tiền (Successful)' : 'Successful'}</option>
             <option value="cancelled">{language === 'vi' ? 'Đã hủy (Cancelled)' : 'Cancelled'}</option>
+            {apiEnabled && <>
+              <option value="expired">{language === 'vi' ? 'Hết hạn (Expired)' : 'Expired'}</option>
+              <option value="failed">{language === 'vi' ? 'Thất bại (Failed)' : 'Failed'}</option>
+            </>}
           </select>
         </div>
       </div>
@@ -243,7 +289,7 @@ export function ReceptionPaymentsView() {
       )}
 
       {/* Transactions List */}
-      {(!apiEnabled || (!loading && !error)) && (
+      {(!apiEnabled || (!loading && (!error || invoices.length > 0))) && (
         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-slate-900 tracking-tight">
             {language === 'vi' ? 'Lịch Sử Giao Dịch Thu Tiền Tại Quầy' : 'Desk Collection Transactions'}
@@ -274,7 +320,7 @@ export function ReceptionPaymentsView() {
                 <tbody className="divide-y divide-slate-200 text-slate-800">
                   {filteredPayments.map((p) => {
                     const isApi = apiEnabled;
-                    const code = isApi ? (p.code || `INV-${p.invoiceId}`) : (p.code || p.transactionNo);
+                    const code = isApi ? (p.code || '—') : (p.code || p.transactionNo);
                     const status = isApi ? p.paymentStatus : p.status;
                     const isPending = status === 'pending';
 
@@ -291,10 +337,10 @@ export function ReceptionPaymentsView() {
                           {p.packageName || 'Gói dịch vụ'}
                         </td>
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 tabular-nums">
-                          {formatCurrency(p.amount || 0, language)}
+                          {p.amount == null ? '—' : formatCurrency(p.amount, language)}
                         </td>
                         <td className="py-2 px-3 uppercase text-[11px] font-mono text-slate-600">
-                          {p.paymentMethod || p.method}
+                          {p.paymentMethod || p.method || '—'}
                         </td>
                         <td className="py-2 px-3 font-mono text-slate-500 tabular-nums">
                           {p.paymentDate || p.createdAt || '—'}
@@ -303,7 +349,7 @@ export function ReceptionPaymentsView() {
                           <StatusBadge type="payment" status={status} />
                         </td>
                         <td className="py-2 px-3 text-center">
-                          {isPending ? (
+                          {isPending && canConfirmCash ? (
                             <button
                               type="button"
                               onClick={() => {
@@ -316,6 +362,8 @@ export function ReceptionPaymentsView() {
                               <DollarSign className="w-3.5 h-3.5" />
                               <span>{language === 'vi' ? 'Thu tiền mặt' : 'Collect Cash'}</span>
                             </button>
+                          ) : isPending ? (
+                            <span aria-label={language === 'vi' ? 'Không có quyền thu tiền' : 'Not authorized'}>—</span>
                           ) : (
                             <span className="text-[11px] text-slate-400 italic">
                               {language === 'vi' ? 'Đã hoàn tất' : 'Completed'}
@@ -367,7 +415,7 @@ export function ReceptionPaymentsView() {
                 <div className="flex justify-between">
                   <span className="text-slate-600 font-semibold">Mã Hóa Đơn:</span>
                   <span className="font-mono font-bold text-slate-900">
-                    {confirmingInvoice.code || `INV-${confirmingInvoice.invoiceId}`}
+                    {confirmingInvoice.code || (apiEnabled ? '—' : `INV-${confirmingInvoice.invoiceId}`)}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -381,12 +429,12 @@ export function ReceptionPaymentsView() {
                 <div className="flex justify-between pt-2 border-t border-emerald-200">
                   <span className="text-slate-800 font-bold">Số tiền cần thu:</span>
                   <span className="text-base font-extrabold font-mono text-emerald-800 tabular-nums">
-                    {formatCurrency(confirmingInvoice.amount || 0, language)}
+                    {confirmingInvoice.amount == null ? '—' : formatCurrency(confirmingInvoice.amount, language)}
                   </span>
                 </div>
               </div>
 
-              <div>
+              {!apiEnabled && <div>
                 <label className="block font-bold text-slate-700 mb-1">
                   {language === 'vi' ? 'Ghi chú biên lai / Mã phiếu thu' : 'Receipt Note'}
                 </label>
@@ -398,18 +446,7 @@ export function ReceptionPaymentsView() {
                   placeholder={language === 'vi' ? 'Ví dụ: Đã nhận đủ tiền mặt từ hội viên...' : 'Receipt notes...'}
                   className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-[#D62323]/20"
                 />
-              </div>
-
-              {apiEnabled && (
-                <div className="p-3 bg-amber-50 border border-amber-300 rounded text-amber-800 text-[11px] flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <span>
-                    {language === 'vi'
-                      ? 'Thao tác thu tiền đang tạm thời bị khóa.'
-                      : 'Payment collection is temporarily unavailable.'}
-                  </span>
-                </div>
-              )}
+              </div>}
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
                 <button
@@ -422,20 +459,13 @@ export function ReceptionPaymentsView() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isConfirming || apiEnabled}
-                  title={apiEnabled ? (language === 'vi' ? 'Thao tác tạm thời bị khóa' : 'Temporarily unavailable') : undefined}
-                  className={`min-h-[44px] px-5 py-2 font-bold rounded flex items-center gap-2 cursor-pointer transition-colors ${
-                    apiEnabled
-                      ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-75'
-                      : 'bg-emerald-700 hover:bg-emerald-800 text-white disabled:opacity-50'
-                  }`}
+                  disabled={isConfirming || !canConfirmCash}
+                  className="min-h-[44px] px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isConfirming && <Loader2 className="w-4 h-4 animate-spin" />}
                   <span>
                     {isConfirming
                       ? (language === 'vi' ? 'Đang xác nhận...' : 'Confirming...')
-                      : apiEnabled
-                      ? (language === 'vi' ? 'Tạm khóa' : 'Temporarily locked')
                       : (language === 'vi' ? 'Xác nhận đã thu tiền' : 'Confirm Cash Received')}
                   </span>
                 </button>
@@ -446,7 +476,7 @@ export function ReceptionPaymentsView() {
       )}
 
       {/* Record Payment Modal */}
-      <PaymentModal
+      {!apiEnabled && <PaymentModal
         isOpen={isPayOpen}
         onClose={() => setIsPayOpen(false)}
         onSuccess={() => {
@@ -454,7 +484,7 @@ export function ReceptionPaymentsView() {
             fetchInvoices();
           }
         }}
-      />
+      />}
     </div>
   );
 }

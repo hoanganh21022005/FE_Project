@@ -1304,14 +1304,17 @@ function LegacyMemberClassCatalog() {
               // Schedule info & status
               const schedule = calculateCourseSchedule(cls);
               const sessionCount = cls.sessionCount || 12;
-              const totalCourseFee = Number(cls.price || 0);
-              const isFreeClass = Boolean(cls.isFree) || totalCourseFee === 0;
+              const totalCourseFee = cls.price == null ? null : Number(cls.price);
+              const hasCoursePrice = Number.isFinite(totalCourseFee) && totalCourseFee >= 0;
+              const isFreeClass = Boolean(cls.isFree) || (hasCoursePrice && totalCourseFee === 0);
 
               // Member Package & Tier Privileges (Hybrid Model)
               const memberTier = Number(memberPkg?.tier || 1);
               const discountRate = memberTier >= 3 ? 0.20 : memberTier === 2 ? 0.10 : 0;
               const hasVipDiscount = Boolean(memberPkg && memberPkg.tier >= 2 && discountRate > 0);
-              const memberPrice = discountRate > 0 ? Math.round(totalCourseFee * (1 - discountRate)) : totalCourseFee;
+              const memberPrice = hasCoursePrice
+                ? discountRate > 0 ? Math.round(totalCourseFee * (1 - discountRate)) : totalCourseFee
+                : null;
 
               // Status determination
               const statusInfo = getClassStatus(cls, now);
@@ -1370,7 +1373,11 @@ function LegacyMemberClassCatalog() {
                           {language === 'vi' ? 'Học phí' : 'Tuition'}
                         </span>
 
-                        {isFreeClass ? (
+                        {!hasCoursePrice ? (
+                          <span className="text-sm font-bold text-amber-300">
+                            {language === 'vi' ? 'Chưa có thông tin giá' : 'Price unavailable'}
+                          </span>
+                        ) : isFreeClass ? (
                           <span className="text-sm font-bold text-emerald-400 uppercase bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 rounded">
                             {language === 'vi' ? 'Miễn phí' : 'Free'}
                           </span>
@@ -1471,6 +1478,10 @@ function LegacyMemberClassCatalog() {
                       ) : isRegistrationClosed ? (
                         <div className="w-full py-2.5 bg-slate-800/80 text-slate-400 border border-slate-700/60 rounded-lg text-xs font-bold text-center uppercase tracking-wider">
                           {language === 'vi' ? 'Đã chốt danh sách' : 'Registration Closed'}
+                        </div>
+                      ) : !hasCoursePrice ? (
+                        <div className="w-full py-2.5 bg-amber-950/60 text-amber-300 border border-amber-800/60 rounded-lg text-xs font-bold text-center uppercase tracking-wider">
+                          {language === 'vi' ? 'Chưa có giá' : 'Price unavailable'}
                         </div>
                       ) : isTierBlocked ? (
                         <div className="w-full py-2.5 bg-slate-800/80 text-slate-400 border border-slate-700/60 rounded-lg text-xs font-bold text-center uppercase tracking-wider">

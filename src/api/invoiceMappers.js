@@ -2,7 +2,7 @@ import { asNumber } from './mappers.js';
 import { isValidNumericId } from './schemaValidators.js';
 
 export function normalizePaymentMethod(method) {
-  if (!method) return 'cash';
+  if (!method) return null;
   const m = String(method).trim().toUpperCase();
   if (['CASH', 'TIỀN MẶT', 'TIEN_MAT'].includes(m)) return 'cash';
   if (['BANK_TRANSFER', 'CHUYỂN KHOẢN', 'CHUYEN_KHOAN', 'VIETQR', 'TRANSFER'].includes(m)) return 'bank_transfer';
@@ -12,7 +12,7 @@ export function normalizePaymentMethod(method) {
 }
 
 export function normalizePaymentStatus(status) {
-  if (!status) return 'pending';
+  if (!status) return null;
   const s = String(status).trim().toUpperCase();
   if (['PAID', 'SUCCESSFUL', 'SUCCESS', 'COMPLETED', 'ĐÃ THANH TOÁN'].includes(s)) return 'successful';
   if (['PENDING', 'CHỜ THANH TOÁN', 'UNPAID', 'AWAITING_PAYMENT'].includes(s)) return 'pending';
@@ -30,41 +30,17 @@ export function formatInvoiceCode(id) {
 
 export function mapInvoice(item) {
   if (!item || typeof item !== 'object') {
-    return {
-      id: null,
-      invoiceId: null,
-      code: 'INV-00000',
-      invoiceCode: 'INV-00000',
-      memberId: null,
-      memberName: '',
-      memberEmail: '',
-      memberPhone: '',
-      packageId: null,
-      packageName: '',
-      durationDays: null,
-      receptionistId: null,
-      receptionistName: '',
-      amount: 0,
-      paymentMethod: 'cash',
-      rawPaymentMethod: null,
-      paymentStatus: 'pending',
-      rawPaymentStatus: null,
-      paymentDate: null,
-      gatewayTransactionRef: null,
-      createdAt: null,
-      expiresAt: null,
-      classId: null,
-      className: null,
-    };
+    return null;
   }
 
   const invoiceId = asNumber(item.invoiceId ?? item.id);
+  if (!isValidNumericId(invoiceId)) return null;
   const memberId = asNumber(item.memberId);
   const packageId = asNumber(item.packageId);
   const receptionistId = asNumber(item.receptionistId);
   const durationDays = asNumber(item.durationDays);
-  const amount = asNumber(item.amount) ?? 0;
-  const invoiceCode = item.invoiceCode || formatInvoiceCode(invoiceId);
+  const amount = asNumber(item.amount);
+  const invoiceCode = item.invoiceCode || null;
 
   return {
     id: invoiceId,

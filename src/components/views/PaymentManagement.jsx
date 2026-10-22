@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useId } from 'react';
+import React, { useState, useEffect, useCallback, useId, useRef } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency, formatDateTime } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
@@ -40,11 +40,15 @@ export function PaymentManagement() {
 
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState(null);
 
   // Filters & Search
   const [statusFilter, setStatusFilter] = useState('all');
   const [methodFilter, setMethodFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [, setSettlementTick] = useState(0);
 
   // Subscribe to fixture settlement changes
@@ -56,6 +60,7 @@ export function PaymentManagement() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const invoicesRequestId = useRef(0);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -64,6 +69,8 @@ export function PaymentManagement() {
   const searchInputId = useId();
   const statusFilterId = useId();
   const methodFilterId = useId();
+  const startDateId = useId();
+  const endDateId = useId();
 
   const paymentMethods = {
     bank_transfer: language === 'vi' ? 'Chuyển khoản' : 'Bank transfer',
@@ -74,17 +81,40 @@ export function PaymentManagement() {
 
   const fetchInvoices = useCallback(async () => {
     if (!apiEnabled) return;
+    const requestId = ++invoicesRequestId.current;
     setLoading(true);
     setError(null);
     try {
-      const data = await invoiceApi.getInvoices();
-      setInvoices(Array.isArray(data) ? data : []);
+      const backendStatus = statusFilter === 'successful'
+        ? 'Paid'
+        : statusFilter === 'pending'
+          ? 'Pending'
+          : statusFilter === 'cancelled'
+            ? 'Cancelled'
+            : statusFilter === 'expired'
+              ? 'Expired'
+              : statusFilter === 'failed'
+                ? 'Failed'
+                : undefined;
+      const backendMethod = methodFilter === 'cash'
+        ? 'Cash'
+        : methodFilter === 'online'
+          ? 'VNPay'
+          : undefined;
+      const data = await invoiceApi.getInvoices({
+        status: backendStatus,
+        method: backendMethod,
+        keyword: searchTerm,
+        startDate,
+        endDate,
+      }, { notifyForbidden: false });
+      if (requestId === invoicesRequestId.current) setInvoices(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(getErrorMessage(err, 'Không thể tải danh sách hóa đơn từ máy chủ.'));
+      if (requestId === invoicesRequestId.current) setError(getErrorMessage(err, 'Không thể tải danh sách hóa đơn từ máy chủ.'));
     } finally {
-      setLoading(false);
+      if (requestId === invoicesRequestId.current) setLoading(false);
     }
-  }, [apiEnabled]);
+  }, [apiEnabled, statusFilter, methodFilter, searchTerm, startDate, endDate]);
 
   useEffect(() => {
     if (apiEnabled) {
@@ -100,7 +130,7 @@ export function PaymentManagement() {
   // Filtered dataset
   const rawList = apiEnabled ? invoices : applyMockPaymentSettlements(contextPayments);
 
-  const filteredList = rawList.filter((item) => {
+  const filteredResults = rawList.filter((item) => {
     // Status filter
     const itemStatus = apiEnabled ? item.paymentStatus : item.status;
     if (statusFilter !== 'all' && itemStatus !== statusFilter) {
@@ -119,13 +149,14 @@ export function PaymentManagement() {
       const code = String(item.code || item.transactionNo || item.invoiceId || '').toLowerCase();
       const name = String(item.memberName || '').toLowerCase();
       const email = String(item.memberEmail || '').toLowerCase();
-      if (!code.includes(q) && !name.includes(q) && !email.includes(q)) {
+      if (!code.includes(q) && !name.includes(q) && (!apiEnabled && !email.includes(q))) {
         return false;
       }
     }
 
     return true;
   });
+  const filteredList = apiEnabled && error && invoices.length > 0 ? invoices : filteredResults;
 
   const totalPages = Math.max(1, Math.ceil(filteredList.length / pageSize));
   const paginatedList = filteredList.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -192,13 +223,13 @@ export function PaymentManagement() {
             </button>
           )}
 
-          <button
+          {!apiEnabled && <button
             onClick={() => setIsPayModalOpen(true)}
             className="min-h-[44px] px-4 py-2 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
             <PlusCircle className="w-4 h-4" />
             <span>{t('recordPayment')}</span>
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -216,8 +247,8 @@ export function PaymentManagement() {
             }}
             placeholder={
               language === 'vi'
-                ? 'Tìm theo mã HĐ, tên thành viên, email...'
-                : 'Search by invoice code, member name, email...'
+                ? 'Tìm mã hóa đơn, tên hội viên, gói hoặc lớp...'
+                : 'Search invoice code, member, package or class...'
             }
             className="w-full min-h-[44px] pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-[#D62323]/20"
           />
@@ -239,6 +270,8 @@ export function PaymentManagement() {
               <option value="successful">{language === 'vi' ? 'Đã thanh toán (Successful)' : 'Paid'}</option>
               <option value="pending">{language === 'vi' ? 'Chờ thanh toán (Pending)' : 'Pending'}</option>
               <option value="cancelled">{language === 'vi' ? 'Đã hủy (Cancelled)' : 'Cancelled'}</option>
+              <option value="expired">{language === 'vi' ? 'Hết hạn (Expired)' : 'Expired'}</option>
+              <option value="failed">{language === 'vi' ? 'Thất bại (Failed)' : 'Failed'}</option>
             </select>
           </div>
 
@@ -254,11 +287,25 @@ export function PaymentManagement() {
             >
               <option value="all">{language === 'vi' ? 'Tất cả phương thức' : 'All methods'}</option>
               <option value="cash">{language === 'vi' ? 'Tiền mặt' : 'Cash'}</option>
-              <option value="bank_transfer">{language === 'vi' ? 'Chuyển khoản' : 'Bank Transfer'}</option>
-              <option value="online">{language === 'vi' ? 'Online' : 'Online'}</option>
-              <option value="card_pos">{language === 'vi' ? 'Thẻ/POS' : 'Card/POS'}</option>
+              {apiEnabled ? (
+                <option value="online">VNPay</option>
+              ) : (
+                <>
+                  <option value="bank_transfer">{language === 'vi' ? 'Chuyển khoản' : 'Bank Transfer'}</option>
+                  <option value="online">{language === 'vi' ? 'Online' : 'Online'}</option>
+                  <option value="card_pos">{language === 'vi' ? 'Thẻ/POS' : 'Card/POS'}</option>
+                </>
+              )}
             </select>
           </div>
+          {apiEnabled && (
+            <div className="flex items-center gap-2">
+              <label className="sr-only" htmlFor={startDateId}>Start date</label>
+              <input id={startDateId} type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setCurrentPage(1); }} className="min-h-[44px] bg-slate-50 border border-slate-300 rounded px-2 text-xs" />
+              <label className="sr-only" htmlFor={endDateId}>End date</label>
+              <input id={endDateId} type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setCurrentPage(1); }} className="min-h-[44px] bg-slate-50 border border-slate-300 rounded px-2 text-xs" />
+            </div>
+          )}
         </div>
       </div>
 
@@ -289,7 +336,7 @@ export function PaymentManagement() {
       )}
 
       {/* Table Data */}
-      {(!apiEnabled || (!loading && !error)) && (
+      {(!apiEnabled || (!loading && (!error || invoices.length > 0))) && (
         <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
           {filteredList.length === 0 ? (
             <div className="text-center py-12 text-slate-500 text-xs">
@@ -316,12 +363,12 @@ export function PaymentManagement() {
                 <tbody className="divide-y divide-slate-200 text-slate-700">
                   {paginatedList.map((tx) => {
                     const isApi = apiEnabled;
-                    const code = isApi ? (tx.code || `INV-${tx.invoiceId}`) : (tx.transactionNo || tx.code);
+                    const code = isApi ? (tx.code || '—') : (tx.transactionNo || tx.code);
                     const memberName = tx.memberName || (tx.memberId ? `Hội viên #${tx.memberId}` : '—');
                     const pkgName = isApi ? (tx.packageName || 'Gói dịch vụ') : getPackageName(tx);
-                    const amount = tx.amount || 0;
+                    const amount = tx.amount;
                     const method = isApi ? tx.paymentMethod : tx.method;
-                    const date = isApi ? tx.paymentDate : tx.paymentDate;
+                    const date = isApi ? (tx.paymentDate || tx.createdAt) : tx.paymentDate;
                     const status = isApi ? tx.paymentStatus : tx.status;
 
                     return (
@@ -335,7 +382,7 @@ export function PaymentManagement() {
                         </td>
                         <td className="py-2.5 px-4 text-slate-700 font-medium">{pkgName}</td>
                         <td className="py-2.5 px-4 font-mono font-bold text-slate-900 tabular-nums text-right">
-                          {formatCurrency(amount, language)}
+                          {amount == null ? '—' : formatCurrency(amount, language)}
                         </td>
                         <td className="py-2.5 px-4 uppercase text-[11px] font-mono text-slate-600">
                           {paymentMethods[method] || method}
@@ -349,7 +396,22 @@ export function PaymentManagement() {
                         <td className="py-2.5 px-4 text-center">
                           <button
                             type="button"
-                            onClick={() => setSelectedInvoice(tx)}
+                            onClick={async () => {
+                              setSelectedInvoice(tx);
+                              setDetailError(null);
+                              if (apiEnabled && tx.invoiceId != null) {
+                                setDetailLoading(true);
+                                try {
+                                  const detail = await invoiceApi.getInvoiceById(tx.invoiceId, { notifyForbidden: false });
+                                  if (detail) setSelectedInvoice(detail);
+                                  else setDetailError(language === 'vi' ? 'Máy chủ trả về dữ liệu hóa đơn không hợp lệ.' : 'The server returned invalid invoice data.');
+                                } catch (err) {
+                                  setDetailError(getErrorMessage(err, language === 'vi' ? 'Không thể tải chi tiết hóa đơn.' : 'Could not load invoice details.'));
+                                } finally {
+                                  setDetailLoading(false);
+                                }
+                              }
+                            }}
                             className="min-h-[36px] px-2.5 py-1 text-xs font-bold text-slate-700 hover:text-[#BA0000] hover:bg-slate-100 rounded inline-flex items-center gap-1 cursor-pointer transition-colors"
                           >
                             <Eye className="w-3.5 h-3.5" />
@@ -409,7 +471,7 @@ export function PaymentManagement() {
                 <FileText className="w-4 h-4 text-[#BA0000]" />
                 <span>
                   {language === 'vi' ? 'Chi tiết hóa đơn giao dịch' : 'Invoice Details'} (
-                  {selectedInvoice.code || `INV-${selectedInvoice.invoiceId}`})
+                  {selectedInvoice.code || '—'})
                 </span>
               </div>
               <button
@@ -427,7 +489,7 @@ export function PaymentManagement() {
                 <div>
                   <span className="text-slate-500 text-[11px] block">Mã Hóa Đơn:</span>
                   <span className="font-mono font-bold text-slate-900 text-sm">
-                    {selectedInvoice.code || `INV-${selectedInvoice.invoiceId}`}
+                    {selectedInvoice.code || '—'}
                   </span>
                 </div>
                 <div>
@@ -464,13 +526,13 @@ export function PaymentManagement() {
                 <div>
                   <span className="text-slate-500 text-[11px] block">Số tiền:</span>
                   <span className="text-base font-extrabold font-mono text-[#BA0000] tabular-nums">
-                    {formatCurrency(selectedInvoice.amount, language)}
+                    {selectedInvoice.amount == null ? '—' : formatCurrency(selectedInvoice.amount, language)}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-500 text-[11px] block">Phương thức:</span>
                   <span className="font-semibold uppercase text-slate-800">
-                    {paymentMethods[selectedInvoice.paymentMethod || selectedInvoice.method] || selectedInvoice.paymentMethod}
+                    {paymentMethods[selectedInvoice.paymentMethod || selectedInvoice.method] || selectedInvoice.paymentMethod || '—'}
                   </span>
                 </div>
               </div>
@@ -500,44 +562,33 @@ export function PaymentManagement() {
                 </div>
               )}
 
+              {detailLoading && <p className="text-slate-500">{language === 'vi' ? 'Đang tải chi tiết hóa đơn…' : 'Loading invoice details…'}</p>}
+              {detailError && <p role="alert" className="text-rose-700">{detailError}</p>}
+              {selectedInvoice.createdAt && <p className="text-slate-500">{language === 'vi' ? 'Ngày tạo' : 'Created'}: {formatDateTime(selectedInvoice.createdAt, language)}</p>}
+              {selectedInvoice.expiresAt && <p className="text-slate-500">{language === 'vi' ? 'Hạn thanh toán' : 'Expires'}: {formatDateTime(selectedInvoice.expiresAt, language)}</p>}
+
               {/* Action for Pending Invoices */}
-              {((apiEnabled && selectedInvoice.paymentStatus === 'pending') || (!apiEnabled && (selectedInvoice.status === 'pending' || selectedInvoice.paymentStatus === 'pending'))) && (
-                <div className={`p-3 rounded space-y-2 border ${apiEnabled ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`}>
+              {!apiEnabled && (selectedInvoice.status === 'pending' || selectedInvoice.paymentStatus === 'pending') && (
+                <div className="p-3 rounded space-y-2 border bg-slate-50 border-slate-200">
                   <div className="flex items-center gap-2 font-bold text-slate-900">
-                    {apiEnabled ? (
-                      <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
-                    ) : (
-                      <Info className="w-4 h-4 text-slate-600 shrink-0" />
-                    )}
+                    <Info className="w-4 h-4 text-slate-600 shrink-0" />
                     <span>
                       {language === 'vi' ? 'Hóa đơn đang chờ thanh toán' : 'Pending Invoice'}
                     </span>
                   </div>
                   <p className="text-slate-700 text-[11px]">
-                    {apiEnabled
-                      ? (language === 'vi'
-                        ? 'Thao tác thu tiền mặt trực tiếp tạm thời bị khóa.'
-                        : 'Direct cash collection is temporarily unavailable.')
-                      : (language === 'vi'
-                        ? 'Xác nhận thu tiền mặt để hoàn tất thanh toán hóa đơn và cập nhật gói dịch vụ.'
-                        : 'Confirm cash collection to complete invoice and update membership package.')}
+                    {language === 'vi'
+                      ? 'Xác nhận thu tiền mặt để hoàn tất thanh toán hóa đơn và cập nhật gói dịch vụ.'
+                      : 'Confirm cash collection to complete invoice and update membership package.'}
                   </p>
                   <button
                     type="button"
-                    disabled={apiEnabled}
                     onClick={() => handleConfirmCashPayment(selectedInvoice)}
-                    title={apiEnabled ? (language === 'vi' ? 'Thao tác tạm thời bị khóa' : 'Temporarily unavailable') : undefined}
-                    className={`w-full min-h-[44px] px-4 py-2 font-bold rounded flex items-center justify-center gap-2 transition-colors ${
-                      apiEnabled
-                        ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-75'
-                        : 'bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-xs'
-                    }`}
+                    className="w-full min-h-[44px] px-4 py-2 font-bold rounded flex items-center justify-center gap-2 transition-colors bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-xs"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     <span>
-                      {apiEnabled
-                        ? (language === 'vi' ? 'Tạm khóa' : 'Temporarily locked')
-                        : (language === 'vi' ? 'Xác nhận thu tiền mặt' : 'Confirm Cash Received')}
+                      {language === 'vi' ? 'Xác nhận thu tiền mặt' : 'Confirm Cash Received'}
                     </span>
                   </button>
                 </div>
@@ -558,7 +609,7 @@ export function PaymentManagement() {
       )}
 
       {/* Record Payment Modal */}
-      <PaymentModal
+      {!apiEnabled && <PaymentModal
         isOpen={isPayModalOpen}
         onClose={() => setIsPayModalOpen(false)}
         onSuccess={() => {
@@ -566,7 +617,7 @@ export function PaymentManagement() {
             fetchInvoices();
           }
         }}
-      />
+      />}
     </div>
   );
 }

@@ -12,6 +12,10 @@ import {
   generateRecurringSessions,
 } from "../../api/managerApi"
 import {
+  isNormalClassApiCreationBlocked,
+  NORMAL_CLASS_API_BLOCKED_MESSAGE,
+} from "../../api/normalClassCreation.js"
+import {
   ArrowLeft,
   Calendar,
   AlertCircle,
@@ -861,6 +865,11 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
   // Handle Submit (Draft or Open)
   const handleSubmit = async (targetStatus = status) => {
+    if (isNormalClassApiCreationBlocked(apiEnabled)) {
+      showToast(NORMAL_CLASS_API_BLOCKED_MESSAGE, "error")
+      return
+    }
+
     setTouched({
       className: true,
       capacity: true,
@@ -1925,10 +1934,16 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             Hủy
           </button>
 
+          {isNormalClassApiCreationBlocked(apiEnabled) && (
+            <p role="alert" className="mr-auto max-w-xl text-left text-xs text-amber-800">
+              {NORMAL_CLASS_API_BLOCKED_MESSAGE}
+            </p>
+          )}
+
           <button
             type="button"
             onClick={() => handleSubmit("Draft")}
-            disabled={isSubmitting || conflict?.hasConflict}
+            disabled={isSubmitting || conflict?.hasConflict || isNormalClassApiCreationBlocked(apiEnabled)}
             className="h-10 px-5 rounded-lg border border-stone-200 hover:bg-stone-50 text-stone-700 text-sm font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title={conflict?.hasConflict ? conflict.message : "Lưu bản nháp"}
           >
@@ -1939,7 +1954,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             type="button"
             onClick={() => handleSubmit(status)}
             disabled={
-              isSubmitting || conflict?.hasConflict || isFirstSessionInPast
+              isSubmitting || conflict?.hasConflict || isFirstSessionInPast || isNormalClassApiCreationBlocked(apiEnabled)
             }
             className="h-10 px-6 rounded-lg bg-[#BA1A1A] hover:bg-[#A31616] text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer flex items-center gap-2"
             title={

@@ -315,7 +315,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
   const availablePackages = apiEnabled ? apiPackages : contextPackages;
 
   const selectedPkg = availablePackages.find((p) => String(p.id) === String(packageId));
-  const defaultAmount = selectedPkg ? selectedPkg.price : 0;
+  const defaultAmount = selectedPkg ? selectedPkg.price : apiEnabled ? null : 0;
   const currentAmount = amountOverride !== '' ? Number(amountOverride) : defaultAmount;
 
   const handleSubmit = async (e) => {
@@ -332,6 +332,12 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
 
     const numericMemberId = Number(memberId);
     const numericPackageId = Number(packageId);
+
+    if (apiEnabled && !isTransactionResumed && (!selectedPkg || selectedPkg.price == null || !Number.isFinite(Number(selectedPkg.price)) || Number(selectedPkg.price) < 0)) {
+      setSubmitError(language === 'vi' ? 'Backend khĂ´ng tráº£ vá» giĂ¡ há»£p lá»‡ cho gĂ³i Ä‘Ă£ chá»n. Giao dá»‹ch chÆ°a Ä‘Æ°á»£c gá»­i.' : 'Backend did not provide a valid price for this package. No transaction was submitted.');
+      setSubmitting(false);
+      return;
+    }
 
     if (isMutationLocked) {
       setSubmitError(
@@ -734,7 +740,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
               >
                 {availablePackages.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {language === 'vi' ? (p.nameVi || p.name) : p.name} - {formatCurrency(p.price, language)} ({p.durationDays ? `${p.durationDays} ngày` : `${p.durationMonths || 1} tháng`})
+                    {language === 'vi' ? (p.nameVi || p.name) : p.name} - {p.price == null ? '—' : formatCurrency(p.price, language)} ({p.durationDays != null ? `${p.durationDays} ngày` : p.durationMonths != null ? `${p.durationMonths} tháng` : '—'})
                   </option>
                 ))}
               </select>
@@ -751,9 +757,14 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                 </span>
               </div>
               <span className="text-lg font-bold font-mono text-[#BA0000] tabular-nums">
-                {formatCurrency(currentAmount, language)}
+                {currentAmount == null ? '—' : formatCurrency(currentAmount, language)}
               </span>
             </div>
+            {apiEnabled && selectedPkg?.price == null && (
+              <p role="alert" className="text-xs text-rose-700">
+                {language === 'vi' ? 'Backend chưa trả về giá gói; không thể bắt đầu giao dịch.' : 'Backend did not return this package price; payment is unavailable.'}
+              </p>
+            )}
 
             {/* Payment Method Selector */}
             <div>
@@ -839,7 +850,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
               </button>
               <button
                 type="submit"
-                disabled={submitting || isMutationLocked || (isTransactionResumed ? false : (!memberId || !packageId))}
+                disabled={submitting || isMutationLocked || (apiEnabled && !isTransactionResumed && selectedPkg?.price == null) || (isTransactionResumed ? false : (!memberId || !packageId))}
                 title={isMutationLocked ? (language === 'vi' ? 'Thao tác tạm thời bị khóa' : 'Temporarily unavailable') : undefined}
                 className={`min-h-[44px] px-5 py-2 font-bold rounded shadow-xs flex items-center gap-2 cursor-pointer transition-colors ${
                   isMutationLocked
