@@ -136,6 +136,7 @@ export function mapSubscriptionOrder(item) {
   if (!item || typeof item !== 'object') {
     return {
       subscriptionId: null,
+      id: null,
       invoiceId: null,
       invoiceCode: null,
       amount: null,
@@ -155,6 +156,7 @@ export function mapSubscriptionOrder(item) {
 
   return {
     subscriptionId,
+    id: subscriptionId,
     invoiceId,
     invoiceCode: item.invoiceCode ? String(item.invoiceCode) : null,
     amount,

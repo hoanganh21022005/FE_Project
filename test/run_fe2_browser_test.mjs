@@ -230,6 +230,8 @@ async function main() {
         if (!sessionStorage.getItem('scms_mock_role')) {
           sessionStorage.setItem('scms_mock_role', 'receptionist');
         }
+        window.confirm = () => true;
+        window.alert = () => {};
 
         window.__fe2NetworkCalls = window.__fe2NetworkCalls || {
           allPostCalls: [],
@@ -645,17 +647,31 @@ async function main() {
     // -------------------------------------------------------------------------
     // TEST 3: Cash confirm-cash failure retains partial state & freezes fields in resumed mode
     // -------------------------------------------------------------------------
-    // First discard the incomplete session from Test 2 (which lacked invoiceId)
+    // In test harness: cleanly reset test state for member 101 before Test 3
+    // (Note: UI discard button correctly locks reconciliation sessions; test harness resets explicitly here)
     await client.eval(`
       (() => {
+        window.confirm = () => true;
+        if (window.__inProgressTransactionCache) {
+          window.__inProgressTransactionCache.delete('101', 5);
+        }
         const dialog = document.querySelector('div[role="dialog"]');
-        const discardBtn = dialog ? Array.from(dialog.querySelectorAll('button')).find(b =>
-          b.textContent.includes('Hủy phiên & Bắt đầu lại')
-        ) : null;
-        if (discardBtn) discardBtn.click();
+        const closeBtn = dialog ? (dialog.querySelector('button[aria-label="Đóng cửa sổ"]') || dialog.querySelector('button')) : null;
+        if (closeBtn) closeBtn.click();
       })()
     `);
-    await new Promise(r => setTimeout(r, 350));
+    await client.waitFor("!document.querySelector('div[role=\"dialog\"]')");
+
+    // Reopen clean modal for Test 3
+    await client.eval(`
+      (() => {
+        const btn = Array.from(document.querySelectorAll('button')).find(b =>
+          b.textContent.includes('Thu tiền & Ghi nhận') || b.textContent.includes('Record Payment')
+        );
+        if (btn) btn.click();
+      })()
+    `);
+    await client.waitFor("document.querySelector('div[role=\"dialog\"]')");
 
     await client.eval(`
       (() => {
@@ -956,6 +972,180 @@ async function main() {
       t6Pass,
       { t6Initial, t6AfterDiscard }
     );
+    // -------------------------------------------------------------------------
+    // TEST 6B: Reconciliation Session Discard Guard & Reopen Persistence
+    // -------------------------------------------------------------------------
+    console.log('[Test 6B] Verifying reconciliation session discard guard and reopen persistence...');
+
+    // Seed an in-progress transaction with needsReconciliation: true for member 101 with receptionist actorId 5
+    await client.eval(`
+      (() => {
+        if (window.__inProgressTransactionCache) {
+          window.__inProgressTransactionCache.set('101', {
+            subscriptionId: null,
+            invoiceId: null,
+            packageId: 10,
+            method: 'cash',
+            sessionRef: 'TXN-RECON-CDP-777',
+            needsReconciliation: true,
+          }, 5, 'TXN-RECON-CDP-777');
+        }
+        window.__fe2NetworkCalls.subscribeCalls = [];
+      })()
+    `);
+
+    // Open PaymentModal
+    await client.eval(`
+      (() => {
+        const btn = Array.from(document.querySelectorAll('button')).find(b =>
+          b.textContent.includes('Thu tiền & Ghi nhận') || b.textContent.includes('Record Payment')
+        );
+        if (btn) btn.click();
+      })()
+    `);
+
+    await client.waitFor("document.querySelector('div[role=\"dialog\"]')");
+
+    // Wait for reconciliation warning banner to render
+    await client.waitFor(`
+      (() => {
+        const dialog = document.querySelector('div[role="dialog"]');
+        return dialog && (
+          dialog.textContent.includes('cần đối soát') ||
+          dialog.textContent.includes('reconciliation')
+        );
+      })()
+    `);
+
+    const t6bBeforeDiscard = await client.eval(`
+      (() => {
+        const dialog = document.querySelector('div[role="dialog"]');
+        return {
+          hasBanner: dialog ? dialog.textContent.includes('Tiến trình giao dịch đang thực hiện dở dang') : false,
+          hasReconNotice: dialog ? (dialog.textContent.includes('cần đối soát') || dialog.textContent.includes('reconciliation')) : false,
+        };
+      })()
+    `);
+
+    // Click "Hủy phiên & Bắt đầu lại" (discard button)
+    await client.eval(`
+      (() => {
+        const dialog = document.querySelector('div[role="dialog"]');
+        const discardBtn = Array.from(dialog.querySelectorAll('button')).find(b =>
+          b.textContent.includes('Hủy phiên & Bắt đầu lại')
+        );
+        if (discardBtn) discardBtn.click();
+      })()
+    `);
+
+    await new Promise(r => setTimeout(r, 400));
+
+    // After discard click: verify session is NOT cleared and manual reconciliation guidance is displayed
+    const t6bAfterDiscardClick = await client.eval(`
+      (() => {
+        const dialog = document.querySelector('div[role="dialog"]');
+        const cached = window.__inProgressTransactionCache ? window.__inProgressTransactionCache.get('101', 5, 'TXN-RECON-CDP-777') : null;
+        const text = dialog ? dialog.textContent : '';
+        return {
+          cacheRetained: Boolean(cached && cached.needsReconciliation === true),
+          hasManualReconAlert: (
+            text.includes('chưa có bằng chứng xác minh chắc chắn từ máy chủ') ||
+            text.includes('đối soát thủ công') ||
+            text.includes('requires reconciliation')
+          ),
+          hasBannerStill: dialog ? dialog.textContent.includes('Tiến trình giao dịch đang thực hiện dở dang') : false,
+        };
+      })()
+    `);
+
+    // Close modal
+    await client.eval(`
+      (() => {
+        const dialog = document.querySelector('div[role="dialog"]');
+        const closeBtn = dialog ? (dialog.querySelector('button[aria-label="Đóng cửa sổ"]') || dialog.querySelector('button')) : null;
+        if (closeBtn) closeBtn.click();
+      })()
+    `);
+    await client.waitFor("!document.querySelector('div[role=\"dialog\"]')");
+
+    // Reopen modal to verify in-progress reconciliation session persists and blocks repeat POST
+    await client.eval(`
+      (() => {
+        window.__fe2NetworkCalls.subscribeCalls = [];
+        const btn = Array.from(document.querySelectorAll('button')).find(b =>
+          b.textContent.includes('Thu tiền & Ghi nhận') || b.textContent.includes('Record Payment')
+        );
+        if (btn) btn.click();
+      })()
+    `);
+    await client.waitFor("document.querySelector('div[role=\"dialog\"]')");
+
+    // Wait for banner to re-render in reopened modal
+    await client.waitFor(`
+      (() => {
+        const dialog = document.querySelector('div[role="dialog"]');
+        return dialog && (
+          dialog.textContent.includes('cần đối soát') ||
+          dialog.textContent.includes('reconciliation')
+        );
+      })()
+    `);
+
+    // Attempt submit in reopened modal
+    await client.eval(`
+      (() => {
+        const dialog = document.querySelector('div[role="dialog"]');
+        const submitBtn = dialog ? dialog.querySelector('button[type="submit"]') : null;
+        if (submitBtn) submitBtn.click();
+      })()
+    `);
+
+    await new Promise(r => setTimeout(r, 400));
+
+    const t6bReopenedState = await client.eval(`
+      (() => {
+        const dialog = document.querySelector('div[role="dialog"]');
+        const text = dialog ? dialog.textContent : '';
+        return {
+          hasBannerOnReopen: dialog ? dialog.textContent.includes('Tiến trình giao dịch đang thực hiện dở dang') : false,
+          hasReconBlockMessage: (
+            text.includes('cần đối soát') ||
+            text.includes('reconciliation')
+          ),
+          subscribeCallsCount: window.__fe2NetworkCalls.subscribeCalls.length,
+        };
+      })()
+    `);
+
+    // Cleanup session and close modal for next test
+    await client.eval(`
+      (() => {
+        if (window.__inProgressTransactionCache) {
+          window.__inProgressTransactionCache.delete('101', 5, 'TXN-RECON-CDP-777');
+        }
+        const dialog = document.querySelector('div[role="dialog"]');
+        const closeBtn = dialog ? (dialog.querySelector('button[aria-label="Đóng cửa sổ"]') || dialog.querySelector('button')) : null;
+        if (closeBtn) closeBtn.click();
+      })()
+    `);
+    await client.waitFor("!document.querySelector('div[role=\"dialog\"]')");
+
+    const t6bPass =
+      t6bBeforeDiscard.hasBanner &&
+      t6bBeforeDiscard.hasReconNotice &&
+      t6bAfterDiscardClick.cacheRetained &&
+      t6bAfterDiscardClick.hasManualReconAlert &&
+      t6bReopenedState.hasBannerOnReopen &&
+      t6bReopenedState.hasReconBlockMessage &&
+      t6bReopenedState.subscribeCallsCount === 0;
+
+    record(
+      'FE2-RECONCILIATION-DISCARD-AND-REOPEN-LOCKED',
+      'Discard button locks reconciliation session without clearing cache, and reopened modal maintains lock with zero new POSTs',
+      t6bPass,
+      { t6bBeforeDiscard, t6bAfterDiscardClick, t6bReopenedState }
+    );
+
 
     // -------------------------------------------------------------------------
     // TEST 7: F5 Page Reload Session Persistence & Backend Cancellation
