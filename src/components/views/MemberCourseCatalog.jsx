@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { getMemberSubjectCatalog } from '../../api/subjectCatalogApi';
+import { getClassSessions, hasScheduledClassSession } from '../../api/memberPortalApi';
 import { getErrorMessage } from '../../api/apiErrors';
 import { CalendarDays, Check, Clock3, Dumbbell, LoaderCircle, RefreshCw, Users, UserRound, X } from 'lucide-react';
 
@@ -8,30 +9,27 @@ const COURSE_TYPES = {
   Normal: {
     vi: 'Normal · Học nhóm',
     en: 'Normal · Group',
-    detailVi: 'Lịch cố định · 12 buổi · Tối đa 15 học viên',
-    detailEn: 'Fixed schedule · 12 sessions · Up to 15 members',
-    sessions: 12,
+    detailVi: 'Lịch học theo thông tin lớp do trung tâm công bố.',
+    detailEn: 'Class schedule follows the details published by the center.',
   },
   Advanced: {
     vi: 'Advanced · Huấn luyện 1:1',
     en: 'Advanced · Personal 1:1',
-    detailVi: '12 buổi · 90 phút/buổi · Hạn dùng 45 ngày',
-    detailEn: '12 sessions · 90 minutes each · Valid for 45 days',
-    sessions: 12,
+    detailVi: '12 credit · Hạn dùng 45 ngày tính từ khi thanh toán thành công.',
+    detailEn: '12 credits · Valid for 45 days from successful payment.',
   },
 };
 
-// Prices are the published Member.xlsx fee table and fill gaps while the public API DTO omits price fields.
 const SPORTS = [
-  { key: 'tennis', name: 'Quần vợt (Tennis)', en: 'Tennis', normal: 2500000, advanced: 8000000, aliases: ['quan vot', 'tennis'] },
-  { key: 'swimming', name: 'Bơi lội', en: 'Swimming', normal: 1500000, advanced: 4500000, aliases: ['boi loi', 'swimming'] },
-  { key: 'pickleball', name: 'Pickleball', en: 'Pickleball', normal: 1800000, advanced: 5000000, aliases: ['pickleball'] },
-  { key: 'archery', name: 'Bắn cung', en: 'Archery', normal: 2000000, advanced: 6000000, aliases: ['ban cung', 'archery'] },
-  { key: 'basketball', name: 'Bóng rổ', en: 'Basketball', normal: 1200000, advanced: 3500000, aliases: ['bong ro', 'basketball'] },
-  { key: 'football', name: 'Bóng đá', en: 'Football', normal: 1000000, advanced: 3500000, aliases: ['bong da', 'football', 'soccer'] },
-  { key: 'volleyball', name: 'Bóng chuyền', en: 'Volleyball', normal: 1000000, advanced: 3500000, aliases: ['bong chuyen', 'volleyball'] },
-  { key: 'badminton', name: 'Cầu lông', en: 'Badminton', normal: 900000, advanced: 3000000, aliases: ['cau long', 'badminton'] },
-  { key: 'table-tennis', name: 'Bóng bàn', en: 'Table tennis', normal: 800000, advanced: 2500000, aliases: ['bong ban', 'table tennis', 'ping pong'] },
+  { key: 'tennis', name: 'Quần vợt (Tennis)', en: 'Tennis', aliases: ['quan vot', 'tennis'] },
+  { key: 'swimming', name: 'Bơi lội', en: 'Swimming', aliases: ['boi loi', 'swimming'] },
+  { key: 'pickleball', name: 'Pickleball', en: 'Pickleball', aliases: ['pickleball'] },
+  { key: 'archery', name: 'Bắn cung', en: 'Archery', aliases: ['ban cung', 'archery'] },
+  { key: 'basketball', name: 'Bóng rổ', en: 'Basketball', aliases: ['bong ro', 'basketball'] },
+  { key: 'football', name: 'Bóng đá', en: 'Football', aliases: ['bong da', 'football', 'soccer'] },
+  { key: 'volleyball', name: 'Bóng chuyền', en: 'Volleyball', aliases: ['bong chuyen', 'volleyball'] },
+  { key: 'badminton', name: 'Cầu lông', en: 'Badminton', aliases: ['cau long', 'badminton'] },
+  { key: 'table-tennis', name: 'Bóng bàn', en: 'Table tennis', aliases: ['bong ban', 'table tennis', 'ping pong'] },
 ];
 
 const normalize = (value = '') => String(value)
@@ -42,7 +40,9 @@ const normalize = (value = '') => String(value)
   .replace(/[^a-z0-9]+/g, ' ')
   .trim();
 
-const money = (amount, language) => `${Number(amount || 0).toLocaleString(language === 'vi' ? 'vi-VN' : 'en-US')} ${language === 'vi' ? '₫' : 'VND'}`;
+const money = (amount, language) => amount == null || !Number.isFinite(Number(amount))
+  ? (language === 'vi' ? 'Chưa có thông tin giá' : 'Price unavailable')
+  : `${Number(amount).toLocaleString(language === 'vi' ? 'vi-VN' : 'en-US')} ${language === 'vi' ? '₫' : 'VND'}`;
 
 function matchSport(subject) {
   const name = normalize(`${subject?.name || ''} ${subject?.slug || ''}`);
@@ -63,6 +63,9 @@ export function MemberCourseCatalog() {
   const [subjectError, setSubjectError] = useState('');
   const [loadingSubjects, setLoadingSubjects] = useState(true);
   const [refreshingClasses, setRefreshingClasses] = useState(false);
+  const [classSessions, setClassSessions] = useState([]);
+  const [sessionError, setSessionError] = useState('');
+  const [loadingSessions, setLoadingSessions] = useState(true);
   const [selectedClass, setSelectedClass] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -73,7 +76,6 @@ export function MemberCourseCatalog() {
       setSubjects(await getMemberSubjectCatalog());
     } catch (error) {
       setSubjectError(getErrorMessage(error, isVi ? 'Không tải được danh sách môn.' : 'Could not load sports.'));
-      setSubjects([]);
     } finally {
       setLoadingSubjects(false);
     }
@@ -89,8 +91,21 @@ export function MemberCourseCatalog() {
     }
   }, [reloadClasses]);
 
+  const refreshSessions = useCallback(async () => {
+    setLoadingSessions(true);
+    try {
+      setClassSessions(await getClassSessions());
+      setSessionError('');
+    } catch (error) {
+      setSessionError(getErrorMessage(error, isVi ? 'Không xác minh được lịch buổi học.' : 'Could not verify scheduled sessions.'));
+    } finally {
+      setLoadingSessions(false);
+    }
+  }, [isVi]);
+
   useEffect(() => { refreshSubjects(); }, [refreshSubjects]);
   useEffect(() => { refreshClasses(); }, [refreshClasses]);
+  useEffect(() => { refreshSessions(); }, [refreshSessions]);
 
   const liveSports = useMemo(() => {
     const bestBySport = new Map();
@@ -114,8 +129,8 @@ export function MemberCourseCatalog() {
         ...sport,
         id: subject?.id ?? null,
         description: subject?.description || '',
-        normal: subject?.normalPrice > 0 ? subject.normalPrice : sport.normal,
-        advanced: subject?.advancedPrice > 0 ? subject.advancedPrice : sport.advanced,
+        normal: subject?.normalPrice ?? null,
+        advanced: subject?.advancedPrice ?? null,
       };
     });
   }, [subjects]);
@@ -124,6 +139,7 @@ export function MemberCourseCatalog() {
   const memberId = Number(currentUser?.memberId);
   const matchingClasses = useMemo(() => (classes || []).filter((item) => {
     if (item.status !== 'published') return false;
+    if (!hasScheduledClassSession(item.id, classSessions)) return false;
     if (apiClassType(item.classType) !== courseType) return false;
     const sameSubject = activeSport?.id != null && String(item.subjectId) === String(activeSport.id);
     const searchableName = normalize(`${item.category || ''} ${item.name || ''} ${item.subjectName || ''}`);
@@ -131,7 +147,7 @@ export function MemberCourseCatalog() {
       .filter(Boolean)
       .some((alias) => searchableName.includes(normalize(alias)));
     return sameSubject || sameName;
-  }), [classes, activeSport, courseType]);
+  }), [classes, activeSport, courseType, classSessions]);
 
   const handleEnroll = async () => {
     if (!selectedClass || submitting) return;
@@ -198,7 +214,7 @@ export function MemberCourseCatalog() {
             <RefreshCw className={`h-3.5 w-3.5 ${loadingSubjects ? 'animate-spin' : ''}`} />{isVi ? 'Tải lại' : 'Refresh'}
           </button>
         </div>
-        {subjectError && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{isVi ? 'Không tải được dữ liệu API; đang hiển thị bảng học phí đã cung cấp.' : 'Could not load the API; showing the supplied fee table.'} <span className="block text-xs opacity-80">{subjectError}</span></div>}
+        {subjectError && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{isVi ? 'Không tải được dữ liệu môn học từ API; học phí sẽ hiển thị khi có dữ liệu.' : 'Could not load sports from the API; fees will appear when data is available.'} <span className="block text-xs opacity-80">{subjectError}</span></div>}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {liveSports.map((sport) => {
             const price = sport[courseType === 'Normal' ? 'normal' : 'advanced'];
@@ -210,7 +226,7 @@ export function MemberCourseCatalog() {
                   <Dumbbell className={`h-5 w-5 shrink-0 ${active ? 'text-red-300' : 'text-slate-400'}`} />
                 </span>
                 <span className={`mt-4 block text-xl font-black tabular-nums ${active ? 'text-red-300' : 'text-red-700'}`}>{money(price, language)}</span>
-                <span className={`mt-1 block text-xs ${active ? 'text-slate-300' : 'text-slate-500'}`}>{isVi ? `${course.sessions} buổi · ${courseType}` : `${course.sessions} sessions · ${courseType}`}</span>
+                <span className={`mt-1 block text-xs ${active ? 'text-slate-300' : 'text-slate-500'}`}>{courseType}</span>
               </button>
             );
           })}
@@ -229,12 +245,14 @@ export function MemberCourseCatalog() {
             <RefreshCw className={`h-3.5 w-3.5 ${refreshingClasses ? 'animate-spin' : ''}`} />{isVi ? 'Cập nhật lớp' : 'Refresh classes'}
           </button>
         </div>
+        {sessionError && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{isVi ? 'Không thể xác minh buổi học từ API. Lớp chưa được xác minh sẽ không xuất hiện trong danh sách đăng ký.' : 'Could not verify sessions from the API. Classes without verified sessions are hidden from enrollment.'} <span className="block text-xs opacity-80">{sessionError}</span></div>}
         {matchingClasses.length ? (
           <div className="grid gap-3 md:grid-cols-2">
             {matchingClasses.map((item) => {
-              const capacity = Number(item.capacity || (courseType === 'Advanced' ? 1 : 15));
+              const capacity = Number(item.capacity);
               const enrolled = Number(item.enrolledCount || 0);
-              const isFull = enrolled >= capacity;
+              const isFull = Number.isFinite(capacity) && capacity > 0 && enrolled >= capacity;
+              const itemPrice = item.price ?? selectedPrice;
               return (
                 <article key={item.id} className="rounded-xl border border-slate-200 p-4">
                   <div className="flex items-start justify-between gap-4">
@@ -243,12 +261,12 @@ export function MemberCourseCatalog() {
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-slate-600">
                     <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-red-700" />{item.startDate || (isVi ? 'Chưa có lịch' : 'Schedule pending')}</span>
-                    <span className="inline-flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5 text-red-700" />{item.totalSessions || course.sessions} {isVi ? 'buổi' : 'sessions'}</span>
-                    <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5 text-red-700" />{enrolled}/{capacity}</span>
+                    <span className="inline-flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5 text-red-700" />{item.totalSessions ?? '—'} {isVi ? 'buổi' : 'sessions'}</span>
+                    <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5 text-red-700" />{item.enrolledCount ?? '—'}/{item.capacity ?? '—'}</span>
                     <span className="inline-flex items-center gap-1.5"><UserRound className="h-3.5 w-3.5 text-red-700" />{courseType === 'Advanced' ? '1:1' : (isVi ? 'Học nhóm' : 'Group')}</span>
                   </div>
                   <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-                    <strong className="text-sm font-extrabold text-red-700">{money(item.price || selectedPrice, language)}</strong>
+                    <strong className="text-sm font-extrabold text-red-700">{money(itemPrice, language)}</strong>
                     <button type="button" disabled={isFull || submitting || !Number.isInteger(memberId) || memberId <= 0} onClick={() => setSelectedClass(item)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:bg-slate-300">{isVi ? 'Chọn khóa' : 'Select course'}</button>
                   </div>
                 </article>
@@ -258,8 +276,8 @@ export function MemberCourseCatalog() {
         ) : (
           <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
             <Dumbbell className="mx-auto h-7 w-7 text-slate-400" />
-            <p className="mt-3 text-sm font-bold text-slate-800">{isVi ? 'Chưa có lớp đang mở cho lựa chọn này' : 'No open class for this selection yet'}</p>
-            <p className="mt-1 text-xs text-slate-500">{isVi ? 'Bạn vẫn có thể xem học phí và quay lại sau khi trung tâm công bố lịch.' : 'You can review the fee and check back after a schedule is published.'}</p>
+            <p className="mt-3 text-sm font-bold text-slate-800">{loadingSessions ? (isVi ? 'Đang xác minh lịch buổi học…' : 'Verifying scheduled sessions…') : (isVi ? 'Chưa có lớp đang mở kèm buổi học đã xác nhận' : 'No open class with confirmed sessions yet')}</p>
+            <p className="mt-1 text-xs text-slate-500">{isVi ? 'Lớp chỉ xuất hiện sau khi Backend trả về buổi học đã xếp lịch.' : 'Classes appear after the Backend returns scheduled sessions.'}</p>
           </div>
         )}
       </section>
@@ -267,7 +285,7 @@ export function MemberCourseCatalog() {
       {selectedClass && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !submitting) setSelectedClass(null); }}>
         <section role="dialog" aria-modal="true" aria-labelledby="enroll-title" className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
           <div className="flex items-start justify-between gap-4"><div><span className="text-xs font-bold uppercase tracking-widest text-red-700">{courseType}</span><h2 id="enroll-title" className="mt-1 text-lg font-extrabold text-slate-900">{isVi ? 'Xác nhận chọn khóa' : 'Confirm course selection'}</h2></div><button type="button" onClick={() => setSelectedClass(null)} disabled={submitting} aria-label={isVi ? 'Đóng' : 'Close'} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-50"><X className="h-5 w-5" /></button></div>
-          <div className="mt-4 space-y-2 rounded-xl bg-slate-50 p-4 text-sm"><p className="font-bold text-slate-900">{selectedClass.name || activeSport?.name}</p><p className="text-xs text-slate-600">{isVi ? 'Môn' : 'Sport'}: {activeSport?.name}</p><p className="text-xs text-slate-600">{isVi ? 'Học phí' : 'Tuition'}: <strong>{money(selectedClass.price || selectedPrice, language)}</strong></p><p className="text-xs text-slate-600">{isVi ? course.detailVi : course.detailEn}</p></div>
+          <div className="mt-4 space-y-2 rounded-xl bg-slate-50 p-4 text-sm"><p className="font-bold text-slate-900">{selectedClass.name || activeSport?.name}</p><p className="text-xs text-slate-600">{isVi ? 'Môn' : 'Sport'}: {activeSport?.name}</p><p className="text-xs text-slate-600">{isVi ? 'Học phí' : 'Tuition'}: <strong>{money(selectedClass.price ?? selectedPrice, language)}</strong></p><p className="text-xs text-slate-600">{isVi ? course.detailVi : course.detailEn}</p></div>
           <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setSelectedClass(null)} disabled={submitting} className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700">{isVi ? 'Để sau' : 'Cancel'}</button><button type="button" onClick={handleEnroll} disabled={submitting} className="inline-flex items-center gap-2 rounded-lg bg-red-700 px-4 py-2 text-xs font-bold text-white hover:bg-red-800 disabled:opacity-60">{submitting && <LoaderCircle className="h-4 w-4 animate-spin" />}{isVi ? 'Gửi đăng ký' : 'Submit enrollment'}</button></div>
         </section>
       </div>}

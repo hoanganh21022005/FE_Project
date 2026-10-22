@@ -168,6 +168,8 @@ async function main() {
     define: {
       'import.meta.env.VITE_TEST_HARNESS': JSON.stringify('true'),
       'import.meta.env.VITE_API_ENABLED': JSON.stringify('true'),
+      'import.meta.env.VITE_API_BASE_URL': JSON.stringify(''),
+      'import.meta.env.VITE_API_PROXY_TARGET': JSON.stringify(''),
     },
   });
   await viteServer.listen();
@@ -320,7 +322,7 @@ async function main() {
           }
 
           // Mock packages
-          if (urlStr.includes('/api/packages') && method === 'GET') {
+          if (urlStr.includes('/api/public/membership-packages') && method === 'GET') {
             const failData = sessionStorage.getItem('fe2_mock_fail_member_data') === 'true' || Boolean(window.__fe2MockConfig?.failMemberData);
             if (failData) {
               return new Response(JSON.stringify({

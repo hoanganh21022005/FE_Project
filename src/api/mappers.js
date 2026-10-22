@@ -48,6 +48,31 @@ export const mapRoom = (room) => ({
   outdoor: typeof room.outdoor === "boolean" ? room.outdoor : null,
 })
 
+export function mapSession(item) {
+  if (!item || typeof item !== "object") return null
+  const id = asNumber(item.id)
+  if (id === null) return null
+  return {
+    id,
+    classId: asNumber(item.classId),
+    className: item.className ?? null,
+    subjectId: asNumber(item.subjectId),
+    subjectName: item.subjectName ?? null,
+    coachId: asNumber(item.coachId),
+    coachName: item.coachName ?? null,
+    roomId: asNumber(item.roomId),
+    roomName: item.roomName ?? null,
+    roomLocation: item.roomLocation ?? null,
+    sessionDate: item.sessionDate ?? null,
+    startTime: item.startTime ?? null,
+    endTime: item.endTime ?? null,
+    status: item.status ?? null,
+    enrolledCount: asNumber(item.enrolledCount),
+    maxCapacity: asNumber(item.maxCapacity),
+    isPrivate: item.isPrivate === true,
+  }
+}
+
 export function mapPackage(item) {
   const durationDays = asNumber(item.durationDays)
   const benefits = parseBenefits(item.benefits)
@@ -327,6 +352,52 @@ export const mapDashboard = (item) => ({
   todaySessions: asNumber(item.todaySessions),
 })
 
+export const mapRevenueReport = (item = {}) => ({
+  totalRevenue: asNumber(item.totalRevenue),
+  totalTransactions: asNumber(item.totalTransactions),
+  averageTransactionValue: asNumber(item.averageTransactionValue),
+  revenueByPackage: Array.isArray(item.revenueByPackage)
+    ? item.revenueByPackage.map((entry) => ({
+        packageId: asNumber(entry?.packageId),
+        packageName: entry?.packageName ?? null,
+        count: asNumber(entry?.count),
+        totalRevenue: asNumber(entry?.totalRevenue),
+      }))
+    : [],
+  revenueByMethod: Array.isArray(item.revenueByMethod)
+    ? item.revenueByMethod.map((entry) => ({
+        method: entry?.method ?? null,
+        count: asNumber(entry?.count),
+        totalRevenue: asNumber(entry?.totalRevenue),
+      }))
+    : [],
+  timeline: Array.isArray(item.timeline)
+    ? item.timeline.map((entry) => ({
+        period: entry?.period ?? null,
+        revenue: asNumber(entry?.revenue),
+        count: asNumber(entry?.count),
+      }))
+    : [],
+})
+
+export const mapMemberReport = (item = {}) => ({
+  totalMembers: asNumber(item.totalMembers),
+  activeMembers: asNumber(item.activeMembers),
+  expiredMembers: asNumber(item.expiredMembers),
+  packageDistribution: Array.isArray(item.packageDistribution)
+    ? item.packageDistribution.map((entry) => ({
+        packageName: entry?.packageName ?? null,
+        memberCount: asNumber(entry?.memberCount),
+      }))
+    : [],
+  monthlyGrowth: Array.isArray(item.monthlyGrowth)
+    ? item.monthlyGrowth.map((entry) => ({
+        month: entry?.month ?? null,
+        count: asNumber(entry?.count),
+      }))
+    : [],
+})
+
 const API_CLASS_STATUSES = {
   open: "Open",
   published: "Open",
@@ -350,17 +421,9 @@ export const toClassRequest = (item) => ({
 })
 
 export const toPackageRequest = (item) => {
-  const durationDays = asNumber(item.durationDays)
-  const durationMonths = asNumber(item.durationMonths)
   return {
     name: item.name,
-    durationDays:
-      durationDays !== null &&
-      (durationMonths === null || Math.round(durationDays / 30) === durationMonths)
-        ? durationDays
-        : durationMonths === null
-          ? null
-          : Math.round(durationMonths * 30),
+    durationDays: asNumber(item.durationDays),
     price: asNumber(item.price),
     benefits: serializeBenefits(item.benefits),
     status: item.status,

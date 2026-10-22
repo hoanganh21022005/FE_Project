@@ -38,6 +38,8 @@ const PaymentManagement = React.lazy(() => import('./components/views/PaymentMan
 const ReportsView = React.lazy(() => import('./components/views/ReportsView').then(module => ({ default: module.ReportsView })));
 const AuditLogView = React.lazy(() => import('./components/views/AuditLogView').then(module => ({ default: module.AuditLogView })));
 const ResourceManagement = React.lazy(() => import('./components/views/ResourceManagement').then(module => ({ default: module.ResourceManagement })));
+const ManagerHolidaysView = React.lazy(() => import('./components/views/ManagerHolidaysView').then(module => ({ default: module.ManagerHolidaysView })));
+const ManagerSessionIncidentsView = React.lazy(() => import('./components/views/ManagerSessionIncidentsView').then(module => ({ default: module.default })));
 
 // Coach Views
 const CoachDashboard = React.lazy(() => import('./components/views/CoachDashboard').then(module => ({ default: module.CoachDashboard })));
@@ -207,6 +209,8 @@ function SCMSApp() {
     if (path.includes('/members')) return t('members');
     if (path.includes('/packages')) return t('packages');
     if (path.includes('/classes')) return t('classes');
+    if (path.includes('/holidays')) return language === 'vi' ? 'Ngày nghỉ' : 'Holidays';
+    if (path.includes('/session-incidents')) return language === 'vi' ? 'Sự cố lịch học' : 'Session incidents';
     if (path.includes('/resources')) return language === 'vi' ? 'Bộ môn & phòng tập' : 'Subjects & Rooms';
     if (path.includes('/schedule')) return t('schedule');
     if (path.includes('/attendance')) return t('attendance');
@@ -355,6 +359,8 @@ function SCMSApp() {
                   <Route path="/manager/members/:id" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><MemberDetailWrapper /></RequireRole>} />
                   <Route path="/manager/packages" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><PackageManagement /></RequireRole>} />
                   <Route path="/manager/classes" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ClassManagement /></RequireRole>} />
+                  <Route path="/manager/holidays" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ManagerHolidaysView /></RequireRole>} />
+                  <Route path="/manager/session-incidents" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ManagerSessionIncidentsView /></RequireRole>} />
                   <Route path="/manager/resources" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ResourceManagement /></RequireRole>} />
                   <Route path="/manager/payments" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><PaymentManagement /></RequireRole>} />
                   <Route path="/manager/reports" element={<RequireRole allowedRoles={[ROLE_MANAGER]} currentRole={role} attemptedPath={location.pathname} onForbidden={() => navigate(`/${role}/dashboard`)}><ReportsView /></RequireRole>} />

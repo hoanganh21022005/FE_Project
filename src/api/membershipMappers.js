@@ -24,9 +24,9 @@ export function mapMembershipPackage(item) {
       id: null,
       name: '',
       nameVi: '',
-      durationDays: 0,
-      durationMonths: 1,
-      price: 0,
+      durationDays: null,
+      durationMonths: null,
+      price: null,
       description: null,
       descriptionVi: null,
       benefits: [],
@@ -40,14 +40,14 @@ export function mapMembershipPackage(item) {
 
   const durationDays = asNumber(item.durationDays);
   const benefits = parseBenefits(item.benefits);
-  const price = asNumber(item.price) ?? 0;
+  const price = asNumber(item.price);
 
   return {
     id: asNumber(item.id),
     name: item.name || '',
     nameVi: item.name || '',
-    durationDays: durationDays ?? 0,
-    durationMonths: durationDays !== null ? Math.max(1, Math.round(durationDays / 30)) : 1,
+    durationDays,
+    durationMonths: durationDays !== null ? Math.max(1, Math.round(durationDays / 30)) : null,
     price,
     description: item.benefits || null,
     descriptionVi: item.benefits || null,
@@ -93,7 +93,7 @@ export function mapMemberSubscription(item) {
       memberName: '',
       packageId: null,
       packageName: '',
-      price: 0,
+      price: null,
       startDate: null,
       endDate: null,
       status: 'none',
@@ -107,7 +107,7 @@ export function mapMemberSubscription(item) {
   const subId = asNumber(item.subscriptionId ?? item.id);
   const memberId = asNumber(item.memberId);
   const packageId = asNumber(item.packageId);
-  const price = asNumber(item.price) ?? 0;
+  const price = asNumber(item.price);
 
   return {
     subscriptionId: subId,

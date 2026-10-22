@@ -10,12 +10,18 @@ const list = async (path) => {
 // The member enrollment history is the documented source for enrolled Normal classes.
 // /api/sessions is a general schedule lookup and is not member-scoped by the API contract.
 export const getMemberClasses = (memberId) => getMemberEnrollments(memberId);
+export const getClassSessions = () => list('/api/sessions');
+export const hasScheduledClassSession = (classId, sessions = []) => Array.isArray(sessions)
+  && sessions.some((session) => String(session.classId) === String(classId)
+    && String(session.status || '').toLowerCase() === 'scheduled'
+    && session.isPrivate !== true);
 export const getMemberAttendances = (memberId) => list(`/api/attendances?memberId=${encodeURIComponent(memberId)}`);
 export const getMemberTrainingPlans = (memberId) => list(`/api/training-plans?memberId=${encodeURIComponent(memberId)}`);
 export const getMemberTrainingResults = (memberId) => list(`/api/training-results?memberId=${encodeURIComponent(memberId)}`);
 
 export const memberPortalApi = {
   getMemberClasses,
+  getClassSessions,
   getMemberAttendances,
   getMemberTrainingPlans,
   getMemberTrainingResults,

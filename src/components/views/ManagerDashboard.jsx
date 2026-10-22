@@ -18,7 +18,7 @@ export function ManagerDashboard({ onNavigate }) {
   } catch {
     navigate = null;
   }
-  const { members, classes, payments, bookings, dashboard, apiEnabled, t, language } = useSCMS();
+  const { members, classes, payments, bookings, dashboard, dashboardLoading, dashboardError, apiEnabled, t, language } = useSCMS();
 
   const visibleMembers = apiEnabled ? [] : members;
   const visiblePayments = apiEnabled ? [] : payments;
@@ -33,22 +33,35 @@ export function ManagerDashboard({ onNavigate }) {
   const totalRevenue = apiEnabled ? dashboard?.totalRevenue ?? null : successfulPayments.reduce((acc, p) => acc + p.amount, 0);
   const pendingPaymentsCount = apiEnabled ? null : visiblePayments.filter(p => p.status === 'pending').length;
 
-  // Monthly Revenue Data for Area Chart
-  const revenueTrendData = apiEnabled ? [] : [
-    { month: language === 'vi' ? 'T5/2026' : 'May 26', revenue: 9800000, target: 10000000 },
-    { month: language === 'vi' ? 'T6/2026' : 'Jun 26', revenue: 11200000, target: 11000000 },
-    { month: language === 'vi' ? 'T7/2026' : 'Jul 26', revenue: 12500000, target: 12000000 },
-    { month: language === 'vi' ? 'T8/2026' : 'Aug 26', revenue: 13800000, target: 13000000 },
-    { month: language === 'vi' ? 'T9/2026' : 'Sep 26', revenue: 14700000, target: 14000000 },
-  ];
+  if (apiEnabled) {
+    const metrics = [
+      { label: language === 'vi' ? 'Tổng người dùng' : 'Total users', value: dashboard?.totalUsers },
+      { label: language === 'vi' ? 'Tổng hội viên' : 'Total members', value: dashboard?.totalMembers },
+      { label: language === 'vi' ? 'Tổng lớp học' : 'Total classes', value: dashboard?.totalClasses },
+      { label: language === 'vi' ? 'Tổng gói' : 'Total packages', value: dashboard?.totalPackages },
+      { label: language === 'vi' ? 'Tổng doanh thu' : 'Total revenue', value: dashboard?.totalRevenue, money: true },
+      { label: language === 'vi' ? 'Hóa đơn đã thanh toán' : 'Paid invoices', value: dashboard?.totalInvoices },
+      { label: language === 'vi' ? 'Subscription đang hoạt động' : 'Active subscriptions', value: dashboard?.activeSubscriptions },
+      { label: language === 'vi' ? 'Buổi tập hôm nay' : 'Sessions today', value: dashboard?.todaySessions },
+    ];
 
-  // Member Status Breakdown Data for Bar Chart
-  const memberStatusData = [
-    { name: language === 'vi' ? 'Đang hoạt động' : 'Active', count: activeMembersCount, fill: '#059669' },
-    { name: language === 'vi' ? 'Chờ thanh toán' : 'Pending Pay', count: pendingPaymentCount, fill: '#D97706' },
-    { name: language === 'vi' ? 'Chờ gia hạn' : 'Grace Period', count: gracePeriodCount, fill: '#EA580C' },
-    { name: language === 'vi' ? 'Hết hạn' : 'Expired', count: visibleMembers.filter(m => m.membershipStatus === 'expired').length, fill: '#DC2626' },
-  ];
+    return (
+      <div className="space-y-6">
+        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-label={language === 'vi' ? 'Chỉ số tổng quan' : 'Dashboard metrics'}>
+          {metrics.map((metric) => (
+            <article key={metric.label} className="bg-white border border-stone-200 rounded-lg p-4 shadow-2xs">
+              <h2 className="text-xs font-bold text-stone-500 uppercase tracking-wider">{metric.label}</h2>
+              <p className="mt-2 text-2xl font-bold text-stone-900 tabular-nums">
+                {metric.value == null ? '—' : metric.money ? formatCurrency(metric.value, language) : metric.value}
+              </p>
+            </article>
+          ))}
+        </section>
+        {dashboardLoading && <p className="text-xs text-stone-500">{language === 'vi' ? 'Đang tải số liệu tổng quan…' : 'Loading dashboard metrics…'}</p>}
+        {dashboardError && <p role="alert" className="rounded border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">{dashboardError}</p>}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

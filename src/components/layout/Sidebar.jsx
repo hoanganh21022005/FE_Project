@@ -28,6 +28,8 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           { path: '/manager/members', labelKey: 'members', icon: UserCheck },
           { path: '/manager/packages', labelKey: 'packages', icon: Package },
           { path: '/manager/classes', labelKey: 'classes', icon: Calendar },
+          { path: '/manager/holidays', label: language === 'vi' ? 'Ngày nghỉ' : 'Holidays', icon: Calendar },
+          { path: '/manager/session-incidents', label: language === 'vi' ? 'Sự cố lịch học' : 'Session incidents', icon: Activity },
           { path: '/manager/resources', labelKey: 'resources', label: language === 'vi' ? 'Bộ môn & phòng' : 'Subjects & Rooms', icon: Library },
           { path: '/manager/payments', labelKey: 'payments', icon: CreditCard },
           { path: '/manager/reports', labelKey: 'reports', icon: BarChart3 },

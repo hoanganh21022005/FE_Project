@@ -1218,6 +1218,8 @@ export const SCMSProvider = ({ children }) => {
   const [subjects, setSubjects] = useState(API_ENABLED ? [] : INITIAL_SUBJECTS)
   const [rooms, setRooms] = useState(API_ENABLED ? [] : INITIAL_ROOMS)
   const [dashboard, setDashboard] = useState(null)
+  const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [dashboardError, setDashboardError] = useState(null)
   const [bookings, setBookings] = useState(INITIAL_BOOKINGS)
   const [attendance, setAttendance] = useState(INITIAL_ATTENDANCE)
   const [feedbacks, setFeedbacks] = useState(INITIAL_FEEDBACKS)
@@ -1425,15 +1427,22 @@ export const SCMSProvider = ({ children }) => {
     const errors = []
     setManagerDataLoading(true)
     setManagerDataError(null)
+    setDashboardLoading(true)
+    setDashboardError(null)
 
     ;(async () => {
-      const loadResource = async (resource, request, onSuccess, previousValue) => {
+      const loadResource = async (resource, request, onSuccess, previousValue, onError) => {
         try {
           const value = await request()
-          if (active) onSuccess(value)
+          if (active) {
+            onSuccess(value)
+            onError?.(null)
+          }
           return value
         } catch (error) {
-          errors.push(formatManagerLoadError(resource, error, language))
+          const message = formatManagerLoadError(resource, error, language)
+          errors.push(message)
+          if (active) onError?.(message)
           return previousValue
         }
       }
@@ -1468,6 +1477,7 @@ export const SCMSProvider = ({ children }) => {
         () => managerApi.getDashboard({ notifyForbidden: false }),
         setDashboard,
         dashboard,
+        setDashboardError,
       )
       const auditLogsTask = loadResource(
         language === "vi" ? "Nhật ký hoạt động" : "Audit logs",
@@ -1507,7 +1517,10 @@ export const SCMSProvider = ({ children }) => {
           setManagerDataError(null)
         }
       } finally {
-        if (active) setManagerDataLoading(false)
+        if (active) {
+          setDashboardLoading(false)
+          setManagerDataLoading(false)
+        }
       }
     })()
 
@@ -2674,7 +2687,8 @@ export const SCMSProvider = ({ children }) => {
       const created = {
         ...data,
         id: `pkg-${Date.now()}`,
-        durationDays: Number(data.durationMonths) * 30,
+        durationDays: Number(data.durationDays),
+        durationMonths: Math.round(Number(data.durationDays) / 30),
       }
       setPackages((prev) => [created, ...prev])
       return created
@@ -2734,6 +2748,8 @@ export const SCMSProvider = ({ children }) => {
         managerDataLoading,
         managerDataError,
         dashboard,
+        dashboardLoading,
+        dashboardError,
         members,
         staff,
         packages,
@@ -2823,6 +2839,8 @@ const fallbackContext = {
   managerDataLoading: false,
   managerDataError: null,
   dashboard: null,
+  dashboardLoading: false,
+  dashboardError: null,
   members: [],
   staff: [],
   packages: [],

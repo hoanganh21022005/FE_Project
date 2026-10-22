@@ -532,7 +532,7 @@ export function MemberDetailView({ memberId, onBack }) {
                       </td>
                       <td className="py-2 px-3 font-semibold">{s.packageName}</td>
                       <td className="py-2 px-3 text-right font-mono font-bold text-[#181818] tabular-nums">
-                        {formatCurrency(s.price, language)}
+                        {s.price == null ? '—' : formatCurrency(s.price, language)}
                       </td>
                       <td className="py-2 px-3 font-mono text-stone-600 tabular-nums">
                         {s.startDate ? formatDate(s.startDate, language) : '—'}
@@ -972,7 +972,7 @@ function AssignPackageModal({ isOpen, onClose, member, onAssigned }) {
             >
               {availablePackages.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.nameVi || p.name} — {formatCurrency(p.price, language)} ({p.durationDays ? `${p.durationDays} ngày` : `${p.durationMonths || 1} tháng`})
+                  {p.nameVi || p.name} — {p.price == null ? '—' : formatCurrency(p.price, language)} ({p.durationDays != null ? `${p.durationDays} ngày` : p.durationMonths != null ? `${p.durationMonths} tháng` : '—'})
                 </option>
               ))}
             </select>
@@ -982,7 +982,7 @@ function AssignPackageModal({ isOpen, onClose, member, onAssigned }) {
             <div className="p-3 bg-red-50 border border-red-200 rounded flex justify-between items-center text-xs">
               <span className="font-semibold text-slate-700">Giá niêm yết:</span>
               <span className="text-sm font-bold font-mono text-[#BA0000] tabular-nums">
-                {formatCurrency(currentPkg.price, language)}
+                {currentPkg.price == null ? '—' : formatCurrency(currentPkg.price, language)}
               </span>
             </div>
           )}

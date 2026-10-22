@@ -442,10 +442,11 @@ export function MyMembershipView() {
                   </div>
                   <div className="text-xs text-slate-500 mt-1">
                     Giá gói: <strong className="font-mono text-[#BA0000] tabular-nums">
-                      {formatCurrency(
-                        apiEnabled ? (activeSubscription?.price || currentPkgDetails?.price || 0) : (mockPkg?.price || 0),
-                        language
-                      )}
+                      {apiEnabled
+                        ? (activeSubscription?.price ?? currentPkgDetails?.price) == null
+                          ? '—'
+                          : formatCurrency(activeSubscription?.price ?? currentPkgDetails?.price, language)
+                        : formatCurrency(mockPkg?.price || 0, language)}
                     </strong>
                   </div>
                 </div>
@@ -527,7 +528,7 @@ export function MyMembershipView() {
                         <div>
                           <h4 className="text-sm font-bold text-slate-900">{pkg.nameVi || pkg.name}</h4>
                           <span className="text-[11px] text-slate-500">
-                            Thời hạn: {pkg.durationDays ? `${pkg.durationDays} ngày` : `${pkg.durationMonths || 1} tháng`}
+                            Thời hạn: {pkg.durationDays != null ? `${pkg.durationDays} ngày` : pkg.durationMonths != null ? `${pkg.durationMonths} tháng` : '—'}
                           </span>
                         </div>
                         {isCurrent && (
@@ -538,7 +539,7 @@ export function MyMembershipView() {
                       </div>
 
                       <div className="text-lg font-extrabold font-mono text-[#BA0000] tabular-nums">
-                        {formatCurrency(pkg.price, language)}
+                        {pkg.price == null ? '—' : formatCurrency(pkg.price, language)}
                       </div>
 
                       <p className="text-xs text-slate-600 line-clamp-2">
@@ -608,7 +609,7 @@ export function MyMembershipView() {
                         </td>
                         <td className="py-2 px-3 font-semibold">{sub.packageName}</td>
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 tabular-nums">
-                          {formatCurrency(sub.price, language)}
+                          {sub.price == null ? '—' : formatCurrency(sub.price, language)}
                         </td>
                         <td className="py-2 px-3 font-mono text-slate-600 tabular-nums">
                           {sub.startDate ? formatDate(sub.startDate, language) : '—'}
@@ -747,7 +748,7 @@ export function MyMembershipView() {
                 >
                   {(apiEnabled ? packages : contextPackages).map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.nameVi || p.name} — {formatCurrency(p.price, language)} ({p.durationDays ? `${p.durationDays} ngày` : `${p.durationMonths || 1} tháng`})
+                      {p.nameVi || p.name} — {p.price == null ? '—' : formatCurrency(p.price, language)} ({p.durationDays != null ? `${p.durationDays} ngày` : p.durationMonths != null ? `${p.durationMonths} tháng` : '—'})
                     </option>
                   ))}
                 </select>
