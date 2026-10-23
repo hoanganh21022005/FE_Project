@@ -65,6 +65,7 @@ export function mapInvoice(item) {
     gatewayTransactionRef: item.gatewayTransactionRef || null,
     createdAt: item.createdAt || null,
     expiresAt: item.expiresAt || null,
+    reconciliationRequired: item.reconciliationRequired === true,
     classId: asNumber(item.classId),
     className: item.className || null,
   };

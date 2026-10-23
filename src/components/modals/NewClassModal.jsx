@@ -8,10 +8,6 @@ import { validateClassName, MAX_CLASS_NAME_LENGTH } from "../../api/classValidat
 import { useScheduleConflict } from "../classes/hooks/useScheduleConflict"
 import { CurrencyInput } from "../common/CurrencyInput"
 import {
-  previewRecurringSessions,
-  generateRecurringSessions,
-} from "../../api/managerApi"
-import {
   isNormalClassApiCreationBlocked,
   NORMAL_CLASS_API_BLOCKED_MESSAGE,
 } from "../../api/normalClassCreation.js"
@@ -429,7 +425,6 @@ function DatePicker({ value, onChange, min, error }) {
 export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const {
     addClassSession,
-    updateClass,
     staff,
     coaches: contextCoaches,
     subjects,
@@ -501,14 +496,14 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const [touched, setTouched] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
-  const [pendingCreatedClass, setPendingCreatedClass] = useState(null)
-  const [generatedScheduleEndDate, setGeneratedScheduleEndDate] = useState(null)
+  const normalRequestIdStateRef = useRef(null)
 
   useEffect(() => {
     if (!isOpen) return
     setClassName("")
     setTouched({})
     setIsDirty(false)
+    normalRequestIdStateRef.current = null
   }, [isOpen])
 
   const currentSport = useMemo(
@@ -839,7 +834,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
   // Handle Submit (Draft or Open)
   const handleSubmit = async (targetStatus = status) => {
-    if (isNormalClassApiCreationBlocked(apiEnabled)) {
+    if (isNormalClassApiCreationBlocked(apiEnabled, targetStatus)) {
       showToast(NORMAL_CLASS_API_BLOCKED_MESSAGE, "error")
       return
     }
@@ -890,7 +885,11 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         showToast("Theo API, mỗi buổi học phải kéo dài đúng 90 phút.", "error")
         return
       }
-      const isOutdoor = Boolean(selectedSubject?.outdoor)
+      if (selectedSubject && selectedSubject.outdoor === null) {
+        showToast("Môn học chưa được phân loại trong nhà/ngoài trời (outdoor = null) nên chưa thể xếp lịch.", "error")
+        return
+      }
+      const isOutdoor = selectedSubject?.outdoor === true
       if (isOutdoor && ["09:30", "13:00"].includes(startTime)) {
         showToast("Môn ngoài trời không được xếp vào ca 3 hoặc ca 4.", "error")
         return
@@ -903,13 +902,16 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
     setIsSubmitting(true)
     try {
+      const roomBackendId = Number(selectedRoomObj?.backendId ?? selectedRoomObj?.id ?? roomId)
       const payload = {
         name: className.trim(),
         nameVi: className.trim(),
+        description: description.trim(),
         category: currentSport.name,
         subjectId: targetSubjectId,
         coachId: Number(String(coachId).replace(/\D/g, "")) || null,
         coachName: selectedCoachObj?.name || "Chưa phân công",
+        roomId: Number.isInteger(roomBackendId) && roomBackendId > 0 ? roomBackendId : null,
         room: selectedRoomObj?.name || "Sân tiêu chuẩn",
         roomVi: selectedRoomObj?.name || "Sân tiêu chuẩn",
         date: startDate,
@@ -932,82 +934,19 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         classType: "Normal",
         minTierRequired: 1,
         selectedDays: [...selectedDays],
+        daysOfWeek: selectedDays.map(Number),
       }
 
       if (apiEnabled && targetStatus !== "Draft") {
-        const draftPayload = { ...payload, status: "draft", apiStatus: "Draft" }
-        let classRecord = pendingCreatedClass
-        let finalEndDate = generatedScheduleEndDate
-
-        if (!classRecord) {
-          const createResult = await addClassSession(draftPayload)
-          if (!createResult?.success || !createResult.data?.id) {
-            throw new Error(createResult?.message || "API chưa trả về mã lớp học mới.")
-          }
-          classRecord = createResult.data
-          setPendingCreatedClass(classRecord)
-        } else {
-          classRecord = await updateClass(classRecord.id, { ...draftPayload, id: classRecord.id })
-          setPendingCreatedClass(classRecord)
+        if (!Number.isInteger(payload.roomId) || payload.roomId <= 0) {
+          throw new Error("Mã sân/phòng từ API không hợp lệ.")
         }
-
-        if (!generatedScheduleEndDate) {
-          const roomBackendId = Number(selectedRoomObj?.id)
-          const classBackendId = Number(classRecord.id)
-          if (!Number.isInteger(roomBackendId) || roomBackendId <= 0 || !Number.isInteger(classBackendId) || classBackendId <= 0) {
-            throw new Error("Mã lớp hoặc mã sân/phòng từ API không hợp lệ.")
-          }
-          const recurringRequest = {
-            classId: classBackendId,
-            roomId: roomBackendId,
-            startDate,
-            daysOfWeek: selectedDays.map(Number),
-            startTime,
-            endTime,
-          }
-          const preview = await previewRecurringSessions(recurringRequest)
-          const previewSessions = Array.isArray(preview?.sessions) ? preview.sessions : []
-          const hasSessionConflict = previewSessions.some((session) => session.hasConflict)
-          if (preview?.hasConflict || hasSessionConflict || previewSessions.length !== 12) {
-            const firstConflict = previewSessions.find((session) => session.hasConflict)
-            const details = firstConflict?.conflictDetails?.join("; ")
-            throw new Error(details || "API xem trước lịch chưa trả về đủ 12 buổi hợp lệ. Kiểm tra xung đột và thử lại.")
-          }
-
-          const skipped = Array.isArray(preview?.skippedHolidays) ? preview.skippedHolidays : []
-          const previewLines = previewSessions.map((session) =>
-            `${session.sessionNumber}. ${session.date} (${session.startTime || startTime}–${session.endTime || endTime})`,
-          )
-          const holidayLines = skipped.map((holiday) => `• ${holiday.date}: ${holiday.holidayName}`)
-          const confirmation = [
-            `Lớp "${className}" đã được lưu ở trạng thái Bản nháp.`,
-            "",
-            "Lịch 12 buổi do API tính:",
-            ...previewLines,
-            ...(holidayLines.length ? ["", "Ngày nghỉ được bỏ qua:", ...holidayLines] : []),
-            "",
-            "Tạo các buổi học và mở đăng ký?",
-          ].join("\n")
-          if (!window.confirm(confirmation)) return
-
-          await generateRecurringSessions(recurringRequest)
-          const endDateFromApi = previewSessions[previewSessions.length - 1]?.date
-          finalEndDate = endDateFromApi || calculatedEndDate
-          setGeneratedScheduleEndDate(finalEndDate)
-        }
-
-        await updateClass(classRecord.id, {
-          ...payload,
-          id: classRecord.id,
-          startDate,
-          endDate: finalEndDate || calculatedEndDate,
-          status: "published",
-          apiStatus: "Open",
-          classType: "Normal",
-          totalSessions: 12,
-          sessionCount: 12,
-          price: normalPrice,
+        const createResult = await addClassSession(payload, {
+          idempotencyStateRef: normalRequestIdStateRef,
         })
+        if (!createResult?.success || !createResult.data?.id) {
+          throw new Error(createResult?.message || "API chưa trả về mã lớp học mới.")
+        }
         showToast("Đã tạo lớp Normal và sinh đủ 12 buổi theo API.", "success")
         onClose()
         return
@@ -1877,7 +1816,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             Hủy
           </button>
 
-          {isNormalClassApiCreationBlocked(apiEnabled) && (
+          {isNormalClassApiCreationBlocked(apiEnabled, "Draft") && (
             <p role="alert" className="mr-auto max-w-xl text-left text-xs text-amber-800">
               {NORMAL_CLASS_API_BLOCKED_MESSAGE}
             </p>
@@ -1886,7 +1825,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
           <button
             type="button"
             onClick={() => handleSubmit("Draft")}
-            disabled={isSubmitting || conflict?.hasConflict || isNormalClassApiCreationBlocked(apiEnabled)}
+            disabled={isSubmitting || conflict?.hasConflict || isNormalClassApiCreationBlocked(apiEnabled, "Draft")}
             className="h-10 px-5 rounded-lg border border-stone-200 hover:bg-stone-50 text-stone-700 text-sm font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title={conflict?.hasConflict ? conflict.message : "Lưu bản nháp"}
           >

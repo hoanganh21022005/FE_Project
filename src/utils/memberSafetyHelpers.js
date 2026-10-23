@@ -228,6 +228,60 @@ export const reconcileAndVerifySubscriptionSafety = ({
 };
 
 /**
+ * Parses an ISO 8601 date-time or numeric timestamp into epoch milliseconds.
+ * Offset-less LocalDateTime strings from BE (e.g., "2026-10-20T16:05:00") are explicitly
+ * interpreted in the Asia/Ho_Chi_Minh timezone (UTC+07:00) regardless of the client OS timezone.
+ *
+ * @param {string|number|Date|null|undefined} value
+ * @returns {number} Epoch timestamp in milliseconds, or NaN if invalid
+ */
+export const parseVietnamDateTime = (value) => {
+  if (value == null) return NaN;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : NaN;
+  }
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isFinite(time) ? time : NaN;
+  }
+  if (typeof value !== 'string') return NaN;
+
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === 'Infinity' || trimmed === '-Infinity' || trimmed === '+Infinity') {
+    return NaN;
+  }
+
+  const localMatch = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?$/.exec(trimmed);
+  if (localMatch) {
+    const year = Number(localMatch[1]);
+    const month = Number(localMatch[2]);
+    const day = Number(localMatch[3]);
+    const hour = Number(localMatch[4]);
+    const minute = Number(localMatch[5]);
+    const second = localMatch[6] !== undefined ? Number(localMatch[6]) : 0;
+    const ms = localMatch[7] !== undefined ? Number(localMatch[7].slice(0, 3).padEnd(3, '0')) : 0;
+
+    const utcWallTime = Date.UTC(year, month - 1, day, hour, minute, second, ms);
+    const check = new Date(utcWallTime);
+    if (
+      check.getUTCFullYear() !== year ||
+      check.getUTCMonth() !== month - 1 ||
+      check.getUTCDate() !== day ||
+      check.getUTCHours() !== hour ||
+      check.getUTCMinutes() !== minute ||
+      check.getUTCSeconds() !== second
+    ) {
+      return NaN;
+    }
+
+    const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000;
+    return utcWallTime - VIETNAM_OFFSET_MS;
+  }
+
+  return Date.parse(trimmed);
+};
+
+/**
  * Safely parses and validates a finite positive timestamp in milliseconds.
  * Strictly rejects null, undefined, NaN, Infinity, -Infinity, non-finite values, and non-positive numbers.
  */
@@ -243,7 +297,7 @@ export const getFinitePositiveTime = (val) => {
       const num = Number(trimmed);
       return Number.isFinite(num) && num > 0 ? num : null;
     }
-    const t = new Date(trimmed).getTime();
+    const t = parseVietnamDateTime(trimmed);
     return typeof t === 'number' && Number.isFinite(t) && t > 0 ? t : null;
   }
   if (val instanceof Date) {
@@ -880,7 +934,7 @@ export const calculateInvoiceExpiry = (expiresAt, now = Date.now()) => {
     };
   }
 
-  const targetTime = typeof expiresAt === 'number' ? expiresAt : Date.parse(expiresAt);
+  const targetTime = parseVietnamDateTime(expiresAt);
   if (Number.isNaN(targetTime)) {
     return {
       hasExpiry: false,

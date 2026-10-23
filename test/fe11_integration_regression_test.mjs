@@ -34,7 +34,8 @@ try {
   assert.equal(hasScheduledClassSession(3, [{ classId: 3, status: 'Cancelled' }]), false)
   assert.equal(hasScheduledClassSession(3, []), false)
 
-  assert.equal(isNormalClassApiCreationBlocked(true), true, 'FE-10 remains blocked in API mode')
+  assert.equal(isNormalClassApiCreationBlocked(true, 'Draft'), true, 'FE-10 Draft remains blocked in API mode')
+  assert.equal(isNormalClassApiCreationBlocked(true, 'Open'), false, 'FE-10 Open creation unlocked via normal-with-sessions')
 
   const paymentSource = await readFile(new URL('../src/components/modals/PaymentModal.jsx', import.meta.url), 'utf8')
   const catalogSource = await readFile(new URL('../src/components/views/MemberClassCatalog.jsx', import.meta.url), 'utf8')
@@ -54,7 +55,7 @@ try {
   assert.match(membershipSource, /pkg\.durationMonths != null/)
   assert.match(memberDetailSource, /currentPkg\.price == null/)
 
-  console.log('PASS: FE-11 mock API and view checks preserve missing values, explicit zero, and FE-10 guard.')
+  console.log('PASS: FE-11 mock API and view checks preserve missing values, explicit zero, and FE-10 Draft guard.')
 } finally {
   globalThis.fetch = originalFetch
 }

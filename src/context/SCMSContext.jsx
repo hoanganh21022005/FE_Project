@@ -2329,7 +2329,7 @@ export const SCMSProvider = ({ children }) => {
     )
   }
 
-  const addClassSession = async (data) => {
+  const addClassSession = async (data, options = {}) => {
     // 1. Pre-flight in-memory validation against existing classes
     for (const existing of classes) {
       const conflict = checkSingleClassConflict(data, existing)
@@ -2340,11 +2340,37 @@ export const SCMSProvider = ({ children }) => {
 
     if (API_ENABLED) {
       try {
-        const created = await managerApi.createClass(data, {
-          subjects,
-          coaches: staff,
-        }, { notifyForbidden: false })
-        setClasses((prev) => [created, ...prev])
+        const isNormalAtomic =
+          String(data?.classType || "Normal").toLowerCase() === "normal" &&
+          String(data?.apiStatus || data?.status || "Open").toLowerCase() !== "draft" &&
+          Number.isInteger(Number(data?.roomId)) &&
+          Number(data?.roomId) > 0 &&
+          (Array.isArray(data?.daysOfWeek) || Array.isArray(data?.selectedDays))
+
+        const created = isNormalAtomic
+          ? await managerApi.createNormalClassWithSessions(
+              data,
+              {
+                subjects,
+                coaches: staff,
+              },
+              {
+                notifyForbidden: false,
+                ...options,
+              },
+            )
+          : await managerApi.createClass(
+              data,
+              {
+                subjects,
+                coaches: staff,
+              },
+              {
+                notifyForbidden: false,
+                ...options,
+              },
+            )
+        setClasses((prev) => [created, ...prev.filter((item) => String(item.id) !== String(created.id))])
         managerApi
           .getAuditLogs({ notifyForbidden: false })
           .then(setAuditLogs)
@@ -2358,7 +2384,7 @@ export const SCMSProvider = ({ children }) => {
         return { success: true, data: created }
       } catch (error) {
         const errMsg = getErrorMessage(error, language === "vi" ? "Không thể lưu lớp học." : "Could not save the class.")
-        return { success: false, message: errMsg }
+        return { success: false, message: errMsg, code: error?.code || null }
       }
     }
 
