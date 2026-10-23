@@ -20,6 +20,7 @@ import {
 } from '../src/api/normalClassCreation.js'
 
 const browserOnly = process.argv.includes('--browser-only')
+const unitOnly = process.argv.includes('--unit-only')
 
 async function runUnitSuite() {
   const originalFetch = globalThis.fetch
@@ -931,4 +932,6 @@ async function runBrowserSuite() {
 if (!browserOnly) {
   await runUnitSuite()
 }
-await runBrowserSuite()
+if (!unitOnly) {
+  await runBrowserSuite()
+}

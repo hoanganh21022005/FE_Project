@@ -5,11 +5,17 @@ on:
     branches: [main]
     paths:
       - 'src/components/modals/PaymentModal.jsx'
+      - 'src/components/modals/NewClassModal.jsx'
       - 'src/components/views/MyMembershipView.jsx'
       - 'src/api/invoiceMappers.js'
+      - 'src/api/managerApi.js'
+      - 'src/api/normalClassCreation.js'
+      - 'src/context/SCMSContext.jsx'
       - 'src/components/common/Badge.jsx'
       - 'src/utils/memberSafetyHelpers.js'
       - 'test/fe2_membership_payment_test.mjs'
+      - 'test/fe10_normal_class_test.mjs'
+      - 'test/fe11_integration_regression_test.mjs'
       - '.github/workflows/fe2-checks.yml'
 
 jobs:
@@ -23,5 +29,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node test/fe2_membership_payment_test.mjs
+      - run: node test/fe10_normal_class_test.mjs --unit-only
+      - run: node test/fe11_integration_regression_test.mjs
       - run: npm run build
       - run: npm run build:local
