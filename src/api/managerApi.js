@@ -14,7 +14,12 @@ import {
 } from './mappers.js';
 import { extractList } from './schemaValidators.js';
 import { buildRoomRequest, buildSubjectRequest, roomStatusForApi } from './resourceRequests.js';
-import { toBackendDaysOfWeek } from './normalClassCreation.js';
+import {
+  buildNormalClassWithSessionsRequest,
+  computeNormalClassFingerprint,
+  toBackendDaysOfWeek,
+  verifyNormalClassSessions,
+} from './normalClassCreation.js';
 
 const mapListResponse = (data, mapper) => {
   const list = extractList(data);
@@ -76,6 +81,10 @@ export const getSessions = async (filters = {}, options) => {
   const suffix = query.size ? `?${query.toString()}` : '';
   return mapListResponse(await httpClient.get(`/api/sessions${suffix}`, options), mapSession);
 };
+export const getCatalogClassSessions = async (classId, options) => mapListResponse(
+  await httpClient.get(`/api/sessions/catalog/${classId}`, options),
+  mapSession,
+);
 export const getSessionTimeSlots = async (isOutdoor = false, options) => mapListResponse(
   await httpClient.get(`/api/sessions/time-slots?isOutdoor=${Boolean(isOutdoor)}`, options),
   (item) => ({
@@ -114,6 +123,109 @@ export const createClass = async (data, lookups, options) => mapClass(
   await httpClient.post('/api/classes', toClassRequest(data), options),
   { ...lookups, apiMode: true },
 );
+export const createNormalClassWithSessions = async (data, lookups = {}, options = {}) => {
+  const {
+    idempotencyStateRef = null,
+    requestId = null,
+    verifySessions = true,
+    expectedSessionCount = 12,
+    ...httpOptions
+  } = options || {};
+
+  const previousState =
+    idempotencyStateRef && typeof idempotencyStateRef === 'object'
+      ? idempotencyStateRef.current
+      : null;
+
+  const requestBody =
+    data?.sportsClass && typeof data?.requestId === 'string' && data.requestId.trim()
+      ? {
+          requestId: data.requestId.trim(),
+          sportsClass: data.sportsClass,
+          roomId: Number(data.roomId),
+          daysOfWeek: toBackendDaysOfWeek(data.daysOfWeek),
+          startTime: data.startTime,
+          endTime: data.endTime,
+        }
+      : buildNormalClassWithSessionsRequest(data, {
+          stateRef: idempotencyStateRef,
+          requestId,
+        });
+
+  const currentFingerprint = computeNormalClassFingerprint(requestBody);
+  const authoritativeFingerprint =
+    previousState &&
+    previousState.requestId === requestBody.requestId &&
+    typeof previousState.fingerprint === 'string'
+      ? previousState.fingerprint
+      : currentFingerprint;
+
+  if (idempotencyStateRef && typeof idempotencyStateRef === 'object') {
+    idempotencyStateRef.current = {
+      fingerprint: authoritativeFingerprint,
+      requestId: requestBody.requestId,
+      idempotencyConflict: Boolean(
+        previousState?.requestId === requestBody.requestId && previousState?.idempotencyConflict,
+      ),
+      attemptLocked: true,
+    };
+  }
+
+  let rawCreated;
+  try {
+    rawCreated = await httpClient.post('/api/classes/normal-with-sessions', requestBody, httpOptions);
+  } catch (err) {
+    const isIdempotencyConflict =
+      err?.code === 'IDEMPOTENCY_CONFLICT' || err?.details?.code === 'IDEMPOTENCY_CONFLICT';
+
+    if (isIdempotencyConflict) {
+      if (idempotencyStateRef && typeof idempotencyStateRef === 'object') {
+        const hasPayloadChanged = authoritativeFingerprint !== currentFingerprint;
+        if (hasPayloadChanged) {
+          idempotencyStateRef.current = null;
+        } else {
+          idempotencyStateRef.current = {
+            fingerprint: authoritativeFingerprint,
+            requestId: requestBody.requestId,
+            idempotencyConflict: true,
+            attemptLocked: true,
+          };
+        }
+      }
+      const conflictErr = new Error(
+        err.message ||
+          'Xung đột mã yêu cầu tạo lớp (IDEMPOTENCY_CONFLICT): Mã requestId này đã được gửi trước đó với thông tin lớp học khác. Vui lòng kiểm tra lại danh sách lớp học trước khi gửi lại.',
+      );
+      conflictErr.code = 'IDEMPOTENCY_CONFLICT';
+      conflictErr.status = err.status ?? 409;
+      conflictErr.cause = err;
+      throw conflictErr;
+    }
+
+    throw err;
+  }
+
+  const created = mapClass(rawCreated, { ...lookups, apiMode: true });
+  created.requestId = requestBody.requestId;
+
+  if (verifySessions) {
+    const verification = await verifyNormalClassSessions(created.id, {
+      getSessionsFn: (filters) => getSessions(filters, httpOptions),
+      getCatalogSessionsFn: (cId) => getCatalogClassSessions(cId, httpOptions),
+      expectedCount: expectedSessionCount,
+    });
+    created.verifiedSessionCount = verification.count;
+    if (!created.endDate && verification.endDate) {
+      created.endDate = verification.endDate;
+    }
+  }
+
+  if (idempotencyStateRef && typeof idempotencyStateRef === 'object') {
+    idempotencyStateRef.current = null;
+  }
+
+  return created;
+};
 export const previewRecurringSessions = (data) =>
   httpClient.post('/api/sessions/preview-recurring', {
     ...data,

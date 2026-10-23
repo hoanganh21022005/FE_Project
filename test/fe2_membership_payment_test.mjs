@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 
 // Setup mock sessionStorage for pure Node.js execution environment
 const nodeSessionStorageStore = new Map();
@@ -62,6 +63,7 @@ import {
   clearStoredPendingOrder,
   clearAllStoredPendingOrdersExcept,
   executeDirectSubscriptionSubmit,
+  parseVietnamDateTime,
   calculateInvoiceExpiry,
   resolveActiveSubscriptionDetails,
   resolvePendingInvoiceBannerState,
@@ -3259,6 +3261,94 @@ console.log('PASS: Modal submit flow strictly locks reconciliation when response
   inProgressTransactionCache.delete(String(testMemberId), testActorId);
 }
 console.log('PASS: Modal submit flow strictly locks reconciliation when response lacks only subscriptionId (1 POST max, 0 on retry/reopen)');
+
+// --- 14. VIETNAM TIMEZONE (Asia/Ho_Chi_Minh) EXPIRES_AT & RECONCILIATION_REQUIRED MAPPING ---
+console.log('\n--- 14. VIETNAM TIMEZONE EXPIRES_AT & RECONCILIATION_REQUIRED ---');
+{
+  const expectedUtcEpoch = Date.parse('2026-10-20T09:05:00Z');
+  assert.equal(
+    parseVietnamDateTime('2026-10-20T16:05:00'),
+    expectedUtcEpoch,
+    'Offset-less LocalDateTime must equal 2026-10-20T09:05:00Z (16:05:00 Asia/Ho_Chi_Minh)'
+  );
+  assert.equal(
+    parseVietnamDateTime('2026-10-20 16:05:00.250'),
+    expectedUtcEpoch + 250,
+    'Space-separated LocalDateTime with milliseconds must be parsed in Asia/Ho_Chi_Minh'
+  );
+  assert.equal(
+    Number.isNaN(parseVietnamDateTime('2026-02-30T10:00:00')),
+    true,
+    'Invalid calendar date rollover (Feb 30) must return NaN'
+  );
+
+  const fiveMinBefore = Date.parse('2026-10-20T09:00:00Z');
+  const expiryActive = calculateInvoiceExpiry('2026-10-20T16:05:00', fiveMinBefore);
+  assert.equal(expiryActive.hasExpiry, true);
+  assert.equal(expiryActive.isExpired, false);
+  assert.equal(expiryActive.remainingMs, 5 * 60 * 1000);
+  assert.equal(expiryActive.formattedTime, '05:00');
+
+  const expiryExact = calculateInvoiceExpiry('2026-10-20T16:05:00', expectedUtcEpoch);
+  assert.equal(expiryExact.hasExpiry, true);
+  assert.equal(expiryExact.isExpired, true);
+  assert.equal(expiryExact.remainingMs, 0);
+  assert.equal(expiryExact.formattedTime, '00:00');
+
+  const helperModuleUrl = new URL('../src/utils/memberSafetyHelpers.js', import.meta.url).href;
+  const tzProbeScript = [
+    `import(${JSON.stringify(helperModuleUrl)}).then(({ calculateInvoiceExpiry, parseVietnamDateTime }) => {`,
+    `  const nowAtExpiry = Date.parse('2026-10-20T09:05:00Z');`,
+    `  const nowFiveMinBefore = Date.parse('2026-10-20T09:00:00Z');`,
+    `  const atExpiry = calculateInvoiceExpiry('2026-10-20T16:05:00', nowAtExpiry);`,
+    `  const beforeExpiry = calculateInvoiceExpiry('2026-10-20T16:05:00', nowFiveMinBefore);`,
+    `  const parsed = parseVietnamDateTime('2026-10-20T16:05:00');`,
+    `  console.log(JSON.stringify({ tz: process.env.TZ, parsed, atExpiry, beforeExpiry }));`,
+    `});`,
+  ].join(' ');
+
+  for (const targetTz of ['UTC', 'America/New_York']) {
+    const rawOut = execFileSync(process.execPath, ['--input-type=module', '-e', tzProbeScript], {
+      env: { ...process.env, TZ: targetTz },
+      encoding: 'utf8',
+    }).trim();
+    const probe = JSON.parse(rawOut);
+    assert.equal(probe.tz, targetTz);
+    assert.equal(
+      probe.parsed,
+      expectedUtcEpoch,
+      `Under TZ=${targetTz}, parseVietnamDateTime('2026-10-20T16:05:00') must equal ${expectedUtcEpoch}`
+    );
+    assert.equal(
+      probe.atExpiry.remainingMs,
+      0,
+      `Under TZ=${targetTz}, remainingMs at 2026-10-20T09:05:00Z must be 0 (not shifted by host timezone)`
+    );
+    assert.equal(probe.atExpiry.isExpired, true);
+    assert.equal(probe.beforeExpiry.remainingMs, 300000);
+    assert.equal(probe.beforeExpiry.formattedTime, '05:00');
+  }
+
+  const mappedReconcileTrue = mapInvoice({
+    invoiceId: 88,
+    memberId: 5,
+    packageId: 2,
+    amount: 500000,
+    paymentStatus: 'Expired',
+    reconciliationRequired: true,
+  });
+  assert.equal(mappedReconcileTrue.reconciliationRequired, true);
+
+  const mappedReconcileDefault = mapInvoice({
+    invoiceId: 89,
+    memberId: 5,
+    packageId: 2,
+    amount: 500000,
+    paymentStatus: 'Pending',
+  });
+  assert.equal(mappedReconcileDefault.reconciliationRequired, false);
+}
+console.log('PASS: Offset-less expiresAt parsed in Asia/Ho_Chi_Minh across UTC and America/New_York; reconciliationRequired mapped');
 
 console.log('\n====================================================');
 console.log('ALL FE 2: MEMBERSHIP, INVOICE & PAYMENT TESTS PASSED (100%)');
