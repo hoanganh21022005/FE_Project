@@ -220,6 +220,26 @@ const MemberInvoicesView = React.lazy(() =>
     default: module.MemberInvoicesView,
   })),
 )
+const MemberNotificationsView = React.lazy(() =>
+  import("./components/views/MemberNotificationsView").then((module) => ({
+    default: module.MemberNotificationsView,
+  })),
+)
+const MemberMyCoachView = React.lazy(() =>
+  import("./components/views/MemberMyCoachView").then((module) => ({
+    default: module.MemberMyCoachView,
+  })),
+)
+const MemberBodyMetricsView = React.lazy(() =>
+  import("./components/views/MemberBodyMetricsView").then((module) => ({
+    default: module.MemberBodyMetricsView,
+  })),
+)
+const MemberFreezeRequestView = React.lazy(() =>
+  import("./components/views/MemberFreezeRequestView").then((module) => ({
+    default: module.MemberFreezeRequestView,
+  })),
+)
 
 // Settings & Support & Profile
 const SettingsView = React.lazy(() =>
@@ -494,6 +514,14 @@ function SCMSApp() {
       return language === "vi" ? "Đăng ký khóa học" : "Course registration"
     if (path.includes("/feedback"))
       return language === "vi" ? "Đánh giá & Feedback" : "Class Feedback"
+    if (path.includes("/notifications"))
+      return language === "vi" ? "Thông báo" : "Notifications"
+    if (path.includes("/freeze-request"))
+      return language === "vi" ? "Bảo lưu gói tập" : "Freeze membership"
+    if (path.includes("/my-coach"))
+      return language === "vi" ? "Huấn luyện viên của tôi" : "My Coach"
+    if (path.includes("/body-metrics"))
+      return language === "vi" ? "Chỉ số cơ thể (InBody)" : "Body metrics"
     if (path.includes("/settings")) return t("settings")
     if (path.includes("/support")) return t("support")
     if (path.includes("/profile")) return t("profile")
@@ -1241,6 +1269,58 @@ function SCMSApp() {
                         onForbidden={() => navigate(`/${role}/dashboard`)}
                       >
                         <MemberTrainingView />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/member/notifications"
+                    element={
+                      <RequireRole
+                        allowedRoles={[ROLE_MEMBER]}
+                        currentRole={role}
+                        attemptedPath={location.pathname}
+                        onForbidden={() => navigate(`/${role}/dashboard`)}
+                      >
+                        <MemberNotificationsView />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/member/freeze-request"
+                    element={
+                      <RequireRole
+                        allowedRoles={[ROLE_MEMBER]}
+                        currentRole={role}
+                        attemptedPath={location.pathname}
+                        onForbidden={() => navigate(`/${role}/dashboard`)}
+                      >
+                        <MemberFreezeRequestView />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/member/my-coach"
+                    element={
+                      <RequireRole
+                        allowedRoles={[ROLE_MEMBER]}
+                        currentRole={role}
+                        attemptedPath={location.pathname}
+                        onForbidden={() => navigate(`/${role}/dashboard`)}
+                      >
+                        <MemberMyCoachView />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/member/body-metrics"
+                    element={
+                      <RequireRole
+                        allowedRoles={[ROLE_MEMBER]}
+                        currentRole={role}
+                        attemptedPath={location.pathname}
+                        onForbidden={() => navigate(`/${role}/dashboard`)}
+                      >
+                        <MemberBodyMetricsView />
                       </RequireRole>
                     }
                   />
