@@ -395,7 +395,7 @@ export function LoginView({
       if (apiEnabled) {
         let res
         try {
-          res = await authApi.resendOtp({ email, purpose: "PASSWORD_RESET" })
+          res = await authApi.resendOtp({ email, purpose: "RESET_PASSWORD" })
         } catch {
           res = await authApi.forgotPassword(email)
         }
@@ -711,7 +711,7 @@ export function LoginView({
       if (apiEnabled) {
         const res = await authApi.resendOtp({
           email: regEmail.trim().toLowerCase(),
-          purpose: "REGISTRATION",
+          purpose: "REGISTER",
         })
         setOtpNotice(
           res?.message ||

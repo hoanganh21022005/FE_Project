@@ -25,7 +25,7 @@ export const register = (payload) =>
 export const verifyRegistration = ({ email, otp }) =>
   httpClient.post("/api/auth/verify-registration", { email, otp })
 
-export const resendOtp = ({ email, purpose = "REGISTRATION" }) =>
+export const resendOtp = ({ email, purpose = "REGISTER" }) =>
   httpClient.post("/api/auth/resend-otp", { email, purpose })
 
 export const forgotPassword = (email) =>
