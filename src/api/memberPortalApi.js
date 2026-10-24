@@ -32,9 +32,29 @@ export const requestAbsence = (sessionId, reason) =>
 export const cancelPrivateSession = (sessionId) =>
   httpClient.post(`/api/sessions/${sessionId}/cancel-private`)
 export const submitClassFeedback = (classId, payload) =>
-  httpClient.post(`/api/classes/${classId}/feedback`, payload)
-export const getMyClassFeedback = (classId) =>
-  httpClient.get(`/api/classes/${classId}/feedback/me`)
+  httpClient.post(`/api/classes/${classId}/feedback`, {
+    classId: Number(classId),
+    coachId: Number(payload.coachId),
+    classRating: Math.min(5, Math.max(1, Number(payload.classRating) || 5)),
+    coachRating: Math.min(5, Math.max(1, Number(payload.coachRating) || 5)),
+    comment: String(payload.comment || "").slice(0, 1000),
+  })
+export const getMyClassFeedback = async (classId) => {
+  try {
+    return await httpClient.get(`/api/classes/${classId}/feedback/me`)
+  } catch (error) {
+    if (error?.status === 404) return null
+    throw error
+  }
+}
+export const getClassFeedbacks = async (classId) => {
+  try {
+    return await httpClient.get(`/api/classes/${classId}/feedback`)
+  } catch (error) {
+    if (error?.status === 404) return null
+    throw error
+  }
+}
 
 export const getCoaches = async (params = {}) => {
   const query = new URLSearchParams()
@@ -83,6 +103,7 @@ export const memberPortalApi = {
   cancelPrivateSession,
   submitClassFeedback,
   getMyClassFeedback,
+  getClassFeedbacks,
   getCoaches,
   getCoachAvailableSlots,
   getTimeSlots,
