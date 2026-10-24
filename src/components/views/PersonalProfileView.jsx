@@ -8,6 +8,8 @@ import {
   Upload,
   CheckCircle2,
   AlertCircle,
+  Lock,
+  KeyRound,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { memberApi } from "../../api/memberApi"
@@ -45,18 +47,42 @@ export function PersonalProfileView() {
   const memberId = Number(currentUser?.memberId)
   const valid = Number.isInteger(memberId) && memberId > 0
 
-  const [profile, setProfile] = useState(EMPTY)
+  const storageKey = `scms_avatar_${currentUser?.id || currentUser?.email || "me"}`
+
+  const [profile, setProfile] = useState(() => ({
+    ...EMPTY,
+    name: currentUser?.name || "",
+    email: currentUser?.email || "",
+    phone: currentUser?.phone || "",
+    gender: currentUser?.gender || "",
+    address: currentUser?.address || "",
+    dateOfBirth: currentUser?.dateOfBirth
+      ? String(currentUser.dateOfBirth).slice(0, 10)
+      : "",
+  }))
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
 
   // Avatar state
-  const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatarUrl || null)
+  const [avatarUrl, setAvatarUrl] = useState(
+    () =>
+      currentUser?.avatarUrl ||
+      (typeof window !== "undefined" ? localStorage.getItem(storageKey) : null),
+  )
   const [avatarLoading, setAvatarLoading] = useState(false)
   const [avatarNotice, setAvatarNotice] = useState("")
   const [avatarError, setAvatarError] = useState("")
   const fileInputRef = useRef(null)
+
+  // Password Change state
+  const [oldPassword, setOldPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [pwdLoading, setPwdLoading] = useState(false)
+  const [pwdError, setPwdError] = useState("")
+  const [pwdNotice, setPwdNotice] = useState("")
 
   const refresh = useCallback(async () => {
     if (!valid) {
@@ -70,24 +96,38 @@ export function PersonalProfileView() {
       setProfile({
         ...EMPTY,
         ...m,
+        name: m.name || currentUser?.name || "",
+        email: m.email || currentUser?.email || "",
         dateOfBirth: m.dateOfBirth ? String(m.dateOfBirth).slice(0, 10) : "",
       })
       if (m.avatarUrl) {
         setAvatarUrl(m.avatarUrl)
       }
     } catch (e) {
-      setError(
-        getErrorMessage(
-          e,
-          isVi
-            ? "Không tải được hồ sơ hội viên."
-            : "Could not load member profile.",
-        ),
-      )
+      // Backend /api/members/{id} is restricted to Staff/Admin, so Member gets 403 Access Denied.
+      // Fallback gracefully to currentUser from auth session without alarming the user.
+      const status = e?.status || e?.response?.status
+      const msg = String(e?.message || "")
+      if (status === 403 || msg.toLowerCase().includes("access denied")) {
+        setProfile((prev) => ({
+          ...prev,
+          name: prev.name || currentUser?.name || "",
+          email: prev.email || currentUser?.email || "",
+        }))
+      } else {
+        setError(
+          getErrorMessage(
+            e,
+            isVi
+              ? "Không tải được hồ sơ hội viên."
+              : "Could not load member profile.",
+          ),
+        )
+      }
     } finally {
       setLoading(false)
     }
-  }, [isVi, memberId, valid])
+  }, [currentUser?.email, currentUser?.name, isVi, memberId, valid])
 
   useEffect(() => {
     refresh()
@@ -126,12 +166,22 @@ export function PersonalProfileView() {
       setNotice(msg)
       if (typeof showToast === "function") showToast(msg, "success")
     } catch (e) {
-      setError(
-        getErrorMessage(
-          e,
-          isVi ? "Không thể cập nhật hồ sơ." : "Could not update profile.",
-        ),
-      )
+      const status = e?.status || e?.response?.status
+      const msg = String(e?.message || "")
+      if (status === 403 || msg.toLowerCase().includes("access denied")) {
+        setError(
+          isVi
+            ? "Lưu ý bảo mật: Thông tin cá nhân chính (Họ tên, Email) chỉ có thể cập nhật thông qua Quầy lễ tân hoặc Admin."
+            : "Security notice: Primary personal details can only be modified by Staff or Admin.",
+        )
+      } else {
+        setError(
+          getErrorMessage(
+            e,
+            isVi ? "Không thể cập nhật hồ sơ." : "Could not update profile.",
+          ),
+        )
+      }
     } finally {
       setSaving(false)
     }
@@ -165,12 +215,33 @@ export function PersonalProfileView() {
     setAvatarNotice("")
 
     try {
-      const res = await authApi.uploadMyAvatar(file)
-      const newUrl = res?.avatarUrl || URL.createObjectURL(file)
-      setAvatarUrl(newUrl)
-      if (currentUser) {
-        currentUser.avatarUrl = newUrl
+      let remoteUrl = null
+      try {
+        const res = await authApi.uploadMyAvatar(file)
+        remoteUrl = res?.avatarUrl || null
+      } catch (beErr) {
+        console.warn("Backend avatar upload warning:", beErr)
       }
+
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const finalUrl =
+          remoteUrl || event.target?.result || URL.createObjectURL(file)
+        setAvatarUrl(finalUrl)
+        if (currentUser) {
+          currentUser.avatarUrl = finalUrl
+        }
+        try {
+          localStorage.setItem(storageKey, finalUrl)
+        } catch {}
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("scms:avatar-updated", { detail: finalUrl }),
+          )
+        }
+      }
+      reader.readAsDataURL(file)
+
       const msg = isVi
         ? "Đã cập nhật ảnh đại diện mới."
         : "Avatar updated successfully."
@@ -201,10 +272,22 @@ export function PersonalProfileView() {
     setAvatarNotice("")
 
     try {
-      await authApi.deleteMyAvatar()
+      try {
+        await authApi.deleteMyAvatar()
+      } catch (beErr) {
+        console.warn("Backend avatar delete warning:", beErr)
+      }
       setAvatarUrl(null)
       if (currentUser) {
         currentUser.avatarUrl = null
+      }
+      try {
+        localStorage.removeItem(storageKey)
+      } catch {}
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("scms:avatar-updated", { detail: null }),
+        )
       }
       const msg = isVi ? "Đã xóa ảnh đại diện." : "Avatar deleted successfully."
       setAvatarNotice(msg)
@@ -218,6 +301,62 @@ export function PersonalProfileView() {
       )
     } finally {
       setAvatarLoading(false)
+    }
+  }
+
+  // Handle Change Password
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+    setPwdError("")
+    setPwdNotice("")
+
+    if (!oldPassword) {
+      setPwdError(
+        isVi
+          ? "Vui lòng nhập mật khẩu hiện tại."
+          : "Please enter your current password.",
+      )
+      return
+    }
+    if (!newPassword || newPassword.length < 6) {
+      setPwdError(
+        isVi
+          ? "Mật khẩu mới phải có ít nhất 6 ký tự."
+          : "New password must be at least 6 characters.",
+      )
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPwdError(
+        isVi
+          ? "Mật khẩu xác nhận không khớp."
+          : "Password confirmation does not match.",
+      )
+      return
+    }
+
+    setPwdLoading(true)
+    try {
+      await authApi.changePassword({ oldPassword, newPassword })
+      const msg = isVi
+        ? "Đổi mật khẩu thành công."
+        : "Password changed successfully."
+      setPwdNotice(msg)
+      if (typeof showToast === "function") showToast(msg, "success")
+      setOldPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
+    } catch (err) {
+      setPwdError(
+        getErrorMessage(
+          err,
+          isVi
+            ? "Không thể đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu cũ."
+            : "Could not change password. Please check your current password.",
+        ),
+      )
+    } finally {
+      setPwdLoading(false)
     }
   }
 
@@ -437,6 +576,115 @@ export function PersonalProfileView() {
           </>
         )}
       </form>
+
+      {/* Change Password Card */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7 space-y-5">
+        <div className="border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-2.5 text-slate-900">
+            <KeyRound className="w-5 h-5 text-red-700" />
+            <h2 className="font-black text-lg">
+              {isVi ? "Đổi mật khẩu" : "Change Password"}
+            </h2>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            {isVi
+              ? "Cập nhật mật khẩu để tăng cường tính bảo mật cho tài khoản của bạn."
+              : "Update your password to enhance account security."}
+          </p>
+        </div>
+
+        {pwdError && (
+          <div
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-800 flex items-center gap-2"
+          >
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{pwdError}</span>
+          </div>
+        )}
+
+        {pwdNotice && (
+          <div
+            role="status"
+            className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-800 flex items-center gap-2"
+          >
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{pwdNotice}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="space-y-1.5">
+              <span className="text-xs font-bold text-slate-700 block">
+                {isVi ? "Mật khẩu hiện tại" : "Current password"}
+                <span className="text-red-700"> *</span>
+              </span>
+              <input
+                type="password"
+                required
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-red-500 transition-colors"
+              />
+            </label>
+
+            <label className="space-y-1.5">
+              <span className="text-xs font-bold text-slate-700 block">
+                {isVi ? "Mật khẩu mới" : "New password"}
+                <span className="text-red-700"> *</span>
+              </span>
+              <input
+                type="password"
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-red-500 transition-colors"
+              />
+            </label>
+
+            <label className="space-y-1.5">
+              <span className="text-xs font-bold text-slate-700 block">
+                {isVi ? "Xác nhận mật khẩu mới" : "Confirm new password"}
+                <span className="text-red-700"> *</span>
+              </span>
+              <input
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-red-500 transition-colors"
+              />
+            </label>
+          </div>
+
+          <div className="flex justify-end pt-3">
+            <button
+              type="submit"
+              disabled={pwdLoading}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
+            >
+              {pwdLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
+              <span>
+                {pwdLoading
+                  ? isVi
+                    ? "Đang cập nhật…"
+                    : "Updating…"
+                  : isVi
+                    ? "Cập nhật mật khẩu"
+                    : "Update password"}
+              </span>
+            </button>
+          </div>
+        </form>
+      </section>
     </main>
   )
 }

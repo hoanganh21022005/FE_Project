@@ -106,18 +106,6 @@ export function MemberFeedbackView() {
   const [expandedComments, setExpandedComments] = useState({})
   const [expandedBreakdowns, setExpandedBreakdowns] = useState({})
 
-  // Set page background to unified quiet luxury canvas
-  useEffect(() => {
-    const prevHtmlBg = document.documentElement.style.backgroundColor
-    const prevBodyBg = document.body.style.backgroundColor
-    document.documentElement.style.backgroundColor = "#F5F2EA"
-    document.body.style.backgroundColor = "#F5F2EA"
-    return () => {
-      document.documentElement.style.backgroundColor = prevHtmlBg
-      document.body.style.backgroundColor = prevBodyBg
-    }
-  }, [])
-
   // ESC key & scroll lock for drawer
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -620,456 +608,314 @@ export function MemberFeedbackView() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F2EA] text-[#15171C] font-['Be_Vietnam_Pro',sans-serif] antialiased selection:bg-[#A8844F]/20 pb-24 sm:pb-16">
-      <div className="w-full max-w-[1120px] mx-auto px-4 sm:px-8 py-8 sm:py-12 space-y-10">
-        {/* ============================================================== */}
-        {/* 1. HEADER: Tinh tế, chuẩn mực, không phù phiếm                */}
-        {/* ============================================================== */}
-        <header className="space-y-2">
-          <span className="text-[11px] font-sans font-medium uppercase tracking-[0.14em] text-[#6A675F] block">
-            PHẢN HỒI SAU BUỔI TẬP
-          </span>
-          <h1 className="font-['Newsreader',serif] font-normal text-4xl sm:text-[44px] text-[#15171C] tracking-tight leading-tight">
+    <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-7 sm:py-8 font-['Be_Vietnam_Pro',sans-serif]">
+      {/* 1. HEADER */}
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
+            VIBE SPORT · MEMBER
+          </p>
+          <h1 className="mt-2 text-3xl font-black text-slate-950">
             Đánh giá & Phản hồi
           </h1>
-          <p className="text-sm sm:text-[15px] text-[#6A675F] max-w-2xl font-normal leading-relaxed">
-            Ý kiến của bạn giúp chúng tôi nâng chuẩn huấn luyện và hoàn thiện
-            sân bãi.
+          <p className="mt-2 text-sm text-slate-500">
+            Ý kiến của bạn giúp chúng tôi liên tục nâng cao chuẩn mực huấn luyện
+            và chất lượng cơ sở vật chất.
           </p>
-        </header>
+        </div>
+      </header>
 
-        {/* ============================================================== */}
-        {/* 2. DẢI CHỈ SỐ: 4 Cột chia đều, đường kẻ dọc 1px hairline       */}
-        {/* ============================================================== */}
-        <section className="grid grid-cols-2 md:grid-cols-4 border-y border-[rgba(21,23,28,0.12)] py-6 gap-y-6 md:gap-y-0">
-          {/* Cột 1: Chờ đánh giá (Màu đồng khi > 0) */}
-          <div className="px-4 sm:px-6 md:border-r border-[rgba(21,23,28,0.12)] space-y-2">
-            <div
-              className={`font-['Newsreader',serif] font-normal text-4xl sm:text-5xl tabular-nums lining-nums leading-none ${
-                pendingSessions.length > 0 ? "text-[#A8844F]" : "text-[#15171C]"
-              }`}
-            >
-              {pendingSessions.length}
-            </div>
-            <span className="text-[11px] font-sans font-medium uppercase tracking-[0.14em] text-[#6A675F] block">
-              CHỜ ĐÁNH GIÁ
-            </span>
-          </div>
-
-          {/* Cột 2: Đã gửi */}
-          <div className="px-4 sm:px-6 border-l md:border-l-0 md:border-r border-[rgba(21,23,28,0.12)] space-y-2">
-            <div className="font-['Newsreader',serif] font-normal text-4xl sm:text-5xl tabular-nums lining-nums leading-none text-[#15171C]">
-              {submittedReviews.length}
-            </div>
-            <span className="text-[11px] font-sans font-medium uppercase tracking-[0.14em] text-[#6A675F] block">
-              ĐÃ GỬI
-            </span>
-          </div>
-
-          {/* Cột 3: Đã tham gia */}
-          <div className="px-4 sm:px-6 md:border-r border-[rgba(21,23,28,0.12)] space-y-2">
-            <div className="font-['Newsreader',serif] font-normal text-4xl sm:text-5xl tabular-nums lining-nums leading-none text-[#15171C]">
-              {attendedSessions.length}
-            </div>
-            <span className="text-[11px] font-sans font-medium uppercase tracking-[0.14em] text-[#6A675F] block">
-              ĐÃ THAM GIA
-            </span>
-          </div>
-
-          {/* Cột 4: Điểm bạn đã cho */}
-          <div className="px-4 sm:px-6 border-l md:border-l-0 border-[rgba(21,23,28,0.12)] space-y-1">
-            <div className="font-['Newsreader',serif] font-normal text-4xl sm:text-5xl tabular-nums lining-nums leading-none text-[#15171C]">
-              {averageRating}
-            </div>
-            <div className="text-[11px] text-[#6A675F] font-normal pt-1">
-              {submittedReviews.length > 0
-                ? `trung bình, ${submittedReviews.length} đánh giá`
-                : "—"}
-            </div>
-            <span className="text-[11px] font-sans font-medium uppercase tracking-[0.14em] text-[#6A675F] block pt-0.5">
-              ĐIỂM BẠN ĐÃ CHO
-            </span>
-          </div>
-        </section>
-
-        {/* ============================================================== */}
-        {/* 3. TABS: Chữ phẳng, gạch chân đồng 2px                          */}
-        {/* ============================================================== */}
-        <div className="border-b border-[rgba(21,23,28,0.12)] flex items-center gap-8 text-sm">
-          <button
-            type="button"
-            onClick={() => setActiveTab("pending")}
-            className={`pb-3 cursor-pointer transition-colors relative flex items-center gap-1.5 ${
-              activeTab === "pending"
-                ? "text-[#15171C] font-medium border-b-2 border-[#A8844F] -mb-[1px]"
-                : "text-[#6A675F] hover:text-[#15171C] font-normal"
+      {/* 2. DẢI CHỈ SỐ: 4 Thẻ đồng bộ hệ thống */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Cột 1: Chờ đánh giá */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+            CHỜ ĐÁNH GIÁ
+          </span>
+          <div
+            className={`text-3xl font-black mt-2 tabular-nums ${
+              pendingSessions.length > 0 ? "text-amber-600" : "text-slate-900"
             }`}
           >
-            <span>Cần đánh giá</span>
-            <span className="text-xs text-[#6A675F] font-normal">
-              ({pendingSessions.length})
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("submitted")}
-            className={`pb-3 cursor-pointer transition-colors relative flex items-center gap-1.5 ${
-              activeTab === "submitted"
-                ? "text-[#15171C] font-medium border-b-2 border-[#A8844F] -mb-[1px]"
-                : "text-[#6A675F] hover:text-[#15171C] font-normal"
-            }`}
-          >
-            <span>Lịch sử của tôi</span>
-            <span className="text-xs text-[#6A675F] font-normal">
-              ({submittedReviews.length})
-            </span>
-          </button>
+            {pendingSessions.length}
+          </div>
         </div>
 
-        {/* ============================================================== */}
-        {/* 4. TAB 1: CẦN ĐÁNH GIÁ (Mỗi buổi một hàng phẳng, không card)     */}
-        {/* ============================================================== */}
-        {activeTab === "pending" && (
-          <div className="space-y-2">
-            {pendingSessions.length === 0 ? (
-              <div className="py-20 text-center space-y-2">
-                <h3 className="font-['Newsreader',serif] font-normal text-2xl text-[#15171C]">
-                  Bạn đã hoàn tất mọi đánh giá
-                </h3>
-                <p className="text-sm text-[#6A675F] font-normal">
-                  Các buổi tập mới sẽ sẵn sàng đánh giá ngay sau khi buổi học
-                  kết thúc.
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-[rgba(21,23,28,0.12)]">
-                <AnimatePresence>
-                  {pendingSessions.map((session) => (
-                    <motion.div
-                      key={session.id}
-                      initial={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0, overflow: "hidden" }}
-                      transition={{ duration: 0.2 }}
-                      className="py-6 first:pt-2 flex flex-col md:flex-row md:items-center justify-between gap-5 hover:bg-[rgba(21,23,28,0.02)] -mx-3 px-3 rounded transition-colors"
-                    >
-                      {/* Cột 1: Ngày & Giờ (160px) */}
-                      <div className="md:w-44 shrink-0 space-y-0.5">
-                        <div className="font-['Newsreader',serif] font-normal text-xl text-[#15171C] leading-snug">
-                          {session.dayVi}
-                        </div>
-                        <div className="text-xs text-[#6A675F] font-normal tabular-nums">
-                          {session.startTime} – {session.endTime}
-                        </div>
-                      </div>
+        {/* Cột 2: Đã gửi */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+            ĐÃ GỬI
+          </span>
+          <div className="text-3xl font-black mt-2 tabular-nums text-slate-900">
+            {submittedReviews.length}
+          </div>
+        </div>
 
-                      {/* Cột 2: Nội dung khóa học & Tình trạng */}
-                      <div className="flex-1 min-w-0 space-y-1.5">
-                        <h3 className="text-base font-medium text-[#15171C] truncate">
-                          {session.className}
-                        </h3>
+        {/* Cột 3: Đã tham gia */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+            ĐÃ THAM GIA
+          </span>
+          <div className="text-3xl font-black mt-2 tabular-nums text-slate-900">
+            {attendedSessions.length}
+          </div>
+        </div>
 
-                        <p className="text-sm text-[#6A675F] font-normal">
-                          {session.court} · Huấn luyện viên{" "}
-                          {session.coach?.replace(/^HLV\s+/, "")}
-                        </p>
-
-                        <div className="text-xs text-[#6A675F] flex items-center gap-2 pt-0.5">
-                          <span>{session.attendanceNote}</span>
-                          <span className="text-[#6A675F]/40">•</span>
-                          <span
-                            className={
-                              session.deadlineDays <= 2
-                                ? "text-[#A8844F] font-medium"
-                                : "text-[#6A675F]"
-                            }
-                          >
-                            Còn {session.deadlineDays} ngày để đánh giá
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Cột 3: CTA Button (Viết đánh giá) */}
-                      <div className="shrink-0 flex items-center">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenReviewDrawer(session)}
-                          className="w-full md:w-auto px-5 py-2.5 rounded-[6px] text-xs font-medium cursor-pointer transition-all active:scale-[0.98] bg-[#15171C] hover:bg-[#2A2E37] text-[#FBF9F4] shadow-xs"
-                        >
-                          Viết đánh giá
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
+        {/* Cột 4: Điểm bạn đã cho */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+            ĐIỂM BẠN ĐÃ CHO
+          </span>
+          <div className="text-3xl font-black mt-2 tabular-nums text-slate-900 flex items-center gap-1.5">
+            <span>{averageRating}</span>
+            {submittedReviews.length > 0 && (
+              <span className="text-sm font-medium text-slate-400">/ 5★</span>
             )}
           </div>
-        )}
+          <div className="text-xs text-slate-500 mt-1">
+            {submittedReviews.length > 0
+              ? `trung bình, ${submittedReviews.length} đánh giá`
+              : "Chưa có đánh giá"}
+          </div>
+        </div>
+      </section>
 
-        {/* ============================================================== */}
-        {/* 5. TAB 2: LỊCH SỬ CỦA TÔI (Hàng phẳng, không hộp lồng hộp)       */}
-        {/* ============================================================== */}
-        {activeTab === "submitted" && (
-          <div className="space-y-6">
-            {/* Thanh lọc tối giản */}
-            <div className="flex items-center justify-between gap-4 flex-wrap pb-2 border-b border-[rgba(21,23,28,0.08)]">
-              <div className="flex items-center gap-3">
-                <select
-                  value={selectedCourseFilter}
-                  onChange={(e) => setSelectedCourseFilter(e.target.value)}
-                  className="bg-[#FBF9F4] border border-[rgba(21,23,28,0.12)] text-xs text-[#15171C] rounded-[6px] px-3 py-1.5 cursor-pointer outline-none focus:border-[#A8844F]"
-                >
-                  <option value="all">Tất cả khóa học</option>
-                  <option value="Cầu lông">Cầu lông K01</option>
-                  <option value="Pickleball">Pickleball K01</option>
-                  <option value="Bắn cung">Bắn cung K01</option>
-                </select>
+      {/* 3. TABS */}
+      <div className="flex border-b border-slate-200 gap-6 text-sm">
+        <button
+          type="button"
+          onClick={() => setActiveTab("pending")}
+          className={`pb-3 font-bold border-b-2 cursor-pointer transition-colors flex items-center gap-2 ${
+            activeTab === "pending"
+              ? "border-red-700 text-red-700"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span>Cần đánh giá</span>
+          <span className="px-2 py-0.5 text-xs rounded-full bg-slate-100 text-slate-700 font-semibold">
+            {pendingSessions.length}
+          </span>
+        </button>
 
-                <select
-                  value={selectedTimeFilter}
-                  onChange={(e) => setSelectedTimeFilter(e.target.value)}
-                  className="bg-[#FBF9F4] border border-[rgba(21,23,28,0.12)] text-xs text-[#15171C] rounded-[6px] px-3 py-1.5 cursor-pointer outline-none focus:border-[#A8844F]"
-                >
-                  <option value="all">Tất cả thời gian</option>
-                  <option value="30days">30 ngày qua</option>
-                  <option value="semester">Học kỳ này</option>
-                </select>
-              </div>
+        <button
+          type="button"
+          onClick={() => setActiveTab("submitted")}
+          className={`pb-3 font-bold border-b-2 cursor-pointer transition-colors flex items-center gap-2 ${
+            activeTab === "submitted"
+              ? "border-red-700 text-red-700"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span>Lịch sử của tôi</span>
+          <span className="px-2 py-0.5 text-xs rounded-full bg-slate-100 text-slate-700 font-semibold">
+            {submittedReviews.length}
+          </span>
+        </button>
+      </div>
 
-              <span className="text-xs text-[#6A675F] font-normal">
-                {filteredSubmittedReviews.length} đánh giá đã gửi
-              </span>
+      {/* 4. TAB 1: CẦN ĐÁNH GIÁ */}
+      {activeTab === "pending" && (
+        <div className="space-y-4">
+          {pendingSessions.length === 0 ? (
+            <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-3">
+              <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
+              <h3 className="text-lg font-bold text-slate-900">
+                Bạn đã hoàn tất mọi đánh giá
+              </h3>
+              <p className="text-sm text-slate-500 max-w-md mx-auto">
+                Các buổi tập mới sẽ sẵn sàng đánh giá ngay sau khi buổi học kết
+                thúc.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <AnimatePresence>
+                {pendingSessions.map((session) => (
+                  <motion.div
+                    key={session.id}
+                    initial={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0, overflow: "hidden" }}
+                    transition={{ duration: 0.2 }}
+                    className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:border-slate-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  >
+                    {/* Cột 1: Ngày & Giờ */}
+                    <div className="sm:w-44 shrink-0 space-y-0.5">
+                      <div className="font-bold text-slate-900">
+                        {session.dayVi}
+                      </div>
+                      <div className="text-xs text-slate-500 font-mono">
+                        {session.startTime} – {session.endTime}
+                      </div>
+                    </div>
+
+                    {/* Cột 2: Khóa học & Thông tin */}
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <h3 className="text-base font-bold text-slate-900 truncate">
+                        {session.className}
+                      </h3>
+                      <p className="text-xs text-slate-600">
+                        {session.court} · Huấn luyện viên{" "}
+                        {session.coach?.replace(/^HLV\s+/, "")}
+                      </p>
+                      <div className="text-xs text-slate-500 flex items-center gap-2 pt-0.5">
+                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[11px] font-medium">
+                          {session.attendanceNote}
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <span
+                          className={
+                            session.deadlineDays <= 2
+                              ? "text-amber-600 font-medium"
+                              : "text-slate-500"
+                          }
+                        >
+                          Còn {session.deadlineDays} ngày để đánh giá
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Cột 3: CTA Button */}
+                    <div className="shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenReviewDrawer(session)}
+                        className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all active:scale-[0.98] bg-red-700 hover:bg-red-800 text-white shadow-xs"
+                      >
+                        Viết đánh giá
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 5. TAB 2: LỊCH SỬ CỦA TÔI */}
+      {activeTab === "submitted" && (
+        <div className="space-y-4">
+          {/* Bộ lọc */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <select
+                value={selectedCourseFilter}
+                onChange={(e) => setSelectedCourseFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 text-xs text-slate-900 rounded-xl px-3 py-2 cursor-pointer outline-none focus:border-red-700"
+              >
+                <option value="all">Tất cả khóa học</option>
+                <option value="Cầu lông">Cầu lông K01</option>
+                <option value="Pickleball">Pickleball K01</option>
+                <option value="Bắn cung">Bắn cung K01</option>
+              </select>
+
+              <select
+                value={selectedTimeFilter}
+                onChange={(e) => setSelectedTimeFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 text-xs text-slate-900 rounded-xl px-3 py-2 cursor-pointer outline-none focus:border-red-700"
+              >
+                <option value="all">Tất cả thời gian</option>
+                <option value="30days">30 ngày qua</option>
+                <option value="semester">Học kỳ này</option>
+              </select>
             </div>
 
-            {filteredSubmittedReviews.length === 0 ? (
-              <div className="py-20 text-center space-y-3">
-                <p className="font-['Newsreader',serif] text-2xl text-[#15171C]">
-                  Bạn chưa có đánh giá nào
-                </p>
-                <p className="text-xs text-[#6A675F]">
-                  Ý kiến của bạn sẽ lưu tại đây sau khi gửi đánh giá buổi học.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("pending")}
-                  className="text-xs text-[#15171C] underline font-medium cursor-pointer"
-                >
-                  Xem danh sách cần đánh giá
-                </button>
-              </div>
-            ) : (
-              <div className="divide-y divide-[rgba(21,23,28,0.12)]">
-                {filteredSubmittedReviews.map((review) => {
-                  const isExpanded = Boolean(expandedComments[review.id])
-                  const isBreakdownOpen = Boolean(expandedBreakdowns[review.id])
-                  const coachBd = review.criteria?.coachBreakdown || {
-                    expertise: 5,
-                    interaction: 5,
-                    punctuality: 5,
-                  }
-                  const facilityBd = review.criteria?.facilityBreakdown || {
-                    court: 5,
-                    lighting: 5,
-                    cleanliness: 5,
-                  }
+            <span className="text-xs text-slate-500 font-medium">
+              {filteredSubmittedReviews.length} đánh giá đã gửi
+            </span>
+          </div>
 
-                  return (
-                    <div
-                      key={review.id}
-                      className="py-8 first:pt-2 flex flex-col md:flex-row md:items-start justify-between gap-6 hover:bg-[rgba(21,23,28,0.015)] -mx-3 px-3 rounded transition-colors"
-                    >
-                      {/* Cột 1: Ngày giờ buổi học */}
-                      <div className="md:w-44 shrink-0 space-y-1">
-                        <div className="font-['Newsreader',serif] font-normal text-xl text-[#15171C] leading-snug">
-                          {review.dayVi ||
-                            review.sessionMeta?.dayVi ||
-                            "Thứ Hai, 12/10"}
+          {filteredSubmittedReviews.length === 0 ? (
+            <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-3">
+              <p className="text-lg font-bold text-slate-900">
+                Bạn chưa có đánh giá nào
+              </p>
+              <p className="text-xs text-slate-500">
+                Ý kiến của bạn sẽ lưu tại đây sau khi gửi đánh giá buổi học.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveTab("pending")}
+                className="text-xs text-red-700 underline font-bold cursor-pointer"
+              >
+                Xem danh sách cần đánh giá
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredSubmittedReviews.map((review) => {
+                const isExpanded = Boolean(expandedComments[review.id])
+                const isBreakdownOpen = Boolean(expandedBreakdowns[review.id])
+                const coachBd = review.criteria?.coachBreakdown || {
+                  expertise: 5,
+                  interaction: 5,
+                  punctuality: 5,
+                }
+                const facilityBd = review.criteria?.facilityBreakdown || {
+                  court: 5,
+                  lighting: 5,
+                  cleanliness: 5,
+                }
+
+                return (
+                  <div
+                    key={review.id}
+                    className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-100 pb-4">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-bold text-slate-900">
+                            {review.className || review.sessionMeta?.className}
+                          </h3>
+                          <span className="text-slate-300">•</span>
+                          <span className="text-xs text-slate-500">
+                            {review.room ||
+                              review.sessionMeta?.court ||
+                              review.court}
+                          </span>
+                          {review.isAnonymous && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                              Ẩn danh
+                            </span>
+                          )}
+                          {review.isPrivateContactRequested && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                              Yêu cầu đối thoại
+                            </span>
+                          )}
                         </div>
-                        <div className="text-xs text-[#6A675F] font-normal tabular-nums">
+                        <p className="text-xs text-slate-500 mt-1">
+                          Huấn luyện viên:{" "}
+                          <span className="font-medium text-slate-800">
+                            {review.coachName ||
+                              review.coach ||
+                              review.sessionMeta?.coach}
+                          </span>{" "}
+                          · {review.dayVi || review.sessionMeta?.dayVi} (
                           {review.startTime ||
                             review.sessionMeta?.startTime ||
                             "06:00"}{" "}
-                          –{" "}
+                          -{" "}
                           {review.endTime ||
                             review.sessionMeta?.endTime ||
                             "07:30"}
-                        </div>
-                        <div className="text-[11px] text-[#6A675F] font-normal pt-1">
-                          Đã gửi: {review.createdAt?.slice(0, 10)}
-                          {review.updatedAt ? " (Đã cập nhật)" : ""}
-                        </div>
+                          )
+                        </p>
                       </div>
 
-                      {/* Cột 2: Thông tin đánh giá & Nhận xét */}
-                      <div className="flex-1 min-w-0 space-y-3">
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="text-base font-medium text-[#15171C]">
-                              {review.className}
-                            </h3>
-                            <span className="text-[#6A675F]/40">•</span>
-                            <span className="text-xs text-[#6A675F]">
-                              {review.room || review.sessionMeta?.court}
-                            </span>
-                            {review.isAnonymous && (
-                              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-[#15171C]/5 text-[#6A675F] border border-[rgba(21,23,28,0.12)]">
-                                Ẩn danh với HLV
-                              </span>
-                            )}
-                            {review.isPrivateContactRequested && (
-                              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-[#A8844F]/10 text-[#A8844F] border border-[#A8844F]/30">
-                                Yêu cầu Ban Giám đốc liên hệ
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-[#6A675F] pt-0.5">
-                            Huấn luyện viên:{" "}
-                            <span className="text-[#15171C] font-medium">
-                              {review.coachName}
-                            </span>
-                          </p>
-                        </div>
-
-                        {/* Điểm số & Tags nhận định */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-semibold text-[#A8844F] uppercase tracking-wider">
-                            {APPRAISAL_VERDICTS[review.rating || 5]?.label ||
-                              "Xuất sắc"}
+                      {/* Score Badge */}
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl">
+                          <span className="text-amber-500 font-black text-sm">
+                            ★
                           </span>
-
-                          {review.tags && review.tags.length > 0 && (
-                            <>
-                              <span className="text-[#6A675F]/30">•</span>
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {review.tags.map((tag) => (
-                                  <span
-                                    key={tag}
-                                    className="text-[11px] font-sans px-2 py-0.5 rounded-[4px] border border-[rgba(21,23,28,0.1)] text-[#15171C] bg-[#FBF9F4]"
-                                  >
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            </>
-                          )}
+                          <span className="font-bold text-slate-900 text-sm">
+                            {Number(
+                              review.overallRating || review.rating || 5,
+                            ).toFixed(1)}
+                          </span>
                         </div>
-
-                        {/* Lời nhận xét của hội viên */}
-                        {review.comment && (
-                          <div className="pt-0.5 space-y-1">
-                            <p
-                              className={`text-[#15171C] italic font-['Newsreader',serif] text-base leading-relaxed ${
-                                isExpanded ? "" : "line-clamp-2"
-                              }`}
-                            >
-                              “{review.comment}”
-                            </p>
-                            {review.comment.length > 120 && (
-                              <button
-                                type="button"
-                                onClick={() => toggleCommentExpand(review.id)}
-                                className="text-[11px] text-[#A8844F] hover:underline font-medium cursor-pointer block"
-                              >
-                                {isExpanded
-                                  ? "Thu gọn"
-                                  : "Xem toàn văn nhận xét"}
-                              </button>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Bảng điểm thành phần chi tiết (Collapsible) */}
-                        <div className="pt-1">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedBreakdowns((prev) => ({
-                                ...prev,
-                                [review.id]: !prev[review.id],
-                              }))
-                            }
-                            className="text-[11px] text-[#6A675F] hover:text-[#15171C] underline underline-offset-4 cursor-pointer transition-colors"
-                          >
-                            {isBreakdownOpen
-                              ? "Ẩn chi tiết 6 tiêu chí đánh giá"
-                              : "Xem chi tiết 6 tiêu chí đánh giá (HLV & Sân tập)"}
-                          </button>
-
-                          {isBreakdownOpen && (
-                            <div className="mt-2.5 p-3.5 rounded-[6px] bg-[#FBF9F4] border border-[rgba(21,23,28,0.1)] grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                              <div className="space-y-1.5">
-                                <div className="text-[10px] font-mono uppercase tracking-wider text-[#A8844F] font-semibold">
-                                  CHẤT LƯỢNG HUẤN LUYỆN
-                                </div>
-                                <div className="flex justify-between text-[#6A675F]">
-                                  <span>Chuyên môn & Kỹ thuật</span>
-                                  <span className="font-mono text-[#15171C] font-medium">
-                                    {coachBd.expertise}/5
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-[#6A675F]">
-                                  <span>Tương tác & Sửa động tác</span>
-                                  <span className="font-mono text-[#15171C] font-medium">
-                                    {coachBd.interaction}/5
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-[#6A675F]">
-                                  <span>Đúng giờ & Nhịp độ giáo án</span>
-                                  <span className="font-mono text-[#15171C] font-medium">
-                                    {coachBd.punctuality}/5
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="space-y-1.5 sm:border-l sm:border-[rgba(21,23,28,0.08)] sm:pl-4">
-                                <div className="text-[10px] font-mono uppercase tracking-wider text-[#A8844F] font-semibold">
-                                  CƠ SỞ VẬT CHẤT & SÂN BÃI
-                                </div>
-                                <div className="flex justify-between text-[#6A675F]">
-                                  <span>Chất lượng mặt sân / Thảm</span>
-                                  <span className="font-mono text-[#15171C] font-medium">
-                                    {facilityBd.court}/5
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-[#6A675F]">
-                                  <span>Ánh sáng & Nhiệt độ</span>
-                                  <span className="font-mono text-[#15171C] font-medium">
-                                    {facilityBd.lighting}/5
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-[#6A675F]">
-                                  <span>Vệ sinh & Dụng cụ tập</span>
-                                  <span className="font-mono text-[#15171C] font-medium">
-                                    {facilityBd.cleanliness}/5
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Lời hồi đáp từ Huấn luyện viên: Một dòng trích dẫn thanh lịch, KHÔNG hộp lồng hộp */}
-                        {review.coachReply && (
-                          <div className="pl-4 border-l-2 border-[#A8844F]/40 space-y-1 pt-1">
-                            <p className="text-xs sm:text-[13px] text-[#6A675F] italic font-['Newsreader',serif] leading-relaxed">
-                              “{review.coachReply}”
-                            </p>
-                            <span className="text-[11px] text-[#6A675F] font-normal block font-sans">
-                              — Huấn luyện viên{" "}
-                              {review.coachName?.replace(/^HLV\s+/, "")} · Phản
-                              hồi sau buổi tập
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Cột 3: Điểm số & Chỉnh sửa */}
-                      <div className="md:w-32 shrink-0 flex flex-col md:items-end justify-between pt-1">
-                        <span className="font-['Newsreader',serif] font-normal text-3xl text-[#15171C] leading-none lining-nums">
-                          {Number(review.rating || 5).toFixed(1)}
-                        </span>
-
                         <button
                           type="button"
                           onClick={() =>
@@ -1078,19 +924,150 @@ export function MemberFeedbackView() {
                               review,
                             )
                           }
-                          className="text-xs text-[#A8844F] hover:text-[#15171C] hover:underline cursor-pointer font-medium pt-4"
+                          className="text-xs text-red-700 hover:text-red-800 font-bold hover:underline cursor-pointer"
                         >
                           Chỉnh sửa
                         </button>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+
+                    {/* Verdict label & Tags */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-red-700 uppercase tracking-wider">
+                        {APPRAISAL_VERDICTS[
+                          Math.round(review.overallRating || review.rating || 5)
+                        ]?.label || "Chuẩn mực cao"}
+                      </span>
+
+                      {review.tags && review.tags.length > 0 && (
+                        <>
+                          <span className="text-slate-300">•</span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {review.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="text-xs px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 font-medium"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Comment */}
+                    {review.comment && (
+                      <div className="space-y-1">
+                        <p
+                          className={`text-sm text-slate-700 bg-slate-50 p-3.5 rounded-xl border border-slate-100 italic leading-relaxed ${
+                            isExpanded ? "" : "line-clamp-2"
+                          }`}
+                        >
+                          “{review.comment}”
+                        </p>
+                        {review.comment.length > 120 && (
+                          <button
+                            type="button"
+                            onClick={() => toggleCommentExpand(review.id)}
+                            className="text-xs text-red-700 hover:underline font-bold cursor-pointer block"
+                          >
+                            {isExpanded ? "Thu gọn" : "Xem toàn văn nhận xét"}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Detail criteria toggle */}
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedBreakdowns((prev) => ({
+                            ...prev,
+                            [review.id]: !prev[review.id],
+                          }))
+                        }
+                        className="text-xs text-slate-500 hover:text-slate-800 underline cursor-pointer transition-colors"
+                      >
+                        {isBreakdownOpen
+                          ? "Ẩn chi tiết tiêu chí đánh giá"
+                          : "Xem chi tiết tiêu chí đánh giá (HLV & Sân tập)"}
+                      </button>
+
+                      {isBreakdownOpen && (
+                        <div className="mt-3 p-4 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                          <div className="space-y-1.5">
+                            <div className="text-[11px] uppercase tracking-wider text-slate-500 font-bold">
+                              Huấn luyện viên
+                            </div>
+                            <div className="flex justify-between text-slate-600">
+                              <span>Chuyên môn:</span>
+                              <span className="font-bold text-slate-900">
+                                {coachBd.expertise}/5
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-slate-600">
+                              <span>Tương tác:</span>
+                              <span className="font-bold text-slate-900">
+                                {coachBd.interaction}/5
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-slate-600">
+                              <span>Đúng giờ:</span>
+                              <span className="font-bold text-slate-900">
+                                {coachBd.punctuality}/5
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5 sm:border-l sm:border-slate-200 sm:pl-4">
+                            <div className="text-[11px] uppercase tracking-wider text-slate-500 font-bold">
+                              Sân bãi & Tiện nghi
+                            </div>
+                            <div className="flex justify-between text-slate-600">
+                              <span>Mặt sân:</span>
+                              <span className="font-bold text-slate-900">
+                                {facilityBd.court}/5
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-slate-600">
+                              <span>Ánh sáng:</span>
+                              <span className="font-bold text-slate-900">
+                                {facilityBd.lighting}/5
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-slate-600">
+                              <span>Vệ sinh:</span>
+                              <span className="font-bold text-slate-900">
+                                {facilityBd.cleanliness}/5
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Coach reply if any */}
+                    {review.coachReply && (
+                      <div className="pl-4 border-l-2 border-red-700/60 space-y-1 pt-1">
+                        <p className="text-xs text-slate-600 italic leading-relaxed">
+                          “{review.coachReply}”
+                        </p>
+                        <span className="text-[11px] text-slate-400 block">
+                          — Huấn luyện viên{" "}
+                          {review.coachName?.replace(/^HLV\s+/, "")} · Phản hồi
+                          sau buổi tập
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ============================================================== */}
       {/* 6. DRAWER ĐÁNH GIÁ (Slide-Over Sheet 480px)                    */}
@@ -1104,7 +1081,7 @@ export function MemberFeedbackView() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-[#15171C]/50 backdrop-blur-xs"
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs"
               onClick={() => !isSubmitting && setDrawerOpen(false)}
               aria-hidden="true"
             />
@@ -1115,22 +1092,22 @@ export function MemberFeedbackView() {
                 animate={{ x: 0 }}
                 exit={{ x: "100%" }}
                 transition={{ type: "spring", damping: 28, stiffness: 300 }}
-                className="w-screen max-w-[480px] bg-[#FBF9F4] text-[#15171C] shadow-2xl flex flex-col justify-between border-l border-[rgba(21,23,28,0.12)] z-10"
+                className="w-screen max-w-[480px] bg-white text-slate-900 shadow-2xl flex flex-col justify-between border-l border-slate-200 z-10"
                 role="dialog"
                 aria-modal="true"
               >
                 {/* Header Drawer */}
-                <div className="p-6 border-b border-[rgba(21,23,28,0.12)] flex items-start justify-between gap-4 bg-[#FBF9F4] sticky top-0 z-10">
+                <div className="p-6 border-b border-slate-200 flex items-start justify-between gap-4 bg-white sticky top-0 z-10">
                   <div className="space-y-1">
-                    <span className="text-[10px] font-mono font-medium uppercase tracking-[0.16em] text-[#A8844F] block">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-red-700 block">
                       {editingFeedbackId
                         ? "CHỈNH SỬA ĐÁNH GIÁ"
                         : "ĐÁNH GIÁ BUỔI HỌC"}
                     </span>
-                    <h2 className="font-['Newsreader',serif] font-normal text-2xl sm:text-[28px] text-[#15171C] leading-snug">
+                    <h2 className="font-bold text-xl text-slate-900 leading-snug">
                       {activeSessionForReview.className}
                     </h2>
-                    <p className="text-xs text-[#6A675F] font-normal">
+                    <p className="text-xs text-slate-500 font-normal">
                       {activeSessionForReview.dayVi} ·{" "}
                       {activeSessionForReview.coach} ·{" "}
                       {activeSessionForReview.court}
@@ -1140,7 +1117,7 @@ export function MemberFeedbackView() {
                   <button
                     type="button"
                     onClick={() => !isSubmitting && setDrawerOpen(false)}
-                    className="p-1.5 text-[#6A675F] hover:text-[#15171C] rounded transition-colors cursor-pointer"
+                    className="p-1.5 text-slate-400 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                     title="Đóng (ESC)"
                   >
                     <X className="w-5 h-5 stroke-[1.75]" />
@@ -1148,21 +1125,20 @@ export function MemberFeedbackView() {
                 </div>
 
                 {/* Drawer Body */}
-                <div className="p-6 overflow-y-auto space-y-7 flex-1">
+                <div className="p-6 overflow-y-auto space-y-6 flex-1">
                   {isThankYouMode ? (
-                    /* XÁC NHẬN HOÀN TẤT LỊCH THIỆP */
-                    <div className="py-12 flex flex-col items-center justify-center text-center space-y-5 animate-in fade-in duration-200">
-                      <div className="w-12 h-12 rounded-full border border-[#A8844F]/40 bg-[#A8844F]/10 flex items-center justify-center text-[#A8844F]">
-                        <Check className="w-6 h-6 stroke-[2.25]" />
+                    <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 animate-in fade-in duration-200">
+                      <div className="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+                        <Check className="w-7 h-7 stroke-[2.5]" />
                       </div>
 
                       <div className="space-y-2">
-                        <h3 className="font-['Newsreader',serif] font-normal text-2xl text-[#15171C]">
+                        <h3 className="font-bold text-xl text-slate-900">
                           {editingFeedbackId
                             ? "Đã cập nhật đánh giá"
-                            : "Cảm ơn bạn đã phản hồi"}
+                            : "Cảm ơn bạn đã phản hồi!"}
                         </h3>
-                        <p className="text-xs text-[#6A675F] max-w-xs mx-auto leading-relaxed">
+                        <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
                           Ý kiến của bạn đã được chuyển tới Huấn luyện viên và
                           Ban Quản lý Chuyên môn để liên tục nâng cao chuẩn mực
                           buổi tập.
@@ -1185,7 +1161,7 @@ export function MemberFeedbackView() {
                               )
                             }
                           }}
-                          className="w-full py-2.5 rounded-[6px] bg-[#15171C] text-[#FBF9F4] text-xs font-medium cursor-pointer hover:bg-[#2A2E37] transition-all"
+                          className="w-full py-3 rounded-xl bg-red-700 text-white text-xs font-bold cursor-pointer hover:bg-red-800 transition-all shadow-xs"
                         >
                           Xem trong Lịch sử đánh giá
                         </button>
@@ -1194,16 +1170,8 @@ export function MemberFeedbackView() {
                           onClick={() => {
                             setDrawerOpen(false)
                             setIsThankYouMode(false)
-                            if (typeof showToast === "function") {
-                              showToast(
-                                editingFeedbackId
-                                  ? "Đã cập nhật đánh giá thành công."
-                                  : "Đã lưu đánh giá thành công.",
-                                "success",
-                              )
-                            }
                           }}
-                          className="w-full py-2 rounded-[6px] border border-[rgba(21,23,28,0.15)] text-[#15171C] text-xs font-medium cursor-pointer hover:bg-[rgba(21,23,28,0.04)] transition-all"
+                          className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-medium cursor-pointer hover:bg-slate-50 transition-all"
                         >
                           Đóng cửa sổ
                         </button>
@@ -1214,11 +1182,11 @@ export function MemberFeedbackView() {
                       {/* BƯỚC 1: THANG ĐIỂM CHẤM 1.0 – 5.0 */}
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <h3 className="font-['Newsreader',serif] font-normal text-xl text-[#15171C]">
+                          <h3 className="font-bold text-sm text-slate-900">
                             Đánh giá chất lượng buổi tập
                           </h3>
-                          <span className="text-[11px] font-mono text-[#A8844F] uppercase">
-                            SCALE 1.0 – 5.0
+                          <span className="text-[11px] font-bold text-red-700">
+                            THANG ĐIỂM 1 – 5
                           </span>
                         </div>
 
@@ -1230,7 +1198,6 @@ export function MemberFeedbackView() {
                         >
                           {[1, 2, 3, 4, 5].map((level) => {
                             const isSelected = overallRating === level
-                            const isFilled = overallRating >= level
                             return (
                               <button
                                 key={level}
@@ -1239,17 +1206,15 @@ export function MemberFeedbackView() {
                                 aria-checked={isSelected}
                                 aria-label={`Mức ${level} trên 5: ${APPRAISAL_VERDICTS[level].label}`}
                                 onClick={() => setOverallRating(level)}
-                                className={`h-12 rounded-[6px] flex flex-col items-center justify-center transition-all cursor-pointer border ${
+                                className={`h-11 rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer font-bold text-sm border ${
                                   isSelected
-                                    ? "bg-[#15171C] text-[#FBF9F4] border-[#A8844F] ring-1 ring-[#A8844F] shadow-sm scale-102"
-                                    : isFilled
-                                      ? "bg-[#A8844F]/15 border-[#A8844F]/40 text-[#15171C]"
-                                      : "bg-[#FBF9F4] border-[rgba(21,23,28,0.15)] text-[#6A675F] hover:border-[#15171C]"
+                                    ? "bg-red-700 text-white border-red-700 shadow-xs"
+                                    : overallRating >= level
+                                      ? "bg-red-50 text-red-700 border-red-200"
+                                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                                 }`}
                               >
-                                <span className="font-['Newsreader',serif] text-lg font-normal leading-none">
-                                  {level}.0
-                                </span>
+                                <span>{level}★</span>
                               </button>
                             )
                           })}
@@ -1259,27 +1224,27 @@ export function MemberFeedbackView() {
                         <div className="min-h-5 pt-0.5">
                           {overallRating > 0 ? (
                             <div className="flex items-baseline gap-2 animate-in fade-in duration-150">
-                              <span className="text-xs font-semibold text-[#A8844F] uppercase tracking-wider">
+                              <span className="text-xs font-bold text-red-700">
                                 {APPRAISAL_VERDICTS[overallRating].label}
                               </span>
-                              <span className="text-[11px] text-[#6A675F]">
+                              <span className="text-[11px] text-slate-500">
                                 · {APPRAISAL_VERDICTS[overallRating].desc}
                               </span>
                             </div>
                           ) : (
-                            <span className="text-[11px] text-[#6A675F]">
-                              Chọn mức đánh giá từ 1.0 đến 5.0
+                            <span className="text-[11px] text-slate-400">
+                              Chọn số sao đánh giá từ 1 đến 5 sao
                             </span>
                           )}
                         </div>
                       </div>
 
-                      {/* BƯỚC 2: Tiêu chí chi tiết (Hiện khi đã chọn điểm tổng) */}
+                      {/* BƯỚC 2: Tiêu chí chi tiết */}
                       {overallRating > 0 && (
-                        <div className="space-y-6 pt-3 border-t border-[rgba(21,23,28,0.08)] animate-in fade-in duration-200">
+                        <div className="space-y-5 pt-3 border-t border-slate-100 animate-in fade-in duration-200">
                           {/* Nhóm 1: Huấn luyện viên */}
                           <div className="space-y-3">
-                            <span className="text-[10px] font-mono font-medium uppercase tracking-[0.16em] text-[#A8844F] block">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
                               TIÊU CHÍ HUẤN LUYỆN VIÊN
                             </span>
 
@@ -1302,7 +1267,7 @@ export function MemberFeedbackView() {
                                   key={item.key}
                                   className="flex items-center justify-between text-xs py-1"
                                 >
-                                  <span className="text-[#15171C]">
+                                  <span className="text-slate-700 font-medium">
                                     {item.label}
                                   </span>
                                   <div className="flex items-center gap-1.5">
@@ -1316,12 +1281,12 @@ export function MemberFeedbackView() {
                                             [item.key]: pt,
                                           }))
                                         }
-                                        className={`w-6 h-6 rounded-full text-[10px] font-medium transition-all cursor-pointer ${
+                                        className={`w-6 h-6 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                                           coachCriteria[item.key] === pt
-                                            ? "bg-[#15171C] text-[#FBF9F4]"
-                                            : coachCriteria[item.key] > pt
-                                              ? "bg-[#A8844F]/20 text-[#15171C]"
-                                              : "bg-white border border-[rgba(21,23,28,0.15)] text-[#6A675F]"
+                                            ? "bg-red-700 text-white"
+                                            : coachCriteria[item.key] >= pt
+                                              ? "bg-red-50 text-red-700"
+                                              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                                         }`}
                                       >
                                         {pt}
@@ -1334,8 +1299,8 @@ export function MemberFeedbackView() {
                           </div>
 
                           {/* Nhóm 2: Sân bãi & Tiện nghi */}
-                          <div className="space-y-3 pt-2">
-                            <span className="text-[10px] font-mono font-medium uppercase tracking-[0.16em] text-[#A8844F] block">
+                          <div className="space-y-3 pt-2 border-t border-slate-100">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
                               TIÊU CHÍ SÂN BÃI & TIỆN NGHI
                             </span>
 
@@ -1347,7 +1312,7 @@ export function MemberFeedbackView() {
                                 },
                                 {
                                   key: "lighting",
-                                  label: "Nhiệt độ không gian & Độ tĩnh âm",
+                                  label: "Nhiệt độ không gian & Tiếng ồn",
                                 },
                                 {
                                   key: "cleanliness",
@@ -1358,7 +1323,7 @@ export function MemberFeedbackView() {
                                   key={item.key}
                                   className="flex items-center justify-between text-xs py-1"
                                 >
-                                  <span className="text-[#15171C]">
+                                  <span className="text-slate-700 font-medium">
                                     {item.label}
                                   </span>
                                   <div className="flex items-center gap-1.5">
@@ -1372,12 +1337,12 @@ export function MemberFeedbackView() {
                                             [item.key]: pt,
                                           }))
                                         }
-                                        className={`w-6 h-6 rounded-full text-[10px] font-medium transition-all cursor-pointer ${
+                                        className={`w-6 h-6 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                                           facilityCriteria[item.key] === pt
-                                            ? "bg-[#15171C] text-[#FBF9F4]"
-                                            : facilityCriteria[item.key] > pt
-                                              ? "bg-[#A8844F]/20 text-[#15171C]"
-                                              : "bg-white border border-[rgba(21,23,28,0.15)] text-[#6A675F]"
+                                            ? "bg-red-700 text-white"
+                                            : facilityCriteria[item.key] >= pt
+                                              ? "bg-red-50 text-red-700"
+                                              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                                         }`}
                                       >
                                         {pt}
@@ -1393,8 +1358,8 @@ export function MemberFeedbackView() {
 
                       {/* BƯỚC 3: Gợi ý nhận định nhanh */}
                       {overallRating > 0 && (
-                        <div className="space-y-2.5 pt-3 border-t border-[rgba(21,23,28,0.08)]">
-                          <span className="text-[10px] font-mono font-medium uppercase tracking-[0.16em] text-[#A8844F] block">
+                        <div className="space-y-2.5 pt-3 border-t border-slate-100">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
                             NHẬN ĐỊNH NHANH (CHỌN ĐỂ THÊM VÀO Ý KIẾN)
                           </span>
                           <div className="flex flex-wrap gap-2 pt-0.5">
@@ -1408,10 +1373,10 @@ export function MemberFeedbackView() {
                                   key={tag}
                                   type="button"
                                   onClick={() => handleToggleTag(tag)}
-                                  className={`text-xs px-3 py-1.5 rounded-[4px] transition-all cursor-pointer ${
+                                  className={`text-xs px-3 py-1.5 rounded-lg transition-all cursor-pointer font-medium border ${
                                     isSelected
-                                      ? "bg-[#15171C] text-[#FBF9F4] border border-[#15171C]"
-                                      : "bg-transparent border border-[rgba(21,23,28,0.15)] text-[#15171C] hover:border-[#15171C]"
+                                      ? "bg-red-50 text-red-700 border-red-200 font-bold"
+                                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                                   }`}
                                 >
                                   {tag}
@@ -1424,31 +1389,31 @@ export function MemberFeedbackView() {
 
                       {/* BƯỚC 4: Nhận xét văn bản */}
                       {overallRating > 0 && (
-                        <div className="space-y-2.5 pt-3 border-t border-[rgba(21,23,28,0.08)]">
-                          <label className="text-[10px] font-mono font-medium uppercase tracking-[0.16em] text-[#A8844F] block">
+                        <div className="space-y-2 pt-3 border-t border-slate-100">
+                          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
                             Ý KIẾN ĐÓNG GÓP CHI TIẾT (TÙY CHỌN)
                           </label>
 
                           <textarea
                             value={commentText}
                             onChange={(e) => setCommentText(e.target.value)}
-                            rows={4}
+                            rows={3}
                             placeholder="Ghi chú chi tiết về bài tập, động tác, nhịp độ hoặc chất lượng sân..."
-                            className="w-full p-3.5 bg-white border border-[rgba(21,23,28,0.15)] rounded-[6px] text-xs text-[#15171C] placeholder:text-[#6A675F]/60 focus:outline-none focus:border-[#A8844F] focus:ring-1 focus:ring-[#A8844F] transition-all resize-none leading-relaxed"
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-red-700 focus:ring-1 focus:ring-red-700 transition-all resize-none leading-relaxed"
                           />
                         </div>
                       )}
 
                       {/* BƯỚC 5: Quyền riêng tư & Đối thoại bảo mật */}
                       {overallRating > 0 && (
-                        <div className="space-y-3 pt-3 border-t border-[rgba(21,23,28,0.08)]">
+                        <div className="space-y-2.5 pt-3 border-t border-slate-100">
                           {/* Ẩn danh */}
-                          <label className="flex items-center gap-2.5 cursor-pointer text-xs text-[#15171C]">
+                          <label className="flex items-center gap-2.5 cursor-pointer text-xs text-slate-700">
                             <input
                               type="checkbox"
                               checked={isAnonymous}
                               onChange={(e) => setIsAnonymous(e.target.checked)}
-                              className="w-4 h-4 rounded border-[rgba(21,23,28,0.2)] text-[#15171C] focus:ring-[#A8844F]"
+                              className="w-4 h-4 rounded border-slate-300 text-red-700 focus:ring-red-700"
                             />
                             <span>
                               Gửi ẩn danh với Huấn luyện viên (chỉ Ban Giám đốc
@@ -1457,14 +1422,14 @@ export function MemberFeedbackView() {
                           </label>
 
                           {/* Đối thoại riêng */}
-                          <label className="flex items-center gap-2.5 cursor-pointer text-xs text-[#15171C]">
+                          <label className="flex items-center gap-2.5 cursor-pointer text-xs text-slate-700">
                             <input
                               type="checkbox"
                               checked={isPrivateContactRequested}
                               onChange={(e) =>
                                 setIsPrivateContactRequested(e.target.checked)
                               }
-                              className="w-4 h-4 rounded border-[rgba(21,23,28,0.2)] text-[#15171C] focus:ring-[#A8844F]"
+                              className="w-4 h-4 rounded border-slate-300 text-red-700 focus:ring-red-700"
                             />
                             <span>
                               Đề nghị Giám đốc Chuyên môn liên hệ trực tiếp trao
@@ -1475,7 +1440,7 @@ export function MemberFeedbackView() {
                       )}
 
                       {submitError && (
-                        <div className="p-3 rounded bg-rose-50 border border-rose-200 text-xs text-rose-700">
+                        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium">
                           {submitError}
                         </div>
                       )}
@@ -1485,11 +1450,11 @@ export function MemberFeedbackView() {
 
                 {/* Footer Drawer */}
                 {!isThankYouMode && (
-                  <div className="p-6 border-t border-[rgba(21,23,28,0.12)] bg-[#FBF9F4] flex items-center justify-between gap-4">
+                  <div className="p-6 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-4">
                     <button
                       type="button"
                       onClick={() => setDrawerOpen(false)}
-                      className="px-4 py-2.5 text-xs text-[#6A675F] hover:text-[#15171C] font-medium cursor-pointer"
+                      className="px-4 py-2.5 text-xs text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
                     >
                       Hủy bỏ
                     </button>
@@ -1498,10 +1463,10 @@ export function MemberFeedbackView() {
                       type="button"
                       disabled={overallRating === 0 || isSubmitting}
                       onClick={handleSubmitReview}
-                      className={`px-6 py-2.5 rounded-[6px] text-xs font-medium cursor-pointer transition-all ${
+                      className={`px-6 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all ${
                         overallRating > 0 && !isSubmitting
-                          ? "bg-[#15171C] hover:bg-[#2A2E37] text-[#FBF9F4] shadow-xs active:scale-[0.98]"
-                          : "bg-[rgba(21,23,28,0.1)] text-[#6A675F]/60 cursor-not-allowed"
+                          ? "bg-red-700 hover:bg-red-800 text-white shadow-xs active:scale-[0.98]"
+                          : "bg-slate-200 text-slate-400 cursor-not-allowed"
                       }`}
                     >
                       {isSubmitting
@@ -1517,6 +1482,6 @@ export function MemberFeedbackView() {
           </div>
         )}
       </AnimatePresence>
-    </div>
+    </main>
   )
 }
