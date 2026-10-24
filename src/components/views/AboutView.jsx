@@ -3,7 +3,7 @@ import { Link } from "react-router-dom"
 import { ArrowRight } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { CoachesHeader } from "../layout/CoachesHeader"
-import { CoachEnrollmentFooter } from "../layout/CoachEnrollmentFooter"
+import { PublicFooter } from "../layout/PublicFooter"
 import "../../styles/coaches.css"
 
 const values = [
@@ -62,7 +62,7 @@ export function AboutView() {
         </section>
 
       </main>
-      <CoachEnrollmentFooter />
+      <PublicFooter />
     </div>
   )
 }

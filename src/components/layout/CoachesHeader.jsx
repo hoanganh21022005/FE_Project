@@ -4,7 +4,7 @@ import { ChevronDown, Menu, X } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { publicSports } from "../../data/publicCoaches"
 
-export function CoachesHeader({ enrollmentHref = "#enrollment" }) {
+export function CoachesHeader() {
   const { language, setLanguage } = useSCMS()
   const isVi = language === "vi"
   const [menuOpen, setMenuOpen] = useState(false)
@@ -41,7 +41,6 @@ export function CoachesHeader({ enrollmentHref = "#enrollment" }) {
     ["/#courses", "Khóa học", "Courses"],
     ["/coaches", "Huấn luyện viên", "Coaches"],
     ["/facilities", "Cơ sở vật chất", "Facilities"],
-    [enrollmentHref, "Tuyển sinh", "Admissions"],
   ]
   const renderLinks = (mobile = false) => links.map(([href, vi, en]) => href === "/#courses" ? (
     <div key={href} className="relative">

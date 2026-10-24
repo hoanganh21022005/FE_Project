@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUpRight, Compass, Heart, Target, Users, X } from "lucid
 import { useSCMS } from "../../context/SCMSContext"
 import { publicCoaches, publicSports } from "../../data/publicCoaches"
 import { CoachesHeader } from "../layout/CoachesHeader"
-import { CoachEnrollmentFooter } from "../layout/CoachEnrollmentFooter"
+import { PublicFooter } from "../layout/PublicFooter"
 import { Reveal } from "../common/Reveal"
 import "../../styles/coaches.css"
 
@@ -144,12 +144,12 @@ export function CoachesView() {
             </div>
             <div className="mt-8 flex flex-wrap items-center justify-between gap-5 border-t border-white/10 pt-6">
               <p className="text-xs leading-6 text-white/45">{isVi ? "Hình ảnh huấn luyện viên mang tính minh họa." : "Coach images are illustrative."}</p>
-              <Link to="#enrollment" className="inline-flex items-center gap-2 text-sm font-semibold transition hover:text-mlc-red">{isVi ? "Tìm môn học phù hợp với bạn" : "Find your sport"}<ArrowUpRight className="h-4 w-4" /></Link>
+              <Link to="#contact-info" className="inline-flex items-center gap-2 text-sm font-semibold transition hover:text-mlc-red">{isVi ? "Liên hệ với chúng tôi" : "Contact us"}<ArrowUpRight className="h-4 w-4" /></Link>
             </div>
           </div>
         </section>
       </main>
-      <CoachEnrollmentFooter />
+      <PublicFooter />
       {selectedCoach && (
         <div
           className="coaches-profile-backdrop"
@@ -184,7 +184,7 @@ export function CoachesView() {
                   ? `Huấn luyện viên ${selectedCoach.specialtyVi} tại VIBE Sport. Hãy liên hệ để được tư vấn lớp học phù hợp với mục tiêu và trình độ của bạn.`
                   : `A ${selectedCoach.specialty} coach at VIBE Sport. Get in touch to find a class that fits your goals and experience.`}
               </p>
-              <a href="#enrollment" className="coaches-profile-cta" onClick={() => setSelectedCoach(null)}>
+              <a href="#contact-info" className="coaches-profile-cta" onClick={() => setSelectedCoach(null)}>
                 {isVi ? "Tư vấn khóa học" : "Ask about classes"}<ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               </a>
               <p className="coaches-profile-note">{isVi ? "Ảnh huấn luyện viên mang tính minh họa." : "Coach photo is illustrative."}</p>

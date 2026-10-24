@@ -258,7 +258,7 @@ function SCMSApp() {
               <Route path="/coaches" element={<CoachesView />} />
               <Route path="/facilities" element={<FacilitiesView />} />
               <Route path="/courses/:sportId" element={<SportCourseView />} />
-              <Route path="/" element={<HomeLandingView onOpenLogin={() => navigate('/login')} onOpenRegister={(pkgId) => { setTargetPackageId(pkgId || null); navigate('/register'); }} />} />
+              <Route path="/" element={<HomeLandingView onOpenLogin={() => navigate('/login')} />} />
               <Route path="/discipline/pt" element={<PTDetailView />} />
               <Route path="/discipline/gym" element={<GymDetailView />} />
               <Route path="/discipline/boxing" element={<BoxingDetailView />} />

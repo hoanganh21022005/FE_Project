@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { publicSports } from '../../data/publicCoaches';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency } from '../../locales/translations';
 import { getErrorMessage } from '../../api/apiErrors';
@@ -35,8 +34,6 @@ const DEMO_PASSWORD = "Scms@2026";
 export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login', initialPackageId, initialError = '', adminEntry = false }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const enrollment = initialMode === 'register' ? location.state?.enrollment : null;
-  const enrollmentSport = publicSports.find(sport => sport.id === enrollment?.sportId);
   useEffect(() => { window.scrollTo(0, 0); }, [initialMode]);
 
   const { language, setLanguage, packages, members, addMember, login, logout, apiEnabled } = useSCMS();
@@ -55,9 +52,9 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
   const [isLoginLoading, setIsLoginLoading] = useState(false);
 
   // --- REGISTER STATE ---
-  const [regName, setRegName] = useState(enrollment?.name || '');
-  const [regPhone, setRegPhone] = useState(enrollment?.phone || '');
-  const [regEmail, setRegEmail] = useState(enrollment?.email || '');
+  const [regName, setRegName] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
@@ -897,12 +894,6 @@ export function LoginView({ onLoginSuccess, onBackToHome, initialMode = 'login',
 
             {/* Form */}
             <form onSubmit={handleRegister} autoComplete="off" className="space-y-4">
-              {enrollmentSport && (
-                <p className="border-l-2 border-mlc-red bg-rose-50 px-3 py-2 text-xs leading-6 text-stone-700">
-                  {isVi ? `Môn quan tâm: ${enrollmentSport.title}` : `Interested in: ${enrollmentSport.titleEn}`}
-                  {enrollment.age && (isVi ? ` · Độ tuổi học viên: ${enrollment.age}` : ` · Student age: ${enrollment.age}`)}
-                </p>
-              )}
               {/* Full Name */}
               <div>
                 <input
