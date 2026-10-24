@@ -35,6 +35,8 @@ export const buildCurrentUser = (authUser, fallbackUser) => {
     name: authUser.fullName,
     email: authUser.email,
     role: authUser.role,
+    avatarUrl:
+      authUser.avatarUrl || authUser.avatar || fallbackUser?.avatarUrl || null,
     authorities: authUser.authorities || [],
   }
 }
