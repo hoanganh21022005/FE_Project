@@ -47,7 +47,17 @@ export function PersonalProfileView() {
 
   const storageKey = `scms_avatar_${currentUser?.id || currentUser?.email || "me"}`
 
-  const [profile, setProfile] = useState(EMPTY)
+  const [profile, setProfile] = useState(() => ({
+    ...EMPTY,
+    name: currentUser?.name || "",
+    email: currentUser?.email || "",
+    phone: currentUser?.phone || "",
+    gender: currentUser?.gender || "",
+    address: currentUser?.address || "",
+    dateOfBirth: currentUser?.dateOfBirth
+      ? String(currentUser.dateOfBirth).slice(0, 10)
+      : "",
+  }))
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -76,24 +86,38 @@ export function PersonalProfileView() {
       setProfile({
         ...EMPTY,
         ...m,
+        name: m.name || currentUser?.name || "",
+        email: m.email || currentUser?.email || "",
         dateOfBirth: m.dateOfBirth ? String(m.dateOfBirth).slice(0, 10) : "",
       })
       if (m.avatarUrl) {
         setAvatarUrl(m.avatarUrl)
       }
     } catch (e) {
-      setError(
-        getErrorMessage(
-          e,
-          isVi
-            ? "Không tải được hồ sơ hội viên."
-            : "Could not load member profile.",
-        ),
-      )
+      // Backend /api/members/{id} is restricted to Staff/Admin, so Member gets 403 Access Denied.
+      // Fallback gracefully to currentUser from auth session without alarming the user.
+      const status = e?.status || e?.response?.status
+      const msg = String(e?.message || "")
+      if (status === 403 || msg.toLowerCase().includes("access denied")) {
+        setProfile((prev) => ({
+          ...prev,
+          name: prev.name || currentUser?.name || "",
+          email: prev.email || currentUser?.email || "",
+        }))
+      } else {
+        setError(
+          getErrorMessage(
+            e,
+            isVi
+              ? "Không tải được hồ sơ hội viên."
+              : "Could not load member profile.",
+          ),
+        )
+      }
     } finally {
       setLoading(false)
     }
-  }, [isVi, memberId, valid])
+  }, [currentUser?.email, currentUser?.name, isVi, memberId, valid])
 
   useEffect(() => {
     refresh()
@@ -132,12 +156,22 @@ export function PersonalProfileView() {
       setNotice(msg)
       if (typeof showToast === "function") showToast(msg, "success")
     } catch (e) {
-      setError(
-        getErrorMessage(
-          e,
-          isVi ? "Không thể cập nhật hồ sơ." : "Could not update profile.",
-        ),
-      )
+      const status = e?.status || e?.response?.status
+      const msg = String(e?.message || "")
+      if (status === 403 || msg.toLowerCase().includes("access denied")) {
+        setError(
+          isVi
+            ? "Lưu ý bảo mật: Thông tin cá nhân chính (Họ tên, Email) chỉ có thể cập nhật thông qua Quầy lễ tân hoặc Admin."
+            : "Security notice: Primary personal details can only be modified by Staff or Admin.",
+        )
+      } else {
+        setError(
+          getErrorMessage(
+            e,
+            isVi ? "Không thể cập nhật hồ sơ." : "Could not update profile.",
+          ),
+        )
+      }
     } finally {
       setSaving(false)
     }
