@@ -68,3 +68,14 @@ export function mapAdminAuditLog(item = {}) {
     createdAt: item.createdAt ?? null,
   }
 }
+
+export function mapSpecialization(item = {}) {
+  return {
+    id: asNumber(item.id),
+    name: item.name ?? "",
+    subjectId: asNumber(item.subjectId),
+    subjectName: item.subjectName ?? null,
+    description: item.description ?? null,
+    status: normalizeStatus(item.status),
+  }
+}

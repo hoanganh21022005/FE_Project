@@ -94,6 +94,13 @@ export const bookPrivateSession = async (payload) => {
   return httpClient.post("/api/sessions/book-private", payload)
 }
 
+export const getCoachFeedback = async (params = {}) => {
+  const query = new URLSearchParams()
+  if (params.classId) query.set("classId", params.classId)
+  const qStr = query.toString()
+  return list(`/api/coaches/me/feedback${qStr ? `?${qStr}` : ""}`)
+}
+
 export const memberPortalApi = {
   getMemberClasses,
   getClassSessions,
@@ -112,6 +119,7 @@ export const memberPortalApi = {
   getTimeSlots,
   getRooms,
   bookPrivateSession,
+  getCoachFeedback,
 }
 
 export default memberPortalApi
