@@ -20,6 +20,31 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
   const navigate = useNavigate()
   const isMemberFeedback = location.pathname.startsWith("/member/feedback")
   const [isNotifOpen, setIsNotifOpen] = useState(false)
+  const [headerAvatar, setHeaderAvatar] = useState(
+    () =>
+      currentUser?.avatarUrl ||
+      (typeof window !== "undefined"
+        ? localStorage.getItem(
+            `scms_avatar_${currentUser?.id || currentUser?.email || "me"}`,
+          )
+        : null),
+  )
+
+  useEffect(() => {
+    if (currentUser?.avatarUrl) {
+      setHeaderAvatar(currentUser.avatarUrl)
+    }
+  }, [currentUser?.avatarUrl])
+
+  useEffect(() => {
+    const handleAvatarUpdate = (e) => {
+      setHeaderAvatar(e.detail)
+    }
+    window.addEventListener("scms:avatar-updated", handleAvatarUpdate)
+    return () => {
+      window.removeEventListener("scms:avatar-updated", handleAvatarUpdate)
+    }
+  }, [])
   const [notifications, setNotifications] = useState(() =>
     apiEnabled
       ? []
@@ -368,29 +393,36 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
           )}
         </div>
 
-        {/* User Info & Avatar */}
-        <div className="flex items-center gap-2.5 pl-2 sm:pl-3 border-l border-slate-200">
-          <div className="w-8 h-8 rounded-full border border-[rgba(21,23,28,0.15)] bg-[#FBF9F4] text-[#15171C] flex items-center justify-center font-medium text-xs shrink-0 overflow-hidden">
-            {currentUser?.avatarUrl ? (
-              <img
-                src={currentUser.avatarUrl}
-                alt="Avatar"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              (currentUser?.name || "B").charAt(0)
-            )}
-          </div>
-          <div className="hidden sm:block text-left">
-            <div className="text-xs font-semibold text-[#15171C] leading-tight truncate max-w-[140px]">
-              {currentUser?.name || "Bùi Văn Phúc"}
+        {/* User Info & Avatar (Clickable to /profile) */}
+        <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-slate-200">
+          <button
+            type="button"
+            onClick={() => navigate("/profile")}
+            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer text-left bg-transparent border-0 p-0 focus:outline-hidden"
+            title={language === "vi" ? "Xem hồ sơ cá nhân" : "View profile"}
+          >
+            <div className="w-8 h-8 rounded-full border border-[rgba(21,23,28,0.15)] bg-[#FBF9F4] text-[#15171C] flex items-center justify-center font-medium text-xs shrink-0 overflow-hidden">
+              {headerAvatar ? (
+                <img
+                  src={headerAvatar}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                (currentUser?.name || "B").charAt(0)
+              )}
             </div>
-            <div className="text-[10px] text-[#6A675F] font-normal leading-tight truncate max-w-[140px]">
-              {(currentUser?.email || "phuc.bui@vibeathletic.com")
-                .replace("@fitzone.vn", "@vibeathletic.com")
-                .replace("@scms.com", "@vibeathletic.com")}
+            <div className="hidden sm:block text-left">
+              <div className="text-xs font-semibold text-[#15171C] leading-tight truncate max-w-[140px]">
+                {currentUser?.name || "Bùi Văn Phúc"}
+              </div>
+              <div className="text-[10px] text-[#6A675F] font-normal leading-tight truncate max-w-[140px]">
+                {(currentUser?.email || "phuc.bui@vibeathletic.com")
+                  .replace("@fitzone.vn", "@vibeathletic.com")
+                  .replace("@scms.com", "@vibeathletic.com")}
+              </div>
             </div>
-          </div>
+          </button>
           {onLogout && (
             <button
               id="header-logout-btn"

@@ -45,6 +45,8 @@ export function PersonalProfileView() {
   const memberId = Number(currentUser?.memberId)
   const valid = Number.isInteger(memberId) && memberId > 0
 
+  const storageKey = `scms_avatar_${currentUser?.id || currentUser?.email || "me"}`
+
   const [profile, setProfile] = useState(EMPTY)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -52,7 +54,11 @@ export function PersonalProfileView() {
   const [notice, setNotice] = useState("")
 
   // Avatar state
-  const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatarUrl || null)
+  const [avatarUrl, setAvatarUrl] = useState(
+    () =>
+      currentUser?.avatarUrl ||
+      (typeof window !== "undefined" ? localStorage.getItem(storageKey) : null),
+  )
   const [avatarLoading, setAvatarLoading] = useState(false)
   const [avatarNotice, setAvatarNotice] = useState("")
   const [avatarError, setAvatarError] = useState("")
@@ -165,12 +171,33 @@ export function PersonalProfileView() {
     setAvatarNotice("")
 
     try {
-      const res = await authApi.uploadMyAvatar(file)
-      const newUrl = res?.avatarUrl || URL.createObjectURL(file)
-      setAvatarUrl(newUrl)
-      if (currentUser) {
-        currentUser.avatarUrl = newUrl
+      let remoteUrl = null
+      try {
+        const res = await authApi.uploadMyAvatar(file)
+        remoteUrl = res?.avatarUrl || null
+      } catch (beErr) {
+        console.warn("Backend avatar upload warning:", beErr)
       }
+
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const finalUrl =
+          remoteUrl || event.target?.result || URL.createObjectURL(file)
+        setAvatarUrl(finalUrl)
+        if (currentUser) {
+          currentUser.avatarUrl = finalUrl
+        }
+        try {
+          localStorage.setItem(storageKey, finalUrl)
+        } catch {}
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("scms:avatar-updated", { detail: finalUrl }),
+          )
+        }
+      }
+      reader.readAsDataURL(file)
+
       const msg = isVi
         ? "Đã cập nhật ảnh đại diện mới."
         : "Avatar updated successfully."
@@ -201,10 +228,22 @@ export function PersonalProfileView() {
     setAvatarNotice("")
 
     try {
-      await authApi.deleteMyAvatar()
+      try {
+        await authApi.deleteMyAvatar()
+      } catch (beErr) {
+        console.warn("Backend avatar delete warning:", beErr)
+      }
       setAvatarUrl(null)
       if (currentUser) {
         currentUser.avatarUrl = null
+      }
+      try {
+        localStorage.removeItem(storageKey)
+      } catch {}
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("scms:avatar-updated", { detail: null }),
+        )
       }
       const msg = isVi ? "Đã xóa ảnh đại diện." : "Avatar deleted successfully."
       setAvatarNotice(msg)
