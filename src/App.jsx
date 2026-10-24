@@ -336,7 +336,7 @@ function SCMSApp() {
         <Sidebar mobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0">
           <Header currentTitle={getPageTitle()} onLogout={handleLogout} onOpenMobileMenu={() => setMobileSidebarOpen(true)} />
-          <main className={`flex-1 ${location.pathname.startsWith('/member') ? 'overflow-y-auto w-full bg-white' : 'p-3 sm:p-4 md:p-6 overflow-y-auto max-w-7xl w-full mx-auto'}`}>
+          <main className={`flex-1 ${location.pathname.startsWith('/member') ? 'overflow-y-auto w-full bg-white' : location.pathname === '/manager/packages' ? 'min-w-0 p-3 sm:p-4 md:p-6 overflow-y-auto w-full' : 'p-3 sm:p-4 md:p-6 overflow-y-auto max-w-7xl w-full mx-auto'}`}>
             <ErrorBoundary inline>
               <Suspense fallback={<div className="flex-1 flex items-center justify-center p-6"><div className="w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full animate-spin"></div></div>}>
                 <Routes>
