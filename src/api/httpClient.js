@@ -1,84 +1,108 @@
-import { createApiError } from './apiErrors.js';
+import { createApiError } from "./apiErrors.js"
 
-export const UNAUTHORIZED_EVENT = 'scms:unauthorized';
-export const FORBIDDEN_EVENT = 'scms:forbidden';
+export const UNAUTHORIZED_EVENT = "scms:unauthorized"
+export const FORBIDDEN_EVENT = "scms:forbidden"
 
 const API_BASE_URL = String(
-  import.meta?.env?.VITE_API_BASE_URL || (import.meta?.env?.DEV ? '' : 'https://scms-app-p1gy.onrender.com'),
-).replace(/\/+$/, '');
+  import.meta?.env?.VITE_API_BASE_URL ||
+    (import.meta?.env?.DEV ? "" : "https://scms-app-p1gy.onrender.com"),
+).replace(/\/+$/, "")
 
 function resolveUrl(path) {
-  if (/^https?:\/\//i.test(path)) return path;
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${API_BASE_URL}${normalizedPath}`;
+  if (/^https?:\/\//i.test(path)) return path
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`
+  return `${API_BASE_URL}${normalizedPath}`
 }
 
 export async function httpRequest(path, options = {}) {
-  const headers = new Headers(options.headers);
-  const hasBody = options.body !== undefined && options.body !== null;
+  const headers = new Headers(options.headers)
+  const hasBody = options.body !== undefined && options.body !== null
+  const isFormData =
+    typeof FormData !== "undefined" && options.body instanceof FormData
 
-  if (hasBody && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
+  if (hasBody && !isFormData && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json")
   }
-  if (!headers.has('Accept')) {
-    headers.set('Accept', 'application/json');
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "application/json")
   }
 
-  let response;
+  let response
   try {
     response = await fetch(resolveUrl(path), {
       ...options,
       headers,
-      credentials: 'include',
-      body: hasBody && typeof options.body !== 'string'
-        ? JSON.stringify(options.body)
-        : options.body,
-    });
+      credentials: "include",
+      body:
+        hasBody && !isFormData && typeof options.body !== "string"
+          ? JSON.stringify(options.body)
+          : options.body,
+    })
   } catch (error) {
-    throw createApiError(0, null, error?.message || 'Không thể kết nối đến máy chủ.');
+    throw createApiError(
+      0,
+      null,
+      error?.message || "Không thể kết nối đến máy chủ.",
+    )
   }
 
-  const contentType = response.headers.get('content-type') || '';
-  const body = response.status === 204
-    ? null
-    : contentType.includes('application/json')
-      ? await response.json().catch(() => null)
-      : await response.text().catch(() => '');
+  const contentType = response.headers.get("content-type") || ""
+  const body =
+    response.status === 204
+      ? null
+      : contentType.includes("application/json")
+        ? await response.json().catch(() => null)
+        : await response.text().catch(() => "")
 
   if (!response.ok) {
-    if (response.status === 401
-      && options.notifyUnauthorized !== false
-      && typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
+    if (
+      response.status === 401 &&
+      options.notifyUnauthorized !== false &&
+      typeof window !== "undefined"
+    ) {
+      window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT))
     }
-    if (response.status === 403
-      && options.notifyForbidden !== false
-      && typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent(FORBIDDEN_EVENT, {
-        detail: { path, method: options.method || 'GET', body, status: 403 },
-      }));
+    if (
+      response.status === 403 &&
+      options.notifyForbidden !== false &&
+      typeof window !== "undefined"
+    ) {
+      window.dispatchEvent(
+        new CustomEvent(FORBIDDEN_EVENT, {
+          detail: { path, method: options.method || "GET", body, status: 403 },
+        }),
+      )
     }
-    const apiError = createApiError(response.status, body);
-    apiError.endpoint = path;
-    apiError.requestId = response.headers.get('x-request-id')
-      || response.headers.get('request-id')
-      || response.headers.get('traceparent');
-    throw apiError;
+    const apiError = createApiError(response.status, body)
+    apiError.endpoint = path
+    apiError.requestId =
+      response.headers.get("x-request-id") ||
+      response.headers.get("request-id") ||
+      response.headers.get("traceparent")
+    throw apiError
   }
 
-  return body;
+  return body
 }
 
 export const httpClient = {
-  get: (path, options) => httpRequest(path, { ...options, method: 'GET' }),
-  post: (path, body, options) => httpRequest(path, { ...options, method: 'POST', body }),
-  put: (path, body, options) => httpRequest(path, { ...options, method: 'PUT', body }),
-  patch: (path, body, options) => httpRequest(path, { ...options, method: 'PATCH', body }),
-  delete: (path, options) => httpRequest(path, { ...options, method: 'DELETE' }),
-};
+  get: (path, options) => httpRequest(path, { ...options, method: "GET" }),
+  post: (path, body, options) =>
+    httpRequest(path, { ...options, method: "POST", body }),
+  put: (path, body, options) =>
+    httpRequest(path, { ...options, method: "PUT", body }),
+  patch: (path, body, options) =>
+    httpRequest(path, { ...options, method: "PATCH", body }),
+  delete: (path, options) =>
+    httpRequest(path, { ...options, method: "DELETE" }),
+}
 
 // Test hooks for CDP browser runner; strictly gated to mock mode and eliminated in production bundle
-if (typeof window !== 'undefined' && typeof import.meta.env !== 'undefined' && import.meta.env.MODE === 'mock') {
-  window.__scms_httpClient = httpClient;
-  window.__scms_httpRequest = httpRequest;
+if (
+  typeof window !== "undefined" &&
+  typeof import.meta.env !== "undefined" &&
+  import.meta.env.MODE === "mock"
+) {
+  window.__scms_httpClient = httpClient
+  window.__scms_httpRequest = httpRequest
 }

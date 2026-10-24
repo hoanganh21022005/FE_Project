@@ -35,6 +35,8 @@ export const buildCurrentUser = (authUser, fallbackUser) => {
     name: authUser.fullName,
     email: authUser.email,
     role: authUser.role,
+    avatarUrl:
+      authUser.avatarUrl || authUser.avatar || fallbackUser?.avatarUrl || null,
     authorities: authUser.authorities || [],
   }
 }
@@ -158,7 +160,22 @@ export const isDirectSubscriptionLocked = (
   harnessFlag,
   options = {},
 ) => {
-  return false
+  if (!apiEnabled) return false
+
+  const isRender =
+    isRenderBackend(options) ||
+    (typeof import.meta !== "undefined" &&
+      isRenderBackend(
+        import.meta.env?.VITE_API_PROXY_TARGET ||
+          import.meta.env?.VITE_API_BASE_URL,
+      ))
+
+  // HARD LOCK: Under no circumstances can VITE_TEST_HARNESS unlock POST to Render
+  if (isRender) {
+    return true
+  }
+
+  return harnessFlag !== "true"
 }
 
 /**
@@ -692,7 +709,22 @@ export const isPaymentModalMutationLocked = (
   harnessFlag,
   options = {},
 ) => {
-  return false
+  if (!apiEnabled) return false
+
+  const isRender =
+    isRenderBackend(options) ||
+    (typeof import.meta !== "undefined" &&
+      isRenderBackend(
+        import.meta.env?.VITE_API_PROXY_TARGET ||
+          import.meta.env?.VITE_API_BASE_URL,
+      ))
+
+  // HARD LOCK: Under no circumstances can VITE_TEST_HARNESS unlock POST to Render
+  if (isRender) {
+    return true
+  }
+
+  return harnessFlag !== "true"
 }
 
 /**
