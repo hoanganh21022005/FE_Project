@@ -45,7 +45,16 @@ try {
   assert.match(paymentSource, /selectedPkg\.price == null/)
   assert.match(paymentSource, /payment is unavailable/)
   assert.match(catalogSource, /const hasCoursePrice = Number\.isFinite\(totalCourseFee\)/)
-  assert.match(membershipSource, /sub\.price == null \? '—'/)
+  assert.match(
+    membershipSource,
+    /displayPrice:\s*sub\.price\s*==\s*null\s*\?\s*["']—["']/,
+    'membership history must show an em-dash only when subscription price is missing'
+  )
+  assert.match(
+    membershipSource,
+    /\(activeSubscription\?\.price\s*\?\?\s*currentPkgDetails\?\.price\)\s*==\s*null\s*\?\s*["']—["']/,
+    'MyMembershipView must verify activeSubscription?.price with fallback to currentPkgDetails?.price before displaying em-dash'
+  )
 
   assert.match(memberCourseCatalogSource, /subject\?\.normalPrice \?\? null/)
   assert.match(memberCourseCatalogSource, /item\.totalSessions \?\? '—'/)
