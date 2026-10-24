@@ -27,6 +27,8 @@ export const getMemberTrainingPlans = (memberId) =>
   list(`/api/training-plans?memberId=${encodeURIComponent(memberId)}`)
 export const getMemberTrainingResults = (memberId) =>
   list(`/api/training-results?memberId=${encodeURIComponent(memberId)}`)
+export const getTrainingPlanById = (planId) =>
+  httpClient.get(`/api/training-plans/${planId}`)
 export const requestAbsence = (sessionId, reason) =>
   httpClient.post(`/api/sessions/${sessionId}/absence`, { reason })
 export const cancelPrivateSession = (sessionId) =>
@@ -99,6 +101,7 @@ export const memberPortalApi = {
   getMemberCheckinCode,
   getMemberTrainingPlans,
   getMemberTrainingResults,
+  getTrainingPlanById,
   requestAbsence,
   cancelPrivateSession,
   submitClassFeedback,
