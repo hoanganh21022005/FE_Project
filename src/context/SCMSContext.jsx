@@ -12,6 +12,7 @@ import * as managerApi from "../api/managerApi.js"
 import * as memberApi from "../api/memberApi.js"
 import * as staffApi from "../api/staffApi.js"
 import * as classEnrollmentApi from "../api/classEnrollmentApi.js"
+import * as memberPortalApi from "../api/memberPortalApi.js"
 import { getErrorMessage, UnauthorizedError } from "../api/apiErrors.js"
 import { UNAUTHORIZED_EVENT, FORBIDDEN_EVENT } from "../api/httpClient.js"
 import {
@@ -115,19 +116,37 @@ const formatManagerLoadError = (resource, error, language = "vi") => {
   const prefix = `${resource}: `
 
   if (status === 401) {
-    return `${prefix}${language === "vi" ? "Phiên đăng nhập không hợp lệ hoặc đã hết hạn" : "The login session is invalid or expired"} (HTTP 401): ${detail}`
+    return `${prefix}${
+      language === "vi"
+        ? "Phiên đăng nhập không hợp lệ hoặc đã hết hạn"
+        : "The login session is invalid or expired"
+    } (HTTP 401): ${detail}`
   }
   if (status === 403) {
-    return `${prefix}${language === "vi" ? "Bạn không có quyền truy cập dữ liệu này" : "You do not have permission to access this data"} (HTTP 403): ${detail}`
+    return `${prefix}${
+      language === "vi"
+        ? "Bạn không có quyền truy cập dữ liệu này"
+        : "You do not have permission to access this data"
+    } (HTTP 403): ${detail}`
   }
   if (status === 404) {
-    return `${prefix}${language === "vi" ? "Không tìm thấy tài nguyên" : "Resource not found"} (HTTP 404): ${detail}`
+    return `${prefix}${
+      language === "vi" ? "Không tìm thấy tài nguyên" : "Resource not found"
+    } (HTTP 404): ${detail}`
   }
   if (status === 0) {
-    return `${prefix}${language === "vi" ? "Không thể kết nối máy chủ" : "Could not connect to the server"}: ${detail}`
+    return `${prefix}${
+      language === "vi"
+        ? "Không thể kết nối máy chủ"
+        : "Could not connect to the server"
+    }: ${detail}`
   }
 
-  const statusLabel = status ? `HTTP ${status}` : language === "vi" ? "Lỗi tải dữ liệu" : "Data loading error"
+  const statusLabel = status
+    ? `HTTP ${status}`
+    : language === "vi"
+      ? "Lỗi tải dữ liệu"
+      : "Data loading error"
   return `${prefix}${statusLabel}: ${detail}`
 }
 
@@ -1029,7 +1048,8 @@ const INITIAL_FEEDBACKS = [
     },
     tags: ["Giải thích rõ", "Nhiệt tình", "Bài tập phù hợp", "Sân sạch đẹp"],
     comment: "HLV hướng dẫn kỹ thuật di chuyển và đập cầu rất kỹ.",
-    coachReply: "Cảm ơn bạn đã nỗ lực trong buổi học đầu tiên! Động tác di chuyển bộ chân 6 góc của bạn rất thanh thoát, hẹn gặp bạn ở các buổi tiếp theo!",
+    coachReply:
+      "Cảm ơn bạn đã nỗ lực trong buổi học đầu tiên! Động tác di chuyển bộ chân 6 góc của bạn rất thanh thoát, hẹn gặp bạn ở các buổi tiếp theo!",
     createdAt: "2026-10-12 08:30",
   },
 ]
@@ -1429,9 +1449,14 @@ export const SCMSProvider = ({ children }) => {
     setManagerDataError(null)
     setDashboardLoading(true)
     setDashboardError(null)
-
     ;(async () => {
-      const loadResource = async (resource, request, onSuccess, previousValue, onError) => {
+      const loadResource = async (
+        resource,
+        request,
+        onSuccess,
+        previousValue,
+        onError,
+      ) => {
         try {
           const value = await request()
           if (active) {
@@ -1486,15 +1511,20 @@ export const SCMSProvider = ({ children }) => {
         auditLogs,
       )
       const classesTask = Promise.all([subjectsTask, staffTask]).then(
-        ([loadedSubjects, loadedStaff]) => loadResource(
-          language === "vi" ? "Danh sách lớp" : "Classes",
-          () => managerApi.getClasses({
-            subjects: loadedSubjects || [],
-            coaches: loadedStaff || [],
-          }, { notifyForbidden: false }),
-          (loadedClasses) => setClasses(loadedClasses || []),
-          classes,
-        ),
+        ([loadedSubjects, loadedStaff]) =>
+          loadResource(
+            language === "vi" ? "Danh sách lớp" : "Classes",
+            () =>
+              managerApi.getClasses(
+                {
+                  subjects: loadedSubjects || [],
+                  coaches: loadedStaff || [],
+                },
+                { notifyForbidden: false },
+              ),
+            (loadedClasses) => setClasses(loadedClasses || []),
+            classes,
+          ),
       )
 
       try {
@@ -1710,11 +1740,23 @@ export const SCMSProvider = ({ children }) => {
   const updateMemberStatus = async (memberId, status) => {
     if (API_ENABLED) {
       const updated = await memberApi.updateMemberStatus(memberId, status)
-      setMembers((prev) => prev.map((member) => member.id === memberId ? updated : member))
+      setMembers((prev) =>
+        prev.map((member) => (member.id === memberId ? updated : member)),
+      )
     } else {
-      setMembers((prev) => prev.map((member) => member.id === memberId ? { ...member, accountStatus: status, status } : member))
+      setMembers((prev) =>
+        prev.map((member) =>
+          member.id === memberId
+            ? { ...member, accountStatus: status, status }
+            : member,
+        ),
+      )
     }
-    showToast(language === "vi" ? "Đã cập nhật trạng thái hội viên" : "Member status updated")
+    showToast(
+      language === "vi"
+        ? "Đã cập nhật trạng thái hội viên"
+        : "Member status updated",
+    )
   }
   const addMemberPackage = (memberId, packageId) => {
     const member = members.find((m) => m.id === memberId)
@@ -1751,7 +1793,9 @@ export const SCMSProvider = ({ children }) => {
 
   const addStaff = async (staffData) => {
     if (API_ENABLED) {
-      const created = await staffApi.createStaff(staffData, { notifyForbidden: false })
+      const created = await staffApi.createStaff(staffData, {
+        notifyForbidden: false,
+      })
       setStaff((prev) => [created, ...prev.filter((s) => s.id !== created.id)])
       addAuditLog(
         "CREATE_STAFF",
@@ -1802,7 +1846,9 @@ export const SCMSProvider = ({ children }) => {
 
   const updateStaff = async (id, staffData) => {
     if (API_ENABLED) {
-      const updated = await staffApi.updateStaff(id, staffData, { notifyForbidden: false })
+      const updated = await staffApi.updateStaff(id, staffData, {
+        notifyForbidden: false,
+      })
       setStaff((prev) =>
         prev.map((s) => (s.id === id ? { ...s, ...updated } : s)),
       )
@@ -1873,25 +1919,38 @@ export const SCMSProvider = ({ children }) => {
   const bookClass = async (classId, memberId) => {
     const requestedMemberId = Number(memberId)
     const effectiveMemberId = API_ENABLED
-      ? (Number.isInteger(requestedMemberId) && requestedMemberId > 0 ? requestedMemberId : null)
-      : (memberId || currentUser?.id)
+      ? Number.isInteger(requestedMemberId) && requestedMemberId > 0
+        ? requestedMemberId
+        : null
+      : memberId || currentUser?.id
     if (!effectiveMemberId) {
       return {
         success: false,
-        message: language === "vi"
-          ? "Tài khoản chưa liên kết hồ sơ hội viên nên chưa thể đăng ký lớp."
-          : "This account is not linked to a member profile, so class enrollment is unavailable.",
+        message:
+          language === "vi"
+            ? "Tài khoản chưa liên kết hồ sơ hội viên nên chưa thể đăng ký lớp."
+            : "This account is not linked to a member profile, so class enrollment is unavailable.",
       }
     }
     // In API mode, let the backend validate current membership, capacity and schedule.
     // The member portal does not have manager-only class/member lists in context.
     if (API_ENABLED) {
-      const result = await classEnrollmentApi.enrollMemberInClass(classId, effectiveMemberId)
-      showToast(language === "vi" ? "Đã gửi đăng ký khóa học." : "Course enrollment submitted.", "success")
+      const result = await classEnrollmentApi.enrollMemberInClass(
+        classId,
+        effectiveMemberId,
+      )
+      showToast(
+        language === "vi"
+          ? "Đã gửi đăng ký khóa học."
+          : "Course enrollment submitted.",
+        "success",
+      )
       return { success: true, data: result }
     }
     const cls = classes.find((c) => String(c.id) === String(classId))
-    const member = members.find((m) => String(m.id) === String(effectiveMemberId)) || currentUser
+    const member =
+      members.find((m) => String(m.id) === String(effectiveMemberId)) ||
+      currentUser
 
     if (!cls || !member)
       return { success: false, message: "Dữ liệu không tồn tại" }
@@ -2052,7 +2111,10 @@ export const SCMSProvider = ({ children }) => {
     if (bk) {
       if (API_ENABLED) {
         try {
-          await classEnrollmentApi.cancelMemberEnrollment(bk.classId, bk.memberId)
+          await classEnrollmentApi.cancelMemberEnrollment(
+            bk.classId,
+            bk.memberId,
+          )
         } catch (err) {
           console.warn("Backend unenrollment sync error:", err)
         }
@@ -2101,7 +2163,8 @@ export const SCMSProvider = ({ children }) => {
       classId: feedbackData.classId ?? existing?.classId,
       className: feedbackData.className || existing?.className,
       memberId: targetMemberId,
-      memberName: feedbackData.memberName || currentUser?.name || existing?.memberName,
+      memberName:
+        feedbackData.memberName || currentUser?.name || existing?.memberName,
       coachId: feedbackData.coachId ?? existing?.coachId,
       coachName: feedbackData.coachName || existing?.coachName,
       date: feedbackData.date || existing?.date,
@@ -2110,17 +2173,58 @@ export const SCMSProvider = ({ children }) => {
       endTime: feedbackData.endTime || existing?.endTime,
       room: feedbackData.room || existing?.room,
       rating: feedbackData.rating || existing?.rating || 5,
+      classRating:
+        feedbackData.classRating ||
+        feedbackData.rating ||
+        existing?.classRating ||
+        5,
+      coachRating:
+        feedbackData.coachRating ||
+        feedbackData.rating ||
+        existing?.coachRating ||
+        5,
       criteria: feedbackData.criteria || existing?.criteria || {},
       tags: feedbackData.tags || [],
       comment: feedbackData.comment ?? "",
       isAnonymous: Boolean(feedbackData.isAnonymous),
-      isPrivateContactRequested: Boolean(feedbackData.isPrivateContactRequested),
+      isPrivateContactRequested: Boolean(
+        feedbackData.isPrivateContactRequested,
+      ),
       coachReply:
         feedbackData.coachReply !== undefined
           ? feedbackData.coachReply
           : existing?.coachReply,
       createdAt: existing?.createdAt || feedbackData.createdAt || nowStr,
       updatedAt: existing ? nowStr : undefined,
+    }
+
+    if (API_ENABLED) {
+      const parsedClassId = Number(savedFeedback.classId)
+      const parsedCoachId = Number(savedFeedback.coachId)
+      if (!Number.isNaN(parsedClassId) && parsedClassId > 0) {
+        try {
+          const apiRes = await memberPortalApi.submitClassFeedback(
+            parsedClassId,
+            {
+              classId: parsedClassId,
+              coachId:
+                !Number.isNaN(parsedCoachId) && parsedCoachId > 0
+                  ? parsedCoachId
+                  : 1,
+              classRating:
+                Number(savedFeedback.classRating || savedFeedback.rating) || 5,
+              coachRating:
+                Number(savedFeedback.coachRating || savedFeedback.rating) || 5,
+              comment: savedFeedback.comment || "",
+            },
+          )
+          if (apiRes?.feedbackId) {
+            savedFeedback.id = apiRes.feedbackId
+          }
+        } catch (apiErr) {
+          console.warn("Failed to submit feedback to backend:", apiErr)
+        }
+      }
     }
 
     if (existing) {
@@ -2155,12 +2259,19 @@ export const SCMSProvider = ({ children }) => {
           : "Thank you for your class feedback!",
       "success",
     )
-    return { success: true, feedback: savedFeedback, isUpdate: Boolean(existing) }
+    return {
+      success: true,
+      feedback: savedFeedback,
+      isUpdate: Boolean(existing),
+    }
   }
 
   const submitLeaveRequest = async (leaveData) => {
     const session = leaveData?.session || {}
-    const sessionId = session.id || session.bookingId || `${session.courseId || "course"}-session-${session.num || 1}`
+    const sessionId =
+      session.id ||
+      session.bookingId ||
+      `${session.courseId || "course"}-session-${session.num || 1}`
     const nowStr = new Date().toISOString().replace("T", " ").slice(0, 16)
     const entry = {
       id: `lv-${Date.now()}`,
@@ -2201,7 +2312,9 @@ export const SCMSProvider = ({ children }) => {
   const cancelLeaveRequest = (sessionId) => {
     if (!sessionId) return { success: false }
     const existing = leaveRequests.find((item) => item.sessionId === sessionId)
-    setLeaveRequests((prev) => prev.filter((item) => item.sessionId !== sessionId))
+    setLeaveRequests((prev) =>
+      prev.filter((item) => item.sessionId !== sessionId),
+    )
     if (existing) {
       addAuditLog(
         "LEAVE_CANCELLED",
@@ -2225,7 +2338,8 @@ export const SCMSProvider = ({ children }) => {
       sessionNum: disputeData.sessionNum,
       className: disputeData.className,
       date: disputeData.date,
-      reason: disputeData.reason || "Đã có mặt tại sân nhưng cổng từ chưa ghi nhận",
+      reason:
+        disputeData.reason || "Đã có mặt tại sân nhưng cổng từ chưa ghi nhận",
       memberId: currentUser?.id || "mem-1",
       memberName: currentUser?.name || "Hội viên",
       status: "pending_verification",
@@ -2342,7 +2456,8 @@ export const SCMSProvider = ({ children }) => {
       try {
         const isNormalAtomic =
           String(data?.classType || "Normal").toLowerCase() === "normal" &&
-          String(data?.apiStatus || data?.status || "Open").toLowerCase() !== "draft" &&
+          String(data?.apiStatus || data?.status || "Open").toLowerCase() !==
+            "draft" &&
           Number.isInteger(Number(data?.roomId)) &&
           Number(data?.roomId) > 0 &&
           (Array.isArray(data?.daysOfWeek) || Array.isArray(data?.selectedDays))
@@ -2370,7 +2485,10 @@ export const SCMSProvider = ({ children }) => {
                 ...options,
               },
             )
-        setClasses((prev) => [created, ...prev.filter((item) => String(item.id) !== String(created.id))])
+        setClasses((prev) => [
+          created,
+          ...prev.filter((item) => String(item.id) !== String(created.id)),
+        ])
         managerApi
           .getAuditLogs({ notifyForbidden: false })
           .then(setAuditLogs)
@@ -2383,7 +2501,12 @@ export const SCMSProvider = ({ children }) => {
         )
         return { success: true, data: created }
       } catch (error) {
-        const errMsg = getErrorMessage(error, language === "vi" ? "Không thể lưu lớp học." : "Could not save the class.")
+        const errMsg = getErrorMessage(
+          error,
+          language === "vi"
+            ? "Không thể lưu lớp học."
+            : "Could not save the class.",
+        )
         return { success: false, message: errMsg, code: error?.code || null }
       }
     }
@@ -2424,11 +2547,25 @@ export const SCMSProvider = ({ children }) => {
     const current = staff.find((item) => item.id === staffId)
     if (!current) return
     const updated = API_ENABLED
-      ? await staffApi.updateStaffStatus(staffId, status, { notifyForbidden: false })
+      ? await staffApi.updateStaffStatus(staffId, status, {
+          notifyForbidden: false,
+        })
       : { ...current, status }
-    setStaff((prev) => prev.map((item) => item.id === staffId ? updated : item))
-    addAuditLog("STAFF_STATUS_CHANGED", `Tài khoản nhân viên: ${current.name}`, current.status, status, reason)
-    showToast(language === "vi" ? `Đã cập nhật trạng thái tài khoản ${current.name}` : `Staff ${current.name} status updated to ${status}`)
+    setStaff((prev) =>
+      prev.map((item) => (item.id === staffId ? updated : item)),
+    )
+    addAuditLog(
+      "STAFF_STATUS_CHANGED",
+      `Tài khoản nhân viên: ${current.name}`,
+      current.status,
+      status,
+      reason,
+    )
+    showToast(
+      language === "vi"
+        ? `Đã cập nhật trạng thái tài khoản ${current.name}`
+        : `Staff ${current.name} status updated to ${status}`,
+    )
   }
   const updateTrainingPlan = (planData) => {
     if (!planData.id) return
@@ -2463,7 +2600,9 @@ export const SCMSProvider = ({ children }) => {
       setSubjects((prev) => [created, ...prev])
       return created
     }
-    const created = await managerApi.createSubject(data, { notifyForbidden: false })
+    const created = await managerApi.createSubject(data, {
+      notifyForbidden: false,
+    })
     setSubjects((prev) => [created, ...prev])
     return created
   }
@@ -2480,7 +2619,9 @@ export const SCMSProvider = ({ children }) => {
       )
       return updated
     }
-    const updated = await managerApi.updateSubject(id, data, { notifyForbidden: false })
+    const updated = await managerApi.updateSubject(id, data, {
+      notifyForbidden: false,
+    })
     setSubjects((prev) => prev.map((item) => (item.id === id ? updated : item)))
     return updated
   }
@@ -2500,7 +2641,9 @@ export const SCMSProvider = ({ children }) => {
       setRooms((prev) => [created, ...prev])
       return created
     }
-    const created = await managerApi.createRoom(data, { notifyForbidden: false })
+    const created = await managerApi.createRoom(data, {
+      notifyForbidden: false,
+    })
     setRooms((prev) => [created, ...prev])
     return created
   }
@@ -2511,7 +2654,9 @@ export const SCMSProvider = ({ children }) => {
       setRooms((prev) => prev.map((item) => (item.id === id ? updated : item)))
       return updated
     }
-    const updated = await managerApi.updateRoom(id, data, { notifyForbidden: false })
+    const updated = await managerApi.updateRoom(id, data, {
+      notifyForbidden: false,
+    })
     setRooms((prev) => prev.map((item) => (item.id === id ? updated : item)))
     return updated
   }
@@ -2522,7 +2667,9 @@ export const SCMSProvider = ({ children }) => {
       setRooms((prev) => prev.map((item) => (item.id === id ? updated : item)))
       return updated
     }
-    const updated = await managerApi.updateRoomStatus(id, status, { notifyForbidden: false })
+    const updated = await managerApi.updateRoomStatus(id, status, {
+      notifyForbidden: false,
+    })
     setRooms((prev) => prev.map((item) => (item.id === id ? updated : item)))
     return updated
   }
@@ -2548,7 +2695,9 @@ export const SCMSProvider = ({ children }) => {
     const persistClassMetadata = () => {
       if (API_ENABLED || typeof window === "undefined" || !id) return
       try {
-        const meta = JSON.parse(localStorage.getItem("scms_class_metadata") || "{}")
+        const meta = JSON.parse(
+          localStorage.getItem("scms_class_metadata") || "{}",
+        )
         meta[id] = {
           ...(meta[id] || {}),
           room: payload.room,
@@ -2585,11 +2734,16 @@ export const SCMSProvider = ({ children }) => {
     }
 
     try {
-      const updated = await managerApi.updateClass(id, payload, {
-        subjects,
-        coaches: staff,
-        fallback: payload,
-      }, { notifyForbidden: false })
+      const updated = await managerApi.updateClass(
+        id,
+        payload,
+        {
+          subjects,
+          coaches: staff,
+          fallback: payload,
+        },
+        { notifyForbidden: false },
+      )
       persistClassMetadata()
       setClasses((prev) =>
         prev.map((item) => (item.id === id ? updated : item)),
@@ -2624,11 +2778,16 @@ export const SCMSProvider = ({ children }) => {
       )
       return updated
     }
-    const updated = await managerApi.assignCoach(id, coachId, {
-      subjects,
-      coaches: staff,
-      fallback: current,
-    }, { notifyForbidden: false })
+    const updated = await managerApi.assignCoach(
+      id,
+      coachId,
+      {
+        subjects,
+        coaches: staff,
+        fallback: current,
+      },
+      { notifyForbidden: false },
+    )
     setClasses((prev) => prev.map((item) => (item.id === id ? updated : item)))
     return updated
   }
@@ -2640,20 +2799,30 @@ export const SCMSProvider = ({ children }) => {
       return
     }
     try {
-      const loaded = await managerApi.getClasses({ subjects, coaches: staff }, { notifyForbidden: false })
+      const loaded = await managerApi.getClasses({ subjects, coaches: staff }, {
+        notifyForbidden: false,
+      })
       const currentClasses = Array.isArray(loaded) ? loaded : []
       setClasses(currentClasses)
       setManagerDataError((previous) => {
         const remaining = String(previous || "")
           .split("\n")
-          .filter((line) => line && !line.startsWith(language === "vi" ? "Danh sách lớp:" : "Classes:"))
+          .filter(
+            (line) =>
+              line &&
+              !line.startsWith(
+                language === "vi" ? "Danh sách lớp:" : "Classes:",
+              ),
+          )
         return remaining.length ? remaining.join("\n") : null
       })
       return currentClasses
     } catch (error) {
       const resource = language === "vi" ? "Danh sách lớp" : "Classes"
       const message = formatManagerLoadError(resource, error, language)
-      setManagerDataError((previous) => mergeManagerLoadError(previous, message, resource))
+      setManagerDataError((previous) =>
+        mergeManagerLoadError(previous, message, resource),
+      )
       showToast(message, "error")
       return classes
     }
@@ -2661,9 +2830,10 @@ export const SCMSProvider = ({ children }) => {
 
   const deleteClass = async (id) => {
     if (API_ENABLED) {
-      const message = language === "vi"
-        ? "Backend hiện chưa hỗ trợ xóa lớp. Không có dữ liệu nào bị thay đổi."
-        : "The backend does not support class deletion yet. No data was changed."
+      const message =
+        language === "vi"
+          ? "Backend hiện chưa hỗ trợ xóa lớp. Không có dữ liệu nào bị thay đổi."
+          : "The backend does not support class deletion yet. No data was changed."
       showToast(message, "error")
       return { success: false, unsupported: true, message }
     }
@@ -2718,7 +2888,9 @@ export const SCMSProvider = ({ children }) => {
       setPackages((prev) => [created, ...prev])
       return created
     }
-    const created = await managerApi.createPackage(data, { notifyForbidden: false })
+    const created = await managerApi.createPackage(data, {
+      notifyForbidden: false,
+    })
     setPackages((prev) => [created, ...prev])
     return created
   }
@@ -2735,7 +2907,9 @@ export const SCMSProvider = ({ children }) => {
       )
       return updated
     }
-    const updated = await managerApi.updatePackage(id, data, { notifyForbidden: false })
+    const updated = await managerApi.updatePackage(id, data, {
+      notifyForbidden: false,
+    })
     setPackages((prev) => prev.map((item) => (item.id === id ? updated : item)))
     return updated
   }
@@ -2748,7 +2922,9 @@ export const SCMSProvider = ({ children }) => {
       )
       return updated
     }
-    const updated = await managerApi.updatePackageStatus(id, status, { notifyForbidden: false })
+    const updated = await managerApi.updatePackageStatus(id, status, {
+      notifyForbidden: false,
+    })
     setPackages((prev) => prev.map((item) => (item.id === id ? updated : item)))
     return updated
   }

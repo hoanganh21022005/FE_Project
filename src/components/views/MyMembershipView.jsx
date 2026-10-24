@@ -436,20 +436,22 @@ export function MyMembershipView() {
       )
     : invoices
   const historyRows = [
-    ...displayedSubscriptions.map((subscription) => ({
-      key: `subscription-${subscription.subscriptionId || subscription.id}`,
+    ...displayedSubscriptions.map((sub) => ({
+      key: `subscription-${sub.subscriptionId || sub.id}`,
       type: "subscription",
-      reference: `SUB-${subscription.subscriptionId || subscription.id}`,
-      name: subscription.packageName,
-      amount: subscription.price,
-      date: subscription.startDate,
-      detail: subscription.endDate
+      reference: `SUB-${sub.subscriptionId || sub.id}`,
+      name: sub.packageName,
+      amount: sub.price,
+      displayPrice:
+        sub.price == null ? "—" : formatCurrency(sub.price, language), // sub.price == null ? '—'
+      date: sub.startDate,
+      detail: sub.endDate
         ? `${
             language === "vi" ? "Đến" : "Until"
-          } ${formatDate(subscription.endDate, language)}`
+          } ${formatDate(sub.endDate, language)}`
         : "",
-      status: subscription.status,
-      entity: subscription,
+      status: sub.status,
+      entity: sub,
     })),
     ...(apiEnabled ? historyInvoices : mockPayments).map((item) => ({
       key: `invoice-${item.id || item.invoiceId}`,

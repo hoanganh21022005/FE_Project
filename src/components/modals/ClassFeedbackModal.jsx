@@ -1,33 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { useSCMS } from '../../context/SCMSContext';
-import { motion, AnimatePresence } from 'motion/react';
-import { Check, X } from 'lucide-react';
+import React, { useState, useEffect } from "react"
+import { useSCMS } from "../../context/SCMSContext"
+import { motion, AnimatePresence } from "motion/react"
+import { Check, X } from "lucide-react"
 
 const POSITIVE_APPRAISAL_TAGS = [
-  'Giáo án chuẩn xác',
-  'Cường độ bài tập lý tưởng',
-  'Mặt sàn & Ánh sáng hoàn hảo',
-  'Theo sát kỹ thuật',
-  'Chăm sóc chu đáo',
-  'Truyền cảm hứng',
-];
+  "Giáo án chuẩn xác",
+  "Cường độ bài tập lý tưởng",
+  "Mặt sàn & Ánh sáng hoàn hảo",
+  "Theo sát kỹ thuật",
+  "Chăm sóc chu đáo",
+  "Truyền cảm hứng",
+]
 
 const CRITICAL_APPRAISAL_TAGS = [
-  'Cần chỉnh lại nhịp độ',
-  'Mặt sàn chưa tối ưu',
-  'Nhiệt độ phòng chưa chuẩn',
-  'Cần hỗ trợ kỹ thuật sâu hơn',
-  'Âm thanh hơi ồn',
-  'Cần bổ sung dụng cụ bổ trợ',
-];
+  "Cần chỉnh lại nhịp độ",
+  "Mặt sàn chưa tối ưu",
+  "Nhiệt độ phòng chưa chuẩn",
+  "Cần hỗ trợ kỹ thuật sâu hơn",
+  "Âm thanh hơi ồn",
+  "Cần bổ sung dụng cụ bổ trợ",
+]
 
 const APPRAISAL_VERDICTS = {
-  1: { label: 'Cần điều chỉnh chất lượng', desc: 'Chưa đạt kỳ vọng cơ bản' },
-  2: { label: 'Chưa đạt chuẩn mực CLB', desc: 'Cần ban chuyên môn can thiệp' },
-  3: { label: 'Đạt yêu cầu cơ bản', desc: 'Buổi tập diễn ra đúng kế hoạch' },
-  4: { label: 'Chuẩn mực cao', desc: 'Chất lượng huấn luyện và sân bãi tốt' },
-  5: { label: 'Xuất sắc · Vượt kỳ vọng', desc: 'Đẳng cấp huấn luyện và trải nghiệm tuyệt hảo' },
-};
+  1: { label: "Cần điều chỉnh chất lượng", desc: "Chưa đạt kỳ vọng cơ bản" },
+  2: { label: "Chưa đạt chuẩn mực CLB", desc: "Cần ban chuyên môn can thiệp" },
+  3: { label: "Đạt yêu cầu cơ bản", desc: "Buổi tập diễn ra đúng kế hoạch" },
+  4: { label: "Chuẩn mực cao", desc: "Chất lượng huấn luyện và sân bãi tốt" },
+  5: {
+    label: "Xuất sắc · Vượt kỳ vọng",
+    desc: "Đẳng cấp huấn luyện và trải nghiệm tuyệt hảo",
+  },
+}
 
 export function ClassFeedbackModal({
   isOpen,
@@ -35,110 +38,158 @@ export function ClassFeedbackModal({
   classItem,
   existingFeedback = null,
 }) {
-  const { submitFeedback, showToast, currentUser, members } = useSCMS();
+  const { submitFeedback, showToast, currentUser, members } = useSCMS()
 
-  const [overallRating, setOverallRating] = useState(existingFeedback?.rating || 0);
+  const [overallRating, setOverallRating] = useState(
+    existingFeedback?.rating || 0,
+  )
   const [coachCriteria, setCoachCriteria] = useState({
     expertise: existingFeedback?.criteria?.coachBreakdown?.expertise || 5,
     interaction: existingFeedback?.criteria?.coachBreakdown?.interaction || 5,
     punctuality: existingFeedback?.criteria?.coachBreakdown?.punctuality || 5,
-  });
+  })
   const [facilityCriteria, setFacilityCriteria] = useState({
     court: existingFeedback?.criteria?.facilityBreakdown?.court || 5,
     lighting: existingFeedback?.criteria?.facilityBreakdown?.lighting || 5,
-    cleanliness: existingFeedback?.criteria?.facilityBreakdown?.cleanliness || 5,
-  });
-  const [selectedTags, setSelectedTags] = useState(existingFeedback?.tags || []);
-  const [commentText, setCommentText] = useState(existingFeedback?.comment || '');
-  const [isAnonymous, setIsAnonymous] = useState(Boolean(existingFeedback?.isAnonymous));
+    cleanliness:
+      existingFeedback?.criteria?.facilityBreakdown?.cleanliness || 5,
+  })
+  const [selectedTags, setSelectedTags] = useState(existingFeedback?.tags || [])
+  const [commentText, setCommentText] = useState(
+    existingFeedback?.comment || "",
+  )
+  const [isAnonymous, setIsAnonymous] = useState(
+    Boolean(existingFeedback?.isAnonymous),
+  )
   const [isPrivateContactRequested, setIsPrivateContactRequested] = useState(
-    Boolean(existingFeedback?.isPrivateContactRequested)
-  );
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isThankYouMode, setIsThankYouMode] = useState(false);
-  const [submitError, setSubmitError] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
+    Boolean(existingFeedback?.isPrivateContactRequested),
+  )
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isThankYouMode, setIsThankYouMode] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
+  const [isEditing, setIsEditing] = useState(false)
 
-  const isReadOnly = Boolean(existingFeedback && existingFeedback.id && !isEditing);
+  const isReadOnly = Boolean(
+    existingFeedback && existingFeedback.id && !isEditing,
+  )
 
   // Sync state if existingFeedback changes
   useEffect(() => {
-    setIsThankYouMode(false);
-    setSubmitError(null);
-    setIsEditing(false);
+    setIsThankYouMode(false)
+    setSubmitError(null)
+    setIsEditing(false)
     if (existingFeedback) {
-      setOverallRating(existingFeedback.rating || 5);
+      setOverallRating(existingFeedback.rating || 5)
       setCoachCriteria({
         expertise: existingFeedback.criteria?.coachBreakdown?.expertise || 5,
-        interaction: existingFeedback.criteria?.coachBreakdown?.interaction || 5,
-        punctuality: existingFeedback.criteria?.coachBreakdown?.punctuality || 5,
-      });
+        interaction:
+          existingFeedback.criteria?.coachBreakdown?.interaction || 5,
+        punctuality:
+          existingFeedback.criteria?.coachBreakdown?.punctuality || 5,
+      })
       setFacilityCriteria({
         court: existingFeedback.criteria?.facilityBreakdown?.court || 5,
         lighting: existingFeedback.criteria?.facilityBreakdown?.lighting || 5,
-        cleanliness: existingFeedback.criteria?.facilityBreakdown?.cleanliness || 5,
-      });
-      setSelectedTags(existingFeedback.tags || []);
-      setCommentText(existingFeedback.comment || '');
-      setIsAnonymous(Boolean(existingFeedback.isAnonymous));
-      setIsPrivateContactRequested(Boolean(existingFeedback.isPrivateContactRequested));
+        cleanliness:
+          existingFeedback.criteria?.facilityBreakdown?.cleanliness || 5,
+      })
+      setSelectedTags(existingFeedback.tags || [])
+      setCommentText(existingFeedback.comment || "")
+      setIsAnonymous(Boolean(existingFeedback.isAnonymous))
+      setIsPrivateContactRequested(
+        Boolean(existingFeedback.isPrivateContactRequested),
+      )
     } else {
-      setOverallRating(0);
-      setCoachCriteria({ expertise: 5, interaction: 5, punctuality: 5 });
-      setFacilityCriteria({ court: 5, lighting: 5, cleanliness: 5 });
-      setSelectedTags([]);
-      setCommentText('');
-      setIsAnonymous(false);
-      setIsPrivateContactRequested(false);
+      setOverallRating(0)
+      setCoachCriteria({ expertise: 5, interaction: 5, punctuality: 5 })
+      setFacilityCriteria({ court: 5, lighting: 5, cleanliness: 5 })
+      setSelectedTags([])
+      setCommentText("")
+      setIsAnonymous(false)
+      setIsPrivateContactRequested(false)
     }
-  }, [existingFeedback, isOpen]);
+  }, [existingFeedback, isOpen])
 
   // ESC key & scroll lock
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
+      if (e.key === "Escape" && isOpen) {
+        onClose()
       }
-    };
+    }
     if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden';
+      document.addEventListener("keydown", handleKeyDown)
+      document.body.style.overflow = "hidden"
     } else {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset"
     }
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen, onClose]);
+      document.removeEventListener("keydown", handleKeyDown)
+      document.body.style.overflow = "unset"
+    }
+  }, [isOpen, onClose])
 
-  if (!isOpen || !classItem) return null;
+  if (!isOpen || !classItem) return null
 
-  const currentMember = (members || []).find(m => String(m.id) === String(currentUser?.id)) || currentUser || { id: 'mem-1', name: 'Bùi Văn Phúc' };
+  const currentMember = (members || []).find(
+    (m) => String(m.id) === String(currentUser?.id),
+  ) ||
+    currentUser || { id: "mem-1", name: "Bùi Văn Phúc" }
 
   const handleToggleTag = (tag) => {
-    if (isReadOnly) return;
-    setSelectedTags(prev =>
-      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-    );
-  };
+    if (isReadOnly) return
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    )
+  }
 
   const handleSubmit = async (e) => {
-    if (e) e.preventDefault();
+    if (e) e.preventDefault()
     if (isReadOnly) {
-      onClose();
-      return;
+      onClose()
+      return
     }
-    if (!overallRating || overallRating === 0) return;
+    if (!overallRating || overallRating === 0) return
     if (overallRating <= 2 && !commentText.trim()) {
-      setSubmitError('Vui lòng cho Giám đốc Chuyên môn biết điều cần cải thiện để đảm bảo chuẩn mực dịch vụ.');
-      return;
+      setSubmitError(
+        "Vui lòng cho Giám đốc Chuyên môn biết điều cần cải thiện để đảm bảo chuẩn mực dịch vụ.",
+      )
+      return
     }
 
-    setIsSubmitting(true);
-    setSubmitError(null);
+    setIsSubmitting(true)
+    setSubmitError(null)
 
     try {
+      const avgCoach = Math.min(
+        5,
+        Math.max(
+          1,
+          Math.round(
+            (coachCriteria.expertise +
+              coachCriteria.interaction +
+              coachCriteria.punctuality) /
+              3,
+          ) ||
+            overallRating ||
+            5,
+        ),
+      )
+      const avgClass = Math.min(
+        5,
+        Math.max(
+          1,
+          Math.round(
+            (facilityCriteria.court +
+              facilityCriteria.lighting +
+              facilityCriteria.cleanliness) /
+              3,
+          ) ||
+            overallRating ||
+            5,
+        ),
+      )
+
       await submitFeedback({
         id: existingFeedback?.id,
         classId: classItem.id || classItem.classId,
@@ -148,6 +199,8 @@ export function ClassFeedbackModal({
         memberId: currentMember.id,
         memberName: currentMember.name,
         rating: overallRating,
+        classRating: avgClass,
+        coachRating: avgCoach,
         date: classItem.date || existingFeedback?.date,
         dayVi: classItem.dayVi || existingFeedback?.dayVi,
         startTime: classItem.startTime || existingFeedback?.startTime,
@@ -156,7 +209,7 @@ export function ClassFeedbackModal({
         criteria: {
           coachQuality: 5,
           facilityQuality: 5,
-          intensity: 'Vừa sức',
+          intensity: "Vừa sức",
           coachBreakdown: coachCriteria,
           facilityBreakdown: facilityCriteria,
         },
@@ -166,17 +219,18 @@ export function ClassFeedbackModal({
         isPrivateContactRequested,
         coachReply:
           existingFeedback?.coachReply ||
-          'Chân thành cảm ơn bạn. Ban chuyên môn và Huấn luyện viên trưởng đã tiếp nhận ghi chú này để hoàn thiện giáo án buổi kế tiếp. Chúc bạn có buổi phục hồi thể lực thật tốt!',
-      });
+          "Chân thành cảm ơn bạn. Ban chuyên môn và Huấn luyện viên trưởng đã tiếp nhận ghi chú này để hoàn thiện giáo án buổi kế tiếp. Chúc bạn có buổi phục hồi thể lực thật tốt!",
+      })
 
-      setIsThankYouMode(true);
-
+      setIsThankYouMode(true)
     } catch (err) {
-      setSubmitError('Không thể lưu bản đánh giá. Vui lòng kiểm tra lại kết nối mạng.');
+      setSubmitError(
+        "Không thể lưu bản đánh giá. Vui lòng kiểm tra lại kết nối mạng.",
+      )
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   return (
     <AnimatePresence>
@@ -194,10 +248,10 @@ export function ClassFeedbackModal({
 
         <div className="fixed inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10">
           <motion.aside
-            initial={{ x: '100%' }}
+            initial={{ x: "100%" }}
             animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 28, stiffness: 300 }}
             className="w-screen max-w-[480px] bg-[#FBF9F4] text-[#15171C] shadow-2xl flex flex-col justify-between border-l border-[rgba(21,23,28,0.12)] z-10"
             role="dialog"
             aria-modal="true"
@@ -240,7 +294,8 @@ export function ClassFeedbackModal({
                       Cảm ơn bạn đã phản hồi
                     </h3>
                     <p className="text-xs text-[#6A675F] max-w-xs mx-auto leading-relaxed">
-                      Ý kiến của bạn đã được chuyển tới Huấn luyện viên và Ban Quản lý Chuyên môn.
+                      Ý kiến của bạn đã được chuyển tới Huấn luyện viên và Ban
+                      Quản lý Chuyên môn.
                     </p>
                   </div>
 
@@ -248,10 +303,10 @@ export function ClassFeedbackModal({
                     <button
                       type="button"
                       onClick={() => {
-                        setIsThankYouMode(false);
-                        onClose();
-                        if (typeof showToast === 'function') {
-                          showToast('Đã lưu đánh giá thành công.', 'success');
+                        setIsThankYouMode(false)
+                        onClose()
+                        if (typeof showToast === "function") {
+                          showToast("Đã lưu đánh giá thành công.", "success")
                         }
                       }}
                       className="w-full py-2.5 rounded-[6px] bg-[#15171C] text-[#FBF9F4] text-xs font-medium cursor-pointer hover:bg-[#2A2E37] transition-all"
@@ -279,8 +334,8 @@ export function ClassFeedbackModal({
                       className="grid grid-cols-5 gap-2 pt-1"
                     >
                       {[1, 2, 3, 4, 5].map((level) => {
-                        const isSelected = overallRating === level;
-                        const isFilled = overallRating >= level;
+                        const isSelected = overallRating === level
+                        const isFilled = overallRating >= level
                         return (
                           <button
                             key={level}
@@ -289,20 +344,22 @@ export function ClassFeedbackModal({
                             role="radio"
                             aria-checked={isSelected}
                             aria-label={`Mức ${level} trên 5: ${APPRAISAL_VERDICTS[level].label}`}
-                            onClick={() => !isReadOnly && setOverallRating(level)}
+                            onClick={() =>
+                              !isReadOnly && setOverallRating(level)
+                            }
                             className={`h-12 rounded-[6px] flex flex-col items-center justify-center transition-all cursor-pointer border ${
                               isSelected
-                                ? 'bg-[#15171C] text-[#FBF9F4] border-[#A8844F] ring-1 ring-[#A8844F] shadow-sm scale-102'
+                                ? "bg-[#15171C] text-[#FBF9F4] border-[#A8844F] ring-1 ring-[#A8844F] shadow-sm scale-102"
                                 : isFilled
-                                ? 'bg-[#A8844F]/15 border-[#A8844F]/40 text-[#15171C]'
-                                : 'bg-[#FBF9F4] border-[rgba(21,23,28,0.15)] text-[#6A675F] hover:border-[#15171C]'
+                                  ? "bg-[#A8844F]/15 border-[#A8844F]/40 text-[#15171C]"
+                                  : "bg-[#FBF9F4] border-[rgba(21,23,28,0.15)] text-[#6A675F] hover:border-[#15171C]"
                             }`}
                           >
                             <span className="font-['Newsreader',serif] text-lg font-normal leading-none">
                               {level}.0
                             </span>
                           </button>
-                        );
+                        )
                       })}
                     </div>
 
@@ -331,25 +388,45 @@ export function ClassFeedbackModal({
 
                         <div className="space-y-2.5">
                           {[
-                            { key: 'expertise', label: 'Chuyên môn & Giáo án kỹ thuật' },
-                            { key: 'interaction', label: 'Tương tác & Theo sát cá nhân' },
-                            { key: 'punctuality', label: 'Tác phong & Đúng giờ' },
+                            {
+                              key: "expertise",
+                              label: "Chuyên môn & Giáo án kỹ thuật",
+                            },
+                            {
+                              key: "interaction",
+                              label: "Tương tác & Theo sát cá nhân",
+                            },
+                            {
+                              key: "punctuality",
+                              label: "Tác phong & Đúng giờ",
+                            },
                           ].map((item) => (
-                            <div key={item.key} className="flex items-center justify-between text-xs py-1">
-                              <span className="text-[#15171C]">{item.label}</span>
+                            <div
+                              key={item.key}
+                              className="flex items-center justify-between text-xs py-1"
+                            >
+                              <span className="text-[#15171C]">
+                                {item.label}
+                              </span>
                               <div className="flex items-center gap-1.5">
                                 {[1, 2, 3, 4, 5].map((pt) => (
                                   <button
                                     key={pt}
                                     type="button"
                                     disabled={isReadOnly}
-                                    onClick={() => !isReadOnly && setCoachCriteria(prev => ({ ...prev, [item.key]: pt }))}
+                                    onClick={() =>
+                                      !isReadOnly &&
+                                      setCoachCriteria((prev) => ({
+                                        ...prev,
+                                        [item.key]: pt,
+                                      }))
+                                    }
                                     className={`w-6 h-6 rounded-full text-[10px] font-medium transition-all cursor-pointer ${
                                       coachCriteria[item.key] === pt
-                                        ? 'bg-[#15171C] text-[#FBF9F4]'
+                                        ? "bg-[#15171C] text-[#FBF9F4]"
                                         : coachCriteria[item.key] > pt
-                                        ? 'bg-[#A8844F]/20 text-[#15171C]'
-                                        : 'bg-white border border-[rgba(21,23,28,0.15)] text-[#6A675F]'
+                                          ? "bg-[#A8844F]/20 text-[#15171C]"
+                                          : "bg-white border border-[rgba(21,23,28,0.15)] text-[#6A675F]"
                                     }`}
                                   >
                                     {pt}
@@ -369,25 +446,45 @@ export function ClassFeedbackModal({
 
                         <div className="space-y-2.5">
                           {[
-                            { key: 'court', label: 'Mặt sàn & Ánh sáng thi đấu' },
-                            { key: 'lighting', label: 'Nhiệt độ không gian & Độ tĩnh âm' },
-                            { key: 'cleanliness', label: 'Vệ sinh & Hậu cần sân bãi' },
+                            {
+                              key: "court",
+                              label: "Mặt sàn & Ánh sáng thi đấu",
+                            },
+                            {
+                              key: "lighting",
+                              label: "Nhiệt độ không gian & Độ tĩnh âm",
+                            },
+                            {
+                              key: "cleanliness",
+                              label: "Vệ sinh & Hậu cần sân bãi",
+                            },
                           ].map((item) => (
-                            <div key={item.key} className="flex items-center justify-between text-xs py-1">
-                              <span className="text-[#15171C]">{item.label}</span>
+                            <div
+                              key={item.key}
+                              className="flex items-center justify-between text-xs py-1"
+                            >
+                              <span className="text-[#15171C]">
+                                {item.label}
+                              </span>
                               <div className="flex items-center gap-1.5">
                                 {[1, 2, 3, 4, 5].map((pt) => (
                                   <button
                                     key={pt}
                                     type="button"
                                     disabled={isReadOnly}
-                                    onClick={() => !isReadOnly && setFacilityCriteria(prev => ({ ...prev, [item.key]: pt }))}
+                                    onClick={() =>
+                                      !isReadOnly &&
+                                      setFacilityCriteria((prev) => ({
+                                        ...prev,
+                                        [item.key]: pt,
+                                      }))
+                                    }
                                     className={`w-6 h-6 rounded-full text-[10px] font-medium transition-all cursor-pointer ${
                                       facilityCriteria[item.key] === pt
-                                        ? 'bg-[#15171C] text-[#FBF9F4]'
+                                        ? "bg-[#15171C] text-[#FBF9F4]"
                                         : facilityCriteria[item.key] > pt
-                                        ? 'bg-[#A8844F]/20 text-[#15171C]'
-                                        : 'bg-white border border-[rgba(21,23,28,0.15)] text-[#6A675F]'
+                                          ? "bg-[#A8844F]/20 text-[#15171C]"
+                                          : "bg-white border border-[rgba(21,23,28,0.15)] text-[#6A675F]"
                                     }`}
                                   >
                                     {pt}
@@ -408,8 +505,11 @@ export function ClassFeedbackModal({
                         NHẬN ĐỊNH NHANH (CHỌN ĐỂ THÊM VÀO Ý KIẾN)
                       </span>
                       <div className="flex flex-wrap gap-2 pt-0.5">
-                        {(overallRating >= 4 ? POSITIVE_APPRAISAL_TAGS : CRITICAL_APPRAISAL_TAGS).map((tag) => {
-                          const isSelected = selectedTags.includes(tag);
+                        {(overallRating >= 4
+                          ? POSITIVE_APPRAISAL_TAGS
+                          : CRITICAL_APPRAISAL_TAGS
+                        ).map((tag) => {
+                          const isSelected = selectedTags.includes(tag)
                           return (
                             <button
                               key={tag}
@@ -418,13 +518,13 @@ export function ClassFeedbackModal({
                               onClick={() => handleToggleTag(tag)}
                               className={`text-xs px-3 py-1.5 rounded-[4px] transition-all cursor-pointer ${
                                 isSelected
-                                  ? 'bg-[#15171C] text-[#FBF9F4] border border-[#15171C]'
-                                  : 'bg-transparent border border-[rgba(21,23,28,0.15)] text-[#15171C] hover:border-[#15171C]'
+                                  ? "bg-[#15171C] text-[#FBF9F4] border border-[#15171C]"
+                                  : "bg-transparent border border-[rgba(21,23,28,0.15)] text-[#15171C] hover:border-[#15171C]"
                               }`}
                             >
                               {tag}
                             </button>
-                          );
+                          )
                         })}
                       </div>
                     </div>
@@ -439,26 +539,34 @@ export function ClassFeedbackModal({
 
                       {isReadOnly ? (
                         <p className="text-xs text-[#15171C] italic font-['Newsreader',serif] text-[15px] leading-relaxed py-2 border-b border-[rgba(21,23,28,0.15)]">
-                          “{commentText || 'Không có nhận xét chi tiết.'}”
+                          “{commentText || "Không có nhận xét chi tiết."}”
                         </p>
                       ) : (
                         <>
                           <textarea
                             value={commentText}
-                            onChange={(e) => setCommentText(e.target.value.slice(0, 500))}
+                            onChange={(e) =>
+                              setCommentText(e.target.value.slice(0, 500))
+                            }
                             rows={3}
                             placeholder="Ghi chú chi tiết về bài tập, động tác, nhịp độ hoặc chất lượng sân..."
                             className="w-full bg-white border border-[rgba(21,23,28,0.15)] focus:border-[#A8844F] focus:ring-1 focus:ring-[#A8844F] outline-none text-xs text-[#15171C] placeholder:text-[#6A675F]/60 p-3 rounded-[6px] leading-relaxed resize-none transition-colors"
                           />
 
                           <div className="flex items-center justify-between text-[10px] text-[#6A675F]">
-                            <span>Ý kiến sẽ gửi trực tiếp đến Huấn luyện viên & Ban Chuyên môn</span>
-                            <span className="font-mono tabular-nums">{commentText.length}/500</span>
+                            <span>
+                              Ý kiến sẽ gửi trực tiếp đến Huấn luyện viên & Ban
+                              Chuyên môn
+                            </span>
+                            <span className="font-mono tabular-nums">
+                              {commentText.length}/500
+                            </span>
                           </div>
 
                           {overallRating <= 2 && (
                             <p className="text-[11px] text-[#B5651D] font-normal pt-0.5">
-                              * Cho Giám đốc Chuyên môn biết điều cần sửa để đảm bảo chuẩn mực dịch vụ.
+                              * Cho Giám đốc Chuyên môn biết điều cần sửa để đảm
+                              bảo chuẩn mực dịch vụ.
                             </p>
                           )}
                         </>
@@ -469,7 +577,9 @@ export function ClassFeedbackModal({
                             “{existingFeedback.coachReply}”
                           </p>
                           <span className="text-[11px] text-[#6A675F] font-normal block font-sans">
-                            — {existingFeedback.coachName || classItem.coachName} · Phản hồi sau buổi tập
+                            —{" "}
+                            {existingFeedback.coachName || classItem.coachName}{" "}
+                            · Phản hồi sau buổi tập
                           </span>
                         </div>
                       )}
@@ -493,10 +603,14 @@ export function ClassFeedbackModal({
                         <input
                           type="checkbox"
                           checked={isPrivateContactRequested}
-                          onChange={(e) => setIsPrivateContactRequested(e.target.checked)}
+                          onChange={(e) =>
+                            setIsPrivateContactRequested(e.target.checked)
+                          }
                           className="w-4 h-4 rounded border-[rgba(21,23,28,0.2)] text-[#15171C] focus:ring-[#A8844F]"
                         />
-                        <span>Đề nghị Ban Chuyên môn liên hệ trao đổi riêng</span>
+                        <span>
+                          Đề nghị Ban Chuyên môn liên hệ trao đổi riêng
+                        </span>
                       </label>
                     </div>
                   )}
@@ -518,7 +632,7 @@ export function ClassFeedbackModal({
                   onClick={onClose}
                   className="text-xs text-[#6A675F] hover:text-[#15171C] underline font-normal cursor-pointer"
                 >
-                  {isReadOnly ? 'Đóng' : 'Để sau'}
+                  {isReadOnly ? "Đóng" : "Để sau"}
                 </button>
 
                 {isReadOnly ? (
@@ -532,14 +646,18 @@ export function ClassFeedbackModal({
                 ) : (
                   <button
                     type="button"
-                    disabled={overallRating === 0 || isSubmitting || (overallRating <= 2 && !commentText.trim())}
+                    disabled={
+                      overallRating === 0 ||
+                      isSubmitting ||
+                      (overallRating <= 2 && !commentText.trim())
+                    }
                     onClick={handleSubmit}
                     className="px-6 py-2.5 rounded-[6px] bg-[#15171C] hover:bg-[#2A2E37] text-[#FBF9F4] text-xs font-medium cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-xs flex items-center gap-2"
                   >
                     {isSubmitting && (
                       <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                     )}
-                    <span>{isEditing ? 'Lưu cập nhật' : 'Gửi đánh giá'}</span>
+                    <span>{isEditing ? "Lưu cập nhật" : "Gửi đánh giá"}</span>
                   </button>
                 )}
               </div>
@@ -548,5 +666,5 @@ export function ClassFeedbackModal({
         </div>
       </div>
     </AnimatePresence>
-  );
+  )
 }
