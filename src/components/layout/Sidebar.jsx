@@ -24,6 +24,9 @@ import {
   UserRound,
   Dumbbell,
   MessageSquareHeart,
+  Bell,
+  PauseCircle,
+  HeartPulse,
 } from "lucide-react"
 
 export function Sidebar({ mobileOpen = false, onCloseMobile }) {
@@ -128,6 +131,11 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             icon: LayoutDashboard,
           },
           {
+            path: "/member/notifications",
+            label: language === "vi" ? "Thông báo" : "Notifications",
+            icon: Bell,
+          },
+          {
             path: "/member/invoices",
             label:
               language === "vi"
@@ -140,6 +148,11 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             labelKey: "myMembership",
             label: language === "vi" ? "Gói hội viên của tôi" : "My Membership",
             icon: Award,
+          },
+          {
+            path: "/member/freeze-request",
+            label: language === "vi" ? "Bảo lưu gói tập" : "Freeze membership",
+            icon: PauseCircle,
           },
           {
             path: "/member/catalog",
@@ -164,16 +177,27 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             icon: ClipboardCheck,
           },
           {
-            path: "/member/feedback",
-            labelKey: "feedback",
-            label: language === "vi" ? "Đánh giá & Feedback" : "Class Feedback",
-            icon: MessageSquareHeart,
+            path: "/member/my-coach",
+            label: language === "vi" ? "Huấn luyện viên của tôi" : "My Coach",
+            icon: UserCheck,
           },
           {
             path: "/member/progress",
             label:
               language === "vi" ? "Tiến độ tập luyện" : "Training progress",
             icon: Activity,
+          },
+          {
+            path: "/member/body-metrics",
+            label:
+              language === "vi" ? "Chỉ số cơ thể (InBody)" : "Body metrics",
+            icon: HeartPulse,
+          },
+          {
+            path: "/member/feedback",
+            labelKey: "feedback",
+            label: language === "vi" ? "Đánh giá & Feedback" : "Class Feedback",
+            icon: MessageSquareHeart,
           },
         ]
 

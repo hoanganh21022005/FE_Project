@@ -106,7 +106,9 @@ export function resolveMockLoginUser({
   const normalizedEmail = String(email || "")
     .trim()
     .toLowerCase()
-  const normalizedManagerEmail = String(managerEmail || "").trim().toLowerCase()
+  const normalizedManagerEmail = String(managerEmail || "")
+    .trim()
+    .toLowerCase()
 
   // 1. Check exact staff demo accounts
   const demoStaff = DEMO_STAFF_ACCOUNTS[normalizedEmail]
@@ -133,7 +135,10 @@ export function resolveMockLoginUser({
 
   // 3. Check registered mock members
   const member = (members || []).find(
-    (item) => String(item?.email || "").trim().toLowerCase() === normalizedEmail,
+    (item) =>
+      String(item?.email || "")
+        .trim()
+        .toLowerCase() === normalizedEmail,
   )
   if (member) {
     if (password === demoPassword || password === member.password) {
@@ -283,6 +288,11 @@ const ROUTE_TAB_MAP = {
     tab: "member_feedback",
   },
   "/member/training-plan": { role: ROLE_MEMBER, tab: "member_training_plan" },
+  "/member/invoices": { role: ROLE_MEMBER, tab: "member_invoices" },
+  "/member/notifications": { role: ROLE_MEMBER, tab: "member_notifications" },
+  "/member/my-coach": { role: ROLE_MEMBER, tab: "member_my_coach" },
+  "/member/body-metrics": { role: ROLE_MEMBER, tab: "member_body_metrics" },
+  "/member/freeze-request": { role: ROLE_MEMBER, tab: "member_freeze_request" },
 
   // Admin routes
   "/admin/dashboard": { role: ROLE_ADMIN, tab: "admin_dashboard" },
@@ -333,6 +343,11 @@ const TAB_ROUTE_MAP = {
   member_attendance_history: "/member/attendance-history",
   member_feedback: "/member/feedback",
   member_training_plan: "/member/training-plan",
+  member_invoices: "/member/invoices",
+  member_notifications: "/member/notifications",
+  member_my_coach: "/member/my-coach",
+  member_body_metrics: "/member/body-metrics",
+  member_freeze_request: "/member/freeze-request",
 
   // Admin
   admin_dashboard: "/admin/dashboard",
@@ -439,7 +454,13 @@ export function resolveAuthenticatedRoute(pathname, role) {
  */
 export function isTabAllowedForRole(tab, role) {
   if (!tab) return false
-  if (tab === "settings" || tab === "support" || tab === "profile" || tab === "forbidden") return true
+  if (
+    tab === "settings" ||
+    tab === "support" ||
+    tab === "profile" ||
+    tab === "forbidden"
+  )
+    return true
   for (const entry of Object.values(ROUTE_TAB_MAP)) {
     if (entry.tab === tab) {
       return entry.role === role
