@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react"
-import { useLocation } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import {
   Calendar,
@@ -17,61 +17,67 @@ import {
 export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
   const { language, setLanguage, currentUser, t, apiEnabled } = useSCMS()
   const location = useLocation()
-  const isMemberFeedback = location.pathname.startsWith('/member/feedback')
+  const navigate = useNavigate()
+  const isMemberFeedback = location.pathname.startsWith("/member/feedback")
   const [isNotifOpen, setIsNotifOpen] = useState(false)
-  const [notifications, setNotifications] = useState(() => apiEnabled ? [] : [
-    {
-      id: "n1",
-      titleVi: "Cảnh báo thời gian gia hạn 72 giờ",
-      titleEn: "72h Grace Period Warning",
-      descVi:
-        "Gói của thành viên Trần Quốc Huy (MB-1002) đã hết hạn và chuyển sang thời gian chờ gia hạn.",
-      descEn:
-        "Tran Quoc Huy's package (MB-1002) expired and entered the grace period.",
-      timeVi: "10 phút trước",
-      timeEn: "10 minutes ago",
-      type: "warning",
-      unread: true,
-    },
-    {
-      id: "n2",
-      titleVi: "Thanh toán mới thành công",
-      titleEn: "Successful Payment Recorded",
-      descVi:
-        "Giao dịch TX-9021 (Gói Premium 12 Tháng - 1.500.000 VND) đã hoàn tất.",
-      descEn:
-        "Transaction TX-9021 (Premium 12M Package - 1,500,000 VND) completed.",
-      timeVi: "35 phút trước",
-      timeEn: "35 minutes ago",
-      type: "payment",
-      unread: true,
-    },
-    {
-      id: "n3",
-      titleVi: "Lớp học đã đủ sức chứa",
-      titleEn: "Class Full Capacity Reached",
-      descVi: "Lớp Yoga Foundation (Studio A) đã đủ 15/15 thành viên đăng ký.",
-      descEn:
-        "Yoga Foundation class (Studio A) has reached 15/15 enrolled capacity.",
-      timeVi: "2 giờ trước",
-      timeEn: "2 hours ago",
-      type: "info",
-      unread: true,
-    },
-    {
-      id: "n4",
-      titleVi: "Điều chỉnh điểm danh",
-      titleEn: "Attendance Record Corrected",
-      descVi:
-        "Coach Lê Thị Mai đã điều chỉnh điểm danh cho lớp Pilates Intermediate (Audit Log #A-108).",
-      descEn:
-        "Coach Le Thi Mai updated attendance record for Pilates Intermediate.",
-      timeVi: "5 giờ trước",
-      timeEn: "5 hours ago",
-      type: "success",
-      unread: false,
-    },
-  ])
+  const [notifications, setNotifications] = useState(() =>
+    apiEnabled
+      ? []
+      : [
+          {
+            id: "n1",
+            titleVi: "Cảnh báo thời gian gia hạn 72 giờ",
+            titleEn: "72h Grace Period Warning",
+            descVi:
+              "Gói của thành viên Trần Quốc Huy (MB-1002) đã hết hạn và chuyển sang thời gian chờ gia hạn.",
+            descEn:
+              "Tran Quoc Huy's package (MB-1002) expired and entered the grace period.",
+            timeVi: "10 phút trước",
+            timeEn: "10 minutes ago",
+            type: "warning",
+            unread: true,
+          },
+          {
+            id: "n2",
+            titleVi: "Thanh toán mới thành công",
+            titleEn: "Successful Payment Recorded",
+            descVi:
+              "Giao dịch TX-9021 (Gói Premium 12 Tháng - 1.500.000 VND) đã hoàn tất.",
+            descEn:
+              "Transaction TX-9021 (Premium 12M Package - 1,500,000 VND) completed.",
+            timeVi: "35 phút trước",
+            timeEn: "35 minutes ago",
+            type: "payment",
+            unread: true,
+          },
+          {
+            id: "n3",
+            titleVi: "Lớp học đã đủ sức chứa",
+            titleEn: "Class Full Capacity Reached",
+            descVi:
+              "Lớp Yoga Foundation (Studio A) đã đủ 15/15 thành viên đăng ký.",
+            descEn:
+              "Yoga Foundation class (Studio A) has reached 15/15 enrolled capacity.",
+            timeVi: "2 giờ trước",
+            timeEn: "2 hours ago",
+            type: "info",
+            unread: true,
+          },
+          {
+            id: "n4",
+            titleVi: "Điều chỉnh điểm danh",
+            titleEn: "Attendance Record Corrected",
+            descVi:
+              "Coach Lê Thị Mai đã điều chỉnh điểm danh cho lớp Pilates Intermediate (Audit Log #A-108).",
+            descEn:
+              "Coach Le Thi Mai updated attendance record for Pilates Intermediate.",
+            timeVi: "5 giờ trước",
+            timeEn: "5 hours ago",
+            type: "success",
+            unread: false,
+          },
+        ],
+  )
 
   const popoverRef = useRef(null)
 
@@ -167,7 +173,9 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
           </span>
         ) : (
           <>
-            <span className="hidden sm:inline text-slate-400 font-medium">VIBE Athletic Club</span>
+            <span className="hidden sm:inline text-slate-400 font-medium">
+              VIBE Athletic Club
+            </span>
             <ChevronRight className="hidden sm:inline w-3.5 h-3.5 text-slate-300" />
             <span className="text-slate-900 font-bold truncate">
               {currentTitle}
@@ -331,12 +339,30 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
               </div>
 
               {/* Footer */}
-              <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-center">
-                <span className="text-[11px] text-slate-500 font-medium">
-                  {language === "vi"
-                    ? "Hệ thống tự động lưu nhật ký hoạt động"
-                    : "Activity is recorded automatically"}
-                </span>
+              <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
+                {currentUser?.role === "member" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsNotifOpen(false)
+                      navigate("/member/notifications")
+                    }}
+                    className="w-full py-1 text-center font-bold text-red-700 hover:text-red-800 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <span>
+                      {language === "vi"
+                        ? "Xem tất cả thông báo"
+                        : "View all notifications"}
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <span className="w-full text-center text-[11px] text-slate-500 font-medium">
+                    {language === "vi"
+                      ? "Hệ thống tự động lưu nhật ký hoạt động"
+                      : "Activity is recorded automatically"}
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -344,15 +370,25 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
 
         {/* User Info & Avatar */}
         <div className="flex items-center gap-2.5 pl-2 sm:pl-3 border-l border-slate-200">
-          <div className="w-8 h-8 rounded-full border border-[rgba(21,23,28,0.15)] bg-[#FBF9F4] text-[#15171C] flex items-center justify-center font-medium text-xs shrink-0">
-            {(currentUser?.name || "B").charAt(0)}
+          <div className="w-8 h-8 rounded-full border border-[rgba(21,23,28,0.15)] bg-[#FBF9F4] text-[#15171C] flex items-center justify-center font-medium text-xs shrink-0 overflow-hidden">
+            {currentUser?.avatarUrl ? (
+              <img
+                src={currentUser.avatarUrl}
+                alt="Avatar"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              (currentUser?.name || "B").charAt(0)
+            )}
           </div>
           <div className="hidden sm:block text-left">
             <div className="text-xs font-semibold text-[#15171C] leading-tight truncate max-w-[140px]">
               {currentUser?.name || "Bùi Văn Phúc"}
             </div>
             <div className="text-[10px] text-[#6A675F] font-normal leading-tight truncate max-w-[140px]">
-              {(currentUser?.email || "phuc.bui@vibeathletic.com").replace("@fitzone.vn", "@vibeathletic.com").replace("@scms.com", "@vibeathletic.com")}
+              {(currentUser?.email || "phuc.bui@vibeathletic.com")
+                .replace("@fitzone.vn", "@vibeathletic.com")
+                .replace("@scms.com", "@vibeathletic.com")}
             </div>
           </div>
           {onLogout && (
