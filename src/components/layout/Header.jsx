@@ -18,7 +18,6 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
   const { language, setLanguage, currentUser, t, apiEnabled } = useSCMS()
   const location = useLocation()
   const navigate = useNavigate()
-  const isMemberFeedback = location.pathname.startsWith("/member/feedback")
   const [isNotifOpen, setIsNotifOpen] = useState(false)
   const [headerAvatar, setHeaderAvatar] = useState(
     () =>
@@ -192,21 +191,13 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
         >
           <Menu className="w-5 h-5" />
         </button>
-        {isMemberFeedback ? (
-          <span className="text-xs font-sans tracking-[0.14em] uppercase font-semibold text-[#15171C]">
-            VIBE ATHLETIC CLUB · PHẢN HỒI
-          </span>
-        ) : (
-          <>
-            <span className="hidden sm:inline text-slate-400 font-medium">
-              VIBE Athletic Club
-            </span>
-            <ChevronRight className="hidden sm:inline w-3.5 h-3.5 text-slate-300" />
-            <span className="text-slate-900 font-bold truncate">
-              {currentTitle}
-            </span>
-          </>
-        )}
+        <span className="hidden sm:inline text-slate-400 font-medium">
+          VIBE Athletic Club
+        </span>
+        <ChevronRight className="hidden sm:inline w-3.5 h-3.5 text-slate-300" />
+        <span className="text-slate-900 font-bold truncate">
+          {currentTitle}
+        </span>
       </div>
 
       {/* Right Controls */}
@@ -218,20 +209,20 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
             onClick={() => setLanguage("vi")}
             className={`px-1 py-0.5 transition-colors cursor-pointer ${
               language === "vi"
-                ? "text-[#15171C] font-semibold underline underline-offset-4 decoration-[#A8844F] decoration-2"
-                : "text-[#6A675F] hover:text-[#15171C]"
+                ? "text-red-700 font-bold underline underline-offset-4 decoration-red-700 decoration-2"
+                : "text-slate-400 hover:text-slate-700"
             }`}
           >
             VI
           </button>
-          <span className="text-[#6A675F]/40">|</span>
+          <span className="text-slate-300">|</span>
           <button
             type="button"
             onClick={() => setLanguage("en")}
             className={`px-1 py-0.5 transition-colors cursor-pointer ${
               language === "en"
-                ? "text-[#15171C] font-semibold underline underline-offset-4 decoration-[#A8844F] decoration-2"
-                : "text-[#6A675F] hover:text-[#15171C]"
+                ? "text-red-700 font-bold underline underline-offset-4 decoration-red-700 decoration-2"
+                : "text-slate-400 hover:text-slate-700"
             }`}
           >
             EN
@@ -401,7 +392,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
             className="flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer text-left bg-transparent border-0 p-0 focus:outline-hidden"
             title={language === "vi" ? "Xem hồ sơ cá nhân" : "View profile"}
           >
-            <div className="w-8 h-8 rounded-full border border-[rgba(21,23,28,0.15)] bg-[#FBF9F4] text-[#15171C] flex items-center justify-center font-medium text-xs shrink-0 overflow-hidden">
+            <div className="w-8 h-8 rounded-full border border-slate-200 bg-red-50 text-red-700 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
               {headerAvatar ? (
                 <img
                   src={headerAvatar}
@@ -413,10 +404,10 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
               )}
             </div>
             <div className="hidden sm:block text-left">
-              <div className="text-xs font-semibold text-[#15171C] leading-tight truncate max-w-[140px]">
+              <div className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[140px]">
                 {currentUser?.name || "Bùi Văn Phúc"}
               </div>
-              <div className="text-[10px] text-[#6A675F] font-normal leading-tight truncate max-w-[140px]">
+              <div className="text-[10px] text-slate-500 font-normal leading-tight truncate max-w-[140px]">
                 {(currentUser?.email || "phuc.bui@vibeathletic.com")
                   .replace("@fitzone.vn", "@vibeathletic.com")
                   .replace("@scms.com", "@vibeathletic.com")}
@@ -427,7 +418,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
             <button
               id="header-logout-btn"
               onClick={onLogout}
-              className="p-1.5 text-slate-400 hover:text-[#15171C] hover:bg-slate-100 rounded transition-colors cursor-pointer ml-0.5"
+              className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors cursor-pointer ml-0.5"
               title={t("logout")}
               aria-label={t("logout")}
             >
