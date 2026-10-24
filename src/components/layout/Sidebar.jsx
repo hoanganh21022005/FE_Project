@@ -131,11 +131,6 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             icon: LayoutDashboard,
           },
           {
-            path: "/member/notifications",
-            label: language === "vi" ? "Thông báo" : "Notifications",
-            icon: Bell,
-          },
-          {
             path: "/member/invoices",
             label:
               language === "vi"
