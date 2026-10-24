@@ -36,6 +36,42 @@ export const submitClassFeedback = (classId, payload) =>
 export const getMyClassFeedback = (classId) =>
   httpClient.get(`/api/classes/${classId}/feedback/me`)
 
+export const getCoaches = async (params = {}) => {
+  const query = new URLSearchParams()
+  if (params.specializationId)
+    query.set("specializationId", params.specializationId)
+  if (params.keyword) query.set("keyword", params.keyword)
+  const qStr = query.toString()
+  return list(`/api/coaches${qStr ? `?${qStr}` : ""}`)
+}
+
+export const getCoachAvailableSlots = async (
+  coachId,
+  date,
+  { subjectId, roomId } = {},
+) => {
+  if (!coachId || !date) return []
+  const query = new URLSearchParams({ date: String(date).slice(0, 10) })
+  if (subjectId) query.set("subjectId", subjectId)
+  if (roomId) query.set("roomId", roomId)
+  return list(
+    `/api/sessions/coaches/${encodeURIComponent(coachId)}/available-slots?${query.toString()}`,
+  )
+}
+
+export const getTimeSlots = async (isOutdoor) => {
+  const q = isOutdoor !== undefined ? `?isOutdoor=${Boolean(isOutdoor)}` : ""
+  return list(`/api/sessions/time-slots${q}`)
+}
+
+export const getRooms = async () => {
+  return list("/api/rooms")
+}
+
+export const bookPrivateSession = async (payload) => {
+  return httpClient.post("/api/sessions/book-private", payload)
+}
+
 export const memberPortalApi = {
   getMemberClasses,
   getClassSessions,
@@ -47,6 +83,11 @@ export const memberPortalApi = {
   cancelPrivateSession,
   submitClassFeedback,
   getMyClassFeedback,
+  getCoaches,
+  getCoachAvailableSlots,
+  getTimeSlots,
+  getRooms,
+  bookPrivateSession,
 }
 
 export default memberPortalApi
