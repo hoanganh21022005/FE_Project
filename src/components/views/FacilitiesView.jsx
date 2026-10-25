@@ -1,7 +1,7 @@
 import React from "react"
 import { Link } from "react-router-dom"
 import { CoachesHeader } from "../layout/CoachesHeader"
-import { CoachEnrollmentFooter } from "../layout/CoachEnrollmentFooter"
+import { PublicFooter } from "../layout/PublicFooter"
 import { FacilitiesExperience } from "../facilities/FacilitiesExperience"
 import { useSCMS } from "../../context/SCMSContext"
 
@@ -18,7 +18,7 @@ export function FacilitiesView() {
       <main id="main-content">
         <FacilitiesExperience />
       </main>
-      <CoachEnrollmentFooter />
+      <PublicFooter />
     </div>
   )
 }

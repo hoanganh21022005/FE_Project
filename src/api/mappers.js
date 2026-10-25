@@ -33,7 +33,7 @@ export const mapSubject = (subject) => ({
   normalPrice: asNumber(subject.normalPrice),
   advancedPrice: asNumber(subject.advancedPrice),
   slug: subject.slug ?? null,
-  status: normalizeStatus(subject.status, "active"),
+  status: normalizeStatus(subject.status, null),
   outdoor: subject.outdoor ?? null,
 })
 
