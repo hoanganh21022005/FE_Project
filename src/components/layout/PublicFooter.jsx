@@ -1,39 +1,54 @@
 import React from "react"
 import { Link } from "react-router-dom"
+import { ArrowUpRight, Mail, Phone } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { publicSports } from "../../data/publicCoaches"
+
+const exploreLinks = [
+  ["/about", "Về VIBE Sport", "About VIBE Sport"],
+  ["/coaches", "Huấn luyện viên", "Coaches"],
+  ["/facilities", "Cơ sở vật chất", "Facilities"],
+  ["/privacy-policy", "Chính sách bảo mật", "Privacy policy"],
+]
 
 export function PublicFooter() {
   const { language } = useSCMS()
   const isVi = language === "vi"
 
   return (
-    <footer className="bg-mlc-ink py-14 text-white sm:py-16">
-      <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
-        <div className="grid gap-10 border-b border-white/15 pb-10 md:grid-cols-[1.2fr_1fr_1fr]">
-          <div>
+    <footer className="relative overflow-hidden bg-[#151a22] text-white">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      <div className="mx-auto max-w-[1440px] px-5 pb-7 pt-14 sm:px-8 sm:pt-16 lg:px-12 lg:pt-20">
+        <div className="grid gap-11 border-b border-white/10 pb-11 sm:grid-cols-2 xl:grid-cols-[1.1fr_1.35fr_0.8fr_1fr] xl:gap-12 xl:pb-14">
+          <section>
             <Link
-              to="/#top"
-              className="inline-flex items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+              to="/"
+              aria-label={isVi ? "VIBE Sport, về trang chủ" : "VIBE Sport, home"}
+              className="inline-flex rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
             >
               <img
                 src="/images/MainPage/vibe-sport-logo.png?v=2"
-                alt="Vibe Sport"
-                className="h-20 w-32 shrink-0 object-contain"
+                alt="VIBE Sport"
+                width="192"
+                height="128"
+                className="h-24 w-40 object-contain object-left"
               />
             </Link>
-            <p className="mt-5 max-w-sm text-sm leading-6 text-white/65">
+            <p className="mt-4 max-w-sm text-sm leading-7 text-white/65">
               {isVi
-                ? "Khám phá các môn thể thao, xây dựng kỹ năng và phát triển qua từng buổi tập."
-                : "Explore sports, build skills and grow through every session."}
+                ? "Vitality · Inspire · Balance · Energy. Cùng VIBE Sport tìm môn thể thao bạn yêu thích và phát triển qua từng buổi tập."
+                : "Vitality · Inspire · Balance · Energy. Find the sport you love and grow through every training session."}
             </p>
-          </div>
+            <p className="mt-5 text-xs font-bold uppercase tracking-[0.18em] text-white/40">
+              {isVi ? "Vận động hôm nay, trưởng thành mỗi ngày." : "Move today. Grow every day."}
+            </p>
+          </section>
 
-          <div>
-            <h2 className="text-xs font-bold uppercase tracking-[0.15em]">
-              {isVi ? "KHÓA HỌC" : "COURSES"}
+          <nav aria-label={isVi ? "Các môn học" : "Sports courses"}>
+            <h2 className="text-xs font-extrabold uppercase tracking-[0.18em] text-white">
+              {isVi ? "Môn thể thao" : "Sports"}
             </h2>
-            <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-white/65">
+            <ul className="mt-5 grid grid-cols-2 gap-x-5 gap-y-3 text-sm text-white/65">
               {publicSports.map((sport) => (
                 <li key={sport.id}>
                   <Link
@@ -45,64 +60,56 @@ export function PublicFooter() {
                 </li>
               ))}
             </ul>
-          </div>
+          </nav>
 
-          <div>
-            <h2 className="text-xs font-bold uppercase tracking-[0.15em]">
-              {isVi ? "KHÁM PHÁ" : "EXPLORE"}
+          <nav aria-label={isVi ? "Khám phá VIBE Sport" : "Explore VIBE Sport"}>
+            <h2 className="text-xs font-extrabold uppercase tracking-[0.18em] text-white">
+              {isVi ? "Khám phá" : "Explore"}
             </h2>
-            <ul className="mt-4 space-y-3 text-sm text-white/65">
-              <li>
-                <Link
-                  to="/about"
-                  className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                >
-                  {isVi ? "Về VIBE Sport" : "About VIBE Sport"}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/coaches"
-                  className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                >
-                  {isVi ? "Huấn luyện viên" : "Coaches"}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/facilities"
-                  className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                >
-                  {isVi ? "Cơ sở vật chất" : "Facilities"}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/privacy-policy"
-                  className="transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                >
-                  {isVi ? "Chính sách bảo mật" : "Privacy policy"}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/register"
-                  className="font-semibold text-white transition-colors hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                >
-                  {isVi ? "Đăng ký tài khoản" : "Create an account"}
-                </Link>
-              </li>
+            <ul className="mt-5 space-y-3 text-sm text-white/65">
+              {exploreLinks.map(([href, vi, en]) => (
+                <li key={href}>
+                  <Link
+                    to={href}
+                    className="inline-flex items-center gap-1 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  >
+                    {isVi ? vi : en}
+                    <ArrowUpRight className="h-3.5 w-3.5 opacity-50" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
             </ul>
-          </div>
+          </nav>
+
+          <section id="contact-info" className="scroll-mt-28">
+            <h2 className="text-xs font-extrabold uppercase tracking-[0.18em] text-white">
+              {isVi ? "Liên hệ với chúng tôi" : "Get in touch"}
+            </h2>
+            <p className="mt-5 text-sm leading-6 text-white/60">
+              {isVi
+                ? "Cần hỗ trợ? Liên hệ đội ngũ VIBE Sport qua điện thoại hoặc email."
+                : "Need help? Contact the VIBE Sport team by phone or email."}
+            </p>
+            <a
+              href="tel:18006995"
+              className="mt-4 flex min-h-11 items-center gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-white/85 transition hover:border-mlc-red/60 hover:bg-white/[0.08] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              <Phone className="h-4 w-4 shrink-0 text-mlc-red" aria-hidden="true" />
+              <span>1800 6995</span>
+            </a>
+            <a
+              href="mailto:memberrelations@scms.vn"
+              className="mt-2 flex min-h-11 items-center gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-white/85 transition hover:border-mlc-red/60 hover:bg-white/[0.08] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              <Mail className="h-4 w-4 shrink-0 text-mlc-red" aria-hidden="true" />
+              <span className="break-all">memberrelations@scms.vn</span>
+            </a>
+          </section>
         </div>
 
-        <div className="flex flex-col gap-2 pt-6 text-xs text-white/50 sm:flex-row sm:items-center sm:justify-between">
-          <span>VIBE Sport 2026</span>
-          <span>
-            {isVi
-              ? "Vận động hôm nay, trưởng thành mỗi ngày."
-              : "Move today. Grow every day."}
-          </span>
+        <div className="flex flex-col gap-3 pt-6 text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between">
+          <span>© {new Date().getFullYear()} VIBE Sport</span>
+          <span>{isVi ? "Trân trọng đồng hành cùng hành trình vận động của bạn." : "Here for every step of your sporting journey."}</span>
         </div>
       </div>
     </footer>

@@ -577,10 +577,6 @@ function SCMSApp() {
                 element={
                   <HomeLandingView
                     onOpenLogin={() => navigate("/login")}
-                    onOpenRegister={(pkgId) => {
-                      setTargetPackageId(pkgId || null)
-                      navigate("/register")
-                    }}
                   />
                 }
               />
@@ -813,6 +809,8 @@ function SCMSApp() {
             className={`flex-1 ${
               location.pathname.startsWith("/member")
                 ? "overflow-y-auto w-full bg-white"
+                : location.pathname === "/manager/packages"
+                  ? "min-w-0 p-3 sm:p-4 md:p-6 overflow-y-auto w-full"
                 : "p-3 sm:p-4 md:p-6 overflow-y-auto max-w-7xl w-full mx-auto"
             }`}
           >

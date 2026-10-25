@@ -3,7 +3,7 @@ import { Link } from "react-router-dom"
 import { useReducedMotion } from "motion/react"
 import { useSCMS } from "../../context/SCMSContext"
 import { publicCourses } from "../../data/publicCourses"
-import { CoachEnrollmentFooter } from "../layout/CoachEnrollmentFooter"
+import { PublicFooter } from "../layout/PublicFooter"
 import { Reveal, Stagger, Item } from "../common/Reveal"
 import { ArrowDown, ArrowRight, ChevronDown, Menu, X } from "lucide-react"
 import "../../styles/coaches.css"
@@ -124,7 +124,7 @@ const values = [
   },
 ]
 
-export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
+export function HomeLandingView({ onOpenLogin }) {
   const { language, setLanguage } = useSCMS()
   const prefersReducedMotion = useReducedMotion()
   const heroVideoRef = useRef(null)
@@ -196,7 +196,6 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
     },
     { href: "/coaches", label: isVi ? "Huấn luyện viên" : "Coaches" },
     { href: "/facilities", label: isVi ? "Cơ sở vật chất" : "Facilities" },
-    { href: "#enrollment", label: isVi ? "Tuyển sinh" : "Admissions" },
   ]
 
   return (
@@ -334,13 +333,6 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
             >
               {isVi ? "Đăng nhập" : "Sign in"}
             </button>
-            <button
-              type="button"
-              onClick={() => onOpenRegister()}
-              className="rounded-full bg-mlc-red px-5 py-3 text-xs font-bold text-white shadow-mlc transition hover:bg-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mlc-ink"
-            >
-              {isVi ? "Đăng ký ngay" : "Register now"}
-            </button>
           </div>
 
           <div className="flex items-center gap-2 lg:hidden">
@@ -465,16 +457,6 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
               >
                 {isVi ? "Đăng nhập" : "Sign in"}
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false)
-                  onOpenRegister()
-                }}
-                className="rounded-full bg-mlc-red px-5 py-3 text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mlc-red"
-              >
-                {isVi ? "Đăng ký ngay" : "Register now"}
-              </button>
             </div>
           </nav>
         )}
@@ -536,14 +518,6 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
                   {isVi ? "Khám phá khóa học" : "Explore courses"}{" "}
                   <ArrowDown className="h-4 w-4" />
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => onOpenRegister()}
-                  className="inline-flex min-h-14 items-center justify-center gap-3 rounded-full border border-white/70 bg-white/10 px-7 text-sm font-bold text-white transition hover:bg-white hover:text-mlc-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-                >
-                  {isVi ? "Tạo tài khoản" : "Create an account"}{" "}
-                  <ArrowRight className="h-4 w-4" />
-                </button>
               </div>
             </Reveal>
           </div>
@@ -709,7 +683,7 @@ export function HomeLandingView({ onOpenLogin, onOpenRegister }) {
 
       </main>
 
-      <CoachEnrollmentFooter homePage />
+      <PublicFooter />
     </div>
   )
 }
