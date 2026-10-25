@@ -91,9 +91,9 @@ export function LoginView({
   const [forgotNotice, setForgotNotice] = useState("")
 
   // --- REGISTER STATE ---
-  const [regName, setRegName] = useState("")
-  const [regPhone, setRegPhone] = useState("")
-  const [regEmail, setRegEmail] = useState("")
+  const [regName, setRegName] = useState(enrollment?.name || "")
+  const [regPhone, setRegPhone] = useState(enrollment?.phone || "")
+  const [regEmail, setRegEmail] = useState(enrollment?.email || "")
   const [regPassword, setRegPassword] = useState("")
   const [regConfirmPassword, setRegConfirmPassword] = useState("")
   const [showRegPassword, setShowRegPassword] = useState(false)
