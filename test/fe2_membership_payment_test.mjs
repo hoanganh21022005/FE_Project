@@ -778,12 +778,12 @@ const origPatch = httpClient.patch;
 
 // 7.1 Strict GET failure propagation (500 / 401 / Timeout)
 httpClient.get = async (path) => {
-  if (path.includes('/api/members/101/packages')) {
+  if (path.includes('/api/members/101/subscriptions')) {
     const err = new Error('500 Internal Server Error: Database Connection Pool Exhausted');
     err.status = 500;
     throw err;
   }
-  if (path.includes('/api/members/202/packages')) {
+  if (path.includes('/api/members/202/subscriptions')) {
     const err = new Error('403 Forbidden: Insufficient permissions to read foreign member packages');
     err.status = 403;
     throw err;
@@ -1942,7 +1942,7 @@ httpClient.get = async (path) => {
   if (path === '/api/members/me/invoices') {
     throw new Error('500 Internal Server Error: Failed to fetch baseline invoices');
   }
-  if (path.includes('/api/members/101/packages')) {
+  if (path.includes('/api/members/101/subscriptions')) {
     return [];
   }
   return savedGet(path);
@@ -1982,7 +1982,7 @@ httpClient.get = async (path) => {
   if (path === '/api/members/me/invoices') {
     return [];
   }
-  if (path.includes('/api/members/101/packages')) {
+  if (path.includes('/api/members/101/subscriptions')) {
     return [];
   }
   return savedGet(path);
@@ -2058,7 +2058,7 @@ httpClient.get = async (path) => {
       { id: 88, invoiceId: 88, invoiceCode: 'INV-0088', packageId: targetPackage, amount: 2000000, paymentStatus: 'pending', createdAt: new Date().toISOString() },
     ];
   }
-  if (path.includes('/api/members/101/packages')) {
+  if (path.includes('/api/members/101/subscriptions')) {
     if (!isPostTimeoutTriggered) {
       // Safety check before POST
       return [];
@@ -2129,7 +2129,7 @@ httpClient.get = async (path) => {
       { id: 89, invoiceId: 89, invoiceCode: 'INV-0089', packageId: targetPackage, amount: 2000000, paymentStatus: 'pending', createdAt: new Date().toISOString() },
     ];
   }
-  if (path.includes('/api/members/101/packages')) {
+  if (path.includes('/api/members/101/subscriptions')) {
     // Missing subscription counterpart on server!
     return [];
   }
@@ -2263,7 +2263,7 @@ httpClient.get = async (path) => {
       { packageId: targetPackage, paymentStatus: 'pending', createdAt: new Date().toISOString() },
     ];
   }
-  if (path.includes('/api/members/101/packages')) {
+  if (path.includes('/api/members/101/subscriptions')) {
     if (!isPostTimeoutTriggered) return [];
     return [
       { packageId: targetPackage, status: 'pending_payment', createdAt: new Date().toISOString() },
@@ -2330,7 +2330,7 @@ httpClient.get = async (path) => {
       { id: 91, invoiceId: 91, invoiceCode: 'INV-0091', packageId: targetPackage, paymentStatus: 'pending' },
     ];
   }
-  if (path.includes('/api/members/101/packages')) {
+  if (path.includes('/api/members/101/subscriptions')) {
     if (!isPostTimeoutTriggered) return [];
     return [
       { subscriptionId: 92, packageId: targetPackage, status: 'pending_payment' },
@@ -2431,7 +2431,7 @@ httpClient.get = async (path) => {
       { id: 93, invoiceId: 93, invoiceCode: 'INV-0093', packageId: targetPackage, paymentStatus: 'pending', createdAt: Infinity },
     ];
   }
-  if (path.includes('/api/members/101/packages')) {
+  if (path.includes('/api/members/101/subscriptions')) {
     if (!isPostTimeoutTriggered) return [];
     return [
       { subscriptionId: 94, packageId: targetPackage, status: 'pending_payment', createdAt: Infinity },
@@ -2479,7 +2479,7 @@ httpClient.get = async (path) => {
       { id: 95, invoiceId: 95, invoiceCode: 'INV-0095', packageId: targetPackage, paymentStatus: 'pending', createdAt: -Infinity },
     ];
   }
-  if (path.includes('/api/members/101/packages')) {
+  if (path.includes('/api/members/101/subscriptions')) {
     if (!isPostTimeoutTriggered) return [];
     return [
       { subscriptionId: 96, packageId: targetPackage, status: 'pending_payment', createdAt: -Infinity },
