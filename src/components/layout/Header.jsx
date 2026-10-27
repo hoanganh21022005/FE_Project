@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, useCallback } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
+import { notificationApi } from "../../api/notificationApi"
 import {
   Calendar,
   ChevronRight,
@@ -105,6 +106,59 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
 
   const popoverRef = useRef(null)
 
+  const loadApiNotifications = useCallback(async () => {
+    if (!apiEnabled || !currentUser?.id) return
+    try {
+      const res = await notificationApi.getMyNotifications({
+        page: 0,
+        size: 12,
+      })
+      const items = Array.isArray(res?.items) ? res.items : []
+      setNotifications(
+        items.map((item) => {
+          const upper = String(item.type || "").toUpperCase()
+          const mappedType = upper.includes("PAYMENT")
+            ? "payment"
+            : upper.includes("EXPIRED") || upper.includes("NO_SHOW")
+              ? "warning"
+              : upper.includes("SESSION") || upper.includes("ENROLLMENT")
+                ? "info"
+                : "success"
+          const formattedTime = item.createdAt
+            ? new Date(item.createdAt).toLocaleString("vi-VN", {
+                timeZone: "Asia/Ho_Chi_Minh",
+                day: "2-digit",
+                month: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : ""
+          return {
+            id: item.id,
+            titleVi: item.title || "Thông báo hệ thống",
+            titleEn: item.title || "Notification",
+            descVi: item.message || "",
+            descEn: item.message || "",
+            timeVi: formattedTime,
+            timeEn: formattedTime,
+            type: mappedType,
+            unread: !item.isRead,
+          }
+        }),
+      )
+    } catch {
+      // keep existing state if unauthenticated or endpoint fails
+    }
+  }, [apiEnabled, currentUser?.id])
+
+  useEffect(() => {
+    loadApiNotifications()
+    const handleSync = () => loadApiNotifications()
+    window.addEventListener("scms:notifications-updated", handleSync)
+    return () =>
+      window.removeEventListener("scms:notifications-updated", handleSync)
+  }, [loadApiNotifications])
+
   // Close popover when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -118,11 +172,25 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
 
   const unreadCount = notifications.filter((n) => n.unread).length
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    if (apiEnabled) {
+      try {
+        await notificationApi.markAllNotificationsRead()
+      } catch {
+        // ignore
+      }
+    }
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })))
   }
 
-  const markAsRead = (id) => {
+  const markAsRead = async (id) => {
+    if (apiEnabled && id) {
+      try {
+        await notificationApi.markNotificationRead(id)
+      } catch {
+        // ignore
+      }
+    }
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, unread: false } : n)),
     )

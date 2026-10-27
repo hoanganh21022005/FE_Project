@@ -30,11 +30,23 @@ import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { getErrorMessage } from "../../api/apiErrors"
 
 export function MemberMyCoachView() {
-  const { language, currentUser, apiEnabled, showToast } = useSCMS()
+  const { language, currentUser, subjects, apiEnabled, showToast } = useSCMS()
   const isVi = language === "vi"
 
-  // Navigation tab: 'coaches' | 'my_sessions'
+  // Navigation tab: 'coaches' | 'my_sessions' | 'advanced_pt'
   const [activeTab, setActiveTab] = useState("coaches")
+
+  // Advanced PT Registration & Coach Work Schedule state
+  const [advancedRegistrations, setAdvancedRegistrations] = useState([])
+  const [loadingAdvanced, setLoadingAdvanced] = useState(false)
+  const [advancedModalCoach, setAdvancedModalCoach] = useState(null)
+  const [coachWorkSchedule, setCoachWorkSchedule] = useState(null)
+  const [coachCapacity, setCoachCapacity] = useState(null)
+  const [selectedSubjectId, setSelectedSubjectId] = useState("")
+  const [loadingCoachMeta, setLoadingCoachMeta] = useState(false)
+  const [submittingAdvanced, setSubmittingAdvanced] = useState(false)
+  const [advancedError, setAdvancedError] = useState("")
+  const [orderingRegId, setOrderingRegId] = useState(null)
 
   // Coaches state
   const [coaches, setCoaches] = useState([])
@@ -198,8 +210,11 @@ export function MemberMyCoachView() {
         const allSessions = await memberPortalApi.getClassSessions()
         const privates = (Array.isArray(allSessions) ? allSessions : []).filter(
           (s) =>
-            s.isPrivate === true ||
-            String(s.type || "").toUpperCase() === "PRIVATE",
+            (s.isPrivate === true ||
+              String(s.type || "").toUpperCase() === "PRIVATE") &&
+            (!memberProfileId ||
+              !s.bookedMemberId ||
+              String(s.bookedMemberId) === String(memberProfileId)),
         )
         setPrivateSessions(privates)
       } else {
@@ -228,6 +243,144 @@ export function MemberMyCoachView() {
       fetchPrivateSessions()
     }
   }, [activeTab, fetchPrivateSessions])
+
+  const fetchAdvancedRegistrations = useCallback(async () => {
+    if (!apiEnabled) return
+    setLoadingAdvanced(true)
+    try {
+      const list = await memberPortalApi.getAdvancedRegistrations()
+      const filtered = (Array.isArray(list) ? list : []).filter(
+        (item) =>
+          !memberProfileId ||
+          !item.memberId ||
+          String(item.memberId) === String(memberProfileId),
+      )
+      setAdvancedRegistrations(filtered)
+    } catch {
+      setAdvancedRegistrations([])
+    } finally {
+      setLoadingAdvanced(false)
+    }
+  }, [apiEnabled, memberProfileId])
+
+  useEffect(() => {
+    if (activeTab === "advanced_pt") {
+      fetchAdvancedRegistrations()
+    }
+  }, [activeTab, fetchAdvancedRegistrations])
+
+  const handleOpenAdvancedModal = async (coach) => {
+    setAdvancedModalCoach(coach)
+    setCoachWorkSchedule(null)
+    setCoachCapacity(null)
+    setAdvancedError("")
+    const defaultSub =
+      subjects?.find((s) => !Number.isNaN(Number(s.id)))?.id || ""
+    setSelectedSubjectId(defaultSub ? String(defaultSub) : "")
+    if (!apiEnabled || !coach?.id) return
+    setLoadingCoachMeta(true)
+    try {
+      const work = await memberPortalApi
+        .getCoachWorkSchedule(coach.id)
+        .catch(() => null)
+      setCoachWorkSchedule(work)
+      if (defaultSub) {
+        const cap = await memberPortalApi
+          .getCoachAdmissionCapacity(coach.id, defaultSub)
+          .catch(() => null)
+        setCoachCapacity(cap)
+      }
+    } finally {
+      setLoadingCoachMeta(false)
+    }
+  }
+
+  const handleChangeSubjectForCapacity = async (newSubjectId) => {
+    setSelectedSubjectId(newSubjectId)
+    setCoachCapacity(null)
+    if (!apiEnabled || !advancedModalCoach?.id || !newSubjectId) return
+    try {
+      const cap = await memberPortalApi.getCoachAdmissionCapacity(
+        advancedModalCoach.id,
+        newSubjectId,
+      )
+      setCoachCapacity(cap)
+    } catch {
+      setCoachCapacity(null)
+    }
+  }
+
+  const handleSubmitAdvancedRegistration = async (e) => {
+    e.preventDefault()
+    if (!advancedModalCoach?.id || !selectedSubjectId) {
+      setAdvancedError(
+        isVi
+          ? "Vui lòng chọn bộ môn huấn luyện chuyên sâu."
+          : "Please select a training subject.",
+      )
+      return
+    }
+    setSubmittingAdvanced(true)
+    setAdvancedError("")
+    try {
+      if (apiEnabled) {
+        await memberPortalApi.createAdvancedRegistration({
+          subjectId: Number(selectedSubjectId),
+          primaryCoachId: Number(advancedModalCoach.id),
+          requestKey: `adv-${memberProfileId || "me"}-${advancedModalCoach.id}-${selectedSubjectId}-${Date.now()}`,
+        })
+      }
+      showToast?.(
+        isVi
+          ? "Đã gửi yêu cầu đăng ký HLV chuyên sâu thành công!"
+          : "Submitted Advanced PT Coach registration!",
+        "success",
+      )
+      setAdvancedModalCoach(null)
+      setActiveTab("advanced_pt")
+      fetchAdvancedRegistrations()
+    } catch (err) {
+      setAdvancedError(
+        getErrorMessage(
+          err,
+          isVi
+            ? "Không thể gửi đăng ký HLV chuyên sâu."
+            : "Could not submit registration.",
+        ),
+      )
+    } finally {
+      setSubmittingAdvanced(false)
+    }
+  }
+
+  const handleCreateOrderForAdvanced = async (reg, paymentMethod = "Cash") => {
+    if (!reg?.id) return
+    setOrderingRegId(reg.id)
+    try {
+      const orderRes = await memberPortalApi.orderAdvancedRegistration(reg.id, {
+        paymentMethod,
+      })
+      showToast?.(
+        isVi
+          ? `Đã tạo đơn thanh toán (${orderRes?.invoiceCode || paymentMethod}) thành công!`
+          : "Created payment order successfully!",
+        "success",
+      )
+      fetchAdvancedRegistrations()
+    } catch (err) {
+      showToast?.(
+        getErrorMessage(
+          err,
+          isVi
+            ? "Không thể khởi tạo đơn thanh toán cho đăng ký này."
+            : "Could not create payment order.",
+        ),
+        "error",
+      )
+    } finally {
+      setOrderingRegId(null)
+    }
+  }
 
   // 4. Fetch Available Slots when Coach & Date are chosen (GET /api/sessions/coaches/{coachId}/available-slots)
   const fetchSlots = useCallback(
@@ -490,6 +643,17 @@ export function MemberMyCoachView() {
           >
             {isVi ? "Lịch 1:1 đã đặt" : "My 1-on-1 Bookings"}
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("advanced_pt")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              activeTab === "advanced_pt"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            {isVi ? "Đăng ký HLV Chính (Advanced)" : "Primary Coach Requests"}
+          </button>
         </div>
       </header>
 
@@ -601,14 +765,25 @@ export function MemberMyCoachView() {
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => handleOpenBookingModal(c)}
-                      className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer"
                     >
                       <Calendar className="w-3.5 h-3.5 text-red-400" />
-                      <span>{isVi ? "Đặt lịch tập 1:1" : "Book 1-on-1"}</span>
+                      <span>{isVi ? "Đặt lịch 1:1" : "Book 1-on-1"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAdvancedModal(c)}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-800 border border-red-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      <Award className="w-3.5 h-3.5" />
+                      <span>
+                        {isVi ? "Đăng ký HLV chính" : "Primary Coach"}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -724,6 +899,308 @@ export function MemberMyCoachView() {
             </div>
           )}
         </section>
+      )}
+
+      {/* TAB 3: ADVANCED PT COACH REGISTRATIONS (/api/advanced-registrations) */}
+      {activeTab === "advanced_pt" && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">
+                {isVi
+                  ? "Danh sách yêu cầu đăng ký HLV chuyên sâu (Advanced PT)"
+                  : "Advanced PT Coach Registrations"}
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isVi
+                  ? "Theo dõi trạng thái HLV duyệt nhận học viên và khởi tạo thanh toán gói Advanced."
+                  : "Track coach acceptance status and initiate payment for Advanced PT packages."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={fetchAdvancedRegistrations}
+              className="text-xs font-bold text-red-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>{isVi ? "Tải lại" : "Refresh"}</span>
+            </button>
+          </div>
+
+          {loadingAdvanced ? (
+            <div className="py-12 text-center text-xs text-slate-500 flex flex-col items-center gap-2">
+              <Loader2 className="w-6 h-6 animate-spin text-red-600" />
+              <span>
+                {isVi ? "Đang tải dữ liệu đăng ký..." : "Loading requests..."}
+              </span>
+            </div>
+          ) : advancedRegistrations.length === 0 ? (
+            <div className="py-12 text-center text-xs text-slate-500 space-y-2">
+              <Award className="w-8 h-8 text-slate-300 mx-auto" />
+              <p className="font-bold text-slate-700 text-sm">
+                {isVi
+                  ? "Chưa có yêu cầu đăng ký HLV chính nào"
+                  : "No primary coach requests"}
+              </p>
+              <p>
+                {isVi
+                  ? "Chọn nút 'Đăng ký HLV chính' trên thẻ HLV ở tab Danh bạ để gửi yêu cầu."
+                  : "Click 'Primary Coach' on any coach card in the Directory tab to apply."}
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {advancedRegistrations.map((reg) => {
+                const st = String(reg.status || "").toLowerCase()
+                const canOrder =
+                  st === "accepted" || st === "approved"
+                    ? !reg.subscriptionId
+                    : false
+                return (
+                  <div
+                    key={reg.id}
+                    className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-slate-900 text-sm">
+                          {reg.subjectName || `Bộ môn #${reg.subjectId}`} · HLV{" "}
+                          {reg.primaryCoachName || `#${reg.primaryCoachId}`}
+                        </span>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            st.includes("accept") || st.includes("approv")
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : st.includes("reject")
+                                ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                : "bg-amber-50 text-amber-800 border border-amber-200"
+                          }`}
+                        >
+                          {reg.status || "Pending"}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+                        {reg.remainingCredit !== undefined &&
+                          reg.remainingCredit !== null && (
+                            <span>
+                              Credit còn lại:{" "}
+                              <strong>{reg.remainingCredit}</strong>
+                            </span>
+                          )}
+                        {reg.subscriptionStatus && (
+                          <span>
+                            Gói: <strong>{reg.subscriptionStatus}</strong>
+                          </span>
+                        )}
+                        {reg.reason && <span>Ghi chú: {reg.reason}</span>}
+                      </div>
+                    </div>
+
+                    {canOrder && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          disabled={orderingRegId === reg.id}
+                          onClick={() =>
+                            handleCreateOrderForAdvanced(reg, "Cash")
+                          }
+                          className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer"
+                        >
+                          {isVi ? "Tạo đơn Tiền mặt" : "Order (Cash)"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={orderingRegId === reg.id}
+                          onClick={() =>
+                            handleCreateOrderForAdvanced(reg, "VNPay")
+                          }
+                          className="px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-bold cursor-pointer"
+                        >
+                          {isVi ? "Thanh toán VNPay" : "Order (VNPay)"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* MODAL 3: COACH WORK SCHEDULE, CAPACITY & ADVANCED PT REGISTRATION */}
+      {advancedModalCoach && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {isVi
+                    ? `Lịch làm việc & Đăng ký HLV ${advancedModalCoach.name}`
+                    : `Work Schedule & Register Coach ${advancedModalCoach.name}`}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isVi
+                    ? "Kiểm tra ca làm việc, sức chứa học viên và gửi yêu cầu đăng ký HLV chuyên sâu"
+                    : "Review coach schedule, student capacity, and submit an Advanced PT request"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAdvancedModalCoach(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-md cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {loadingCoachMeta ? (
+              <div className="py-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                <span>
+                  {isVi
+                    ? "Đang tải lịch làm việc của HLV..."
+                    : "Loading coach work schedule..."}
+                </span>
+              </div>
+            ) : (
+              coachWorkSchedule && (
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-700">
+                      {isVi
+                        ? "Trạng thái nhận học viên mới:"
+                        : "Accepting new students:"}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded font-bold ${
+                        coachWorkSchedule.acceptingNew !== false
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-rose-100 text-rose-800"
+                      }`}
+                    >
+                      {coachWorkSchedule.acceptingNew !== false
+                        ? isVi
+                          ? "Đang nhận học viên"
+                          : "Open"
+                        : isVi
+                          ? "Tạm ngưng nhận mới"
+                          : "Closed"}
+                    </span>
+                  </div>
+                  {Array.isArray(coachWorkSchedule.weeklySlots) &&
+                    coachWorkSchedule.weeklySlots.length > 0 && (
+                      <div>
+                        <span className="font-bold text-slate-700 block mb-1">
+                          {isVi
+                            ? "Khung ca làm việc trong tuần:"
+                            : "Weekly slots:"}
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {coachWorkSchedule.weeklySlots.map((slot, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 rounded bg-white border border-slate-200 font-mono text-[11px] text-slate-700"
+                            >
+                              {slot}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                </div>
+              )
+            )}
+
+            {advancedError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-800">
+                {advancedError}
+              </div>
+            )}
+
+            <form
+              onSubmit={handleSubmitAdvancedRegistration}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isVi
+                    ? "Chọn bộ môn đăng ký HLV chuyên sâu *"
+                    : "Select Training Subject *"}
+                </label>
+                <select
+                  required
+                  value={selectedSubjectId}
+                  onChange={(e) =>
+                    handleChangeSubjectForCapacity(e.target.value)
+                  }
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs bg-white outline-none focus:border-red-500"
+                >
+                  <option value="">
+                    {isVi ? "-- Chọn bộ môn --" : "-- Select Subject --"}
+                  </option>
+                  {(subjects || []).map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {coachCapacity && (
+                <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200 grid grid-cols-3 gap-2 text-center text-xs">
+                  <div>
+                    <div className="text-[10px] text-slate-500 uppercase font-bold">
+                      {isVi ? "Slot trống" : "Available"}
+                    </div>
+                    <div className="text-base font-extrabold text-blue-900 font-mono">
+                      {coachCapacity.availableSlots ?? "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-500 uppercase font-bold">
+                      {isVi ? "Đang dạy (Credits)" : "Outstanding"}
+                    </div>
+                    <div className="text-base font-extrabold text-slate-900 font-mono">
+                      {coachCapacity.outstandingCredits ?? "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-500 uppercase font-bold">
+                      {isVi ? "Đang chờ duyệt" : "Requested"}
+                    </div>
+                    <div className="text-base font-extrabold text-amber-800 font-mono">
+                      {coachCapacity.requestedCredits ?? "—"}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setAdvancedModalCoach(null)}
+                  className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg cursor-pointer"
+                >
+                  {isVi ? "Đóng" : "Close"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingAdvanced || !selectedSubjectId}
+                  className="px-5 py-2 bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white text-xs font-bold rounded-lg cursor-pointer"
+                >
+                  {submittingAdvanced
+                    ? isVi
+                      ? "Đang gửi..."
+                      : "Submitting..."
+                    : isVi
+                      ? "Gửi yêu cầu đăng ký HLV"
+                      : "Submit Request"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* MODAL 1: BOOK PRIVATE 1-ON-1 SESSION (POST /api/sessions/book-private) */}
