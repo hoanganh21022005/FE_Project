@@ -10,6 +10,7 @@ import { QRCodeSVG } from "qrcode.react"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { invoiceApi } from "../../api/invoiceApi"
 import { membershipApi } from "../../api/membershipApi"
+import { notificationApi } from "../../api/notificationApi"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { getErrorMessage } from "../../api/apiErrors"
 import {
@@ -117,7 +118,15 @@ export function MemberDashboard() {
     )
   }, [members, currentUser, memberProfileId])
 
-  // Fetch pending invoices for the banner alert
+  // Real backend states when apiEnabled === true
+  const [apiEnrollments, setApiEnrollments] = useState([])
+  const [apiAttendances, setApiAttendances] = useState([])
+  const [apiSessions, setApiSessions] = useState([])
+  const [apiSubscriptions, setApiSubscriptions] = useState([])
+  const [apiFeedbackMap, setApiFeedbackMap] = useState({})
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0)
+
+  // Fetch pending invoices & real member portal data
   const fetchInvoices = useCallback(async () => {
     if (!apiEnabled) return
     setInvoicesLoading(true)
@@ -134,9 +143,63 @@ export function MemberDashboard() {
     }
   }, [apiEnabled])
 
+  const fetchRealDashboardData = useCallback(async () => {
+    if (!apiEnabled) return
+    const targetMemberId = memberProfileId || member?.id
+    try {
+      const [enrollmentsRes, attendancesRes, sessionsRes, subsRes, unreadRes] =
+        await Promise.all([
+          targetMemberId
+            ? memberPortalApi.getMemberClasses(targetMemberId).catch(() => [])
+            : Promise.resolve([]),
+          targetMemberId
+            ? memberPortalApi
+                .getMemberAttendances(targetMemberId)
+                .catch(() => [])
+            : Promise.resolve([]),
+          memberPortalApi.getClassSessions().catch(() => []),
+          targetMemberId
+            ? membershipApi
+                .getMemberSubscriptions(targetMemberId)
+                .catch(() => [])
+            : Promise.resolve([]),
+          notificationApi.getMyUnreadCount().catch(() => 0),
+        ])
+
+      const safeEnrollments = Array.isArray(enrollmentsRes)
+        ? enrollmentsRes
+        : []
+      setApiEnrollments(safeEnrollments)
+      setApiAttendances(Array.isArray(attendancesRes) ? attendancesRes : [])
+      setApiSessions(Array.isArray(sessionsRes) ? sessionsRes : [])
+      setApiSubscriptions(Array.isArray(subsRes) ? subsRes : [])
+      setUnreadNotificationsCount(Number(unreadRes) || 0)
+
+      // Fetch real feedback status for enrolled classes
+      const fbMap = {}
+      await Promise.all(
+        safeEnrollments.map(async (enr) => {
+          const cid = enr.classId || enr.id
+          if (cid && !Number.isNaN(Number(cid))) {
+            try {
+              const fb = await memberPortalApi.getMyClassFeedback(cid)
+              if (fb) fbMap[String(cid)] = fb
+            } catch {
+              // Not reviewed yet
+            }
+          }
+        }),
+      )
+      setApiFeedbackMap(fbMap)
+    } catch (err) {
+      console.warn("Could not load member dashboard API data:", err)
+    }
+  }, [apiEnabled, memberProfileId, member?.id])
+
   useEffect(() => {
     fetchInvoices()
-  }, [fetchInvoices])
+    fetchRealDashboardData()
+  }, [fetchInvoices, fetchRealDashboardData])
 
   // QR Code generator logic
   const loadQrCode = useCallback(async () => {
@@ -227,8 +290,45 @@ export function MemberDashboard() {
     }
   }
 
-  // Confirmed bookings for member
+  // Confirmed bookings / enrollments for member (100% real API when apiEnabled)
   const myBookings = useMemo(() => {
+    if (apiEnabled) {
+      if (apiEnrollments.length > 0) {
+        return apiEnrollments.map((enr) => {
+          const cid = enr.classId || enr.id
+          const matchedClass = (classes || []).find(
+            (c) => String(c.id) === String(cid),
+          )
+          const matchedSession = (apiSessions || []).find(
+            (s) => String(s.classId || s.trainingClassId) === String(cid),
+          )
+          return {
+            id: enr.enrollmentId || enr.id || `enr-${cid}`,
+            classId: cid,
+            sessionId: matchedSession?.sessionId || matchedSession?.id || cid,
+            className:
+              enr.className ||
+              matchedClass?.nameVi ||
+              matchedClass?.name ||
+              `Lớp học #${cid}`,
+            bookingDate:
+              matchedSession?.sessionDate ||
+              matchedSession?.date ||
+              enr.startDate ||
+              enr.enrolledAt ||
+              new Date().toISOString().slice(0, 10),
+            status: "confirmed",
+          }
+        })
+      }
+      return (bookings || []).filter(
+        (b) =>
+          b &&
+          (String(b.memberId) === String(member?.id) ||
+            String(b.memberId) === String(currentUser?.id)) &&
+          b.status === "confirmed",
+      )
+    }
     return (bookings || []).filter(
       (b) =>
         b &&
@@ -236,30 +336,81 @@ export function MemberDashboard() {
           String(b.memberId) === String(currentUser?.id)) &&
         b.status === "confirmed",
     )
-  }, [bookings, member, currentUser])
+  }, [
+    apiEnabled,
+    apiEnrollments,
+    apiSessions,
+    classes,
+    bookings,
+    member,
+    currentUser,
+  ])
 
-  // Attendance records for member
+  // Attendance records for member (100% real API when apiEnabled)
   const myAttendance = useMemo(() => {
+    if (apiEnabled) {
+      return apiAttendances.map((a) => {
+        const rawStatus = String(
+          a.status || a.attendanceStatus || "present",
+        ).toLowerCase()
+        return {
+          ...a,
+          id: a.attendanceId || a.id,
+          classId: a.classId || a.trainingClassId || a.sessionId,
+          status:
+            rawStatus === "absent"
+              ? "absent"
+              : rawStatus === "late"
+                ? "late"
+                : "present",
+          date: String(
+            a.checkInTime || a.sessionDate || a.createdAt || "",
+          ).slice(0, 10),
+        }
+      })
+    }
     return (attendance || []).filter(
       (a) =>
         a &&
         (String(a.memberId) === String(member?.id) ||
           String(a.memberId) === String(currentUser?.id)),
     )
-  }, [attendance, member, currentUser])
+  }, [apiEnabled, apiAttendances, attendance, member, currentUser])
 
   // Feedbacks submitted by member
   const myFeedbacks = useMemo(() => {
+    if (apiEnabled) {
+      return Object.entries(apiFeedbackMap).map(([cid, fb]) => ({
+        ...fb,
+        id: fb.feedbackId || fb.id || `fb-${cid}`,
+        classId: cid,
+        rating: fb.classRating || fb.coachRating || fb.rating || 5,
+      }))
+    }
     return (feedbacks || []).filter(
       (f) =>
         f &&
         (String(f.memberId) === String(member?.id) ||
           String(f.memberId) === String(currentUser?.id)),
     )
-  }, [feedbacks, member, currentUser])
+  }, [apiEnabled, apiFeedbackMap, feedbacks, member, currentUser])
 
-  // Unified attended & pending feedback count synced with MemberAttendanceView & MemberFeedbackView
+  // Unified attended & pending feedback count (Zero fake CLUB_COURSES when apiEnabled === true)
   const { attendedCount, pendingFeedbackSessions } = useMemo(() => {
+    if (apiEnabled) {
+      const attendedRecords = myAttendance.filter(
+        (a) => a.status === "present" || a.status === "late",
+      )
+      const pending = apiEnrollments.filter((enr) => {
+        const cid = String(enr.classId || enr.id)
+        return !apiFeedbackMap[cid]
+      })
+      return {
+        attendedCount: attendedRecords.length,
+        pendingFeedbackSessions: pending,
+      }
+    }
+
     const reviewsList = feedbacks || []
     const allAttended = []
 
@@ -315,14 +466,53 @@ export function MemberDashboard() {
       attendedCount: allAttended.length,
       pendingFeedbackSessions: pending,
     }
-  }, [feedbacks, checkedInCourseSessions])
+  }, [
+    apiEnabled,
+    myAttendance,
+    apiEnrollments,
+    apiFeedbackMap,
+    feedbacks,
+    checkedInCourseSessions,
+  ])
 
-  const fitnessTrendData = [
-    { week: isVi ? "Tuần 1" : "W1", calories: 1850, weight: 68.5 },
-    { week: isVi ? "Tuần 2" : "W2", calories: 2200, weight: 68.0 },
-    { week: isVi ? "Tuần 3" : "W3", calories: 2450, weight: 67.4 },
-    { week: isVi ? "Tuần 4" : "W4", calories: 2900, weight: 66.8 },
-  ]
+  // Active subscription from real backend when apiEnabled
+  const activeSubscription = useMemo(() => {
+    if (!apiEnabled || apiSubscriptions.length === 0) return null
+    return (
+      apiSubscriptions.find(
+        (s) =>
+          String(s.status || "").toLowerCase() === "active" ||
+          String(s.status || "").toLowerCase() === "grace_period",
+      ) || apiSubscriptions[0]
+    )
+  }, [apiEnabled, apiSubscriptions])
+
+  // Chart data: real attendance frequency per week when apiEnabled, or offline demo trend
+  const fitnessTrendData = useMemo(() => {
+    if (apiEnabled) {
+      const now = Date.now()
+      const weekMs = 7 * 24 * 60 * 60 * 1000
+      return [3, 2, 1, 0].map((weeksAgo, idx) => {
+        const startMs = now - (weeksAgo + 1) * weekMs
+        const endMs = now - weeksAgo * weekMs
+        const weekAttended = myAttendance.filter((a) => {
+          const t = a.date ? new Date(a.date).getTime() : NaN
+          return !Number.isNaN(t) && t >= startMs && t <= endMs
+        }).length
+        return {
+          week: isVi ? `Tuần ${idx + 1}` : `W${idx + 1}`,
+          sessions: weekAttended,
+          enrolled: myBookings.length,
+        }
+      })
+    }
+    return [
+      { week: isVi ? "Tuần 1" : "W1", calories: 1850, weight: 68.5 },
+      { week: isVi ? "Tuần 2" : "W2", calories: 2200, weight: 68.0 },
+      { week: isVi ? "Tuần 3" : "W3", calories: 2450, weight: 67.4 },
+      { week: isVi ? "Tuần 4" : "W4", calories: 2900, weight: 66.8 },
+    ]
+  }, [apiEnabled, myAttendance, myBookings.length, isVi])
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6 font-sans antialiased">
@@ -569,13 +759,24 @@ export function MemberDashboard() {
             </span>
           </div>
           <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-            {member.currentPackageName ||
-              (isVi ? "Gói Hội Viên VIBE Sport" : "VIBE Sport Membership")}
+            {activeSubscription?.packageName ||
+              member.currentPackageName ||
+              (apiEnabled
+                ? isVi
+                  ? "Chưa kích hoạt gói tập"
+                  : "No Active Package"
+                : isVi
+                  ? "Gói Hội Viên VIBE Sport"
+                  : "VIBE Sport Membership")}
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            {isVi
-              ? "Quyền lợi tham gia không giới hạn các lớp nhóm Gym, Yoga, Boxing, Pickleball & Cầu lông."
-              : "Unlimited access to Boxing, Gym, Yoga, Pickleball & Badminton sessions."}
+            {activeSubscription?.startDate && activeSubscription?.endDate
+              ? isVi
+                ? `Thời hạn sử dụng: ${String(activeSubscription.startDate).slice(0, 10)} → ${String(activeSubscription.endDate).slice(0, 10)}`
+                : `Valid period: ${String(activeSubscription.startDate).slice(0, 10)} → ${String(activeSubscription.endDate).slice(0, 10)}`
+              : isVi
+                ? "Quyền lợi tham gia các lớp nhóm và quản lý lịch tập luyện trực tuyến trên hệ thống VIBE Sport."
+                : "Access to group training sessions and online schedule management on VIBE Sport."}
           </p>
 
           <div className="pt-2 flex flex-wrap items-center gap-4 text-xs">
@@ -584,9 +785,28 @@ export function MemberDashboard() {
                 {isVi ? "HLV Phụ Trách:" : "Coach:"}
               </span>
               <strong className="text-slate-900">
-                {member.primaryCoachName || "Nguyễn Văn Hùng"}
+                {member.primaryCoachName ||
+                  (apiEnabled
+                    ? isVi
+                      ? "Chưa phân công"
+                      : "Unassigned"
+                    : "Nguyễn Văn Hùng")}
               </strong>
             </div>
+            {unreadNotificationsCount > 0 && (
+              <button
+                type="button"
+                onClick={() => navigate("/member/notifications")}
+                className="text-xs font-bold text-amber-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
+              >
+                <BellRing className="w-3.5 h-3.5" />
+                <span>
+                  {isVi
+                    ? `${unreadNotificationsCount} thông báo chưa đọc`
+                    : `${unreadNotificationsCount} unread alert(s)`}
+                </span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => navigate("/member/my-membership")}
@@ -638,15 +858,19 @@ export function MemberDashboard() {
         </div>
       </div>
 
-      {/* 6. Fitness Progress Chart */}
+      {/* 6. Attendance & Training Activity Chart */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
             <Flame className="w-4 h-4 text-red-700 shrink-0" />
             <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-              {isVi
-                ? "Thống Kê Tiến Độ Tập Luyện & Calo Tiêu Hao"
-                : "Fitness Progress & Calorie Burn"}
+              {apiEnabled
+                ? isVi
+                  ? "Thống Kê Tần Suất Điểm Danh & Lớp Học Thực Tế"
+                  : "Real Attendance & Enrolled Class Frequency"
+                : isVi
+                  ? "Thống Kê Tiến Độ Tập Luyện & Calo Tiêu Hao"
+                  : "Fitness Progress & Calorie Burn"}
             </h3>
           </div>
           <span className="text-[11px] text-slate-400 font-mono font-medium">
@@ -656,51 +880,107 @@ export function MemberDashboard() {
 
         <div className="h-56 w-full pt-2">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={fitnessTrendData}
-              margin={{ top: 10, right: 20, left: -10, bottom: 0 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                stroke="#F1F5F9"
-              />
-              <XAxis dataKey="week" tick={{ fontSize: 11, fill: "#64748B" }} />
-              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#64748B" }} />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                domain={[65, 70]}
-                tick={{ fontSize: 11, fill: "#64748B" }}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#FFFFFF",
-                  borderRadius: "8px",
-                  border: "1px solid #E2E8F0",
-                  fontSize: "12px",
-                }}
-              />
-              <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }} />
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="calories"
-                name={isVi ? "Calo tiêu hao (kcal)" : "Calories (kcal)"}
-                stroke="#D97706"
-                strokeWidth={2.5}
-                dot={{ r: 4 }}
-              />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="weight"
-                name={isVi ? "Cân nặng (kg)" : "Weight (kg)"}
-                stroke="#0F172A"
-                strokeWidth={2.5}
-                dot={{ r: 4 }}
-              />
-            </LineChart>
+            {apiEnabled ? (
+              <LineChart
+                data={fitnessTrendData}
+                margin={{ top: 10, right: 20, left: -10, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#F1F5F9"
+                />
+                <XAxis
+                  dataKey="week"
+                  tick={{ fontSize: 11, fill: "#64748B" }}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fontSize: 11, fill: "#64748B" }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: "8px",
+                    border: "1px solid #E2E8F0",
+                    fontSize: "12px",
+                  }}
+                />
+                <Legend
+                  wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="sessions"
+                  name={isVi ? "Số buổi đã điểm danh" : "Attended Sessions"}
+                  stroke="#059669"
+                  strokeWidth={2.5}
+                  dot={{ r: 4 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="enrolled"
+                  name={isVi ? "Số lớp đang theo học" : "Enrolled Classes"}
+                  stroke="#0F172A"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+              </LineChart>
+            ) : (
+              <LineChart
+                data={fitnessTrendData}
+                margin={{ top: 10, right: 20, left: -10, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#F1F5F9"
+                />
+                <XAxis
+                  dataKey="week"
+                  tick={{ fontSize: 11, fill: "#64748B" }}
+                />
+                <YAxis
+                  yAxisId="left"
+                  tick={{ fontSize: 11, fill: "#64748B" }}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  domain={[65, 70]}
+                  tick={{ fontSize: 11, fill: "#64748B" }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: "8px",
+                    border: "1px solid #E2E8F0",
+                    fontSize: "12px",
+                  }}
+                />
+                <Legend
+                  wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }}
+                />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="calories"
+                  name={isVi ? "Calo tiêu hao (kcal)" : "Calories (kcal)"}
+                  stroke="#D97706"
+                  strokeWidth={2.5}
+                  dot={{ r: 4 }}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="weight"
+                  name={isVi ? "Cân nặng (kg)" : "Weight (kg)"}
+                  stroke="#0F172A"
+                  strokeWidth={2.5}
+                  dot={{ r: 4 }}
+                />
+              </LineChart>
+            )}
           </ResponsiveContainer>
         </div>
       </div>

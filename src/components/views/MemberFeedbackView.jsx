@@ -159,10 +159,7 @@ export function MemberFeedbackView() {
         console.warn("Could not fetch member enrollments:", err)
       }
 
-      const relevantClasses =
-        Array.isArray(enrollments) && enrollments.length > 0
-          ? enrollments
-          : (classes || []).slice(0, 10)
+      const relevantClasses = Array.isArray(enrollments) ? enrollments : []
 
       setApiEnrollments(relevantClasses)
 
@@ -188,7 +185,7 @@ export function MemberFeedbackView() {
     } finally {
       setIsLoadingApi(false)
     }
-  }, [currentUser, member, classes])
+  }, [currentUser, member])
 
   useEffect(() => {
     fetchBackendFeedbackData()
@@ -196,11 +193,11 @@ export function MemberFeedbackView() {
 
   /**
    * UNIFIED SESSIONS DERIVATION:
-   * Combines Backend API records (when API_ENABLED) or CLUB_COURSES (offline demo)
+   * Strictly uses Backend API records when API_ENABLED (zero fake courses), or CLUB_COURSES in offline demo mode
    */
   const { attendedSessions, pendingSessions, submittedReviews } =
     useMemo(() => {
-      if (API_ENABLED && apiEnrollments.length > 0) {
+      if (API_ENABLED) {
         const apiAttended = []
         const apiPending = []
         const apiSubmitted = []

@@ -27,6 +27,7 @@ import {
   Bell,
   PauseCircle,
   HeartPulse,
+  QrCode,
 } from "lucide-react"
 
 export function Sidebar({ mobileOpen = false, onCloseMobile }) {
@@ -107,6 +108,11 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             icon: LayoutDashboard,
           },
           {
+            path: "/receptionist/checkin",
+            label: language === "vi" ? "Điểm danh & Check-in" : "Check-in Desk",
+            icon: ClipboardCheck,
+          },
+          {
             path: "/receptionist/search",
             labelKey: "memberSearch",
             icon: Search,
@@ -131,23 +137,9 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             icon: LayoutDashboard,
           },
           {
-            path: "/member/invoices",
-            label:
-              language === "vi"
-                ? "Hóa đơn & thanh toán"
-                : "Invoices & payments",
-            icon: CreditCard,
-          },
-          {
-            path: "/member/my-membership",
-            labelKey: "myMembership",
-            label: language === "vi" ? "Gói hội viên của tôi" : "My Membership",
-            icon: Award,
-          },
-          {
-            path: "/member/freeze-request",
-            label: language === "vi" ? "Bảo lưu gói tập" : "Freeze membership",
-            icon: PauseCircle,
+            path: "/member/checkin",
+            label: language === "vi" ? "Mã QR Check-in" : "QR Check-in",
+            icon: QrCode,
           },
           {
             path: "/member/catalog",
@@ -156,25 +148,23 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             icon: Dumbbell,
           },
           {
-            path: "/member/enrollments",
+            path: "/member/schedule",
             label:
-              language === "vi" ? "Khóa học đã đăng ký" : "Enrolled courses",
-            icon: CreditCard,
+              language === "vi"
+                ? "Lịch học & Khóa đã đăng ký"
+                : "My Schedule & Courses",
+            icon: Calendar,
           },
           {
-            path: "/member/schedule",
-            label: language === "vi" ? "Lịch học của tôi" : "My schedule",
-            icon: Calendar,
+            path: "/member/my-coach",
+            label:
+              language === "vi" ? "HLV & Đặt lịch 1:1" : "Coaches & 1-on-1",
+            icon: UserCheck,
           },
           {
             path: "/member/attendance",
             labelKey: "attendance",
             icon: ClipboardCheck,
-          },
-          {
-            path: "/member/my-coach",
-            label: language === "vi" ? "Huấn luyện viên của tôi" : "My Coach",
-            icon: UserCheck,
           },
           {
             path: "/member/progress",
@@ -193,6 +183,30 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             labelKey: "feedback",
             label: language === "vi" ? "Đánh giá & Feedback" : "Class Feedback",
             icon: MessageSquareHeart,
+          },
+          {
+            path: "/member/my-membership",
+            labelKey: "myMembership",
+            label: language === "vi" ? "Gói hội viên của tôi" : "My Membership",
+            icon: Award,
+          },
+          {
+            path: "/member/invoices",
+            label:
+              language === "vi"
+                ? "Hóa đơn & Thanh toán"
+                : "Invoices & payments",
+            icon: CreditCard,
+          },
+          {
+            path: "/member/freeze-request",
+            label: language === "vi" ? "Bảo lưu gói tập" : "Freeze membership",
+            icon: PauseCircle,
+          },
+          {
+            path: "/member/notifications",
+            label: language === "vi" ? "Thông báo" : "Notifications",
+            icon: Bell,
           },
         ]
 
