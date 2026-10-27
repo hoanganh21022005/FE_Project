@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react"
+import { useLocation } from "react-router-dom"
 import {
   HeartPulse,
   TrendingDown,
@@ -116,10 +117,13 @@ const DEMO_TRAINING_RESULTS = [
 
 export function MemberBodyMetricsView() {
   const { language, currentUser } = useSCMS()
+  const location = useLocation()
   const isVi = language === "vi"
 
-  const [activeTab, setActiveTab] = useState("inbody") // "inbody" | "plans" | "results"
-  const [metrics, setMetrics] = useState(INITIAL_METRICS)
+  const [activeTab, setActiveTab] = useState(
+    location.pathname.includes("/progress") ? "plans" : "inbody",
+  ) // "inbody" | "plans" | "results"
+  const [metrics, setMetrics] = useState(API_ENABLED ? [] : INITIAL_METRICS)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [formWeight, setFormWeight] = useState("")
   const [formFat, setFormFat] = useState("")
@@ -134,18 +138,44 @@ export function MemberBodyMetricsView() {
 
   const fetchTrainingData = useCallback(async () => {
     if (!memberId) {
-      setTrainingPlans(DEMO_TRAINING_PLANS)
-      setTrainingResults(DEMO_TRAINING_RESULTS)
+      if (!API_ENABLED) {
+        setTrainingPlans(DEMO_TRAINING_PLANS)
+        setTrainingResults(DEMO_TRAINING_RESULTS)
+      }
       return
     }
 
     setLoadingTraining(true)
     try {
       if (API_ENABLED) {
-        const [plansRes, resultsRes] = await Promise.allSettled([
-          memberPortalApi.getMemberTrainingPlans(memberId),
-          memberPortalApi.getMemberTrainingResults(memberId),
-        ])
+        const [metricsRes, plansRes, resultsRes, evalsRes] =
+          await Promise.allSettled([
+            memberPortalApi.getMemberBodyMetrics(memberId),
+            memberPortalApi.getMemberTrainingPlans(memberId),
+            memberPortalApi.getMemberTrainingResults(memberId),
+            memberPortalApi.getMemberEvaluations(memberId),
+          ])
+
+        if (
+          metricsRes.status === "fulfilled" &&
+          Array.isArray(metricsRes.value)
+        ) {
+          const mappedMetrics = metricsRes.value.map((m) => ({
+            date: String(
+              m.measuredAt || m.recordedAt || m.date || m.createdAt || "",
+            ).slice(0, 10),
+            weight: Number(m.weightKg ?? m.weight ?? 0),
+            fatPercent: Number(m.bodyFatPercentage ?? m.fatPercent ?? 0),
+            muscleMass: Number(m.muscleMassKg ?? m.muscleMass ?? 0),
+            bmi: Number(
+              m.bmi ??
+                (m.weightKg && m.heightCm
+                  ? (m.weightKg / Math.pow(m.heightCm / 100, 2)).toFixed(1)
+                  : 0),
+            ),
+          }))
+          setMetrics(mappedMetrics)
+        }
 
         const loadedPlans =
           plansRes.status === "fulfilled" && Array.isArray(plansRes.value)
@@ -155,21 +185,38 @@ export function MemberBodyMetricsView() {
           resultsRes.status === "fulfilled" && Array.isArray(resultsRes.value)
             ? resultsRes.value
             : []
+        const loadedEvals =
+          evalsRes.status === "fulfilled" && Array.isArray(evalsRes.value)
+            ? evalsRes.value.map((ev) => ({
+                resultId: `eval-${ev.evaluationId || ev.id}`,
+                sessionDate: String(ev.evaluatedAt || ev.createdAt || "").slice(
+                  0,
+                  10,
+                ),
+                className:
+                  ev.className || ev.criteria || "Đánh giá tiến độ định kỳ",
+                coachName: ev.coachName || "Huấn luyện viên CLB",
+                attendanceStatus: "PRESENT",
+                content:
+                  ev.comments ||
+                  ev.feedback ||
+                  ev.note ||
+                  (ev.score ? `Điểm đánh giá: ${ev.score}/10` : ""),
+              }))
+            : []
 
-        setTrainingPlans(
-          loadedPlans.length > 0 ? loadedPlans : DEMO_TRAINING_PLANS,
-        )
-        setTrainingResults(
-          loadedResults.length > 0 ? loadedResults : DEMO_TRAINING_RESULTS,
-        )
+        setTrainingPlans(loadedPlans)
+        setTrainingResults([...loadedResults, ...loadedEvals])
       } else {
         setTrainingPlans(DEMO_TRAINING_PLANS)
         setTrainingResults(DEMO_TRAINING_RESULTS)
       }
     } catch (err) {
       console.warn("Could not load training plans/results from API:", err)
-      setTrainingPlans(DEMO_TRAINING_PLANS)
-      setTrainingResults(DEMO_TRAINING_RESULTS)
+      if (!API_ENABLED) {
+        setTrainingPlans(DEMO_TRAINING_PLANS)
+        setTrainingResults(DEMO_TRAINING_RESULTS)
+      }
     } finally {
       setLoadingTraining(false)
     }
@@ -179,7 +226,12 @@ export function MemberBodyMetricsView() {
     fetchTrainingData()
   }, [fetchTrainingData])
 
-  const latest = metrics[metrics.length - 1]
+  const latest = metrics[metrics.length - 1] || {
+    weight: 0,
+    fatPercent: 0,
+    muscleMass: 0,
+    bmi: 0,
+  }
   const previous = metrics[metrics.length - 2] || latest
 
   const weightDiff = (latest.weight - previous.weight).toFixed(1)

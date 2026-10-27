@@ -1235,6 +1235,10 @@ function SCMSApp() {
                     }
                   />
                   <Route
+                    path="/member/checkin"
+                    element={<Navigate to="/member/attendance" replace />}
+                  />
+                  <Route
                     path="/member/attendance"
                     element={
                       <RequireRole
@@ -1282,7 +1286,7 @@ function SCMSApp() {
                         attemptedPath={location.pathname}
                         onForbidden={() => navigate(`/${role}/dashboard`)}
                       >
-                        <MemberTrainingView />
+                        <MemberBodyMetricsView />
                       </RequireRole>
                     }
                   />

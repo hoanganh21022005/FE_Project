@@ -137,11 +137,6 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             icon: LayoutDashboard,
           },
           {
-            path: "/member/checkin",
-            label: language === "vi" ? "Mã QR Check-in" : "QR Check-in",
-            icon: QrCode,
-          },
-          {
             path: "/member/catalog",
             label:
               language === "vi" ? "Đăng ký khóa học" : "Course registration",
@@ -164,18 +159,18 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           {
             path: "/member/attendance",
             labelKey: "attendance",
-            icon: ClipboardCheck,
-          },
-          {
-            path: "/member/progress",
             label:
-              language === "vi" ? "Tiến độ tập luyện" : "Training progress",
-            icon: Activity,
+              language === "vi"
+                ? "Điểm danh & QR Check-in"
+                : "Attendance & QR Check-in",
+            icon: QrCode,
           },
           {
             path: "/member/body-metrics",
             label:
-              language === "vi" ? "Chỉ số cơ thể (InBody)" : "Body metrics",
+              language === "vi"
+                ? "Tiến độ & Chỉ số InBody"
+                : "Progress & InBody",
             icon: HeartPulse,
           },
           {
@@ -197,16 +192,6 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
                 ? "Hóa đơn & Thanh toán"
                 : "Invoices & payments",
             icon: CreditCard,
-          },
-          {
-            path: "/member/freeze-request",
-            label: language === "vi" ? "Bảo lưu gói tập" : "Freeze membership",
-            icon: PauseCircle,
-          },
-          {
-            path: "/member/notifications",
-            label: language === "vi" ? "Thông báo" : "Notifications",
-            icon: Bell,
           },
         ]
 

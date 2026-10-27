@@ -817,6 +817,14 @@ export function MemberDashboard() {
               </span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
+            <button
+              type="button"
+              onClick={() => navigate("/member/freeze-request")}
+              className="text-xs font-bold text-slate-600 hover:text-red-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
+            >
+              <span>{isVi ? "Bảo lưu gói tập" : "Freeze package"}</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
