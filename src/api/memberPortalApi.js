@@ -31,6 +31,8 @@ export const getTrainingPlanById = (planId) =>
   httpClient.get(`/api/training-plans/${planId}`)
 export const requestAbsence = (sessionId, reason) =>
   httpClient.post(`/api/sessions/${sessionId}/absence`, { reason })
+export const getSessionAbsenceNotices = (sessionId) =>
+  list(`/api/sessions/${sessionId}/absence-notices`)
 export const cancelPrivateSession = (sessionId) =>
   httpClient.post(`/api/sessions/${sessionId}/cancel-private`)
 export const submitClassFeedback = (classId, payload) =>
@@ -98,7 +100,53 @@ export const getCoachFeedback = async (params = {}) => {
   const query = new URLSearchParams()
   if (params.classId) query.set("classId", params.classId)
   const qStr = query.toString()
-  return list(`/api/coaches/me/feedback${qStr ? `?${qStr}` : ""}`)
+  const data = await httpClient.get(
+    `/api/coaches/me/feedback${qStr ? `?${qStr}` : ""}`,
+  )
+  if (Array.isArray(data)) {
+    return { totalFeedback: data.length, averageCoachRating: 0, feedback: data }
+  }
+  return {
+    totalFeedback: Number(data?.totalFeedback || 0),
+    averageCoachRating: Number(data?.averageCoachRating || 0),
+    feedback: Array.isArray(data?.feedback) ? data.feedback : [],
+  }
+}
+
+export const getCoachWorkSchedule = async (coachId) => {
+  if (!coachId) return null
+  return httpClient.get(
+    `/api/coaches/${encodeURIComponent(coachId)}/work-schedule`,
+  )
+}
+
+export const updateCoachWorkSchedule = async (coachId, payload) => {
+  return httpClient.put(
+    `/api/coaches/${encodeURIComponent(coachId)}/work-schedule`,
+    payload,
+  )
+}
+
+export const getCoachAdmissionCapacity = async (coachId, subjectId) => {
+  return httpClient.get(
+    `/api/coaches/${encodeURIComponent(coachId)}/admission-capacity?subjectId=${encodeURIComponent(subjectId)}`,
+  )
+}
+
+export const getAdvancedRegistrations = async () => {
+  return list("/api/advanced-registrations")
+}
+
+export const createAdvancedRegistration = async (payload) => {
+  return httpClient.post("/api/advanced-registrations", payload)
+}
+
+export const decideAdvancedRegistration = async (id, payload) => {
+  return httpClient.post(`/api/advanced-registrations/${id}/decision`, payload)
+}
+
+export const orderAdvancedRegistration = async (id, payload) => {
+  return httpClient.post(`/api/advanced-registrations/${id}/order`, payload)
 }
 
 export const memberPortalApi = {
@@ -110,6 +158,7 @@ export const memberPortalApi = {
   getMemberTrainingResults,
   getTrainingPlanById,
   requestAbsence,
+  getSessionAbsenceNotices,
   cancelPrivateSession,
   submitClassFeedback,
   getMyClassFeedback,
@@ -120,6 +169,13 @@ export const memberPortalApi = {
   getRooms,
   bookPrivateSession,
   getCoachFeedback,
+  getCoachWorkSchedule,
+  updateCoachWorkSchedule,
+  getCoachAdmissionCapacity,
+  getAdvancedRegistrations,
+  createAdvancedRegistration,
+  decideAdvancedRegistration,
+  orderAdvancedRegistration,
 }
 
 export default memberPortalApi

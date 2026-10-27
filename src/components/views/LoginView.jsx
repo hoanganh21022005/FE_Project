@@ -321,12 +321,20 @@ export function LoginView({
     try {
       if (apiEnabled) {
         const res = await authApi.forgotPassword(email)
-        setForgotNotice(
+        const returnedCode = res?.code ? String(res.code).trim() : ""
+        const baseMsg =
           res?.message ||
-            (isVi
-              ? "Mã xác nhận OTP đã được gửi tới email của bạn."
-              : "An OTP verification code has been sent to your email."),
+          (isVi
+            ? "Mã xác nhận OTP đã được gửi tới email của bạn."
+            : "An OTP verification code has been sent to your email.")
+        setForgotNotice(
+          returnedCode ? `${baseMsg} (Mã OTP: ${returnedCode})` : baseMsg,
         )
+        if (/^\d{6}$/.test(returnedCode)) {
+          setForgotOtp(returnedCode.split(""))
+        } else {
+          setForgotOtp(["", "", "", "", "", ""])
+        }
       } else {
         await new Promise((resolve) => setTimeout(resolve, 450))
         setForgotNotice(
@@ -334,8 +342,8 @@ export function LoginView({
             ? "Mã OTP khôi phục mật khẩu (123456) đã được gửi."
             : "Password reset OTP (123456) has been sent.",
         )
+        setForgotOtp(["", "", "", "", "", ""])
       }
-      setForgotOtp(["", "", "", "", "", ""])
       setForgotStep("reset")
     } catch (error) {
       setForgotError(
@@ -393,12 +401,18 @@ export function LoginView({
         } catch {
           res = await authApi.forgotPassword(email)
         }
-        setForgotNotice(
+        const returnedCode = res?.code ? String(res.code).trim() : ""
+        const baseMsg =
           res?.message ||
-            (isVi
-              ? "Đã gửi lại mã OTP vào email của bạn."
-              : "A new OTP code has been sent to your email."),
+          (isVi
+            ? "Đã gửi lại mã OTP vào email của bạn."
+            : "A new OTP code has been sent to your email.")
+        setForgotNotice(
+          returnedCode ? `${baseMsg} (Mã OTP: ${returnedCode})` : baseMsg,
         )
+        if (/^\d{6}$/.test(returnedCode)) {
+          setForgotOtp(returnedCode.split(""))
+        }
       } else {
         await new Promise((resolve) => setTimeout(resolve, 400))
         setForgotNotice(
@@ -567,9 +581,17 @@ export function LoginView({
           password: regPassword,
           phone: regPhone.replace(/\s/g, ""),
         })
-        setOtpCode(["", "", "", "", "", ""])
-        if (res?.message) {
-          setOtpNotice(res.message)
+        const returnedCode = res?.code ? String(res.code).trim() : ""
+        if (/^\d{6}$/.test(returnedCode)) {
+          setOtpCode(returnedCode.split(""))
+        } else {
+          setOtpCode(["", "", "", "", "", ""])
+        }
+        if (res?.message || returnedCode) {
+          const baseMsg = res?.message || "Mã xác nhận OTP đã được khởi tạo."
+          setOtpNotice(
+            returnedCode ? `${baseMsg} (Mã OTP: ${returnedCode})` : baseMsg,
+          )
         }
         setIsOtpMode(true)
       } catch (error) {
@@ -707,12 +729,18 @@ export function LoginView({
           email: regEmail.trim().toLowerCase(),
           purpose: "REGISTER",
         })
-        setOtpNotice(
+        const returnedCode = res?.code ? String(res.code).trim() : ""
+        const baseMsg =
           res?.message ||
-            (isVi
-              ? "Đã gửi lại mã OTP mới vào email của bạn."
-              : "A new OTP code has been sent to your email."),
+          (isVi
+            ? "Đã gửi lại mã OTP mới vào email của bạn."
+            : "A new OTP code has been sent to your email.")
+        setOtpNotice(
+          returnedCode ? `${baseMsg} (Mã OTP: ${returnedCode})` : baseMsg,
         )
+        if (/^\d{6}$/.test(returnedCode)) {
+          setOtpCode(returnedCode.split(""))
+        }
       } else {
         await new Promise((resolve) => setTimeout(resolve, 400))
         setOtpNotice(

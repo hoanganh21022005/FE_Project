@@ -13,6 +13,7 @@ import * as memberApi from "../api/memberApi.js"
 import * as staffApi from "../api/staffApi.js"
 import * as classEnrollmentApi from "../api/classEnrollmentApi.js"
 import * as memberPortalApi from "../api/memberPortalApi.js"
+import * as attendanceApi from "../api/attendanceApi.js"
 import { getErrorMessage, UnauthorizedError } from "../api/apiErrors.js"
 import { UNAUTHORIZED_EVENT, FORBIDDEN_EVENT } from "../api/httpClient.js"
 import {
@@ -1437,6 +1438,34 @@ export const SCMSProvider = ({ children }) => {
       fetchMembers().catch(() => {})
       fetchStaff().catch(() => {})
     }
+    if (authUser.role !== ROLE_MANAGER) {
+      Promise.all([
+        managerApi.getSubjects({ notifyForbidden: false }).catch(() => []),
+        staffApi.getStaff({ notifyForbidden: false }).catch(() => []),
+        managerApi.getRooms({ notifyForbidden: false }).catch(() => []),
+        managerApi.getPackages({ notifyForbidden: false }).catch(() => []),
+      ])
+        .then(
+          async ([
+            loadedSubjects,
+            loadedStaff,
+            loadedRooms,
+            loadedPackages,
+          ]) => {
+            if (loadedSubjects?.length) setSubjects(loadedSubjects)
+            if (loadedRooms?.length) setRooms(loadedRooms)
+            if (loadedPackages?.length) setPackages(loadedPackages)
+            const loadedClasses = await managerApi
+              .getClasses(
+                { subjects: loadedSubjects || [], coaches: loadedStaff || [] },
+                { notifyForbidden: false },
+              )
+              .catch(() => [])
+            if (loadedClasses?.length) setClasses(loadedClasses)
+          },
+        )
+        .catch(() => {})
+    }
   }, [authUser, fetchMembers, fetchStaff])
 
   useEffect(() => {
@@ -2386,13 +2415,59 @@ export const SCMSProvider = ({ children }) => {
     }
   }
 
-  const recordAttendance = (classId, memberId, status, reason) => {
-    const member = members.find((m) => m.id === memberId)
+  const recordAttendance = async (
+    classId,
+    memberId,
+    status,
+    reason,
+    options = {},
+  ) => {
+    const member = members.find((m) => String(m.id) === String(memberId))
     const existing = attendance.find(
-      (a) => a.classId === classId && a.memberId === memberId,
+      (a) =>
+        String(a.classId) === String(classId) &&
+        String(a.memberId) === String(memberId),
     )
 
     const prevStatus = existing ? existing.status : "not_recorded"
+    const attendanceId =
+      options.attendanceId || existing?.attendanceId || existing?.id
+    const numericMemberId = Number(
+      String(memberId).match(/(\d+)$/)?.[1] || memberId,
+    )
+    const numericAttendanceId = Number(attendanceId)
+    const stateMap = {
+      present: "Present",
+      late: "Late",
+      absent: "Absent",
+    }
+    const backendState = stateMap[status] || "Present"
+
+    if (API_ENABLED && !Number.isNaN(numericMemberId) && numericMemberId > 0) {
+      try {
+        if (!Number.isNaN(numericAttendanceId) && numericAttendanceId > 0) {
+          await attendanceApi.correctAttendance({
+            attendanceId: numericAttendanceId,
+            newState: backendState,
+            reason: reason || `Cập nhật trạng thái điểm danh: ${backendState}`,
+          })
+        } else if (status === "present" || status === "late") {
+          const created = await attendanceApi.manualCheckIn({
+            memberId: numericMemberId,
+            notes:
+              reason ||
+              `Điểm danh lớp #${classId} (${
+                status === "late" ? "Đến trễ" : "Có mặt"
+              })`,
+          })
+          if (created?.attendanceId) {
+            options.createdAttendanceId = created.attendanceId
+          }
+        }
+      } catch (err) {
+        console.warn("Attendance API sync warning:", err)
+      }
+    }
 
     if (existing) {
       setAttendance((prev) =>
@@ -2400,6 +2475,11 @@ export const SCMSProvider = ({ children }) => {
           a.id === existing.id
             ? {
                 ...a,
+                attendanceId:
+                  options.createdAttendanceId ||
+                  a.attendanceId ||
+                  numericAttendanceId ||
+                  a.id,
                 status,
                 markedAt: new Date()
                   .toISOString()
@@ -2413,10 +2493,11 @@ export const SCMSProvider = ({ children }) => {
       )
     } else {
       const newAtt = {
-        id: `att-${Date.now()}`,
+        id: options.createdAttendanceId || `att-${Date.now()}`,
+        attendanceId: options.createdAttendanceId || null,
         classId,
         memberId,
-        memberName: member?.name || "Học viên",
+        memberName: member?.name || options.memberName || "Học viên",
         status,
         markedAt: new Date().toISOString().replace("T", " ").slice(0, 16),
         markedBy: currentUser.name,

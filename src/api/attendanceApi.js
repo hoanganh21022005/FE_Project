@@ -9,9 +9,10 @@ export const manualCheckIn = async (payload) => {
   return httpClient.post("/api/attendances/check-in", payload)
 }
 
-export const manualCheckOut = async (attendanceId) => {
-  const url = attendanceId
-    ? `/api/attendances/check-out?attendanceId=${encodeURIComponent(attendanceId)}`
+export const manualCheckOut = async (memberId) => {
+  const id = typeof memberId === "object" ? memberId?.memberId : memberId
+  const url = id
+    ? `/api/attendances/check-out?memberId=${encodeURIComponent(id)}`
     : "/api/attendances/check-out"
   return httpClient.post(url)
 }
