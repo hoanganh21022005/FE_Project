@@ -28,7 +28,7 @@ const INITIAL_REQUESTS = [
   },
 ]
 
-export function MemberFreezeRequestView() {
+export function MemberFreezeRequestView({ embedded = false }) {
   const navigate = useNavigate()
   const { language, apiEnabled } = useSCMS()
   const isVi = language === "vi"
@@ -74,33 +74,41 @@ export function MemberFreezeRequestView() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-7 sm:py-8">
+    <main
+      className={
+        embedded
+          ? "space-y-6"
+          : "mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-7 sm:py-8"
+      }
+    >
       {/* Header */}
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
-            VIBE SPORT · MEMBER
-          </p>
-          <h1 className="mt-2 text-3xl font-black text-slate-950">
-            {isVi ? "Yêu cầu bảo lưu gói tập" : "Membership Freeze Request"}
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {isVi
-              ? "Tạm dừng thời hạn gói khi bạn đi công tác, điều trị chấn thương hoặc có việc cá nhân."
-              : "Put your membership on hold during trips, medical treatments, or personal leave."}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => navigate("/member/my-membership")}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>
-            {isVi ? "Quay lại Gói hội viên" : "Back to My Membership"}
-          </span>
-        </button>
-      </header>
+      {!embedded && (
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
+              VIBE SPORT · MEMBER
+            </p>
+            <h1 className="mt-2 text-3xl font-black text-slate-950">
+              {isVi ? "Yêu cầu bảo lưu gói tập" : "Membership Freeze Request"}
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              {isVi
+                ? "Tạm dừng thời hạn gói khi bạn đi công tác, điều trị chấn thương hoặc có việc cá nhân."
+                : "Put your membership on hold during trips, medical treatments, or personal leave."}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate("/member/my-membership")}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>
+              {isVi ? "Quay lại Gói hội viên" : "Back to My Membership"}
+            </span>
+          </button>
+        </header>
+      )}
 
       {/* Policy banner */}
       <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 text-xs text-amber-950 shadow-xs">

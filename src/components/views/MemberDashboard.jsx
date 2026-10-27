@@ -621,7 +621,7 @@ export function MemberDashboard() {
 
         <button
           type="button"
-          onClick={() => navigate("/member/invoices")}
+          onClick={() => navigate("/member/my-membership/history")}
           className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-xl hover:border-emerald-400 hover:shadow-xs transition-all text-left cursor-pointer group"
         >
           <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
@@ -629,10 +629,10 @@ export function MemberDashboard() {
           </div>
           <div>
             <div className="text-xs font-bold text-slate-900">
-              {isVi ? "Hóa đơn & VNPay" : "Billing & Invoices"}
+              {isVi ? "Gói & Hóa đơn VNPay" : "Membership & Billing"}
             </div>
             <div className="text-[11px] text-slate-500">
-              {isVi ? "Lịch sử thanh toán" : "Review receipts"}
+              {isVi ? "Quản lý gói & biên lai" : "Plans & receipts"}
             </div>
           </div>
         </button>
@@ -655,6 +655,88 @@ export function MemberDashboard() {
           </div>
         </button>
       </div>
+
+      {/* 3.5 Smart Up-Next Session Spotlight Banner */}
+      {myBookings.length > 0 &&
+        (() => {
+          const nextBk = myBookings[0]
+          const nextCls = (classes || []).find(
+            (c) => String(c.id) === String(nextBk.classId),
+          )
+          const nextDate =
+            nextCls?.date ||
+            nextCls?.startDate ||
+            String(nextBk.bookingDate || "").slice(0, 10)
+          const nextTime = `${nextCls?.startTime || "06:00"} – ${nextCls?.endTime || "07:30"}`
+          const nextCoach = nextCls?.coachName || "Huấn luyện viên CLB"
+          const nextRoom =
+            nextCls?.roomVi || nextCls?.room || "Phòng tập VIBE Sport"
+
+          return (
+            <div className="rounded-2xl border border-slate-900/15 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white p-5 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
+                    <Sparkles className="w-3 h-3" />
+                    {isVi ? "BUỔI TẬP SẮP TỚI NHẤT" : "UP NEXT SESSION"}
+                  </span>
+                  <span className="text-xs font-mono text-slate-300">
+                    {nextDate} &bull; {nextTime}
+                  </span>
+                </div>
+                <h3 className="text-lg font-black tracking-tight text-white">
+                  {nextBk.className || nextCls?.nameVi || nextCls?.name}
+                </h3>
+                <p className="text-xs text-slate-300 flex flex-wrap items-center gap-3">
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-red-400" />
+                    {nextRoom}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5 text-red-400" />
+                    HLV: {nextCoach}
+                  </span>
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleOpenQrModal}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-500 px-3.5 py-2 text-xs font-bold text-white transition-colors cursor-pointer"
+                >
+                  <QrCode className="w-4 h-4" />
+                  <span>{isVi ? "Mở QR Check-in" : "Open QR"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSessionForAbsence({
+                      id: nextBk.sessionId || nextBk.id,
+                      className:
+                        nextBk.className || nextCls?.nameVi || nextCls?.name,
+                      date: nextDate,
+                      time: nextTime,
+                      coach: nextCoach,
+                    })
+                    setAbsenceModalOpen(true)
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 px-3 py-2 text-xs font-bold text-white transition-colors cursor-pointer"
+                >
+                  <span>{isVi ? "Xin vắng mặt" : "Report Absence"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/member/feedback")}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 px-3 py-2 text-xs font-bold text-amber-300 transition-colors cursor-pointer"
+                >
+                  <MessageSquareHeart className="w-3.5 h-3.5" />
+                  <span>{isVi ? "Đánh giá" : "Feedback"}</span>
+                </button>
+              </div>
+            </div>
+          )
+        })()}
 
       {/* 4. Three Core Workflow Summary Tiles */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

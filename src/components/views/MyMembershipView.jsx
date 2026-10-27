@@ -43,6 +43,7 @@ import {
   Package,
   Loader2,
   Info,
+  PauseCircle,
 } from "lucide-react"
 import {
   deriveMockMemberProfile,
@@ -50,6 +51,7 @@ import {
   createMockPendingPayment,
   subscribeMockSettlement,
 } from "../../utils/mockFixtureSettlement"
+import { MemberFreezeRequestView } from "./MemberFreezeRequestView"
 
 export function MyMembershipView() {
   const location = useLocation()
@@ -70,9 +72,11 @@ export function MyMembershipView() {
     ? "plans"
     : location.pathname.endsWith("/history")
       ? "history"
-      : location.pathname.endsWith("/settings")
-        ? "settings"
-        : "overview"
+      : location.pathname.endsWith("/freeze")
+        ? "freeze"
+        : location.pathname.endsWith("/settings")
+          ? "settings"
+          : "overview"
 
   const [, setSettlementTick] = useState(0)
 
@@ -866,6 +870,15 @@ export function MyMembershipView() {
           )}
 
           <button
+            type="button"
+            onClick={() => navigate(`${membershipBasePath}/freeze`)}
+            className="min-h-[44px] px-3.5 py-2 rounded text-xs font-bold flex items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer"
+          >
+            <PauseCircle className="w-4 h-4 text-amber-600" />
+            <span>{language === "vi" ? "Bảo lưu gói" : "Freeze Plan"}</span>
+          </button>
+
+          <button
             onClick={() => openSubscribeModal()}
             disabled={submitting}
             className="min-h-[44px] px-4 py-2 rounded text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors bg-[#BA0000] hover:bg-[#8E0000] text-white cursor-pointer"
@@ -893,9 +906,30 @@ export function MyMembershipView() {
       >
         {[
           { id: "overview", path: "", vi: "Tổng quan", en: "Overview" },
-          { id: "plans", path: "/plans", vi: "Chọn gói", en: "Plans" },
-          { id: "history", path: "/history", vi: "Lịch sử", en: "History" },
-          { id: "settings", path: "/settings", vi: "Cài đặt", en: "Settings" },
+          {
+            id: "plans",
+            path: "/plans",
+            vi: "Chọn gói",
+            en: "Plans",
+          },
+          {
+            id: "history",
+            path: "/history",
+            vi: "Hóa đơn",
+            en: "Invoices",
+          },
+          {
+            id: "freeze",
+            path: "/freeze",
+            vi: "Bảo lưu gói",
+            en: "Freeze",
+          },
+          {
+            id: "settings",
+            path: "/settings",
+            vi: "Cài đặt",
+            en: "Settings",
+          },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1346,15 +1380,38 @@ export function MyMembershipView() {
                     </p>
                   </div>
 
-                  <div className="p-4 bg-slate-50 rounded border border-slate-200 space-y-1">
+                  <div className="p-4 bg-slate-50 rounded border border-slate-200 space-y-2">
                     <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-amber-600" />
-                      <span>Gia hạn gói hội viên</span>
+                      <PauseCircle className="w-4 h-4 text-amber-600" />
+                      <span>
+                        {language === "vi"
+                          ? "Bảo lưu & Hóa đơn"
+                          : "Freeze & Billing"}
+                      </span>
                     </div>
                     <p className="text-slate-600">
-                      Liên hệ quầy lễ tân để được tư vấn thời điểm và điều kiện
-                      gia hạn.
+                      {language === "vi"
+                        ? "Tạm dừng gói tập khi bận công tác hoặc xem chi tiết hóa đơn VNPay."
+                        : "Request a temporary membership freeze or view full VNPay invoices."}
                     </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`${membershipBasePath}/freeze`)}
+                        className="rounded border border-slate-300 bg-white hover:bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-800 cursor-pointer"
+                      >
+                        {language === "vi" ? "Gửi đơn bảo lưu" : "Freeze"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(`${membershipBasePath}/history`)
+                        }
+                        className="rounded border border-red-200 bg-red-50 hover:bg-red-100 px-2.5 py-1 text-[11px] font-bold text-[#BA0000] cursor-pointer"
+                      >
+                        {language === "vi" ? "Tất cả hóa đơn" : "All Invoices"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1660,15 +1717,31 @@ export function MyMembershipView() {
           </div>
 
           <section className={activeTab === "history" ? "space-y-4" : "hidden"}>
-            <header>
-              <h3 className="text-lg font-bold text-slate-900">
-                {language === "vi" ? "Lịch sử hội viên" : "Membership history"}
-              </h3>
-              <p className="mt-1 text-sm text-slate-500">
-                {language === "vi"
-                  ? "Các lần đăng ký và hóa đơn được gộp trong một danh sách."
-                  : "Subscriptions and invoices in one timeline."}
-              </p>
+            <header className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">
+                  {language === "vi"
+                    ? "Hóa đơn & Lịch sử giao dịch"
+                    : "Invoices & Membership History"}
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  {language === "vi"
+                    ? "Các lần đăng ký gói, khóa học và hóa đơn thanh toán VNPay được gộp trong một danh sách."
+                    : "Subscriptions and invoices in one unified timeline."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/member/invoices")}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-800 cursor-pointer"
+              >
+                <CreditCard className="w-4 h-4 text-[#BA0000]" />
+                <span>
+                  {language === "vi"
+                    ? "Mở trình quản lý Hóa đơn đầy đủ"
+                    : "Open Full Invoice Manager"}
+                </span>
+              </button>
             </header>
             <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:flex-row">
               <input
@@ -1946,6 +2019,12 @@ export function MyMembershipView() {
             )}{" "}
           </section>
 
+          {activeTab === "freeze" && (
+            <section className="space-y-4">
+              <MemberFreezeRequestView embedded />
+            </section>
+          )}
+
           {activeTab === "settings" && (
             <section className="space-y-4">
               <header>
@@ -1998,17 +2077,31 @@ export function MyMembershipView() {
                     : "Choose a payment method during checkout or renewal."}
                 </p>
               </div>
-              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5">
-                <h4 className="font-semibold text-slate-900">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="font-semibold text-slate-900 flex items-center gap-2">
+                    <PauseCircle className="w-4 h-4 text-amber-600" />
+                    <span>
+                      {language === "vi"
+                        ? "Bảo lưu gói tập (Freeze Membership)"
+                        : "Freeze Membership Request"}
+                    </span>
+                  </h4>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {language === "vi"
+                      ? "Bạn sắp đi công tác hoặc cần tạm nghỉ vì lý do sức khỏe? Gửi yêu cầu bảo lưu để giữ nguyên số ngày tập còn lại."
+                      : "Need a break due to travel or health? Submit a freeze request to preserve your remaining days."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate("/member/freeze-request")}
+                  className="shrink-0 rounded-lg bg-slate-900 hover:bg-slate-800 px-4 py-2.5 text-xs font-bold text-white cursor-pointer"
+                >
                   {language === "vi"
-                    ? "Gợi ý gói và tùy chọn nâng cao"
-                    : "Plan recommendations and advanced options"}
-                </h4>
-                <p className="mt-1 text-sm text-slate-600">
-                  {language === "vi"
-                    ? "Gợi ý dựa trên tần suất tập, đóng băng gói và tính phí nâng cấp cần API từ backend. Khi chưa có dữ liệu, trang không tự suy đoán mức sử dụng hoặc giá."
-                    : "Usage based recommendations, membership freeze, and upgrade proration require backend APIs. The page will not guess usage or pricing without that data."}
-                </p>
+                    ? "Tạo yêu cầu bảo lưu →"
+                    : "Request Freeze →"}
+                </button>
               </div>
             </section>
           )}

@@ -27,6 +27,27 @@ export const getMemberTrainingPlans = (memberId) =>
   list(`/api/training-plans?memberId=${encodeURIComponent(memberId)}`)
 export const getMemberTrainingResults = (memberId) =>
   list(`/api/training-results?memberId=${encodeURIComponent(memberId)}`)
+export const getMemberBodyMetrics = async (memberId) => {
+  if (!memberId) return []
+  try {
+    return await list(
+      `/api/body-metrics?memberId=${encodeURIComponent(memberId)}`,
+    )
+  } catch (error) {
+    if (error?.status === 404 || error?.status === 405) return []
+    return []
+  }
+}
+export const getMemberEvaluations = async (memberId) => {
+  if (!memberId) return []
+  try {
+    return await list(
+      `/api/training-results?memberId=${encodeURIComponent(memberId)}`,
+    )
+  } catch {
+    return []
+  }
+}
 export const getTrainingPlanById = (planId) =>
   httpClient.get(`/api/training-plans/${planId}`)
 export const requestAbsence = (sessionId, reason) =>
@@ -156,6 +177,8 @@ export const memberPortalApi = {
   getMemberCheckinCode,
   getMemberTrainingPlans,
   getMemberTrainingResults,
+  getMemberBodyMetrics,
+  getMemberEvaluations,
   getTrainingPlanById,
   requestAbsence,
   getSessionAbsenceNotices,

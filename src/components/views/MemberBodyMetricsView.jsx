@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Clock,
   Award,
+  Trash2,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -31,6 +32,7 @@ import {
 } from "recharts"
 import { useSCMS } from "../../context/SCMSContext"
 import { memberPortalApi } from "../../api/memberPortalApi"
+import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 
 const API_ENABLED = import.meta.env.VITE_API_ENABLED
   ? import.meta.env.VITE_API_ENABLED === "true"
@@ -120,11 +122,41 @@ export function MemberBodyMetricsView() {
   const location = useLocation()
   const isVi = language === "vi"
 
+  const memberId =
+    getAuthoritativeProfileId(currentUser) ||
+    currentUser?.memberId ||
+    currentUser?.id
+
+  const metricsStorageKey = `scms_inbody_metrics_${memberId || "guest"}`
+  const heightStorageKey = `scms_inbody_height_${memberId || "guest"}`
+
+  const readStoredSelfMetrics = useCallback(() => {
+    try {
+      const raw = window.localStorage.getItem(metricsStorageKey)
+      if (!raw) return []
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }, [metricsStorageKey])
+
   const [activeTab, setActiveTab] = useState(
     location.pathname.includes("/progress") ? "plans" : "inbody",
   ) // "inbody" | "plans" | "results"
-  const [metrics, setMetrics] = useState(API_ENABLED ? [] : INITIAL_METRICS)
+  const [metrics, setMetrics] = useState(() => {
+    const saved = readStoredSelfMetrics()
+    if (saved.length > 0) return saved
+    return API_ENABLED ? [] : INITIAL_METRICS
+  })
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [formHeight, setFormHeight] = useState(() => {
+    try {
+      return window.localStorage.getItem(heightStorageKey) || "170"
+    } catch {
+      return "170"
+    }
+  })
   const [formWeight, setFormWeight] = useState("")
   const [formFat, setFormFat] = useState("")
   const [formMuscle, setFormMuscle] = useState("")
@@ -133,8 +165,6 @@ export function MemberBodyMetricsView() {
   const [trainingPlans, setTrainingPlans] = useState([])
   const [trainingResults, setTrainingResults] = useState([])
   const [loadingTraining, setLoadingTraining] = useState(false)
-
-  const memberId = currentUser?.memberId || currentUser?.id
 
   const fetchTrainingData = useCallback(async () => {
     if (!memberId) {
@@ -150,15 +180,21 @@ export function MemberBodyMetricsView() {
       if (API_ENABLED) {
         const [metricsRes, plansRes, resultsRes, evalsRes] =
           await Promise.allSettled([
-            memberPortalApi.getMemberBodyMetrics(memberId),
+            typeof memberPortalApi.getMemberBodyMetrics === "function"
+              ? memberPortalApi.getMemberBodyMetrics(memberId)
+              : Promise.resolve([]),
             memberPortalApi.getMemberTrainingPlans(memberId),
             memberPortalApi.getMemberTrainingResults(memberId),
-            memberPortalApi.getMemberEvaluations(memberId),
+            typeof memberPortalApi.getMemberEvaluations === "function"
+              ? memberPortalApi.getMemberEvaluations(memberId)
+              : Promise.resolve([]),
           ])
 
+        const selfLogged = readStoredSelfMetrics()
         if (
           metricsRes.status === "fulfilled" &&
-          Array.isArray(metricsRes.value)
+          Array.isArray(metricsRes.value) &&
+          metricsRes.value.length > 0
         ) {
           const mappedMetrics = metricsRes.value.map((m) => ({
             date: String(
@@ -174,7 +210,9 @@ export function MemberBodyMetricsView() {
                   : 0),
             ),
           }))
-          setMetrics(mappedMetrics)
+          setMetrics([...mappedMetrics, ...selfLogged])
+        } else {
+          setMetrics(selfLogged)
         }
 
         const loadedPlans =
@@ -187,22 +225,30 @@ export function MemberBodyMetricsView() {
             : []
         const loadedEvals =
           evalsRes.status === "fulfilled" && Array.isArray(evalsRes.value)
-            ? evalsRes.value.map((ev) => ({
-                resultId: `eval-${ev.evaluationId || ev.id}`,
-                sessionDate: String(ev.evaluatedAt || ev.createdAt || "").slice(
-                  0,
-                  10,
-                ),
-                className:
-                  ev.className || ev.criteria || "Đánh giá tiến độ định kỳ",
-                coachName: ev.coachName || "Huấn luyện viên CLB",
-                attendanceStatus: "PRESENT",
-                content:
-                  ev.comments ||
-                  ev.feedback ||
-                  ev.note ||
-                  (ev.score ? `Điểm đánh giá: ${ev.score}/10` : ""),
-              }))
+            ? evalsRes.value
+                .filter(
+                  (ev) =>
+                    !loadedResults.some(
+                      (r) =>
+                        String(r.resultId || r.id) ===
+                        String(ev.resultId || ev.evaluationId || ev.id),
+                    ),
+                )
+                .map((ev) => ({
+                  resultId: `eval-${ev.evaluationId || ev.id}`,
+                  sessionDate: String(
+                    ev.evaluatedAt || ev.createdAt || "",
+                  ).slice(0, 10),
+                  className:
+                    ev.className || ev.criteria || "Đánh giá tiến độ định kỳ",
+                  coachName: ev.coachName || "Huấn luyện viên CLB",
+                  attendanceStatus: "PRESENT",
+                  content:
+                    ev.comments ||
+                    ev.feedback ||
+                    ev.note ||
+                    (ev.score ? `Điểm đánh giá: ${ev.score}/10` : ""),
+                }))
             : []
 
         setTrainingPlans(loadedPlans)
@@ -220,7 +266,7 @@ export function MemberBodyMetricsView() {
     } finally {
       setLoadingTraining(false)
     }
-  }, [memberId])
+  }, [memberId, readStoredSelfMetrics])
 
   useEffect(() => {
     fetchTrainingData()
@@ -238,24 +284,95 @@ export function MemberBodyMetricsView() {
   const fatDiff = (latest.fatPercent - previous.fatPercent).toFixed(1)
   const muscleDiff = (latest.muscleMass - previous.muscleMass).toFixed(1)
 
+  // Smart Body Composition Assessment
+  const bodyAssessment = (() => {
+    if (!latest.weight || latest.weight <= 0) {
+      return {
+        badge: isVi ? "Chưa có dữ liệu" : "No Data Yet",
+        tone: "slate",
+        advice: isVi
+          ? "Nhấn 'Ghi nhận chỉ số mới' để nhập phiếu đo InBody đầu tiên và nhận phân tích thể trạng tự động."
+          : "Click 'Log New Metric' to record your first InBody checkup and get instant analysis.",
+      }
+    }
+    const bmiVal = Number(latest.bmi) || 22
+    const fatVal = Number(latest.fatPercent) || 20
+    if (bmiVal >= 18.5 && bmiVal <= 24.9 && fatVal <= 20) {
+      return {
+        badge: isVi ? "Chuẩn Thể Thao · Cân Đối" : "Athletic & Balanced",
+        tone: "emerald",
+        advice: isVi
+          ? "Tỷ lệ cơ - mỡ của bạn đang ở ngưỡng tối ưu! Hãy duy trì lịch tập hiện tại và bổ sung đủ 1.6–2.0g Protein/kg cân nặng."
+          : "Your muscle-to-fat ratio is optimal! Maintain your current training routine and protein intake.",
+      }
+    }
+    if (bmiVal < 18.5) {
+      return {
+        badge: isVi ? "Cần Tăng Cơ & Cân Nặng" : "Focus on Muscle Gain",
+        tone: "blue",
+        advice: isVi
+          ? "Chỉ số BMI đang dưới mức 18.5. Khuyến nghị ưu tiên các bài tập kháng lực (Strength/Hypertrophy) kết hợp thặng dư Calo lành mạnh."
+          : "BMI is below 18.5. Prioritize resistance training and a healthy caloric surplus.",
+      }
+    }
+    return {
+      badge: isVi ? "Ưu Tiên Giảm Mỡ · Siết Cơ" : "Focus on Fat Loss",
+      tone: "amber",
+      advice: isVi
+        ? "Khuyến nghị kết hợp 3 buổi Cardio/HIIT hoặc Cầu lông, Pickleball mỗi tuần cùng chế độ ăn kiểm soát tinh bột để đưa tỷ lệ mỡ về dưới 20%."
+        : "Combine 3 Cardio/HIIT or court sessions per week with controlled carbs to bring body fat under 20%.",
+    }
+  })()
+
   const handleAddMetric = (e) => {
     e.preventDefault()
     if (!formWeight) return
     const w = parseFloat(formWeight)
-    const f = formFat ? parseFloat(formFat) : latest.fatPercent
-    const m = formMuscle ? parseFloat(formMuscle) : latest.muscleMass
+    const hCm = Math.max(100, Math.min(230, parseFloat(formHeight) || 170))
+    const f = formFat ? parseFloat(formFat) : latest.fatPercent || 20
+    const m = formMuscle
+      ? parseFloat(formMuscle)
+      : latest.muscleMass || +(w * 0.45).toFixed(1)
     const newEntry = {
+      id: `self-${Date.now()}`,
+      isSelfLogged: true,
       date: new Date().toISOString().slice(0, 10),
+      heightCm: hCm,
       weight: w,
       fatPercent: f,
       muscleMass: m,
-      bmi: +(w / (1.74 * 1.74)).toFixed(1), // based on estimated 174cm
+      bmi: +(w / Math.pow(hCm / 100, 2)).toFixed(1),
+    }
+    try {
+      window.localStorage.setItem(heightStorageKey, String(hCm))
+      const currentSelf = readStoredSelfMetrics()
+      window.localStorage.setItem(
+        metricsStorageKey,
+        JSON.stringify([...currentSelf, newEntry]),
+      )
+    } catch {
+      // ignore storage quota errors
     }
     setMetrics((prev) => [...prev, newEntry])
     setIsModalOpen(false)
     setFormWeight("")
     setFormFat("")
     setFormMuscle("")
+  }
+
+  const handleDeleteSelfMetric = (entryId) => {
+    try {
+      const currentSelf = readStoredSelfMetrics().filter(
+        (item) => item.id !== entryId,
+      )
+      window.localStorage.setItem(
+        metricsStorageKey,
+        JSON.stringify(currentSelf),
+      )
+    } catch {
+      // ignore
+    }
+    setMetrics((prev) => prev.filter((item) => item.id !== entryId))
   }
 
   return (
@@ -359,6 +476,51 @@ export function MemberBodyMetricsView() {
       {/* TAB 1: INBODY METRICS & CHARTS */}
       {activeTab === "inbody" && (
         <div className="space-y-6">
+          {/* Smart Body Composition Assessment Banner */}
+          <div
+            className={`rounded-2xl border p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+              bodyAssessment.tone === "emerald"
+                ? "border-emerald-200 bg-emerald-50/70"
+                : bodyAssessment.tone === "blue"
+                  ? "border-blue-200 bg-blue-50/70"
+                  : bodyAssessment.tone === "amber"
+                    ? "border-amber-200 bg-amber-50/70"
+                    : "border-slate-200 bg-slate-50"
+            }`}
+          >
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  {isVi ? "Đánh giá thể trạng thông minh" : "Smart Assessment"}
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                    bodyAssessment.tone === "emerald"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : bodyAssessment.tone === "blue"
+                        ? "bg-blue-100 text-blue-800"
+                        : bodyAssessment.tone === "amber"
+                          ? "bg-amber-100 text-amber-900"
+                          : "bg-slate-200 text-slate-700"
+                  }`}
+                >
+                  <Sparkles className="w-3 h-3" />
+                  {bodyAssessment.badge}
+                </span>
+              </div>
+              <p className="text-xs text-slate-700 leading-relaxed">
+                {bodyAssessment.advice}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(true)}
+              className="shrink-0 rounded-xl bg-slate-900 hover:bg-slate-800 px-3.5 py-2 text-xs font-bold text-white transition-colors cursor-pointer"
+            >
+              {isVi ? "+ Cập nhật phiếu đo" : "+ Update InBody"}
+            </button>
+          </div>
+
           {/* KPI Metric Cards */}
           <div className="grid gap-3.5 grid-cols-2 sm:grid-cols-4">
             {/* Weight */}
@@ -369,13 +531,29 @@ export function MemberBodyMetricsView() {
               </div>
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="text-2xl font-black text-slate-900 font-mono">
-                  {latest.weight}
+                  {metrics.length > 0 ? latest.weight : "—"}
                 </span>
-                <span className="text-xs text-slate-500 font-bold">kg</span>
+                {metrics.length > 0 && (
+                  <span className="text-xs text-slate-500 font-bold">kg</span>
+                )}
               </div>
               <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-emerald-600">
-                <TrendingDown className="w-3.5 h-3.5" />
-                <span>{weightDiff} kg so với tháng trước</span>
+                {metrics.length > 1 ? (
+                  <>
+                    <TrendingDown className="w-3.5 h-3.5" />
+                    <span>{weightDiff} kg so với lần trước</span>
+                  </>
+                ) : (
+                  <span className="text-slate-400 font-medium">
+                    {metrics.length === 1
+                      ? isVi
+                        ? "Lần đo đầu tiên"
+                        : "First record"
+                      : isVi
+                        ? "Chưa có số đo"
+                        : "No record yet"}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -387,15 +565,31 @@ export function MemberBodyMetricsView() {
               </div>
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="text-2xl font-black text-slate-900 font-mono">
-                  {latest.fatPercent}
+                  {metrics.length > 0 ? latest.fatPercent : "—"}
                 </span>
-                <span className="text-xs text-slate-500 font-bold">%</span>
+                {metrics.length > 0 && (
+                  <span className="text-xs text-slate-500 font-bold">%</span>
+                )}
               </div>
               <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-emerald-600">
-                <TrendingDown className="w-3.5 h-3.5" />
-                <span>
-                  {fatDiff}% {isVi ? "giảm mỡ" : "loss"}
-                </span>
+                {metrics.length > 1 ? (
+                  <>
+                    <TrendingDown className="w-3.5 h-3.5" />
+                    <span>
+                      {fatDiff}% {isVi ? "so với lần trước" : "vs previous"}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-slate-400 font-medium">
+                    {metrics.length === 1
+                      ? isVi
+                        ? "Mức khuyến nghị: 12–20%"
+                        : "Target: 12–20%"
+                      : isVi
+                        ? "Chưa có số đo"
+                        : "No record yet"}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -407,15 +601,32 @@ export function MemberBodyMetricsView() {
               </div>
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="text-2xl font-black text-slate-900 font-mono">
-                  {latest.muscleMass}
+                  {metrics.length > 0 ? latest.muscleMass : "—"}
                 </span>
-                <span className="text-xs text-slate-500 font-bold">kg</span>
+                {metrics.length > 0 && (
+                  <span className="text-xs text-slate-500 font-bold">kg</span>
+                )}
               </div>
               <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-blue-600">
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>
-                  +{muscleDiff} kg {isVi ? "tăng cơ" : "gain"}
-                </span>
+                {metrics.length > 1 ? (
+                  <>
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span>
+                      {muscleDiff >= 0 ? `+${muscleDiff}` : muscleDiff} kg{" "}
+                      {isVi ? "cơ xương" : "muscle"}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-slate-400 font-medium">
+                    {metrics.length === 1
+                      ? isVi
+                        ? "Cơ xương (SMM)"
+                        : "Skeletal Muscle"
+                      : isVi
+                        ? "Chưa có số đo"
+                        : "No record yet"}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -427,11 +638,25 @@ export function MemberBodyMetricsView() {
               </div>
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="text-2xl font-black text-slate-900 font-mono">
-                  {latest.bmi}
+                  {metrics.length > 0 ? latest.bmi : "—"}
                 </span>
-                <span className="text-xs text-emerald-600 font-bold">
-                  ({isVi ? "Bình thường" : "Normal"})
-                </span>
+                {metrics.length > 0 && (
+                  <span className="text-xs text-emerald-600 font-bold">
+                    (
+                    {latest.bmi >= 18.5 && latest.bmi <= 24.9
+                      ? isVi
+                        ? "Bình thường"
+                        : "Normal"
+                      : latest.bmi < 18.5
+                        ? isVi
+                          ? "Thiếu cân"
+                          : "Underweight"
+                        : isVi
+                          ? "Thừa cân"
+                          : "Overweight"}
+                    )
+                  </span>
+                )}
               </div>
               <span className="mt-2 block text-[11px] text-slate-400 font-medium">
                 {isVi ? "Mức lý tưởng: 18.5 - 24.9" : "Ideal: 18.5 - 24.9"}
@@ -531,25 +756,62 @@ export function MemberBodyMetricsView() {
                       {isVi ? "Khối lượng cơ (kg)" : "Muscle Mass"}
                     </th>
                     <th className="py-3 px-4">{isVi ? "BMI" : "BMI"}</th>
+                    <th className="py-3 px-4 text-right">
+                      {isVi ? "Nguồn dữ liệu" : "Source"}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700 font-mono">
-                  {metrics.map((row, idx) => (
-                    <tr
-                      key={idx}
-                      className="hover:bg-slate-50/80 transition-colors"
-                    >
-                      <td className="py-3 px-4 font-sans font-semibold text-slate-900">
-                        {row.date}
+                  {metrics.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="py-8 px-4 text-center font-sans text-xs text-slate-500"
+                      >
+                        {isVi
+                          ? "Chưa có bản ghi InBody nào. Hãy nhấn 'Ghi nhận chỉ số mới' để lưu kết quả đo đầu tiên của bạn."
+                          : "No InBody records yet. Click 'Log New Metric' to save your first checkup."}
                       </td>
-                      <td className="py-3 px-4 font-bold">{row.weight}</td>
-                      <td className="py-3 px-4">{row.fatPercent}%</td>
-                      <td className="py-3 px-4 text-blue-700 font-bold">
-                        {row.muscleMass}
-                      </td>
-                      <td className="py-3 px-4">{row.bmi}</td>
                     </tr>
-                  ))}
+                  ) : (
+                    metrics.map((row, idx) => (
+                      <tr
+                        key={row.id || idx}
+                        className="hover:bg-slate-50/80 transition-colors"
+                      >
+                        <td className="py-3 px-4 font-sans font-semibold text-slate-900">
+                          {row.date}
+                        </td>
+                        <td className="py-3 px-4 font-bold">{row.weight}</td>
+                        <td className="py-3 px-4">{row.fatPercent}%</td>
+                        <td className="py-3 px-4 text-blue-700 font-bold">
+                          {row.muscleMass}
+                        </td>
+                        <td className="py-3 px-4">{row.bmi}</td>
+                        <td className="py-3 px-4 text-right font-sans">
+                          {row.isSelfLogged ? (
+                            <span className="inline-flex items-center gap-2">
+                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                {isVi ? "Hội viên tự nhập" : "Self-logged"}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSelfMetric(row.id)}
+                                title={isVi ? "Xóa bản ghi này" : "Delete"}
+                                className="text-slate-400 hover:text-red-600 cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                              {isVi ? "Máy đo CLB" : "Club InBody"}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -732,19 +994,37 @@ export function MemberBodyMetricsView() {
             </p>
 
             <form onSubmit={handleAddMetric} className="mt-4 space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {isVi ? "Cân nặng (kg) *" : "Weight (kg) *"}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  required
-                  value={formWeight}
-                  onChange={(e) => setFormWeight(e.target.value)}
-                  placeholder="Ví dụ: 70.5"
-                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-red-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {isVi ? "Chiều cao (cm) *" : "Height (cm) *"}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="100"
+                    max="230"
+                    required
+                    value={formHeight}
+                    onChange={(e) => setFormHeight(e.target.value)}
+                    placeholder="170"
+                    className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-red-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {isVi ? "Cân nặng (kg) *" : "Weight (kg) *"}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    required
+                    value={formWeight}
+                    onChange={(e) => setFormWeight(e.target.value)}
+                    placeholder="Ví dụ: 70.5"
+                    className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-red-500"
+                  />
+                </div>
               </div>
 
               <div>

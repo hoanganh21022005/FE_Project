@@ -53,7 +53,7 @@ const API_ENABLED = import.meta.env.VITE_API_ENABLED
   ? import.meta.env.VITE_API_ENABLED === "true"
   : import.meta.env.MODE !== "mock"
 
-export function MemberFeedbackView() {
+export function MemberFeedbackView({ embedded = false }) {
   const {
     currentUser,
     members,
@@ -605,22 +605,30 @@ export function MemberFeedbackView() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-7 sm:py-8 font-['Be_Vietnam_Pro',sans-serif]">
+    <main
+      className={
+        embedded
+          ? "space-y-6 font-['Be_Vietnam_Pro',sans-serif]"
+          : "mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-7 sm:py-8 font-['Be_Vietnam_Pro',sans-serif]"
+      }
+    >
       {/* 1. HEADER */}
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
-            VIBE SPORT · MEMBER
-          </p>
-          <h1 className="mt-2 text-3xl font-black text-slate-950">
-            Đánh giá & Phản hồi
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Ý kiến của bạn giúp chúng tôi liên tục nâng cao chuẩn mực huấn luyện
-            và chất lượng cơ sở vật chất.
-          </p>
-        </div>
-      </header>
+      {!embedded && (
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
+              VIBE SPORT · MEMBER
+            </p>
+            <h1 className="mt-2 text-3xl font-black text-slate-950">
+              Đánh giá & Phản hồi
+            </h1>
+            <p className="mt-2 text-sm text-slate-500">
+              Ý kiến của bạn giúp chúng tôi liên tục nâng cao chuẩn mực huấn
+              luyện và chất lượng cơ sở vật chất.
+            </p>
+          </div>
+        </header>
+      )}
 
       {/* 2. DẢI CHỈ SỐ: 4 Thẻ đồng bộ hệ thống */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">

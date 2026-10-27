@@ -25,6 +25,7 @@ import {
 } from "../../api/memberPortalApi"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { getErrorMessage } from "../../api/apiErrors"
+import { MemberFeedbackView } from "./MemberFeedbackView"
 
 const toDate = (value) => {
   if (!value) return null
@@ -266,23 +267,23 @@ export function MemberScheduleView() {
             VIBE SPORT · MEMBER
           </p>
           <h1 className="mt-2 text-3xl font-black text-slate-950">
-            {isVi ? "Lịch học của tôi" : "My class schedule"}
+            {isVi ? "Lịch học của tôi" : "My Schedule"}
           </h1>
           <p className="mt-2 text-sm text-slate-500">
             {isVi
-              ? "Theo dõi khóa học đã đăng ký, lịch từng buổi học, báo vắng và lịch PT cá nhân."
-              : "Review enrolled courses, session schedules, absence notices, and private PT sessions."}
+              ? "Quản lý trọn vẹn khóa học đã đăng ký, lịch từng buổi, lịch PT 1-kèm-1, báo vắng và đánh giá buổi tập ngay tại một nơi."
+              : "Manage enrolled courses, session schedules, private PT sessions, absence notices, and session feedback all in one place."}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => navigate("/member/checkin")}
+            onClick={() => navigate("/member/attendance")}
             className="inline-flex items-center gap-2 rounded-lg bg-slate-900 hover:bg-slate-800 px-3.5 py-2 text-xs font-bold text-white shadow-2xs cursor-pointer"
           >
             <QrCode className="h-4 w-4" />
-            <span>{isVi ? "Mã QR Check-in" : "Check-in QR"}</span>
+            <span>{isVi ? "Mở Điểm danh" : "Check-in"}</span>
           </button>
 
           <button
@@ -348,6 +349,19 @@ export function MemberScheduleView() {
             ? `Lịch tập PT 1-kèm-1 (${privateSessions.length})`
             : `Private PT Sessions (${privateSessions.length})`}
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("feedback")}
+          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            activeTab === "feedback"
+              ? "bg-red-700 text-white shadow-2xs"
+              : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+          }`}
+        >
+          <MessageSquareHeart className="h-3.5 w-3.5" />
+          <span>{isVi ? "Đánh giá chất lượng" : "Class Feedback"}</span>
+        </button>
       </div>
 
       {!validMember && (
@@ -370,7 +384,9 @@ export function MemberScheduleView() {
         </div>
       )}
 
-      {loading ? (
+      {activeTab === "feedback" ? (
+        <MemberFeedbackView embedded />
+      ) : loading ? (
         <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
           {isVi ? "Đang tải lịch học…" : "Loading schedule…"}
         </div>
@@ -490,7 +506,7 @@ export function MemberScheduleView() {
                   <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                     <button
                       type="button"
-                      onClick={() => navigate("/member/feedback")}
+                      onClick={() => setActiveTab("feedback")}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 cursor-pointer"
                     >
                       <MessageSquareHeart className="h-3.5 w-3.5 text-red-700" />
