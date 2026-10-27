@@ -29,14 +29,120 @@ import {
   LogIn,
   Mail,
   Phone,
+  QrCode,
   RefreshCw,
+  ShieldCheck,
+  Sparkles,
   User,
   UserCheck,
   UserPlus,
+  X,
 } from "lucide-react"
 
 const DEMO_EMAIL = "manager@scms.com"
 const DEMO_PASSWORD = "Scms@2026"
+const RECENT_EMAILS_KEY = "scms_recent_login_emails"
+
+const SHOWCASE_SLIDES = [
+  {
+    id: "badminton",
+    tagVi: "BỘ MÔN TIÊU ĐIỂM · CẦU LÔNG",
+    tagEn: "FEATURED DISCIPLINE · BADMINTON",
+    titleVi: "Sân chuẩn BWF. Huấn luyện chuyên sâu.",
+    titleEn: "BWF Standard Courts. Pro Coaching.",
+    descVi:
+      "Đặt lịch học, quét mã QR check-in động 60s tại cổng và theo dõi điểm kỹ thuật sau từng buổi tập.",
+    descEn:
+      "Book classes, scan 60s dynamic QR check-in at the gate, and track technical scores after every session.",
+    image: "/images/MainPage/home-badminton.png",
+    metricVi: "Thảm Taraflex · 12 buổi/khóa",
+    metricEn: "Taraflex Court · 12 sessions/course",
+  },
+  {
+    id: "pickleball",
+    tagVi: "BỘ MÔN XU HƯỚNG · PICKLEBALL",
+    tagEn: "TRENDING SPORT · PICKLEBALL",
+    titleVi: "Năng lượng bùng nổ trên từng pha bóng.",
+    titleEn: "High-energy rallies on every court.",
+    descVi:
+      "Kết nối cộng đồng Pickleball năng động, chủ động đăng ký lớp nhóm hoặc đặt lịch PT 1-kèm-1 trực tuyến.",
+    descEn:
+      "Join our vibrant Pickleball community, enroll in group courses, or book 1-on-1 private PT sessions online.",
+    image: "/images/MainPage/home-pickleball.png",
+    metricVi: "Chuẩn DUPR · Đèn LED 500 lux",
+    metricEn: "DUPR Standard · 500 lux LED",
+  },
+  {
+    id: "archery",
+    tagVi: "TẬP TRUNG & BẢN LĨNH · BẮN CUNG",
+    tagEn: "PRECISION & FOCUS · ARCHERY",
+    titleVi: "Rèn sự tĩnh tại và độ chính xác tuyệt đối.",
+    titleEn: "Master stillness, posture, and precision.",
+    descVi:
+      "Hệ thống bia điện tử cảm ứng 15m có mái che cùng giáo án cá nhân hóa được đồng bộ trực tiếp trên ứng dụng.",
+    descEn:
+      "15m indoor electronic target lanes with personalized training plans synced directly to your member portal.",
+    image: "/images/MainPage/home-archery.png",
+    metricVi: "Bia điện tử 15m · HLV Quốc gia",
+    metricEn: "15m Electronic Target · Pro Coach",
+  },
+  {
+    id: "swimming",
+    tagVi: "THỂ LỰC TOÀN DIỆN · BƠI LỘI",
+    tagEn: "TOTAL ENDURANCE · SWIMMING",
+    titleVi: "Tối ưu thể chất cùng chỉ số InBody định kỳ.",
+    titleEn: "Optimize endurance with periodic InBody tracking.",
+    descVi:
+      "Theo dõi biểu đồ cơ - mỡ - BMI và nhận đánh giá tiến độ trực tiếp từ Huấn luyện viên phụ trách.",
+    descEn:
+      "Track muscle, body fat, and BMI charts with direct progress evaluations from your assigned coach.",
+    image: "/images/MainPage/home-swimming.png",
+    metricVi: "Hồ bơi 4 mùa · Đo InBody định kỳ",
+    metricEn: "4-Season Pool · InBody Analytics",
+  },
+]
+
+function computePasswordStrength(pwd, isVi) {
+  const val = String(pwd || "")
+  if (!val) {
+    return {
+      score: 0,
+      label: "",
+      color: "bg-stone-200",
+      textColor: "text-stone-400",
+    }
+  }
+  let score = 0
+  if (val.length >= 6) score += 1
+  if (val.length >= 8 && /[A-Z]/.test(val) && /[a-z]/.test(val)) score += 1
+  if (/\d/.test(val)) score += 1
+  if (/[^A-Za-z0-9]/.test(val)) score += 1
+
+  const map = {
+    1: {
+      label: isVi ? "Yếu" : "Weak",
+      color: "bg-rose-500",
+      textColor: "text-rose-600",
+    },
+    2: {
+      label: isVi ? "Trung bình" : "Fair",
+      color: "bg-amber-500",
+      textColor: "text-amber-600",
+    },
+    3: {
+      label: isVi ? "Khá mạnh" : "Good",
+      color: "bg-emerald-500",
+      textColor: "text-emerald-600",
+    },
+    4: {
+      label: isVi ? "Rất mạnh" : "Strong",
+      color: "bg-emerald-600",
+      textColor: "text-emerald-700",
+    },
+  }
+  const picked = map[score] || map[1]
+  return { score: Math.max(1, score), ...picked }
+}
 
 export function LoginView({
   onLoginSuccess,
@@ -76,6 +182,71 @@ export function LoginView({
   const [loginError, setLoginError] = useState(initialError)
   const [loginNotice, setLoginNotice] = useState("")
   const [isLoginLoading, setIsLoginLoading] = useState(false)
+  const [rememberEmail, setRememberEmail] = useState(true)
+  const [recentEmails, setRecentEmails] = useState(() => {
+    try {
+      const raw = localStorage.getItem(RECENT_EMAILS_KEY)
+      const parsed = raw ? JSON.parse(raw) : []
+      return Array.isArray(parsed) ? parsed.slice(0, 3) : []
+    } catch {
+      return []
+    }
+  })
+  const [capsLockOn, setCapsLockOn] = useState(false)
+  const [activeSlideIdx, setActiveSlideIdx] = useState(0)
+  const passwordInputRef = useRef(null)
+
+  // Auto-rotate left showcase slides every 5.5s
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveSlideIdx((prev) => (prev + 1) % SHOWCASE_SLIDES.length)
+    }, 5500)
+    return () => clearInterval(timer)
+  }, [])
+
+  // Auto-verify smart VIBE Shield when email & password look valid
+  useEffect(() => {
+    if (
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail.trim()) &&
+      loginPassword.trim().length >= 4 &&
+      !isLoginCaptchaChecked &&
+      !isLoginCaptchaLoading
+    ) {
+      setIsLoginCaptchaChecked(true)
+    }
+  }, [loginEmail, loginPassword, isLoginCaptchaChecked, isLoginCaptchaLoading])
+
+  const saveRecentEmail = (emailStr) => {
+    if (!rememberEmail || !emailStr) return
+    try {
+      const normalized = emailStr.trim().toLowerCase()
+      const next = [
+        normalized,
+        ...recentEmails.filter((item) => item !== normalized),
+      ].slice(0, 3)
+      setRecentEmails(next)
+      localStorage.setItem(RECENT_EMAILS_KEY, JSON.stringify(next))
+    } catch {
+      // ignore storage quota
+    }
+  }
+
+  const removeRecentEmail = (emailStr, e) => {
+    e?.stopPropagation?.()
+    try {
+      const next = recentEmails.filter((item) => item !== emailStr)
+      setRecentEmails(next)
+      localStorage.setItem(RECENT_EMAILS_KEY, JSON.stringify(next))
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleCapsLockCheck = (e) => {
+    if (typeof e?.getModifierState === "function") {
+      setCapsLockOn(Boolean(e.getModifierState("CapsLock")))
+    }
+  }
 
   // --- FORGOT PASSWORD STATE ---
   const [isForgotMode, setIsForgotMode] = useState(false)
@@ -163,6 +334,27 @@ export function LoginView({
     }, 350)
   }
 
+  // Auto-verify smart VIBE Shield for Register when basic fields are filled
+  useEffect(() => {
+    if (
+      regName.trim().length >= 2 &&
+      regPhone.trim().length >= 9 &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim()) &&
+      regPassword.length >= 6 &&
+      !isRegCaptchaChecked &&
+      !isRegCaptchaLoading
+    ) {
+      setIsRegCaptchaChecked(true)
+    }
+  }, [
+    regName,
+    regPhone,
+    regEmail,
+    regPassword,
+    isRegCaptchaChecked,
+    isRegCaptchaLoading,
+  ])
+
   // Handle Captcha Click (Register)
   const handleRegCaptchaClick = () => {
     if (isRegCaptchaChecked) return
@@ -192,8 +384,8 @@ export function LoginView({
     if (!isLoginCaptchaChecked) {
       setLoginError(
         isVi
-          ? "Vui lòng xác minh bạn không phải là người máy."
-          : "Please verify that you are not a robot.",
+          ? "Vui lòng xác minh phiên đăng nhập an toàn."
+          : "Please complete the security verification.",
       )
       return
     }
@@ -217,6 +409,7 @@ export function LoginView({
           )
           return
         }
+        saveRecentEmail(trimmedEmail)
         onLoginSuccess(user)
       } catch (error) {
         setLoginError(
@@ -248,6 +441,7 @@ export function LoginView({
         )
         return
       }
+      saveRecentEmail(trimmedEmail)
       setIsLoginLoading(true)
       setTimeout(async () => {
         setIsLoginLoading(false)
@@ -792,241 +986,223 @@ export function LoginView({
   return (
     <div className="w-full min-h-screen bg-[#0c0a09] text-stone-100 font-sans antialiased select-none flex flex-col">
       <div className="flex flex-col lg:flex-row min-h-screen w-full relative z-10">
-        {/* LEFT COLUMN: HERO & BRANDING WITH FIRESIDE WARM THEME */}
-        <div
-          className="relative flex-1 flex flex-col justify-between p-8 sm:p-12 lg:p-14 xl:p-16 min-h-[500px] lg:min-h-screen overflow-hidden bg-[#141210] transition-all duration-300"
-          style={{
-            backgroundImage: `
-            linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px)
-          `,
-            backgroundSize: "54px 54px",
-          }}
-        >
-          {/* Background Image for Register Mode */}
-          {authMode === "register" && (
-            <div className="absolute inset-0 z-0 pointer-events-none transition-opacity duration-500">
+        {/* LEFT COLUMN: INTERACTIVE ATHLETIC SHOWCASE SYNCED WITH HOMELANDINGVIEW */}
+        <div className="relative flex-1 flex flex-col justify-between p-8 sm:p-12 lg:p-14 xl:p-16 min-h-[540px] lg:min-h-screen overflow-hidden bg-[#100e0d] transition-all duration-500">
+          {/* Dynamic Sport Photography Background */}
+          <div className="absolute inset-0 z-0 pointer-events-none">
+            {SHOWCASE_SLIDES.map((slide, idx) => (
               <img
-                src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop"
-                alt="Gym background"
-                className="w-full h-full object-cover opacity-30 mix-blend-luminosity"
+                key={slide.id}
+                src={slide.image}
+                alt={isVi ? slide.titleVi : slide.titleEn}
+                className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out ${
+                  idx === activeSlideIdx
+                    ? "opacity-40 scale-100"
+                    : "opacity-0 scale-105"
+                }`}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#141210] via-transparent to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#141210] via-transparent to-transparent" />
-            </div>
-          )}
+            ))}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0c0a09] via-[#0c0a09]/75 to-[#0c0a09]/40" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#0c0a09]/90 via-[#0c0a09]/55 to-transparent" />
+          </div>
 
           {/* Subtle radial ambient glow */}
-          <div className="pointer-events-none absolute -top-32 -left-32 w-96 h-96 bg-[#BA0000]/15 rounded-full blur-3xl z-0" />
+          <div className="pointer-events-none absolute -top-32 -left-32 w-96 h-96 bg-[#BA0000]/20 rounded-full blur-3xl z-0" />
           <div className="pointer-events-none absolute bottom-10 right-10 w-96 h-96 bg-[#8E0000]/20 rounded-full blur-3xl z-0" />
 
-          {/* Top Branding (SCMS Logo) */}
-          <div
-            onClick={onBackToHome}
-            className={`relative z-10 flex items-center gap-3 ${
-              onBackToHome ? "cursor-pointer group" : ""
-            }`}
-            title={
-              onBackToHome
-                ? isVi
-                  ? "Quay về Trang chủ"
-                  : "Back to Home"
-                : undefined
-            }
-          >
-            <img
-              src="/images/MainPage/vibe-sport-logo.png?v=2"
-              alt="Vibe Sport"
-              className="h-20 w-32 object-contain sm:w-36 shrink-0 transition-transform group-hover:scale-[1.02]"
-            />
+          {/* Top Bar: Logo + Slogan Pills */}
+          <div className="relative z-10 flex items-center justify-between gap-4 flex-wrap">
+            <div
+              onClick={onBackToHome}
+              className={`flex items-center gap-3 ${
+                onBackToHome ? "cursor-pointer group" : ""
+              }`}
+              title={
+                onBackToHome
+                  ? isVi
+                    ? "Quay về Trang chủ"
+                    : "Back to Home"
+                  : undefined
+              }
+            >
+              <img
+                src="/images/MainPage/vibe-sport-logo.png?v=2"
+                alt="Vibe Sport"
+                className="h-16 w-28 sm:h-20 sm:w-36 object-contain shrink-0 transition-transform group-hover:scale-[1.02]"
+              />
+            </div>
+
+            <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/75 bg-white/5 backdrop-blur-md border border-white/10 px-3.5 py-1.5 rounded-full">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Vitality · Inspire · Balance · Energy</span>
+            </div>
           </div>
 
-          {/* Center Main Content (Dynamic based on Login vs Register) */}
-          <div className="relative z-10 max-w-xl my-10 lg:my-auto">
-            {authMode === "login" ? (
-              <>
-                {/* Overline */}
-                <div className="text-[#D62323] font-bold text-xs tracking-wider uppercase mb-3.5">
-                  {adminEntry
-                    ? isVi
-                      ? "CỔNG QUẢN TRỊ HỆ THỐNG"
-                      : "SYSTEM ADMINISTRATION"
-                    : isVi
-                      ? "NỀN TẢNG QUẢN LÝ"
-                      : "MANAGEMENT PLATFORM"}
-                </div>
+          {/* Center Main Content: Dynamic Editorial Sport Slide + Smart Portal Ecosystem */}
+          <div className="relative z-10 max-w-2xl my-8 lg:my-auto space-y-7">
+            {/* Active Sport Slide Header */}
+            {(() => {
+              const slide =
+                SHOWCASE_SLIDES[activeSlideIdx] || SHOWCASE_SLIDES[0]
+              return (
+                <div className="space-y-3">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#BA0000]/90 text-white text-[11px] font-extrabold tracking-widest uppercase shadow-sm">
+                    <Flame className="w-3.5 h-3.5" />
+                    <span>
+                      {adminEntry
+                        ? isVi
+                          ? "CỔNG QUẢN TRỊ HỆ THỐNG"
+                          : "SYSTEM ADMINISTRATION"
+                        : isVi
+                          ? slide.tagVi
+                          : slide.tagEn}
+                    </span>
+                  </div>
 
-                {/* Heading */}
-                <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-extrabold text-white tracking-tight leading-[1.18]">
-                  <div>
+                  <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-black text-white tracking-tight leading-[1.12] drop-shadow-md">
                     {adminEntry
                       ? isVi
-                        ? "Quản trị rõ ràng."
-                        : "Clear administration."
-                      : isVi
-                        ? "Một hệ thống."
-                        : "One system."}
-                  </div>
-                  <div
-                    className={adminEntry ? "text-sky-300" : "text-[#E4E4E4]"}
-                  >
+                        ? "Quản trị minh bạch. Dữ liệu thời gian thực."
+                        : "Transparent governance. Real-time data."
+                      : authMode === "register"
+                        ? isVi
+                          ? "Khởi đầu hành trình thể thao đỉnh cao tại VIBE Sport."
+                          : "Begin your athletic journey at VIBE Sport."
+                        : isVi
+                          ? slide.titleVi
+                          : slide.titleEn}
+                  </h1>
+
+                  <p className="text-stone-200/90 text-sm sm:text-[15px] leading-relaxed max-w-xl">
                     {adminEntry
                       ? isVi
-                        ? "Dữ liệu đáng tin cậy."
-                        : "Trustworthy data."
+                        ? "Theo dõi người dùng, ma trận phân quyền và nhật ký kiểm toán trực tiếp từ hệ thống Backend."
+                        : "Monitor users, role permissions, and system audit logs directly from the backend."
                       : isVi
-                        ? "Mọi vận hành."
-                        : "Every operation."}
-                  </div>
-                </h1>
-
-                {/* Subtitle description */}
-                <p className="text-stone-300 text-sm leading-relaxed max-w-lg mt-4 mb-8">
-                  {isVi
-                    ? adminEntry
-                      ? "Theo dõi người dùng, vai trò, quyền và nhật ký hệ thống từ dữ liệu backend."
-                      : "Quản lý hội viên, lớp học, thanh toán và nhân sự trong một nền tảng có phân quyền rõ ràng."
-                    : adminEntry
-                      ? "Review users, roles, permissions, and audit activity from backend data."
-                      : "Manage members, classes, payments, and staff in a single, clearly role-governed platform."}
-                </p>
-
-                {/* 4 Feature Items */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3.5 group">
-                    <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-[#E4E4E4] shrink-0 transition-transform group-hover:scale-105 group-hover:bg-[#BA0000] group-hover:text-white shadow-xs">
-                      <UserCheck className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-white font-semibold text-sm leading-snug">
-                        {adminEntry
-                          ? isVi
-                            ? "Người dùng hệ thống"
-                            : "System users"
-                          : isVi
-                            ? "Quản lý hội viên"
-                            : "Member management"}
-                      </div>
-                      <div className="text-stone-400 text-xs mt-0.5">
-                        {adminEntry
-                          ? isVi
-                            ? "Danh sách và hồ sơ chỉ đọc"
-                            : "Read-only directory and profiles"
-                          : isVi
-                            ? "Hồ sơ, gói tập, lịch sử điểm danh"
-                            : "Profiles, packages, attendance history"}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3.5 group">
-                    <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-[#E4E4E4] shrink-0 transition-transform group-hover:scale-105 group-hover:bg-[#BA0000] group-hover:text-white shadow-xs">
-                      <CalendarDays className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-white font-semibold text-sm leading-snug">
-                        {adminEntry
-                          ? isVi
-                            ? "Vai trò & quyền"
-                            : "Roles & permissions"
-                          : isVi
-                            ? "Lớp học & điểm danh"
-                            : "Classes & attendance"}
-                      </div>
-                      <div className="text-stone-400 text-xs mt-0.5">
-                        {adminEntry
-                          ? isVi
-                            ? "Ma trận phân quyền minh bạch"
-                            : "Transparent permission matrix"
-                          : isVi
-                            ? "Lịch lớp, đặt chỗ, điểm danh"
-                            : "Class schedule, bookings, check-in"}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3.5 group">
-                    <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-[#E4E4E4] shrink-0 transition-transform group-hover:scale-105 group-hover:bg-[#BA0000] group-hover:text-white shadow-xs">
-                      <CreditCard className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-white font-semibold text-sm leading-snug">
-                        {adminEntry
-                          ? isVi
-                            ? "Nhật ký hệ thống"
-                            : "System audit trail"
-                          : isVi
-                            ? "Thanh toán"
-                            : "Payments"}
-                      </div>
-                      <div className="text-stone-400 text-xs mt-0.5">
-                        {adminEntry
-                          ? isVi
-                            ? "Actor, hành động, đối tượng và thời gian"
-                            : "Actor, action, target, and time"
-                          : isVi
-                            ? "Ghi nhận, theo dõi giao dịch"
-                            : "Record and track transactions"}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3.5 group">
-                    <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-[#E4E4E4] shrink-0 transition-transform group-hover:scale-105 group-hover:bg-[#BA0000] group-hover:text-white shadow-xs">
-                      <BarChart3 className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-white font-semibold text-sm leading-snug">
-                        {adminEntry
-                          ? isVi
-                            ? "Trạng thái nguồn dữ liệu"
-                            : "Data source status"
-                          : isVi
-                            ? "Báo cáo vận hành"
-                            : "Operations reports"}
-                      </div>
-                      <div className="text-stone-400 text-xs mt-0.5">
-                        {adminEntry
-                          ? isVi
-                            ? "Lỗi từng panel, không mất toàn trang"
-                            : "Panel-level errors without page loss"
-                          : isVi
-                            ? "Doanh thu và hiệu suất"
-                            : "Revenue and performance analytics"}
-                      </div>
-                    </div>
-                  </div>
+                        ? slide.descVi
+                        : slide.descEn}
+                  </p>
                 </div>
-              </>
-            ) : (
-              <>
-                {/* Heading */}
-                <h1 className="text-4xl sm:text-5xl lg:text-[56px] font-black text-white tracking-tight leading-[1.1] uppercase drop-shadow-lg">
-                  {isVi
-                    ? "Tập thử không mất phí tại VIBE Sport"
-                    : "Free Trial At VIBE Sport"}
-                </h1>
+              )
+            })()}
 
-                {/* Subtitle description */}
-                <p className="text-stone-300 text-sm sm:text-base leading-relaxed max-w-lg mt-6 mb-8 font-medium drop-shadow-md">
+            {/* Interactive Sport Discipline Selector Tabs */}
+            {!adminEntry && (
+              <div className="space-y-2.5">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-stone-400">
                   {isVi
-                    ? "Trải nghiệm mọi dịch vụ tại VIBE Sport hoàn toàn miễn phí, chúng tôi sẽ liên hệ đặt lịch hẹn với bạn trong vòng 24h sau khi bạn gửi thông tin, đăng ký ngay!"
-                    : "Experience all services at VIBE Sport entirely for free. We will contact you to schedule an appointment within 24h of submitting your information. Register now!"}
-                </p>
-              </>
+                    ? "Khám phá không gian huấn luyện:"
+                    : "Explore training disciplines:"}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    { idx: 0, labelVi: "Cầu lông BWF", labelEn: "Badminton" },
+                    {
+                      idx: 1,
+                      labelVi: "Pickleball DUPR",
+                      labelEn: "Pickleball",
+                    },
+                    { idx: 2, labelVi: "Bắn cung 15m", labelEn: "Archery" },
+                    { idx: 3, labelVi: "Bơi lội 4 mùa", labelEn: "Swimming" },
+                  ].map((tab) => {
+                    const active = activeSlideIdx === tab.idx
+                    return (
+                      <button
+                        key={tab.idx}
+                        type="button"
+                        onClick={() => setActiveSlideIdx(tab.idx)}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                          active
+                            ? "bg-white text-stone-950 border-white shadow-md"
+                            : "bg-white/10 text-stone-200 border-white/15 hover:bg-white/20"
+                        }`}
+                      >
+                        {isVi ? tab.labelVi : tab.labelEn}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             )}
+
+            {/* Smart Ecosystem Preview Cards (Glassmorphic Bento Row) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div className="rounded-xl bg-white/[0.07] backdrop-blur-md border border-white/15 p-3.5 space-y-1.5 hover:bg-white/[0.11] transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="w-8 h-8 rounded-lg bg-[#BA0000] text-white flex items-center justify-center">
+                    <QrCode className="w-4 h-4" />
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                    LIVE 60S
+                  </span>
+                </div>
+                <div className="text-white font-bold text-xs pt-1">
+                  {isVi ? "Check-in QR Động" : "Dynamic QR Pass"}
+                </div>
+                <p className="text-stone-300/80 text-[11px] leading-snug">
+                  {isVi
+                    ? "Mã QR tự làm mới mỗi 60s, quét nhanh tại quầy lễ tân."
+                    : "Auto-refreshing 60s QR code for fast-track entry."}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white/[0.07] backdrop-blur-md border border-white/15 p-3.5 space-y-1.5 hover:bg-white/[0.11] transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="w-8 h-8 rounded-lg bg-white/15 text-white flex items-center justify-center">
+                    <CalendarDays className="w-4 h-4" />
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-amber-300 bg-amber-950/60 border border-amber-400/30 px-2 py-0.5 rounded-full">
+                    1-ON-1 PT
+                  </span>
+                </div>
+                <div className="text-white font-bold text-xs pt-1">
+                  {isVi ? "Lịch Học & Đặt PT 1:1" : "Schedule & Private PT"}
+                </div>
+                <p className="text-stone-300/80 text-[11px] leading-snug">
+                  {isVi
+                    ? "Đặt lịch HLV cá nhân, báo xin vắng mặt trực tuyến 1 chạm."
+                    : "Book private coaches and submit absence notices online."}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white/[0.07] backdrop-blur-md border border-white/15 p-3.5 space-y-1.5 hover:bg-white/[0.11] transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="w-8 h-8 rounded-lg bg-white/15 text-white flex items-center justify-center">
+                    <Activity className="w-4 h-4" />
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-sky-300 bg-sky-950/60 border border-sky-400/30 px-2 py-0.5 rounded-full">
+                    INBODY
+                  </span>
+                </div>
+                <div className="text-white font-bold text-xs pt-1">
+                  {isVi ? "Chỉ Số InBody & Giáo Án" : "InBody & Progress"}
+                </div>
+                <p className="text-stone-300/80 text-[11px] leading-snug">
+                  {isVi
+                    ? "Biểu đồ cơ - mỡ - BMI và nhận xét chuyên môn từ HLV."
+                    : "Track muscle, body fat, BMI, and coach evaluations."}
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* Footer Copyright */}
-          <div className="relative z-10 pt-6 text-xs text-stone-500 font-normal">
-            © 2026 VIBE Sport — Sports Center Management System
+          {/* Footer Copyright & Club Metrics */}
+          <div className="relative z-10 pt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-4 text-xs text-stone-400">
+            <span>© 2026 VIBE Sport — Smart Athletic Club Ecosystem</span>
+            <div className="flex items-center gap-4 text-[11px] text-stone-300 font-semibold">
+              <span>9 Bộ môn thể thao</span>
+              <span>•</span>
+              <span>HLV Chuẩn Quốc Tế</span>
+              <span>•</span>
+              <span>Mở cửa 05:30 – 22:00</span>
+            </div>
           </div>
         </div>
 
         {/* RIGHT COLUMN: LOGIN OR REGISTER FORM */}
-        <div className="w-full lg:w-[500px] xl:w-[560px] bg-white text-stone-800 flex flex-col justify-center px-6 sm:px-10 xl:px-12 py-10 relative shadow-2xl overflow-y-auto max-h-screen">
+        <div className="w-full lg:w-[500px] xl:w-[560px] bg-white text-stone-800 flex flex-col justify-center px-6 sm:px-10 xl:px-12 py-8 relative shadow-2xl overflow-y-auto max-h-screen">
           {/* Top Header inside Form Card: Back to Home & Language Switcher */}
-          <div className="flex items-center justify-between mb-4 z-20">
+          <div className="flex items-center justify-between mb-5 z-20">
             {onBackToHome ? (
               <button
                 type="button"
@@ -1066,6 +1242,43 @@ export function LoginView({
               </button>
             </div>
           </div>
+
+          {/* Segmented Mode Switcher (Login <-> Register) */}
+          {!adminEntry &&
+            !registeredSuccessData &&
+            !isForgotMode &&
+            !isOtpMode && (
+              <div className="max-w-md w-full mx-auto mb-5 p-1 bg-stone-100 border border-stone-200/80 rounded-xl grid grid-cols-2 gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (authMode !== "login") navigate("/login")
+                  }}
+                  className={`py-2 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    authMode === "login"
+                      ? "bg-white text-stone-950 shadow-xs border border-stone-200/60"
+                      : "text-stone-500 hover:text-stone-900"
+                  }`}
+                >
+                  <LogIn className="w-3.5 h-3.5 text-[#BA0000]" />
+                  <span>{isVi ? "Đăng nhập" : "Sign In"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (authMode !== "register") navigate("/register")
+                  }}
+                  className={`py-2 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    authMode === "register"
+                      ? "bg-white text-stone-950 shadow-xs border border-stone-200/60"
+                      : "text-stone-500 hover:text-stone-900"
+                  }`}
+                >
+                  <UserPlus className="w-3.5 h-3.5 text-[#BA0000]" />
+                  <span>{isVi ? "Đăng ký hội viên" : "Register"}</span>
+                </button>
+              </div>
+            )}
 
           {/* ============================================================ */}
           {/* MODE: REGISTER SUCCESS MODAL / CARD */}
@@ -1458,6 +1671,56 @@ export function LoginView({
                 autoComplete="off"
                 className="space-y-4"
               >
+                {/* Recent Account Quick-Select Pills */}
+                {recentEmails.length > 0 && (
+                  <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-200/80">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                        {isVi ? "Đăng nhập gần đây" : "Recent accounts"}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {recentEmails.map((savedEmail) => {
+                        const isSelected =
+                          loginEmail.trim().toLowerCase() ===
+                          savedEmail.toLowerCase()
+                        return (
+                          <div
+                            key={savedEmail}
+                            onClick={() => {
+                              setLoginEmail(savedEmail)
+                              setLoginError("")
+                              setTimeout(() => {
+                                passwordInputRef.current?.focus()
+                              }, 30)
+                            }}
+                            className={`group inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[11px] font-semibold border transition-all cursor-pointer ${
+                              isSelected
+                                ? "bg-red-50 border-[#BA0000]/40 text-[#BA0000]"
+                                : "bg-white border-stone-200 text-stone-700 hover:border-stone-300 hover:bg-stone-100/70"
+                            }`}
+                          >
+                            <span className="w-4 h-4 rounded-full bg-stone-900 text-white text-[9px] font-black flex items-center justify-center uppercase shrink-0">
+                              {savedEmail.charAt(0)}
+                            </span>
+                            <span className="truncate max-w-[175px]">
+                              {savedEmail}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => removeRecentEmail(savedEmail, e)}
+                              title={isVi ? "Xóa tài khoản lưu" : "Remove"}
+                              className="w-4 h-4 rounded-full flex items-center justify-center text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Email field */}
                 <div>
                   <label
@@ -1473,9 +1736,9 @@ export function LoginView({
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     placeholder={
-                      adminEntry ? "admin@scms.com" : "manager@scms.com"
+                      adminEntry ? "admin@scms.com" : "member@scms.com"
                     }
-                    className="w-full h-10 px-3.5 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-red-100 transition-all"
+                    className="w-full h-11 px-3.5 bg-white border border-stone-300 rounded-lg text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-red-100 transition-all"
                   />
                 </div>
 
@@ -1500,13 +1763,16 @@ export function LoginView({
                   </div>
                   <div className="relative">
                     <input
+                      ref={passwordInputRef}
                       id="login-password"
                       type={showLoginPassword ? "text" : "password"}
                       autoComplete="off"
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
+                      onKeyUp={handleCapsLockCheck}
+                      onKeyDown={handleCapsLockCheck}
                       placeholder="••••••••"
-                      className="w-full h-10 px-3.5 pr-10 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-red-100 transition-all"
+                      className="w-full h-11 px-3.5 pr-10 bg-white border border-stone-300 rounded-lg text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-red-100 transition-all"
                     />
                     <button
                       type="button"
@@ -1523,63 +1789,91 @@ export function LoginView({
                       )}
                     </button>
                   </div>
+                  {capsLockOn && (
+                    <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>
+                        {isVi
+                          ? "Phím Caps Lock đang bật"
+                          : "Caps Lock is currently ON"}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {/* reCAPTCHA security verification widget */}
-                <div className="pt-1.5">
-                  <label className="text-xs font-bold text-stone-700 block mb-2">
-                    {isVi ? "Xác minh bảo mật" : "Security verification"}
+                {/* Remember email & Smart VIBE Shield Security Verification */}
+                <div className="flex items-center justify-between pt-0.5">
+                  <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={rememberEmail}
+                      onChange={(e) => setRememberEmail(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-stone-300 text-[#BA0000] focus:ring-[#BA0000] cursor-pointer accent-[#BA0000]"
+                    />
+                    <span className="text-xs text-stone-600 font-medium">
+                      {isVi
+                        ? "Ghi nhớ tài khoản cho lần sau"
+                        : "Remember email for next time"}
+                    </span>
                   </label>
-                  <div className="bg-[#f9f9f9] border border-stone-300 rounded-[3px] p-3 flex items-center justify-between shadow-[0_1px_1px_rgba(0,0,0,0.06)] max-w-full">
-                    <div
-                      onClick={handleLoginCaptchaClick}
-                      className="flex items-center gap-3 cursor-pointer select-none group"
-                    >
+                </div>
+
+                <div className="pt-1">
+                  <div
+                    onClick={handleLoginCaptchaClick}
+                    className={`rounded-xl border px-3.5 py-2.5 flex items-center justify-between transition-all cursor-pointer select-none ${
+                      isLoginCaptchaChecked
+                        ? "bg-emerald-50/60 border-emerald-200"
+                        : "bg-stone-50 border-stone-200 hover:border-stone-300"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
                       <div
-                        className={`w-7 h-7 rounded-[2px] border-2 flex items-center justify-center transition-all ${
+                        className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${
                           isLoginCaptchaChecked
                             ? "bg-emerald-600 border-emerald-600 text-white"
                             : isLoginCaptchaLoading
                               ? "border-[#BA0000] bg-white"
-                              : "border-stone-300 bg-white group-hover:border-stone-400"
+                              : "border-stone-300 bg-white"
                         }`}
                       >
                         {isLoginCaptchaChecked ? (
-                          <Check className="w-4 h-4 stroke-[3]" />
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
                         ) : isLoginCaptchaLoading ? (
-                          <span className="animate-spin w-4 h-4 border-2 border-[#BA0000] border-t-transparent rounded-full" />
+                          <span className="animate-spin w-3.5 h-3.5 border-2 border-[#BA0000] border-t-transparent rounded-full" />
                         ) : null}
                       </div>
-                      <span className="text-xs text-stone-800 font-normal">
-                        {isVi
-                          ? "Tôi không phải là người máy"
-                          : "I'm not a robot"}
-                      </span>
+                      <div>
+                        <p className="text-xs font-bold text-stone-800 leading-tight">
+                          {isLoginCaptchaChecked
+                            ? isVi
+                              ? "Đã xác minh phiên truy cập an toàn"
+                              : "Secure session verified"
+                            : isVi
+                              ? "Xác minh bảo mật 1 chạm"
+                              : "One-tap security verification"}
+                        </p>
+                        <p className="text-[10px] text-stone-500 mt-0.5">
+                          {isLoginCaptchaChecked
+                            ? isVi
+                              ? "Tự động kích hoạt bởi VIBE Smart Shield"
+                              : "Automatically verified by VIBE Smart Shield"
+                            : isVi
+                              ? "Nhấn vào đây hoặc điền thông tin để tự động xác thực"
+                              : "Click here or enter credentials to auto-verify"}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="flex flex-col items-center justify-center pl-4 shrink-0">
-                      <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none">
-                        <path
-                          d="M12 2a10 10 0 0 0-7.07 17.07l2.83-2.83A6 6 0 1 1 18 12h3a9 9 0 0 0-9-10z"
-                          fill="#4285F4"
-                        />
-                        <path
-                          d="M12 22a10 10 0 0 0 7.07-17.07l-2.83 2.83A6 6 0 1 1 6 12H3a9 9 0 0 0 9 10z"
-                          fill="#9AA0A6"
-                        />
-                      </svg>
-                      <span className="text-[9px] text-stone-500 font-bold tracking-tight leading-none mt-0.5">
-                        reCAPTCHA
-                      </span>
-                      <div className="text-[7.5px] text-stone-400 flex items-center gap-1 mt-0.5 leading-none">
-                        <span className="hover:underline cursor-pointer">
-                          {isVi ? "Bảo mật" : "Privacy"}
-                        </span>
-                        <span>-</span>
-                        <span className="hover:underline cursor-pointer">
-                          {isVi ? "Điều khoản" : "Terms"}
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-stone-500 pl-2 shrink-0">
+                      <ShieldCheck
+                        className={`w-4 h-4 ${
+                          isLoginCaptchaChecked
+                            ? "text-emerald-600"
+                            : "text-stone-400"
+                        }`}
+                      />
+                      <span className="hidden sm:inline">VIBE Shield</span>
                     </div>
                   </div>
                 </div>
@@ -1589,14 +1883,14 @@ export function LoginView({
                   <button
                     type="submit"
                     disabled={isLoginLoading}
-                    className="w-full h-10 bg-[#181818] hover:bg-[#BA0000] active:bg-[#8E0000] disabled:bg-stone-500 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
+                    className="w-full h-11 bg-[#181818] hover:bg-[#BA0000] active:bg-[#8E0000] disabled:bg-stone-500 text-white rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
                   >
                     {isLoginLoading ? (
                       <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
                     ) : (
                       <>
                         <LogIn className="w-4 h-4" />
-                        <span>{isVi ? "Đăng nhập" : "Sign in"}</span>
+                        <span>{isVi ? "Đăng nhập hệ thống" : "Sign in"}</span>
                       </>
                     )}
                   </button>
@@ -1898,6 +2192,8 @@ export function LoginView({
                             password: undefined,
                           }))
                       }}
+                      onKeyUp={handleCapsLockCheck}
+                      onKeyDown={handleCapsLockCheck}
                       placeholder={isVi ? "Mật khẩu *" : "Password *"}
                       className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 pr-8 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
                         regErrors.password
@@ -1937,6 +2233,8 @@ export function LoginView({
                             confirmPassword: undefined,
                           }))
                       }}
+                      onKeyUp={handleCapsLockCheck}
+                      onKeyDown={handleCapsLockCheck}
                       placeholder={
                         isVi ? "Xác nhận mật khẩu *" : "Confirm password *"
                       }
@@ -1954,20 +2252,107 @@ export function LoginView({
                   </div>
                 </div>
 
-                {/* reCAPTCHA for registration */}
-                <div className="pt-2">
-                  <div className="bg-[#f9f9f9] border border-stone-300 rounded-[3px] p-2.5 flex items-center justify-between shadow-[0_1px_1px_rgba(0,0,0,0.06)] max-w-[300px]">
-                    <div
-                      onClick={handleRegCaptchaClick}
-                      className="flex items-center gap-3 cursor-pointer select-none group"
-                    >
+                {/* Live Password Strength Meter & Checklist */}
+                {regPassword.length > 0 &&
+                  (() => {
+                    const strength = computePasswordStrength(regPassword, isVi)
+                    const isMatching =
+                      regConfirmPassword.length > 0 &&
+                      regPassword === regConfirmPassword
+                    return (
+                      <div className="p-3 rounded-xl bg-stone-50 border border-stone-200/80 space-y-2">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-semibold text-stone-500">
+                            {isVi ? "Độ mạnh mật khẩu" : "Password strength"}
+                          </span>
+                          <span className={`font-bold ${strength.textColor}`}>
+                            {strength.label}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {[1, 2, 3, 4].map((bar) => (
+                            <div
+                              key={bar}
+                              className={`h-1.5 rounded-full transition-all ${
+                                bar <= strength.score
+                                  ? strength.color
+                                  : "bg-stone-200"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5 text-[10px]">
+                          <span
+                            className={`inline-flex items-center gap-1 font-medium ${
+                              strength.checks.length
+                                ? "text-emerald-700"
+                                : "text-stone-400"
+                            }`}
+                          >
+                            <Check className="w-3 h-3" />
+                            {isVi ? "6+ ký tự" : "6+ chars"}
+                          </span>
+                          <span
+                            className={`inline-flex items-center gap-1 font-medium ${
+                              strength.checks.mixedCase
+                                ? "text-emerald-700"
+                                : "text-stone-400"
+                            }`}
+                          >
+                            <Check className="w-3 h-3" />
+                            {isVi ? "Chữ hoa & thường" : "Upper & lower"}
+                          </span>
+                          <span
+                            className={`inline-flex items-center gap-1 font-medium ${
+                              strength.checks.number
+                                ? "text-emerald-700"
+                                : "text-stone-400"
+                            }`}
+                          >
+                            <Check className="w-3 h-3" />
+                            {isVi ? "Chữ số" : "Number"}
+                          </span>
+                          {regConfirmPassword.length > 0 && (
+                            <span
+                              className={`inline-flex items-center gap-1 font-bold ${
+                                isMatching
+                                  ? "text-emerald-700"
+                                  : "text-rose-600"
+                              }`}
+                            >
+                              <Check className="w-3 h-3" />
+                              {isMatching
+                                ? isVi
+                                  ? "Khớp mật khẩu"
+                                  : "Passwords match"
+                                : isVi
+                                  ? "Chưa khớp"
+                                  : "Not matching"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                {/* Smart VIBE Shield security verification for registration */}
+                <div className="pt-1">
+                  <div
+                    onClick={handleRegCaptchaClick}
+                    className={`rounded-xl border px-3.5 py-2.5 flex items-center justify-between transition-all cursor-pointer select-none ${
+                      isRegCaptchaChecked
+                        ? "bg-emerald-50/60 border-emerald-200"
+                        : "bg-stone-50 border-stone-200 hover:border-stone-300"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
                       <div
-                        className={`w-6 h-6 rounded-[2px] border-2 flex items-center justify-center transition-all ${
+                        className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${
                           isRegCaptchaChecked
                             ? "bg-emerald-600 border-emerald-600 text-white"
                             : isRegCaptchaLoading
                               ? "border-[#BA0000] bg-white"
-                              : "border-stone-300 bg-white group-hover:border-stone-400"
+                              : "border-stone-300 bg-white"
                         }`}
                       >
                         {isRegCaptchaChecked ? (
@@ -1976,27 +2361,37 @@ export function LoginView({
                           <span className="animate-spin w-3.5 h-3.5 border-2 border-[#BA0000] border-t-transparent rounded-full" />
                         ) : null}
                       </div>
-                      <span className="text-xs text-stone-800 font-normal">
-                        {isVi
-                          ? "Tôi không phải là người máy"
-                          : "I'm not a robot"}
-                      </span>
+                      <div>
+                        <p className="text-xs font-bold text-stone-800 leading-tight">
+                          {isRegCaptchaChecked
+                            ? isVi
+                              ? "Đã xác minh đăng ký an toàn"
+                              : "Registration security verified"
+                            : isVi
+                              ? "Xác minh bảo mật 1 chạm"
+                              : "One-tap security verification"}
+                        </p>
+                        <p className="text-[10px] text-stone-500 mt-0.5">
+                          {isRegCaptchaChecked
+                            ? isVi
+                              ? "Tự động kích hoạt bởi VIBE Smart Shield"
+                              : "Automatically verified by VIBE Smart Shield"
+                            : isVi
+                              ? "Nhấn vào đây hoặc điền đủ thông tin để tự động xác thực"
+                              : "Click here or fill form to auto-verify"}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="flex flex-col items-center justify-center pl-4 shrink-0">
-                      <svg viewBox="0 0 24 24" className="w-7 h-7" fill="none">
-                        <path
-                          d="M12 2a10 10 0 0 0-7.07 17.07l2.83-2.83A6 6 0 1 1 18 12h3a9 9 0 0 0-9-10z"
-                          fill="#4285F4"
-                        />
-                        <path
-                          d="M12 22a10 10 0 0 0 7.07-17.07l-2.83 2.83A6 6 0 1 1 6 12H3a9 9 0 0 0 9 10z"
-                          fill="#9AA0A6"
-                        />
-                      </svg>
-                      <span className="text-[8px] text-stone-500 font-bold tracking-tight leading-none mt-0.5">
-                        reCAPTCHA
-                      </span>
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-stone-500 pl-2 shrink-0">
+                      <ShieldCheck
+                        className={`w-4 h-4 ${
+                          isRegCaptchaChecked
+                            ? "text-emerald-600"
+                            : "text-stone-400"
+                        }`}
+                      />
+                      <span className="hidden sm:inline">VIBE Shield</span>
                     </div>
                   </div>
                   {regErrors.captcha && (
@@ -2007,18 +2402,18 @@ export function LoginView({
                 </div>
 
                 {/* Submit Button */}
-                <div className="pt-4">
+                <div className="pt-3">
                   <button
                     type="submit"
                     disabled={isRegLoading}
-                    className="w-1/2 min-w-[140px] h-12 bg-[#BA0000] hover:bg-[#8E0000] active:bg-[#8E0000] disabled:bg-stone-500 text-white text-sm font-black tracking-widest uppercase transition-colors cursor-pointer shadow-md"
+                    className="w-full h-11 bg-[#BA0000] hover:bg-[#8E0000] active:bg-[#8E0000] disabled:bg-stone-500 text-white rounded-lg text-xs sm:text-sm font-black tracking-wider uppercase flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
                   >
                     {isRegLoading ? (
                       <span className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto" />
                     ) : isVi ? (
-                      "ĐĂNG KÝ"
+                      "ĐĂNG KÝ HỘI VIÊN"
                     ) : (
-                      "REGISTER"
+                      "CREATE ACCOUNT"
                     )}
                   </button>
                 </div>
