@@ -1,30 +1,44 @@
-import React, { useState } from 'react';
-import { useSCMS } from '../../context/SCMSContext';
-
-import { AlertTriangle, ShieldAlert, Check, X } from 'lucide-react';
-
-
+import React, { useState } from "react"
+import { useSCMS } from "../../context/SCMSContext"
+import { AlertTriangle, ShieldAlert, Check, X } from "lucide-react"
 
 export function AttendanceCorrectionModal({
-  classId, memberId, memberName, currentStatus, isOpen, onClose
+  classId,
+  memberId,
+  memberName,
+  currentStatus,
+  attendanceId,
+  onUpdated,
+  isOpen,
+  onClose,
 }) {
-  const { recordAttendance, t, language } = useSCMS();
-  const [selectedStatus, setSelectedStatus] = useState(currentStatus);
-  const [reason, setReason] = useState('');
-  const [error, setError] = useState('');
+  const { recordAttendance, t, language } = useSCMS()
+  const [selectedStatus, setSelectedStatus] = useState(currentStatus)
+  const [reason, setReason] = useState("")
+  const [error, setError] = useState("")
+  const [saving, setSaving] = useState(false)
 
-  if (!isOpen) return null;
+  if (!isOpen) return null
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault()
     if (!reason.trim()) {
-      setError(t('correctionReasonRequired'));
-      return;
+      setError(t("correctionReasonRequired"))
+      return
     }
 
-    recordAttendance(classId, memberId, selectedStatus, reason);
-    onClose();
-  };
+    setSaving(true)
+    try {
+      await recordAttendance(classId, memberId, selectedStatus, reason, {
+        attendanceId,
+        memberName,
+      })
+      await onUpdated?.()
+      onClose()
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
@@ -32,36 +46,45 @@ export function AttendanceCorrectionModal({
         <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
           <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
             <ShieldAlert className="w-4 h-4 text-amber-600" />
-            <span>{t('correctAttendance')}</span>
+            <span>{t("correctAttendance")}</span>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700">
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-700 cursor-pointer"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-xs font-bold text-slate-600 block mb-1">{language === 'vi' ? 'Học viên' : 'Member'}</label>
+            <label className="text-xs font-bold text-slate-600 block mb-1">
+              {language === "vi" ? "Học viên" : "Member"}
+            </label>
             <div className="text-xs font-bold text-slate-900 bg-slate-50 px-3 py-2 rounded border border-slate-200">
               {memberName}
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-bold text-slate-600 block mb-2">{language === 'vi' ? 'Trạng thái mới' : 'New Status'}</label>
+            <label className="text-xs font-bold text-slate-600 block mb-2">
+              {language === "vi" ? "Trạng thái mới" : "New Status"}
+            </label>
             <div className="grid grid-cols-3 gap-2">
-              {(['present', 'late', 'absent']).map(st => (
+              {["present", "late", "absent"].map((st) => (
                 <button
                   type="button"
                   key={st}
                   onClick={() => setSelectedStatus(st)}
-                  className={`py-2 px-3 rounded text-xs font-bold border flex items-center justify-center gap-1.5 transition-all whitespace-nowrap ${
+                  className={`py-2 px-3 rounded text-xs font-bold border flex items-center justify-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
                     selectedStatus === st
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                      ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                      : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                   }`}
                 >
-                  {selectedStatus === st && <Check className="w-3.5 h-3.5 shrink-0" />}
+                  {selectedStatus === st && (
+                    <Check className="w-3.5 h-3.5 shrink-0" />
+                  )}
                   <span>{t(st)}</span>
                 </button>
               ))}
@@ -70,23 +93,37 @@ export function AttendanceCorrectionModal({
 
           <div>
             <label className="text-xs font-bold text-slate-700 block mb-1">
-              {language === 'vi' ? 'Lý do chỉnh sửa' : 'Mandatory Correction Reason'} <span className="text-rose-600">*</span>
+              {language === "vi"
+                ? "Lý do chỉnh sửa"
+                : "Mandatory Correction Reason"}{" "}
+              <span className="text-rose-600">*</span>
             </label>
             <textarea
               rows={3}
               value={reason}
-              onChange={e => { setReason(e.target.value); setError(''); }}
-              placeholder={language === 'vi' ? 'Ví dụ: Học viên đến trễ 10 phút do kẹt xe, đã gọi xin phép Coach...' : 'e.g., Student arrived 10 mins late due to traffic...'}
+              onChange={(e) => {
+                setReason(e.target.value)
+                setError("")
+              }}
+              placeholder={
+                language === "vi"
+                  ? "Ví dụ: Học viên đến trễ 10 phút do kẹt xe, đã gọi xin phép Coach..."
+                  : "e.g., Student arrived 10 mins late due to traffic..."
+              }
               className="w-full bg-slate-50 border border-slate-300 rounded p-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:bg-white"
             />
-            {error && <p className="text-xs text-rose-600 mt-1 font-semibold">{error}</p>}
+            {error && (
+              <p className="text-xs text-rose-600 mt-1 font-semibold">
+                {error}
+              </p>
+            )}
           </div>
 
           {/* Audit Log Banner */}
           <div className="p-3 bg-amber-50 border border-amber-200 rounded flex items-start gap-2 text-amber-900 text-xs">
             <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-bold">{t('attendanceAuditWarning')}</p>
+              <p className="font-bold">{t("attendanceAuditWarning")}</p>
               <p className="text-[10px] text-amber-800 mt-0.5 font-mono">
                 Value change: {t(currentStatus)} &rarr; {t(selectedStatus)}
               </p>
@@ -97,19 +134,20 @@ export function AttendanceCorrectionModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded shadow-xs cursor-pointer"
             >
-              {t('cancel')}
+              {t("cancel")}
             </button>
             <button
               type="submit"
-              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded shadow-xs"
+              disabled={saving}
+              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-bold rounded shadow-xs cursor-pointer"
             >
-              {t('saveChanges')}
+              {saving ? "Đang lưu..." : t("saveChanges")}
             </button>
           </div>
         </form>
       </div>
     </div>
-  );
+  )
 }
