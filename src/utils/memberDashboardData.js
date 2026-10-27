@@ -79,10 +79,19 @@ export const getActiveAdvancedCreditCount = (subscriptions) => {
   if (active.length === 0) return 0
   if (
     active.some(
-      (subscription) =>
-        subscription.remainingCredit === null ||
-        subscription.remainingCredit === undefined ||
-        !Number.isFinite(Number(subscription.remainingCredit)),
+      (subscription) => {
+        const rawCredit = subscription.remainingCredit
+        if (
+          rawCredit === null ||
+          rawCredit === undefined ||
+          (typeof rawCredit !== "number" && typeof rawCredit !== "string") ||
+          (typeof rawCredit === "string" && rawCredit.trim() === "")
+        ) {
+          return true
+        }
+        const credit = Number(rawCredit)
+        return !Number.isInteger(credit) || credit < 0
+      },
     )
   ) {
     return null

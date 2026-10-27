@@ -98,9 +98,17 @@ const scenarioScript = `
       className: 'Lớp cầu lông cơ bản', subjectName: 'Cầu lông', coachName: 'Coach Minh',
       sessions: [{ id: 901, sessionDate: futureDate, startTime: '09:00', endTime: '10:30', status: 'Scheduled', roomName: 'Sân 2' }]
     }];
+    const normalPackage = [{
+      subscriptionId: 601, memberId: sessionId, packageType: 'Normal', status: 'Active',
+      packageName: 'Normal 30 ngày', subjectName: 'Cầu lông', primaryCoachName: 'Coach Minh',
+      activatedAt: '2026-10-01T08:00:00', expiresAt: '2099-12-01T08:00:00'
+    }];
     const advanced = [
       { subscriptionId: 701, packageType: 'Advanced', status: 'Active', subjectId: 19, subjectName: 'Tennis', packageName: 'Advanced · Tennis', primaryCoachName: 'Coach An', remainingCredit: 5, activatedAt: '2026-10-01T08:00:00', expiresAt: '2099-12-01T08:00:00' },
-      { subscriptionId: 702, packageType: 'Advanced', status: 'Active', subjectId: 20, subjectName: 'Bơi lội', packageName: 'Advanced · Bơi lội', primaryCoachName: 'Coach Bình', remainingCredit: 3, activatedAt: '2026-10-01T08:00:00', expiresAt: '2099-12-01T08:00:00' }
+      { subscriptionId: 702, packageType: 'Advanced', status: 'Active', subjectId: 20, subjectName: 'Bơi lội', packageName: 'Advanced · Bơi lội', primaryCoachName: 'Coach Bình', remainingCredit: 3, activatedAt: '2026-10-01T08:00:00', expiresAt: '2099-12-01T08:00:00' },
+      { subscriptionId: 703, packageType: 'Advanced', status: 'Active', subjectId: 21, subjectName: 'Pilates', remainingCredit: 0, activatedAt: '2026-10-01T08:00:00', expiresAt: null },
+      { subscriptionId: 704, memberId: 99, packageType: 'Advanced', status: 'Active', subjectName: 'Foreign Sport', remainingCredit: 70, expiresAt: '2099-12-01T08:00:00' },
+      { subscriptionId: 705, packageType: 'Advanced', status: 'Pending', subjectId: 22, subjectName: 'Pending Sport', remainingCredit: 20, expiresAt: '2099-12-01T08:00:00' }
     ];
     const path = url.pathname;
     if (path === '/api/auth/me') {
@@ -108,6 +116,12 @@ const scenarioScript = `
     }
     if (scenario === 'unauthorized' && path === '/api/members/me/invoices') {
       return Response.json({ code: 'UNAUTHORIZED', message: 'Session expired' }, { status: 401 });
+    }
+    if (scenario === 'notFound' && path === '/api/members/me/invoices') {
+      return Response.json({ code: 'NOT_FOUND' }, { status: 404 });
+    }
+    if (scenario === 'conflict' && path === '/api/members/42/subscriptions') {
+      return Response.json({ code: 'CONFLICT' }, { status: 409 });
     }
     if (scenario === 'errors' && path === '/api/members/42/subscriptions') {
       return Response.json({ code: 'SERVER_ERROR', message: 'Test backend failure' }, { status: 500 });
@@ -120,7 +134,10 @@ const scenarioScript = `
     }
     if (scenario === 'malformed' && path.endsWith('/enrollments')) return Response.json(null);
     if (path.endsWith('/enrollments')) return Response.json(scenario === 'normal' || scenario === 'both' ? normal : []);
-    if (path.endsWith('/subscriptions')) return Response.json(scenario === 'advanced' || scenario === 'both' ? advanced : []);
+    if (path.endsWith('/subscriptions')) return Response.json([
+      ...(scenario === 'normal' || scenario === 'both' ? normalPackage : []),
+      ...(scenario === 'advanced' || scenario === 'both' ? advanced : [])
+    ]);
     if (path === '/api/sessions') return Response.json([
       { id: 901, bookedMemberId: sessionId, status: 'Scheduled', sessionDate: futureDate, startTime: '09:00', endTime: '10:30', className: 'Lớp cầu lông cơ bản', subjectName: 'Cầu lông', coachName: 'Coach Minh', roomName: 'Sân 2' },
       { id: 902, bookedMemberId: 99, status: 'Scheduled', sessionDate: futureDate, startTime: '10:00', endTime: '11:30', className: 'Không thuộc Member' },
@@ -132,7 +149,7 @@ const scenarioScript = `
     ]);
     if (path === '/api/members/me/invoices') return Response.json([]);
     if (path === '/api/notifications/me') return Response.json([]);
-    if (path === '/api/members/me/checkin-code') return Response.json({ payload: 'SAFE-TEST-PAYLOAD', expiresInSeconds: 5 });
+    if (path === '/api/attendances/me/checkin-code') return Response.json({ payload: 'SAFE-TEST-PAYLOAD', expiresInSeconds: scenario === 'badQrTtl' ? 31 : 5 });
     return Response.json([]);
   };
 })();
@@ -245,13 +262,21 @@ async function main() {
       assert.match(text, /Credit Advanced còn lại/)
       if (scenario === "normal") {
         assert.match(text, /Lớp cầu lông cơ bản/)
+        assert.match(text, /Normal 30 ngày/)
         assert.match(text, /Advanced[\s\S]*0/)
       } else if (scenario === "advanced") {
         assert.match(text, /Tennis/)
         assert.match(text, /Bơi lội/)
-        assert.match(text, /8[\s\S]*Tổng theo các gói Active/)
+        assert.match(text, /Pilates/)
+        assert.match(text, /0/)
+        assert.match(text, /Pending Sport/)
+        assert.match(text, /Chưa có thông tin/)
+        assert.match(text, /Chờ thanh toán/)
+        assert.doesNotMatch(text, /Foreign Sport/)
+        assert.match(text, /8[\s\S]*không phải ví dùng chung/)
       } else if (scenario === "both") {
         assert.match(text, /Lớp cầu lông cơ bản/)
+        assert.match(text, /Normal 30 ngày/)
         assert.match(text, /Tennis/)
         assert.match(text, /Bơi lội/)
         assert.match(text, /Buổi học sắp tới\s+1/)
@@ -279,13 +304,28 @@ async function main() {
       "document.querySelector('h1')?.textContent.includes('Tổng quan')",
     )
     await client.waitFor(
-      "document.body.innerText.includes('Không có quyền xem điểm danh')",
+      "document.body.innerText.includes('tài khoản không có quyền xem')",
     )
     const errorText = await client.evaluate("document.body.innerText")
     assert.match(errorText, /Tổng quan/)
-    assert.match(errorText, /Không có quyền xem điểm danh/)
+    assert.match(errorText, /tài khoản không có quyền xem/)
     assert.match(errorText, /Test backend failure/)
     assert.match(errorText, /Không thể kết nối đến máy chủ/)
+
+    await client.evaluate(
+      "sessionStorage.setItem('memberDashboardScenario', 'notFound'); location.reload()",
+    )
+    await client.waitFor("document.body.innerText.includes('API 404')")
+    assert.match(
+      await client.evaluate("document.body.innerText"),
+      /API 404, route hoặc tài nguyên không tìm thấy/,
+    )
+
+    await client.evaluate(
+      "sessionStorage.setItem('memberDashboardScenario', 'conflict'); location.reload()",
+    )
+    await client.waitFor("document.body.innerText.includes('xung đột')")
+    assert.match(await client.evaluate("document.body.innerText"), /xung đột/)
 
     await client.evaluate(
       "sessionStorage.setItem('memberDashboardScenario', 'malformed'); location.reload()",
@@ -313,11 +353,44 @@ async function main() {
     await client.evaluate(
       "Array.from(document.querySelectorAll('button')).find((button) => button.innerText.includes('Mã QR Check-in'))?.click()",
     )
-    await client.waitFor("document.querySelector('[role=dialog] svg')")
+    await client.waitFor(
+      "document.querySelector('[role=dialog] svg[role=img]')",
+    )
     const qrDialogText = await client.evaluate(
       "document.querySelector('[role=dialog]').innerText",
     )
     assert.doesNotMatch(qrDialogText, /SAFE-TEST-PAYLOAD/)
+    await client.waitFor(
+      "window.__dashboardRequests.filter((request) => request.path === '/api/attendances/me/checkin-code').length >= 2",
+      8000,
+    )
+    assert.equal(
+      await client.evaluate(
+        "window.__dashboardRequests.filter((request) => request.path === '/api/attendances/me/checkin-code').length",
+      ),
+      2,
+      "QR should refresh once after its TTL expires",
+    )
+
+    await client.evaluate(
+      "sessionStorage.setItem('memberDashboardScenario', 'badQrTtl'); location.reload()",
+    )
+    await client.waitFor(
+      "document.querySelector('h1')?.textContent.includes('Tổng quan')",
+    )
+    await client.evaluate(
+      "Array.from(document.querySelectorAll('button')).find((button) => button.innerText.includes('Mã QR Check-in'))?.click()",
+    )
+    await client.waitFor(
+      "document.querySelector('[role=dialog]')?.innerText.includes('thời hạn mã không hợp lệ')",
+    )
+    assert.equal(
+      await client.evaluate(
+        "document.querySelector('[role=dialog] svg[role=img]') === null",
+      ),
+      true,
+      "Invalid QR TTL must not render a QR code",
+    )
 
     await client.evaluate(
       "sessionStorage.setItem('memberDashboardScenario', 'unauthorized'); location.reload()",
@@ -363,7 +436,7 @@ async function main() {
       JSON.stringify(
         {
           scenarios,
-          apiErrors: [401, 403, 500, "network", "malformed"],
+          apiErrors: [401, 403, 404, 409, 500, "network", "malformed"],
           qrPayloadNotDisplayed: true,
           dimensions,
           apiRequestsAreReadOnly: true,

@@ -44,14 +44,39 @@ const activeAdvanced = [
     remainingCredit: 3,
     expiresAt: "2026-11-20T08:00:00",
   },
+  {
+    packageType: "ADVANCED",
+    status: "Pending",
+    subjectId: 9,
+    remainingCredit: 12,
+  },
 ]
 assert.equal(isActiveAdvancedSubscription(activeAdvanced[0]), true)
 assert.equal(getActiveAdvancedCreditCount(activeAdvanced), 8)
+assert.equal(
+  getActiveAdvancedCreditCount([
+    { packageType: "ADVANCED", status: "Active", remainingCredit: 0 },
+    { packageType: "ADVANCED", status: "Pending", remainingCredit: 12 },
+  ]),
+  0,
+)
 assert.equal(isSubscriptionNearExpiry(activeAdvanced[0], now), true)
 assert.equal(isSubscriptionNearExpiry(activeAdvanced[1], now), false)
 assert.equal(
   getActiveAdvancedCreditCount([
     { packageType: "ADVANCED", status: "Active", remainingCredit: null },
+  ]),
+  null,
+)
+assert.equal(
+  getActiveAdvancedCreditCount([
+    { packageType: "ADVANCED", status: "Active", remainingCredit: "" },
+  ]),
+  null,
+)
+assert.equal(
+  getActiveAdvancedCreditCount([
+    { packageType: "ADVANCED", status: "Active", remainingCredit: false },
   ]),
   null,
 )

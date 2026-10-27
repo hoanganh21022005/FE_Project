@@ -94,7 +94,7 @@ function ResourceError({ message, onRetry, compact = false, isVi }) {
     <div
       role="alert"
       className={`flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-900 ${
-        compact ? "p-3 text-sm" : "p-4 text-sm"
+        compact ? "p-3 text-[15px]" : "p-4 text-[15px]"
       }`}
     >
       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-700" />
@@ -137,6 +137,7 @@ function KpiCard({
   tone = "red",
   loading,
   error,
+  isVi,
 }) {
   const tones = {
     red: "bg-red-50 text-red-700 ring-red-100",
@@ -149,14 +150,20 @@ function KpiCard({
     <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.02]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold leading-5 text-slate-600">
+          <p className="text-[15px] font-semibold leading-5 text-slate-600">
             {label}
           </p>
           {loading ? (
             <div className="mt-3 h-9 w-20 animate-pulse rounded-lg bg-slate-100" />
           ) : (
             <p className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
-              {error ? "—" : (value ?? "—")}
+              {error
+                ? "—"
+                : value === null || value === undefined
+                  ? isVi
+                    ? "Chưa có thông tin"
+                    : "Unavailable"
+                  : value}
             </p>
           )}
         </div>
@@ -166,8 +173,12 @@ function KpiCard({
           <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
       </div>
-      <p className="mt-3 min-h-5 text-xs leading-5 text-slate-500">
-        {error ? "" : caption}
+      <p className="mt-3 min-h-5 text-[13px] leading-5 text-slate-500">
+        {error
+          ? isVi
+            ? "Không thể tải dữ liệu"
+            : "Data could not be loaded"
+          : caption}
       </p>
     </article>
   )
@@ -188,13 +199,37 @@ function SectionHeading({ icon: Icon, title, action, onAction }) {
         <button
           type="button"
           onClick={onAction}
-          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[15px] font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
         >
           {action}
           <ArrowRight className="h-4 w-4" />
         </button>
       )}
     </div>
+  )
+}
+
+const getDashboardResourceError = (error, key, isVi) => {
+  if (error?.status === 404) {
+    return isVi
+      ? `${key}: API 404, route ho\u1eb7c t\u00e0i nguy\u00ean kh\u00f4ng t\u00ecm th\u1ea5y.`
+      : `${key}: API 404, route or resource not found.`
+  }
+  if (error?.status === 403) {
+    return isVi
+      ? `${key}: t\u00e0i kho\u1ea3n kh\u00f4ng c\u00f3 quy\u1ec1n xem.`
+      : `${key}: this account is not allowed to view the data.`
+  }
+  if (error?.status === 409) {
+    return isVi
+      ? `${key}: y\u00eau c\u1ea7u xung \u0111\u1ed9t v\u1edbi tr\u1ea1ng th\u00e1i hi\u1ec7n t\u1ea1i.`
+      : `${key}: request conflicts with the current state.`
+  }
+  return getErrorMessage(
+    error,
+    isVi
+      ? "Kh\u00f4ng th\u1ec3 t\u1ea3i d\u1eef li\u1ec7u."
+      : "Could not load data.",
   )
 }
 
@@ -214,6 +249,7 @@ export function MemberDashboard() {
   const [qrLoading, setQrLoading] = useState(false)
   const [qrError, setQrError] = useState("")
   const qrRequestId = useRef(0)
+  const qrLoadingRef = useRef(false)
 
   const retryDashboard = useCallback(() => {
     setRefreshToken((value) => value + 1)
@@ -263,10 +299,7 @@ export function MemberDashboard() {
         setResourceResult(key, {
           loading: false,
           data: null,
-          error: getErrorMessage(
-            error,
-            isVi ? "Không thể tải dữ liệu." : "Could not load data.",
-          ),
+          error: getDashboardResourceError(error, key, isVi),
         })
       }
     }
@@ -346,18 +379,44 @@ export function MemberDashboard() {
     }
   }, [apiEnabled, isVi, memberId, validMemberId, refreshToken])
 
-  const enrollments = resources.enrollments.data || []
-  const subscriptions = resources.subscriptions.data || []
-  const attendance = resources.attendance.data || []
+  const enrollments = (resources.enrollments.data || []).filter(
+    (item) =>
+      item?.memberId === null ||
+      item?.memberId === undefined ||
+      String(item.memberId) === String(memberId),
+  )
+  const subscriptions = (resources.subscriptions.data || []).filter(
+    (item) =>
+      item?.memberId === null ||
+      item?.memberId === undefined ||
+      String(item.memberId) === String(memberId),
+  )
+  const attendance = (resources.attendance.data || []).filter(
+    (item) => String(item?.memberId ?? "") === String(memberId),
+  )
   const invoices = resources.invoices.data || []
   const notifications = resources.notifications.data || []
   const normalEnrollments = useMemo(
     () => enrollments.filter(isActiveNormalEnrollment),
     [enrollments],
   )
-  const advancedSubscriptions = useMemo(
-    () => subscriptions.filter(isActiveAdvancedSubscription),
+  const normalSubscriptions = useMemo(
+    () =>
+      subscriptions.filter((subscription) =>
+        normalizeState(subscription?.packageType).includes("normal"),
+      ),
     [subscriptions],
+  )
+  const advancedSubscriptions = useMemo(
+    () =>
+      subscriptions.filter((subscription) =>
+        normalizeState(subscription?.packageType).includes("advanced"),
+      ),
+    [subscriptions],
+  )
+  const activeAdvancedSubscriptions = useMemo(
+    () => advancedSubscriptions.filter(isActiveAdvancedSubscription),
+    [advancedSubscriptions],
   )
 
   const upcomingSessions = useMemo(() => {
@@ -451,6 +510,8 @@ export function MemberDashboard() {
   }, [attendance, resources.sessions.data, allEnrolledSessions])
 
   const loadQrCode = useCallback(async () => {
+    if (qrLoadingRef.current) return
+    qrLoadingRef.current = true
     const requestId = qrRequestId.current + 1
     qrRequestId.current = requestId
     setQrLoading(true)
@@ -459,7 +520,7 @@ export function MemberDashboard() {
     setQrExpiresAt(null)
     setQrSecondsLeft(0)
     try {
-      const response = await httpClient.get("/api/members/me/checkin-code")
+      const response = await httpClient.get("/api/attendances/me/checkin-code")
       if (qrRequestId.current !== requestId) return
       const payload =
         typeof response?.payload === "string" ? response.payload : ""
@@ -483,6 +544,7 @@ export function MemberDashboard() {
         ),
       )
     } finally {
+      qrLoadingRef.current = false
       if (qrRequestId.current === requestId) setQrLoading(false)
     }
   }, [isVi])
@@ -512,6 +574,28 @@ export function MemberDashboard() {
 
   useEffect(() => {
     if (!showQrModal) return undefined
+    const refreshExpiredQrOnForeground = () => {
+      if (
+        document.visibilityState === "visible" &&
+        qrExpiresAt &&
+        Date.now() >= qrExpiresAt
+      ) {
+        loadQrCode()
+      }
+    }
+    document.addEventListener("visibilitychange", refreshExpiredQrOnForeground)
+    window.addEventListener("focus", refreshExpiredQrOnForeground)
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        refreshExpiredQrOnForeground,
+      )
+      window.removeEventListener("focus", refreshExpiredQrOnForeground)
+    }
+  }, [showQrModal, qrExpiresAt, loadQrCode])
+
+  useEffect(() => {
+    if (!showQrModal) return undefined
     const onKeyDown = (event) => {
       if (event.key === "Escape") setShowQrModal(false)
     }
@@ -521,12 +605,14 @@ export function MemberDashboard() {
 
   const retryResource = () => retryDashboard()
   const locale = isVi ? "vi-VN" : "en-US"
+  const unavailable = isVi ? "Ch\u01b0a c\u00f3 th\u00f4ng tin" : "Not provided"
   const hasNoPackages =
     !resources.enrollments.loading &&
     !resources.subscriptions.loading &&
     !resources.enrollments.error &&
     !resources.subscriptions.error &&
     normalEnrollments.length === 0 &&
+    normalSubscriptions.length === 0 &&
     advancedSubscriptions.length === 0
 
   const attentionItems = [
@@ -556,11 +642,11 @@ export function MemberDashboard() {
       key: `expiry-${subscription.subscriptionId || subscription.id}`,
       icon: Clock3,
       title: isVi
-        ? `Gói ${subscription.subjectName || (subscription.subjectId ? `môn #${subscription.subjectId}` : "Advanced")} sắp hết hạn`
-        : `${subscription.subjectName || (subscription.subjectId ? `Subject #${subscription.subjectId}` : "Advanced")} package expires soon`,
+        ? `Gói ${subscription.subjectName || unavailable} sắp hết hạn`
+        : `${subscription.subjectName || "Advanced"} package expires soon`,
       detail: `${
         isVi ? "Hạn sử dụng" : "Expires"
-      }: ${formatVietnamDateTime(subscription.expiresAt || subscription.endDate, null, locale)}`,
+      }: ${formatVietnamDateTime(subscription.expiresAt, null, locale)}`,
       action: isVi ? "Xem gói học" : "View packages",
       onAction: () => navigate("/member/my-membership"),
     })),
@@ -602,8 +688,8 @@ export function MemberDashboard() {
       label: isVi ? "Credit Advanced còn lại" : "Advanced credits remaining",
       value: advancedCreditCount,
       caption: isVi
-        ? "Tổng theo các gói Active; credit vẫn thuộc từng môn"
-        : "Active packages only; credits remain subject-specific",
+        ? "T\u1ed5ng th\u1ed1ng k\u00ea, kh\u00f4ng ph\u1ea3i v\u00ed d\u00f9ng chung; credit ri\u00eang t\u1eebng g\u00f3i"
+        : "Statistical total only, not a shared wallet; credits stay with each package",
       tone: "amber",
       resource: resources.subscriptions,
     },
@@ -611,10 +697,10 @@ export function MemberDashboard() {
 
   return (
     <main className="min-h-full w-full overflow-x-hidden bg-slate-50/70 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div className="mx-auto w-full max-w-[1600px] space-y-6 lg:space-y-7">
+      <div className="w-full space-y-6 lg:space-y-7">
         <header className="flex flex-col justify-between gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-700">
+            <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-red-700">
               VIBE SPORT · MEMBER
             </p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-[2rem]">
@@ -625,12 +711,12 @@ export function MemberDashboard() {
                 ? `Xin chào${memberName ? `, ${memberName}` : ""}!`
                 : `Welcome${memberName ? `, ${memberName}` : ""}!`}
             </p>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
+            <p className="mt-1 max-w-2xl text-[15px] leading-6 text-slate-600">
               {isVi
                 ? "Theo dõi lớp học, lịch tập và các gói hội viên của bạn tại đây."
                 : "Keep track of your classes, schedule, and memberships here."}
             </p>
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-slate-600">
               {validMemberId && (
                 <span>
                   {isVi ? "Mã hội viên" : "Member ID"}:{" "}
@@ -648,7 +734,7 @@ export function MemberDashboard() {
             type="button"
             onClick={handleOpenQr}
             disabled={!apiEnabled}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-red-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-red-700 px-4 py-2.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <QrCode className="h-4 w-4" aria-hidden="true" />
             {isVi ? "Mã QR Check-in" : "Check-in QR"}
@@ -669,6 +755,7 @@ export function MemberDashboard() {
               tone={item.tone}
               loading={item.resource.loading}
               error={Boolean(item.resource.error)}
+              isVi={isVi}
             />
           ))}
         </section>
@@ -688,10 +775,10 @@ export function MemberDashboard() {
               />
               <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  <p className="text-[13px] font-bold uppercase tracking-wide text-slate-500">
                     Normal
                   </p>
-                  <p className="mt-1 text-sm text-slate-700">
+                  <p className="mt-1 text-[15px] text-slate-700">
                     {isVi ? "Lớp nhóm đã đăng ký" : "Enrolled group classes"}
                   </p>
                   <p className="mt-2 text-2xl font-bold text-slate-950">
@@ -703,10 +790,10 @@ export function MemberDashboard() {
                   </p>
                 </div>
                 <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  <p className="text-[13px] font-bold uppercase tracking-wide text-slate-500">
                     Advanced
                   </p>
-                  <p className="mt-1 text-sm text-slate-700">
+                  <p className="mt-1 text-[15px] text-slate-700">
                     {isVi ? "Gói theo môn thể thao" : "Sport-specific packages"}
                   </p>
                   <p className="mt-2 text-2xl font-bold text-slate-950">
@@ -714,7 +801,7 @@ export function MemberDashboard() {
                       ? "—"
                       : resources.subscriptions.error
                         ? "—"
-                        : advancedSubscriptions.length}
+                        : activeAdvancedSubscriptions.length}
                   </p>
                 </div>
               </div>
@@ -755,7 +842,7 @@ export function MemberDashboard() {
                       ? "Bạn chưa có lớp hoặc gói học đang hoạt động"
                       : "No active classes or packages"}
                   </h3>
-                  <p className="mt-1 text-sm text-slate-600">
+                  <p className="mt-1 text-[15px] text-slate-600">
                     {isVi
                       ? "Khám phá các khóa học hiện có để bắt đầu."
                       : "Explore available courses to get started."}
@@ -763,7 +850,7 @@ export function MemberDashboard() {
                   <button
                     type="button"
                     onClick={() => navigate("/member/catalog")}
-                    className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-700 focus-visible:ring-offset-2"
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-[15px] font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-700 focus-visible:ring-offset-2"
                   >
                     {isVi ? "Khám phá khóa học" : "Explore courses"}
                     <ArrowRight className="h-4 w-4" />
@@ -771,10 +858,93 @@ export function MemberDashboard() {
                 </div>
               ) : (
                 <div className="space-y-5">
+                  {!resources.subscriptions.error &&
+                    normalSubscriptions.length > 0 && (
+                      <div>
+                        <h3 className="mb-3 text-base font-bold text-slate-800">
+                          {isVi ? "Gói Normal" : "Normal packages"}
+                        </h3>
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                          {normalSubscriptions.map((subscription, index) => (
+                            <article
+                              key={
+                                subscription.subscriptionId ||
+                                subscription.id ||
+                                `normal-${index}`
+                              }
+                              className="min-w-0 rounded-xl border border-slate-200 p-4"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-[13px] font-semibold uppercase tracking-wide text-red-700">
+                                    Normal
+                                  </p>
+                                  <h4 className="mt-1 truncate text-base font-bold text-slate-950">
+                                    {subscription.packageName || unavailable}
+                                  </h4>
+                                </div>
+                                <span
+                                  className={`shrink-0 rounded-full px-2.5 py-1 text-[13px] font-semibold ${
+                                    normalizeState(subscription.status) ===
+                                    "active"
+                                      ? "bg-emerald-50 text-emerald-800"
+                                      : normalizeState(
+                                            subscription.status,
+                                          ).startsWith("pending")
+                                        ? "bg-amber-50 text-amber-900"
+                                        : "bg-slate-100 text-slate-700"
+                                  }`}
+                                >
+                                  {getStatusLabel(subscription.status, isVi)}
+                                </span>
+                              </div>
+                              <dl className="mt-4 grid grid-cols-1 gap-2 text-[15px] text-slate-600">
+                                <div className="flex justify-between gap-3">
+                                  <dt>{isVi ? "Môn" : "Subject"}</dt>
+                                  <dd className="text-right">
+                                    {subscription.subjectName || unavailable}
+                                  </dd>
+                                </div>
+                                <div className="flex justify-between gap-3">
+                                  <dt>
+                                    {isVi ? "HLV chính" : "Primary Coach"}
+                                  </dt>
+                                  <dd className="text-right">
+                                    {subscription.primaryCoachName ||
+                                      unavailable}
+                                  </dd>
+                                </div>
+                                <div className="flex justify-between gap-3">
+                                  <dt>{isVi ? "Kích hoạt" : "Activated"}</dt>
+                                  <dd className="text-right">
+                                    {formatVietnamDateTime(
+                                      subscription.activatedAt,
+                                      null,
+                                      locale,
+                                    ) || unavailable}
+                                  </dd>
+                                </div>
+                                <div className="flex justify-between gap-3">
+                                  <dt>{isVi ? "Hết hạn" : "Expires"}</dt>
+                                  <dd className="text-right">
+                                    {formatVietnamDateTime(
+                                      subscription.expiresAt,
+                                      null,
+                                      locale,
+                                    ) || unavailable}
+                                  </dd>
+                                </div>
+                              </dl>
+                            </article>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                   {!resources.enrollments.error &&
                     normalEnrollments.length > 0 && (
                       <div>
-                        <h3 className="mb-3 text-sm font-bold text-slate-800">
+                        <h3 className="mb-3 text-[15px] font-bold text-slate-800">
                           {isVi ? "Lớp Normal" : "Normal classes"}
                         </h3>
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -807,7 +977,7 @@ export function MemberDashboard() {
                               >
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                                    <p className="text-[13px] font-semibold uppercase tracking-wide text-red-700">
                                       {enrollment.subjectName ||
                                         (isVi ? "Lớp nhóm" : "Group class")}
                                     </p>
@@ -818,11 +988,11 @@ export function MemberDashboard() {
                                           : "Enrolled class")}
                                     </h4>
                                   </div>
-                                  <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                                  <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[13px] font-semibold text-emerald-800">
                                     {getStatusLabel(enrollment.status, isVi)}
                                   </span>
                                 </div>
-                                <dl className="mt-4 space-y-2 text-sm text-slate-600">
+                                <dl className="mt-4 space-y-2 text-[15px] text-slate-600">
                                   <div className="flex items-center gap-2">
                                     <UserRound className="h-4 w-4 shrink-0 text-slate-400" />
                                     <dt className="sr-only">Coach</dt>
@@ -852,7 +1022,7 @@ export function MemberDashboard() {
                                 <button
                                   type="button"
                                   onClick={() => navigate("/member/schedule")}
-                                  className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-red-700 hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+                                  className="mt-4 inline-flex items-center gap-1.5 text-[15px] font-semibold text-red-700 hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
                                 >
                                   {isVi ? "Xem lịch học" : "View schedule"}
                                   <ArrowRight className="h-4 w-4" />
@@ -867,22 +1037,14 @@ export function MemberDashboard() {
                   {!resources.subscriptions.error &&
                     advancedSubscriptions.length > 0 && (
                       <div>
-                        <h3 className="mb-3 text-sm font-bold text-slate-800">
+                        <h3 className="mb-3 text-[15px] font-bold text-slate-800">
                           {isVi ? "Gói Advanced" : "Advanced packages"}
                         </h3>
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                           {advancedSubscriptions.map((subscription, index) => {
                             const subject =
-                              subscription.subjectName ||
-                              (subscription.subjectId
-                                ? `${
-                                    isVi ? "Môn" : "Subject"
-                                  } #${subscription.subjectId}`
-                                : isVi
-                                  ? "Chưa có dữ liệu môn"
-                                  : "Subject unavailable")
-                            const expiry =
-                              subscription.expiresAt || subscription.endDate
+                              subscription.subjectName || unavailable
+                            const expiry = subscription.expiresAt
                             return (
                               <article
                                 key={
@@ -894,19 +1056,29 @@ export function MemberDashboard() {
                               >
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
-                                      {subscription.packageName ||
-                                        `Advanced · ${subject}`}
+                                    <p className="text-[13px] font-semibold uppercase tracking-wide text-red-700">
+                                      {subscription.packageName || "Advanced"}
                                     </p>
                                     <h4 className="mt-1 truncate text-base font-bold text-slate-950">
                                       {subject}
                                     </h4>
                                   </div>
-                                  <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                                  <span
+                                    className={`shrink-0 rounded-full px-2.5 py-1 text-[13px] font-semibold ${
+                                      normalizeState(subscription.status) ===
+                                      "active"
+                                        ? "bg-emerald-50 text-emerald-800"
+                                        : normalizeState(
+                                              subscription.status,
+                                            ).startsWith("pending")
+                                          ? "bg-amber-50 text-amber-900"
+                                          : "bg-slate-100 text-slate-700"
+                                    }`}
+                                  >
                                     {getStatusLabel(subscription.status, isVi)}
                                   </span>
                                 </div>
-                                <dl className="mt-4 grid grid-cols-1 gap-2 text-sm text-slate-600">
+                                <dl className="mt-4 grid grid-cols-1 gap-2 text-[15px] text-slate-600">
                                   <div className="flex items-center justify-between gap-3">
                                     <dt>
                                       {isVi
@@ -915,8 +1087,7 @@ export function MemberDashboard() {
                                     </dt>
                                     <dd className="text-right font-medium text-slate-800">
                                       {subscription.primaryCoachName ||
-                                        subscription.coachName ||
-                                        "—"}
+                                        unavailable}
                                     </dd>
                                   </div>
                                   <div className="flex items-center justify-between gap-3">
@@ -926,7 +1097,18 @@ export function MemberDashboard() {
                                         : "Credits remaining"}
                                     </dt>
                                     <dd className="font-semibold text-slate-900">
-                                      {subscription.remainingCredit ?? "—"}
+                                      {isActiveAdvancedSubscription(
+                                        subscription,
+                                      )
+                                        ? (subscription.remainingCredit ??
+                                          unavailable)
+                                        : normalizeState(
+                                              subscription.status,
+                                            ).startsWith("pending")
+                                          ? isVi
+                                            ? "Chưa kích hoạt"
+                                            : "Not activated"
+                                          : unavailable}
                                     </dd>
                                   </div>
                                   <div className="flex items-center justify-between gap-3">
@@ -935,11 +1117,10 @@ export function MemberDashboard() {
                                     </dt>
                                     <dd className="text-right">
                                       {formatVietnamDateTime(
-                                        subscription.activatedAt ||
-                                          subscription.startDate,
+                                        subscription.activatedAt,
                                         null,
                                         locale,
-                                      ) || "—"}
+                                      ) || unavailable}
                                     </dd>
                                   </div>
                                   <div className="flex items-center justify-between gap-3">
@@ -949,18 +1130,18 @@ export function MemberDashboard() {
                                         expiry,
                                         null,
                                         locale,
-                                      ) || "—"}
+                                      ) || unavailable}
                                     </dd>
                                   </div>
                                 </dl>
                                 {isSubscriptionNearExpiry(subscription) && (
-                                  <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+                                  <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[13px] font-medium text-amber-900">
                                     {isVi
                                       ? "Gói học sắp hết hạn."
                                       : "This package is nearing its expiry date."}
                                   </p>
                                 )}
-                                <p className="mt-3 text-xs text-slate-500">
+                                <p className="mt-3 text-[13px] text-slate-500">
                                   {isVi
                                     ? "Credit chỉ sử dụng cho môn học của gói này."
                                     : "Credits are limited to this package’s sport."}
@@ -1003,12 +1184,12 @@ export function MemberDashboard() {
                       className="mx-auto h-7 w-7 text-slate-400"
                       aria-hidden="true"
                     />
-                    <p className="mt-2 text-sm font-semibold text-slate-800">
+                    <p className="mt-2 text-[15px] font-semibold text-slate-800">
                       {isVi
                         ? "Chưa có buổi học sắp tới"
                         : "No upcoming sessions"}
                     </p>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <p className="mt-1 text-[15px] text-slate-600">
                       {isVi
                         ? "Lịch chỉ hiển thị khi được xác nhận từ hệ thống."
                         : "Only confirmed sessions appear here."}
@@ -1042,16 +1223,16 @@ export function MemberDashboard() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="truncate text-sm font-bold text-slate-900">
+                            <h3 className="truncate text-[15px] font-bold text-slate-900">
                               {session.className ||
                                 session.subjectName ||
                                 (isVi ? "Buổi tập" : "Training session")}
                             </h3>
-                            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-800">
+                            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[13px] font-semibold text-blue-800">
                               {getStatusLabel(session.status, isVi)}
                             </span>
                           </div>
-                          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
+                          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[15px] text-slate-600">
                             <span className="inline-flex items-center gap-1.5">
                               <Clock3 className="h-3.5 w-3.5 text-slate-400" />
                               {dateLabel || "—"}
@@ -1093,7 +1274,7 @@ export function MemberDashboard() {
                   isVi={isVi}
                 />
               ) : recentActivity.length === 0 ? (
-                <div className="rounded-xl bg-slate-50 px-4 py-7 text-center text-sm text-slate-600">
+                <div className="rounded-xl bg-slate-50 px-4 py-7 text-center text-[15px] text-slate-600">
                   {isVi
                     ? "Chưa có dữ liệu điểm danh để hiển thị."
                     : "No attendance activity to show yet."}
@@ -1126,12 +1307,12 @@ export function MemberDashboard() {
                             )}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-slate-900">
+                            <p className="text-[15px] font-semibold text-slate-900">
                               {session?.className ||
                                 session?.subjectName ||
                                 (isVi ? "Buổi tập" : "Training session")}
                             </p>
-                            <p className="mt-0.5 text-sm text-slate-600">
+                            <p className="mt-0.5 text-[15px] text-slate-600">
                               {getStatusLabel(state, isVi)}
                               {activityDate
                                 ? ` · ${formatVietnamDateTime(activityDate, null, locale)}`
@@ -1158,7 +1339,7 @@ export function MemberDashboard() {
                   type="button"
                   onClick={handleOpenQr}
                   disabled={!apiEnabled}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-sm font-semibold text-slate-800 transition hover:border-red-300 hover:bg-red-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-800 transition hover:border-red-300 hover:bg-red-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <QrCode className="h-4 w-4 text-red-700" />
                   {isVi ? "Mã QR Check-in" : "Check-in QR"}
@@ -1167,7 +1348,7 @@ export function MemberDashboard() {
                 <button
                   type="button"
                   onClick={() => navigate("/member/schedule")}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-sm font-semibold text-slate-800 transition hover:border-red-300 hover:bg-red-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-800 transition hover:border-red-300 hover:bg-red-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
                 >
                   <CalendarDays className="h-4 w-4 text-red-700" />
                   {isVi ? "Lịch học của tôi" : "My schedule"}
@@ -1176,7 +1357,7 @@ export function MemberDashboard() {
                 <button
                   type="button"
                   onClick={() => navigate("/member/invoices")}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-sm font-semibold text-slate-800 transition hover:border-red-300 hover:bg-red-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-800 transition hover:border-red-300 hover:bg-red-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
                 >
                   <CreditCard className="h-4 w-4 text-red-700" />
                   {isVi ? "Hóa đơn" : "Invoices"}
@@ -1185,7 +1366,7 @@ export function MemberDashboard() {
                 <button
                   type="button"
                   onClick={() => navigate("/member/my-membership")}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-sm font-semibold text-slate-800 transition hover:border-red-300 hover:bg-red-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-800 transition hover:border-red-300 hover:bg-red-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
                 >
                   <Dumbbell className="h-4 w-4 text-red-700" />
                   {isVi ? "Gói học của tôi" : "My memberships"}
@@ -1239,7 +1420,7 @@ export function MemberDashboard() {
                     resources.invoices.error ||
                     resources.notifications.error ||
                     resources.subscriptions.error ? null : (
-                      <div className="rounded-xl bg-emerald-50 px-4 py-4 text-sm text-emerald-900">
+                      <div className="rounded-xl bg-emerald-50 px-4 py-4 text-[15px] text-emerald-900">
                         <p className="flex items-center gap-2 font-semibold">
                           <CheckCircle2 className="h-4 w-4" />
                           {isVi
@@ -1260,18 +1441,18 @@ export function MemberDashboard() {
                             <div className="flex items-start gap-2.5">
                               <Icon className="mt-0.5 h-4 w-4 shrink-0 text-amber-800" />
                               <div className="min-w-0">
-                                <p className="text-sm font-semibold text-amber-950">
+                                <p className="text-[15px] font-semibold text-amber-950">
                                   {item.title}
                                 </p>
                                 {item.detail && (
-                                  <p className="mt-1 text-xs leading-5 text-amber-900">
+                                  <p className="mt-1 text-[13px] leading-5 text-amber-900">
                                     {item.detail}
                                   </p>
                                 )}
                                 <button
                                   type="button"
                                   onClick={item.onAction}
-                                  className="mt-2 text-sm font-semibold text-red-700 underline underline-offset-2 hover:text-red-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+                                  className="mt-2 text-[15px] font-semibold text-red-700 underline underline-offset-2 hover:text-red-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
                                 >
                                   {item.action}
                                 </button>
@@ -1287,7 +1468,7 @@ export function MemberDashboard() {
             </section>
 
             <section className="rounded-2xl border border-slate-200 bg-slate-900 p-5 text-white shadow-sm sm:p-6">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-red-300">
+              <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-red-300">
                 VIBE SPORT
               </p>
               <h2 className="mt-2 text-lg font-bold">
@@ -1295,7 +1476,7 @@ export function MemberDashboard() {
                   ? "Sẵn sàng cho buổi tập tiếp theo?"
                   : "Ready for your next session?"}
               </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-300">
+              <p className="mt-1 text-[15px] leading-6 text-slate-300">
                 {isVi
                   ? "Xem lịch đã được xác nhận để chủ động sắp xếp thời gian."
                   : "Review your confirmed schedule and plan ahead."}
@@ -1303,7 +1484,7 @@ export function MemberDashboard() {
               <button
                 type="button"
                 onClick={() => navigate("/member/schedule")}
-                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2.5 text-[15px] font-semibold text-slate-900 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
               >
                 {isVi ? "Mở lịch học" : "Open schedule"}
                 <ArrowRight className="h-4 w-4" />
@@ -1328,7 +1509,7 @@ export function MemberDashboard() {
           >
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-red-700">
+                <p className="text-[13px] font-bold uppercase tracking-wide text-red-700">
                   VIBE SPORT
                 </p>
                 <h2
@@ -1347,14 +1528,14 @@ export function MemberDashboard() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <p className="mt-4 text-sm leading-6 text-slate-600">
+            <p className="mt-4 text-[15px] leading-6 text-slate-600">
               {isVi
                 ? "Mã QR được cấp từ hệ thống và tự làm mới khi hết hạn. Đưa mã cho nhân viên để check-in."
                 : "This QR is issued by the system and refreshes when it expires. Present it to staff to check in."}
             </p>
             <div className="mt-4 flex min-h-[248px] items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-4">
               {qrLoading ? (
-                <div className="text-center text-sm text-slate-600">
+                <div className="text-center text-[15px] text-slate-600">
                   <RefreshCw className="mx-auto mb-2 h-6 w-6 animate-spin text-red-700" />
                   {isVi ? "Đang lấy mã check-in…" : "Loading check-in code…"}
                 </div>
@@ -1371,7 +1552,7 @@ export function MemberDashboard() {
                   <div className="inline-flex rounded-xl bg-white p-3 shadow-sm">
                     <QRCodeSVG value={qrPayload} size={208} level="M" />
                   </div>
-                  <p className="mt-3 text-sm text-slate-600">
+                  <p className="mt-3 text-[15px] text-slate-600">
                     {isVi ? "Mã làm mới sau" : "Refreshes in"}{" "}
                     <strong className="font-semibold text-red-700">
                       {qrSecondsLeft}s
@@ -1379,7 +1560,7 @@ export function MemberDashboard() {
                   </p>
                 </div>
               ) : (
-                <p className="text-sm text-slate-600">
+                <p className="text-[15px] text-slate-600">
                   {isVi
                     ? "Chưa có mã check-in."
                     : "No check-in code available."}
@@ -1390,7 +1571,7 @@ export function MemberDashboard() {
               <button
                 type="button"
                 onClick={() => setShowQrModal(false)}
-                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-600"
+                className="rounded-lg border border-slate-300 px-4 py-2.5 text-[15px] font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-600"
               >
                 {isVi ? "Đóng" : "Close"}
               </button>
