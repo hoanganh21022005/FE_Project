@@ -22,10 +22,11 @@ export const cancelMemberEnrollment = async (classId, memberId) => {
   })
 }
 
-export const getMemberEnrollments = async (memberId) => {
+export const getMemberEnrollments = async (memberId, { strict = false } = {}) => {
   if (!memberId) return []
   const data = await httpClient.get(`/api/members/${memberId}/enrollments`)
   const list = extractList(data)
+  if (strict && !Array.isArray(list)) throw new Error("Phản hồi danh sách lớp đã đăng ký không đúng định dạng.")
   return Array.isArray(list) ? list : []
 }
 
