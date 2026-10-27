@@ -12,6 +12,7 @@ import { formatDate, formatCurrency } from "../../locales/translations"
 import { StatusBadge } from "../common/Badge"
 import { membershipApi } from "../../api/membershipApi"
 import { invoiceApi } from "../../api/invoiceApi"
+import { getMemberSubjectCatalog } from "../../api/subjectCatalogApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import {
   getAuthoritativeProfileId,
@@ -51,6 +52,125 @@ import {
   subscribeMockSettlement,
 } from "../../utils/mockFixtureSettlement"
 
+const MEMBER_PRICE_SPORTS = [
+  {
+    key: "tennis",
+    catalogKey: "tennis",
+    nameVi: "Tennis",
+    nameEn: "Tennis",
+    aliases: ["tennis", "quan vot"],
+    mockNormalPrice: 2500000,
+    mockAdvancedPrice: 8000000,
+  },
+  {
+    key: "swimming",
+    catalogKey: "swimming",
+    nameVi: "Bơi lội",
+    nameEn: "Swimming",
+    aliases: ["boi loi", "swimming"],
+    mockNormalPrice: 1500000,
+    mockAdvancedPrice: 4500000,
+  },
+  {
+    key: "pickleball",
+    catalogKey: "pickleball",
+    nameVi: "Pickleball",
+    nameEn: "Pickleball",
+    aliases: ["pickleball"],
+    mockNormalPrice: 1800000,
+    mockAdvancedPrice: 5000000,
+  },
+  {
+    key: "archery",
+    catalogKey: "archery",
+    nameVi: "Bắn cung",
+    nameEn: "Archery",
+    aliases: ["ban cung", "archery"],
+    mockNormalPrice: 2000000,
+    mockAdvancedPrice: 6000000,
+  },
+  {
+    key: "basketball",
+    catalogKey: "basketball",
+    nameVi: "Bóng rổ",
+    nameEn: "Basketball",
+    aliases: ["bong ro", "basketball"],
+    mockNormalPrice: 1200000,
+    mockAdvancedPrice: 3500000,
+  },
+  {
+    key: "football",
+    catalogKey: "football",
+    nameVi: "Bóng đá",
+    nameEn: "Football",
+    aliases: ["bong da", "football", "soccer"],
+    mockNormalPrice: 1000000,
+    mockAdvancedPrice: 3500000,
+  },
+  {
+    key: "volleyball",
+    catalogKey: "volleyball",
+    nameVi: "Bóng chuyền",
+    nameEn: "Volleyball",
+    aliases: ["bong chuyen", "volleyball"],
+    mockNormalPrice: 1000000,
+    mockAdvancedPrice: 3500000,
+  },
+  {
+    key: "badminton",
+    catalogKey: "badminton",
+    nameVi: "Cầu lông",
+    nameEn: "Badminton",
+    aliases: ["cau long", "badminton"],
+    mockNormalPrice: 900000,
+    mockAdvancedPrice: 3000000,
+  },
+  {
+    key: "table-tennis",
+    catalogKey: "table-tennis",
+    nameVi: "Bóng bàn",
+    nameEn: "Table tennis",
+    aliases: ["bong ban", "table tennis", "ping pong"],
+    mockNormalPrice: 800000,
+    mockAdvancedPrice: 2500000,
+  },
+]
+
+const normalizeSubjectKey = (value) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .toLowerCase()
+
+const buildMemberPriceRows = (subjects, apiEnabled) =>
+  MEMBER_PRICE_SPORTS.map((sport) => {
+    const matching = (subjects || []).filter((subject) => {
+      const searchable = normalizeSubjectKey(
+        `${subject.name || ""} ${subject.slug || ""}`,
+      )
+      return sport.aliases.some((alias) => searchable.includes(alias))
+    })
+    const selectedSubject = matching.sort((a, b) => {
+      const score = (subject) =>
+        Number(subject.normalPrice != null) +
+        Number(subject.advancedPrice != null) +
+        Number(Boolean(subject.slug))
+      return score(b) - score(a) || Number(b.id || 0) - Number(a.id || 0)
+    })[0]
+
+    return {
+      ...sport,
+      subjectId: selectedSubject?.id ?? null,
+      normalPrice: apiEnabled
+        ? selectedSubject?.normalPrice ?? null
+        : sport.mockNormalPrice,
+      advancedPrice: apiEnabled
+        ? selectedSubject?.advancedPrice ?? null
+        : sport.mockAdvancedPrice,
+    }
+  })
+
 export function MyMembershipView() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -58,6 +178,7 @@ export function MyMembershipView() {
     currentUser,
     members: contextMembers,
     packages: contextPackages,
+    subjects: contextSubjects,
     payments: contextPayments,
     t,
     language,
@@ -114,6 +235,7 @@ export function MyMembershipView() {
   const [error, setError] = useState(null)
   const [subscriptions, setSubscriptions] = useState([])
   const [packages, setPackages] = useState([])
+  const [subjectCatalog, setSubjectCatalog] = useState([])
   const [invoices, setInvoices] = useState([])
   const [invoiceActionLoading, setInvoiceActionLoading] = useState(false)
 
@@ -126,7 +248,6 @@ export function MyMembershipView() {
   const submittingRef = useRef(false)
   const [submitError, setSubmitError] = useState(null)
   const [checkoutStep, setCheckoutStep] = useState(1)
-  const [planFilter, setPlanFilter] = useState("all")
   const [historyFilter, setHistoryFilter] = useState("all")
   const [historyQuery, setHistoryQuery] = useState("")
   const [historyDateFrom, setHistoryDateFrom] = useState("")
@@ -154,6 +275,17 @@ export function MyMembershipView() {
       errorMessages.push(
         `Danh mục gói tập: ${getErrorMessage(pkgErr, "Lỗi kết nối")}`,
       )
+    }
+
+    // 1b. Fetch sport-specific Normal and Advanced prices from the subject catalog.
+    try {
+      const subjectsData = await getMemberSubjectCatalog()
+      setSubjectCatalog(Array.isArray(subjectsData) ? subjectsData : [])
+    } catch (subjectErr) {
+      errorMessages.push(
+        `${language === "vi" ? "Bảng giá môn học" : "Sport price catalog"}: ${getErrorMessage(subjectErr, language === "vi" ? "Không thể tải bảng giá" : "Could not load prices")}`,
+      )
+      setSubjectCatalog([])
     }
 
     // 2. Fetch member invoices via own-read endpoint (/api/members/me/invoices)
@@ -517,44 +649,10 @@ export function MyMembershipView() {
     historyPage * historyPageSize,
   )
   const catalogPackages = apiEnabled ? packages : contextPackages
-  const filteredPackages = catalogPackages.filter((pkg) => {
-    const days = Number(pkg.durationDays || Number(pkg.durationMonths) * 30)
-    if (planFilter === "short") return days > 0 && days < 60
-    if (planFilter === "mid") return days >= 60 && days < 180
-    if (planFilter === "long") return days >= 180
-    return true
-  })
-  const oneMonthPackage = catalogPackages
-    .filter(
-      (pkg) =>
-        Number(pkg.durationDays || Number(pkg.durationMonths) * 30) >= 25 &&
-        Number(pkg.durationDays || Number(pkg.durationMonths) * 30) <= 35 &&
-        Number(pkg.price) > 0,
-    )
-    .sort((a, b) => Number(a.price) - Number(b.price))[0]
-  const benchmarkMonthlyPrice = oneMonthPackage
-    ? Number(oneMonthPackage.price)
-    : null
-  const featuredPackage =
-    catalogPackages
-      .map((pkg) => {
-        const days = Number(pkg.durationDays || Number(pkg.durationMonths) * 30)
-        const price = Number(pkg.price)
-        const baseline =
-          benchmarkMonthlyPrice && days > 0
-            ? (benchmarkMonthlyPrice * days) / 30
-            : null
-        return {
-          pkg,
-          days,
-          savings:
-            baseline && price > 0
-              ? Math.max(0, (1 - price / baseline) * 100)
-              : 0,
-        }
-      })
-      .filter(({ days, savings }) => days >= 60 && savings > 0)
-      .sort((a, b) => b.savings - a.savings)[0] || null
+  const memberPriceRows = useMemo(
+    () => buildMemberPriceRows(apiEnabled ? subjectCatalog : contextSubjects, apiEnabled),
+    [apiEnabled, subjectCatalog, contextSubjects],
+  )
 
   const handlePayPendingInvoice = async () => {
     if (invoiceExpiry.isExpired) return
@@ -866,7 +964,7 @@ export function MyMembershipView() {
           )}
 
           <button
-            onClick={() => openSubscribeModal()}
+            onClick={() => navigate(`${membershipBasePath}/plans`)}
             disabled={submitting}
             className="min-h-[44px] px-4 py-2 rounded text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors bg-[#BA0000] hover:bg-[#8E0000] text-white cursor-pointer"
           >
@@ -1278,11 +1376,11 @@ export function MyMembershipView() {
                         <button
                           type="button"
                           onClick={() =>
-                            openSubscribeModal(activeSubscription.packageId)
+                            navigate(`${membershipBasePath}/plans`)
                           }
                           className="min-h-10 rounded-lg bg-[#BA0000] px-4 py-2 text-sm font-bold text-white hover:bg-[#8E0000]"
                         >
-                          {language === "vi" ? "Gia hạn 1 chạm" : "Renew now"}
+                          {language === "vi" ? "Xem gói theo môn" : "View sport plans"}
                         </button>
                       </div>
                     )}
@@ -1399,266 +1497,98 @@ export function MyMembershipView() {
             )}
           </div>
 
-          {/* Package Catalog Selection Grid */}
+          {/* Normal and Advanced sport price catalog */}
           <div
             id="membership-catalog"
-            className={`scroll-mt-6 space-y-4 ${
-              activeTab === "plans" ? "" : "hidden"
-            }`}
+            className={`scroll-mt-6 space-y-4 ${activeTab === "plans" ? "" : "hidden"}`}
           >
-            <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <Package className="w-4 h-4 text-[#BA0000]" />
-              <span>
+            <header className="space-y-1">
+              <h3 className="flex items-center gap-2 text-sm font-bold tracking-tight text-slate-900">
+                <Package className="h-4 w-4 text-[#BA0000]" />
+                <span>{language === "vi" ? "Gói hội viên theo môn học" : "Membership by sport"}</span>
+              </h3>
+              <p className="text-sm text-slate-600">
                 {language === "vi"
-                  ? "Bảng Giá & Danh Mục Gói Thành Viên"
-                  : "Membership Packages Catalog"}
-              </span>
-            </h3>
+                  ? "Chọn gói Normal hoặc Advanced để xem giá của từng môn học."
+                  : "Choose Normal or Advanced to see the price for each sport."}
+              </p>
+            </header>
 
-            <div
-              className="flex flex-wrap gap-2"
-              role="group"
-              aria-label={
-                language === "vi"
-                  ? "Lọc gói theo thời hạn"
-                  : "Filter plans by duration"
-              }
-            >
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               {[
-                ["all", language === "vi" ? "Tất cả" : "All"],
-                [
-                  "short",
-                  language === "vi" ? "Dưới 2 tháng" : "Under 2 months",
-                ],
-                ["mid", language === "vi" ? "2–6 tháng" : "2–6 months"],
-                ["long", language === "vi" ? "Từ 6 tháng" : "6+ months"],
-              ].map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setPlanFilter(key)}
-                  className={`min-h-9 rounded-full border px-3 text-xs font-semibold ${
-                    planFilter === key
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-200 bg-white text-slate-600"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {filteredPackages.map((pkg) => {
-                const isCurrent = apiEnabled
-                  ? activeSubscription &&
-                    String(activeSubscription.packageId) === String(pkg.id)
-                  : String(currentMember.currentPackageId) === String(pkg.id)
-                const durationDays = Number(
-                  pkg.durationDays || Number(pkg.durationMonths) * 30,
-                )
-                const durationMonths =
-                  durationDays > 0 ? durationDays / 30 : null
-                const monthlyPrice =
-                  durationMonths && Number(pkg.price) > 0
-                    ? Number(pkg.price) / durationMonths
-                    : null
-                const baselinePrice =
-                  benchmarkMonthlyPrice && durationDays > 0
-                    ? (benchmarkMonthlyPrice * durationDays) / 30
-                    : null
-                const savingsPercent =
-                  baselinePrice && Number(pkg.price) > 0
-                    ? Math.max(
-                        0,
-                        Math.round(
-                          (1 - Number(pkg.price) / baselinePrice) * 100,
-                        ),
-                      )
-                    : 0
-                const isFeatured =
-                  featuredPackage &&
-                  String(featuredPackage.pkg.id) === String(pkg.id)
-
-                return (
-                  <div
-                    key={pkg.id}
-                    className={`relative bg-white rounded-xl p-5 border flex flex-col justify-between shadow-sm transition-all ${
-                      isFeatured
-                        ? "border-red-700 ring-2 ring-red-100 shadow-md"
-                        : isCurrent
-                          ? "border-slate-400"
-                          : "border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    <div className="space-y-3">
-                      {isFeatured && (
-                        <span className="inline-flex rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold text-red-800">
-                          {language === "vi" ? "Tiết kiệm nhất" : "Best value"}
-                        </span>
-                      )}
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="text-base font-bold text-slate-900">
-                            {pkg.nameVi || pkg.name}
-                          </h4>
-                          <span className="text-sm text-slate-500">
-                            Thời hạn:{" "}
-                            {pkg.durationDays != null
-                              ? `${pkg.durationDays} ngày`
-                              : pkg.durationMonths != null
-                                ? `${pkg.durationMonths} tháng`
-                                : "—"}
-                          </span>
-                        </div>
-                        {isCurrent && (
-                          <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">
-                            Đang dùng
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="text-2xl font-extrabold font-mono text-[#BA0000] tabular-nums">
-                        {pkg.price == null
-                          ? "—"
-                          : formatCurrency(pkg.price, language)}
-                      </div>
-
-                      {monthlyPrice && (
-                        <p className="text-sm text-slate-600">
-                          {formatCurrency(monthlyPrice, language)} /{" "}
-                          {language === "vi" ? "tháng" : "month"}
-                          {savingsPercent > 0 && (
-                            <span className="ml-2 font-semibold text-emerald-700">
-                              {language === "vi"
-                                ? `Tiết kiệm ${savingsPercent}%`
-                                : `Save ${savingsPercent}%`}
-                            </span>
-                          )}
+                {
+                  key: "normal",
+                  title: "Normal",
+                  subtitleVi: "Học theo lớp, 12 buổi",
+                  subtitleEn: "Group classes, 12 sessions",
+                  priceKey: "normalPrice",
+                },
+                {
+                  key: "advanced",
+                  title: "Advanced",
+                  subtitleVi: "Huấn luyện 1:1, 12 credit, hạn dùng 45 ngày",
+                  subtitleEn: "1:1 coaching, 12 credits, valid for 45 days",
+                  priceKey: "advancedPrice",
+                },
+              ].map((plan) => (
+                <article key={plan.key} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <header className="border-b border-slate-100 bg-slate-50 px-4 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h4 className="text-lg font-extrabold text-slate-900">{plan.title}</h4>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {language === "vi" ? plan.subtitleVi : plan.subtitleEn}
                         </p>
-                      )}
-                      <p className="text-sm text-slate-600 line-clamp-2">
-                        {pkg.descriptionVi ||
-                          pkg.description ||
-                          (pkg.benefits
-                            ? pkg.benefits.join(", ")
-                            : "Dịch vụ chuẩn Webzone")}
-                      </p>
-
-                      {pkg.benefits &&
-                        Array.isArray(pkg.benefits) &&
-                        pkg.benefits.length > 0 && (
-                          <ul className="text-sm text-slate-600 space-y-1 pt-1 border-t border-slate-100">
-                            {pkg.benefits.slice(0, 3).map((b, idx) => (
-                              <li
-                                key={idx}
-                                className="flex items-center gap-1.5"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                <span className="truncate">{b}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
+                      </div>
+                      <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-800">
+                        {language === "vi" ? "9 môn" : "9 sports"}
+                      </span>
                     </div>
-
-                    <div className="pt-4 mt-3 border-t border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => openSubscribeModal(pkg.id)}
-                        disabled={submitting || Boolean(isCurrent)}
-                        className={`w-full min-h-[44px] py-2 px-3 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1.5 ${
-                          isCurrent
-                            ? "bg-slate-100 text-slate-500 cursor-not-allowed"
-                            : isFeatured
-                              ? "bg-[#BA0000] hover:bg-[#8E0000] text-white shadow-sm"
-                              : "border border-slate-300 bg-white text-slate-800 hover:border-slate-500"
-                        }`}
-                      >
-                        <PlusCircle className="w-3.5 h-3.5" />
-                        <span>
-                          {isCurrent
-                            ? language === "vi"
-                              ? "Gia hạn gói này"
-                              : "Renew Package"
-                            : language === "vi"
-                              ? "Đăng ký gói này"
-                              : "Subscribe"}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            {catalogPackages.length > 0 && (
-              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                <table className="min-w-[620px] w-full text-left text-sm">
-                  <caption className="px-4 py-3 text-left font-bold text-slate-800">
-                    {language === "vi"
-                      ? "So sánh gói hội viên"
-                      : "Compare membership plans"}
-                  </caption>
-                  <thead className="bg-slate-50 text-xs font-bold text-slate-600">
-                    <tr>
-                      <th className="px-4 py-3">
-                        {language === "vi" ? "Gói" : "Plan"}
-                      </th>
-                      <th className="px-4 py-3">
-                        {language === "vi" ? "Thời hạn" : "Duration"}
-                      </th>
-                      <th className="px-4 py-3">
-                        {language === "vi" ? "Tổng giá" : "Total"}
-                      </th>
-                      <th className="px-4 py-3">
-                        {language === "vi"
-                          ? "Giá/tháng (ước tính)"
-                          : "Monthly equivalent"}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredPackages.map((pkg) => {
-                      const days = Number(
-                        pkg.durationDays || Number(pkg.durationMonths) * 30,
-                      )
+                  </header>
+                  <div className="divide-y divide-slate-100">
+                    {memberPriceRows.map((sport) => {
+                      const price = sport[plan.priceKey]
                       return (
-                        <tr key={`compare-${pkg.id}`}>
-                          <td className="px-4 py-3 font-semibold">
-                            {pkg.nameVi || pkg.name}
-                          </td>
-                          <td className="px-4 py-3">
-                            {days
-                              ? `${days} ${language === "vi" ? "ngày" : "days"}`
-                              : "—"}
-                          </td>
-                          <td className="px-4 py-3">
-                            {pkg.price == null
-                              ? "—"
-                              : formatCurrency(pkg.price, language)}
-                          </td>
-                          <td className="px-4 py-3">
-                            {days && pkg.price != null
-                              ? formatCurrency(
-                                  (Number(pkg.price) * 30) / days,
-                                  language,
-                                )
-                              : "—"}
-                          </td>
-                        </tr>
+                        <div key={sport.key} className="flex items-center justify-between gap-3 px-4 py-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-800">
+                              {language === "vi" ? sport.nameVi : sport.nameEn}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {price == null
+                                ? language === "vi" ? "Backend chưa cung cấp giá" : "Price not provided by backend"
+                                : language === "vi"
+                                  ? plan.key === "advanced" ? "12 credit / gói" : "12 buổi / gói"
+                                  : plan.key === "advanced" ? "12 credits / package" : "12 sessions / package"}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-3">
+                            <strong className="text-right text-base font-extrabold tabular-nums text-[#BA0000]">
+                              {price == null ? "—" : formatCurrency(price, language)}
+                            </strong>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/member/catalog?tier=${plan.key}&sport=${sport.catalogKey}`)}
+                              className="min-h-10 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-700 hover:border-[#BA0000] hover:text-[#BA0000]"
+                            >
+                              {language === "vi" ? "Chọn môn" : "Choose"}
+                            </button>
+                          </div>
+                        </div>
                       )
                     })}
-                  </tbody>
-                </table>
-                <p className="px-4 pb-3 text-xs text-slate-500">
-                  {language === "vi"
-                    ? "Giá/tháng chỉ là phép quy đổi tham khảo từ giá và thời hạn do backend cung cấp."
-                    : "Monthly equivalent is calculated from the backend price and duration for comparison."}
-                </p>
-              </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+            {!apiEnabled && (
+              <p className="text-xs text-slate-500">
+                {language === "vi"
+                  ? "Giá trong chế độ demo được lấy theo bảng giá cấu hình mẫu."
+                  : "Demo prices come from the configured sample price list."}
+              </p>
             )}
           </div>
-
           <section className={activeTab === "history" ? "space-y-4" : "hidden"}>
             <header>
               <h3 className="text-lg font-bold text-slate-900">
