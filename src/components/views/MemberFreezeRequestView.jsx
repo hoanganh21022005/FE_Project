@@ -116,25 +116,25 @@ export function MemberFreezeRequestView({ embedded = false }) {
           <Info className="w-4 h-4 text-amber-700" />
           <span>
             {isVi
-              ? "Quy định & Chính sách bảo lưu gói"
-              : "Freeze Policy Guidelines"}
+              ? "Quy định Gia hạn & Bảo lưu thời hạn gói (D08 / D12 / D14)"
+              : "Validity Extension & Freeze Policy (D08 / D12 / D14)"}
           </span>
         </div>
         <ul className="mt-2.5 list-disc list-inside space-y-1 text-amber-900/90 leading-relaxed">
           <li>
             {isVi
-              ? "Gói từ 3 tháng trở lên được quyền bảo lưu tối đa 30 ngày trong suốt kỳ hạn."
-              : "Plans of 3+ months are eligible for up to 30 freeze days per membership cycle."}
+              ? "Tự động cộng bù ngày nghỉ Trung tâm (D12/D14): Thời hạn 45 ngày sử dụng của gói Advanced được máy chủ tự động skip các ngày Trung tâm nghỉ lễ (Holiday) hoặc gián đoạn sự cố (Center Incident) mà không cần gửi đơn."
+              : "Automatic Center Holiday & Incident skip (D12/D14): The 45-day usage period of Advanced packages automatically skips official Center Holidays and verified Center Incidents on the server."}
           </li>
           <li>
             {isVi
-              ? "Thời gian bảo lưu tối thiểu là 7 ngày cho mỗi lần yêu cầu."
-              : "Minimum freeze duration is 7 days per request."}
+              ? "Yêu cầu bảo lưu cá nhân: Gói chung từ 3 tháng trở lên có thể gửi phiếu đề xuất bảo lưu cá nhân (tối thiểu 7 ngày, tối đa 30 ngày) để Lễ tân & Quản lý trung tâm xem xét hỗ trợ."
+              : "Personal freeze request: Standard plans of 3+ months can submit a consultation request (7–30 days) for Reception & Center Management review."}
           </li>
           <li>
             {isVi
-              ? "Đơn yêu cầu sẽ được bộ phận Lễ tân & Quản lý xét duyệt trong vòng 24 - 48 giờ làm việc."
-              : "Requests are reviewed and approved within 24 to 48 business hours."}
+              ? "Thời hạn chính thức của gói luôn hiển thị theo trường expiresAt từ máy chủ sau khi đã đối soát."
+              : "Authoritative package expiration is always governed by the server expiresAt timestamp."}
           </li>
         </ul>
       </section>

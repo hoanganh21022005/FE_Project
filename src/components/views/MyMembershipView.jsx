@@ -267,28 +267,36 @@ export function MyMembershipView() {
   // Derive active pending invoice from BE invoices or sessionStorage (strictly partitioned by memberProfileId)
   const pendingInvoice = useMemo(() => {
     if (apiEnabled) {
-      const fromBE = invoices.find((inv) => inv.paymentStatus === "pending")
+      const fromBE = invoices.find(
+        (inv) =>
+          String(inv.paymentStatus || inv.status || "").toLowerCase() ===
+          "pending",
+      )
       if (fromBE) return fromBE
       const stored = getStoredPendingOrder(memberProfileId)
       if (stored) {
         // If stored invoice is now paid in BE invoices, clear storage
-        const matchingPaid = invoices.find(
-          (inv) =>
-            (String(inv.id) === String(stored.invoiceId) ||
+        const matchingPaid = invoices.find((inv) => {
+          const st = String(inv.paymentStatus || inv.status || "").toLowerCase()
+          return (
+            (String(inv.id ?? inv.invoiceId) === String(stored.invoiceId) ||
               inv.invoiceCode === stored.invoiceCode) &&
-            inv.paymentStatus === "successful",
-        )
+            (st === "successful" || st === "paid")
+          )
+        })
         if (matchingPaid) {
           clearStoredPendingOrder(memberProfileId)
           return null
         }
         // If stored invoice is expired, clear storage
-        const matchingExpired = invoices.find(
-          (inv) =>
-            (String(inv.id) === String(stored.invoiceId) ||
+        const matchingExpired = invoices.find((inv) => {
+          const st = String(inv.paymentStatus || inv.status || "").toLowerCase()
+          return (
+            (String(inv.id ?? inv.invoiceId) === String(stored.invoiceId) ||
               inv.invoiceCode === stored.invoiceCode) &&
-            inv.paymentStatus === "expired",
-        )
+            (st === "expired" || st === "cancelled")
+          )
+        })
         if (matchingExpired) {
           clearStoredPendingOrder(memberProfileId)
           return null
@@ -297,10 +305,18 @@ export function MyMembershipView() {
       }
       return null
     } else {
-      const mockPending = mockPayments.find((p) => p.status === "pending")
+      const mockPending = mockPayments.find(
+        (p) => String(p.status || "").toLowerCase() === "pending",
+      )
       return mockPending || null
     }
   }, [apiEnabled, invoices, mockPayments, memberProfileId])
+
+  // Detect Paid invoices requiring reconciliation (D10 / Section 16C: Paid + reconciliationRequired: true)
+  const reconciliationInvoices = useMemo(() => {
+    if (!apiEnabled) return []
+    return invoices.filter((inv) => inv?.reconciliationRequired === true)
+  }, [apiEnabled, invoices])
 
   const pollingInvoiceRef = useRef(false)
   const lastSettledInvoiceRef = useRef("")
@@ -327,22 +343,29 @@ export function MyMembershipView() {
               : invoice,
           ),
         )
+        const latestStatus = String(
+          latest.paymentStatus || latest.status || "",
+        ).toLowerCase()
         if (
-          ["successful", "expired", "cancelled", "failed"].includes(
-            String(latest.paymentStatus || "").toLowerCase(),
+          ["successful", "paid", "expired", "cancelled", "failed"].includes(
+            latestStatus,
           )
         ) {
           clearStoredPendingOrder(memberProfileId)
           if (
-            latest.paymentStatus === "successful" &&
+            (latestStatus === "successful" || latestStatus === "paid") &&
             lastSettledInvoiceRef.current !== String(invoiceId)
           ) {
             lastSettledInvoiceRef.current = String(invoiceId)
             showToast?.(
-              language === "vi"
-                ? "Thanh toán thành công. Đang cập nhật gói hội viên…"
-                : "Payment complete. Updating your membership…",
-              "success",
+              latest.reconciliationRequired
+                ? language === "vi"
+                  ? "Đã ghi nhận tiền thanh toán. Khoản thu đang chờ đối soát tại trung tâm."
+                  : "Payment recorded. Awaiting center reconciliation."
+                : language === "vi"
+                  ? "Thanh toán thành công. Đang cập nhật gói hội viên…"
+                  : "Payment complete. Updating your membership…",
+              latest.reconciliationRequired ? "info" : "success",
             )
             const updatedSubscriptions =
               await membershipApi.getMemberSubscriptions(memberProfileId)
@@ -376,10 +399,12 @@ export function MyMembershipView() {
     return resolveActiveSubscriptionDetails(activeSubscription)
   }, [activeSubscription])
   const membershipProgress = useMemo(() => {
-    if (!activeSubscription?.startDate || !activeSubscription?.endDate)
-      return null
-    const start = new Date(activeSubscription.startDate).getTime()
-    const end = new Date(activeSubscription.endDate).getTime()
+    const startRaw =
+      activeSubscription?.startDate || activeSubscription?.activatedAt
+    const endRaw = activeSubscription?.endDate || activeSubscription?.expiresAt
+    if (!startRaw || !endRaw) return null
+    const start = new Date(startRaw).getTime()
+    const end = new Date(endRaw).getTime()
     const now = currentTimestamp + serverClockOffsetMs
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start)
       return null
@@ -392,14 +417,18 @@ export function MyMembershipView() {
     }
   }, [
     activeSubscription?.startDate,
+    activeSubscription?.activatedAt,
     activeSubscription?.endDate,
+    activeSubscription?.expiresAt,
     currentTimestamp,
     serverClockOffsetMs,
   ])
 
   useEffect(() => {
     const hasCountdown = Boolean(pendingInvoice?.expiresAt)
-    const hasMembershipExpiry = Boolean(activeSubscription?.endDate)
+    const hasMembershipExpiry = Boolean(
+      activeSubscription?.endDate || activeSubscription?.expiresAt,
+    )
     if (!hasCountdown && !hasMembershipExpiry) return
     const intervalMs = hasCountdown ? 1000 : 60000
     const interval = setInterval(() => {
@@ -407,7 +436,11 @@ export function MyMembershipView() {
     }, intervalMs)
 
     return () => clearInterval(interval)
-  }, [pendingInvoice?.expiresAt, activeSubscription?.endDate])
+  }, [
+    pendingInvoice?.expiresAt,
+    activeSubscription?.endDate,
+    activeSubscription?.expiresAt,
+  ])
 
   useEffect(() => {
     if (!pendingInvoice?.serverTime) return
@@ -989,6 +1022,59 @@ export function MyMembershipView() {
         </div>
       )}
 
+      {/* Reconciliation Required Notice Banner (D10 / Section 16C) */}
+      {activeTab === "overview" && reconciliationInvoices.length > 0 && (
+        <div className="border border-blue-300 bg-blue-50/90 rounded-lg p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-blue-700 shrink-0 mt-0.5" />
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-blue-950">
+                  {language === "vi"
+                    ? "Đã ghi nhận tiền · Cần đối soát (Reconciliation Required)"
+                    : "Payment Recorded · Reconciliation Required"}
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-200 text-blue-950 border border-blue-300 uppercase tracking-tight">
+                  D10 · Đang đối soát
+                </span>
+              </div>
+              <p className="text-xs text-blue-900 mt-1">
+                {reconciliationInvoices.map((inv) => (
+                  <span
+                    key={inv.invoiceId || inv.id}
+                    className="mr-3 inline-block"
+                  >
+                    Mã HĐ:{" "}
+                    <strong className="font-mono">
+                      {inv.invoiceCode ||
+                        inv.code ||
+                        `#${inv.invoiceId || inv.id}`}
+                    </strong>
+                    {inv.amount != null
+                      ? ` (${formatCurrency(inv.amount, language)})`
+                      : ""}
+                  </span>
+                ))}
+              </p>
+              <p className="text-[11px] text-blue-800 mt-1 leading-relaxed">
+                {language === "vi"
+                  ? "Khoản thanh toán của bạn đã được hệ thống ghi nhận (Paid) nhưng tới sau thời hạn giữ chỗ 5 phút nên chưa tự động cấp quyền Active. Vui lòng không thanh toán lặp lại; Quản lý trung tâm và Lễ tân sẽ đối soát hoặc hoàn tiền đầy đủ theo quy định D10."
+                  : "Your payment was recorded (Paid) after the 5-minute reservation cutoff so package entitlements were not auto-activated. Please do not pay again; Center Management will reconcile or process a full refund per D10."}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={fetchMemberData}
+            disabled={invoiceActionLoading}
+            className="min-h-[36px] px-3 py-1.5 bg-white hover:bg-blue-100 border border-blue-300 text-blue-950 text-xs font-semibold rounded flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>{language === "vi" ? "Kiểm tra lại" : "Check again"}</span>
+          </button>
+        </div>
+      )}
+
       {/* Pending Invoice Notification Banner */}
       {activeTab === "overview" && pendingInvoice && (
         <div
@@ -1192,9 +1278,9 @@ export function MyMembershipView() {
                     </div>
                     <div className="text-sm font-bold font-mono text-slate-900 tabular-nums mt-0.5">
                       {apiEnabled ? (
-                        activeSubscription?.startDate &&
-                        activeSubscription?.endDate ? (
-                          `${formatDate(activeSubscription.startDate, language)} → ${formatDate(activeSubscription.endDate, language)}`
+                        activeDetails.effectiveStartDate &&
+                        activeDetails.effectiveEndDate ? (
+                          `${formatDate(activeDetails.effectiveStartDate, language)} → ${formatDate(activeDetails.effectiveEndDate, language)}`
                         ) : activeDetails.hasValidityDays ? (
                           `${activeDetails.validityDays} ${
                             language === "vi" ? "ngày" : "days"
@@ -1218,8 +1304,8 @@ export function MyMembershipView() {
                     </div>
                     {apiEnabled &&
                       activeDetails.hasValidityDays &&
-                      activeSubscription?.startDate &&
-                      activeSubscription?.endDate && (
+                      activeDetails.effectiveStartDate &&
+                      activeDetails.effectiveEndDate && (
                         <div className="text-xs text-slate-500 mt-0.5">
                           {language === "vi"
                             ? "Thời lượng hiệu lực:"
@@ -1289,10 +1375,10 @@ export function MyMembershipView() {
                     </div>
                     <div className="mt-2 flex justify-between text-xs text-slate-500">
                       <span>
-                        {formatDate(activeSubscription.startDate, language)}
+                        {formatDate(activeDetails.effectiveStartDate, language)}
                       </span>
                       <span>
-                        {formatDate(activeSubscription.endDate, language)}
+                        {formatDate(activeDetails.effectiveEndDate, language)}
                       </span>
                     </div>
                     {membershipProgress.remainingDays <= 7 && (
@@ -1350,9 +1436,13 @@ export function MyMembershipView() {
                         </span>
                       </div>
                       <p className="text-[11px] text-emerald-800">
-                        {language === "vi"
-                          ? "Sử dụng để đặt lịch ca học 1:1 cùng Huấn luyện viên."
-                          : "Available for booking 1:1 sessions with coaches."}
+                        {activeDetails.remainingCredit === 0
+                          ? language === "vi"
+                            ? "Đã dùng hết 12 credit đặt mới. Bạn vẫn giữ nguyên quyền tham gia các ca hợp lệ đã được xếp lịch."
+                            : "0 credits remaining for new bookings. Valid pre-booked sessions remain active."
+                          : language === "vi"
+                            ? "Sử dụng cho các buổi học 1:1 cùng Huấn luyện viên chính (hạn 45 ngày sử dụng từ ngày Paid)."
+                            : "Used for 1:1 sessions with your Primary Coach (45-day validity from Paid)."}
                       </p>
                     </div>
                   )}
