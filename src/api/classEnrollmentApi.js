@@ -15,6 +15,17 @@ export const enrollMemberInClass = async (classId, memberId) => {
   })
 }
 
+// Member self-service: identity is derived by the backend from JSESSIONID.
+export const enrollCurrentMemberInClass = async (classId, paymentMethod = 'VNPay') => {
+  if (!Number.isInteger(Number(classId)) || Number(classId) <= 0) {
+    throw new Error('ID lớp học không hợp lệ.');
+  }
+  if (!['VNPay', 'Cash'].includes(paymentMethod)) {
+    throw new Error('Phương thức thanh toán lớp học không hợp lệ.');
+  }
+  return httpClient.post(`/api/classes/${Number(classId)}/enroll`, { paymentMethod });
+}
+
 export const cancelMemberEnrollment = async (classId, memberId) => {
   return await httpClient.post(`/api/classes/${classId}/cancel-enrollment`, {
     classId: Number(classId),
@@ -22,16 +33,18 @@ export const cancelMemberEnrollment = async (classId, memberId) => {
   })
 }
 
-export const getMemberEnrollments = async (memberId) => {
+export const getMemberEnrollments = async (memberId, { strict = false } = {}) => {
   if (!memberId) return []
   const data = await httpClient.get(`/api/members/${memberId}/enrollments`)
   const list = extractList(data)
+  if (strict && !Array.isArray(list)) throw new Error("Phản hồi danh sách lớp đã đăng ký không đúng định dạng.")
   return Array.isArray(list) ? list : []
 }
 
 export const classEnrollmentApi = {
   getEnrollmentsByClass,
   enrollMemberInClass,
+  enrollCurrentMemberInClass,
   cancelMemberEnrollment,
   getMemberEnrollments,
 }

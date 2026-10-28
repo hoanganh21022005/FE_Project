@@ -11,6 +11,17 @@ const list = async (path) => {
 // /api/sessions is a general schedule lookup and is not member-scoped by the API contract.
 export const getMemberClasses = (memberId) => getMemberEnrollments(memberId)
 export const getClassSessions = () => list("/api/sessions")
+export const getClassCatalogSessions = async (classId, { strict = false } = {}) => {
+  if (!Number.isInteger(Number(classId)) || Number(classId) <= 0) {
+    throw new Error("ID lớp học không hợp lệ.")
+  }
+  const response = await httpClient.get(`/api/sessions/catalog/${Number(classId)}`)
+  const sessions = extractList(response)
+  if (strict && !Array.isArray(sessions)) {
+    throw new Error("Backend trả về lịch lớp không đúng định dạng.")
+  }
+  return Array.isArray(sessions) ? sessions : []
+}
 export const hasScheduledClassSession = (classId, sessions = []) =>
   Array.isArray(sessions) &&
   sessions.some(
@@ -238,6 +249,7 @@ export const orderAdvancedRegistration = async (id, payload) => {
 export const memberPortalApi = {
   getMemberClasses,
   getClassSessions,
+  getClassCatalogSessions,
   getMemberAttendances,
   getMemberCheckinCode,
   getMemberTrainingPlans,

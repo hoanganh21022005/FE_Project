@@ -108,9 +108,10 @@ export const updateInvoiceStatus = async (id, status) => {
   return mapInvoice(response);
 };
 
-export const getMemberOwnInvoices = async () => {
+export const getMemberOwnInvoices = async ({ strict = false } = {}) => {
   const data = await httpClient.get('/api/members/me/invoices');
   const list = extractList(data);
+  if (strict && !Array.isArray(list)) throw new Error('Phản hồi danh sách hóa đơn không đúng định dạng.');
   return Array.isArray(list) ? list.map(mapInvoice).filter(Boolean) : [];
 };
 

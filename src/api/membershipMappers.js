@@ -99,7 +99,14 @@ export function mapMemberSubscription(item) {
       status: 'none',
       rawStatus: null,
       packageType: null,
+      subjectId: null,
+      subjectName: null,
+      primaryCoachId: null,
+      primaryCoachName: null,
+      totalCredit: null,
       remainingCredit: null,
+      activatedAt: null,
+      expiresAt: null,
       validityDays: null,
     };
   }
@@ -127,8 +134,14 @@ export function mapMemberSubscription(item) {
     status: normalizeSubscriptionStatus(item.status),
     rawStatus: item.status ?? null,
     packageType: item.packageType ? String(item.packageType) : null,
+    subjectId: asNumber(item.subjectId),
+    subjectName: item.subjectName || null,
+    primaryCoachId: asNumber(item.primaryCoachId),
+    primaryCoachName: item.primaryCoachName || null,
+    totalCredit: asNumber(item.totalCredit),
     remainingCredit: asNumber(item.remainingCredit),
     validityDays: asNumber(item.validityDays),
+    activatedAt: item.activatedAt ?? null,
   };
 }
 
