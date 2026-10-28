@@ -57,6 +57,19 @@ const formatLocalTime = (timeVal) => {
   return String(timeVal)
 }
 
+const getHoursUntilSession = (session) => {
+  const dateStr = String(session?.sessionDate || session?.date || "").slice(
+    0,
+    10,
+  )
+  if (!dateStr) return null
+  const timeStr = formatLocalTime(session?.startTime)
+  const hhmm = /^\d{2}:\d{2}$/.test(timeStr) ? timeStr : "00:00"
+  const startMs = new Date(`${dateStr}T${hhmm}:00+07:00`).getTime()
+  if (!Number.isFinite(startMs)) return null
+  return (startMs - Date.now()) / (1000 * 60 * 60)
+}
+
 const getEnrollmentSessions = (enrollment, allSessions = []) => {
   const inline =
     enrollment.sessions ||
@@ -332,8 +345,8 @@ export function MemberScheduleView() {
           }`}
         >
           {isVi
-            ? `Lịch buổi học & Báo vắng (${enrolledClassSessions.length})`
-            : `Class Sessions & Absence (${enrolledClassSessions.length})`}
+            ? `Lịch 12 buổi lớp Normal (${enrolledClassSessions.length})`
+            : `Normal Class Sessions (${enrolledClassSessions.length})`}
         </button>
 
         <button
@@ -469,21 +482,9 @@ export function MemberScheduleView() {
                               {session.roomName ||
                                 (isVi ? "Chưa có sân" : "Room pending")}
                             </span>
-                            {session.id && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleOpenAbsenceModal({
-                                    ...session,
-                                    className:
-                                      row.className || `Lớp #${row.classId}`,
-                                  })
-                                }
-                                className="text-[11px] font-bold text-amber-800 hover:text-amber-950 underline cursor-pointer shrink-0"
-                              >
-                                {isVi ? "Báo vắng" : "Absence"}
-                              </button>
-                            )}
+                            <span className="text-[10px] font-semibold text-slate-500 shrink-0">
+                              {session.status || "Scheduled"}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -603,15 +604,18 @@ export function MemberScheduleView() {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
+                  <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                    {isVi
+                      ? "Khóa Normal cố định (Không hủy/báo vắng cá nhân)"
+                      : "Fixed Normal Class (Non-cancellable)"}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => handleOpenAbsenceModal(session)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-900 cursor-pointer"
+                    onClick={() => navigate("/member/attendance")}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 cursor-pointer"
                   >
-                    <FileWarning className="h-3.5 w-3.5" />
-                    <span>
-                      {isVi ? "Xin nghỉ / Báo vắng" : "Report Absence"}
-                    </span>
+                    <QrCode className="h-3.5 w-3.5 text-red-700" />
+                    <span>{isVi ? "Điểm danh QR" : "QR Check-in"}</span>
                   </button>
                 </div>
               </div>
@@ -647,15 +651,20 @@ export function MemberScheduleView() {
               const isCancelled = String(session.status || "")
                 .toLowerCase()
                 .includes("cancel")
+              const hoursLeft = getHoursUntilSession(session)
+              const canCancelForRefund = hoursLeft === null || hoursLeft >= 12
+              const canReportLateAbsence =
+                hoursLeft === null || (hoursLeft > 0 && hoursLeft < 12)
+              const isPastSession = hoursLeft !== null && hoursLeft <= 0
               return (
                 <div
                   key={session.id}
                   className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 >
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-800 border border-blue-200">
-                        PT 1-on-1
+                        PT 1-on-1 · Advanced
                       </span>
                       <h3 className="text-sm font-extrabold text-slate-900">
                         {session.subjectName ||
@@ -685,26 +694,48 @@ export function MemberScheduleView() {
                   </div>
 
                   {!isCancelled && (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenAbsenceModal(session)}
-                        className="rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-900 cursor-pointer"
-                      >
-                        {isVi ? "Báo vắng" : "Absence"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={cancellingSessionId === session.id}
-                        onClick={() => handleCancelPrivate(session)}
-                        className="rounded-lg border border-rose-300 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-800 cursor-pointer"
-                      >
-                        {cancellingSessionId === session.id
-                          ? "Đang hủy…"
-                          : isVi
-                            ? "Hủy lịch PT"
-                            : "Cancel PT"}
-                      </button>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {!isPastSession && canCancelForRefund && (
+                        <button
+                          type="button"
+                          disabled={cancellingSessionId === session.id}
+                          onClick={() => handleCancelPrivate(session)}
+                          className="rounded-lg border border-rose-300 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-800 cursor-pointer"
+                        >
+                          {cancellingSessionId === session.id
+                            ? "Đang hủy…"
+                            : isVi
+                              ? "Hủy lịch (≥12h · Hoàn 1 credit)"
+                              : "Cancel (≥12h · +1 credit)"}
+                        </button>
+                      )}
+                      {!isPastSession && !canCancelForRefund && (
+                        <span className="rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+                          {isVi
+                            ? "Dưới 12h: Đã khóa hủy hoàn credit"
+                            : "<12h: Credit refund locked"}
+                        </span>
+                      )}
+                      {!isPastSession && canReportLateAbsence && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAbsenceModal(session)}
+                          className="rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-900 cursor-pointer"
+                        >
+                          {isVi
+                            ? "Báo vắng sát giờ (<12h)"
+                            : "Late Absence (<12h)"}
+                        </button>
+                      )}
+                      {(!canReportLateAbsence || isPastSession) && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAbsenceModal(session)}
+                          className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 cursor-pointer"
+                        >
+                          {isVi ? "Lịch sử báo vắng" : "Absence Notices"}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

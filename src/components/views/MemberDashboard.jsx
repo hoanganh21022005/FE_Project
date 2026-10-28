@@ -133,7 +133,11 @@ export function MemberDashboard() {
     try {
       const invs = await invoiceApi.getMemberOwnInvoices()
       if (Array.isArray(invs)) {
-        const pending = invs.filter((i) => i.paymentStatus === "pending")
+        const pending = invs.filter(
+          (i) =>
+            String(i.paymentStatus || i.status || "").toLowerCase() ===
+            "pending",
+        )
         setPendingInvoices(pending)
       }
     } catch (err) {
@@ -201,30 +205,37 @@ export function MemberDashboard() {
     fetchRealDashboardData()
   }, [fetchInvoices, fetchRealDashboardData])
 
-  // QR Code generator logic
+  // QR Code generator logic (D17: dynamic 1-30s expiresInSeconds from BE)
   const loadQrCode = useCallback(async () => {
     setQrLoading(true)
     try {
       if (apiEnabled) {
         const res = await memberPortalApi.getMemberCheckinCode()
+        const ttl = Math.max(
+          1,
+          Math.min(
+            30,
+            Number(res?.expiresInSeconds || res?.validitySeconds) || 30,
+          ),
+        )
         if (res?.payload) {
-          setQrCode(res.payload)
-          setQrSecondsLeft(res.validitySeconds || 60)
+          setQrCode(String(res.payload))
+          setQrSecondsLeft(ttl)
         } else if (res?.code) {
-          setQrCode(res.code)
-          setQrSecondsLeft(60)
+          setQrCode(String(res.code))
+          setQrSecondsLeft(ttl)
         }
       } else {
         // Mock QR
         setQrCode(
           `SCMS-MEMBER-${member.code || member.id}-${Date.now().toString().slice(-4)}`,
         )
-        setQrSecondsLeft(60)
+        setQrSecondsLeft(30)
       }
     } catch (err) {
-      console.warn("Could not load checkin code:", err)
+      console.warn("Could not load checkin code:", err?.status || err?.message)
       setQrCode(`SCMS-${member.code || "MB-1001"}`)
-      setQrSecondsLeft(60)
+      setQrSecondsLeft(30)
     } finally {
       setQrLoading(false)
     }
@@ -237,7 +248,7 @@ export function MemberDashboard() {
       setQrSecondsLeft((prev) => {
         if (prev <= 1) {
           loadQrCode()
-          return 60
+          return 30
         }
         return prev - 1
       })
@@ -708,26 +719,38 @@ export function MemberDashboard() {
                   <QrCode className="w-4 h-4" />
                   <span>{isVi ? "Mở QR Check-in" : "Open QR"}</span>
                 </button>
+                {(nextBk.isPrivate === true || !apiEnabled) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSessionForAbsence({
+                        id: nextBk.sessionId || nextBk.id,
+                        className:
+                          nextBk.className || nextCls?.nameVi || nextCls?.name,
+                        date: nextDate,
+                        time: nextTime,
+                        coach: nextCoach,
+                      })
+                      setAbsenceModalOpen(true)
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 px-3 py-2 text-xs font-bold text-white transition-colors cursor-pointer"
+                  >
+                    <span>
+                      {isVi ? "Báo vắng PT (<12h)" : "Report Absence"}
+                    </span>
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedSessionForAbsence({
-                      id: nextBk.sessionId || nextBk.id,
-                      className:
-                        nextBk.className || nextCls?.nameVi || nextCls?.name,
-                      date: nextDate,
-                      time: nextTime,
-                      coach: nextCoach,
-                    })
-                    setAbsenceModalOpen(true)
-                  }}
+                  onClick={() => navigate("/member/schedule")}
                   className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 px-3 py-2 text-xs font-bold text-white transition-colors cursor-pointer"
                 >
-                  <span>{isVi ? "Xin vắng mặt" : "Report Absence"}</span>
+                  <Calendar className="w-3.5 h-3.5 text-slate-300" />
+                  <span>{isVi ? "Xem lịch học" : "Schedule"}</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate("/member/feedback")}
+                  onClick={() => navigate("/member/schedule")}
                   className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 px-3 py-2 text-xs font-bold text-amber-300 transition-colors cursor-pointer"
                 >
                   <MessageSquareHeart className="w-3.5 h-3.5" />
@@ -852,10 +875,12 @@ export function MemberDashboard() {
                   : "VIBE Sport Membership")}
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            {activeSubscription?.startDate && activeSubscription?.endDate
+            {(activeSubscription?.startDate ||
+              activeSubscription?.activatedAt) &&
+            (activeSubscription?.endDate || activeSubscription?.expiresAt)
               ? isVi
-                ? `Thời hạn sử dụng: ${String(activeSubscription.startDate).slice(0, 10)} → ${String(activeSubscription.endDate).slice(0, 10)}`
-                : `Valid period: ${String(activeSubscription.startDate).slice(0, 10)} → ${String(activeSubscription.endDate).slice(0, 10)}`
+                ? `Thời hạn sử dụng: ${String(activeSubscription.startDate || activeSubscription.activatedAt).slice(0, 10)} → ${String(activeSubscription.endDate || activeSubscription.expiresAt).slice(0, 10)}`
+                : `Valid period: ${String(activeSubscription.startDate || activeSubscription.activatedAt).slice(0, 10)} → ${String(activeSubscription.endDate || activeSubscription.expiresAt).slice(0, 10)}`
               : isVi
                 ? "Quyền lợi tham gia các lớp nhóm và quản lý lịch tập luyện trực tuyến trên hệ thống VIBE Sport."
                 : "Access to group training sessions and online schedule management on VIBE Sport."}

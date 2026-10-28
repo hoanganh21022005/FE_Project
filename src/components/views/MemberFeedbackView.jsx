@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect, useCallback } from "react"
 import { useSCMS } from "../../context/SCMSContext"
 import { CLUB_COURSES } from "./MemberAttendanceView"
 import { memberPortalApi } from "../../api/memberPortalApi"
+import { getErrorMessage } from "../../api/apiErrors"
+import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { motion, AnimatePresence } from "motion/react"
 import {
   Check,
@@ -147,7 +149,11 @@ export function MemberFeedbackView({ embedded = false }) {
 
   const fetchBackendFeedbackData = useCallback(async () => {
     if (!API_ENABLED) return
-    const memberId = currentUser?.memberId || currentUser?.id || member?.id
+    const memberId =
+      getAuthoritativeProfileId(currentUser) ||
+      currentUser?.memberId ||
+      currentUser?.id ||
+      member?.id
     setIsLoadingApi(true)
     try {
       let enrollments = []
@@ -585,14 +591,35 @@ export function MemberFeedbackView({ embedded = false }) {
         createdAt: new Date().toISOString().replace("T", " ").slice(0, 16),
       }
 
-      await submitFeedback(payload)
       if (API_ENABLED) {
+        const parsedClassId = Number(targetClassId)
+        const parsedCoachId = Number(targetCoachId) || 1
+        if (!Number.isNaN(parsedClassId) && parsedClassId > 0) {
+          await memberPortalApi.submitClassFeedback(parsedClassId, {
+            classId: parsedClassId,
+            coachId: parsedCoachId > 0 ? parsedCoachId : 1,
+            classRating: avgClass,
+            coachRating: avgCoach,
+            comment: commentText.trim(),
+          })
+        }
         await fetchBackendFeedbackData()
+        showToast?.(
+          editingFeedbackId
+            ? "Đã cập nhật đánh giá lớp học thành công!"
+            : "Cảm ơn bạn đã gửi đánh giá lớp học!",
+          "success",
+        )
+      } else {
+        await submitFeedback(payload)
       }
       setIsThankYouMode(true)
     } catch (err) {
       setSubmitError(
-        "Không thể lưu bản ghi chép. Vui lòng kiểm tra lại kết nối mạng.",
+        getErrorMessage(
+          err,
+          "Chưa thể gửi đánh giá (Quy tắc D09: Hội viên cần có ghi danh Active và ít nhất 1 buổi điểm danh Present ở lớp này).",
+        ),
       )
     } finally {
       setIsSubmitting(false)
