@@ -167,8 +167,8 @@ export function MemberDetailView({ memberId, onBack }) {
   if (apiEnabled && detailLoading) {
     return (
       <div className="p-12 text-center bg-white border border-slate-200 rounded-lg">
-        <div className="inline-block animate-spin w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full mb-3" />
-        <p className="text-sm font-semibold text-[#181818]">
+        <div className="inline-block animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full mb-3" />
+        <p className="text-sm font-semibold text-brand-dark">
           {language === 'vi' ? 'Đang tải thông tin thành viên...' : 'Loading member profile...'}
         </p>
       </div>
@@ -186,14 +186,14 @@ export function MemberDetailView({ memberId, onBack }) {
         <div className="flex items-center justify-center gap-2">
           <button
             onClick={() => fetchAuthoritativeDetail(memberId)}
-            className="px-3.5 py-1.5 bg-[#BA0000] hover:bg-[#8E0000] text-white text-xs font-bold rounded transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-primary-hover text-white text-xs font-bold rounded transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>{language === 'vi' ? 'Thử lại' : 'Retry'}</span>
           </button>
           <button
             onClick={onBack}
-            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-[#181818] text-xs font-bold rounded transition-colors cursor-pointer"
+            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-brand-dark text-xs font-bold rounded transition-colors cursor-pointer"
           >
             {language === 'vi' ? 'Quay lại danh sách' : 'Back to List'}
           </button>
@@ -210,7 +210,7 @@ export function MemberDetailView({ memberId, onBack }) {
         </p>
         <button
           onClick={onBack}
-          className="mt-4 px-3.5 py-1.5 bg-[#181818] hover:bg-[#BA0000] text-white text-xs font-bold rounded transition-colors cursor-pointer"
+          className="mt-4 px-3.5 py-1.5 bg-brand-dark hover:bg-brand-primary text-white text-xs font-bold rounded transition-colors cursor-pointer"
         >
           {language === 'vi' ? 'Quay lại danh sách' : 'Back to List'}
         </button>
@@ -227,7 +227,7 @@ export function MemberDetailView({ memberId, onBack }) {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <button
           onClick={onBack}
-          className="px-3 py-1.5 bg-white hover:bg-stone-50 text-[#181818] border border-slate-300 rounded text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all hover:border-[#BA0000] cursor-pointer"
+          className="px-3 py-1.5 bg-white hover:bg-stone-50 text-brand-dark border border-slate-300 rounded text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all hover:border-brand-primary cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5 text-stone-500" />
           <span>{language === 'vi' ? 'Quay lại danh sách' : 'Back to list'}</span>
@@ -244,7 +244,7 @@ export function MemberDetailView({ memberId, onBack }) {
 
           <button
             onClick={() => setIsEditOpen(true)}
-            className="px-3.5 py-1.5 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+            className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
           >
             <Edit2 className="w-3.5 h-3.5" />
             <span>{language === 'vi' ? 'Chỉnh sửa hồ sơ' : 'Edit Profile'}</span>
@@ -255,12 +255,12 @@ export function MemberDetailView({ memberId, onBack }) {
       {/* Member Header Profile Card */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-[#181818] text-[#E4E4E4] border border-[#323232] flex items-center justify-center text-xl font-bold shrink-0 shadow-xs">
+          <div className="w-14 h-14 rounded-full bg-brand-dark text-slate-200 border border-brand-dark-hover flex items-center justify-center text-xl font-bold shrink-0 shadow-xs">
             {(member.name || 'M').charAt(0)}
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 data-testid="member-detail-header" className="text-base font-bold text-[#181818]">{member.name}</h2>
+              <h2 data-testid="member-detail-header" className="text-base font-bold text-brand-dark">{member.name}</h2>
               <span className="font-mono text-[10px] font-bold text-stone-600 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
                 {member.code}
               </span>
@@ -295,8 +295,8 @@ export function MemberDetailView({ memberId, onBack }) {
           data-testid="tab-button-personal"
           className={`pb-3 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'personal'
-              ? 'border-[#BA0000] text-[#BA0000]'
-              : 'border-transparent text-stone-500 hover:text-[#181818]'
+              ? 'border-brand-primary text-brand-primary'
+              : 'border-transparent text-stone-500 hover:text-brand-dark'
           }`}
         >
           <User className="w-4 h-4" />
@@ -308,8 +308,8 @@ export function MemberDetailView({ memberId, onBack }) {
           data-testid="tab-button-membership"
           className={`pb-3 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'membership'
-              ? 'border-[#BA0000] text-[#BA0000]'
-              : 'border-transparent text-stone-500 hover:text-[#181818]'
+              ? 'border-brand-primary text-brand-primary'
+              : 'border-transparent text-stone-500 hover:text-brand-dark'
           }`}
         >
           <Package className="w-4 h-4" />
@@ -320,41 +320,41 @@ export function MemberDetailView({ memberId, onBack }) {
       {/* TAB 1: Personal Information */}
       {activeTab === 'personal' && (
         <div data-testid="member-personal-panel" className="bg-white border border-slate-200 rounded-lg p-5 shadow-2xs space-y-4">
-          <h3 className="text-sm font-semibold text-[#181818] border-b border-stone-100 pb-3">
+          <h3 className="text-sm font-semibold text-brand-dark border-b border-stone-100 pb-3">
             {language === 'vi' ? 'Thông tin cá nhân' : 'Personal information'}
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
             <div className="min-w-0 space-y-1 py-1">
               <span className="text-stone-500 text-[11px] font-medium">{language === 'vi' ? 'Họ và tên:' : 'Full Name:'}</span>
-              <p className="font-bold text-[#181818]">{member.name}</p>
+              <p className="font-bold text-brand-dark">{member.name}</p>
             </div>
 
             <div className="min-w-0 space-y-1 py-1">
               <span className="text-stone-500 text-[11px] font-medium">{language === 'vi' ? 'Mã thành viên:' : 'Member Code:'}</span>
-              <p className="font-bold font-mono text-[#181818]">{member.code}</p>
+              <p className="font-bold font-mono text-brand-dark">{member.code}</p>
             </div>
 
             <div className="min-w-0 space-y-1 py-1">
               <span className="text-stone-500 text-[11px] font-medium">Email:</span>
-              <p className="font-bold text-[#181818]">{member.email}</p>
+              <p className="font-bold text-brand-dark">{member.email}</p>
             </div>
 
             <div className="min-w-0 space-y-1 py-1">
               <span className="text-stone-500 text-[11px] font-medium">{language === 'vi' ? 'Số điện thoại:' : 'Phone:'}</span>
-              <p className="font-bold tabular-nums text-[#181818]">{member.phone || (language === 'vi' ? 'Chưa cập nhật' : 'Not updated')}</p>
+              <p className="font-bold tabular-nums text-brand-dark">{member.phone || (language === 'vi' ? 'Chưa cập nhật' : 'Not updated')}</p>
             </div>
 
             <div className="min-w-0 space-y-1 py-1">
               <span className="text-stone-500 text-[11px] font-medium">{language === 'vi' ? 'Ngày sinh:' : 'Birth Date:'}</span>
-              <p className="font-bold text-[#181818]">
+              <p className="font-bold text-brand-dark">
                 {member.birthDate ? formatDate(member.birthDate, language) : (language === 'vi' ? 'Chưa cập nhật' : 'Not updated')}
               </p>
             </div>
 
             <div className="min-w-0 space-y-1 py-1">
               <span className="text-stone-500 text-[11px] font-medium">{language === 'vi' ? 'Giới tính:' : 'Gender:'}</span>
-              <p className="font-bold text-[#181818]">
+              <p className="font-bold text-brand-dark">
                 {member.gender === 'male' || member.gender === 'Male'
                   ? (language === 'vi' ? 'Nam' : 'Male')
                   : member.gender === 'female' || member.gender === 'Female'
@@ -365,33 +365,33 @@ export function MemberDetailView({ memberId, onBack }) {
 
             <div className="min-w-0 space-y-1 py-1">
               <span className="text-stone-500 text-[11px] font-medium">{language === 'vi' ? 'Địa chỉ liên hệ:' : 'Address:'}</span>
-              <p className="font-bold text-[#181818]">
+              <p className="font-bold text-brand-dark">
                 {member.address || (language === 'vi' ? 'Chưa cập nhật' : 'Not updated')}
               </p>
             </div>
 
             <div className="min-w-0 space-y-1 py-1">
               <span className="text-stone-500 text-[11px] font-medium">{language === 'vi' ? 'Mục tiêu tập luyện:' : 'Fitness Goal:'}</span>
-              <p className="font-bold text-[#181818]">
+              <p className="font-bold text-brand-dark">
                 {member.goal || (language === 'vi' ? 'Chưa cập nhật' : 'Not updated')}
               </p>
             </div>
 
             <div className="min-w-0 space-y-1 py-1">
               <span className="text-stone-500 text-[11px] font-medium">{language === 'vi' ? 'Ghi chú sức khỏe:' : 'Health Notes:'}</span>
-              <p className="font-bold text-[#181818]">
+              <p className="font-bold text-brand-dark">
                 {member.healthNote || (language === 'vi' ? 'Chưa cập nhật' : 'Not updated')}
               </p>
             </div>
 
             <div className="min-w-0 space-y-1 py-1">
               <span className="text-stone-500 text-[11px] font-medium">{language === 'vi' ? 'Ngày tham gia:' : 'Join Date:'}</span>
-              <p className="font-bold tabular-nums text-[#181818]">{formatDate(member.joinDate, language)}</p>
+              <p className="font-bold tabular-nums text-brand-dark">{formatDate(member.joinDate, language)}</p>
             </div>
 
             <div className="min-w-0 space-y-1 py-1">
               <span className="text-stone-500 text-[11px] font-medium">{language === 'vi' ? 'Huấn luyện viên phụ trách:' : 'Assigned Coach:'}</span>
-              <p className="font-bold text-[#181818]">
+              <p className="font-bold text-brand-dark">
                 {member.primaryCoachName || (language === 'vi' ? 'Chưa phân công' : 'Unassigned')}
               </p>
             </div>
@@ -408,7 +408,7 @@ export function MemberDetailView({ memberId, onBack }) {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-[#181818]">
+                    <h3 className="text-base font-bold text-brand-dark">
                       {pkg ? (language === 'vi' ? pkg.nameVi : pkg.name) : member.currentPackageName}
                     </h3>
                     <StatusBadge type="membership" status={member.membershipStatus} />
@@ -426,7 +426,7 @@ export function MemberDetailView({ memberId, onBack }) {
                 <div className="text-right">
                   <span className="text-xs text-stone-500">{language === 'vi' ? 'Giá đăng ký:' : 'Package Price:'}</span>
                   {pkg && pkg.price !== undefined && pkg.price !== null ? (
-                    <p className="text-lg font-bold text-[#BA0000] tabular-nums">
+                    <p className="text-lg font-bold text-brand-primary tabular-nums">
                       {formatCurrency(pkg.price, language)}
                     </p>
                   ) : (
@@ -441,7 +441,7 @@ export function MemberDetailView({ memberId, onBack }) {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                 <div className="p-3 bg-stone-50 rounded border border-slate-200">
                   <span className="text-stone-500 text-[11px]">{language === 'vi' ? 'Thời hạn gói:' : 'Duration:'}</span>
-                  <p className="font-bold text-[#181818] mt-1">
+                  <p className="font-bold text-brand-dark mt-1">
                     {pkg?.durationMonths
                       ? `${pkg.durationMonths} ${language === 'vi' ? 'tháng' : 'months'}`
                       : (language === 'vi' ? 'Chưa có dữ liệu' : 'No data')}
@@ -479,7 +479,7 @@ export function MemberDetailView({ memberId, onBack }) {
             /* Empty State: No Membership Package */
             <div className="bg-white border border-slate-200 rounded-lg p-8 text-center space-y-3 shadow-2xs">
               <Package className="w-10 h-10 text-stone-400 mx-auto" />
-              <h4 className="text-sm font-bold text-[#181818]">
+              <h4 className="text-sm font-bold text-brand-dark">
                 {language === 'vi' ? 'Thành viên chưa đăng ký gói' : 'Member has no active package'}
               </h4>
               <p className="text-xs text-stone-500 max-w-sm mx-auto">
@@ -492,14 +492,14 @@ export function MemberDetailView({ memberId, onBack }) {
 
           {/* Action to Assign/Renew Package & Subscriptions Table */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
-            <h4 className="text-sm font-bold text-[#181818] flex items-center gap-2">
+            <h4 className="text-sm font-bold text-brand-dark flex items-center gap-2">
               <Clock className="w-4 h-4 text-stone-600" />
               <span>{language === 'vi' ? 'Lịch sử gói hội viên' : 'Membership History'}</span>
             </h4>
             <button
               type="button"
               onClick={() => setIsAssignModalOpen(true)}
-              className="min-h-[44px] px-4 py-2 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              className="min-h-[44px] px-4 py-2 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
             >
               <PlusCircle className="w-4 h-4" />
               <span>{language === 'vi' ? 'Gán / Đăng ký gói mới' : 'Assign / Renew Package'}</span>
@@ -508,7 +508,7 @@ export function MemberDetailView({ memberId, onBack }) {
 
           {subsLoading ? (
             <div className="py-6 text-center text-xs text-stone-500 flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-[#BA0000]" />
+              <Loader2 className="w-4 h-4 animate-spin text-brand-primary" />
               <span>{language === 'vi' ? 'Đang tải lịch sử gói...' : 'Loading subscriptions...'}</span>
             </div>
           ) : displayedSubscriptions.length > 0 ? (
@@ -527,11 +527,11 @@ export function MemberDetailView({ memberId, onBack }) {
                 <tbody className="divide-y divide-slate-200 text-stone-800">
                   {displayedSubscriptions.map((s) => (
                     <tr key={s.subscriptionId || s.id} className="hover:bg-stone-50 h-[38px]">
-                      <td className="py-2 px-3 font-mono font-bold text-[#181818] tabular-nums">
+                      <td className="py-2 px-3 font-mono font-bold text-brand-dark tabular-nums">
                         #{s.subscriptionId || s.id}
                       </td>
                       <td className="py-2 px-3 font-semibold">{s.packageName}</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-[#181818] tabular-nums">
+                      <td className="py-2 px-3 text-right font-mono font-bold text-brand-dark tabular-nums">
                         {s.price == null ? '—' : formatCurrency(s.price, language)}
                       </td>
                       <td className="py-2 px-3 font-mono text-stone-600 tabular-nums">
@@ -668,7 +668,7 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
       <div className="bg-white border border-slate-200 rounded-lg shadow-xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <h3 className="text-sm font-bold text-[#181818]">
+          <h3 className="text-sm font-bold text-brand-dark">
             {language === 'vi' ? 'Chỉnh sửa hồ sơ thành viên' : 'Edit Member Profile'}
           </h3>
           <button
@@ -697,7 +697,7 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
               type="text"
               value={formData.name}
               onChange={e => setFormData({ ...formData, name: e.target.value })}
-              className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-[#BA0000]"
+              className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
             />
             {errors.name && <p className="text-rose-600 text-[11px] mt-0.5">{errors.name}</p>}
           </div>
@@ -711,7 +711,7 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
                 type="email"
                 value={formData.email}
                 onChange={e => setFormData({ ...formData, email: e.target.value })}
-                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-[#BA0000]"
+                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
               />
               {errors.email && <p className="text-rose-600 text-[11px] mt-0.5">{errors.email}</p>}
             </div>
@@ -724,7 +724,7 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
                 type="text"
                 value={formData.phone}
                 onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-[#BA0000]"
+                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
               />
             </div>
           </div>
@@ -738,7 +738,7 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
                 type="date"
                 value={formData.dateOfBirth}
                 onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-[#BA0000]"
+                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
               />
               {errors.dateOfBirth && <p className="text-rose-600 text-[11px] mt-0.5">{errors.dateOfBirth}</p>}
             </div>
@@ -750,7 +750,7 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
               <select
                 value={formData.gender}
                 onChange={e => setFormData({ ...formData, gender: e.target.value })}
-                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-[#BA0000]"
+                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
               >
                 <option value="">{language === 'vi' ? 'Chọn giới tính...' : 'Select gender...'}</option>
                 <option value="Male">{language === 'vi' ? 'Nam' : 'Male'}</option>
@@ -768,7 +768,7 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
               type="text"
               value={formData.address}
               onChange={e => setFormData({ ...formData, address: e.target.value })}
-              className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-[#BA0000]"
+              className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
             />
           </div>
 
@@ -782,7 +782,7 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
                 placeholder="Giảm cân, tăng cơ..."
                 value={formData.goal}
                 onChange={e => setFormData({ ...formData, goal: e.target.value })}
-                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-[#BA0000]"
+                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
               />
             </div>
 
@@ -795,7 +795,7 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
                 placeholder="Tiền sử chấn thương..."
                 value={formData.healthNote}
                 onChange={e => setFormData({ ...formData, healthNote: e.target.value })}
-                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-[#BA0000]"
+                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
               />
             </div>
           </div>
@@ -812,7 +812,7 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-3.5 py-1.5 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded font-bold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-primary-hover text-white rounded font-bold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
             >
               {isSubmitting && <span className="animate-spin w-3 h-3 border-2 border-white border-t-transparent rounded-full" />}
               <span>{isSubmitting ? (language === 'vi' ? 'Đang lưu…' : 'Saving...') : (language === 'vi' ? 'Lưu thay đổi' : 'Save Changes')}</span>
@@ -916,10 +916,10 @@ function AssignPackageModal({ isOpen, onClose, member, onAssigned }) {
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 overflow-y-auto"
     >
-      <div className="bg-white border border-slate-200 rounded-lg w-full max-w-md shadow-xl p-6 text-[#181818]">
+      <div className="bg-white border border-slate-200 rounded-lg w-full max-w-md shadow-xl p-6 text-brand-dark">
         <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
-          <div className="flex items-center gap-2 font-bold text-sm text-[#181818]">
-            <Package className="w-4 h-4 text-[#BA0000]" />
+          <div className="flex items-center gap-2 font-bold text-sm text-brand-dark">
+            <Package className="w-4 h-4 text-brand-primary" />
             <span>{language === 'vi' ? 'Gán / Đăng ký gói cho hội viên' : 'Assign / Renew Package'}</span>
           </div>
           <button
@@ -968,7 +968,7 @@ function AssignPackageModal({ isOpen, onClose, member, onAssigned }) {
               value={selectedPkgId}
               onChange={(e) => setSelectedPkgId(e.target.value)}
               disabled={isSubmitting}
-              className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-[#D62323]/20"
+              className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
             >
               {availablePackages.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -981,7 +981,7 @@ function AssignPackageModal({ isOpen, onClose, member, onAssigned }) {
           {currentPkg && (
             <div className="p-3 bg-red-50 border border-red-200 rounded flex justify-between items-center text-xs">
               <span className="font-semibold text-slate-700">Giá niêm yết:</span>
-              <span className="text-sm font-bold font-mono text-[#BA0000] tabular-nums">
+              <span className="text-sm font-bold font-mono text-brand-primary tabular-nums">
                 {currentPkg.price == null ? '—' : formatCurrency(currentPkg.price, language)}
               </span>
             </div>
@@ -996,7 +996,7 @@ function AssignPackageModal({ isOpen, onClose, member, onAssigned }) {
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               disabled={isSubmitting}
-              className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-[#D62323]/20"
+              className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
             />
           </div>
 
@@ -1016,7 +1016,7 @@ function AssignPackageModal({ isOpen, onClose, member, onAssigned }) {
                   disabled={isSubmitting}
                   className={`min-h-[44px] py-2 px-2 text-center rounded font-bold border transition-colors cursor-pointer ${
                     paymentMethod === item.key
-                      ? 'bg-[#181818] text-white border-[#181818]'
+                      ? 'bg-brand-dark text-white border-brand-dark'
                       : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                   }`}
                 >
@@ -1033,7 +1033,7 @@ function AssignPackageModal({ isOpen, onClose, member, onAssigned }) {
               checked={isRenewal}
               onChange={(e) => setIsRenewal(e.target.checked)}
               disabled={isSubmitting}
-              className="w-4 h-4 text-[#BA0000] rounded border-slate-300 focus:ring-[#BA0000]"
+              className="w-4 h-4 text-brand-primary rounded border-slate-300 focus:ring-brand-primary"
             />
             <label htmlFor="renewal-check" className="font-semibold text-slate-700 cursor-pointer">
               {language === 'vi' ? 'Gia hạn gói hiện tại' : 'Renew current membership'}
@@ -1050,7 +1050,7 @@ function AssignPackageModal({ isOpen, onClose, member, onAssigned }) {
               onChange={(e) => setNotes(e.target.value)}
               disabled={isSubmitting}
               placeholder={language === 'vi' ? 'Ghi chú hợp đồng...' : 'Notes...'}
-              className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-[#D62323]/20"
+              className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
             />
           </div>
 
@@ -1070,7 +1070,7 @@ function AssignPackageModal({ isOpen, onClose, member, onAssigned }) {
               className={`min-h-[44px] px-5 py-2 font-bold rounded flex items-center gap-2 cursor-pointer transition-colors ${
                 apiEnabled
                   ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-75'
-                  : 'bg-[#BA0000] hover:bg-[#8E0000] text-white disabled:opacity-50'
+                  : 'bg-brand-primary hover:bg-brand-primary-hover text-white disabled:opacity-50'
               }`}
             >
               {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}

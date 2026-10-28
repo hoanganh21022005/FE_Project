@@ -57,12 +57,12 @@ export function HIITDetailView() {
             <div className="w-10 h-10 rounded-xl bg-[#FEE715] flex items-center justify-center font-black text-lg text-black">SC</div>
             <div className="text-xl font-black uppercase text-white tracking-widest">VIBE Sport BURN</div>
           </div>
-          <button onClick={goBack} className="flex items-center gap-2 text-stone-400 hover:text-[#FEE715] transition-colors"><ArrowLeft className="w-5 h-5" />Quay lại</button>
+          <button onClick={goBack} className="flex items-center gap-2 text-stone-400 hover:text-brand-amber transition-colors"><ArrowLeft className="w-5 h-5" />Quay lại</button>
         </div>
       </header>
 
       <section className="pt-32 pb-12 px-4 text-center">
-        <h1 className="text-5xl md:text-7xl font-black uppercase mb-4 tracking-tighter text-[#FEE715]">
+        <h1 className="text-5xl md:text-7xl font-black uppercase mb-4 tracking-tighter text-brand-amber">
           THÁCH THỨC GIỚI HẠN THỂ LỰC
         </h1>
         <p className="text-xl text-stone-400 font-bold uppercase tracking-widest">
@@ -75,19 +75,19 @@ export function HIITDetailView() {
           
           {/* Digital Timer */}
           <div className="bg-black p-8 md:p-12 rounded-[40px] border-4 border-[#FEE715] flex flex-col items-center justify-center shadow-[0_0_50px_rgba(254,231,21,0.2)]">
-             <div className="flex items-center gap-4 mb-8 text-[#FEE715]">
+             <div className="flex items-center gap-4 mb-8 text-brand-amber">
                <Timer className="w-8 h-8" />
                <span className="font-black text-2xl uppercase tracking-widest">{modes[activeMode].name}</span>
              </div>
              
              {/* Massive Time Display */}
-             <div className={`font-mono text-[100px] md:text-[160px] font-black text-white tabular-nums tracking-tighter leading-none ${isShaking ? 'animate-bounce text-red-500' : ''}`} style={{ textShadow: '0 0 20px rgba(255,255,255,0.5)' }}>
+             <div className={`font-mono text-[100px] md:text-[160px] font-black text-white tabular-nums tracking-tighter leading-none ${isShaking ? 'animate-bounce text-brand-amber' : ''}`} style={{ textShadow: '0 0 20px rgba(255,255,255,0.5)' }}>
                {formatTime(timeLeft)}
              </div>
              
              {/* Start button just for show */}
              {!isRunning && timeLeft !== 0 && (
-                <button onClick={() => setIsRunning(true)} className="mt-8 flex items-center gap-2 text-[#FEE715] font-bold text-xl uppercase tracking-widest hover:scale-110 transition-transform">
+                <button onClick={() => setIsRunning(true)} className="mt-8 flex items-center gap-2 text-brand-amber font-bold text-xl uppercase tracking-widest hover:scale-110 transition-transform">
                   <Play className="w-6 h-6 fill-current"/> Start
                 </button>
              )}
@@ -109,11 +109,11 @@ export function HIITDetailView() {
             </div>
 
             <div className="bg-[#1A242F] p-8 rounded-3xl border border-stone-800 mb-8">
-              <h3 className="text-[#FEE715] font-black uppercase mb-3 text-lg">Chi tiết chương trình</h3>
+              <h3 className="text-brand-amber font-black uppercase mb-3 text-lg">Chi tiết chương trình</h3>
               <p className="text-stone-300 leading-relaxed mb-6">
                 Chuỗi bài tập thể lực ngắt quãng cường độ cao (High-Intensity Interval Training). Kết hợp liên tục giữa các bài tập tạ nhẹ, kháng lực và trọng lượng cơ thể với thời gian nghỉ cực ngắn để ép nhịp tim không rớt.
               </p>
-              <h3 className="text-[#FEE715] font-black uppercase mb-3 text-lg">Kết quả đạt được</h3>
+              <h3 className="text-brand-amber font-black uppercase mb-3 text-lg">Kết quả đạt được</h3>
               <p className="text-stone-300 leading-relaxed">
                 Tối ưu hóa quỹ thời gian bận rộn. Kích hoạt hiệu ứng Afterburn giúp cơ thể tự động đốt calo liên tục trong 24 giờ sau khi kết thúc buổi tập, đồng thời nâng cấp sức bền tim mạch.
               </p>

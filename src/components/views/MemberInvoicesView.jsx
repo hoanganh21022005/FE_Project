@@ -25,7 +25,7 @@ const STATUS_LABELS = {
     en: "Pending",
     style: "bg-amber-50 text-amber-800",
   },
-  failed: { vi: "Thất bại", en: "Failed", style: "bg-red-50 text-red-700" },
+  failed: { vi: "Thất bại", en: "Failed", style: "bg-rose-50 text-status-error" },
   cancelled: {
     vi: "Đã hủy",
     en: "Cancelled",
@@ -153,7 +153,7 @@ export function MemberInvoicesView() {
     <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-7 sm:py-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
+          <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
             VIBE SPORT · MEMBER
           </p>
           <h1 className="mt-2 text-3xl font-black text-slate-950">
@@ -217,13 +217,13 @@ export function MemberInvoicesView() {
                 placeholder={
                   isVi ? "Tìm mã hóa đơn, gói..." : "Search invoice, package..."
                 }
-                className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-red-400 sm:w-56"
+                className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-brand-primary sm:w-56"
               />
             </label>
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-red-400"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-brand-primary"
             >
               <option value="all">
                 {isVi ? "Tất cả trạng thái" : "All statuses"}
@@ -314,7 +314,7 @@ export function MemberInvoicesView() {
                         type="button"
                         onClick={() => payOnline(invoice)}
                         disabled={payingId === invoice.id}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-red-700 px-3 py-2 text-xs font-bold text-white hover:bg-red-800 disabled:opacity-60"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-white hover:bg-brand-primary-hover disabled:opacity-60"
                       >
                         {payingId === invoice.id
                           ? isVi
@@ -341,7 +341,7 @@ function Summary({ icon: Icon, title, value }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-        <Icon className="h-4 w-4 text-red-700" />
+        <Icon className="h-4 w-4 text-brand-accent-dark" />
         {title}
       </div>
       <p className="mt-3 text-xl font-black text-slate-900">{value}</p>

@@ -188,7 +188,7 @@ function SectionHeading({ icon: Icon, title, action, onAction }) {
   return (
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
       <div className="flex min-w-0 items-center gap-2.5">
-        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-700">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-accent-soft text-brand-accent-dark">
           <Icon className="h-4 w-4" aria-hidden="true" />
         </span>
         <h2 className="text-lg font-bold tracking-tight text-slate-950">
@@ -199,7 +199,7 @@ function SectionHeading({ icon: Icon, title, action, onAction }) {
         <button
           type="button"
           onClick={onAction}
-          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[15px] font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[15px] font-semibold text-brand-primary transition hover:bg-brand-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark"
         >
           {action}
           <ArrowRight className="h-4 w-4" />
@@ -700,7 +700,7 @@ export function MemberDashboard() {
       <div className="w-full space-y-6 lg:space-y-7">
         <header className="flex flex-col justify-between gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
           <div className="min-w-0">
-            <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-red-700">
+            <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-brand-accent-dark">
               VIBE SPORT · MEMBER
             </p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-[2rem]">
@@ -734,7 +734,7 @@ export function MemberDashboard() {
             type="button"
             onClick={handleOpenQr}
             disabled={!apiEnabled}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-red-700 px-4 py-2.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <QrCode className="h-4 w-4" aria-hidden="true" />
             {isVi ? "Mã QR Check-in" : "Check-in QR"}
@@ -876,7 +876,7 @@ export function MemberDashboard() {
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                  <p className="text-[13px] font-semibold uppercase tracking-wide text-red-700">
+                                  <p className="text-[13px] font-semibold uppercase tracking-wide text-brand-primary">
                                     Normal
                                   </p>
                                   <h4 className="mt-1 truncate text-base font-bold text-slate-950">
@@ -977,7 +977,7 @@ export function MemberDashboard() {
                               >
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
-                                    <p className="text-[13px] font-semibold uppercase tracking-wide text-red-700">
+                                    <p className="text-[13px] font-semibold uppercase tracking-wide text-brand-accent-dark">
                                       {enrollment.subjectName ||
                                         (isVi ? "Lớp nhóm" : "Group class")}
                                     </p>
@@ -1022,7 +1022,7 @@ export function MemberDashboard() {
                                 <button
                                   type="button"
                                   onClick={() => navigate("/member/schedule")}
-                                  className="mt-4 inline-flex items-center gap-1.5 text-[15px] font-semibold text-red-700 hover:text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+                                  className="mt-4 inline-flex items-center gap-1.5 text-[15px] font-semibold text-brand-primary hover:text-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark"
                                 >
                                   {isVi ? "Xem lịch học" : "View schedule"}
                                   <ArrowRight className="h-4 w-4" />
@@ -1056,7 +1056,7 @@ export function MemberDashboard() {
                               >
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
-                                    <p className="text-[13px] font-semibold uppercase tracking-wide text-red-700">
+                                    <p className="text-[13px] font-semibold uppercase tracking-wide text-brand-purple-dark">
                                       {subscription.packageName || "Advanced"}
                                     </p>
                                     <h4 className="mt-1 truncate text-base font-bold text-slate-950">
@@ -1215,7 +1215,7 @@ export function MemberDashboard() {
                         }
                         className="flex min-w-0 gap-4 py-4 first:pt-0 last:pb-0"
                       >
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-800">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-accent-soft text-brand-accent-dark">
                           <CalendarDays
                             className="h-5 w-5"
                             aria-hidden="true"
@@ -1339,36 +1339,36 @@ export function MemberDashboard() {
                   type="button"
                   onClick={handleOpenQr}
                   disabled={!apiEnabled}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-800 transition hover:border-red-300 hover:bg-red-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex min-h-12 items-center gap-3 rounded-xl border border-border-color px-3.5 py-3 text-left text-[15px] font-semibold text-text-primary transition hover:border-brand-accent hover:bg-brand-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <QrCode className="h-4 w-4 text-red-700" />
+                  <QrCode className="h-4 w-4 text-brand-accent-dark" />
                   {isVi ? "Mã QR Check-in" : "Check-in QR"}
                   <ArrowRight className="ml-auto h-4 w-4 text-slate-400" />
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate("/member/schedule")}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-800 transition hover:border-red-300 hover:bg-red-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+                  className="flex min-h-12 items-center gap-3 rounded-xl border border-border-color px-3.5 py-3 text-left text-[15px] font-semibold text-text-primary transition hover:border-brand-accent hover:bg-brand-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark"
                 >
-                  <CalendarDays className="h-4 w-4 text-red-700" />
+                  <CalendarDays className="h-4 w-4 text-brand-accent-dark" />
                   {isVi ? "Lịch học của tôi" : "My schedule"}
                   <ArrowRight className="ml-auto h-4 w-4 text-slate-400" />
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate("/member/invoices")}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-800 transition hover:border-red-300 hover:bg-red-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+                  className="flex min-h-12 items-center gap-3 rounded-xl border border-border-color px-3.5 py-3 text-left text-[15px] font-semibold text-text-primary transition hover:border-brand-accent hover:bg-brand-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark"
                 >
-                  <CreditCard className="h-4 w-4 text-red-700" />
+                  <CreditCard className="h-4 w-4 text-brand-accent-dark" />
                   {isVi ? "Hóa đơn" : "Invoices"}
                   <ArrowRight className="ml-auto h-4 w-4 text-slate-400" />
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate("/member/my-membership")}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-800 transition hover:border-red-300 hover:bg-red-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+                  className="flex min-h-12 items-center gap-3 rounded-xl border border-border-color px-3.5 py-3 text-left text-[15px] font-semibold text-text-primary transition hover:border-brand-accent hover:bg-brand-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark"
                 >
-                  <Dumbbell className="h-4 w-4 text-red-700" />
+                  <Dumbbell className="h-4 w-4 text-brand-accent-dark" />
                   {isVi ? "Gói học của tôi" : "My memberships"}
                   <ArrowRight className="ml-auto h-4 w-4 text-slate-400" />
                 </button>
@@ -1452,7 +1452,7 @@ export function MemberDashboard() {
                                 <button
                                   type="button"
                                   onClick={item.onAction}
-                                  className="mt-2 text-[15px] font-semibold text-red-700 underline underline-offset-2 hover:text-red-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+                                  className="mt-2 text-[15px] font-semibold text-brand-primary underline underline-offset-2 hover:text-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark"
                                 >
                                   {item.action}
                                 </button>
@@ -1468,7 +1468,7 @@ export function MemberDashboard() {
             </section>
 
             <section className="rounded-2xl border border-slate-200 bg-slate-900 p-5 text-white shadow-sm sm:p-6">
-              <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-red-300">
+              <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-brand-accent-soft">
                 VIBE SPORT
               </p>
               <h2 className="mt-2 text-lg font-bold">
@@ -1484,7 +1484,7 @@ export function MemberDashboard() {
               <button
                 type="button"
                 onClick={() => navigate("/member/schedule")}
-                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2.5 text-[15px] font-semibold text-slate-900 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2.5 text-[15px] font-semibold text-brand-primary transition hover:bg-brand-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand-primary"
               >
                 {isVi ? "Mở lịch học" : "Open schedule"}
                 <ArrowRight className="h-4 w-4" />
@@ -1509,7 +1509,7 @@ export function MemberDashboard() {
           >
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
-                <p className="text-[13px] font-bold uppercase tracking-wide text-red-700">
+                <p className="text-[13px] font-bold uppercase tracking-wide text-brand-accent-dark">
                   VIBE SPORT
                 </p>
                 <h2
@@ -1523,7 +1523,7 @@ export function MemberDashboard() {
                 type="button"
                 onClick={() => setShowQrModal(false)}
                 aria-label={isVi ? "Đóng" : "Close"}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1536,7 +1536,7 @@ export function MemberDashboard() {
             <div className="mt-4 flex min-h-[248px] items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-4">
               {qrLoading ? (
                 <div className="text-center text-[15px] text-slate-600">
-                  <RefreshCw className="mx-auto mb-2 h-6 w-6 animate-spin text-red-700" />
+                  <RefreshCw className="mx-auto mb-2 h-6 w-6 animate-spin text-brand-primary" />
                   {isVi ? "Đang lấy mã check-in…" : "Loading check-in code…"}
                 </div>
               ) : qrError ? (
@@ -1554,7 +1554,7 @@ export function MemberDashboard() {
                   </div>
                   <p className="mt-3 text-[15px] text-slate-600">
                     {isVi ? "Mã làm mới sau" : "Refreshes in"}{" "}
-                    <strong className="font-semibold text-red-700">
+                    <strong className="font-semibold text-brand-primary">
                       {qrSecondsLeft}s
                     </strong>
                   </p>

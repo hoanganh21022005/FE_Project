@@ -441,10 +441,10 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
       aria-labelledby="payment-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 overflow-y-auto"
     >
-      <div className="bg-white border border-slate-200 rounded-lg w-full max-w-lg shadow-xl p-6 my-8 text-[#181818]">
+      <div className="bg-white border border-slate-200 rounded-lg w-full max-w-lg shadow-xl p-6 my-8 text-brand-dark">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
-          <div className="flex items-center gap-2 font-bold text-sm text-[#181818]">
+          <div className="flex items-center gap-2 font-bold text-sm text-brand-dark">
             <div className="p-2 bg-emerald-50 text-emerald-800 rounded border border-emerald-200">
               <CreditCard className="w-4 h-4" />
             </div>
@@ -463,7 +463,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
         {/* Loading state for API dependencies */}
         {loadingData ? (
           <div className="py-12 text-center">
-            <Loader2 className="w-8 h-8 text-[#BA0000] animate-spin mx-auto mb-2" />
+            <Loader2 className="w-8 h-8 text-brand-primary animate-spin mx-auto mb-2" />
             <p className="text-xs text-slate-600 font-semibold">
               {language === 'vi' ? 'Đang tải thông tin hội viên và gói dịch vụ...' : 'Loading members and packages...'}
             </p>
@@ -488,7 +488,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                   .catch((err) => setFetchError(getErrorMessage(err)))
                   .finally(() => setLoadingData(false));
               }}
-              className="px-3 py-1.5 bg-[#BA0000] text-white rounded text-xs font-bold hover:bg-[#8E0000] transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-1.5 bg-brand-primary text-white rounded text-xs font-bold hover:bg-brand-primary-hover transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>{language === 'vi' ? 'Thử lại' : 'Retry'}</span>
@@ -575,7 +575,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                   <button
                     type="button"
                     onClick={handleStartNewSession}
-                    className="px-3.5 py-1.5 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded font-bold text-xs transition-colors cursor-pointer"
+                    className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-primary-hover text-white rounded font-bold text-xs transition-colors cursor-pointer"
                   >
                     {language === 'vi' ? 'Tạo phiên mới' : 'Start New Session'}
                   </button>
@@ -623,7 +623,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                     <button
                       type="button"
                       onClick={() => handleResumeSession(ambiguousPendingSubInfo.matchingSessionRef)}
-                      className="px-2.5 py-1 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded text-[11px] font-bold cursor-pointer"
+                      className="px-2.5 py-1 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-[11px] font-bold cursor-pointer"
                     >
                       {language === 'vi' ? 'Mở lại phiên này' : 'Resume Session'}
                     </button>
@@ -713,7 +713,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                   syncInProgressForMember(newMid);
                 }}
                 disabled={submitting || isTransactionResumed}
-                className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-[#D62323]/20 disabled:bg-slate-100 disabled:text-slate-500"
+                className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-100 disabled:text-slate-500"
               >
                 {availableMembers.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -736,7 +736,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                   setAmountOverride('');
                 }}
                 disabled={submitting || isTransactionResumed}
-                className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-[#D62323]/20 disabled:bg-slate-100 disabled:text-slate-500"
+                className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-100 disabled:text-slate-500"
               >
                 {availablePackages.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -756,7 +756,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                   {language === 'vi' ? 'Giá niêm yết của gói' : 'Listed package price'}
                 </span>
               </div>
-              <span className="text-lg font-bold font-mono text-[#BA0000] tabular-nums">
+              <span className="text-lg font-bold font-mono text-brand-primary tabular-nums">
                 {currentAmount == null ? '—' : formatCurrency(currentAmount, language)}
               </span>
             </div>
@@ -782,7 +782,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                     key={item.key}
                     onClick={() => setMethod(item.key)}
                     disabled={submitting || isTransactionResumed}
-                    className='min-h-[44px] px-5 py-2 bg-[#BA0000] hover:bg-[#8E0000] text-white font-bold rounded shadow-xs flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50'
+                    className='min-h-[44px] px-5 py-2 bg-brand-primary hover:bg-brand-primary-hover text-white font-bold rounded shadow-xs flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50'
                   >
                     {item.label}
                   </button>
@@ -803,7 +803,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                   onChange={(e) => setGatewayRef(e.target.value)}
                   disabled={submitting}
                   placeholder={language === 'vi' ? 'Ví dụ: VNPAY-123456 hoặc MB-889900...' : 'e.g. TXN-123456...'}
-                  className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-[#D62323]/20 disabled:bg-slate-100"
+                  className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-100"
                 />
               </div>
             )}
@@ -820,7 +820,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                 onChange={(e) => setNotes(e.target.value)}
                 disabled={submitting}
                 placeholder={language === 'vi' ? 'Ghi chú số biên lai, yêu cầu của khách...' : 'Receipt notes...'}
-                className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-[#D62323]/20 disabled:bg-slate-100"
+                className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-100"
               />
             </div>
 
@@ -855,7 +855,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                 className={`min-h-[44px] px-5 py-2 font-bold rounded shadow-xs flex items-center gap-2 cursor-pointer transition-colors ${
                   isMutationLocked
                     ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-75'
-                    : 'bg-[#BA0000] hover:bg-[#8E0000] text-white disabled:opacity-50'
+                    : 'bg-brand-primary hover:bg-brand-primary-hover text-white disabled:opacity-50'
                 }`}
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}

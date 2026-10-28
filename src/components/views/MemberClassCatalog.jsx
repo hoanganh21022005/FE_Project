@@ -904,16 +904,16 @@ function LegacyMemberClassCatalog() {
       {/* ============================================================== */}
       {/* 2. TẤT CẢ LỚP HỌC & HỌC PHÍ CÁC MÔN (ĐĂNG KÝ MỚI)               */}
       {/* ============================================================== */}
-      <div className="bg-[#0F141C] border border-slate-800/80 rounded-3xl p-4 sm:p-6 lg:p-7 text-white shadow-xl space-y-6">
+      <div className="bg-[#202B46] border border-slate-800/80 rounded-3xl p-4 sm:p-6 lg:p-7 text-white shadow-xl space-y-6">
         {/* Top Header Section with Reference System Signature: "HỌC PHÍ CÁC MÔN" + Red Underline */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-2 border-b border-slate-800/80">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white flex items-center gap-2">
               <span>HỌC PHÍ</span>
-              <span className="text-[#FF3333]">CÁC MÔN</span>
+              <span className="text-[#24A9D2]">CÁC MÔN</span>
             </h2>
-            <span className="text-[11px] font-bold text-[#FF5555] bg-red-950/60 border border-red-800/50 px-2.5 py-0.5 rounded-full">
+            <span className="text-[11px] font-bold text-[#98D9E8] bg-brand-dark border border-brand-accent/40 px-2.5 py-0.5 rounded-full">
               VIBE Sport Center
             </span>
             <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
@@ -921,7 +921,7 @@ function LegacyMemberClassCatalog() {
             </span>
           </div>
           {/* Distinct Red Underline Bar under "HỌC PHÍ" (From reference image) */}
-          <div className="w-20 h-1 bg-[#BA0000] rounded-full mt-2 mb-2" />
+          <div className="w-20 h-1 bg-brand-primary rounded-full mt-2 mb-2" />
           <p className="text-xs sm:text-sm text-slate-400 max-w-2xl">
             {language === 'vi'
               ? 'Đăng ký các khóa đào tạo thể thao chuyên nghiệp cùng đội ngũ Huấn luyện viên đạt chuẩn quốc tế.'
@@ -938,7 +938,7 @@ function LegacyMemberClassCatalog() {
               placeholder={language === 'vi' ? 'Tìm lớp, bộ môn, HLV, sân tập...' : 'Search class, coach, court...'}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 bg-[#161B22] border border-slate-700/80 rounded-lg text-xs text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#BA0000] focus:border-[#BA0000] transition-all"
+              className="w-full pl-9 pr-8 py-2 bg-[#303B58] border border-slate-700/80 rounded-lg text-xs text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-brand-primary focus:border-brand-primary transition-all"
             />
             {searchInput && (
               <button
@@ -957,15 +957,15 @@ function LegacyMemberClassCatalog() {
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
             className={`p-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
               showAdvancedFilters || hasActiveFilters
-                ? 'bg-red-950/80 border-[#BA0000] text-red-400'
-                : 'bg-[#161B22] border-slate-700/80 text-slate-300 hover:bg-slate-800'
+                ? 'bg-brand-blue-soft border-brand-primary text-brand-primary'
+                : 'bg-[#303B58] border-slate-700/80 text-slate-300 hover:bg-slate-800'
             }`}
             title={language === 'vi' ? 'Bộ lọc nâng cao' : 'Advanced filters'}
           >
             <SlidersHorizontal className="w-4 h-4" />
             <span className="hidden sm:inline">{language === 'vi' ? 'Bộ lọc' : 'Filters'}</span>
             {hasActiveFilters && (
-              <span className="w-2 h-2 rounded-full bg-[#BA0000]" />
+              <span className="w-2 h-2 rounded-full bg-brand-primary" />
             )}
           </button>
         </div>
@@ -977,7 +977,7 @@ function LegacyMemberClassCatalog() {
           <button
             type="button"
             onClick={() => handleScrollSports('left')}
-            className="p-1.5 bg-[#161B22] hover:bg-slate-800 border border-slate-700/80 text-slate-300 rounded-md shadow-sm mr-1.5 shrink-0 cursor-pointer flex items-center justify-center transition-colors"
+            className="p-1.5 bg-[#303B58] hover:bg-slate-800 border border-slate-700/80 text-slate-300 rounded-md shadow-sm mr-1.5 shrink-0 cursor-pointer flex items-center justify-center transition-colors"
             title="Cuộn sang trái"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
@@ -997,13 +997,13 @@ function LegacyMemberClassCatalog() {
             onClick={() => setSelectedCategory('all')}
             className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
               selectedCategory === 'all'
-                ? 'bg-[#BA0000] text-white shadow-md'
-                : 'bg-[#161B22] text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800'
+                ? 'bg-brand-primary text-white shadow-md'
+                : 'bg-[#303B58] text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800'
             }`}
           >
             <span>{language === 'vi' ? 'Tất cả bộ môn' : 'All Sports'}</span>
             <span className={`text-[10px] px-1.5 py-0.2 rounded-full tabular-nums font-bold ${
-              selectedCategory === 'all' ? 'bg-red-950 text-red-200' : 'bg-slate-800 text-slate-400'
+              selectedCategory === 'all' ? 'bg-brand-dark-hover text-brand-sky-soft' : 'bg-slate-800 text-slate-400'
             }`}>
               {openClassesCount}
             </span>
@@ -1020,8 +1020,8 @@ function LegacyMemberClassCatalog() {
                 onClick={() => setSelectedCategory(cat)}
                 className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
                   isSelected
-                    ? 'bg-[#BA0000] text-white shadow-md'
-                    : 'bg-[#161B22] text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800'
+                    ? 'bg-brand-primary text-white shadow-md'
+                    : 'bg-[#303B58] text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800'
                 }`}
               >
                 <span>{cat}</span>
@@ -1034,7 +1034,7 @@ function LegacyMemberClassCatalog() {
           <button
             type="button"
             onClick={() => handleScrollSports('right')}
-            className="p-1.5 bg-[#161B22] hover:bg-slate-800 border border-slate-700/80 text-slate-300 rounded-md shadow-sm ml-1.5 shrink-0 cursor-pointer flex items-center justify-center transition-colors"
+            className="p-1.5 bg-[#303B58] hover:bg-slate-800 border border-slate-700/80 text-slate-300 rounded-md shadow-sm ml-1.5 shrink-0 cursor-pointer flex items-center justify-center transition-colors"
             title="Cuộn sang phải"
           >
             <ChevronRight className="w-3.5 h-3.5" />
@@ -1048,12 +1048,12 @@ function LegacyMemberClassCatalog() {
           <span className="text-slate-400 font-medium text-[11px]">Đang lọc:</span>
 
           {selectedCategory !== 'all' && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#161B22] text-slate-200 text-[11px] font-semibold border border-slate-700">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#303B58] text-slate-200 text-[11px] font-semibold border border-slate-700">
               <span>Môn: {selectedCategory}</span>
               <button
                 type="button"
                 onClick={() => setSelectedCategory('all')}
-                className="hover:text-red-400 cursor-pointer"
+                className="hover:text-brand-accent cursor-pointer"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -1061,14 +1061,14 @@ function LegacyMemberClassCatalog() {
           )}
 
           {selectedTimeOfDay !== 'all' && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#161B22] text-slate-200 text-[11px] font-semibold border border-slate-700">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#303B58] text-slate-200 text-[11px] font-semibold border border-slate-700">
               <span>
                 Khung giờ: {selectedTimeOfDay === 'morning' ? 'Sáng' : selectedTimeOfDay === 'afternoon' ? 'Chiều' : 'Tối'}
               </span>
               <button
                 type="button"
                 onClick={() => setSelectedTimeOfDay('all')}
-                className="hover:text-red-400 cursor-pointer"
+                className="hover:text-brand-accent cursor-pointer"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -1076,12 +1076,12 @@ function LegacyMemberClassCatalog() {
           )}
 
           {selectedAvailability !== 'all' && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#161B22] text-slate-200 text-[11px] font-semibold border border-slate-700">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#303B58] text-slate-200 text-[11px] font-semibold border border-slate-700">
               <span>{selectedAvailability === 'available' ? 'Còn chỗ' : 'Đã ghi danh'}</span>
               <button
                 type="button"
                 onClick={() => setSelectedAvailability('all')}
-                className="hover:text-red-400 cursor-pointer"
+                className="hover:text-brand-accent cursor-pointer"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -1089,12 +1089,12 @@ function LegacyMemberClassCatalog() {
           )}
 
           {debouncedSearch && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#161B22] text-slate-200 text-[11px] font-semibold border border-slate-700">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#303B58] text-slate-200 text-[11px] font-semibold border border-slate-700">
               <span>Từ khóa: "{debouncedSearch}"</span>
               <button
                 type="button"
                 onClick={() => { setSearchInput(''); setDebouncedSearch(''); }}
-                className="hover:text-red-400 cursor-pointer"
+                className="hover:text-brand-accent cursor-pointer"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -1104,7 +1104,7 @@ function LegacyMemberClassCatalog() {
           <button
             type="button"
             onClick={handleResetFilters}
-            className="text-red-400 hover:text-red-300 hover:underline font-semibold text-[11px] ml-1 cursor-pointer"
+            className="text-brand-accent hover:text-brand-sky-soft hover:underline font-semibold text-[11px] ml-1 cursor-pointer"
           >
             Xóa tất cả bộ lọc
           </button>
@@ -1113,7 +1113,7 @@ function LegacyMemberClassCatalog() {
 
       {/* Collapsible Advanced Filters Panel */}
       {showAdvancedFilters && (
-        <div className="pt-3 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-[#161B22] p-4 rounded-xl border border-slate-800 animate-in slide-in-from-top-2 duration-150">
+        <div className="pt-3 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-[#303B58] p-4 rounded-xl border border-slate-800 animate-in slide-in-from-top-2 duration-150">
           {/* Filter by Time */}
           <div>
             <label className="block text-[11px] font-bold text-slate-300 mb-1">
@@ -1122,7 +1122,7 @@ function LegacyMemberClassCatalog() {
             <select
               value={selectedTimeOfDay}
               onChange={(e) => setSelectedTimeOfDay(e.target.value)}
-              className="w-full bg-[#0F141C] border border-slate-700 rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-hidden focus:ring-1 focus:ring-[#BA0000]"
+              className="w-full bg-[#202B46] border border-slate-700 rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-hidden focus:ring-1 focus:ring-brand-primary"
             >
               <option value="all">{language === 'vi' ? 'Tất cả khung giờ' : 'All Times'}</option>
               <option value="morning">{language === 'vi' ? 'Buổi sáng (trước 12:00)' : 'Morning (Before 12:00)'}</option>
@@ -1139,7 +1139,7 @@ function LegacyMemberClassCatalog() {
             <select
               value={selectedAvailability}
               onChange={(e) => setSelectedAvailability(e.target.value)}
-              className="w-full bg-[#0F141C] border border-slate-700 rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-hidden focus:ring-1 focus:ring-[#BA0000]"
+              className="w-full bg-[#202B46] border border-slate-700 rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-hidden focus:ring-1 focus:ring-brand-primary"
             >
               <option value="all">{language === 'vi' ? 'Tất cả trạng thái' : 'All Status'}</option>
               <option value="available">{language === 'vi' ? 'Chỉ lớp còn chỗ trống' : 'Available Spots Only'}</option>
@@ -1156,7 +1156,7 @@ function LegacyMemberClassCatalog() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full bg-[#0F141C] border border-slate-700 rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-hidden focus:ring-1 focus:ring-[#BA0000]"
+                className="w-full bg-[#202B46] border border-slate-700 rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-hidden focus:ring-1 focus:ring-brand-primary"
               >
                 <option value="default">{language === 'vi' ? 'Mặc định (Sắp diễn ra)' : 'Default'}</option>
                 <option value="price_asc">{language === 'vi' ? 'Học phí: Thấp đến Cao' : 'Price: Low to High'}</option>
@@ -1168,7 +1168,7 @@ function LegacyMemberClassCatalog() {
                 <button
                   type="button"
                   onClick={handleResetFilters}
-                  className="p-1.5 text-slate-400 hover:text-white bg-[#0F141C] hover:bg-slate-800 border border-slate-700 rounded-md transition-colors cursor-pointer shrink-0"
+                  className="p-1.5 text-slate-400 hover:text-white bg-[#202B46] hover:bg-slate-800 border border-slate-700 rounded-md transition-colors cursor-pointer shrink-0"
                   title={language === 'vi' ? 'Đặt lại bộ lọc' : 'Reset filters'}
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -1180,7 +1180,7 @@ function LegacyMemberClassCatalog() {
       )}
 
       {/* Lightweight Policy & Privilege Notice Bar */}
-      <div className="bg-[#161B22]/90 border border-slate-800 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-slate-300 shadow-sm">
+      <div className="bg-[#303B58]/90 border border-slate-800 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-slate-300 shadow-sm">
         <div className="flex items-center gap-2 flex-wrap">
           <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
           <span>
@@ -1202,7 +1202,7 @@ function LegacyMemberClassCatalog() {
         <button
           type="button"
           onClick={() => setShowPolicyModal(true)}
-          className="text-[11px] font-bold text-red-400 hover:text-red-300 hover:underline cursor-pointer inline-flex items-center gap-1 shrink-0"
+          className="text-[11px] font-bold text-brand-accent hover:text-brand-sky-soft hover:underline cursor-pointer inline-flex items-center gap-1 shrink-0"
         >
           <span>{language === 'vi' ? 'Xem chính sách ưu đãi' : 'View policy'}</span>
           <span>&rarr;</span>
@@ -1211,7 +1211,7 @@ function LegacyMemberClassCatalog() {
 
       {/* Main Class Cards Grid (Dark Athletic System with Square Red Sport Badges) */}
       {filteredAndSortedClasses.length === 0 ? (
-        <div className="bg-[#161B22] border border-slate-800 rounded-2xl p-12 text-center shadow-lg space-y-3">
+        <div className="bg-[#303B58] border border-slate-800 rounded-2xl p-12 text-center shadow-lg space-y-3">
           <div className="w-14 h-14 rounded-full bg-slate-800/80 flex items-center justify-center mx-auto text-slate-400">
             <AlertCircle className="w-7 h-7" />
           </div>
@@ -1228,7 +1228,7 @@ function LegacyMemberClassCatalog() {
           <button
             type="button"
             onClick={handleResetFilters}
-            className="px-4 py-2 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded-lg text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md transition-colors"
+            className="px-4 py-2 bg-brand-primary hover:bg-brand-primary-hover text-white rounded-lg text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md transition-colors"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>{language === 'vi' ? 'Xóa tất cả bộ lọc' : 'Clear All Filters'}</span>
@@ -1284,7 +1284,7 @@ function LegacyMemberClassCatalog() {
               return (
                 <div
                   key={cls.id}
-                  className="bg-[#161B22] border border-slate-800/90 hover:border-slate-700 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col h-full group"
+                  className="bg-[#303B58] border border-slate-800/90 hover:border-slate-700 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col h-full group"
                 >
                   {/* Top Court Image Area (16:9 ratio) */}
                   <div className="relative aspect-16/9 w-full bg-slate-950 overflow-hidden shrink-0">
@@ -1296,11 +1296,11 @@ function LegacyMemberClassCatalog() {
                         e.currentTarget.style.display = 'none';
                       }}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#161B22] via-transparent to-transparent opacity-80" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#303B58] via-transparent to-transparent opacity-80" />
 
                     {/* Top Right: Distinct Red Square Sport Badge with white icon (Matches reference image) */}
                     <div className="absolute top-3 right-3 z-10">
-                      <div className="w-11 h-11 rounded-xl bg-[#BA0000] shadow-lg flex items-center justify-center transition-transform group-hover:scale-110 duration-200">
+                      <div className="w-11 h-11 rounded-xl bg-brand-primary shadow-lg flex items-center justify-center transition-transform group-hover:scale-110 duration-200">
                         <SportSquareBadge category={cls.category} />
                       </div>
                     </div>
@@ -1319,7 +1319,7 @@ function LegacyMemberClassCatalog() {
                   <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
                     <div className="space-y-3">
                       {/* Class Title (Bold Uppercase White) */}
-                      <h3 className="text-lg font-black text-white uppercase tracking-wide group-hover:text-red-400 transition-colors leading-tight">
+                      <h3 className="text-lg font-black text-white uppercase tracking-wide group-hover:text-brand-accent transition-colors leading-tight">
                         {cls.nameVi || cls.name}
                       </h3>
 
@@ -1342,7 +1342,7 @@ function LegacyMemberClassCatalog() {
                             <span className="line-through text-slate-500 text-xs tabular-nums">
                               {totalCourseFee.toLocaleString('vi-VN')} đ
                             </span>
-                            <strong className="text-lg font-black text-[#FF3333] tabular-nums">
+                            <strong className="text-lg font-black text-[#24A9D2] tabular-nums">
                               {memberPrice.toLocaleString('vi-VN')} đ
                             </strong>
                             <span className="text-[10px] font-bold text-amber-400 bg-amber-950/80 border border-amber-800/60 px-1 py-0.2 rounded">
@@ -1350,7 +1350,7 @@ function LegacyMemberClassCatalog() {
                             </span>
                           </div>
                         ) : (
-                          <strong className="text-lg font-black text-[#FF3333] tabular-nums">
+                          <strong className="text-lg font-black text-[#24A9D2] tabular-nums">
                             {totalCourseFee.toLocaleString('vi-VN')} đ
                           </strong>
                         )}
@@ -1363,31 +1363,31 @@ function LegacyMemberClassCatalog() {
                       {/* Specification List with distinct red dash (-) bullets (Matches screenshot) */}
                       <div className="space-y-1.5 pt-1 text-xs text-slate-300">
                         <div className="flex items-start gap-2">
-                          <span className="text-[#FF3333] font-bold shrink-0 text-sm leading-4">—</span>
+                          <span className="text-[#24A9D2] font-bold shrink-0 text-sm leading-4">—</span>
                           <span>
                             <strong className="text-slate-200">Lịch:</strong> {schedule.daysText} &bull; {cls.startTime} - {cls.endTime || ''}
                           </span>
                         </div>
                         <div className="flex items-start gap-2">
-                          <span className="text-[#FF3333] font-bold shrink-0 text-sm leading-4">—</span>
+                          <span className="text-[#24A9D2] font-bold shrink-0 text-sm leading-4">—</span>
                           <span>
                             <strong className="text-slate-200">Khai giảng:</strong> {schedule.startFormatted} - {schedule.endFormatted}
                           </span>
                         </div>
                         <div className="flex items-start gap-2">
-                          <span className="text-[#FF3333] font-bold shrink-0 text-sm leading-4">—</span>
+                          <span className="text-[#24A9D2] font-bold shrink-0 text-sm leading-4">—</span>
                           <span className="truncate">
                             <strong className="text-slate-200">Sân tập:</strong> {language === 'vi' ? (cls.roomVi || cls.room) : cls.room}
                           </span>
                         </div>
                         <div className="flex items-start gap-2">
-                          <span className="text-[#FF3333] font-bold shrink-0 text-sm leading-4">—</span>
+                          <span className="text-[#24A9D2] font-bold shrink-0 text-sm leading-4">—</span>
                           <span>
                             <strong className="text-slate-200">HLV:</strong> {hasCoach ? cls.coachName : (language === 'vi' ? 'Thông báo trước khai giảng' : 'To be announced')}
                           </span>
                         </div>
                         <div className="flex items-start gap-2">
-                          <span className="text-[#FF3333] font-bold shrink-0 text-sm leading-4">—</span>
+                          <span className="text-[#24A9D2] font-bold shrink-0 text-sm leading-4">—</span>
                           <span>
                             <strong className="text-slate-200">Sức chứa:</strong> Còn <strong className="text-white font-bold tabular-nums">{spotsLeft}</strong> chỗ (Tối đa {cls.capacity} học viên)
                           </span>
@@ -1452,11 +1452,11 @@ function LegacyMemberClassCatalog() {
                           type="button"
                           disabled={Boolean(bookingLoadingId)}
                           onClick={() => setEnrollingClass(cls)}
-                          className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 text-[#BA0000] active:scale-[0.98] font-black uppercase text-xs tracking-wider rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                          className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 text-brand-primary active:scale-[0.98] font-black uppercase text-xs tracking-wider rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
                         >
                           {bookingLoadingId === cls.id ? (
                             <>
-                              <div className="w-3.5 h-3.5 border-2 border-[#BA0000] border-t-transparent rounded-full animate-spin" />
+                              <div className="w-3.5 h-3.5 border-2 border-brand-primary border-t-transparent rounded-full animate-spin" />
                               <span>{language === 'vi' ? 'Đang gửi...' : 'Processing...'}</span>
                             </>
                           ) : (
@@ -1476,7 +1476,7 @@ function LegacyMemberClassCatalog() {
 
           {/* Pagination Controls on Dark Theme */}
           {totalPages > 1 && (
-            <div className="bg-[#161B22] border border-slate-800 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+            <div className="bg-[#303B58] border border-slate-800 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
               <div>
                 {language === 'vi' ? (
                   <>
@@ -1494,7 +1494,7 @@ function LegacyMemberClassCatalog() {
                   type="button"
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="px-3 py-1.5 rounded-lg border border-slate-700 bg-[#0F141C] text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                  className="px-3 py-1.5 rounded-lg border border-slate-700 bg-[#202B46] text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed font-semibold flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
                   <span>{language === 'vi' ? 'Trước' : 'Prev'}</span>
@@ -1507,8 +1507,8 @@ function LegacyMemberClassCatalog() {
                     onClick={() => setCurrentPage(pageNumber)}
                     className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors cursor-pointer tabular-nums ${
                       currentPage === pageNumber
-                        ? 'bg-[#BA0000] text-white shadow-md'
-                        : 'bg-[#0F141C] border border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white'
+                        ? 'bg-brand-primary text-white shadow-md'
+                        : 'bg-[#202B46] border border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white'
                     }`}
                   >
                     {pageNumber}
@@ -1519,7 +1519,7 @@ function LegacyMemberClassCatalog() {
                   type="button"
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-1.5 rounded-lg border border-slate-700 bg-[#0F141C] text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                  className="px-3 py-1.5 rounded-lg border border-slate-700 bg-[#202B46] text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed font-semibold flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <span>{language === 'vi' ? 'Sau' : 'Next'}</span>
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -1814,7 +1814,7 @@ function LegacyMemberClassCatalog() {
                   onClick={() => {
                     navigate(`/courses/${selectedSportForDetail.id}`);
                   }}
-                  className="flex-1 sm:flex-initial px-5 py-2.5 rounded-full bg-mlc-red hover:bg-rose-700 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-mlc transition-all"
+                  className="flex-1 sm:flex-initial px-5 py-2.5 rounded-full bg-mlc-red hover:bg-brand-primary-hover text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-mlc transition-all"
                 >
                   <span>Xem trang giới thiệu</span>
                   <ExternalLink className="w-3.5 h-3.5" />

@@ -1,6 +1,6 @@
 import React from "react"
 import { Link, useLocation, useParams } from "react-router-dom"
-import { ArrowRight, CheckCircle2, ChevronRight, Compass, Target } from "lucide-react"
+import { ArrowDown, ArrowRight, CheckCircle2, ChevronRight, Compass, Target } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { publicCourses } from "../../data/publicCourses"
 import { publicCoaches } from "../../data/publicCoaches"

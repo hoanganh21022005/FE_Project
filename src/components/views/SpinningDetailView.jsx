@@ -15,7 +15,7 @@ export function SpinningDetailView() {
   const levels = {
     warmup: { id: 'warmup', label: 'Khởi động', color: 'text-blue-400', bg: 'bg-blue-500/20', border: 'border-blue-500', rate: 5, icon: Gauge },
     climb: { id: 'climb', label: 'Leo dốc', color: 'text-orange-400', bg: 'bg-orange-500/20', border: 'border-orange-500', rate: 12, icon: Zap },
-    sprint: { id: 'sprint', label: 'Nước rút', color: 'text-red-500', bg: 'bg-red-600/20', border: 'border-red-600', rate: 25, icon: Flame }
+    sprint: { id: 'sprint', label: 'Nước rút', color: 'text-brand-amber', bg: 'bg-brand-amber/20', border: 'border-brand-amber', rate: 25, icon: Flame }
   };
 
   useEffect(() => {
@@ -79,7 +79,7 @@ export function SpinningDetailView() {
             
             {/* Speed indicator bar */}
             <div className="w-full bg-stone-900 h-2 rounded-full mt-12 overflow-hidden">
-               <div className={`h-full transition-all duration-1000 ease-out ${currentConfig.id === 'warmup' ? 'w-1/3 bg-blue-500' : currentConfig.id === 'climb' ? 'w-2/3 bg-orange-500' : 'w-full bg-red-600'}`}></div>
+               <div className={`h-full transition-all duration-1000 ease-out ${currentConfig.id === 'warmup' ? 'w-1/3 bg-blue-500' : currentConfig.id === 'climb' ? 'w-2/3 bg-orange-500' : 'w-full bg-brand-amber'}`}></div>
             </div>
           </div>
 
@@ -108,7 +108,7 @@ export function SpinningDetailView() {
               </p>
             </div>
 
-            <button onClick={() => navigate('/register')} className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest transition-all duration-500 text-white ${currentConfig.id === 'warmup' ? 'bg-blue-600 hover:bg-blue-500' : currentConfig.id === 'climb' ? 'bg-orange-500 hover:bg-orange-400' : 'bg-red-600 hover:bg-red-500'}`}>
+            <button onClick={() => navigate('/register')} className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest transition-all duration-500 text-white ${currentConfig.id === 'warmup' ? 'bg-brand-primary hover:bg-brand-primary-hover' : currentConfig.id === 'climb' ? 'bg-brand-purple hover:bg-brand-purple-dark' : 'bg-brand-primary hover:bg-brand-primary-hover'}`}>
               CHỌN XE VÀ GIỮ CHỖ NGAY
             </button>
           </div>

@@ -102,14 +102,14 @@ function PackageCard({ pkg, language, apiMode, canManage, busy, onEdit, onToggle
     <article className="flex min-w-0 flex-col rounded-lg border border-stone-200 bg-white p-5 shadow-xs">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-[#BA0000]">{pkg.packageType || (vi ? 'Chưa phân loại' : 'Unclassified')} · ID {pkg.id}</p>
-          <h4 className="mt-1 break-words text-base font-bold text-[#181818]">{vi ? (pkg.nameVi || pkg.name) : pkg.name}</h4>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-brand-primary">{pkg.packageType || (vi ? 'Chưa phân loại' : 'Unclassified')} · ID {pkg.id}</p>
+          <h4 className="mt-1 break-words text-base font-bold text-brand-dark">{vi ? (pkg.nameVi || pkg.name) : pkg.name}</h4>
         </div>
         <span className={active ? 'shrink-0 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold uppercase text-emerald-700' : 'shrink-0 rounded border border-stone-200 bg-stone-100 px-2 py-1 text-[10px] font-bold uppercase text-stone-600'}>{pkg.status || '—'}</span>
       </div>
       <div className="mt-4 min-w-0 space-y-1 rounded border border-stone-200 bg-stone-50 p-3">
         <p className="text-[10px] font-bold uppercase tracking-wide text-stone-500">{vi ? 'Giá gói thành viên' : 'Membership package price'}</p>
-        <p className="break-words text-xl font-bold tabular-nums text-[#181818]">{money(pkg.price, language)}</p>
+        <p className="break-words text-xl font-bold tabular-nums text-brand-dark">{money(pkg.price, language)}</p>
         <p className="text-xs text-stone-500">{vi ? 'Thời hạn:' : 'Duration:'} {pkg.durationDays != null ? String(pkg.durationDays) + (vi ? ' ngày' : ' days') : !apiMode && pkg.durationMonths != null ? String(pkg.durationMonths) + (vi ? ' tháng' : ' months') : '—'}</p>
         <p className="text-xs text-stone-500">{vi ? 'Tổng credit:' : 'Total credit:'} {pkg.totalCredit ?? '—'}</p>
       </div>
@@ -203,17 +203,17 @@ export function PackageManagement() {
     <div className="space-y-6">
       <header className="flex flex-col gap-4 rounded-lg border border-stone-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <div className="rounded bg-stone-100 p-2"><Package className="h-5 w-5 text-[#BA0000]" /></div>
-          <div><h2 className="text-lg font-bold text-[#181818]">{t('packages')}</h2></div>
+          <div className="rounded bg-stone-100 p-2"><Package className="h-5 w-5 text-brand-primary" /></div>
+          <div><h2 className="text-lg font-bold text-brand-dark">{t('packages')}</h2></div>
         </div>
         <div className="flex flex-wrap gap-2">
           {apiEnabled && <button type="button" disabled={subjectLoading || packageLoading} onClick={refresh} className="inline-flex min-h-10 items-center gap-2 rounded border border-stone-300 px-3 text-xs font-bold text-stone-700 hover:bg-stone-50 disabled:opacity-50"><RefreshCw className="h-4 w-4" />{vi ? 'Tải lại' : 'Refresh'}</button>}
-          {canManagePackages && <button type="button" onClick={() => setEditor({ item: null })} className="inline-flex min-h-10 items-center gap-2 rounded bg-[#BA0000] px-3.5 text-xs font-bold text-white hover:bg-[#8E0000]"><Plus className="h-4 w-4" />{vi ? 'Tạo gói mới' : 'Create package'}</button>}
+          {canManagePackages && <button type="button" onClick={() => setEditor({ item: null })} className="inline-flex min-h-10 items-center gap-2 rounded bg-brand-primary px-3.5 text-xs font-bold text-white hover:bg-brand-primary-hover"><Plus className="h-4 w-4" />{vi ? 'Tạo gói mới' : 'Create package'}</button>}
         </div>
       </header>
 
       <div role="tablist" aria-label={vi ? 'Loại gói thành viên' : 'Membership package type'} className="flex gap-2 border-b border-stone-200">
-        {['Normal', 'Advanced'].map((type) => <button key={type} type="button" role="tab" aria-selected={activeType === type} aria-controls="package-type-panel" onClick={() => setActiveType(type)} className={activeType === type ? 'min-h-11 border-b-2 border-[#BA0000] px-5 text-sm font-bold text-[#BA0000]' : 'min-h-11 border-b-2 border-transparent px-5 text-sm font-bold text-stone-500 hover:text-stone-900'}>{type}</button>)}
+        {['Normal', 'Advanced'].map((type) => <button key={type} type="button" role="tab" aria-selected={activeType === type} aria-controls="package-type-panel" onClick={() => setActiveType(type)} className={activeType === type ? 'min-h-11 border-b-2 px-5 text-sm font-bold ' + (type === 'Advanced' ? 'border-brand-purple text-brand-purple-dark' : 'border-brand-primary text-brand-primary') : 'min-h-11 border-b-2 border-transparent px-5 text-sm font-bold text-stone-500 hover:text-stone-900'}>{type}</button>)}
       </div>
 
       <div id="package-type-panel" role="tabpanel" className="space-y-6">
@@ -229,7 +229,7 @@ export function PackageManagement() {
                   {pricedSubjects.map((subject) => <article key={subject.id} className="min-w-0 rounded-lg border border-stone-200 bg-stone-50 p-4">
                     <div className="flex items-start justify-between gap-2"><div className="min-w-0"><h4 className="break-words text-sm font-bold text-stone-900">{subject.name || '—'}</h4>{subject.outdoor != null && <p className="mt-1 text-[11px] text-stone-500">{subject.outdoor ? 'Outdoor' : 'Indoor'}</p>}</div><span className={subject.status === 'active' ? 'shrink-0 rounded bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase text-emerald-700' : 'shrink-0 rounded bg-stone-200 px-2 py-1 text-[10px] font-bold uppercase text-stone-600'}>{subject.status || '—'}</span></div>
                     <p className="mt-4 text-[10px] font-bold uppercase tracking-wide text-stone-500">{vi ? 'Học phí' : 'Tuition'} {activeType}</p>
-                    <p className="mt-1 break-words text-lg font-bold tabular-nums text-[#BA0000]">{money(subjectPriceForType(subject, activeType), language)}</p>
+                    <p className="mt-1 break-words text-lg font-bold tabular-nums text-brand-primary">{money(subjectPriceForType(subject, activeType), language)}</p>
                   </article>)}
                 </div>}
           </div>

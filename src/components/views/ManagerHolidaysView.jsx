@@ -155,7 +155,7 @@ export function ManagerHolidaysView() {
             <div className="sm:col-span-2 lg:col-span-5">
               {formError && <p role="alert" className="mb-2 text-xs font-medium text-rose-700">{formError}</p>}
               {sessionsOnDate > 0 && <p role="status" className="mb-2 rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">{vi ? `Ngày này hiện có ${sessionsOnDate} buổi học. Tạo ngày nghỉ không tự dời lịch; hãy xử lý từng buổi tại trang sự cố lịch học.` : `${sessionsOnDate} sessions currently fall on this date. Creating a holiday will not reschedule them; handle each session on the incidents page.`}</p>}
-              <button type="submit" disabled={saving} className="inline-flex min-h-11 items-center gap-2 rounded bg-[#BA0000] px-4 text-xs font-bold text-white disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}{vi ? 'Tạo ngày nghỉ' : 'Create holiday'}</button>
+              <button type="submit" disabled={saving} className="inline-flex min-h-11 items-center gap-2 rounded bg-brand-primary px-4 text-xs font-bold text-white disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}{vi ? 'Tạo ngày nghỉ' : 'Create holiday'}</button>
             </div>
           </form>
         )}

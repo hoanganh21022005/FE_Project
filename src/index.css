@@ -12,68 +12,135 @@
   --font-barlow: 'Barlow', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Sports Center public site */
-  --color-mlc-surface-base: #000000;
-  --color-mlc-ink: #181d25;
-  --color-mlc-red: #e31628;
-  --color-mlc-muted: #676f7e;
-  --color-mlc-border: #e5e7eb;
-  --color-mlc-surface: #f7f8fa;
-  --shadow-mlc: 0 8px 30px -5px rgb(227 22 40 / 30%);
+  /* SCMS Prismatic Sport design tokens */
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-hover: var(--brand-primary-hover);
+  --color-brand-primary-active: var(--brand-primary-active);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-dark-hover: var(--brand-dark-hover);
+  --color-brand-blue-soft: var(--brand-blue-soft);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-dark: var(--brand-accent-dark);
+  --color-brand-accent-soft: var(--brand-accent-soft);
+  --color-brand-cyan: var(--brand-cyan);
+  --color-brand-purple: var(--brand-purple);
+  --color-brand-purple-dark: var(--brand-purple-dark);
+  --color-brand-lavender-soft: var(--brand-lavender-soft);
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-teal-dark: var(--brand-teal-dark);
+  --color-brand-mint-soft: var(--brand-mint-soft);
+  --color-brand-amber: var(--brand-amber);
+  --color-brand-lime: var(--brand-lime);
+  --color-brand-sky-soft: var(--brand-sky-soft);
+  --color-bg-main: var(--bg-main);
+  --color-bg-page: var(--bg-page);
+  --color-bg-card: var(--bg-card);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-sidebar: var(--bg-sidebar);
+  --color-border-color: var(--border-color);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-inverse: var(--text-inverse);
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+  --color-status-error: var(--status-error);
+  --color-status-danger: var(--status-danger);
+  --color-status-info: var(--status-info);
 
-  /* SCMS Webzone Operations System - 6 Primitives */
-  --color-webzone-black: #181818;      /* Eerie Black: ink chính, sidebar, dark surface */
-  --color-webzone-charcoal: #323232;   /* Dark Charcoal: ink phụ, hover dark surface */
-  --color-webzone-platinum: #E4E4E4;   /* Platinum: canvas, divider, neutral surface */
-  --color-webzone-maxred: #D62323;     /* Maximum Red: accent, focus, selection */
-  --color-webzone-red: #BA0000;        /* UE Red: primary action, active nav */
-  --color-webzone-darkred: #8E0000;    /* Dark Red: hover/pressed, destructive emphasis */
+  /* Backward-compatible aliases for existing public and operations styles */
+  --color-mlc-surface-base: var(--bg-main);
+  --color-mlc-ink: var(--brand-dark);
+  --color-mlc-red: var(--brand-primary);
+  --color-mlc-muted: var(--text-secondary);
+  --color-mlc-border: var(--border-color);
+  --color-mlc-surface: var(--bg-secondary);
+  --shadow-mlc: 0 8px 30px -5px rgb(16 30 48 / 18%);
 
-  /* Webzone Semantic Tokens */
-  --color-wz-canvas: #E4E4E4;
-  --color-wz-surface: #FFFFFF;
-  --color-wz-dark-surface: #181818;
-  --color-wz-ink: #181818;
-  --color-wz-ink-secondary: #323232;
-  --color-wz-border: #E4E4E4;
-  --color-wz-border-subtle: #D4D4D4;
-  --color-wz-primary: #BA0000;
-  --color-wz-primary-hover: #8E0000;
-  --color-wz-accent: #D62323;
-  --color-wz-focus: #D62323;
-  --color-wz-destructive: #8E0000;
+  --color-webzone-black: var(--brand-dark);
+  --color-webzone-charcoal: var(--brand-dark-hover);
+  --color-webzone-platinum: var(--bg-main);
+  --color-webzone-maxred: var(--brand-cyan);
+  --color-webzone-red: var(--brand-primary);
+  --color-webzone-darkred: var(--status-error);
 
-  /* Semantic Status Tokens (separate from brand red) */
-  --color-wz-success: #047857;
-  --color-wz-warning: #D97706;
-  --color-wz-info: #0284C7;
+  --color-wz-canvas: var(--bg-main);
+  --color-wz-surface: var(--bg-card);
+  --color-wz-dark-surface: var(--brand-dark);
+  --color-wz-ink: var(--brand-dark);
+  --color-wz-ink-secondary: var(--text-secondary);
+  --color-wz-border: var(--border-color);
+  --color-wz-border-subtle: var(--border-color);
+  --color-wz-primary: var(--brand-primary);
+  --color-wz-primary-hover: var(--brand-primary-hover);
+  --color-wz-accent: var(--brand-cyan);
+  --color-wz-focus: var(--brand-primary);
+  --color-wz-destructive: var(--status-error);
+  --color-wz-success: var(--status-success);
+  --color-wz-warning: var(--status-warning);
+  --color-wz-info: var(--status-info);
+  --color-wz-error: var(--status-error);
 
-  /* Backward-compatible aliases (deprecated: mapped to Webzone palette) */
-  --color-pearl-canvas: #E4E4E4;
-  --color-admin-canvas: #E4E4E4;
-  --color-pearl-surface: #FFFFFF;
-  --color-brand-flame: #BA0000;
-  --color-brand-flame-hover: #8E0000;
-  --color-brand-amber: #D62323;
-  --color-brand-soft-bg: #FEF2F2;
-  --color-brand-soft-border: #FECACA;
-  --color-brand-dark: #181818;
+  --color-pearl-canvas: var(--bg-main);
+  --color-admin-canvas: var(--bg-main);
+  --color-pearl-surface: var(--bg-card);
+  --color-brand-flame: var(--brand-primary);
+  --color-brand-flame-hover: var(--brand-primary-hover);
+  --color-brand-soft-bg: var(--brand-sky-soft);
+  --color-brand-soft-border: var(--border-color);
+  --color-sc-primary: var(--brand-primary);
+  --color-sc-primary-soft: var(--brand-primary-hover);
+  --color-sc-accent: var(--brand-cyan);
+  --color-sc-lime: var(--brand-lime);
+  --color-sc-ink: var(--text-primary);
+  --color-sc-paper: var(--bg-main);
+  --color-sc-muted: var(--text-secondary);
+  --color-sc-border: var(--border-color);
+  --color-sc-border-soft: var(--bg-secondary);
+}
 
-  --color-sc-primary: #BA0000;
-  --color-sc-primary-soft: #181818;
-  --color-sc-accent: #D62323;
-  --color-sc-lime: #D62323;
-  --color-sc-ink: #181818;
-  --color-sc-paper: #181818;
-  --color-sc-muted: #E4E4E4;
-  --color-sc-border: #323232;
-  --color-sc-border-soft: #242424;
+:root {
+  --brand-dark: #202B46;
+  --brand-dark-hover: #303B58;
+  --brand-primary: #405BD5;
+  --brand-primary-hover: #3349B5;
+  --brand-primary-active: #283A98;
+  --brand-blue-soft: #E8EDFC;
+  --brand-accent: #24A9D2;
+  --brand-accent-dark: #08799E;
+  --brand-accent-soft: #98D9E8;
+  --brand-cyan: #24A9D2;
+  --brand-cyan-shadow: rgb(36 169 210 / 35%);
+  --brand-purple: #7860C4;
+  --brand-purple-dark: #59429E;
+  --brand-lavender-soft: #DDD5F2;
+  --brand-teal: #168F83;
+  --brand-teal-dark: #087368;
+  --brand-mint-soft: #E0F3EE;
+  --brand-amber: #E8B351;
+  --brand-lime: #A5CD55;
+  --brand-sky-soft: #98D9E8;
+  --bg-main: #F5F7FC;
+  --bg-page: var(--bg-main);
+  --bg-card: #FFFFFF;
+  --bg-secondary: #EEF2FA;
+  --bg-sidebar: #202B46;
+  --border-color: #DEE4F0;
+  --text-primary: #202B46;
+  --text-secondary: #52617C;
+  --text-muted: #6B7890;
+  --text-inverse: #FFFFFF;
+  --status-success: #15803D;
+  --status-warning: #B45309;
+  --status-danger: #B42318;
+  --status-error: var(--status-danger);
+  --status-info: #2563EB;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-sc-paper);
-  color: #ffffff;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
   font-variant-numeric: lining-nums tabular-nums;
 }
 
@@ -140,7 +207,7 @@ h1, h2, h3, h4, h5, h6 {
   z-index: -10;
   width: 28%;
   pointer-events: none;
-  background: linear-gradient(180deg, transparent, rgb(227 22 40 / 12%));
+  background: linear-gradient(180deg, transparent, rgb(36 169 210 / 14%));
   clip-path: polygon(65% 0, 100% 0, 100% 100%, 0 100%);
 }
 
@@ -165,7 +232,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .vibe-slogan-word:nth-child(even) {
-  color: var(--color-mlc-red);
+  color: var(--brand-cyan);
 }
 
 .vibe-slogan-word::after {
@@ -175,7 +242,7 @@ h1, h2, h3, h4, h5, h6 {
   left: 0.04em;
   width: 1.1em;
   height: 0.045em;
-  background: var(--color-mlc-red);
+  background: var(--brand-cyan);
   clip-path: polygon(5% 0, 100% 0, 95% 100%, 0 100%);
 }
 

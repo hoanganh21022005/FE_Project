@@ -153,7 +153,7 @@ export function LeaveRequestModal({
                 <select
                   value={selectedSessionId}
                   onChange={(e) => setSelectedSessionId(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#BA0000] font-medium"
+                  className="w-full p-2.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-primary font-medium"
                 >
                   {upcomingSessions.map(s => (
                     <option key={s.bookingId} value={s.bookingId}>
@@ -175,7 +175,7 @@ export function LeaveRequestModal({
                   onClick={() => setRequestType('leave')}
                   className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
                     requestType === 'leave'
-                      ? 'bg-red-50 border-[#BA0000] text-red-950 font-bold shadow-2xs'
+                      ? 'bg-brand-blue-soft border-brand-primary text-brand-dark font-bold shadow-2xs'
                       : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                   }`}
                 >
@@ -187,7 +187,7 @@ export function LeaveRequestModal({
                   onClick={() => setRequestType('swap')}
                   className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
                     requestType === 'swap'
-                      ? 'bg-red-50 border-[#BA0000] text-red-950 font-bold shadow-2xs'
+                      ? 'bg-brand-blue-soft border-brand-primary text-brand-dark font-bold shadow-2xs'
                       : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                   }`}
                 >
@@ -205,7 +205,7 @@ export function LeaveRequestModal({
               <select
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full p-2.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#BA0000]"
+                className="w-full p-2.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-primary"
               >
                 <option value="Bận công việc / Lịch học đột xuất">Bận công việc / Lịch học đột xuất</option>
                 <option value="Lý do sức khỏe / Cần nghỉ ngơi hồi phục">Lý do sức khỏe / Cần nghỉ ngơi hồi phục</option>
@@ -225,7 +225,7 @@ export function LeaveRequestModal({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Nhắn nhủ HLV bài tập bù hoặc nguyện vọng đổi ca..."
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#BA0000]"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-primary"
               />
             </div>
 
@@ -248,7 +248,7 @@ export function LeaveRequestModal({
               <button
                 type="submit"
                 disabled={submitting || !targetSession}
-                className="px-5 py-2 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                className="px-5 py-2 bg-brand-primary hover:bg-brand-primary-hover text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-xs disabled:opacity-50 flex items-center gap-1.5"
               >
                 {submitting ? (
                   <span>Đang gửi...</span>

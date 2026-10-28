@@ -162,7 +162,7 @@ export function CoachDashboard() {
             <span className="text-xs font-bold text-slate-500 uppercase">
               {language === "vi" ? "Lớp phụ trách" : "Assigned Classes"}
             </span>
-            <Calendar className="w-4 h-4 text-slate-700" />
+            <Calendar className="w-4 h-4 text-brand-accent-dark" />
           </div>
           <div className="text-2xl font-bold text-slate-900 tabular-nums mt-2">
             {myClasses.length}
@@ -174,7 +174,7 @@ export function CoachDashboard() {
             <span className="text-xs font-bold text-slate-500 uppercase">
               {language === "vi" ? "Học viên PT chính" : "PT Students"}
             </span>
-            <Users className="w-4 h-4 text-slate-700" />
+            <Users className="w-4 h-4 text-brand-purple" />
           </div>
           <div className="text-2xl font-bold text-slate-900 tabular-nums mt-2">
             8
@@ -186,9 +186,9 @@ export function CoachDashboard() {
             <span className="text-xs font-bold text-slate-500 uppercase">
               {language === "vi" ? "Tỷ lệ điểm danh" : "Attendance Rate"}
             </span>
-            <ClipboardCheck className="w-4 h-4 text-slate-700" />
+            <ClipboardCheck className="w-4 h-4 text-brand-teal" />
           </div>
-          <div className="text-2xl font-bold text-emerald-800 tabular-nums mt-2">
+          <div className="text-2xl font-bold text-brand-teal-dark tabular-nums mt-2">
             96.8%
           </div>
         </div>
@@ -257,13 +257,13 @@ export function CoachDashboard() {
                 <Bar
                   dataKey="enrolled"
                   name={language === "vi" ? "Đã đăng ký" : "Enrolled"}
-                  fill="#2563EB"
+                  fill="var(--brand-primary)"
                   radius={[4, 4, 0, 0]}
                 />
                 <Bar
                   dataKey="capacity"
                   name={language === "vi" ? "Sức chứa tối đa" : "Capacity"}
-                  fill="#94A3B8"
+                  fill="var(--brand-lime)"
                   radius={[4, 4, 0, 0]}
                 />
               </BarChart>
@@ -316,7 +316,7 @@ export function CoachDashboard() {
                   name={
                     language === "vi" ? "Tỷ lệ điểm danh (%)" : "Attendance %"
                   }
-                  fill="#059669"
+                  fill="var(--brand-teal)"
                   radius={[4, 4, 0, 0]}
                 />
               </BarChart>

@@ -148,11 +148,11 @@ export function NewStaffModal({ isOpen, onClose }) {
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-[#181818] text-[#D62323] rounded">
+            <div className="p-2 bg-brand-dark text-brand-accent-dark rounded">
               <UserPlus className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#181818]">
+              <h3 className="text-sm font-bold text-brand-dark">
                 {language === 'vi' ? 'Thêm nhân viên mới' : 'Add New Staff Member'}
               </h3>
               <p className="text-[11px] text-stone-500">
@@ -184,7 +184,7 @@ export function NewStaffModal({ isOpen, onClose }) {
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           {/* Basic Info Section */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold text-[#181818] uppercase tracking-wider border-b border-slate-100 pb-1">
+            <h4 className="text-xs font-bold text-brand-dark uppercase tracking-wider border-b border-slate-100 pb-1">
               {language === 'vi' ? 'Thông tin cơ bản' : 'Basic Information'}
             </h4>
 
@@ -200,8 +200,8 @@ export function NewStaffModal({ isOpen, onClose }) {
                   placeholder={language === 'vi' ? 'Ví dụ: Nguyễn Văn Hùng' : 'e.g. John Smith'}
                   value={formData.name}
                   onChange={e => handleChange('name', e.target.value)}
-                  className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-[#181818] focus:outline-none focus:bg-white ${
-                    errors.name ? 'border-rose-500 focus:border-rose-600 bg-rose-50/20' : 'border-slate-300 focus:border-[#BA0000]'
+                  className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white ${
+                    errors.name ? 'border-rose-500 focus:border-rose-600 bg-rose-50/20' : 'border-slate-300 focus:border-brand-primary'
                   }`}
                 />
                 {errors.name && (
@@ -222,8 +222,8 @@ export function NewStaffModal({ isOpen, onClose }) {
                   placeholder="nhanvien@scms.com"
                   value={formData.email}
                   onChange={e => handleChange('email', e.target.value)}
-                  className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-[#181818] focus:outline-none focus:bg-white ${
-                    errors.email ? 'border-rose-500 focus:border-rose-600 bg-rose-50/20' : 'border-slate-300 focus:border-[#BA0000]'
+                  className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white ${
+                    errors.email ? 'border-rose-500 focus:border-rose-600 bg-rose-50/20' : 'border-slate-300 focus:border-brand-primary'
                   }`}
                 />
                 {errors.email && (
@@ -243,7 +243,7 @@ export function NewStaffModal({ isOpen, onClose }) {
                   placeholder="0912345678"
                   value={formData.phone}
                   onChange={e => handleChange('phone', e.target.value)}
-                  className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-[#181818] focus:outline-none focus:bg-white focus:border-[#BA0000]"
+                  className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white focus:border-brand-primary"
                 />
               </div>
 
@@ -256,8 +256,8 @@ export function NewStaffModal({ isOpen, onClose }) {
                   ref={roleRef}
                   value={formData.role}
                   onChange={e => handleChange('role', e.target.value)}
-                  className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-[#181818] focus:outline-none focus:bg-white ${
-                    errors.role ? 'border-rose-500 focus:border-rose-600 bg-rose-50/20' : 'border-slate-300 focus:border-[#BA0000]'
+                  className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white ${
+                    errors.role ? 'border-rose-500 focus:border-rose-600 bg-rose-50/20' : 'border-slate-300 focus:border-brand-primary'
                   }`}
                 >
                   <option value="">{language === 'vi' ? 'Chọn vai trò…' : 'Select role...'}</option>
@@ -284,7 +284,7 @@ export function NewStaffModal({ isOpen, onClose }) {
                   placeholder={language === 'vi' ? 'Ví dụ: Yoga, Pilates, CrossFit, Boxing' : 'e.g. Yoga, Pilates, CrossFit'}
                   value={formData.specialization}
                   onChange={e => handleChange('specialization', e.target.value)}
-                  className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-[#181818] focus:outline-none focus:bg-white focus:border-[#BA0000]"
+                  className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white focus:border-brand-primary"
                 />
               </div>
             )}
@@ -292,7 +292,7 @@ export function NewStaffModal({ isOpen, onClose }) {
 
           {/* Security / Password Section */}
           <div className="space-y-3 pt-2 border-t border-slate-100">
-            <h4 className="text-xs font-bold text-[#181818] uppercase tracking-wider border-b border-slate-100 pb-1">
+            <h4 className="text-xs font-bold text-brand-dark uppercase tracking-wider border-b border-slate-100 pb-1">
               {language === 'vi' ? 'Thông tin mật khẩu (Tùy chọn)' : 'Password (Optional)'}
             </h4>
 
@@ -307,7 +307,7 @@ export function NewStaffModal({ isOpen, onClose }) {
                     placeholder={language === 'vi' ? 'Tối thiểu 6 ký tự' : 'Min 6 characters'}
                     value={formData.password}
                     onChange={e => handleChange('password', e.target.value)}
-                    className="w-full bg-stone-50 border border-slate-300 rounded pl-3 pr-9 py-1.5 text-xs text-[#181818] focus:outline-none focus:bg-white focus:border-[#BA0000]"
+                    className="w-full bg-stone-50 border border-slate-300 rounded pl-3 pr-9 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white focus:border-brand-primary"
                   />
                   <button
                     type="button"
@@ -335,7 +335,7 @@ export function NewStaffModal({ isOpen, onClose }) {
                     placeholder={language === 'vi' ? 'Nhập lại mật khẩu' : 'Confirm password'}
                     value={formData.confirmPassword}
                     onChange={e => handleChange('confirmPassword', e.target.value)}
-                    className="w-full bg-stone-50 border border-slate-300 rounded pl-3 pr-9 py-1.5 text-xs text-[#181818] focus:outline-none focus:bg-white focus:border-[#BA0000]"
+                    className="w-full bg-stone-50 border border-slate-300 rounded pl-3 pr-9 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white focus:border-brand-primary"
                   />
                   <button
                     type="button"
@@ -368,7 +368,7 @@ export function NewStaffModal({ isOpen, onClose }) {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-1.5 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded text-xs font-bold shadow-2xs transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-1.5 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold shadow-2xs transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
             >
               {isSubmitting ? (
                 <>

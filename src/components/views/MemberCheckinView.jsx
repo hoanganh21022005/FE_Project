@@ -261,8 +261,8 @@ function LocalDatePicker({ value, onChange, isVi, label, min, max, error }) {
                   }}
                   className={`mx-auto grid h-8 w-8 place-items-center rounded-full text-xs ${
                     value === date
-                      ? "bg-red-700 font-bold text-white"
-                      : "text-slate-700 hover:bg-red-50"
+                      ? "bg-brand-primary font-bold text-white"
+                      : "text-slate-700 hover:bg-brand-accent-soft"
                   } disabled:cursor-not-allowed disabled:text-slate-300`}
                 >
                   {day}
@@ -899,7 +899,7 @@ export function MemberCheckinView() {
     ) : scheduleFailed ? (
       <div
         role={scheduleErrorDismissed ? "status" : "alert"}
-        className="my-auto rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+        className="my-auto rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-status-error"
       >
         <p>
           {scheduleErrorDismissed
@@ -912,7 +912,7 @@ export function MemberCheckinView() {
           <button
             type="button"
             onClick={refreshSchedule}
-            className="rounded-md bg-red-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-800"
+            className="rounded-md bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-primary-hover"
           >
             {isVi ? "Thử lại" : "Retry"}
           </button>
@@ -921,7 +921,7 @@ export function MemberCheckinView() {
               type="button"
               aria-label={isVi ? "Đóng" : "Close"}
               onClick={() => setScheduleErrorDismissed(true)}
-              className="rounded-md p-1 hover:bg-red-100"
+              className="rounded-md p-1 hover:bg-brand-blue-soft"
             >
               <X className="h-4 w-4" />
             </button>
@@ -951,7 +951,7 @@ export function MemberCheckinView() {
               className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0"
             >
               <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wide text-red-700">
+                <p className="text-xs font-bold uppercase tracking-wide text-brand-accent-dark">
                   {session.subjectName || "VIBE SPORT"}
                 </p>
                 <h3 className="mt-1 font-bold text-slate-900">
@@ -975,7 +975,7 @@ export function MemberCheckinView() {
                   active
                     ? "bg-amber-100 text-amber-900"
                     : absent
-                      ? "bg-red-50 text-red-700"
+                      ? "bg-rose-50 text-status-error"
                       : present
                         ? "bg-emerald-50 text-emerald-800"
                         : "bg-slate-100 text-slate-700"
@@ -1019,7 +1019,7 @@ export function MemberCheckinView() {
       </AnimatePresence>
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
+          <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
             VIBE SPORT · MEMBER
           </p>
           <h1 className="mt-1 text-3xl font-black text-slate-950">
@@ -1093,7 +1093,7 @@ export function MemberCheckinView() {
         <article className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:col-span-5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <QrCode className="h-5 w-5 text-red-700" />
+              <QrCode className="h-5 w-5 text-brand-accent-dark" />
               <h2 className="text-lg font-extrabold text-slate-900">
                 {isVi ? "Mã QR điểm danh" : "Check-in QR code"}
               </h2>
@@ -1118,7 +1118,7 @@ export function MemberCheckinView() {
                     ? "Xem hướng dẫn xử lý lỗi QR, mã hết hạn hoặc buổi học chưa được ghi nhận."
                     : "Get help with QR errors, expired codes, or missing attendance records."}
                 </p>
-                <span className="mt-2 inline-block text-xs font-semibold text-red-700">
+                <span className="mt-2 inline-block text-xs font-semibold text-brand-accent-dark">
                   {isVi
                     ? "Nhấn để xem hướng dẫn chi tiết"
                     : "Click for detailed help"}{" "}
@@ -1139,12 +1139,12 @@ export function MemberCheckinView() {
                   type="button"
                   onClick={() => setShowQrSpotlight(true)}
                   aria-label={isVi ? "Phóng to mã QR" : "Enlarge QR code"}
-                  className="group relative overflow-hidden rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200 transition hover:shadow-md hover:ring-red-300 focus:outline-none focus:ring-2 focus:ring-red-500 cursor-pointer"
+                  className="group relative overflow-hidden rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200 transition hover:shadow-md hover:ring-brand-primary/40 focus:outline-none focus:ring-2 focus:ring-brand-primary cursor-pointer"
                 >
                   <QRCodeSVG value={code} size={188} level="M" includeMargin />
                   <motion.span
                     aria-hidden="true"
-                    className="pointer-events-none absolute left-3 right-3 h-1 rounded-full bg-gradient-to-r from-transparent via-red-400/70 to-transparent"
+                    className="pointer-events-none absolute left-3 right-3 h-1 rounded-full bg-gradient-to-r from-transparent via-brand-cyan/70 to-transparent"
                     animate={{ top: ["8%", "92%", "8%"] }}
                     transition={{
                       duration: 3,
@@ -1161,7 +1161,7 @@ export function MemberCheckinView() {
                 </p>
                 <p
                   className={`mt-1 text-sm ${
-                    secondsLeft <= 3 ? "text-red-700" : "text-slate-600"
+                    secondsLeft <= 3 ? "text-brand-accent-dark" : "text-slate-600"
                   }`}
                 >
                   {refreshingCode
@@ -1171,14 +1171,14 @@ export function MemberCheckinView() {
                     : isVi
                       ? "Mã mới sau"
                       : "New code in"}{" "}
-                  <strong className="tabular-nums text-red-700">
+                  <strong className={`tabular-nums ${secondsLeft <= 3 ? "text-status-warning" : "text-brand-primary"}`}>
                     {secondsLeft}s
                   </strong>
                 </p>
                 <div className="mt-2 h-1 w-full max-w-[230px] overflow-hidden rounded-full bg-slate-200">
                   <div
                     className={`h-full transition-[width] duration-300 ${
-                      secondsLeft <= 3 ? "bg-red-600" : "bg-red-700"
+                      secondsLeft <= 3 ? "bg-status-warning" : "bg-brand-primary"
                     }`}
                     style={{
                       width: `${Math.min(100, Math.max(0, (secondsLeft / codeDuration) * 100))}%`,
@@ -1201,7 +1201,7 @@ export function MemberCheckinView() {
                     type="button"
                     onClick={refreshCode}
                     disabled={refreshingCode}
-                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white shadow-lg hover:bg-red-800 disabled:opacity-60"
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-brand-primary px-4 py-2 text-sm font-bold text-white shadow-lg hover:bg-brand-primary-hover disabled:opacity-60"
                   >
                     ↻ {isVi ? "Thử lại ngay" : "Retry now"}
                   </button>
@@ -1236,7 +1236,7 @@ export function MemberCheckinView() {
                   <button
                     type="button"
                     onClick={refreshCode}
-                    className="mt-4 rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800"
+                    className="mt-4 rounded-lg bg-brand-primary px-4 py-2 text-sm font-bold text-white hover:bg-brand-primary-hover"
                   >
                     {isVi ? "Tạo mã QR mới" : "Generate QR code"}
                   </button>
@@ -1296,7 +1296,7 @@ export function MemberCheckinView() {
           {codeError && !codeErrorDismissed && (
             <div
               role="alert"
-              className="mt-3 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+              className="mt-3 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-status-error"
             >
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <div className="flex-1">
@@ -1314,7 +1314,7 @@ export function MemberCheckinView() {
                 type="button"
                 aria-label={isVi ? "Đóng" : "Close"}
                 onClick={() => setCodeErrorDismissed(true)}
-                className="rounded-md p-1 hover:bg-red-100"
+                className="rounded-md p-1 hover:bg-brand-blue-soft"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1325,7 +1325,7 @@ export function MemberCheckinView() {
         <article className="flex h-full min-h-[420px] flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:col-span-7">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-red-700" />
+              <CalendarDays className="h-5 w-5 text-brand-accent-dark" />
               <h2 className="text-lg font-extrabold text-slate-900">
                 {isVi ? "Lịch trình học tập" : "Your schedule"}
               </h2>
@@ -1342,7 +1342,7 @@ export function MemberCheckinView() {
                 onClick={() => setScheduleTab("today")}
                 className={`rounded-md px-3 py-1.5 text-xs font-bold ${
                   scheduleTab === "today"
-                    ? "bg-white text-red-700 shadow-sm"
+                    ? "bg-white text-brand-accent-dark shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -1360,7 +1360,7 @@ export function MemberCheckinView() {
                 onClick={() => setScheduleTab("upcoming")}
                 className={`rounded-md px-3 py-1.5 text-xs font-bold ${
                   scheduleTab === "upcoming"
-                    ? "bg-white text-red-700 shadow-sm"
+                    ? "bg-white text-brand-accent-dark shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -1394,7 +1394,7 @@ export function MemberCheckinView() {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <ClipboardCheck className="h-5 w-5 text-red-700" />
+            <ClipboardCheck className="h-5 w-5 text-brand-accent-dark" />
             <h2 className="text-lg font-extrabold text-slate-900">
               {isVi ? "Lịch sử điểm danh" : "Attendance history"}
             </h2>
@@ -1402,7 +1402,7 @@ export function MemberCheckinView() {
           <button
             type="button"
             onClick={() => setShowDisputeDrawer(true)}
-            className="text-sm font-semibold text-red-700 hover:text-red-900"
+            className="text-sm font-semibold text-brand-accent-dark hover:text-brand-primary-hover"
           >
             {isVi
               ? "Thiếu buổi tập? Gửi đối soát"
@@ -1418,7 +1418,7 @@ export function MemberCheckinView() {
               value={historySearch}
               onChange={(event) => setHistorySearch(event.target.value)}
               placeholder={isVi ? "Tìm theo tên lớp" : "Search class"}
-              className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-12 text-sm outline-none focus:border-red-400"
+              className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-12 text-sm outline-none focus:border-brand-primary"
             />
             <span className="pointer-events-none absolute right-2.5 top-2 inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-400">
               /
@@ -1484,8 +1484,8 @@ export function MemberCheckinView() {
             aria-pressed={historyStatus === "absent"}
             className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
               historyStatus === "absent"
-                ? "border-red-300 bg-red-100 text-red-900"
-                : "border-red-200 bg-red-50 text-red-900 hover:bg-red-100"
+                ? "border-rose-200 bg-rose-50 text-status-error"
+                : "border-brand-accent/40 bg-brand-accent-soft text-brand-primary hover:bg-brand-accent-soft"
             }`}
           >
             • {isVi ? "Vắng mặt / Khác" : "Absent / Other"} (
@@ -1509,7 +1509,7 @@ export function MemberCheckinView() {
         {historyFailed ? (
           <div
             role={historyErrorDismissed ? "status" : "alert"}
-            className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+            className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-status-error"
           >
             <span>
               {historyErrorDismissed
@@ -1522,7 +1522,7 @@ export function MemberCheckinView() {
               <button
                 type="button"
                 onClick={refreshHistory}
-                className="rounded-md bg-red-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-800"
+                className="rounded-md bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-primary-hover"
               >
                 {isVi ? "Thử lại" : "Retry"}
               </button>
@@ -1531,7 +1531,7 @@ export function MemberCheckinView() {
                   type="button"
                   aria-label={isVi ? "Đóng" : "Close"}
                   onClick={() => setHistoryErrorDismissed(true)}
-                  className="rounded-md p-1 hover:bg-red-100"
+                  className="rounded-md p-1 hover:bg-brand-blue-soft"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -1591,7 +1591,7 @@ export function MemberCheckinView() {
                     <button
                       type="button"
                       onClick={() => openReviewForRow(row)}
-                      className="rounded-md px-2 py-1 text-xs font-semibold text-red-700 opacity-100 transition hover:bg-red-50 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                      className="rounded-md px-2 py-1 text-xs font-semibold text-brand-accent-dark opacity-100 transition hover:bg-brand-accent-soft sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
                     >
                       {isVi ? "Đối soát buổi này →" : "Review this class →"}
                     </button>
@@ -1600,7 +1600,7 @@ export function MemberCheckinView() {
                         present
                           ? "bg-emerald-50 text-emerald-800"
                           : state.includes("ABSENT")
-                            ? "bg-red-50 text-red-700"
+                            ? "bg-rose-50 text-status-error"
                             : "bg-slate-100 text-slate-700"
                       }`}
                     >
@@ -1665,7 +1665,7 @@ export function MemberCheckinView() {
               </button>
               <p
                 id="qr-spotlight-title"
-                className="text-sm font-bold uppercase tracking-wider text-red-700"
+                className="text-sm font-bold uppercase tracking-wider text-brand-accent-dark"
               >
                 {isVi ? "Mã QR điểm danh" : "Check-in QR code"}
               </p>
@@ -1686,7 +1686,7 @@ export function MemberCheckinView() {
               </p>
               <p className="mt-2 text-sm text-slate-600">
                 {isVi ? "Mã mới sau" : "New code in"}{" "}
-                <strong className="tabular-nums text-red-700">
+                <strong className={`tabular-nums ${secondsLeft <= 3 ? "text-status-warning" : "text-brand-primary"}`}>
                   {secondsLeft}s
                 </strong>
               </p>
@@ -1715,7 +1715,7 @@ export function MemberCheckinView() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-red-700">
+                  <p className="text-xs font-bold uppercase tracking-wider text-brand-accent-dark">
                     VIBE SPORT · MEMBER
                   </p>
                   <h2
@@ -1785,7 +1785,7 @@ export function MemberCheckinView() {
                     setShowHelpModal(false)
                     setShowDisputeDrawer(true)
                   }}
-                  className="rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800"
+                  className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-bold text-white hover:bg-brand-primary-hover"
                 >
                   {isVi ? "Mở form đối soát" : "Open review form"}
                 </button>
@@ -1817,7 +1817,7 @@ export function MemberCheckinView() {
             >
               <header className="sticky top-0 flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-5 py-4">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-red-700">
+                  <p className="text-xs font-bold uppercase tracking-wider text-brand-accent-dark">
                     VIBE SPORT · MEMBER
                   </p>
                   <h2
@@ -1891,7 +1891,7 @@ export function MemberCheckinView() {
                       ))}
                     </select>
                     {reviewErrors.className && (
-                      <span className="mt-1 block text-xs text-red-700">
+                      <span className="mt-1 block text-xs text-brand-accent-dark">
                         {reviewErrors.className}
                       </span>
                     )}
@@ -1914,7 +1914,7 @@ export function MemberCheckinView() {
                         error={reviewErrors.sessionDate}
                       />
                       {reviewErrors.sessionDate && (
-                        <span className="mt-1 block text-xs text-red-700">
+                        <span className="mt-1 block text-xs text-brand-accent-dark">
                           {reviewErrors.sessionDate}
                         </span>
                       )}
@@ -1947,7 +1947,7 @@ export function MemberCheckinView() {
                         }
                       />
                       {reviewErrors.sessionTime && (
-                        <span className="mt-1 block text-xs text-red-700">
+                        <span className="mt-1 block text-xs text-brand-accent-dark">
                           {reviewErrors.sessionTime}
                         </span>
                       )}
@@ -1986,7 +1986,7 @@ export function MemberCheckinView() {
                     <button
                       type="submit"
                       disabled={!validMember}
-                      className="flex-1 rounded-lg bg-red-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex-1 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {editingDraftId
                         ? isVi
@@ -2017,7 +2017,7 @@ export function MemberCheckinView() {
                 {reviewStorageError && (
                   <p
                     role="alert"
-                    className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700"
+                    className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-status-error"
                   >
                     {reviewStorageError}
                   </p>
@@ -2082,7 +2082,7 @@ export function MemberCheckinView() {
                                 if (editingDraftId === draft.id)
                                   setEditingDraftId(null)
                               }}
-                              className="rounded-lg p-2 text-slate-500 hover:bg-white hover:text-red-700"
+                              className="rounded-lg p-2 text-slate-500 hover:bg-white hover:text-brand-accent-dark"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>

@@ -56,12 +56,12 @@ export function ZumbaDetailView() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#111111] text-stone-100 font-sans antialiased selection:bg-[#E32119] selection:text-white overflow-x-hidden">
+    <div className="min-h-screen bg-brand-dark text-stone-100 font-sans antialiased selection:bg-brand-accent selection:text-brand-dark overflow-x-hidden">
       {/* HEADER */}
-      <header className="fixed top-0 inset-x-0 z-50 bg-[#141210]/95 backdrop-blur-md border-b border-stone-800">
+      <header className="fixed top-0 inset-x-0 z-50 bg-brand-dark/95 backdrop-blur-md border-b border-stone-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
-            <div className="w-10 h-10 rounded-xl bg-[#E32119] flex items-center justify-center font-black text-lg shadow-md shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-brand-primary flex items-center justify-center font-black text-lg shadow-md shrink-0">
               <span className="text-white">SC</span>
             </div>
             <div className="text-xl font-black tracking-widest uppercase text-white leading-none mt-1">
@@ -127,7 +127,7 @@ export function ZumbaDetailView() {
       </section>
 
       {/* 2. ĐẬP TAN CĂNG THẲNG */}
-      <section className="py-24 bg-[#111111] relative">
+      <section className="py-24 bg-brand-dark relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-32 items-start">
             <h2 className="text-4xl md:text-6xl font-black text-white uppercase leading-[1.1] tracking-tight">
@@ -149,7 +149,7 @@ export function ZumbaDetailView() {
       </section>
 
       {/* 3. CLASSES GRID (CHÁY HẾT MÌNH) */}
-      <section className="py-24 bg-[#111111] relative border-t border-stone-800">
+      <section className="py-24 bg-brand-dark relative border-t border-stone-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-5xl md:text-7xl lg:text-[80px] font-black text-white uppercase leading-[1] tracking-tighter mb-24 max-w-4xl">
             {isVi ? 'CHÁY HẾT MÌNH VỚI HƠN 30 LỚP DANCE VIBE Sport' : 'BURN OUT WITH OVER 30 VIBE Sport DANCE CLASSES'}
@@ -162,7 +162,7 @@ export function ZumbaDetailView() {
                 key={idx} 
                 className={`flex flex-col gap-4 ${idx % 2 !== 0 ? 'md:mt-32' : ''}`}
               >
-                <div className="h-[2px] w-12 bg-[#E32119] mb-2"></div>
+                <div className="h-[2px] w-12 bg-brand-primary mb-2"></div>
                 <h3 className="text-xl md:text-2xl font-bold text-white uppercase leading-snug tracking-wide">
                   {isVi ? cls.titleVi : cls.titleEn}
                 </h3>
@@ -176,7 +176,7 @@ export function ZumbaDetailView() {
       </section>
 
       {/* 4. STUDIO BANNER */}
-      <section className="py-32 bg-[#111111] relative border-t border-stone-800 overflow-hidden">
+      <section className="py-32 bg-brand-dark relative border-t border-stone-800 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
             src="https://images.unsplash.com/photo-1518611012118-696072aa579a?q=80&w=2000&auto=format&fit=crop" 
@@ -190,7 +190,7 @@ export function ZumbaDetailView() {
           <h2 className="text-5xl md:text-7xl lg:text-[90px] font-black text-white uppercase leading-[1] tracking-tighter max-w-4xl drop-shadow-2xl">
             {isVi ? 'TRẢI NGHIỆM STUDIO TIÊU CHUẨN' : 'EXPERIENCE THE STANDARD STUDIO'}
           </h2>
-          <h2 className="text-5xl md:text-7xl lg:text-[90px] font-black text-[#E32119] uppercase leading-[1] tracking-tighter mt-2">
+          <h2 className="text-5xl md:text-7xl lg:text-[90px] font-black text-[var(--brand-cyan)] uppercase leading-[1] tracking-tighter mt-2">
             5 {isVi ? 'SAO' : 'STAR'}
           </h2>
           <p className="mt-8 text-stone-300 max-w-2xl text-lg md:text-xl font-medium">
@@ -202,14 +202,14 @@ export function ZumbaDetailView() {
       </section>
 
       {/* 5. CTA FOOTER */}
-      <section className="py-20 bg-[#E32119] text-center">
+      <section className="py-20 bg-brand-primary text-center">
         <div className="max-w-3xl mx-auto px-4">
           <h2 className="text-4xl font-black text-white uppercase mb-6 tracking-tight">
             {isVi ? 'Đánh thức vũ công trong bạn!' : 'Awaken the dancer in you!'}
           </h2>
           <button 
             onClick={() => navigate('/register')}
-            className="bg-[#111111] text-white hover:bg-black font-bold py-4 px-10 rounded-full text-lg shadow-xl transition-all hover:scale-105 uppercase tracking-wider"
+            className="bg-brand-primary text-white hover:bg-black font-bold py-4 px-10 rounded-full text-lg shadow-xl transition-all hover:scale-105 uppercase tracking-wider"
           >
             {isVi ? 'Đăng ký tập thử miễn phí' : 'Register for free trial'}
           </button>

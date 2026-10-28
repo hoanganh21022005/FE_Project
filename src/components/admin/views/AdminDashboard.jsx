@@ -32,6 +32,12 @@ const metrics = [
 
 function MetricPanel({ config, resource, onRetry }) {
   const Icon = config.icon
+  const accent = {
+    users: "bg-brand-blue-soft text-brand-primary",
+    roles: "bg-brand-lavender-soft text-brand-purple-dark",
+    permissions: "bg-brand-mint-soft text-brand-teal",
+    auditLogs: "bg-brand-sky-soft text-brand-accent-dark",
+  }[config.key]
   return (
     <section
       className="min-h-36 bg-white border border-stone-200 rounded-lg p-4 flex flex-col justify-between"
@@ -44,7 +50,7 @@ function MetricPanel({ config, resource, onRetry }) {
             {config.source}
           </p>
         </div>
-        <div className="w-9 h-9 rounded bg-red-50 text-[#BA0000] flex items-center justify-center">
+        <div className={`w-9 h-9 rounded flex items-center justify-center ${accent}`}>
           <Icon className="w-4 h-4" />
         </div>
       </div>

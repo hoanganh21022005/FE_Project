@@ -17,9 +17,9 @@ export function GroupXDetailView() {
       id: 'bodypump',
       title: 'Body Pump',
       subtitle: 'Sức mạnh toàn thân',
-      theme: 'from-red-900 via-red-950 to-black',
-      accent: 'text-red-500',
-      bgAccent: 'bg-red-500',
+      theme: 'from-slate-900 via-slate-950 to-black',
+      accent: 'text-brand-cyan',
+      bgAccent: 'bg-brand-cyan',
       desc: 'Nâng tạ đòn theo nhóm trên nền nhạc EDM cực bốc. HLV dẫn dắt từng nhịp đẩy tạ, giúp bạn vượt qua giới hạn mà không thấy nhàm chán.',
       cover: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=800'
     },

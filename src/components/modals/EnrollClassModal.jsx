@@ -62,7 +62,7 @@ export function EnrollClassModal({
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
               isSuccess ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-800 border-slate-200'
             }`}>
-              {isSuccess ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Calendar className="w-5 h-5 text-[#BA0000]" />}
+              {isSuccess ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Calendar className="w-5 h-5 text-brand-accent-dark" />}
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900">
@@ -168,19 +168,19 @@ export function EnrollClassModal({
 
               <div className="space-y-1.5 text-xs text-slate-600 border-t border-slate-200/80 pt-2.5">
                 <div className="flex items-center gap-2">
-                  <Clock className="w-3.5 h-3.5 text-[#BA0000] shrink-0" />
+                  <Clock className="w-3.5 h-3.5 text-brand-accent-dark shrink-0" />
                   <span>
                     <strong>{formatDate(classItem.date, language)}</strong> &bull; {classItem.startTime} - {classItem.endTime} (90 phút)
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <MapPin className="w-3.5 h-3.5 text-[#BA0000] shrink-0" />
+                  <MapPin className="w-3.5 h-3.5 text-brand-accent-dark shrink-0" />
                   <span>{classItem.roomVi || classItem.room || 'Sân tập VIBE Sport'} {classItem.roomSpec && `(${classItem.roomSpec})`}</span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Users className="w-3.5 h-3.5 text-[#BA0000] shrink-0" />
+                  <Users className="w-3.5 h-3.5 text-brand-accent-dark shrink-0" />
                   <span>Huấn luyện viên: <strong className="text-slate-900">{classItem.coachName}</strong></span>
                 </div>
               </div>
@@ -216,7 +216,7 @@ export function EnrollClassModal({
                 type="button"
                 onClick={handleEnroll}
                 disabled={loading}
-                className="px-5 py-2 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                className="px-5 py-2 bg-brand-primary hover:bg-brand-primary-hover text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-xs disabled:opacity-50 flex items-center gap-1.5"
               >
                 {loading ? (
                   <>

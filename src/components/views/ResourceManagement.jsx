@@ -227,8 +227,8 @@ export function ResourceManagement() {
       </div>
 
       <div className="flex gap-2">
-        <button onClick={() => setTab('subjects')} className={`px-4 py-2 rounded text-xs font-bold flex gap-2 cursor-pointer ${tab === 'subjects' ? 'bg-[#BA0000] text-white shadow-xs' : 'bg-white border border-slate-200 text-stone-700 hover:bg-slate-50'}`}><BookOpen className="w-4 h-4" /> Subjects ({subjects.length})</button>
-        <button onClick={() => setTab('rooms')} className={`px-4 py-2 rounded text-xs font-bold flex gap-2 cursor-pointer ${tab === 'rooms' ? 'bg-[#BA0000] text-white shadow-xs' : 'bg-white border border-slate-200 text-stone-700 hover:bg-slate-50'}`}><DoorOpen className="w-4 h-4" /> Rooms ({rooms.length})</button>
+        <button onClick={() => setTab('subjects')} className={`px-4 py-2 rounded text-xs font-bold flex gap-2 cursor-pointer ${tab === 'subjects' ? 'bg-brand-primary text-white shadow-xs' : 'bg-white border border-slate-200 text-stone-700 hover:bg-slate-50'}`}><BookOpen className="w-4 h-4" /> Subjects ({subjects.length})</button>
+        <button onClick={() => setTab('rooms')} className={`px-4 py-2 rounded text-xs font-bold flex gap-2 cursor-pointer ${tab === 'rooms' ? 'bg-brand-primary text-white shadow-xs' : 'bg-white border border-slate-200 text-stone-700 hover:bg-slate-50'}`}><DoorOpen className="w-4 h-4" /> Rooms ({rooms.length})</button>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-lg overflow-x-auto">

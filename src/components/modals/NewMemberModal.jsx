@@ -124,10 +124,10 @@ export function NewMemberModal({ isOpen, onClose, onCreated }) {
   };
 
   const fieldClass = error =>
-    `w-full h-9 bg-stone-50 border rounded px-3 text-xs text-[#181818] placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-1 ${
+    `w-full h-9 bg-stone-50 border rounded px-3 text-xs text-brand-dark placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-1 ${
       error
         ? 'border-rose-500 focus:border-rose-600 focus:ring-rose-200'
-        : 'border-slate-300 focus:border-[#BA0000] focus:ring-[#D62323]'
+        : 'border-slate-300 focus:border-brand-primary focus:ring-brand-primary'
     }`;
 
   return (
@@ -141,11 +141,11 @@ export function NewMemberModal({ isOpen, onClose, onCreated }) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-[#181818] text-[#D62323] rounded">
+            <div className="p-2 bg-brand-dark text-brand-accent-dark rounded">
               <UserPlus className="w-4 h-4" />
             </div>
             <div>
-              <h3 id="new-member-title" className="text-sm font-bold text-[#181818]">
+              <h3 id="new-member-title" className="text-sm font-bold text-brand-dark">
                 {language === 'vi' ? 'Thêm thành viên mới' : 'Add New Member'}
               </h3>
               <p className="text-[11px] text-stone-500">
@@ -315,7 +315,7 @@ export function NewMemberModal({ isOpen, onClose, onCreated }) {
             </div>
 
             <div className="p-3 bg-stone-50 border border-slate-200 rounded text-[11px] text-stone-600">
-              <p className="font-semibold text-[#181818]">
+              <p className="font-semibold text-brand-dark">
                 {language === 'vi' ? 'Quy trình hội viên G4:' : 'G4 Member Process:'}
               </p>
               <p className="mt-0.5">
@@ -339,7 +339,7 @@ export function NewMemberModal({ isOpen, onClose, onCreated }) {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 h-9 min-w-32 bg-[#BA0000] hover:bg-[#8E0000] disabled:bg-slate-500 text-white text-xs font-bold rounded flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs"
+              className="px-4 h-9 min-w-32 bg-brand-primary hover:bg-brand-primary-hover disabled:bg-slate-500 text-white text-xs font-bold rounded flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs"
             >
               {isSubmitting ? (
                 <>

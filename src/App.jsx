@@ -536,9 +536,9 @@ function SCMSApp() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#F4F6F8] text-[#2D2721] flex flex-col items-center justify-center gap-4 text-sm p-4">
+      <div className="min-h-screen bg-bg-main text-text-primary flex flex-col items-center justify-center gap-4 text-sm p-4">
         <div className="w-12 h-12 bg-white rounded-xl shadow-xs border border-slate-200 flex items-center justify-center">
-          <div className="w-6 h-6 border-2 border-[#BA0000] border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-brand-primary border-t-transparent rounded-full animate-spin" />
         </div>
         <div className="text-center">
           <p className="font-bold tracking-wide text-slate-800">
@@ -567,7 +567,7 @@ function SCMSApp() {
           <Suspense
             fallback={
               <div className="flex-1 flex items-center justify-center p-6">
-                <div className="w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
               </div>
             }
           >
@@ -700,7 +700,7 @@ function SCMSApp() {
               <Suspense
                 fallback={
                   <div className="flex-1 flex items-center justify-center p-6">
-                    <div className="w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
                   </div>
                 }
               >
@@ -793,11 +793,7 @@ function SCMSApp() {
       authLoading={authLoading}
       fallback={<Navigate to="/login" replace />}
     >
-      <div
-        className={`min-h-screen ${
-          location.pathname.startsWith("/member") ? "bg-white" : "bg-[#F4F6F8]"
-        } text-[#2D2721] flex flex-row font-sans antialiased`}
-      >
+      <div className="min-h-screen bg-bg-main text-text-primary flex flex-row font-sans antialiased">
         <Sidebar
           mobileOpen={mobileSidebarOpen}
           onCloseMobile={() => setMobileSidebarOpen(false)}
@@ -811,7 +807,7 @@ function SCMSApp() {
           <main
             className={`flex-1 ${
               location.pathname.startsWith("/member")
-                ? "overflow-y-auto w-full bg-white"
+                ? "overflow-y-auto w-full bg-bg-main"
                 : location.pathname === "/manager/packages"
                   ? "min-w-0 p-3 sm:p-4 md:p-6 overflow-y-auto w-full"
                   : "p-3 sm:p-4 md:p-6 overflow-y-auto max-w-7xl w-full mx-auto"
@@ -821,7 +817,7 @@ function SCMSApp() {
               <Suspense
                 fallback={
                   <div className="flex-1 flex items-center justify-center p-6">
-                    <div className="w-8 h-8 border-4 border-[#BA0000] border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
                   </div>
                 }
               >

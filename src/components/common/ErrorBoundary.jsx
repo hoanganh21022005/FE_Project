@@ -42,7 +42,7 @@ export class ErrorBoundary extends React.Component {
       if (this.props.inline) {
         return (
           <div className="p-8 max-w-xl mx-auto my-6 bg-white border border-red-200 rounded-xl shadow-xs text-center space-y-4">
-            <div className="w-12 h-12 bg-red-50 text-[#BA0000] border border-red-200 rounded-full flex items-center justify-center mx-auto">
+            <div className="w-12 h-12 bg-red-50 text-status-error border border-red-200 rounded-full flex items-center justify-center mx-auto">
               <AlertTriangle className="w-6 h-6" />
             </div>
             <div>
@@ -67,7 +67,7 @@ export class ErrorBoundary extends React.Component {
               <button
                 type="button"
                 onClick={this.handleReload}
-                className="px-4 py-2 bg-[#BA0000] hover:bg-[#990000] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+                className="px-4 py-2 bg-brand-primary hover:bg-brand-primary-hover text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Tải lại trang</span>
@@ -80,7 +80,7 @@ export class ErrorBoundary extends React.Component {
       return (
         <div className="min-h-screen bg-[#F4F6F8] text-[#2D2721] flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-xl p-8 max-w-lg w-full shadow-lg text-center space-y-4">
-            <div className="w-14 h-14 bg-red-50 text-[#BA0000] border border-red-200 rounded-full flex items-center justify-center mx-auto">
+            <div className="w-14 h-14 bg-red-50 text-status-error border border-red-200 rounded-full flex items-center justify-center mx-auto">
               <AlertTriangle className="w-7 h-7" />
             </div>
 
@@ -99,7 +99,7 @@ export class ErrorBoundary extends React.Component {
               <button
                 type="button"
                 onClick={this.handleReload}
-                className="px-5 py-2.5 bg-[#BA0000] hover:bg-[#990000] text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-2 cursor-pointer transition-colors"
+                className="px-5 py-2.5 bg-brand-primary hover:bg-brand-primary-hover text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-2 cursor-pointer transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
                 <span>Tải lại trang (F5)</span>

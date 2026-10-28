@@ -48,12 +48,12 @@ export function PTDetailView() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#111111] text-stone-100 font-sans antialiased selection:bg-[#E32119] selection:text-white overflow-x-hidden">
+    <div className="min-h-screen bg-brand-dark text-stone-100 font-sans antialiased selection:bg-brand-accent selection:text-brand-dark overflow-x-hidden">
       {/* HEADER */}
-      <header className="fixed top-0 inset-x-0 z-50 bg-[#141210]/95 backdrop-blur-md border-b border-stone-800">
+      <header className="fixed top-0 inset-x-0 z-50 bg-brand-dark/95 backdrop-blur-md border-b border-stone-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
-            <div className="w-10 h-10 rounded-xl bg-[#E32119] flex items-center justify-center font-black text-lg shadow-md shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-brand-primary flex items-center justify-center font-black text-lg shadow-md shrink-0">
               <span className="text-white">SC</span>
             </div>
             <div className="text-xl font-black tracking-widest uppercase text-white leading-none mt-1">
@@ -96,7 +96,7 @@ export function PTDetailView() {
             onClick={() => {
               document.getElementById('register-form').scrollIntoView({ behavior: 'smooth' });
             }}
-            className="mt-16 bg-[#E32119] hover:bg-red-700 text-white font-bold py-4 px-12 rounded-sm text-lg uppercase tracking-wider transition-colors shadow-lg"
+            className="mt-16 bg-brand-primary hover:bg-brand-primary-hover text-white font-bold py-4 px-12 rounded-sm text-lg uppercase tracking-wider transition-colors shadow-lg"
           >
             {isVi ? 'Tham gia ngay' : 'Join Now'}
           </button>
@@ -104,7 +104,7 @@ export function PTDetailView() {
       </section>
 
       {/* 2. CHINH PHỤC MỤC TIÊU (CONQUER GOALS) */}
-      <section className="py-24 bg-[#111111] relative border-b border-stone-800">
+      <section className="py-24 bg-brand-dark relative border-b border-stone-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
             <div className="lg:sticky lg:top-32">
@@ -143,7 +143,7 @@ export function PTDetailView() {
       </section>
 
       {/* 3. QUY TRÌNH TƯ VẤN (CONSULTATION PROCESS) */}
-      <section className="py-32 bg-[#111111] relative border-b border-stone-800">
+      <section className="py-32 bg-brand-dark relative border-b border-stone-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
             <div className="lg:sticky lg:top-32 mb-12 lg:mb-0">
@@ -155,7 +155,7 @@ export function PTDetailView() {
             <div className="space-y-16 pl-6 md:pl-20 border-l border-stone-800 py-4 ml-8 md:ml-12">
               {/* Step 1 */}
               <div className="relative flex items-center gap-8 group">
-                <div className="absolute -left-[5.5rem] md:-left-[9rem] top-1/2 -translate-y-1/2 w-32 h-32 md:w-44 md:h-44 rounded-full border border-stone-700 bg-[#111111] flex flex-col items-center justify-center z-10 transition-colors group-hover:border-[#E32119]">
+                <div className="absolute -left-[5.5rem] md:-left-[9rem] top-1/2 -translate-y-1/2 w-32 h-32 md:w-44 md:h-44 rounded-full border border-stone-700 bg-brand-primary flex flex-col items-center justify-center z-10 transition-colors group-hover:border-[var(--brand-cyan)]">
                   <span className="text-stone-400 text-sm mb-1">{isVi ? 'Bước' : 'Step'}</span>
                   <span className="text-5xl md:text-6xl font-black text-white leading-none">01</span>
                 </div>
@@ -168,7 +168,7 @@ export function PTDetailView() {
 
               {/* Step 2 */}
               <div className="relative flex items-center gap-8 group">
-                <div className="absolute -left-[5.5rem] md:-left-[9rem] top-1/2 -translate-y-1/2 w-32 h-32 md:w-44 md:h-44 rounded-full border border-stone-700 bg-[#111111] flex flex-col items-center justify-center z-10 transition-colors group-hover:border-[#E32119]">
+                <div className="absolute -left-[5.5rem] md:-left-[9rem] top-1/2 -translate-y-1/2 w-32 h-32 md:w-44 md:h-44 rounded-full border border-stone-700 bg-brand-primary flex flex-col items-center justify-center z-10 transition-colors group-hover:border-[var(--brand-cyan)]">
                   <span className="text-stone-400 text-sm mb-1">{isVi ? 'Bước' : 'Step'}</span>
                   <span className="text-5xl md:text-6xl font-black text-white leading-none">02</span>
                 </div>
@@ -181,7 +181,7 @@ export function PTDetailView() {
 
               {/* Step 3 */}
               <div className="relative flex items-center gap-8 group">
-                <div className="absolute -left-[5.5rem] md:-left-[9rem] top-1/2 -translate-y-1/2 w-32 h-32 md:w-44 md:h-44 rounded-full border border-stone-700 bg-[#111111] flex flex-col items-center justify-center z-10 transition-colors group-hover:border-[#E32119]">
+                <div className="absolute -left-[5.5rem] md:-left-[9rem] top-1/2 -translate-y-1/2 w-32 h-32 md:w-44 md:h-44 rounded-full border border-stone-700 bg-brand-primary flex flex-col items-center justify-center z-10 transition-colors group-hover:border-[var(--brand-cyan)]">
                   <span className="text-stone-400 text-sm mb-1">{isVi ? 'Bước' : 'Step'}</span>
                   <span className="text-5xl md:text-6xl font-black text-white leading-none">03</span>
                 </div>
@@ -218,7 +218,7 @@ export function PTDetailView() {
                     type="text" 
                     placeholder={isVi ? 'Họ và Tên *' : 'Full Name *'}
                     required
-                    className="w-full border-b border-stone-300 py-4 px-0 bg-transparent text-lg focus:outline-none focus:border-[#E32119] transition-colors placeholder:text-stone-500"
+                    className="w-full border-b border-stone-300 py-4 px-0 bg-transparent text-lg focus:outline-none focus:border-[var(--brand-cyan)] transition-colors placeholder:text-stone-500"
                   />
                 </div>
                 <div className="relative">
@@ -226,20 +226,20 @@ export function PTDetailView() {
                     type="tel" 
                     placeholder={isVi ? 'Số điện thoại *' : 'Phone Number *'}
                     required
-                    className="w-full border-b border-stone-300 py-4 px-0 bg-transparent text-lg focus:outline-none focus:border-[#E32119] transition-colors placeholder:text-stone-500"
+                    className="w-full border-b border-stone-300 py-4 px-0 bg-transparent text-lg focus:outline-none focus:border-[var(--brand-cyan)] transition-colors placeholder:text-stone-500"
                   />
                 </div>
                 <div className="relative">
                   <input 
                     type="email" 
                     placeholder="Email"
-                    className="w-full border-b border-stone-300 py-4 px-0 bg-transparent text-lg focus:outline-none focus:border-[#E32119] transition-colors placeholder:text-stone-500"
+                    className="w-full border-b border-stone-300 py-4 px-0 bg-transparent text-lg focus:outline-none focus:border-[var(--brand-cyan)] transition-colors placeholder:text-stone-500"
                   />
                 </div>
                 
                 <button 
                   type="submit"
-                  className="bg-[#E32119] hover:bg-red-700 text-white font-bold py-5 px-14 rounded-sm text-lg uppercase tracking-wider transition-colors shadow-lg mt-8"
+                  className="bg-brand-primary hover:bg-brand-primary-hover text-white font-bold py-5 px-14 rounded-sm text-lg uppercase tracking-wider transition-colors shadow-lg mt-8"
                 >
                   {isVi ? 'Đăng Ký' : 'Register'}
                 </button>

@@ -374,7 +374,7 @@ export function PersonalProfileView() {
   return (
     <main className="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-7 sm:py-8 font-['Be_Vietnam_Pro',sans-serif]">
       <header>
-        <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
+        <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
           VIBE SPORT · MEMBER
         </p>
         <h1 className="mt-2 text-3xl font-black text-slate-950">
@@ -425,7 +425,7 @@ export function PersonalProfileView() {
           <div className="flex items-center gap-4">
             {/* Avatar Preview */}
             <div className="relative group">
-              <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-200 bg-red-50 flex items-center justify-center text-red-700 shadow-xs">
+              <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-200 bg-brand-sky-soft flex items-center justify-center text-brand-accent-dark shadow-xs">
                 {avatarUrl ? (
                   <img
                     src={avatarUrl}
@@ -433,7 +433,7 @@ export function PersonalProfileView() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <UserRound className="w-8 h-8 text-red-700" />
+                  <UserRound className="w-8 h-8 text-brand-accent-dark" />
                 )}
               </div>
 
@@ -525,7 +525,7 @@ export function PersonalProfileView() {
                 >
                   <span className="text-xs font-bold text-slate-700 block">
                     {label}
-                    {required && <span className="text-red-700"> *</span>}
+                    {required && <span className="text-status-error"> *</span>}
                   </span>
                   {name === "address" ||
                   name === "goal" ||
@@ -535,7 +535,7 @@ export function PersonalProfileView() {
                       value={profile[name] || ""}
                       onChange={change}
                       rows={name === "healthNote" ? 3 : 2}
-                      className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-red-500 transition-colors resize-none leading-relaxed"
+                      className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary transition-colors resize-none leading-relaxed"
                     />
                   ) : (
                     <input
@@ -544,7 +544,7 @@ export function PersonalProfileView() {
                       required={required}
                       value={profile[name] || ""}
                       onChange={change}
-                      className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-red-500 transition-colors"
+                      className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary transition-colors"
                     />
                   )}
                 </label>
@@ -555,7 +555,7 @@ export function PersonalProfileView() {
               <button
                 type="submit"
                 disabled={!valid || saving}
-                className="inline-flex items-center gap-2 rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-red-800 disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-primary-hover disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -581,7 +581,7 @@ export function PersonalProfileView() {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7 space-y-5">
         <div className="border-b border-slate-100 pb-4">
           <div className="flex items-center gap-2.5 text-slate-900">
-            <KeyRound className="w-5 h-5 text-red-700" />
+            <KeyRound className="w-5 h-5 text-brand-accent-dark" />
             <h2 className="font-black text-lg">
               {isVi ? "Đổi mật khẩu" : "Change Password"}
             </h2>
@@ -618,7 +618,7 @@ export function PersonalProfileView() {
             <label className="space-y-1.5">
               <span className="text-xs font-bold text-slate-700 block">
                 {isVi ? "Mật khẩu hiện tại" : "Current password"}
-                <span className="text-red-700"> *</span>
+                <span className="text-status-error"> *</span>
               </span>
               <input
                 type="password"
@@ -626,14 +626,14 @@ export function PersonalProfileView() {
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-red-500 transition-colors"
+                className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary transition-colors"
               />
             </label>
 
             <label className="space-y-1.5">
               <span className="text-xs font-bold text-slate-700 block">
                 {isVi ? "Mật khẩu mới" : "New password"}
-                <span className="text-red-700"> *</span>
+                <span className="text-status-error"> *</span>
               </span>
               <input
                 type="password"
@@ -641,14 +641,14 @@ export function PersonalProfileView() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-red-500 transition-colors"
+                className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary transition-colors"
               />
             </label>
 
             <label className="space-y-1.5">
               <span className="text-xs font-bold text-slate-700 block">
                 {isVi ? "Xác nhận mật khẩu mới" : "Confirm new password"}
-                <span className="text-red-700"> *</span>
+                <span className="text-status-error"> *</span>
               </span>
               <input
                 type="password"
@@ -656,7 +656,7 @@ export function PersonalProfileView() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-red-500 transition-colors"
+                className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary transition-colors"
               />
             </label>
           </div>

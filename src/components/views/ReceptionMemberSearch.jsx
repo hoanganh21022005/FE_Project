@@ -80,11 +80,11 @@ export function ReceptionMemberSearch() {
       {/* Header */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-[#181818] text-[#D62323] rounded border border-[#323232]">
+          <div className="p-2.5 bg-brand-dark text-brand-accent-dark rounded border border-brand-dark-hover">
             <Search className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-[#181818] tracking-tight">
+            <h2 className="text-base font-bold text-brand-dark tracking-tight">
               {t("memberSearch")}
             </h2>
             <p className="text-xs text-slate-500">
@@ -97,7 +97,7 @@ export function ReceptionMemberSearch() {
 
         <button
           onClick={() => setIsNewMemberOpen(true)}
-          className="px-3.5 py-1.5 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer w-full md:w-auto"
+          className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer w-full md:w-auto"
         >
           <UserPlus className="w-3.5 h-3.5" />
           <span>Tạo Thành Viên Mới</span>
@@ -114,7 +114,7 @@ export function ReceptionMemberSearch() {
               placeholder="Nhập tên, số điện thoại, email hoặc mã hội viên..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-300 rounded pl-9 pr-3 py-2 text-xs text-[#181818] placeholder-slate-400 focus:outline-none focus:border-[#BA0000] focus:bg-white"
+              className="w-full bg-slate-50 border border-slate-300 rounded pl-9 pr-3 py-2 text-xs text-brand-dark placeholder-slate-400 focus:outline-none focus:border-brand-primary focus:bg-white"
             />
           </div>
 
@@ -123,7 +123,7 @@ export function ReceptionMemberSearch() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full sm:w-auto bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs text-[#181818] font-semibold focus:outline-none focus:border-[#BA0000] cursor-pointer"
+              className="w-full sm:w-auto bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs text-brand-dark font-semibold focus:outline-none focus:border-brand-primary cursor-pointer"
             >
               <option value="all">Tất cả trạng thái (All Statuses)</option>
               <option value="active">Hoạt động (Active)</option>

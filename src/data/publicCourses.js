@@ -3,7 +3,7 @@ import { publicSports } from "./publicCoaches"
 // Editorial course introductions. Tuition and scheduling will be supplied later.
 const details = {
   badminton: {
-    accent: "#547d43",
+    accent: "var(--brand-teal)",
     spaceImage: "/images/training-spaces/badminton.jpg",
     intro: "Làm quen với cầu lông từ cách cầm vợt, tư thế chuẩn bị đến di chuyển trên sân. Từng bài tập giúp bạn kiểm soát đường cầu, phối hợp tay chân và tự tin bước vào những pha cầu đầu tiên.",
     introEn: "Start with grip, ready position and court movement. Build shuttle control, coordination and confidence through guided practice.",
@@ -13,7 +13,7 @@ const details = {
     spaceEn: "A badminton court with net, court markings and space to practise serves, strokes and doubles movement.",
   },
   "table-tennis": {
-    accent: "#315b8b",
+    accent: "#405BD5",
     image: "/images/courses/table-tennis-room.jpg",
     spaceImage: "/images/training-spaces/table-tennis-room.jpg",
     intro: "Bắt đầu hành trình bóng bàn với kỹ thuật cầm vợt, cảm giác bóng và tư thế đứng. Chương trình cơ bản tập trung vào kiểm soát bóng, phản xạ và kết nối các động tác trong một lượt đánh.",
@@ -24,7 +24,7 @@ const details = {
     spaceEn: "An indoor table tennis practice room with tables, nets, even lighting and movement space for serving, returning and partner rallies.",
   },
   pickleball: {
-    accent: "#688341",
+    accent: "#A5CD55",
     image: "/images/MainPage/home-pickleball.png",
     spaceImage: "/images/training-spaces/pickleball.jpg",
     intro: "Khám phá Pickleball qua những bài tập dễ tiếp cận về cách cầm vợt, giao bóng và kiểm soát bóng. Làm quen nhịp chơi, khu vực gần lưới và sự phối hợp cùng đồng đội.",
@@ -35,7 +35,7 @@ const details = {
     spaceEn: "A pickleball court with non-volley zone markings and net for ball control, movement and doubles drills.",
   },
   basketball: {
-    accent: "#bd6535",
+    accent: "#7860C4",
     spaceImage: "/images/training-spaces/basketball.jpg",
     intro: "Rèn nền tảng bóng rổ từ dẫn bóng, chuyền bóng đến ném rổ. Bài tập cá nhân kết hợp hoạt động nhóm giúp học viên phát triển khả năng quan sát và phối hợp trên sân.",
     introEn: "Build basketball foundations in dribbling, passing and shooting. Individual drills and group activities develop awareness and teamwork.",
@@ -45,7 +45,7 @@ const details = {
     spaceEn: "A basketball court with hoops and markings for dribbling, shooting and small-group practice.",
   },
   volleyball: {
-    accent: "#b77c2e",
+    accent: "#E8B351",
     image: "/images/courses/volleyball.jpg",
     spaceImage: "/images/training-spaces/volleyball.jpg",
     intro: "Làm quen với bóng chuyền thông qua tư thế chuẩn bị, đệm bóng và chuyền bóng. Từng buổi tập hướng đến cảm giác bóng, khả năng di chuyển và tinh thần phối hợp trong đội.",
@@ -56,7 +56,7 @@ const details = {
     spaceEn: "A volleyball court with net and space for passing, setting, serving and team drills.",
   },
   archery: {
-    accent: "#877448",
+    accent: "#E8B351",
     spaceImage: "/images/training-spaces/archery.jpg",
     intro: "Khám phá bắn cung với sự tập trung và kiểm soát từng động tác. HLV hướng dẫn tư thế, nhịp thở và quy trình sử dụng dụng cụ; các bài tập được thực hiện theo hướng dẫn tại khu vực tập.",
     introEn: "Discover archery through focus and controlled movement. Your coach guides stance, breathing and equipment handling throughout each drill.",
@@ -66,7 +66,7 @@ const details = {
     spaceEn: "An archery practice area with shooting line and targets, used under coach guidance.",
   },
   swimming: {
-    accent: "#25869a",
+    accent: "#24A9D2",
     image: "/images/MainPage/home-swimming.png",
     spaceImage: "/images/training-spaces/swimming.jpg",
     intro: "Xây dựng sự tự tin trong nước từ cách thở, nổi và lướt nước. HLV đồng hành qua các bài tập phù hợp với khả năng của học viên để hình thành kỹ thuật bơi nền tảng.",
@@ -77,7 +77,7 @@ const details = {
     spaceEn: "A pool with practice lanes for water familiarisation and coordinated swimming under coach guidance.",
   },
   football: {
-    accent: "#4e814d",
+    accent: "#168F83",
     spaceImage: "/images/training-spaces/football.jpg",
     intro: "Bắt đầu với cảm giác bóng, kỹ thuật chuyền và kiểm soát bóng. Các bài tập theo cặp và nhóm giúp học viên phối hợp, đọc tình huống và tìm niềm vui trong mỗi trận đấu.",
     introEn: "Start with ball feel, passing and control. Partner and group drills develop teamwork, awareness and enjoyment of the game.",
@@ -87,7 +87,7 @@ const details = {
     spaceEn: "A football pitch with goals and practice areas for dribbling, passing and small-sided games.",
   },
   tennis: {
-    accent: "#438576",
+    accent: "#405BD5",
     spaceImage: "/images/training-spaces/tennis.jpg",
     intro: "Làm quen với quần vợt qua cách cầm vợt, tư thế và kiểm soát điểm chạm bóng. Học viên luyện kỹ thuật nền tảng cùng di chuyển để tự tin duy trì những lượt đánh đầu tiên.",
     introEn: "Discover tennis through grip, stance and contact-point control. Build foundational strokes and footwork to sustain your first rallies.",

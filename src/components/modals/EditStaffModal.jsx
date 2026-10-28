@@ -92,11 +92,11 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-[#181818] text-[#D62323] rounded">
+            <div className="p-2 bg-brand-dark text-brand-accent-dark rounded">
               <Edit2 className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#181818]">
+              <h3 className="text-sm font-bold text-brand-dark">
                 {language === 'vi' ? 'Chỉnh sửa nhân viên' : 'Edit Staff Member'}
               </h3>
               <p className="text-[11px] text-stone-500">
@@ -134,8 +134,8 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
                 type="text"
                 value={formData.name}
                 onChange={e => handleChange('name', e.target.value)}
-                className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-[#181818] focus:outline-none focus:bg-white ${
-                  errors.name ? 'border-rose-500 focus:border-rose-600 bg-rose-50/20' : 'border-slate-300 focus:border-[#BA0000]'
+                className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white ${
+                  errors.name ? 'border-rose-500 focus:border-rose-600 bg-rose-50/20' : 'border-slate-300 focus:border-brand-primary'
                 }`}
               />
               {errors.name && (
@@ -155,8 +155,8 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
                   type="email"
                   value={formData.email}
                   onChange={e => handleChange('email', e.target.value)}
-                  className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-[#181818] focus:outline-none focus:bg-white ${
-                    errors.email ? 'border-rose-500 focus:border-rose-600 bg-rose-50/20' : 'border-slate-300 focus:border-[#BA0000]'
+                  className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white ${
+                    errors.email ? 'border-rose-500 focus:border-rose-600 bg-rose-50/20' : 'border-slate-300 focus:border-brand-primary'
                   }`}
                 />
                 {errors.email && (
@@ -174,7 +174,7 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
                   type="text"
                   value={formData.phone}
                   onChange={e => handleChange('phone', e.target.value)}
-                  className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-[#181818] focus:outline-none focus:bg-white focus:border-[#BA0000]"
+                  className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white focus:border-brand-primary"
                 />
               </div>
             </div>
@@ -187,7 +187,7 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
                 <select
                   value={formData.role}
                   onChange={e => handleChange('role', e.target.value)}
-                  className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-[#181818] focus:outline-none focus:bg-white focus:border-[#BA0000]"
+                  className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white focus:border-brand-primary"
                 >
                   <option value="coach">{language === 'vi' ? 'Huấn luyện viên' : 'Coach'}</option>
                   <option value="receptionist">{language === 'vi' ? 'Lễ tân' : 'Receptionist'}</option>
@@ -205,7 +205,7 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
                     placeholder={language === 'vi' ? 'Yoga, Boxing, HIIT...' : 'Yoga, Boxing, HIIT...'}
                     value={formData.specialization}
                     onChange={e => handleChange('specialization', e.target.value)}
-                    className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-[#181818] focus:outline-none focus:bg-white focus:border-[#BA0000]"
+                    className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white focus:border-brand-primary"
                   />
                 </div>
               )}
@@ -225,7 +225,7 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-1.5 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded text-xs font-bold shadow-2xs transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-1.5 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold shadow-2xs transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
             >
               {isSubmitting ? (
                 <>

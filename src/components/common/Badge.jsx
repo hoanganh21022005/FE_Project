@@ -21,7 +21,7 @@ export function StatusBadge({ type, status }) {
         colorClasses = 'bg-orange-50 text-orange-800 border-orange-300 font-extrabold shadow-2xs';
         break;
       case 'expired':
-        colorClasses = 'bg-rose-50 text-rose-800 border-rose-200';
+        colorClasses = 'bg-slate-100 text-slate-700 border-slate-300';
         break;
       case 'none':
         colorClasses = 'bg-stone-100 text-stone-700 border-stone-300';
@@ -39,13 +39,13 @@ export function StatusBadge({ type, status }) {
         colorClasses = 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]';
         break;
       case 'failed':
-        colorClasses = 'bg-[#FEE2E2] text-[#991B1B] border-[#FECACA]';
+        colorClasses = 'bg-rose-50 text-status-error border-rose-200';
         break;
       case 'reversed':
         colorClasses = 'bg-[#F1F5F9] text-[#475569] border-[#CBD5E1]';
         break;
       case 'expired':
-        colorClasses = 'bg-rose-50 text-rose-800 border-rose-200';
+        colorClasses = 'bg-slate-100 text-slate-700 border-slate-300';
         break;
       case 'cancelled':
         colorClasses = 'bg-slate-100 text-slate-600 border-slate-300';
@@ -57,13 +57,13 @@ export function StatusBadge({ type, status }) {
         colorClasses = 'bg-blue-50 text-blue-800 border-blue-200';
         break;
       case 'full':
-        colorClasses = 'bg-[#FEE2E2] text-[#991B1B] border-[#FECACA]';
+        colorClasses = 'bg-amber-50 text-status-warning border-amber-200';
         break;
       case 'draft':
         colorClasses = 'bg-[#F1F5F9] text-[#475569] border-[#CBD5E1]';
         break;
       case 'completed':
-        colorClasses = 'bg-indigo-50 text-indigo-800 border-indigo-200';
+        colorClasses = 'bg-emerald-50 text-status-success border-emerald-200';
         break;
     }
   } else if (type === 'attendance') {
@@ -75,7 +75,7 @@ export function StatusBadge({ type, status }) {
         colorClasses = 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]';
         break;
       case 'absent':
-        colorClasses = 'bg-[#FEE2E2] text-[#991B1B] border-[#FECACA]';
+        colorClasses = 'bg-rose-50 text-status-error border-rose-200';
         break;
       case 'not_recorded':
         colorClasses = 'bg-[#F1F5F9] text-[#475569] border-[#CBD5E1]';

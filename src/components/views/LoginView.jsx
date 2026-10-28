@@ -1408,7 +1408,7 @@ export function LoginView({
                     type="button"
                     disabled={isAutoLoggingIn}
                     onClick={handleFinishRegisterAndLogin}
-                    className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-rose-700 disabled:bg-stone-400 cursor-pointer"
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-brand-primary-hover disabled:bg-stone-400 cursor-pointer"
                   >
                     {isAutoLoggingIn ? (
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -1560,7 +1560,7 @@ export function LoginView({
                     <button
                       type="submit"
                       disabled={isForgotLoading}
-                      className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-rose-700 disabled:bg-stone-400 cursor-pointer"
+                      className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-brand-primary-hover disabled:bg-stone-400 cursor-pointer"
                     >
                       {isForgotLoading ? (
                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -1679,7 +1679,7 @@ export function LoginView({
                       <button
                         type="submit"
                         disabled={isForgotLoading}
-                        className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-rose-700 disabled:bg-stone-400 cursor-pointer"
+                        className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-brand-primary-hover disabled:bg-stone-400 cursor-pointer"
                       >
                         {isForgotLoading ? (
                           <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -1937,7 +1937,7 @@ export function LoginView({
                     <button
                       type="submit"
                       disabled={isLoginLoading}
-                      className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-rose-700 disabled:bg-stone-400 cursor-pointer"
+                      className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-brand-primary-hover disabled:bg-stone-400 cursor-pointer"
                     >
                       {isLoginLoading ? (
                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -2059,7 +2059,7 @@ export function LoginView({
                   <button
                     type="submit"
                     disabled={isOtpVerifying}
-                    className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-rose-700 disabled:bg-stone-400 cursor-pointer"
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-brand-primary-hover disabled:bg-stone-400 cursor-pointer"
                   >
                     {isOtpVerifying ? (
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -2438,7 +2438,7 @@ export function LoginView({
                     <button
                       type="submit"
                       disabled={isRegLoading}
-                      className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-rose-700 disabled:bg-stone-400 cursor-pointer"
+                      className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-brand-primary-hover disabled:bg-stone-400 cursor-pointer"
                     >
                       {isRegLoading ? (
                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />

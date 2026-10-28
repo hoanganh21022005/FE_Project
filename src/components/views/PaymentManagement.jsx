@@ -193,12 +193,12 @@ export function PaymentManagement() {
   };
 
   return (
-    <div className="space-y-6 text-[#181818]">
+    <div className="space-y-6 text-brand-dark">
       {/* Header bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white border border-slate-200 p-5 rounded-lg shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-red-50 text-[#BA0000] rounded border border-red-200">
-            <CreditCard className="w-5 h-5 text-[#BA0000]" />
+          <div className="p-2.5 bg-brand-blue-soft text-brand-primary rounded border border-brand-primary/20">
+            <CreditCard className="w-5 h-5 text-brand-primary" />
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-900 tracking-tight">{t('payments')}</h2>
@@ -219,13 +219,13 @@ export function PaymentManagement() {
               title={language === 'vi' ? 'Tải lại danh sách' : 'Refresh list'}
               className="min-h-[44px] min-w-[44px] px-3 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded text-xs font-bold flex items-center justify-center cursor-pointer shadow-xs disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-[#BA0000]' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-brand-primary' : ''}`} />
             </button>
           )}
 
           {!apiEnabled && <button
             onClick={() => setIsPayModalOpen(true)}
-            className="min-h-[44px] px-4 py-2 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+            className="min-h-[44px] px-4 py-2 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
             <PlusCircle className="w-4 h-4" />
             <span>{t('recordPayment')}</span>
@@ -250,7 +250,7 @@ export function PaymentManagement() {
                 ? 'Tìm mã hóa đơn, tên hội viên, gói hoặc lớp...'
                 : 'Search invoice code, member, package or class...'
             }
-            className="w-full min-h-[44px] pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-[#D62323]/20"
+            className="w-full min-h-[44px] pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
           />
         </div>
 
@@ -264,7 +264,7 @@ export function PaymentManagement() {
                 setStatusFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-[#D62323]/20"
+              className="min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
             >
               <option value="all">{language === 'vi' ? 'Tất cả trạng thái' : 'All statuses'}</option>
               <option value="successful">{language === 'vi' ? 'Đã thanh toán (Successful)' : 'Paid'}</option>
@@ -283,7 +283,7 @@ export function PaymentManagement() {
                 setMethodFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-[#D62323]/20"
+              className="min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
             >
               <option value="all">{language === 'vi' ? 'Tất cả phương thức' : 'All methods'}</option>
               <option value="cash">{language === 'vi' ? 'Tiền mặt' : 'Cash'}</option>
@@ -317,7 +317,7 @@ export function PaymentManagement() {
           <p className="text-xs text-slate-600">{error}</p>
           <button
             onClick={fetchInvoices}
-            className="min-h-[44px] px-4 py-2 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded text-xs font-bold flex items-center gap-2 mx-auto cursor-pointer"
+            className="min-h-[44px] px-4 py-2 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold flex items-center gap-2 mx-auto cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>{language === 'vi' ? 'Thử lại' : 'Retry'}</span>
@@ -328,7 +328,7 @@ export function PaymentManagement() {
       {/* Loading state */}
       {apiEnabled && loading && (
         <div className="py-12 bg-white border border-slate-200 rounded-lg text-center">
-          <Loader2 className="w-8 h-8 text-[#BA0000] animate-spin mx-auto mb-2" />
+          <Loader2 className="w-8 h-8 text-brand-primary animate-spin mx-auto mb-2" />
           <p className="text-xs font-bold text-slate-700">
             {language === 'vi' ? 'Đang tải danh sách hóa đơn từ máy chủ...' : 'Loading invoices...'}
           </p>
@@ -412,7 +412,7 @@ export function PaymentManagement() {
                                 }
                               }
                             }}
-                            className="min-h-[36px] px-2.5 py-1 text-xs font-bold text-slate-700 hover:text-[#BA0000] hover:bg-slate-100 rounded inline-flex items-center gap-1 cursor-pointer transition-colors"
+                            className="min-h-[36px] px-2.5 py-1 text-xs font-bold text-slate-700 hover:text-brand-primary hover:bg-slate-100 rounded inline-flex items-center gap-1 cursor-pointer transition-colors"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             <span>{language === 'vi' ? 'Xem' : 'View'}</span>
@@ -442,7 +442,7 @@ export function PaymentManagement() {
               >
                 {language === 'vi' ? 'Trang trước' : 'Previous'}
               </button>
-              <span className="px-3 py-1.5 bg-[#181818] text-white rounded font-bold">
+              <span className="px-3 py-1.5 bg-brand-dark text-white rounded font-bold">
                 {currentPage} / {totalPages}
               </span>
               <button
@@ -465,10 +465,10 @@ export function PaymentManagement() {
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 overflow-y-auto"
         >
-          <div className="bg-white border border-slate-200 rounded-lg w-full max-w-lg shadow-xl p-6 text-[#181818]">
+          <div className="bg-white border border-slate-200 rounded-lg w-full max-w-lg shadow-xl p-6 text-brand-dark">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
-              <div className="flex items-center gap-2 font-bold text-sm text-[#181818]">
-                <FileText className="w-4 h-4 text-[#BA0000]" />
+              <div className="flex items-center gap-2 font-bold text-sm text-brand-dark">
+                <FileText className="w-4 h-4 text-brand-primary" />
                 <span>
                   {language === 'vi' ? 'Chi tiết hóa đơn giao dịch' : 'Invoice Details'} (
                   {selectedInvoice.code || '—'})
@@ -525,7 +525,7 @@ export function PaymentManagement() {
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
                 <div>
                   <span className="text-slate-500 text-[11px] block">Số tiền:</span>
-                  <span className="text-base font-extrabold font-mono text-[#BA0000] tabular-nums">
+                  <span className="text-base font-extrabold font-mono text-brand-primary tabular-nums">
                     {selectedInvoice.amount == null ? '—' : formatCurrency(selectedInvoice.amount, language)}
                   </span>
                 </div>

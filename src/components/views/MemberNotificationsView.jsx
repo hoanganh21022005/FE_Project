@@ -228,7 +228,7 @@ export function MemberNotificationsView() {
       {/* Header */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
+          <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
             VIBE SPORT · MEMBER
           </p>
           <div className="mt-2 flex items-center gap-3">
@@ -236,7 +236,7 @@ export function MemberNotificationsView() {
               {isVi ? "Trung tâm thông báo" : "Notifications"}
             </h1>
             {unreadCount > 0 && (
-              <span className="rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-extrabold text-white">
+              <span className="rounded-full bg-brand-primary px-2.5 py-0.5 text-xs font-extrabold text-white">
                 {unreadCount} {isVi ? "mới" : "new"}
               </span>
             )}
@@ -317,7 +317,7 @@ export function MemberNotificationsView() {
       {error && (
         <div
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+          className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-status-error"
         >
           {error}
         </div>
@@ -351,7 +351,7 @@ export function MemberNotificationsView() {
                 className={`rounded-xl border p-4 sm:p-5 transition-all cursor-pointer ${
                   item.isRead
                     ? "border-slate-200 bg-white hover:border-slate-300"
-                    : "border-red-200 bg-red-50/30 shadow-2xs hover:border-red-300"
+                    : "border-brand-accent/40 bg-brand-accent-soft/30 shadow-2xs hover:border-brand-accent"
                 }`}
               >
                 <div className="flex items-start justify-between gap-4">
@@ -372,7 +372,7 @@ export function MemberNotificationsView() {
                             (isVi ? "Thông báo hệ thống" : "Notification")}
                         </h2>
                         {!item.isRead && (
-                          <span className="inline-flex items-center rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                          <span className="inline-flex items-center rounded-full bg-brand-primary px-2 py-0.5 text-[10px] font-bold text-white">
                             {isVi ? "Mới" : "New"}
                           </span>
                         )}
@@ -398,7 +398,7 @@ export function MemberNotificationsView() {
                               handleMarkAsRead(item)
                               navigate(action.path)
                             }}
-                            className="inline-flex items-center gap-1 font-bold text-red-700 hover:text-red-800 cursor-pointer"
+                            className="inline-flex items-center gap-1 font-bold text-brand-accent-dark hover:text-brand-primary-hover cursor-pointer"
                           >
                             <span>{action.label}</span>
                             <ArrowRight className="w-3.5 h-3.5" />

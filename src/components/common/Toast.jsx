@@ -7,17 +7,22 @@ export function Toast() {
 
   if (!toast) return null;
 
-  const bg = toast.type === 'success' ? 'bg-slate-900 text-white border-slate-800' :
-             toast.type === 'error' ? 'bg-rose-900 text-white border-rose-800' :
-             'bg-slate-800 text-white border-slate-700';
+  const tone = {
+    success: 'bg-status-success text-white border-status-success',
+    warning: 'bg-status-warning text-white border-status-warning',
+    error: 'bg-status-error text-white border-status-error',
+    info: 'bg-status-info text-white border-status-info',
+  }[toast.type] || 'bg-brand-primary text-white border-brand-primary';
 
   const Icon = toast.type === 'success' ? CheckCircle2 :
                toast.type === 'error' ? AlertCircle : Info;
 
+  const iconTone = toast.type === 'error' ? 'text-white' : 'text-brand-accent-soft';
+
   return (
     <div id="scms-toast" className="fixed bottom-6 right-6 z-50 animate-bounce">
-      <div className={`flex items-center gap-2.5 px-4 py-3 rounded-lg border shadow-lg ${bg}`}>
-        <Icon className="w-4 h-4 flex-shrink-0 text-emerald-400" />
+      <div className={`flex items-center gap-2.5 px-4 py-3 rounded-lg border shadow-lg ${tone}`}>
+        <Icon className={`w-4 h-4 flex-shrink-0 ${iconTone}`} />
         <span className="text-xs font-bold">{toast.message}</span>
       </div>
     </div>

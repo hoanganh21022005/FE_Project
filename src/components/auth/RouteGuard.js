@@ -15,7 +15,7 @@ export function RequireAuth({
     return React.createElement(
       'div',
       { className: 'min-h-screen bg-stone-950 text-stone-200 flex flex-col items-center justify-center gap-3 text-sm' },
-      React.createElement('div', { className: 'w-8 h-8 border-2 border-[#BA0000] border-t-transparent rounded-full animate-spin' }),
+      React.createElement('div', { className: 'w-8 h-8 border-2 border-brand-primary border-t-transparent rounded-full animate-spin' }),
       React.createElement('p', { className: 'font-medium tracking-wide' }, 'Đang kiểm tra phiên đăng nhập...')
     );
   }

@@ -90,7 +90,7 @@ export function CoachesHeader({ showRegister = true }) {
           </div>
           <Link to="/login" className="hidden text-xs font-bold hover:text-mlc-red sm:block">{isVi ? "Đăng nhập" : "Login"}</Link>
           {showRegister && (
-            <Link to="/register" className="hidden rounded-full bg-mlc-red px-5 py-3 text-xs font-bold text-white shadow-mlc transition hover:bg-rose-700 sm:block">
+            <Link to="/register" className="hidden rounded-full bg-mlc-red px-5 py-3 text-xs font-bold text-white shadow-mlc transition hover:bg-brand-primary-hover sm:block">
               {isVi ? "Đăng ký ngay" : "Join now"}
             </Link>
           )}

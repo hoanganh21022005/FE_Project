@@ -49,7 +49,7 @@ export function AdminAuditLogsView() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Actor, hành động, đối tượng..."
-            className="w-full h-11 min-h-[44px] pl-9 pr-3 rounded border border-stone-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#BA0000]"
+            className="w-full h-11 min-h-[44px] pl-9 pr-3 rounded border border-border-color bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent"
           />
         </label>
       </div>
@@ -84,7 +84,7 @@ export function AdminAuditLogsView() {
                       {log.actorLabel}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="font-mono text-xs font-bold text-[#BA0000] break-all">
+                      <span className="font-mono text-xs font-bold text-brand-primary break-all">
                         {log.action}
                       </span>
                     </td>

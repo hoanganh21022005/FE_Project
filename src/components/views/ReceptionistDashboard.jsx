@@ -97,7 +97,7 @@ export function ReceptionistDashboard() {
 
           <button
             onClick={() => setIsPayOpen(true)}
-            className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer"
+            className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer"
           >
             <CreditCard className="w-3.5 h-3.5 shrink-0" />
             <span>
@@ -112,9 +112,9 @@ export function ReceptionistDashboard() {
         <button
           type="button"
           onClick={() => navigate("/receptionist/checkin")}
-          className="text-left p-4 bg-white hover:bg-blue-50/40 border border-slate-200 hover:border-blue-300 rounded-lg shadow-xs transition-all cursor-pointer flex items-start gap-3"
+          className="text-left p-4 bg-white hover:bg-brand-sky-soft/30 border border-slate-200 hover:border-brand-accent rounded-lg shadow-xs transition-all cursor-pointer flex items-start gap-3"
         >
-          <div className="p-2.5 bg-blue-50 text-blue-700 rounded border border-blue-200">
+          <div className="p-2.5 bg-brand-sky-soft text-brand-accent-dark rounded border border-brand-accent/30">
             <QrCode className="w-5 h-5" />
           </div>
           <div>
@@ -133,7 +133,7 @@ export function ReceptionistDashboard() {
           onClick={() => navigate("/receptionist/search")}
           className="text-left p-4 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg shadow-xs transition-all cursor-pointer flex items-start gap-3"
         >
-          <div className="p-2.5 bg-amber-50 text-amber-700 rounded border border-amber-200">
+          <div className="p-2.5 bg-brand-lavender-soft text-brand-purple-dark rounded border border-brand-purple/20">
             <Search className="w-5 h-5" />
           </div>
           <div>
@@ -150,9 +150,9 @@ export function ReceptionistDashboard() {
         <button
           type="button"
           onClick={() => navigate("/receptionist/booking")}
-          className="text-left p-4 bg-white hover:bg-emerald-50/40 border border-slate-200 hover:border-emerald-300 rounded-lg shadow-xs transition-all cursor-pointer flex items-start gap-3"
+          className="text-left p-4 bg-white hover:bg-brand-mint-soft border border-slate-200 hover:border-brand-teal/40 rounded-lg shadow-xs transition-all cursor-pointer flex items-start gap-3"
         >
-          <div className="p-2.5 bg-emerald-50 text-emerald-700 rounded border border-emerald-200">
+          <div className="p-2.5 bg-brand-mint-soft text-brand-teal rounded border border-brand-teal/20">
             <Calendar className="w-5 h-5" />
           </div>
           <div>

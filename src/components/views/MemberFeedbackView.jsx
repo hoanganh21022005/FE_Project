@@ -643,7 +643,7 @@ export function MemberFeedbackView({ embedded = false }) {
       {!embedded && (
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
               VIBE SPORT · MEMBER
             </p>
             <h1 className="mt-2 text-3xl font-black text-slate-950">
@@ -719,7 +719,7 @@ export function MemberFeedbackView({ embedded = false }) {
           onClick={() => setActiveTab("pending")}
           className={`pb-3 font-bold border-b-2 cursor-pointer transition-colors flex items-center gap-2 ${
             activeTab === "pending"
-              ? "border-red-700 text-red-700"
+              ? "border-brand-accent text-brand-accent-dark"
               : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
@@ -734,7 +734,7 @@ export function MemberFeedbackView({ embedded = false }) {
           onClick={() => setActiveTab("submitted")}
           className={`pb-3 font-bold border-b-2 cursor-pointer transition-colors flex items-center gap-2 ${
             activeTab === "submitted"
-              ? "border-red-700 text-red-700"
+              ? "border-brand-accent text-brand-accent-dark"
               : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
@@ -811,7 +811,7 @@ export function MemberFeedbackView({ embedded = false }) {
                       <button
                         type="button"
                         onClick={() => handleOpenReviewDrawer(session)}
-                        className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all active:scale-[0.98] bg-red-700 hover:bg-red-800 text-white shadow-xs"
+                        className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all active:scale-[0.98] bg-brand-primary hover:bg-brand-primary-hover text-white shadow-xs"
                       >
                         Viết đánh giá
                       </button>
@@ -833,7 +833,7 @@ export function MemberFeedbackView({ embedded = false }) {
               <select
                 value={selectedCourseFilter}
                 onChange={(e) => setSelectedCourseFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-200 text-xs text-slate-900 rounded-xl px-3 py-2 cursor-pointer outline-none focus:border-red-700"
+                className="bg-slate-50 border border-slate-200 text-xs text-slate-900 rounded-xl px-3 py-2 cursor-pointer outline-none focus:border-brand-accent"
               >
                 <option value="all">Tất cả khóa học</option>
                 <option value="Cầu lông">Cầu lông K01</option>
@@ -844,7 +844,7 @@ export function MemberFeedbackView({ embedded = false }) {
               <select
                 value={selectedTimeFilter}
                 onChange={(e) => setSelectedTimeFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-200 text-xs text-slate-900 rounded-xl px-3 py-2 cursor-pointer outline-none focus:border-red-700"
+                className="bg-slate-50 border border-slate-200 text-xs text-slate-900 rounded-xl px-3 py-2 cursor-pointer outline-none focus:border-brand-accent"
               >
                 <option value="all">Tất cả thời gian</option>
                 <option value="30days">30 ngày qua</option>
@@ -868,7 +868,7 @@ export function MemberFeedbackView({ embedded = false }) {
               <button
                 type="button"
                 onClick={() => setActiveTab("pending")}
-                className="text-xs text-red-700 underline font-bold cursor-pointer"
+                className="text-xs text-brand-accent-dark underline font-bold cursor-pointer"
               >
                 Xem danh sách cần đánh giá
               </button>
@@ -956,7 +956,7 @@ export function MemberFeedbackView({ embedded = false }) {
                               review,
                             )
                           }
-                          className="text-xs text-red-700 hover:text-red-800 font-bold hover:underline cursor-pointer"
+                          className="text-xs text-brand-accent-dark hover:text-brand-primary-hover font-bold hover:underline cursor-pointer"
                         >
                           Chỉnh sửa
                         </button>
@@ -965,7 +965,7 @@ export function MemberFeedbackView({ embedded = false }) {
 
                     {/* Verdict label & Tags */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-red-700 uppercase tracking-wider">
+                      <span className="text-xs font-bold text-brand-accent-dark uppercase tracking-wider">
                         {APPRAISAL_VERDICTS[
                           Math.round(review.overallRating || review.rating || 5)
                         ]?.label || "Chuẩn mực cao"}
@@ -1002,7 +1002,7 @@ export function MemberFeedbackView({ embedded = false }) {
                           <button
                             type="button"
                             onClick={() => toggleCommentExpand(review.id)}
-                            className="text-xs text-red-700 hover:underline font-bold cursor-pointer block"
+                            className="text-xs text-brand-accent-dark hover:underline font-bold cursor-pointer block"
                           >
                             {isExpanded ? "Thu gọn" : "Xem toàn văn nhận xét"}
                           </button>
@@ -1082,7 +1082,7 @@ export function MemberFeedbackView({ embedded = false }) {
 
                     {/* Coach reply if any */}
                     {review.coachReply && (
-                      <div className="pl-4 border-l-2 border-red-700/60 space-y-1 pt-1">
+                      <div className="pl-4 border-l-2 border-brand-accent/60 space-y-1 pt-1">
                         <p className="text-xs text-slate-600 italic leading-relaxed">
                           “{review.coachReply}”
                         </p>
@@ -1131,7 +1131,7 @@ export function MemberFeedbackView({ embedded = false }) {
                 {/* Header Drawer */}
                 <div className="p-6 border-b border-slate-200 flex items-start justify-between gap-4 bg-white sticky top-0 z-10">
                   <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-red-700 block">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-brand-accent-dark block">
                       {editingFeedbackId
                         ? "CHỈNH SỬA ĐÁNH GIÁ"
                         : "ĐÁNH GIÁ BUỔI HỌC"}
@@ -1193,7 +1193,7 @@ export function MemberFeedbackView({ embedded = false }) {
                               )
                             }
                           }}
-                          className="w-full py-3 rounded-xl bg-red-700 text-white text-xs font-bold cursor-pointer hover:bg-red-800 transition-all shadow-xs"
+                          className="w-full py-3 rounded-xl bg-brand-primary text-white text-xs font-bold cursor-pointer hover:bg-brand-primary-hover transition-all shadow-xs"
                         >
                           Xem trong Lịch sử đánh giá
                         </button>
@@ -1217,7 +1217,7 @@ export function MemberFeedbackView({ embedded = false }) {
                           <h3 className="font-bold text-sm text-slate-900">
                             Đánh giá chất lượng buổi tập
                           </h3>
-                          <span className="text-[11px] font-bold text-red-700">
+                          <span className="text-[11px] font-bold text-brand-accent-dark">
                             THANG ĐIỂM 1 – 5
                           </span>
                         </div>
@@ -1240,9 +1240,9 @@ export function MemberFeedbackView({ embedded = false }) {
                                 onClick={() => setOverallRating(level)}
                                 className={`h-11 rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer font-bold text-sm border ${
                                   isSelected
-                                    ? "bg-red-700 text-white border-red-700 shadow-xs"
+                                    ? "bg-brand-primary text-white border-brand-accent shadow-xs"
                                     : overallRating >= level
-                                      ? "bg-red-50 text-red-700 border-red-200"
+                                      ? "bg-brand-accent-soft text-brand-accent-dark border-brand-accent/40"
                                       : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                                 }`}
                               >
@@ -1256,7 +1256,7 @@ export function MemberFeedbackView({ embedded = false }) {
                         <div className="min-h-5 pt-0.5">
                           {overallRating > 0 ? (
                             <div className="flex items-baseline gap-2 animate-in fade-in duration-150">
-                              <span className="text-xs font-bold text-red-700">
+                              <span className="text-xs font-bold text-brand-accent-dark">
                                 {APPRAISAL_VERDICTS[overallRating].label}
                               </span>
                               <span className="text-[11px] text-slate-500">
@@ -1315,9 +1315,9 @@ export function MemberFeedbackView({ embedded = false }) {
                                         }
                                         className={`w-6 h-6 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                                           coachCriteria[item.key] === pt
-                                            ? "bg-red-700 text-white"
+                                            ? "bg-brand-primary text-white"
                                             : coachCriteria[item.key] >= pt
-                                              ? "bg-red-50 text-red-700"
+                                              ? "bg-brand-accent-soft text-brand-accent-dark"
                                               : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                                         }`}
                                       >
@@ -1371,9 +1371,9 @@ export function MemberFeedbackView({ embedded = false }) {
                                         }
                                         className={`w-6 h-6 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                                           facilityCriteria[item.key] === pt
-                                            ? "bg-red-700 text-white"
+                                            ? "bg-brand-primary text-white"
                                             : facilityCriteria[item.key] >= pt
-                                              ? "bg-red-50 text-red-700"
+                                              ? "bg-brand-accent-soft text-brand-accent-dark"
                                               : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                                         }`}
                                       >
@@ -1407,7 +1407,7 @@ export function MemberFeedbackView({ embedded = false }) {
                                   onClick={() => handleToggleTag(tag)}
                                   className={`text-xs px-3 py-1.5 rounded-lg transition-all cursor-pointer font-medium border ${
                                     isSelected
-                                      ? "bg-red-50 text-red-700 border-red-200 font-bold"
+                                      ? "bg-brand-accent-soft text-brand-accent-dark border-brand-accent/40 font-bold"
                                       : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                                   }`}
                                 >
@@ -1431,7 +1431,7 @@ export function MemberFeedbackView({ embedded = false }) {
                             onChange={(e) => setCommentText(e.target.value)}
                             rows={3}
                             placeholder="Ghi chú chi tiết về bài tập, động tác, nhịp độ hoặc chất lượng sân..."
-                            className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-red-700 focus:ring-1 focus:ring-red-700 transition-all resize-none leading-relaxed"
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all resize-none leading-relaxed"
                           />
                         </div>
                       )}
@@ -1445,7 +1445,7 @@ export function MemberFeedbackView({ embedded = false }) {
                               type="checkbox"
                               checked={isAnonymous}
                               onChange={(e) => setIsAnonymous(e.target.checked)}
-                              className="w-4 h-4 rounded border-slate-300 text-red-700 focus:ring-red-700"
+                              className="w-4 h-4 rounded border-slate-300 text-brand-accent-dark focus:ring-brand-accent"
                             />
                             <span>
                               Gửi ẩn danh với Huấn luyện viên (chỉ Ban Giám đốc
@@ -1461,7 +1461,7 @@ export function MemberFeedbackView({ embedded = false }) {
                               onChange={(e) =>
                                 setIsPrivateContactRequested(e.target.checked)
                               }
-                              className="w-4 h-4 rounded border-slate-300 text-red-700 focus:ring-red-700"
+                              className="w-4 h-4 rounded border-slate-300 text-brand-accent-dark focus:ring-brand-accent"
                             />
                             <span>
                               Đề nghị Giám đốc Chuyên môn liên hệ trực tiếp trao
@@ -1497,7 +1497,7 @@ export function MemberFeedbackView({ embedded = false }) {
                       onClick={handleSubmitReview}
                       className={`px-6 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all ${
                         overallRating > 0 && !isSubmitting
-                          ? "bg-red-700 hover:bg-red-800 text-white shadow-xs active:scale-[0.98]"
+                          ? "bg-brand-primary hover:bg-brand-primary-hover text-white shadow-xs active:scale-[0.98]"
                           : "bg-slate-200 text-slate-400 cursor-not-allowed"
                       }`}
                     >

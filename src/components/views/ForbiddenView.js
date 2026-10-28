@@ -121,7 +121,7 @@ export function ForbiddenView({
               type: "button",
               onClick: onGoHome,
               className:
-                "w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#BA0000] hover:bg-[#8E0000] text-white font-medium text-sm transition-colors shadow-xs",
+                "w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-primary hover:bg-brand-primary-hover text-white font-medium text-sm transition-colors shadow-xs",
             },
             React.createElement(ArrowLeft, { className: "w-4 h-4" }),
             React.createElement("span", null, "Về Bảng điều khiển của bạn"),

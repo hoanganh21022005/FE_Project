@@ -13,17 +13,17 @@ export function AdminHeader({ title, onMenu, onLogout }) {
         <button
           type="button"
           onClick={onMenu}
-          className="w-11 h-11 min-h-[44px] min-w-[44px] -ml-2 inline-flex items-center justify-center rounded text-stone-700 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-[#BA0000] lg:hidden transition-colors cursor-pointer"
+          className="w-11 h-11 min-h-[44px] min-w-[44px] -ml-2 inline-flex items-center justify-center rounded text-text-primary hover:bg-bg-secondary focus:outline-none focus:ring-2 focus:ring-brand-accent lg:hidden transition-colors cursor-pointer"
           aria-label="Mở menu Admin"
         >
           <Menu className="w-5 h-5" />
         </button>
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold text-[#BA0000] flex items-center gap-1.5">
+          <p className="text-[11px] font-semibold text-brand-primary flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5" />
             Admin Portal
           </p>
-          <h1 className="text-base font-bold text-stone-950 truncate">
+          <h1 className="text-base font-bold text-text-primary truncate">
             {title}
           </h1>
         </div>
@@ -41,7 +41,7 @@ export function AdminHeader({ title, onMenu, onLogout }) {
           type="button"
           onClick={onLogout}
           title="Đăng xuất"
-          className="w-11 h-11 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded border border-stone-300 text-stone-700 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-[#BA0000] focus:ring-offset-2 transition-colors cursor-pointer"
+          className="w-11 h-11 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded border border-border-color text-text-secondary hover:bg-bg-secondary focus:outline-none focus:ring-2 focus:ring-brand-accent focus:ring-offset-2 transition-colors cursor-pointer"
         >
           <LogOut className="w-4 h-4" />
           <span className="sr-only">Đăng xuất</span>

@@ -246,7 +246,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
   }
 
   return (
-    <header className="h-[56px] bg-white border-b border-slate-200 px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+    <header className="h-[56px] bg-bg-card border-b border-border-color px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
       {/* Left Trail & Mobile Menu Button */}
       <div className="flex items-center gap-2 text-xs min-w-0">
         <button
@@ -277,7 +277,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
             onClick={() => setLanguage("vi")}
             className={`px-1 py-0.5 transition-colors cursor-pointer ${
               language === "vi"
-                ? "text-red-700 font-bold underline underline-offset-4 decoration-red-700 decoration-2"
+                ? "text-brand-primary font-bold underline underline-offset-4 decoration-brand-accent decoration-2"
                 : "text-slate-400 hover:text-slate-700"
             }`}
           >
@@ -289,7 +289,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
             onClick={() => setLanguage("en")}
             className={`px-1 py-0.5 transition-colors cursor-pointer ${
               language === "en"
-                ? "text-red-700 font-bold underline underline-offset-4 decoration-red-700 decoration-2"
+                ? "text-brand-primary font-bold underline underline-offset-4 decoration-brand-accent decoration-2"
                 : "text-slate-400 hover:text-slate-700"
             }`}
           >
@@ -312,7 +312,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
           >
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-[#A8844F] rounded-full ring-2 ring-white" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-[#24A9D2] rounded-full ring-2 ring-white" />
             )}
           </button>
 
@@ -326,7 +326,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
                     {language === "vi" ? "Thông báo hệ thống" : "Notifications"}
                   </h3>
                   {unreadCount > 0 && (
-                    <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 text-[10px] font-bold rounded font-mono">
+                    <span className="px-1.5 py-0.5 bg-brand-accent-soft text-brand-accent-dark text-[10px] font-bold rounded font-mono">
                       {unreadCount}
                     </span>
                   )}
@@ -431,7 +431,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
                       setIsNotifOpen(false)
                       navigate("/member/notifications")
                     }}
-                    className="w-full py-1 text-center font-bold text-red-700 hover:text-red-800 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                    className="w-full py-1 text-center font-bold text-brand-primary hover:text-brand-primary-hover transition-colors flex items-center justify-center gap-1 cursor-pointer"
                   >
                     <span>
                       {language === "vi"
@@ -460,7 +460,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
             className="flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer text-left bg-transparent border-0 p-0 focus:outline-hidden"
             title={language === "vi" ? "Xem hồ sơ cá nhân" : "View profile"}
           >
-            <div className="w-8 h-8 rounded-full border border-slate-200 bg-red-50 text-red-700 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
+            <div className="w-8 h-8 rounded-full border border-border-color bg-brand-accent-soft text-brand-primary flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
               {headerAvatar ? (
                 <img
                   src={headerAvatar}

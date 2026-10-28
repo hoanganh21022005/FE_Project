@@ -670,7 +670,7 @@ export function MemberMyCoachView() {
       {/* Header */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
+          <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
             VIBE SPORT · MEMBER
           </p>
           <h1 className="mt-2 text-3xl font-black text-slate-950">
@@ -739,7 +739,7 @@ export function MemberMyCoachView() {
                     ? "Tìm theo tên HLV, chuyên môn..."
                     : "Search coach name, specialty..."
                 }
-                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-red-500 shadow-2xs"
+                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-brand-primary shadow-2xs"
               />
             </div>
             <div className="text-xs text-slate-500 font-medium">
@@ -758,7 +758,7 @@ export function MemberMyCoachView() {
 
           {loadingCoaches ? (
             <div className="p-16 text-center text-xs text-slate-500 flex flex-col items-center gap-2">
-              <Loader2 className="w-6 h-6 animate-spin text-red-600" />
+              <Loader2 className="w-6 h-6 animate-spin text-brand-primary" />
               <span>
                 {isVi
                   ? "Đang nạp danh sách Huấn luyện viên..."
@@ -844,7 +844,7 @@ export function MemberMyCoachView() {
                       onClick={() => handleOpenBookingModal(c)}
                       className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer"
                     >
-                      <Calendar className="w-3.5 h-3.5 text-red-400" />
+                      <Calendar className="w-3.5 h-3.5 text-brand-accent" />
                       <span>
                         {apiEnabled
                           ? isVi
@@ -859,7 +859,7 @@ export function MemberMyCoachView() {
                     <button
                       type="button"
                       onClick={() => handleOpenAdvancedModal(c)}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-800 border border-red-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-accent-soft hover:bg-brand-accent-soft text-brand-accent-dark border border-brand-accent/40 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                     >
                       <Award className="w-3.5 h-3.5" />
                       <span>
@@ -886,7 +886,7 @@ export function MemberMyCoachView() {
             <button
               type="button"
               onClick={fetchPrivateSessions}
-              className="text-xs font-bold text-red-700 hover:underline inline-flex items-center gap-1"
+              className="text-xs font-bold text-brand-accent-dark hover:underline inline-flex items-center gap-1"
             >
               <Clock className="w-3.5 h-3.5" />
               <span>{isVi ? "Tải lại" : "Refresh"}</span>
@@ -895,7 +895,7 @@ export function MemberMyCoachView() {
 
           {loadingSessions ? (
             <div className="py-12 text-center text-xs text-slate-500 flex flex-col items-center gap-2">
-              <Loader2 className="w-6 h-6 animate-spin text-red-600" />
+              <Loader2 className="w-6 h-6 animate-spin text-brand-primary" />
               <span>
                 {isVi
                   ? "Đang tải lịch tập riêng..."
@@ -1001,7 +1001,7 @@ export function MemberMyCoachView() {
             <button
               type="button"
               onClick={fetchAdvancedRegistrations}
-              className="text-xs font-bold text-red-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
+              className="text-xs font-bold text-brand-accent-dark hover:underline inline-flex items-center gap-1 cursor-pointer"
             >
               <Clock className="w-3.5 h-3.5" />
               <span>{isVi ? "Tải lại" : "Refresh"}</span>
@@ -1010,7 +1010,7 @@ export function MemberMyCoachView() {
 
           {loadingAdvanced ? (
             <div className="py-12 text-center text-xs text-slate-500 flex flex-col items-center gap-2">
-              <Loader2 className="w-6 h-6 animate-spin text-red-600" />
+              <Loader2 className="w-6 h-6 animate-spin text-brand-primary" />
               <span>
                 {isVi ? "Đang tải dữ liệu đăng ký..." : "Loading requests..."}
               </span>
@@ -1133,7 +1133,7 @@ export function MemberMyCoachView() {
                           onClick={() =>
                             handleCreateOrderForAdvanced(reg, "VNPay")
                           }
-                          className="px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-bold cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-white text-xs font-bold cursor-pointer"
                         >
                           {isVi ? "Thanh toán VNPay" : "Order (VNPay)"}
                         </button>
@@ -1175,7 +1175,7 @@ export function MemberMyCoachView() {
 
             {loadingCoachMeta ? (
               <div className="py-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                <Loader2 className="w-4 h-4 animate-spin text-brand-primary" />
                 <span>
                   {isVi
                     ? "Đang tải lịch làm việc của HLV..."
@@ -1253,7 +1253,7 @@ export function MemberMyCoachView() {
                   onChange={(e) =>
                     handleChangeSubjectForCapacity(e.target.value)
                   }
-                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs bg-white outline-none focus:border-red-500"
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs bg-white outline-none focus:border-brand-primary"
                 >
                   <option value="">
                     {isVi ? "-- Chọn bộ môn --" : "-- Select Subject --"}
@@ -1306,7 +1306,7 @@ export function MemberMyCoachView() {
                 <button
                   type="submit"
                   disabled={submittingAdvanced || !selectedSubjectId}
-                  className="px-5 py-2 bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white text-xs font-bold rounded-lg cursor-pointer"
+                  className="px-5 py-2 bg-brand-primary hover:bg-brand-primary-hover disabled:opacity-50 text-white text-xs font-bold rounded-lg cursor-pointer"
                 >
                   {submittingAdvanced
                     ? isVi
@@ -1399,7 +1399,7 @@ export function MemberMyCoachView() {
                   min={new Date().toISOString().slice(0, 10)}
                   value={bookingDate}
                   onChange={(e) => handleDateChange(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-sans outline-none focus:border-red-500"
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-sans outline-none focus:border-brand-primary"
                 />
               </div>
 
@@ -1413,7 +1413,7 @@ export function MemberMyCoachView() {
 
                 {loadingSlots ? (
                   <div className="p-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                    <Loader2 className="w-4 h-4 animate-spin text-brand-primary" />
                     <span>
                       {isVi
                         ? "Đang kiểm tra lịch trống..."
@@ -1442,7 +1442,7 @@ export function MemberMyCoachView() {
                             slot.isAvailable === false
                               ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
                               : isChosen
-                                ? "bg-red-50 border-red-600 text-red-900 ring-1 ring-red-500 font-bold"
+                                ? "bg-brand-accent-soft border-brand-accent text-brand-accent-dark ring-1 ring-brand-accent font-bold"
                                 : "bg-white border-slate-200 text-slate-800 hover:border-slate-300"
                           }`}
                         >
@@ -1470,7 +1470,7 @@ export function MemberMyCoachView() {
                   required
                   value={selectedRoomId}
                   onChange={(e) => setSelectedRoomId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs outline-none focus:border-red-500 bg-white"
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs outline-none focus:border-brand-primary bg-white"
                 >
                   <option value="">
                     {isVi ? "-- Chọn phòng tập --" : "-- Select Room --"}
@@ -1501,7 +1501,7 @@ export function MemberMyCoachView() {
                     required
                     value={selectedSubscriptionId}
                     onChange={(e) => setSelectedSubscriptionId(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 p-2.5 text-xs outline-none focus:border-red-500 bg-white"
+                    className="w-full rounded-xl border border-slate-300 p-2.5 text-xs outline-none focus:border-brand-primary bg-white"
                   >
                     {subscriptions.map((s) => (
                       <option
@@ -1534,7 +1534,7 @@ export function MemberMyCoachView() {
                       !selectedRoomId ||
                       !selectedSubscriptionId
                     }
-                    className="inline-flex items-center gap-2 px-5 py-2 bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors shadow-xs"
+                    className="inline-flex items-center gap-2 px-5 py-2 bg-brand-primary hover:bg-brand-primary-hover disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors shadow-xs"
                   >
                     {submittingBooking && (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1603,7 +1603,7 @@ export function MemberMyCoachView() {
                       ? "Ví dụ: Em có việc đột xuất / Bị ốm..."
                       : "Explain your reason..."
                   }
-                  className="w-full rounded-xl border border-slate-300 p-3 text-xs outline-none focus:border-red-500 resize-none"
+                  className="w-full rounded-xl border border-slate-300 p-3 text-xs outline-none focus:border-brand-primary resize-none"
                 />
               </div>
 
@@ -1618,7 +1618,7 @@ export function MemberMyCoachView() {
                 <button
                   type="submit"
                   disabled={submittingAbsence || !absenceReason.trim()}
-                  className="px-5 py-2 bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white text-xs font-bold rounded-lg"
+                  className="px-5 py-2 bg-brand-primary hover:bg-brand-primary-hover disabled:opacity-50 text-white text-xs font-bold rounded-lg"
                 >
                   {submittingAbsence
                     ? isVi

@@ -35,17 +35,17 @@ export function AdminSidebar({
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-stone-200 bg-white transition-transform duration-200 lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-brand-dark-hover bg-bg-sidebar text-text-inverse transition-transform duration-200 lg:static lg:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="h-full flex flex-col justify-between">
           <div>
-            <div className="h-16 px-5 flex items-center justify-between border-b border-stone-200">
+            <div className="h-16 px-5 flex items-center justify-between border-b border-brand-dark-hover">
               <button
                 type="button"
                 onClick={() => select("admin_dashboard")}
-                className="flex items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-[#BA0000] rounded cursor-pointer"
+                className="flex items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-brand-accent rounded cursor-pointer"
               >
                 <img
                   src="/images/MainPage/vibe-sport-logo.png?v=2"
@@ -53,10 +53,10 @@ export function AdminSidebar({
                   className="w-12 h-9 object-contain flex-shrink-0"
                 />
                 <div>
-                  <p className="text-sm font-extrabold text-stone-950 leading-none">
+                  <p className="text-sm font-extrabold text-white leading-none">
                     VIBE Sport Admin
                   </p>
-                  <p className="mt-1 text-[11px] text-stone-600">
+                  <p className="mt-1 text-[11px] text-slate-300">
                     Quản trị hệ thống
                   </p>
                 </div>
@@ -64,7 +64,7 @@ export function AdminSidebar({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-11 h-11 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-stone-600 hover:bg-stone-100 rounded lg:hidden transition-colors cursor-pointer"
+                className="w-11 h-11 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-white hover:bg-brand-dark-hover rounded lg:hidden transition-colors cursor-pointer"
                 aria-label="Đóng menu"
               >
                 <X className="w-5 h-5" />
@@ -83,13 +83,13 @@ export function AdminSidebar({
                     type="button"
                     onClick={() => select(id)}
                     aria-current={active ? "page" : undefined}
-                    className={`w-full h-11 min-h-[44px] px-3 flex items-center gap-3 rounded text-sm font-semibold transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#BA0000] ${
+                    className={`w-full h-11 min-h-[44px] px-3 flex items-center gap-3 rounded text-sm font-semibold transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-accent ${
                       active
-                        ? "bg-red-50 text-red-950 font-bold border-l-2 border-[#BA0000] shadow-2xs"
-                        : "text-stone-700 hover:bg-stone-100"
+                        ? "bg-brand-primary text-white font-bold border-l-2 border-brand-accent shadow-2xs"
+                        : "text-slate-200 hover:text-white hover:bg-brand-dark-hover"
                     }`}
                   >
-                    <Icon className={`w-4 h-4 shrink-0 ${active ? "text-[#BA0000]" : "text-stone-500"}`} />
+                    <Icon className={`w-4 h-4 shrink-0 ${active ? "text-brand-accent" : "text-slate-300"}`} />
                     <span className="truncate">{label}</span>
                   </button>
                 )
@@ -97,23 +97,23 @@ export function AdminSidebar({
             </nav>
           </div>
 
-          <div className="p-3 border-t border-stone-200 space-y-1 bg-white">
+          <div className="p-3 border-t border-brand-dark-hover space-y-1 bg-bg-sidebar">
             <button
               type="button"
               onClick={() => select("profile")}
-              className={`w-full h-11 min-h-[44px] px-3 flex items-center gap-3 rounded text-sm font-semibold transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#BA0000] ${
+              className={`w-full h-11 min-h-[44px] px-3 flex items-center gap-3 rounded text-sm font-semibold transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-accent ${
                 currentTab === "profile"
-                  ? "bg-red-50 text-red-950 font-bold border-l-2 border-[#BA0000] shadow-2xs"
-                  : "text-stone-700 hover:bg-stone-100"
+                  ? "bg-brand-primary text-white font-bold border-l-2 border-brand-accent shadow-2xs"
+                  : "text-slate-200 hover:text-white hover:bg-brand-dark-hover"
               }`}
             >
-              <UserCircle className={`w-4 h-4 shrink-0 ${currentTab === "profile" ? "text-[#BA0000]" : "text-stone-500"}`} />
+              <UserCircle className={`w-4 h-4 shrink-0 ${currentTab === "profile" ? "text-brand-accent" : "text-slate-300"}`} />
               Hồ sơ
             </button>
             <button
               type="button"
               onClick={onLogout}
-              className="w-full h-11 min-h-[44px] px-3 flex items-center gap-3 rounded text-sm font-semibold text-rose-800 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-600 transition-colors cursor-pointer"
+              className="w-full h-11 min-h-[44px] px-3 flex items-center gap-3 rounded text-sm font-semibold text-slate-200 hover:text-white hover:bg-brand-dark-hover focus:outline-none focus:ring-2 focus:ring-brand-accent transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
               Đăng xuất

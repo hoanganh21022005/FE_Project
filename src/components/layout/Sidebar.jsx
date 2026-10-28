@@ -225,7 +225,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
       )}
 
       <aside
-        className={`bg-white border-r border-slate-200 flex flex-col justify-between transition-all duration-200
+        className={`bg-bg-sidebar text-text-inverse border-r border-brand-dark-hover flex flex-col justify-between transition-all duration-200
           fixed inset-y-0 left-0 z-50 md:static md:z-40
           ${
             mobileOpen
@@ -238,7 +238,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
         {/* Brand Header & Navigation */}
         <div>
           <div
-            className={`h-[56px] border-b border-slate-200 flex items-center justify-between ${
+            className={`h-[56px] border-b border-brand-dark-hover flex items-center justify-between ${
               collapsed ? "px-2" : "px-3.5"
             }`}
           >
@@ -252,10 +252,10 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
               />
               {(!collapsed || mobileOpen) && (
                 <div className="truncate">
-                  <div className="text-xs font-bold tracking-tight text-slate-900 uppercase leading-tight truncate">
+                  <div className="text-xs font-bold tracking-tight text-white uppercase leading-tight truncate">
                     VIBE Sport SYSTEM
                   </div>
-                  <div className="text-[9px] text-slate-500 font-bold tracking-wider uppercase leading-tight truncate">
+                  <div className="text-[9px] text-slate-300 font-bold tracking-wider uppercase leading-tight truncate">
                     SPORTS CENTER
                   </div>
                 </div>
@@ -266,7 +266,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             <button
               type="button"
               onClick={onCloseMobile}
-              className="md:hidden w-7 h-7 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors border border-slate-200 flex items-center justify-center flex-shrink-0 cursor-pointer"
+              className="md:hidden w-7 h-7 rounded-md bg-brand-dark-hover hover:bg-brand-primary-active text-white transition-colors border border-white/10 flex items-center justify-center flex-shrink-0 cursor-pointer"
               aria-label={language === "vi" ? "Đóng menu" : "Close menu"}
             >
               <X className="w-4 h-4" />
@@ -278,7 +278,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
                 <button
                   type="button"
                   onClick={() => setCollapsed(true)}
-                  className="w-7 h-7 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors border border-slate-200 flex items-center justify-center flex-shrink-0 cursor-pointer"
+                  className="w-7 h-7 rounded-md bg-brand-dark-hover hover:bg-brand-primary-active text-white transition-colors border border-white/10 flex items-center justify-center flex-shrink-0 cursor-pointer"
                   title={
                     language === "vi"
                       ? "Thu gọn thanh điều hướng"
@@ -291,7 +291,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
                 <button
                   type="button"
                   onClick={() => setCollapsed(false)}
-                  className="w-6 h-6 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors border border-slate-200 flex items-center justify-center flex-shrink-0 cursor-pointer"
+                  className="w-6 h-6 rounded-md bg-brand-dark-hover hover:bg-brand-primary-active text-white transition-colors border border-white/10 flex items-center justify-center flex-shrink-0 cursor-pointer"
                   title={
                     language === "vi"
                       ? "Mở rộng thanh điều hướng"
@@ -319,14 +319,14 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
                   onClick={() => handleNav(item.path)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded text-xs transition-all cursor-pointer ${
                     isActive
-                      ? "bg-red-50 text-[#BA0000] font-bold border-l-2 border-[#BA0000] shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium"
+                      ? "bg-brand-primary text-white font-bold border-l-2 border-brand-accent shadow-2xs"
+                      : "text-slate-200 hover:text-white hover:bg-brand-dark-hover font-medium"
                   }`}
                   title={collapsed ? item.label || t(item.labelKey) : undefined}
                 >
                   <Icon
                     className={`w-4 h-4 flex-shrink-0 ${
-                      isActive ? "text-[#BA0000]" : "text-slate-500"
+                      isActive ? "text-brand-accent" : "text-slate-300"
                     }`}
                   />
                   {(!collapsed || mobileOpen) && (
@@ -341,15 +341,15 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
         </div>
 
         {/* Footer Settings & Support */}
-        <div className="p-2 border-t border-slate-200 space-y-1">
+        <div className="p-2 border-t border-brand-dark-hover space-y-1">
           {role === "member" && (
             <button
               type="button"
               onClick={() => handleNav("/profile")}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded text-xs font-medium transition-all cursor-pointer ${
                 location.pathname === "/profile"
-                  ? "bg-red-50 text-[#BA0000] font-bold border-l-2 border-[#BA0000]"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  ? "bg-brand-primary text-white font-bold border-l-2 border-brand-accent"
+                  : "text-slate-200 hover:text-white hover:bg-brand-dark-hover"
               }`}
               title={
                 collapsed
@@ -359,7 +359,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
                   : undefined
               }
             >
-              <UserRound className="w-4 h-4 text-slate-500 flex-shrink-0" />
+              <UserRound className="w-4 h-4 text-slate-300 flex-shrink-0" />
               {(!collapsed || mobileOpen) && (
                 <span className="truncate">
                   {language === "vi" ? "Thông tin cá nhân" : "Profile"}
@@ -372,12 +372,12 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             onClick={() => handleNav("/settings")}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded text-xs font-medium transition-all cursor-pointer ${
               location.pathname.includes("/settings")
-                ? "bg-red-50 text-[#BA0000] font-bold border-l-2 border-[#BA0000]"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                ? "bg-brand-primary text-white font-bold border-l-2 border-brand-accent"
+                : "text-slate-200 hover:text-white hover:bg-brand-dark-hover"
             }`}
             title={collapsed ? t("settings") : undefined}
           >
-            <Settings className="w-4 h-4 text-slate-500 flex-shrink-0" />
+            <Settings className="w-4 h-4 text-slate-300 flex-shrink-0" />
             {(!collapsed || mobileOpen) && (
               <span className="truncate">{t("settings")}</span>
             )}
@@ -388,12 +388,12 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             onClick={() => handleNav("/support")}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded text-xs font-medium transition-all cursor-pointer ${
               location.pathname.includes("/support")
-                ? "bg-red-50 text-[#BA0000] font-bold border-l-2 border-[#BA0000]"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                ? "bg-brand-primary text-white font-bold border-l-2 border-brand-accent"
+                : "text-slate-200 hover:text-white hover:bg-brand-dark-hover"
             }`}
             title={collapsed ? t("support") : undefined}
           >
-            <HelpCircle className="w-4 h-4 text-slate-500 flex-shrink-0" />
+            <HelpCircle className="w-4 h-4 text-slate-300 flex-shrink-0" />
             {(!collapsed || mobileOpen) && (
               <span className="truncate">{t("support")}</span>
             )}

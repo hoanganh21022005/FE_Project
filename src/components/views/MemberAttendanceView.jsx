@@ -753,12 +753,12 @@ export function MemberAttendanceView() {
     }
   }, [activeDrawer])
 
-  // Set page background coverage across full html/body canvas to #F5F2EA
+  // Set page background coverage across full html/body canvas to #F5F7FC
   useEffect(() => {
     const prevHtmlBg = document.documentElement.style.backgroundColor
     const prevBodyBg = document.body.style.backgroundColor
-    document.documentElement.style.backgroundColor = "#F5F2EA"
-    document.body.style.backgroundColor = "#F5F2EA"
+    document.documentElement.style.backgroundColor = "#F5F7FC"
+    document.body.style.backgroundColor = "#F5F7FC"
     return () => {
       document.documentElement.style.backgroundColor = prevHtmlBg
       document.body.style.backgroundColor = prevBodyBg
@@ -986,21 +986,21 @@ export function MemberAttendanceView() {
     const isAchievable = attended + remainingSessions >= course.threshold
 
     let progressLabel = "Đúng tiến độ"
-    let progressColor = "text-[#2F6B4F]"
+    let progressColor = "text-status-success"
 
     if (!isAchievable) {
       progressLabel = "Nguy cơ không đạt"
-      progressColor = "text-[#8A2B32]"
+      progressColor = "text-status-error"
     } else if (absent >= course.maxAbsent) {
       progressLabel = "Cảnh báo · Đã hết hạn mức vắng"
-      progressColor = "text-[#8A2B32]"
+      progressColor = "text-status-error"
     } else if (
       course.maxAbsent - absent <=
         (ATTENDANCE_POLICY?.warningAbsentRemaining || 1) &&
       absent > 0
     ) {
       progressLabel = "Cần chú ý · Còn 1 buổi vắng cuối cùng"
-      progressColor = "text-[#8A5A2B]"
+      progressColor = "text-status-warning"
     }
 
     return {
@@ -1233,7 +1233,7 @@ export function MemberAttendanceView() {
         {/* Header */}
         <div className="pb-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-red-700 font-bold bg-red-50 border border-red-200/60 px-2 py-0.5 rounded-sm">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-brand-accent-dark font-bold bg-brand-sky-soft border border-brand-accent/30 px-2 py-0.5 rounded-sm">
               ĐIỂM DANH & CHUYÊN CẦN THỰC TẾ · BACKEND API
             </span>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight mt-1.5">
@@ -1327,7 +1327,7 @@ export function MemberAttendanceView() {
           {/* Live QR Pass Card */}
           <div className="lg:col-span-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex items-center justify-between gap-4">
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-red-700">
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-brand-accent-dark">
                 <QrCode className="w-3.5 h-3.5" />
                 <span>Mã QR Check-in Động</span>
               </div>
@@ -1336,7 +1336,7 @@ export function MemberAttendanceView() {
               </div>
               <p className="text-xs text-slate-500">
                 Tự động làm mới sau{" "}
-                <strong className="text-red-700 font-mono">
+                <strong className="text-brand-accent-dark font-mono">
                   {liveQrSeconds}s
                 </strong>
                 . Đưa mã này cho Lễ tân quét khi đến phòng tập.
@@ -1345,7 +1345,7 @@ export function MemberAttendanceView() {
                 type="button"
                 onClick={loadLiveQrCode}
                 disabled={liveQrLoading}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-red-700 cursor-pointer pt-1"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-brand-accent-dark cursor-pointer pt-1"
               >
                 <RefreshCw
                   className={`w-3.5 h-3.5 ${
@@ -1358,7 +1358,7 @@ export function MemberAttendanceView() {
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl shrink-0">
               {liveQrLoading ? (
                 <div className="w-[104px] h-[104px] flex items-center justify-center">
-                  <Loader2 className="w-5 h-5 animate-spin text-red-600" />
+                  <Loader2 className="w-5 h-5 animate-spin text-brand-primary" />
                 </div>
               ) : (
                 <QRCodeSVG
@@ -1409,7 +1409,7 @@ export function MemberAttendanceView() {
 
           {apiLoading ? (
             <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
-              <Loader2 className="w-6 h-6 animate-spin text-red-600" />
+              <Loader2 className="w-6 h-6 animate-spin text-brand-primary" />
               <span className="text-xs">
                 Đang tải lịch sử điểm danh từ máy chủ...
               </span>
@@ -1520,12 +1520,12 @@ export function MemberAttendanceView() {
 
   if (viewState === "loading") {
     return (
-      <div className="min-h-screen bg-[#F5F2EA] py-16 px-6 font-['Be_Vietnam_Pro',sans-serif] animate-pulse">
+      <div className="min-h-screen bg-[#F5F7FC] py-16 px-6 font-['Be_Vietnam_Pro',sans-serif] animate-pulse">
         <div className="max-w-[1120px] mx-auto space-y-12">
-          <div className="h-8 bg-[#15171C]/10 rounded w-1/4" />
-          <div className="border-t border-[rgba(21,23,28,0.12)] pt-8 space-y-4">
-            <div className="h-10 bg-[#15171C]/10 rounded w-1/2" />
-            <div className="h-6 bg-[#15171C]/5 rounded w-1/3" />
+          <div className="h-8 bg-[#202B46]/10 rounded w-1/4" />
+          <div className="border-t border-[rgba(222,228,240,0.9)] pt-8 space-y-4">
+            <div className="h-10 bg-[#202B46]/10 rounded w-1/2" />
+            <div className="h-6 bg-[#202B46]/5 rounded w-1/3" />
           </div>
         </div>
       </div>
@@ -1534,19 +1534,19 @@ export function MemberAttendanceView() {
 
   if (viewState === "error") {
     return (
-      <div className="min-h-screen bg-[#F5F2EA] py-20 px-4 font-['Be_Vietnam_Pro',sans-serif] flex items-center justify-center">
-        <div className="max-w-md w-full text-center space-y-4 bg-[#FBF9F4] p-8 rounded-lg border border-[rgba(21,23,28,0.12)]">
-          <h2 className="font-['Newsreader',serif] text-2xl text-[#15171C]">
+      <div className="min-h-screen bg-[#F5F7FC] py-20 px-4 font-['Be_Vietnam_Pro',sans-serif] flex items-center justify-center">
+        <div className="max-w-md w-full text-center space-y-4 bg-[#FFFFFF] p-8 rounded-lg border border-[rgba(222,228,240,0.9)]">
+          <h2 className="font-['Newsreader',serif] text-2xl text-[#202B46]">
             Không thể kết nối máy chủ
           </h2>
-          <p className="text-sm text-[#6A675F] leading-relaxed">
+          <p className="text-sm text-[#6B7890] leading-relaxed">
             Dữ liệu điểm danh tạm thời không thể đồng bộ. Quý hội viên vui lòng
             kiểm tra kết nối mạng và thử lại.
           </p>
           <button
             type="button"
             onClick={() => setViewState("normal")}
-            className="px-6 py-2.5 rounded bg-[#15171C] text-[#FBF9F4] text-xs font-medium cursor-pointer hover:bg-[#2A2E37] transition-colors"
+            className="px-6 py-2.5 rounded bg-[#202B46] text-[#FFFFFF] text-xs font-medium cursor-pointer hover:bg-[#303B58] transition-colors"
           >
             Thử lại kết nối
           </button>
@@ -1557,12 +1557,12 @@ export function MemberAttendanceView() {
 
   if (viewState === "empty") {
     return (
-      <div className="min-h-screen bg-[#F5F2EA] py-20 px-4 font-['Be_Vietnam_Pro',sans-serif] flex items-center justify-center">
-        <div className="max-w-md w-full text-center space-y-4 bg-[#FBF9F4] p-8 rounded-lg border border-[rgba(21,23,28,0.12)]">
-          <h2 className="font-['Newsreader',serif] text-2xl text-[#15171C]">
+      <div className="min-h-screen bg-[#F5F7FC] py-20 px-4 font-['Be_Vietnam_Pro',sans-serif] flex items-center justify-center">
+        <div className="max-w-md w-full text-center space-y-4 bg-[#FFFFFF] p-8 rounded-lg border border-[rgba(222,228,240,0.9)]">
+          <h2 className="font-['Newsreader',serif] text-2xl text-[#202B46]">
             Chưa có lịch điểm danh
           </h2>
-          <p className="text-sm text-[#6A675F] leading-relaxed">
+          <p className="text-sm text-[#6B7890] leading-relaxed">
             Quý hội viên hiện chưa có lịch điểm danh hoặc chưa đăng ký lớp thể
             thao nào trong học kỳ này.
           </p>
@@ -1570,7 +1570,7 @@ export function MemberAttendanceView() {
             <button
               type="button"
               onClick={() => navigate("/member/catalog")}
-              className="px-6 py-2.5 rounded bg-[#15171C] text-[#FBF9F4] text-xs font-medium cursor-pointer hover:bg-[#2A2E37] transition-colors"
+              className="px-6 py-2.5 rounded bg-[#202B46] text-[#FFFFFF] text-xs font-medium cursor-pointer hover:bg-[#303B58] transition-colors"
             >
               Đăng ký lớp thể thao
             </button>
@@ -1585,43 +1585,43 @@ export function MemberAttendanceView() {
   // Perfectly centered, high contrast, clean typography, zero clutter
   // ==============================================================
   return (
-    <div className="min-h-screen bg-[#F5F2EA] text-[#15171C] font-['Be_Vietnam_Pro',sans-serif] antialiased selection:bg-[#A8844F]/20">
+    <div className="min-h-screen bg-[#F5F7FC] text-[#202B46] font-['Be_Vietnam_Pro',sans-serif] antialiased selection:bg-[#24A9D2]/20">
       <div className="w-full max-w-[1120px] mx-auto px-4 sm:px-8 py-8 sm:py-12 pb-24 sm:pb-16 space-y-8">
         {/* ============================================================== */}
         {/* 1. VIP PRIVILEGE HEADER (Clean, high-end club style)           */}
         {/* ============================================================== */}
-        <header className="pb-6 border-b border-[rgba(21,23,28,0.12)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <header className="pb-6 border-b border-[rgba(222,228,240,0.9)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-2">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="h-px w-6 bg-[#A8844F]" />
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-sans tracking-[0.14em] uppercase font-medium text-[#A8844F] bg-[#15171C] border border-[#A8844F]/40 shadow-xs">
-                <Award className="w-3 h-3 text-[#A8844F]" />
+              <span className="h-px w-6 bg-[#24A9D2]" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-sans tracking-[0.14em] uppercase font-medium text-[#24A9D2] bg-[#202B46] border border-[#24A9D2]/40 shadow-xs">
+                <Award className="w-3 h-3 text-[#24A9D2]" />
                 <span>
                   {isVip
                     ? "VIBE ATHLETIC CLUB • THẺ VIP"
                     : "VIBE ATHLETIC CLUB • THẺ HỘI VIÊN"}
                 </span>
               </span>
-              <span className="text-[#6A675F]/50">•</span>
-              <span className="font-mono text-xs text-[#6A675F]">
+              <span className="text-[#6B7890]/50">•</span>
+              <span className="font-mono text-xs text-[#6B7890]">
                 {member?.code || "MEM-001"}
               </span>
-              <span className="text-[#6A675F]/50">•</span>
-              <span className="text-[11px] text-[#6A675F]">
+              <span className="text-[#6B7890]/50">•</span>
+              <span className="text-[11px] text-[#6B7890]">
                 Hạn thẻ: 31/12/2026 (Còn 78 ngày)
               </span>
             </div>
 
-            <h1 className="font-['Newsreader',serif] font-normal text-3xl sm:text-4xl text-[#15171C] tracking-tight leading-tight">
+            <h1 className="font-['Newsreader',serif] font-normal text-3xl sm:text-4xl text-[#202B46] tracking-tight leading-tight">
               Điểm danh & Chuyên cần
             </h1>
-            <p className="text-xs sm:text-sm text-[#6A675F] font-normal">
+            <p className="text-xs sm:text-sm text-[#6B7890] font-normal">
               Hội viên:{" "}
-              <strong className="font-medium text-[#15171C]">
+              <strong className="font-medium text-[#202B46]">
                 {member?.name || "Bùi Văn Phúc"}
               </strong>{" "}
               • Trạng thái:{" "}
-              <span className="text-[#2F6B4F] font-medium">
+              <span className="text-status-success font-medium">
                 {isVip
                   ? "Đặc quyền VIP đang kích hoạt"
                   : "Thẻ hội viên đang hoạt động"}
@@ -1633,7 +1633,7 @@ export function MemberAttendanceView() {
             <button
               type="button"
               onClick={() => setShowPolicyModal(true)}
-              className="px-4 py-2 rounded border border-[rgba(21,23,28,0.12)] bg-[#FBF9F4] hover:border-[#15171C] text-xs text-[#15171C] font-medium cursor-pointer transition-colors"
+              className="px-4 py-2 rounded border border-[rgba(222,228,240,0.9)] bg-[#FFFFFF] hover:border-[#202B46] text-xs text-[#202B46] font-medium cursor-pointer transition-colors"
             >
               Quy chế điểm danh & vắng mặt
             </button>
@@ -1658,8 +1658,8 @@ export function MemberAttendanceView() {
                   }}
                   className={`px-4 py-2 text-xs tracking-wider uppercase font-medium cursor-pointer transition-all rounded flex items-center gap-2 ${
                     isSelected
-                      ? "bg-[#15171C] text-[#FBF9F4] border border-[#A8844F]/40 shadow-xs"
-                      : "bg-[#FBF9F4] text-[#6A675F] border border-[rgba(21,23,28,0.12)] hover:text-[#15171C] hover:border-[#15171C]"
+                      ? "bg-[#202B46] text-[#FFFFFF] border border-[#24A9D2]/40 shadow-xs"
+                      : "bg-[#FFFFFF] text-[#6B7890] border border-[rgba(222,228,240,0.9)] hover:text-[#202B46] hover:border-[#202B46]"
                   }`}
                 >
                   <span>{c.name}</span>
@@ -1668,7 +1668,7 @@ export function MemberAttendanceView() {
             })}
           </div>
 
-          <div className="hidden md:flex items-center text-xs text-[#6A675F] font-normal">
+          <div className="hidden md:flex items-center text-xs text-[#6B7890] font-normal">
             <span>{Object.values(CLUB_COURSES).length} khóa học đang theo</span>
           </div>
         </div>
@@ -1676,9 +1676,9 @@ export function MemberAttendanceView() {
         {/* ============================================================== */}
         {/* 3. HERO SECTION: STADIUM STAGE (Obsidian Foil & Apple Wallet)  */}
         {/* ============================================================== */}
-        <section className="relative rounded-xl overflow-hidden bg-[#15171C] text-[#FBF9F4] border border-[#15171C] isolate">
+        <section className="relative rounded-xl overflow-hidden bg-[#202B46] text-[#FFFFFF] border border-[#202B46] isolate">
           {/* Subtle warm bronze ambient glow */}
-          <div className="absolute -top-32 right-1/4 -z-10 w-96 h-96 bg-[#A8844F]/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -top-32 right-1/4 -z-10 w-96 h-96 bg-[#24A9D2]/10 rounded-full blur-3xl pointer-events-none" />
 
           <div className="p-6 sm:p-8 lg:p-10">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
@@ -1687,52 +1687,52 @@ export function MemberAttendanceView() {
                 {/* Eyebrow & Focus Topic */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="h-px w-6 bg-[#C9A96E]" />
-                    <span className="text-[11px] font-sans font-medium uppercase tracking-[0.14em] text-[#C9A96E]">
+                    <span className="h-px w-6 bg-[#405BD5]" />
+                    <span className="text-[11px] font-sans font-medium uppercase tracking-[0.14em] text-[#405BD5]">
                       {heroSession.isToday || heroSession.date === SERVER_TODAY
                         ? `Hôm nay · ${heroSession.startTime}`
                         : "Buổi kế tiếp"}
                     </span>
-                    <span className="text-[#6A675F]">•</span>
-                    <span className="text-xs text-[#FBF9F4]/70 font-normal">
+                    <span className="text-[#6B7890]">•</span>
+                    <span className="text-xs text-[#FFFFFF]/70 font-normal">
                       {activeCourse.scheduleDay}
                     </span>
                   </div>
 
                   {/* Date Heading in Serif */}
-                  <h2 className="font-['Newsreader',serif] font-normal text-3xl sm:text-4xl text-[#FBF9F4] tracking-tight leading-tight">
+                  <h2 className="font-['Newsreader',serif] font-normal text-3xl sm:text-4xl text-[#FFFFFF] tracking-tight leading-tight">
                     {heroSession.dayVi}
                   </h2>
 
                   {/* Curriculum Focus: Italic Serif line (~18px) directly under Date */}
                   {heroSession.topic && (
-                    <p className="font-['Newsreader',serif] italic text-lg sm:text-[19px] text-[#C9A96E] leading-snug pt-0.5">
+                    <p className="font-['Newsreader',serif] italic text-lg sm:text-[19px] text-[#405BD5] leading-snug pt-0.5">
                       Trọng tâm: {heroSession.topic}
                     </p>
                   )}
                 </div>
 
                 {/* Stadium Specs Block (Bronze accent hairline, clean text) */}
-                <div className="space-y-1.5 border-l-2 border-[#C9A96E] pl-4 text-sm sm:text-[15px]">
-                  <div className="text-xl sm:text-2xl font-light text-[#FBF9F4] flex items-center gap-3 tabular-nums">
+                <div className="space-y-1.5 border-l-2 border-[#405BD5] pl-4 text-sm sm:text-[15px]">
+                  <div className="text-xl sm:text-2xl font-light text-[#FFFFFF] flex items-center gap-3 tabular-nums">
                     <span>
                       {heroSession.startTime} – {heroSession.endTime}
                     </span>
-                    <span className="text-xs text-[#FBF9F4]/60 font-normal">
+                    <span className="text-xs text-[#FFFFFF]/60 font-normal">
                       (90 phút)
                     </span>
                   </div>
-                  <div className="text-[#FBF9F4]/80 leading-relaxed font-normal">
-                    <span className="text-[#FBF9F4] font-medium">
+                  <div className="text-[#FFFFFF]/80 leading-relaxed font-normal">
+                    <span className="text-[#FFFFFF] font-medium">
                       {heroSession.court}
                     </span>{" "}
                     • {heroSession.zone} •{" "}
-                    <span className="text-[#C9A96E] font-medium">
+                    <span className="text-[#405BD5] font-medium">
                       {activeCourse.gate}
                       {isVip ? " (Làn VIP)" : ""}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2.5 pt-1 text-xs text-[#FBF9F4]/70">
+                  <div className="flex items-center gap-2.5 pt-1 text-xs text-[#FFFFFF]/70">
                     <img
                       src={activeCourse.coachImage}
                       alt={heroSession.coach}
@@ -1740,7 +1740,7 @@ export function MemberAttendanceView() {
                     />
                     <span>
                       Huấn luyện viên:{" "}
-                      <span className="text-[#FBF9F4] font-medium">
+                      <span className="text-[#FFFFFF] font-medium">
                         {heroSession.coach?.replace(/^HLV\s+/, "")}
                       </span>
                     </span>
@@ -1751,16 +1751,16 @@ export function MemberAttendanceView() {
                 {(isCheckedIn || isCheckInOpen) && (
                   <div className="text-sm">
                     {isCheckedIn ? (
-                      <div className="text-[#68D391] flex items-center gap-2 font-medium">
-                        <span className="w-2 h-2 rounded-full bg-[#2F6B4F]" />
+                      <div className="text-[#15803D] flex items-center gap-2 font-medium">
+                        <span className="w-2 h-2 rounded-full bg-[#15803D]" />
                         <span>
                           Quý khách đã hoàn tất check-in lúc{" "}
                           {heroSession.checkinTime || "05:55"} (Đúng giờ)
                         </span>
                       </div>
                     ) : (
-                      <div className="text-[#E0C99E] flex items-center gap-2 font-medium">
-                        <span className="w-2 h-2 rounded-full bg-[#C9A96E] animate-ping" />
+                      <div className="text-[#98D9E8] flex items-center gap-2 font-medium">
+                        <span className="w-2 h-2 rounded-full bg-[#405BD5] animate-ping" />
                         <span>
                           Cổng soát vé {isVip ? "VIP " : ""}đang mở • Mời quý
                           hội viên quét mã vào sân{isVip ? " (Fast Track)" : ""}
@@ -1776,7 +1776,7 @@ export function MemberAttendanceView() {
                     <button
                       type="button"
                       onClick={() => setShowQrPassModal(true)}
-                      className="px-6 py-2.5 rounded bg-[#FBF9F4] text-[#15171C] text-sm font-medium hover:bg-white transition-colors inline-flex items-center gap-2 cursor-pointer shadow-xs active:scale-[0.98]"
+                      className="px-6 py-2.5 rounded bg-[#FFFFFF] text-[#202B46] text-sm font-medium hover:bg-white transition-colors inline-flex items-center gap-2 cursor-pointer shadow-xs active:scale-[0.98]"
                     >
                       <QrCode className="w-4 h-4" />
                       <span>Xem thẻ vào sân</span>
@@ -1785,7 +1785,7 @@ export function MemberAttendanceView() {
                     <button
                       type="button"
                       onClick={handlePerformCheckin}
-                      className="px-7 py-3 rounded bg-[#C9A96E] hover:bg-[#b89558] text-[#15171C] text-sm font-semibold transition-all inline-flex items-center gap-2.5 cursor-pointer shadow-md active:scale-[0.98]"
+                      className="px-7 py-3 rounded bg-brand-primary hover:bg-brand-primary-hover text-white text-sm font-semibold transition-all inline-flex items-center gap-2.5 cursor-pointer shadow-md active:scale-[0.98]"
                     >
                       <Check className="w-4 h-4 stroke-[2.5]" />
                       <span>
@@ -1797,9 +1797,9 @@ export function MemberAttendanceView() {
                       href={getGoogleCalendarUrl(heroSession, activeCourse)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-6 py-2.5 rounded bg-[#C9A96E] hover:bg-[#b89558] text-[#15171C] text-sm font-semibold transition-all inline-flex items-center gap-2 cursor-pointer shadow-xs active:scale-[0.98]"
+                      className="px-6 py-2.5 rounded bg-brand-primary hover:bg-brand-primary-hover text-white text-sm font-semibold transition-all inline-flex items-center gap-2 cursor-pointer shadow-xs active:scale-[0.98]"
                     >
-                      <Calendar className="w-4 h-4 text-[#15171C]" />
+                      <Calendar className="w-4 h-4 text-[#202B46]" />
                       <span>Thêm vào lịch</span>
                     </a>
                   )}
@@ -1811,7 +1811,7 @@ export function MemberAttendanceView() {
                         href={getGoogleCalendarUrl(heroSession, activeCourse)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[#FBF9F4]/70 hover:text-[#FBF9F4] underline underline-offset-4 cursor-pointer font-normal transition-colors"
+                        className="text-[#FFFFFF]/70 hover:text-[#FFFFFF] underline underline-offset-4 cursor-pointer font-normal transition-colors"
                       >
                         Thêm vào lịch
                       </a>
@@ -1829,7 +1829,7 @@ export function MemberAttendanceView() {
                               )
                               setShowLeaveModal(true)
                             }}
-                            className="text-[#C9A96E] hover:text-[#E0C99E] underline underline-offset-4 cursor-pointer font-medium transition-colors"
+                            className="text-[#405BD5] hover:text-[#98D9E8] underline underline-offset-4 cursor-pointer font-medium transition-colors"
                           >
                             ✓{" "}
                             {heroSession.leaveRequest.type === "swap"
@@ -1841,7 +1841,7 @@ export function MemberAttendanceView() {
                             onClick={() =>
                               handleCancelLeave(heroSessionWithMeta)
                             }
-                            className="text-xs text-[#FBF9F4]/60 hover:text-rose-300 underline underline-offset-4 cursor-pointer transition-colors"
+                            className="text-xs text-[#FFFFFF]/60 hover:text-rose-300 underline underline-offset-4 cursor-pointer transition-colors"
                           >
                             Hủy đơn
                           </button>
@@ -1857,7 +1857,7 @@ export function MemberAttendanceView() {
                             setLeaveRequestInitialType("leave")
                             setShowLeaveModal(true)
                           }}
-                          className="text-[#FBF9F4]/70 hover:text-[#FBF9F4] underline underline-offset-4 cursor-pointer font-normal transition-colors"
+                          className="text-[#FFFFFF]/70 hover:text-[#FFFFFF] underline underline-offset-4 cursor-pointer font-normal transition-colors"
                         >
                           Xin nghỉ buổi này
                         </button>
@@ -1872,7 +1872,7 @@ export function MemberAttendanceView() {
                               )
                             }
                           }}
-                          className="text-[#FBF9F4]/40 hover:text-[#FBF9F4]/60 text-xs underline underline-offset-4 cursor-pointer font-normal transition-colors"
+                          className="text-[#FFFFFF]/40 hover:text-[#FFFFFF]/60 text-xs underline underline-offset-4 cursor-pointer font-normal transition-colors"
                           title="Quy định: Chỉ được xin nghỉ trước tối thiểu 12 giờ qua ứng dụng. Nhấn để xem hướng dẫn."
                         >
                           Xin nghỉ (&lt; 12h: Báo Lễ tân)
@@ -1884,7 +1884,7 @@ export function MemberAttendanceView() {
 
               {/* Right Column (4/12): Digital Pass Widget with qrcode.react */}
               <div className="lg:col-span-4 flex flex-col items-center justify-center">
-                <div className="w-full max-w-[320px] bg-[#15171C] border border-white/10 rounded-xl p-5 space-y-4 shadow-xl relative overflow-hidden">
+                <div className="w-full max-w-[320px] bg-[#202B46] border border-white/10 rounded-xl p-5 space-y-4 shadow-xl relative overflow-hidden">
                   {/* Segmented Control (Single Line) */}
                   <div className="flex items-center justify-center border-b border-white/10 pb-3">
                     <div className="flex items-center bg-white/5 p-0.5 rounded border border-white/10">
@@ -1893,8 +1893,8 @@ export function MemberAttendanceView() {
                         onClick={() => setHeroWidgetTab("pass")}
                         className={`px-3 py-1.5 text-xs font-medium rounded transition-all cursor-pointer whitespace-nowrap ${
                           heroWidgetTab === "pass"
-                            ? "bg-[#FBF9F4] text-[#15171C]"
-                            : "text-[#FBF9F4]/70 hover:text-white"
+                            ? "bg-[#FFFFFF] text-[#202B46]"
+                            : "text-[#FFFFFF]/70 hover:text-white"
                         }`}
                       >
                         Thẻ vào sân
@@ -1904,8 +1904,8 @@ export function MemberAttendanceView() {
                         onClick={() => setHeroWidgetTab("map")}
                         className={`px-3 py-1.5 text-xs font-medium rounded transition-all cursor-pointer whitespace-nowrap ${
                           heroWidgetTab === "map"
-                            ? "bg-[#FBF9F4] text-[#15171C]"
-                            : "text-[#FBF9F4]/70 hover:text-white"
+                            ? "bg-[#FFFFFF] text-[#202B46]"
+                            : "text-[#FFFFFF]/70 hover:text-white"
                         }`}
                       >
                         Sơ đồ sân
@@ -1934,7 +1934,7 @@ export function MemberAttendanceView() {
                             value={`SCMS://PASS/${activeCourse.code}/${heroSession.num}/${member?.code}/${otpBackupCode}`}
                             size={146}
                             level="M"
-                            fgColor="#15171C"
+                            fgColor="#202B46"
                             bgColor="#FFFFFF"
                             className="w-full h-full"
                           />
@@ -1942,8 +1942,8 @@ export function MemberAttendanceView() {
 
                         {/* If gate is locked and member hasn't checked in: Frosted vault overlay with lock */}
                         {!isCheckInOpen && !isCheckedIn && (
-                          <div className="absolute inset-0 bg-[#15171C]/75 backdrop-blur-xs flex flex-col items-center justify-center p-2 text-center space-y-1.5">
-                            <div className="w-8 h-8 rounded-full bg-[#15171C] border border-[#C9A96E] flex items-center justify-center text-[#C9A96E] shadow-sm">
+                          <div className="absolute inset-0 bg-[#202B46]/75 backdrop-blur-xs flex flex-col items-center justify-center p-2 text-center space-y-1.5">
+                            <div className="w-8 h-8 rounded-full bg-[#202B46] border border-[#405BD5] flex items-center justify-center text-[#405BD5] shadow-sm">
                               <Lock className="w-4 h-4" />
                             </div>
                             <span className="text-[10px] font-medium text-white/90 leading-tight">
@@ -1954,14 +1954,14 @@ export function MemberAttendanceView() {
                         )}
 
                         {isCheckedIn && (
-                          <div className="absolute inset-0 bg-white flex flex-col items-center justify-center text-center p-2 space-y-1 text-[#2F6B4F]">
-                            <div className="w-10 h-10 rounded-full bg-[#2F6B4F]/10 border border-[#2F6B4F]/30 flex items-center justify-center text-[#2F6B4F]">
+                          <div className="absolute inset-0 bg-white flex flex-col items-center justify-center text-center p-2 space-y-1 text-status-success">
+                            <div className="w-10 h-10 rounded-full bg-[#15803D]/10 border border-[#15803D]/30 flex items-center justify-center text-status-success">
                               <Check className="w-5 h-5 stroke-[2.5]" />
                             </div>
-                            <span className="text-[11px] font-bold tracking-tight text-[#15171C]">
+                            <span className="text-[11px] font-bold tracking-tight text-[#202B46]">
                               {isVip ? "FAST TRACK" : "ĐÃ CHECK-IN"}
                             </span>
-                            <span className="text-[9px] font-mono text-[#6A675F]">
+                            <span className="text-[9px] font-mono text-[#6B7890]">
                               {heroSession.checkinTime
                                 ? `CHECKED-IN ${heroSession.checkinTime}`
                                 : "CHECKED-IN"}
@@ -1971,13 +1971,13 @@ export function MemberAttendanceView() {
                       </div>
 
                       <div className="space-y-1 text-center">
-                        <div className="text-xs text-[#FBF9F4]/90 font-medium truncate">
+                        <div className="text-xs text-[#FFFFFF]/90 font-medium truncate">
                           {heroSession.court} • {activeCourse.name}
                         </div>
 
                         {/* Dynamic Circular Timer for OTP (Only visible when gate is open) */}
                         {isCheckInOpen && (
-                          <div className="text-[11px] text-[#FBF9F4]/60 flex items-center justify-center gap-1.5">
+                          <div className="text-[11px] text-[#FFFFFF]/60 flex items-center justify-center gap-1.5">
                             <span>Mã OTP:</span>
                             <span className="font-['JetBrains_Mono',monospace] font-medium text-white tracking-widest">
                               {otpBackupCode}
@@ -1995,7 +1995,7 @@ export function MemberAttendanceView() {
                                 cx="7"
                                 cy="7"
                                 r="5"
-                                stroke="#C9A96E"
+                                stroke="#405BD5"
                                 strokeWidth="1.5"
                                 fill="none"
                                 strokeDasharray="31.4"
@@ -2007,7 +2007,7 @@ export function MemberAttendanceView() {
                         )}
                       </div>
 
-                      <div className="pt-2 border-t border-white/10 flex items-center justify-center gap-1.5 text-[11px] text-[#C9A96E] font-normal group-hover:text-[#E0C99E] transition-colors">
+                      <div className="pt-2 border-t border-white/10 flex items-center justify-center gap-1.5 text-[11px] text-[#405BD5] font-normal group-hover:text-[#98D9E8] transition-colors">
                         <QrCode className="w-3.5 h-3.5" />
                         <span>Chạm để mở rộng thẻ</span>
                       </div>
@@ -2039,7 +2039,7 @@ export function MemberAttendanceView() {
           {/* Card: Chuyên cần & Lộ trình 12 buổi */}
           <div
             onClick={() => setActiveDrawer("attendance")}
-            className="border border-[rgba(21,23,28,0.12)] hover:border-[#A8844F]/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-[#C9A96E] rounded-lg p-6 sm:p-7 bg-[#FBF9F4] cursor-pointer transition-all flex flex-col justify-between space-y-6 w-full"
+            className="border border-[rgba(222,228,240,0.9)] hover:border-[#24A9D2]/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-[#405BD5] rounded-lg p-6 sm:p-7 bg-[#FFFFFF] cursor-pointer transition-all flex flex-col justify-between space-y-6 w-full"
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
@@ -2052,10 +2052,10 @@ export function MemberAttendanceView() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] uppercase tracking-[0.14em] text-[#6A675F] font-medium block">
+                  <span className="text-[11px] uppercase tracking-[0.14em] text-[#6B7890] font-medium block">
                     TIẾN ĐỘ KHÓA HỌC
                   </span>
-                  <h3 className="font-['Newsreader',serif] font-normal text-2xl text-[#15171C]">
+                  <h3 className="font-['Newsreader',serif] font-normal text-2xl text-[#202B46]">
                     Chuyên cần & Điều kiện cấp chứng chỉ
                   </h3>
                 </div>
@@ -2068,17 +2068,17 @@ export function MemberAttendanceView() {
               </div>
 
               <div className="flex items-baseline gap-2 pt-1">
-                <span className="font-['Newsreader',serif] font-normal text-4xl sm:text-5xl text-[#15171C] leading-none lining-nums tabular-nums">
+                <span className="font-['Newsreader',serif] font-normal text-4xl sm:text-5xl text-[#202B46] leading-none lining-nums tabular-nums">
                   {stats.attended}
                 </span>
-                <span className="text-base text-[#6A675F] font-normal">
+                <span className="text-base text-[#6B7890] font-normal">
                   / {stats.threshold} buổi chuẩn (75%)
                 </span>
               </div>
 
               {/* 12-Session Track: 12 bars with milestone pin at 75% (Session 9) */}
               <div className="space-y-2 pt-1">
-                <div className="text-xs text-[#6A675F] font-normal">
+                <div className="text-xs text-[#6B7890] font-normal">
                   <span>
                     Đã hoàn thành {stats.attended}/{activeCourse.totalSessions}{" "}
                     buổi của khóa học
@@ -2091,11 +2091,11 @@ export function MemberAttendanceView() {
                     className="absolute top-0 flex flex-col items-center -translate-x-1/2 pointer-events-none"
                     style={{ left: "75%" }}
                   >
-                    <span className="text-[10px] font-medium text-[#A8844F] whitespace-nowrap flex items-center gap-1">
-                      <Award className="w-3 h-3 text-[#A8844F]" />
+                    <span className="text-[10px] font-medium text-[#24A9D2] whitespace-nowrap flex items-center gap-1">
+                      <Award className="w-3 h-3 text-[#24A9D2]" />
                       <span>Mốc đạt · Buổi 9</span>
                     </span>
-                    <div className="w-px h-1.5 bg-[#A8844F]" />
+                    <div className="w-px h-1.5 bg-[#24A9D2]" />
                   </div>
 
                   {/* 12 Segment Bars */}
@@ -2108,7 +2108,7 @@ export function MemberAttendanceView() {
                         <div
                           key={sessionNum}
                           className={`h-3 rounded-xs transition-colors ${
-                            isPastAttended ? "bg-[#2F6B4F]" : "bg-[#E5E0D5]"
+                            isPastAttended ? "bg-[#15803D]" : "bg-[#DEE4F0]"
                           }`}
                           title={`Buổi ${sessionNum}${
                             isPastAttended
@@ -2122,14 +2122,14 @@ export function MemberAttendanceView() {
                 </div>
               </div>
 
-              <div className="pt-1 text-[13px] text-[#6A675F] leading-relaxed font-normal">
+              <div className="pt-1 text-[13px] text-[#6B7890] leading-relaxed font-normal">
                 <p>
                   Còn{" "}
-                  <strong className="text-[#15171C] font-medium tabular-nums">
+                  <strong className="text-[#202B46] font-medium tabular-nums">
                     {stats.remainingSessions} buổi
                   </strong>{" "}
                   chưa diễn ra • Cần tham gia tối thiểu{" "}
-                  <strong className="text-[#15171C] font-medium tabular-nums">
+                  <strong className="text-[#202B46] font-medium tabular-nums">
                     {stats.needed}/{stats.remainingSessions} buổi
                   </strong>{" "}
                   để đạt chuẩn cấp chứng chỉ.
@@ -2137,7 +2137,7 @@ export function MemberAttendanceView() {
               </div>
             </div>
 
-            <div className="pt-4 border-t border-[rgba(21,23,28,0.08)] flex items-center justify-between text-xs font-medium text-[#15171C] mt-auto">
+            <div className="pt-4 border-t border-[rgba(222,228,240,0.7)] flex items-center justify-between text-xs font-medium text-[#202B46] mt-auto">
               <span>Xem chi tiết lộ trình 12 buổi & quy chế chuyên cần</span>
               <ArrowRight className="w-4 h-4 stroke-[1.75]" />
             </div>
@@ -2157,7 +2157,7 @@ export function MemberAttendanceView() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-[#15171C]/50 backdrop-blur-xs"
+              className="fixed inset-0 bg-[#202B46]/50 backdrop-blur-xs"
               onClick={() => setActiveDrawer(null)}
               aria-hidden="true"
             />
@@ -2168,21 +2168,21 @@ export function MemberAttendanceView() {
                 animate={{ x: 0 }}
                 exit={{ x: "100%" }}
                 transition={{ type: "spring", damping: 28, stiffness: 300 }}
-                className="w-screen max-w-lg bg-[#FBF9F4] text-[#15171C] shadow-2xl flex flex-col justify-between border-l border-[rgba(21,23,28,0.12)] z-10 font-['Be_Vietnam_Pro',sans-serif]"
+                className="w-screen max-w-lg bg-[#FFFFFF] text-[#202B46] shadow-2xl flex flex-col justify-between border-l border-[rgba(222,228,240,0.9)] z-10 font-['Be_Vietnam_Pro',sans-serif]"
                 role="dialog"
                 aria-modal="true"
               >
                 {/* Drawer Header with Sub-Tabs */}
-                <div className="border-b border-[rgba(21,23,28,0.12)] bg-[#FBF9F4] sticky top-0 z-10">
+                <div className="border-b border-[rgba(222,228,240,0.9)] bg-[#FFFFFF] sticky top-0 z-10">
                   <div className="p-6 pb-4 flex items-center justify-between">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="h-px w-5 bg-[#A8844F]" />
-                        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#6A675F]">
+                        <span className="h-px w-5 bg-[#24A9D2]" />
+                        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#6B7890]">
                           VIBE ATHLETIC CLUB • LỘ TRÌNH 12 BUỔI
                         </span>
                       </div>
-                      <h3 className="font-['Newsreader',serif] font-normal text-2xl text-[#15171C]">
+                      <h3 className="font-['Newsreader',serif] font-normal text-2xl text-[#202B46]">
                         {activeCourse.name} • {heroSession.coach}
                       </h3>
                     </div>
@@ -2190,7 +2190,7 @@ export function MemberAttendanceView() {
                     <button
                       type="button"
                       onClick={() => setActiveDrawer(null)}
-                      className="p-1.5 text-[#6A675F] hover:text-[#15171C] rounded transition-colors cursor-pointer"
+                      className="p-1.5 text-[#6B7890] hover:text-[#202B46] rounded transition-colors cursor-pointer"
                       title="Đóng bảng chi tiết (ESC)"
                     >
                       <X className="w-5 h-5 stroke-[1.75]" />
@@ -2204,8 +2204,8 @@ export function MemberAttendanceView() {
                       onClick={() => setActiveDrawer("attendance")}
                       className={`pb-3 transition-colors cursor-pointer font-normal relative ${
                         activeDrawer === "attendance"
-                          ? "text-[#15171C] font-medium border-b-2 border-[#A8844F]"
-                          : "text-[#6A675F] hover:text-[#15171C]"
+                          ? "text-[#202B46] font-medium border-b-2 border-[#24A9D2]"
+                          : "text-[#6B7890] hover:text-[#202B46]"
                       }`}
                     >
                       <span>Lộ trình 12 buổi</span>
@@ -2216,15 +2216,15 @@ export function MemberAttendanceView() {
                       onClick={() => setActiveDrawer("log")}
                       className={`pb-3 transition-colors cursor-pointer font-normal relative flex items-center gap-1.5 ${
                         activeDrawer === "log"
-                          ? "text-[#15171C] font-medium border-b-2 border-[#A8844F]"
-                          : "text-[#6A675F] hover:text-[#15171C]"
+                          ? "text-[#202B46] font-medium border-b-2 border-[#24A9D2]"
+                          : "text-[#6B7890] hover:text-[#202B46]"
                       }`}
                     >
                       <span>Nhật ký học ({pastSessions.length})</span>
                       {pastSessions.some(
                         (s) => s.canFeedback && !s.feedback,
                       ) && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#A8844F]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#24A9D2]" />
                       )}
                     </button>
                   </div>
@@ -2235,9 +2235,9 @@ export function MemberAttendanceView() {
                   {activeDrawer === "attendance" ? (
                     <div className="space-y-6">
                       {/* Metric Display */}
-                      <div className="space-y-2 border-b border-[rgba(21,23,28,0.08)] pb-5">
+                      <div className="space-y-2 border-b border-[rgba(222,228,240,0.7)] pb-5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] uppercase tracking-[0.14em] text-[#6A675F] font-medium">
+                          <span className="text-[11px] uppercase tracking-[0.14em] text-[#6B7890] font-medium">
                             TỶ LỆ HOÀN THÀNH
                           </span>
                           <span
@@ -2249,39 +2249,39 @@ export function MemberAttendanceView() {
                         </div>
 
                         <div className="flex items-baseline gap-2">
-                          <span className="font-['Newsreader',serif] font-normal text-5xl text-[#15171C] leading-none lining-nums tabular-nums">
+                          <span className="font-['Newsreader',serif] font-normal text-5xl text-[#202B46] leading-none lining-nums tabular-nums">
                             {stats.attended}
                           </span>
-                          <span className="text-2xl text-[#6A675F] font-normal">
+                          <span className="text-2xl text-[#6B7890] font-normal">
                             / {stats.threshold}
                           </span>
-                          <span className="text-xs text-[#6A675F] ml-2">
+                          <span className="text-xs text-[#6B7890] ml-2">
                             buổi tối thiểu đạt chuẩn 75%
                           </span>
                         </div>
                       </div>
 
                       {/* 12-Dots Interactive Strip: Zero clipping with fluid scaling */}
-                      <div className="space-y-3 border-b border-[rgba(21,23,28,0.08)] pb-6">
-                        <div className="flex items-center justify-between text-xs text-[#6A675F] flex-wrap gap-2">
-                          <span className="text-[#15171C] font-medium">
+                      <div className="space-y-3 border-b border-[rgba(222,228,240,0.7)] pb-6">
+                        <div className="flex items-center justify-between text-xs text-[#6B7890] flex-wrap gap-2">
+                          <span className="text-[#202B46] font-medium">
                             Lộ trình 12 buổi học
                           </span>
                           <div className="flex items-center gap-3 text-[11px]">
                             <span className="flex items-center gap-1">
-                              <span className="w-2 h-2 rounded-full bg-[#15171C]" />
+                              <span className="w-2 h-2 rounded-full bg-[#202B46]" />
                               <span>Đã đi</span>
                             </span>
                             <span className="flex items-center gap-1">
-                              <span className="w-2 h-2 rounded-full bg-[#A8844F]/30 ring-1 ring-[#A8844F]" />
+                              <span className="w-2 h-2 rounded-full bg-[#24A9D2]/30 ring-1 ring-[#24A9D2]" />
                               <span>Có phép</span>
                             </span>
                             <span className="flex items-center gap-1">
-                              <span className="w-2 h-2 rounded-full bg-transparent ring-1 ring-[#15171C]" />
+                              <span className="w-2 h-2 rounded-full bg-transparent ring-1 ring-[#202B46]" />
                               <span>Buổi kế tiếp</span>
                             </span>
                             <span className="flex items-center gap-1">
-                              <span className="w-2 h-2 rounded-full bg-[#E5E0D5]" />
+                              <span className="w-2 h-2 rounded-full bg-[#DEE4F0]" />
                               <span>Chưa học</span>
                             </span>
                           </div>
@@ -2316,18 +2316,18 @@ export function MemberAttendanceView() {
                                   <div
                                     className={`w-full aspect-square max-w-[28px] max-h-[28px] rounded-full flex items-center justify-center text-[10px] sm:text-xs tabular-nums transition-all ${
                                       isSelectedDot
-                                        ? "ring-2 ring-[#15171C] ring-offset-2 ring-offset-[#FBF9F4]"
+                                        ? "ring-2 ring-[#202B46] ring-offset-2 ring-offset-[#FFFFFF]"
                                         : ""
                                     } ${
                                       isCompleted
-                                        ? "bg-[#15171C] text-[#FBF9F4] font-medium"
+                                        ? "bg-[#202B46] text-[#FFFFFF] font-medium"
                                         : isExcused
-                                          ? "bg-[#A8844F]/20 text-[#A8844F] ring-1 ring-[#A8844F] font-semibold"
+                                          ? "bg-[#24A9D2]/20 text-[#24A9D2] ring-1 ring-[#24A9D2] font-semibold"
                                           : isAbsent
-                                            ? "bg-[#E5E0D5] text-[#6A675F]"
+                                            ? "bg-[#DEE4F0] text-[#6B7890]"
                                             : isNext
-                                              ? "bg-transparent text-[#15171C] ring-1 ring-[#15171C] font-medium"
-                                              : "bg-[#E5E0D5] text-[#6A675F]"
+                                              ? "bg-transparent text-[#202B46] ring-1 ring-[#202B46] font-medium"
+                                              : "bg-[#DEE4F0] text-[#6B7890]"
                                     }`}
                                   >
                                     {isCompleted ? (
@@ -2344,7 +2344,7 @@ export function MemberAttendanceView() {
 
                             {/* Milestone Hairline Pin at Column 10 (Between 9 and 10) */}
                             <div
-                              className="w-[1.5px] h-6 bg-[#A8844F] justify-self-center rounded-full"
+                              className="w-[1.5px] h-6 bg-[#24A9D2] justify-self-center rounded-full"
                               title="Mốc chuẩn 75% (Buổi 9)"
                             />
 
@@ -2374,18 +2374,18 @@ export function MemberAttendanceView() {
                                   <div
                                     className={`w-full aspect-square max-w-[28px] max-h-[28px] rounded-full flex items-center justify-center text-[10px] sm:text-xs tabular-nums transition-all ${
                                       isSelectedDot
-                                        ? "ring-2 ring-[#15171C] ring-offset-2 ring-offset-[#FBF9F4]"
+                                        ? "ring-2 ring-[#202B46] ring-offset-2 ring-offset-[#FFFFFF]"
                                         : ""
                                     } ${
                                       isCompleted
-                                        ? "bg-[#15171C] text-[#FBF9F4] font-medium"
+                                        ? "bg-[#202B46] text-[#FFFFFF] font-medium"
                                         : isExcused
-                                          ? "bg-[#A8844F]/20 text-[#A8844F] ring-1 ring-[#A8844F] font-semibold"
+                                          ? "bg-[#24A9D2]/20 text-[#24A9D2] ring-1 ring-[#24A9D2] font-semibold"
                                           : isAbsent
-                                            ? "bg-[#E5E0D5] text-[#6A675F]"
+                                            ? "bg-[#DEE4F0] text-[#6B7890]"
                                             : isNext
-                                              ? "bg-transparent text-[#15171C] ring-1 ring-[#15171C] font-medium"
-                                              : "bg-[#E5E0D5] text-[#6A675F]"
+                                              ? "bg-transparent text-[#202B46] ring-1 ring-[#202B46] font-medium"
+                                              : "bg-[#DEE4F0] text-[#6B7890]"
                                     }`}
                                   >
                                     {isCompleted ? (
@@ -2405,40 +2405,40 @@ export function MemberAttendanceView() {
 
                       {/* Inspected Session Card with Technical Topic & Skill Radar */}
                       {inspectedSession && (
-                        <div className="bg-[#F5F2EA] border border-[rgba(21,23,28,0.12)] rounded-lg p-5 space-y-4">
+                        <div className="bg-[#F5F7FC] border border-[rgba(222,228,240,0.9)] rounded-lg p-5 space-y-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs bg-[#15171C] text-[#FBF9F4] px-2 py-0.5 rounded font-medium tabular-nums">
+                              <span className="text-xs bg-[#202B46] text-[#FFFFFF] px-2 py-0.5 rounded font-medium tabular-nums">
                                 Buổi {inspectedSession.num}/12
                               </span>
-                              <span className="text-sm font-medium text-[#15171C]">
+                              <span className="text-sm font-medium text-[#202B46]">
                                 {inspectedSession.dayVi}
                               </span>
                             </div>
                             <span className="text-xs">
                               {inspectedSession.status === "completed" &&
                               inspectedSession.attendance === "present" ? (
-                                <span className="text-[#2F6B4F] flex items-center gap-1 font-medium">
+                                <span className="text-status-success flex items-center gap-1 font-medium">
                                   <Check className="w-3.5 h-3.5 stroke-[2]" />
                                   Có mặt ({inspectedSession.checkinTime})
                                 </span>
                               ) : inspectedSession.status === "completed" &&
                                 inspectedSession.attendance === "absent" ? (
-                                <span className="text-[#8A2B32] font-medium">
+                                <span className="text-status-error font-medium">
                                   Vắng mặt
                                 </span>
                               ) : inspectedSession.leaveRequest ? (
-                                <span className="text-[#A8844F] font-medium">
+                                <span className="text-[#24A9D2] font-medium">
                                   {inspectedSession.leaveRequest.type === "swap"
                                     ? "Đã đăng ký đổi ca"
                                     : "Nghỉ phép (Bảo lưu)"}
                                 </span>
                               ) : inspectedSession.status === "today" ? (
-                                <span className="text-[#A8844F] font-medium">
+                                <span className="text-[#24A9D2] font-medium">
                                   Hôm nay ({inspectedSession.startTime})
                                 </span>
                               ) : (
-                                <span className="text-[#6A675F]">
+                                <span className="text-[#6B7890]">
                                   Sắp diễn ra
                                 </span>
                               )}
@@ -2446,11 +2446,11 @@ export function MemberAttendanceView() {
                           </div>
 
                           {/* Technical Topic Highlight */}
-                          <div className="p-3 rounded bg-white border border-[rgba(21,23,28,0.08)] space-y-1">
-                            <div className="text-[10px] font-sans uppercase tracking-wider text-[#A8844F] font-bold">
+                          <div className="p-3 rounded bg-white border border-[rgba(222,228,240,0.7)] space-y-1">
+                            <div className="text-[10px] font-sans uppercase tracking-wider text-[#24A9D2] font-bold">
                               NỘI DUNG BUỔI TẬP
                             </div>
-                            <p className="text-xs font-semibold text-[#15171C]">
+                            <p className="text-xs font-semibold text-[#202B46]">
                               {inspectedSession.topic ||
                                 "Kỹ thuật thi đấu chuyên sâu & Kiểm soát trận đấu"}
                             </p>
@@ -2458,9 +2458,9 @@ export function MemberAttendanceView() {
 
                           {/* Leave Request Notice if present */}
                           {inspectedSession.leaveRequest && (
-                            <div className="p-3 rounded-[6px] bg-[#2F6B4F]/10 border border-[#2F6B4F]/30 text-xs space-y-1.5">
+                            <div className="p-3 rounded-[6px] bg-[#15803D]/10 border border-[#15803D]/30 text-xs space-y-1.5">
                               <div className="flex items-center justify-between gap-2">
-                                <span className="font-semibold text-[#2F6B4F]">
+                                <span className="font-semibold text-status-success">
                                   ✓{" "}
                                   {inspectedSession.leaveRequest.type === "swap"
                                     ? "Đã ghi nhận yêu cầu đổi ca học"
@@ -2471,12 +2471,12 @@ export function MemberAttendanceView() {
                                   onClick={() =>
                                     handleCancelLeave(inspectedSession)
                                   }
-                                  className="text-[11px] text-[#8A2B32] hover:underline font-medium cursor-pointer shrink-0"
+                                  className="text-[11px] text-status-error hover:underline font-medium cursor-pointer shrink-0"
                                 >
                                   Hủy đơn xin nghỉ
                                 </button>
                               </div>
-                              <div className="text-[#6A675F]">
+                              <div className="text-[#6B7890]">
                                 Lý do: {inspectedSession.leaveRequest.reason}
                                 {inspectedSession.leaveRequest.note
                                   ? ` • "${inspectedSession.leaveRequest.note}"`
@@ -2487,50 +2487,50 @@ export function MemberAttendanceView() {
 
                           {/* Detailed Skill Radar / Evaluation from Coach (if completed) */}
                           {inspectedSession.skillScores && (
-                            <div className="space-y-2 pt-1 border-t border-[rgba(21,23,28,0.08)]">
-                              <div className="text-[11px] font-medium text-[#15171C] flex items-center justify-between">
+                            <div className="space-y-2 pt-1 border-t border-[rgba(222,228,240,0.7)]">
+                              <div className="text-[11px] font-medium text-[#202B46] flex items-center justify-between">
                                 <span>Thẩm định kỹ thuật từ HLV:</span>
-                                <span className="font-mono text-[#2F6B4F]">
+                                <span className="font-mono text-status-success">
                                   Xuất sắc
                                 </span>
                               </div>
                               <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                                 <div className="p-2 rounded bg-white border border-[rgba(21,23,28,0.06)] flex justify-between">
-                                  <span className="text-[#6A675F]">
+                                  <span className="text-[#6B7890]">
                                     Cảm giác bóng
                                   </span>
-                                  <span className="text-[#15171C] font-bold">
+                                  <span className="text-[#202B46] font-bold">
                                     {inspectedSession.skillScores.control} / 5.0
                                   </span>
                                 </div>
                                 <div className="p-2 rounded bg-white border border-[rgba(21,23,28,0.06)] flex justify-between">
-                                  <span className="text-[#6A675F]">
+                                  <span className="text-[#6B7890]">
                                     Bộ chân
                                   </span>
-                                  <span className="text-[#15171C] font-bold">
+                                  <span className="text-[#202B46] font-bold">
                                     {inspectedSession.skillScores.movement} /
                                     5.0
                                   </span>
                                 </div>
                                 <div className="p-2 rounded bg-white border border-[rgba(21,23,28,0.06)] flex justify-between">
-                                  <span className="text-[#6A675F]">
+                                  <span className="text-[#6B7890]">
                                     Chiến thuật
                                   </span>
-                                  <span className="text-[#15171C] font-bold">
+                                  <span className="text-[#202B46] font-bold">
                                     {inspectedSession.skillScores.tactics} / 5.0
                                   </span>
                                 </div>
                                 <div className="p-2 rounded bg-white border border-[rgba(21,23,28,0.06)] flex justify-between">
-                                  <span className="text-[#6A675F]">
+                                  <span className="text-[#6B7890]">
                                     Thể lực
                                   </span>
-                                  <span className="text-[#15171C] font-bold">
+                                  <span className="text-[#202B46] font-bold">
                                     {inspectedSession.skillScores.stamina} / 5.0
                                   </span>
                                 </div>
                               </div>
                               {inspectedSession.coachRemark && (
-                                <p className="text-xs text-[#6A675F] italic pt-1">
+                                <p className="text-xs text-[#6B7890] italic pt-1">
                                   "{inspectedSession.coachRemark}"
                                 </p>
                               )}
@@ -2538,37 +2538,37 @@ export function MemberAttendanceView() {
                           )}
 
                           {inspectedSession.curriculumAdaptation && (
-                            <div className="p-3 rounded-[6px] bg-[#A8844F]/10 border border-[#A8844F]/30 flex items-start gap-2.5 text-xs">
-                              <Sparkles className="w-4 h-4 text-[#A8844F] shrink-0 mt-0.5" />
+                            <div className="p-3 rounded-[6px] bg-[#24A9D2]/10 border border-[#24A9D2]/30 flex items-start gap-2.5 text-xs">
+                              <Sparkles className="w-4 h-4 text-[#24A9D2] shrink-0 mt-0.5" />
                               <div className="space-y-0.5">
-                                <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-[#A8844F] font-semibold block">
+                                <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-[#24A9D2] font-semibold block">
                                   GIÁO ÁN ĐÃ HIỆU CHỈNH THEO GÓP Ý CỦA BẠN
                                 </span>
-                                <p className="text-xs text-[#15171C] leading-relaxed">
+                                <p className="text-xs text-[#202B46] leading-relaxed">
                                   {inspectedSession.curriculumAdaptation}
                                 </p>
                               </div>
                             </div>
                           )}
 
-                          <div className="text-xs text-[#6A675F] space-y-1 font-normal pt-1">
+                          <div className="text-xs text-[#6B7890] space-y-1 font-normal pt-1">
                             <div>
                               Thời gian:{" "}
-                              <span className="text-[#15171C] font-medium">
+                              <span className="text-[#202B46] font-medium">
                                 {inspectedSession.startTime} –{" "}
                                 {inspectedSession.endTime}
                               </span>
                             </div>
                             <div>
                               Địa điểm:{" "}
-                              <span className="text-[#15171C] font-medium">
+                              <span className="text-[#202B46] font-medium">
                                 {inspectedSession.court}
                               </span>{" "}
                               • {inspectedSession.zone}
                             </div>
                             <div>
                               Giảng viên:{" "}
-                              <span className="text-[#15171C] font-medium">
+                              <span className="text-[#202B46] font-medium">
                                 {inspectedSession.coach}
                               </span>
                             </div>
@@ -2577,8 +2577,8 @@ export function MemberAttendanceView() {
                           {/* Inline Dispute Reason Form when triggered */}
                           {disputingSessionNum === inspectedSession.num &&
                             !inspectedSession.dispute && (
-                              <div className="p-3 rounded-[6px] bg-white border border-[#A8844F]/40 space-y-2.5 text-xs">
-                                <div className="font-medium text-[#15171C]">
+                              <div className="p-3 rounded-[6px] bg-white border border-[#24A9D2]/40 space-y-2.5 text-xs">
+                                <div className="font-medium text-[#202B46]">
                                   Ghi chú đối soát điểm danh gửi Ban Giáo vụ:
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
@@ -2595,8 +2595,8 @@ export function MemberAttendanceView() {
                                       }
                                       className={`px-2 py-1 rounded text-[11px] border cursor-pointer transition-colors ${
                                         disputeReasonText === preset
-                                          ? "bg-[#15171C] text-[#FBF9F4] border-[#15171C]"
-                                          : "bg-[#F5F2EA] text-[#15171C] border-[rgba(21,23,28,0.12)] hover:border-[#A8844F]"
+                                          ? "bg-[#202B46] text-[#FFFFFF] border-[#202B46]"
+                                          : "bg-[#F5F7FC] text-[#202B46] border-[rgba(222,228,240,0.9)] hover:border-[#24A9D2]"
                                       }`}
                                     >
                                       {preset}
@@ -2610,7 +2610,7 @@ export function MemberAttendanceView() {
                                     setDisputeReasonText(e.target.value)
                                   }
                                   placeholder="Nhập chi tiết thời gian vào sân hoặc lý do..."
-                                  className="w-full px-2.5 py-1.5 rounded border border-[rgba(21,23,28,0.15)] bg-[#FBF9F4] text-xs text-[#15171C] outline-none focus:border-[#A8844F]"
+                                  className="w-full px-2.5 py-1.5 rounded border border-[rgba(222,228,240,0.9)] bg-[#FFFFFF] text-xs text-[#202B46] outline-none focus:border-[#24A9D2]"
                                 />
                                 <div className="flex items-center justify-end gap-2">
                                   <button
@@ -2619,7 +2619,7 @@ export function MemberAttendanceView() {
                                       setDisputingSessionNum(null)
                                       setDisputeReasonText("")
                                     }}
-                                    className="px-2.5 py-1 text-[11px] text-[#6A675F] hover:text-[#15171C] cursor-pointer"
+                                    className="px-2.5 py-1 text-[11px] text-[#6B7890] hover:text-[#202B46] cursor-pointer"
                                   >
                                     Hủy
                                   </button>
@@ -2628,7 +2628,7 @@ export function MemberAttendanceView() {
                                     onClick={() =>
                                       handleReportDispute(inspectedSession)
                                     }
-                                    className="px-3 py-1 rounded bg-[#15171C] text-[#FBF9F4] text-[11px] font-medium cursor-pointer hover:bg-[#2A2E37]"
+                                    className="px-3 py-1 rounded bg-[#202B46] text-[#FFFFFF] text-[11px] font-medium cursor-pointer hover:bg-[#303B58]"
                                   >
                                     Gửi yêu cầu đối soát
                                   </button>
@@ -2637,16 +2637,16 @@ export function MemberAttendanceView() {
                             )}
 
                           {/* Contextual Actions */}
-                          <div className="pt-2 border-t border-[rgba(21,23,28,0.08)] flex items-center justify-between gap-3 text-xs flex-wrap">
+                          <div className="pt-2 border-t border-[rgba(222,228,240,0.7)] flex items-center justify-between gap-3 text-xs flex-wrap">
                             <div>
                               {inspectedSession.status === "completed" &&
                                 (inspectedSession.dispute ? (
                                   <div className="space-y-0.5">
-                                    <span className="text-xs text-[#A8844F] font-medium block">
+                                    <span className="text-xs text-[#24A9D2] font-medium block">
                                       ✓ Đang chờ đối soát camera (24h)
                                     </span>
                                     {inspectedSession.dispute.reason && (
-                                      <span className="text-[11px] text-[#6A675F] italic block">
+                                      <span className="text-[11px] text-[#6B7890] italic block">
                                         “{inspectedSession.dispute.reason}”
                                       </span>
                                     )}
@@ -2662,7 +2662,7 @@ export function MemberAttendanceView() {
                                         "Đã vào sân nhưng quên quét thẻ cổng từ",
                                       )
                                     }}
-                                    className="text-xs text-[#6A675F] hover:text-[#15171C] underline underline-offset-4 cursor-pointer transition-colors"
+                                    className="text-xs text-[#6B7890] hover:text-[#202B46] underline underline-offset-4 cursor-pointer transition-colors"
                                   >
                                     Báo sai điểm danh
                                   </button>
@@ -2680,7 +2680,7 @@ export function MemberAttendanceView() {
                                         inspectedSession.feedback,
                                       )
                                     }
-                                    className="text-[#15171C] hover:border-[#15171C] border border-[rgba(21,23,28,0.15)] font-medium bg-white px-2.5 py-1 rounded cursor-pointer transition-colors"
+                                    className="text-[#202B46] hover:border-[#202B46] border border-[rgba(222,228,240,0.9)] font-medium bg-white px-2.5 py-1 rounded cursor-pointer transition-colors"
                                   >
                                     ✓ Đã đánh giá{" "}
                                     {Number(
@@ -2701,7 +2701,7 @@ export function MemberAttendanceView() {
                                         null,
                                       )
                                     }
-                                    className="px-3 py-1.5 rounded bg-[#15171C] text-[#FBF9F4] hover:bg-[#2A2E37] font-medium transition-colors cursor-pointer"
+                                    className="px-3 py-1.5 rounded bg-[#202B46] text-[#FFFFFF] hover:bg-[#303B58] font-medium transition-colors cursor-pointer"
                                   >
                                     Đánh giá HLV buổi này
                                   </button>
@@ -2727,7 +2727,7 @@ export function MemberAttendanceView() {
                                       )
                                       setShowLeaveModal(true)
                                     }}
-                                    className="text-[#A8844F] hover:underline font-medium cursor-pointer"
+                                    className="text-[#24A9D2] hover:underline font-medium cursor-pointer"
                                   >
                                     Đổi thông tin xin nghỉ buổi{" "}
                                     {inspectedSession.num}
@@ -2751,7 +2751,7 @@ export function MemberAttendanceView() {
                                       setLeaveRequestInitialType("leave")
                                       setShowLeaveModal(true)
                                     }}
-                                    className="text-[#15171C] hover:underline font-medium cursor-pointer"
+                                    className="text-[#202B46] hover:underline font-medium cursor-pointer"
                                   >
                                     Xin nghỉ buổi {inspectedSession.num}
                                   </button>
@@ -2766,7 +2766,7 @@ export function MemberAttendanceView() {
                                         )
                                       }
                                     }}
-                                    className="text-[#6A675F]/60 text-xs underline underline-offset-4 cursor-pointer"
+                                    className="text-[#6B7890]/60 text-xs underline underline-offset-4 cursor-pointer"
                                     title="Theo quy định, đơn xin nghỉ phải gửi trước tối thiểu 12 giờ."
                                   >
                                     Xin nghỉ (&lt; 12h: Báo Lễ tân)
@@ -2781,7 +2781,7 @@ export function MemberAttendanceView() {
                                       setActiveDrawer(null)
                                       handlePerformCheckin()
                                     }}
-                                    className="px-3 py-1.5 rounded bg-[#C9A96E] text-[#15171C] hover:bg-[#b89558] font-semibold transition-colors cursor-pointer"
+                                    className="px-3 py-1.5 rounded bg-[#405BD5] text-[#FFFFFF] hover:bg-[#3349B5] font-semibold transition-colors cursor-pointer"
                                   >
                                     Check-in buổi hôm nay
                                   </button>
@@ -2792,21 +2792,21 @@ export function MemberAttendanceView() {
                       )}
 
                       {/* Quota details */}
-                      <div className="space-y-2 bg-[#F5F2EA] rounded-lg p-4 text-[13px] text-[#6A675F] leading-relaxed">
+                      <div className="space-y-2 bg-[#F5F7FC] rounded-lg p-4 text-[13px] text-[#6B7890] leading-relaxed">
                         <div>
                           • Còn{" "}
-                          <strong className="text-[#15171C] font-medium tabular-nums">
+                          <strong className="text-[#202B46] font-medium tabular-nums">
                             {stats.remainingSessions} buổi
                           </strong>{" "}
                           chưa diễn ra, bạn cần tham gia ít nhất{" "}
-                          <strong className="text-[#15171C] font-medium tabular-nums">
+                          <strong className="text-[#202B46] font-medium tabular-nums">
                             {stats.needed}/{stats.remainingSessions} buổi
                           </strong>{" "}
                           để đạt chuẩn cấp chứng chỉ.
                         </div>
                         <div>
                           • Hạn mức vắng cho phép: còn{" "}
-                          <strong className="text-[#15171C] font-medium tabular-nums">
+                          <strong className="text-[#202B46] font-medium tabular-nums">
                             {stats.allowedAbsentRemaining}/{stats.maxAbsent}
                           </strong>{" "}
                           buổi.
@@ -2816,36 +2816,36 @@ export function MemberAttendanceView() {
                   ) : (
                     /* Tab 2: Nhật ký học (Uniform padding, complete skills and notes) */
                     <div className="space-y-4">
-                      <div className="text-[11px] uppercase tracking-[0.14em] text-[#6A675F] font-medium pb-2 border-b border-[rgba(21,23,28,0.08)]">
+                      <div className="text-[11px] uppercase tracking-[0.14em] text-[#6B7890] font-medium pb-2 border-b border-[rgba(222,228,240,0.7)]">
                         LỊCH SỬ {pastSessions.length} BUỔI HỌC ĐÃ QUA
                       </div>
 
                       {pastSessions.length === 0 ? (
-                        <div className="py-12 text-center text-sm text-[#6A675F] italic">
+                        <div className="py-12 text-center text-sm text-[#6B7890] italic">
                           Chưa có buổi học nào kết thúc.
                         </div>
                       ) : (
-                        <div className="divide-y divide-[rgba(21,23,28,0.08)]">
+                        <div className="divide-y divide-[rgba(222,228,240,0.7)]">
                           {pastSessions.map((session) => (
                             <div
                               key={session.num}
                               className="py-4 first:pt-0 last:pb-0 space-y-2"
                             >
                               <div className="flex items-center justify-between text-sm">
-                                <span className="text-[#15171C] font-medium">
+                                <span className="text-[#202B46] font-medium">
                                   {session.dayVi}
                                 </span>
-                                <span className="text-xs text-[#2F6B4F] flex items-center gap-1 font-medium">
+                                <span className="text-xs text-status-success flex items-center gap-1 font-medium">
                                   <Check className="w-3.5 h-3.5 stroke-[2]" />
                                   <span>Có mặt ({session.checkinTime})</span>
                                 </span>
                               </div>
 
-                              <div className="text-xs text-[#15171C] font-medium">
+                              <div className="text-xs text-[#202B46] font-medium">
                                 Nội dung: {session.topic}
                               </div>
 
-                              <div className="text-xs text-[#6A675F]">
+                              <div className="text-xs text-[#6B7890]">
                                 {session.startTime} – {session.endTime} •{" "}
                                 {session.court} • {session.coach}
                               </div>
@@ -2853,18 +2853,18 @@ export function MemberAttendanceView() {
                               {session.skillScores && (
                                 <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
                                   <div className="p-1.5 rounded bg-white border border-[rgba(21,23,28,0.06)] flex justify-between">
-                                    <span className="text-[#6A675F]">
+                                    <span className="text-[#6B7890]">
                                       Cảm giác bóng
                                     </span>
-                                    <span className="text-[#15171C] font-semibold tabular-nums">
+                                    <span className="text-[#202B46] font-semibold tabular-nums">
                                       {session.skillScores.control}/5.0
                                     </span>
                                   </div>
                                   <div className="p-1.5 rounded bg-white border border-[rgba(21,23,28,0.06)] flex justify-between">
-                                    <span className="text-[#6A675F]">
+                                    <span className="text-[#6B7890]">
                                       Bộ chân
                                     </span>
-                                    <span className="text-[#15171C] font-semibold tabular-nums">
+                                    <span className="text-[#202B46] font-semibold tabular-nums">
                                       {session.skillScores.movement}/5.0
                                     </span>
                                   </div>
@@ -2875,11 +2875,11 @@ export function MemberAttendanceView() {
                               <div className="pt-2 flex items-center justify-between text-xs">
                                 {session.dispute ? (
                                   <div className="space-y-0.5">
-                                    <span className="text-xs text-[#A8844F] font-medium block">
+                                    <span className="text-xs text-[#24A9D2] font-medium block">
                                       ✓ Đang chờ đối soát camera (24h)
                                     </span>
                                     {session.dispute.reason && (
-                                      <span className="text-[11px] text-[#6A675F] italic block">
+                                      <span className="text-[11px] text-[#6B7890] italic block">
                                         “{session.dispute.reason}”
                                       </span>
                                     )}
@@ -2895,7 +2895,7 @@ export function MemberAttendanceView() {
                                         "Đã vào sân nhưng quên quét thẻ cổng từ",
                                       )
                                     }}
-                                    className="text-xs text-[#6A675F] hover:text-[#15171C] underline underline-offset-4 cursor-pointer transition-colors"
+                                    className="text-xs text-[#6B7890] hover:text-[#202B46] underline underline-offset-4 cursor-pointer transition-colors"
                                   >
                                     Báo sai điểm danh
                                   </button>
@@ -2911,7 +2911,7 @@ export function MemberAttendanceView() {
                                           session.feedback,
                                         )
                                       }
-                                      className="text-[#15171C] hover:border-[#15171C] border border-[rgba(21,23,28,0.12)] font-medium bg-[#F5F2EA] px-2.5 py-1 rounded cursor-pointer transition-colors"
+                                      className="text-[#202B46] hover:border-[#202B46] border border-[rgba(222,228,240,0.9)] font-medium bg-[#F5F7FC] px-2.5 py-1 rounded cursor-pointer transition-colors"
                                     >
                                       ✓ Đã đánh giá{" "}
                                       {Number(
@@ -2925,7 +2925,7 @@ export function MemberAttendanceView() {
                                       onClick={() =>
                                         handleOpenSessionFeedback(session, null)
                                       }
-                                      className="px-3 py-1.5 rounded bg-[#15171C] text-[#FBF9F4] hover:bg-[#2A2E37] transition-colors cursor-pointer font-medium"
+                                      className="px-3 py-1.5 rounded bg-[#202B46] text-[#FFFFFF] hover:bg-[#303B58] transition-colors cursor-pointer font-medium"
                                     >
                                       Đánh giá HLV
                                     </button>
@@ -2941,7 +2941,7 @@ export function MemberAttendanceView() {
                 </div>
 
                 {/* Drawer Footer (Seamless Surface Color) */}
-                <div className="p-4 border-t border-[rgba(21,23,28,0.08)] bg-[#FBF9F4] flex items-center justify-between text-xs text-[#6A675F]">
+                <div className="p-4 border-t border-[rgba(222,228,240,0.7)] bg-[#FFFFFF] flex items-center justify-between text-xs text-[#6B7890]">
                   <span>Dữ liệu đồng bộ từ máy quét cửa tự động</span>
                   <button
                     type="button"
@@ -2949,7 +2949,7 @@ export function MemberAttendanceView() {
                       setActiveDrawer(null)
                       setShowPolicyModal(true)
                     }}
-                    className="text-[#15171C] hover:underline font-medium cursor-pointer"
+                    className="text-[#202B46] hover:underline font-medium cursor-pointer"
                   >
                     Quy chế điểm danh
                   </button>
@@ -2968,27 +2968,27 @@ export function MemberAttendanceView() {
           <button
             type="button"
             onClick={() => setShowDevPanel((prev) => !prev)}
-            className="p-2 rounded-full bg-[#15171C]/80 hover:bg-[#15171C] text-[#FBF9F4] text-xs shadow-md backdrop-blur-xs cursor-pointer transition-all"
+            className="p-2 rounded-full bg-[#202B46]/80 hover:bg-[#202B46] text-[#FFFFFF] text-xs shadow-md backdrop-blur-xs cursor-pointer transition-all"
             title="Tùy chọn giả lập kiểm thử"
           >
             <SlidersHorizontal className="w-4 h-4 stroke-[1.5]" />
           </button>
 
           {showDevPanel && (
-            <div className="absolute bottom-10 right-0 w-72 bg-[#FBF9F4] border border-[rgba(21,23,28,0.15)] shadow-xl rounded-md p-4 space-y-3 text-xs text-[#15171C]">
-              <div className="flex items-center justify-between border-b border-[rgba(21,23,28,0.08)] pb-2 font-medium">
+            <div className="absolute bottom-10 right-0 w-72 bg-[#FFFFFF] border border-[rgba(222,228,240,0.9)] shadow-xl rounded-md p-4 space-y-3 text-xs text-[#202B46]">
+              <div className="flex items-center justify-between border-b border-[rgba(222,228,240,0.7)] pb-2 font-medium">
                 <span>Kiểm thử trạng thái</span>
                 <button
                   type="button"
                   onClick={() => setShowDevPanel(false)}
-                  className="text-[#6A675F] hover:text-[#15171C]"
+                  className="text-[#6B7890] hover:text-[#202B46]"
                 >
                   ✕
                 </button>
               </div>
 
               <div className="space-y-1.5">
-                <div className="text-[11px] text-[#6A675F]">
+                <div className="text-[11px] text-[#6B7890]">
                   Trạng thái buổi học:
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
@@ -2997,8 +2997,8 @@ export function MemberAttendanceView() {
                     onClick={() => setStateOverride(SESSION_STATE.UPCOMING)}
                     className={`p-1.5 border rounded text-[11px] ${
                       sessionState === SESSION_STATE.UPCOMING
-                        ? "bg-[#15171C] text-[#FBF9F4]"
-                        : "bg-[#F5F2EA]"
+                        ? "bg-[#202B46] text-[#FFFFFF]"
+                        : "bg-[#F5F7FC]"
                     }`}
                   >
                     Cổng khóa
@@ -3010,8 +3010,8 @@ export function MemberAttendanceView() {
                     }
                     className={`p-1.5 border rounded text-[11px] ${
                       sessionState === SESSION_STATE.CHECK_IN_OPEN
-                        ? "bg-[#15171C] text-[#FBF9F4]"
-                        : "bg-[#F5F2EA]"
+                        ? "bg-[#202B46] text-[#FFFFFF]"
+                        : "bg-[#F5F7FC]"
                     }`}
                   >
                     Mở cổng
@@ -3021,8 +3021,8 @@ export function MemberAttendanceView() {
                     onClick={() => setStateOverride(SESSION_STATE.CHECKED_IN)}
                     className={`p-1.5 border rounded text-[11px] ${
                       sessionState === SESSION_STATE.CHECKED_IN
-                        ? "bg-[#15171C] text-[#FBF9F4]"
-                        : "bg-[#F5F2EA]"
+                        ? "bg-[#202B46] text-[#FFFFFF]"
+                        : "bg-[#F5F7FC]"
                     }`}
                   >
                     Đã check-in
@@ -3030,15 +3030,15 @@ export function MemberAttendanceView() {
                   <button
                     type="button"
                     onClick={() => setStateOverride(null)}
-                    className="p-1.5 border rounded text-[11px] bg-[#F5F2EA] text-[#6A675F]"
+                    className="p-1.5 border rounded text-[11px] bg-[#F5F7FC] text-[#6B7890]"
                   >
                     Tự động
                   </button>
                 </div>
               </div>
 
-              <div className="space-y-1.5 pt-2 border-t border-[rgba(21,23,28,0.08)]">
-                <div className="text-[11px] text-[#6A675F]">
+              <div className="space-y-1.5 pt-2 border-t border-[rgba(222,228,240,0.7)]">
+                <div className="text-[11px] text-[#6B7890]">
                   Trạng thái hệ thống:
                 </div>
                 <div className="grid grid-cols-3 gap-1">
@@ -3046,7 +3046,7 @@ export function MemberAttendanceView() {
                     type="button"
                     onClick={() => setViewState("normal")}
                     className={`p-1 border rounded text-[10px] ${
-                      viewState === "normal" ? "bg-[#15171C] text-white" : ""
+                      viewState === "normal" ? "bg-[#202B46] text-white" : ""
                     }`}
                   >
                     Bình thường
@@ -3055,7 +3055,7 @@ export function MemberAttendanceView() {
                     type="button"
                     onClick={() => setViewState("loading")}
                     className={`p-1 border rounded text-[10px] ${
-                      viewState === "loading" ? "bg-[#15171C] text-white" : ""
+                      viewState === "loading" ? "bg-[#202B46] text-white" : ""
                     }`}
                   >
                     Loading
@@ -3064,7 +3064,7 @@ export function MemberAttendanceView() {
                     type="button"
                     onClick={() => setViewState("error")}
                     className={`p-1 border rounded text-[10px] ${
-                      viewState === "error" ? "bg-[#15171C] text-white" : ""
+                      viewState === "error" ? "bg-[#202B46] text-white" : ""
                     }`}
                   >
                     Lỗi mạng
@@ -3118,23 +3118,23 @@ export function MemberAttendanceView() {
 
       {/* Digital Pass / QR Modal: Apple Wallet Black Edition with qrcode.react */}
       {showQrPassModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#15171C]/75 backdrop-blur-md animate-in fade-in duration-200 font-['Be_Vietnam_Pro',sans-serif]">
-          <div className="max-w-sm w-full bg-[#15171C] text-[#FBF9F4] border border-white/10 rounded-2xl p-6 sm:p-7 space-y-6 relative overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#202B46]/75 backdrop-blur-md animate-in fade-in duration-200 font-['Be_Vietnam_Pro',sans-serif]">
+          <div className="max-w-sm w-full bg-[#202B46] text-[#FFFFFF] border border-white/10 rounded-2xl p-6 sm:p-7 space-y-6 relative overflow-hidden shadow-2xl">
             {/* Ambient subtle light glow */}
-            <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#C9A96E]/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#405BD5]/15 rounded-full blur-3xl pointer-events-none" />
 
             {/* Top Bar */}
             <div className="flex items-center justify-between border-b border-white/10 pb-4 relative z-10">
               <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#C9A96E] animate-pulse" />
-                <span className="text-[11px] tracking-[0.14em] uppercase font-sans font-medium text-[#C9A96E]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#405BD5] animate-pulse" />
+                <span className="text-[11px] tracking-[0.14em] uppercase font-sans font-medium text-[#405BD5]">
                   VIBE ATHLETIC • {isVip ? "THẺ VÀO SÂN VIP" : "THẺ VÀO SÂN"}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setShowQrPassModal(false)}
-                className="text-[#6A675F] hover:text-white p-1 rounded transition-colors cursor-pointer"
+                className="text-[#6B7890] hover:text-white p-1 rounded transition-colors cursor-pointer"
                 title="Đóng thẻ (ESC)"
               >
                 <X className="w-5 h-5 stroke-[1.75]" />
@@ -3144,17 +3144,17 @@ export function MemberAttendanceView() {
             {/* Pass Metadata Block */}
             <div className="space-y-1 relative z-10">
               <div className="flex items-center justify-between text-xs">
-                <span className="uppercase tracking-wider text-[#6A675F] font-medium">
+                <span className="uppercase tracking-wider text-[#6B7890] font-medium">
                   Khóa học đăng ký
                 </span>
-                <span className="text-[10px] font-sans text-[#C9A96E] font-medium border border-[#C9A96E]/40 px-2 py-0.5 rounded bg-[#15171C]">
+                <span className="text-[10px] font-sans text-[#405BD5] font-medium border border-[#405BD5]/40 px-2 py-0.5 rounded bg-[#202B46]">
                   {isVip ? "FOUNDING MEMBER" : "HỘI VIÊN TIÊU CHUẨN"}
                 </span>
               </div>
-              <div className="font-['Newsreader',serif] text-2xl text-[#FBF9F4] tracking-tight">
+              <div className="font-['Newsreader',serif] text-2xl text-[#FFFFFF] tracking-tight">
                 {activeCourse.name}
               </div>
-              <div className="text-xs text-[#FBF9F4]/70 leading-relaxed pt-0.5">
+              <div className="text-xs text-[#FFFFFF]/70 leading-relaxed pt-0.5">
                 <strong className="text-white font-medium">
                   {heroSession.court}
                 </strong>{" "}
@@ -3165,21 +3165,21 @@ export function MemberAttendanceView() {
             {/* Ticket Stub Notch Line */}
             <div className="relative py-1">
               <div className="border-t border-dashed border-white/10 w-full" />
-              <div className="absolute -left-10 -top-2.5 w-5 h-5 rounded-full bg-[#15171C]" />
-              <div className="absolute -right-10 -top-2.5 w-5 h-5 rounded-full bg-[#15171C]" />
+              <div className="absolute -left-10 -top-2.5 w-5 h-5 rounded-full bg-[#202B46]" />
+              <div className="absolute -right-10 -top-2.5 w-5 h-5 rounded-full bg-[#202B46]" />
             </div>
 
             {/* QR / Attendance State Block (Real QRCodeSVG) */}
             <div className="flex flex-col items-center justify-center text-center space-y-4 relative z-10">
               {isCheckedIn ? (
-                <div className="w-56 h-56 rounded-xl border border-[#2F6B4F]/40 bg-[#2F6B4F]/10 p-6 flex flex-col items-center justify-center text-center space-y-3">
-                  <div className="w-12 h-12 rounded-full bg-[#2F6B4F]/20 border border-[#2F6B4F]/40 flex items-center justify-center text-[#68D391]">
+                <div className="w-56 h-56 rounded-xl border border-[#15803D]/40 bg-[#15803D]/10 p-6 flex flex-col items-center justify-center text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-[#15803D]/20 border border-[#15803D]/40 flex items-center justify-center text-[#15803D]">
                     <Check className="w-6 h-6 stroke-[2]" />
                   </div>
-                  <div className="font-medium text-sm text-[#68D391] tracking-wide">
+                  <div className="font-medium text-sm text-[#15803D] tracking-wide">
                     ĐÃ QUA CỔNG SOÁT VÉ
                   </div>
-                  <div className="text-xs text-[#FBF9F4]/70 font-mono">
+                  <div className="text-xs text-[#FFFFFF]/70 font-mono">
                     Có mặt: {heroSession.checkinTime || "05:55"} •{" "}
                     {activeCourse.gate}
                   </div>
@@ -3196,22 +3196,22 @@ export function MemberAttendanceView() {
                         value={`SCMS://PASS/${activeCourse.code}/${heroSession.num}/${member?.code}/${otpBackupCode}`}
                         size={192}
                         level="H"
-                        fgColor="#15171C"
+                        fgColor="#202B46"
                         bgColor="#FFFFFF"
                         className="w-full h-full"
                       />
                     </div>
 
                     {!isCheckInOpen && (
-                      <div className="absolute inset-0 bg-[#15171C]/75 backdrop-blur-xs flex flex-col items-center justify-center p-3 text-center space-y-2">
-                        <div className="w-10 h-10 rounded-full bg-[#15171C] border border-[#C9A96E] flex items-center justify-center text-[#C9A96E]">
+                      <div className="absolute inset-0 bg-[#202B46]/75 backdrop-blur-xs flex flex-col items-center justify-center p-3 text-center space-y-2">
+                        <div className="w-10 h-10 rounded-full bg-[#202B46] border border-[#405BD5] flex items-center justify-center text-[#405BD5]">
                           <Lock className="w-5 h-5" />
                         </div>
                         <span className="text-xs font-medium text-white/90">
                           Cổng mở lúc{" "}
                           {getGateOpeningTime(heroSession.startTime)}
                         </span>
-                        <span className="text-[11px] text-[#FBF9F4]/60">
+                        <span className="text-[11px] text-[#FFFFFF]/60">
                           Mã sẽ tự động kích hoạt khi mở cổng
                         </span>
                       </div>
@@ -3219,7 +3219,7 @@ export function MemberAttendanceView() {
                   </div>
 
                   {isCheckInOpen && (
-                    <div className="flex items-center justify-center gap-2 text-xs text-[#FBF9F4]/70">
+                    <div className="flex items-center justify-center gap-2 text-xs text-[#FFFFFF]/70">
                       <span>Mã OTP tự động làm mới sau:</span>
                       <span className="font-['JetBrains_Mono',monospace] text-white font-medium tabular-nums bg-white/10 px-2 py-0.5 rounded">
                         {qrCountdown}s
@@ -3265,10 +3265,10 @@ export function MemberAttendanceView() {
             {/* Pass Footer / Actions */}
             <div className="border-t border-white/10 pt-4 flex items-center justify-between relative z-10">
               <div className="space-y-0.5">
-                <div className="text-[10px] uppercase tracking-wider text-[#6A675F] font-medium">
+                <div className="text-[10px] uppercase tracking-wider text-[#6B7890] font-medium">
                   Chủ thẻ hội viên
                 </div>
-                <div className="text-xs text-[#FBF9F4] font-medium">
+                <div className="text-xs text-[#FFFFFF] font-medium">
                   {member?.name || "Bùi Văn Phúc"}
                 </div>
               </div>
@@ -3277,7 +3277,7 @@ export function MemberAttendanceView() {
                 <button
                   type="button"
                   onClick={() => setShowQrPassModal(false)}
-                  className="px-4 py-2 rounded bg-white/10 hover:bg-white/15 text-[#FBF9F4] text-xs font-medium cursor-pointer transition-colors"
+                  className="px-4 py-2 rounded bg-white/10 hover:bg-white/15 text-[#FFFFFF] text-xs font-medium cursor-pointer transition-colors"
                 >
                   Đóng thẻ
                 </button>
@@ -3288,7 +3288,7 @@ export function MemberAttendanceView() {
                     handlePerformCheckin()
                     setShowQrPassModal(false)
                   }}
-                  className="px-4 py-2 rounded bg-[#C9A96E] hover:bg-[#b89558] text-[#15171C] text-xs font-semibold cursor-pointer transition-colors"
+                  className="px-4 py-2 rounded bg-brand-primary hover:bg-brand-primary-hover text-white text-xs font-semibold cursor-pointer transition-colors"
                 >
                   Xác nhận check-in
                 </button>
@@ -3296,7 +3296,7 @@ export function MemberAttendanceView() {
                 <button
                   type="button"
                   onClick={() => setShowQrPassModal(false)}
-                  className="px-4 py-2 rounded bg-white/10 hover:bg-white/15 text-[#FBF9F4] text-xs font-medium cursor-pointer transition-colors"
+                  className="px-4 py-2 rounded bg-white/10 hover:bg-white/15 text-[#FFFFFF] text-xs font-medium cursor-pointer transition-colors"
                 >
                   Đóng
                 </button>

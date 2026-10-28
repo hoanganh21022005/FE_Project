@@ -276,7 +276,7 @@ export function MemberScheduleView() {
       {/* Header */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
+          <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
             VIBE SPORT · MEMBER
           </p>
           <h1 className="mt-2 text-3xl font-black text-slate-950">
@@ -302,7 +302,7 @@ export function MemberScheduleView() {
           <button
             type="button"
             onClick={() => navigate("/member/catalog")}
-            className="inline-flex items-center gap-2 rounded-lg bg-red-700 hover:bg-red-800 px-3.5 py-2 text-xs font-bold text-white shadow-2xs cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-primary hover:bg-brand-primary-hover px-3.5 py-2 text-xs font-bold text-white shadow-2xs cursor-pointer"
           >
             <Dumbbell className="h-4 w-4" />
             <span>{isVi ? "Đăng ký lớp mới" : "Find classes"}</span>
@@ -368,7 +368,7 @@ export function MemberScheduleView() {
           onClick={() => setActiveTab("feedback")}
           className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
             activeTab === "feedback"
-              ? "bg-red-700 text-white shadow-2xs"
+              ? "bg-brand-primary text-white shadow-2xs"
               : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
           }`}
         >
@@ -391,7 +391,7 @@ export function MemberScheduleView() {
       {error && (
         <div
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+          className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-status-error"
         >
           {error}
         </div>
@@ -418,7 +418,7 @@ export function MemberScheduleView() {
                   <div>
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <span className="text-xs font-bold uppercase tracking-wide text-red-700">
+                        <span className="text-xs font-bold uppercase tracking-wide text-brand-accent-dark">
                           {row.subjectName || "VIBE SPORT"}
                         </span>
                         <h2 className="mt-1 text-lg font-extrabold text-slate-900">
@@ -510,7 +510,7 @@ export function MemberScheduleView() {
                       onClick={() => setActiveTab("feedback")}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 cursor-pointer"
                     >
-                      <MessageSquareHeart className="h-3.5 w-3.5 text-red-700" />
+                      <MessageSquareHeart className="h-3.5 w-3.5 text-brand-accent-dark" />
                       <span>{isVi ? "Đánh giá lớp & HLV" : "Feedback"}</span>
                     </button>
 
@@ -573,7 +573,7 @@ export function MemberScheduleView() {
               >
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700 border border-red-200">
+                    <span className="rounded bg-brand-accent-soft px-2 py-0.5 text-[11px] font-bold text-brand-accent-dark border border-brand-accent/40">
                       {session.subjectName}
                     </span>
                     <h3 className="text-sm font-extrabold text-slate-900">
@@ -614,7 +614,7 @@ export function MemberScheduleView() {
                     onClick={() => navigate("/member/attendance")}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 cursor-pointer"
                   >
-                    <QrCode className="h-3.5 w-3.5 text-red-700" />
+                    <QrCode className="h-3.5 w-3.5 text-brand-accent-dark" />
                     <span>{isVi ? "Điểm danh QR" : "QR Check-in"}</span>
                   </button>
                 </div>
@@ -786,7 +786,7 @@ export function MemberScheduleView() {
                       ? "Nhập lý do xin nghỉ (VD: Bận công tác đột xuất, vấn đề sức khỏe...)"
                       : "Enter your reason for absence..."
                   }
-                  className="w-full rounded-lg border border-slate-300 bg-slate-50 p-2.5 text-xs text-slate-900 focus:border-red-700 focus:bg-white focus:outline-none"
+                  className="w-full rounded-lg border border-slate-300 bg-slate-50 p-2.5 text-xs text-slate-900 focus:border-brand-accent focus:bg-white focus:outline-none"
                 />
               </div>
 

@@ -46,7 +46,7 @@ export function GymDetailView() {
       <header className="fixed top-0 inset-x-0 z-50 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-stone-800">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
-            <div className="w-10 h-10 rounded-xl bg-[#E32119] flex items-center justify-center font-black text-lg text-white">SC</div>
+            <div className="w-10 h-10 rounded-xl bg-brand-primary flex items-center justify-center font-black text-lg text-white">SC</div>
             <div className="text-xl font-black uppercase text-white tracking-widest">VIBE Sport FITNESS</div>
           </div>
           <button onClick={goBack} className="flex items-center gap-2 text-stone-400 hover:text-white transition-colors"><ArrowLeft className="w-5 h-5" />{isVi ? 'Quay lại' : 'Back'}</button>
@@ -56,7 +56,7 @@ export function GymDetailView() {
       {/* Title Area */}
       <section className="pt-32 pb-12 px-4 text-center relative z-10">
         <h1 className="text-5xl md:text-7xl font-black uppercase text-white tracking-tight mb-4">
-          Xây dựng sức mạnh <span className="text-[#E32119]">toàn diện</span>
+          Xây dựng sức mạnh <span className="text-[var(--brand-cyan)]">toàn diện</span>
         </h1>
         <p className="text-xl md:text-2xl text-stone-400 font-medium max-w-2xl mx-auto">
           "Mục tiêu thay đổi hình thể của bạn tập trung ở đâu?"
@@ -77,12 +77,12 @@ export function GymDetailView() {
               <button 
                 key={muscle.id}
                 onClick={() => setActiveMuscle(muscle.id)}
-                className={`absolute w-12 h-12 -ml-6 -mt-6 rounded-full border-2 flex items-center justify-center transition-all duration-500 group/btn ${activeMuscle === muscle.id ? 'bg-[#E32119]/20 border-[#E32119] scale-125 z-10' : 'bg-black/50 border-stone-500 hover:border-[#E32119]'}`}
+                className={`absolute w-12 h-12 -ml-6 -mt-6 rounded-full border-2 flex items-center justify-center transition-all duration-500 group/btn ${activeMuscle === muscle.id ? 'bg-brand-primary/20 border-[var(--brand-cyan)] scale-125 z-10' : 'bg-black/50 border-stone-500 hover:border-[var(--brand-cyan)]'}`}
                 style={{ top: muscle.top, left: muscle.left }}
               >
-                <span className={`w-3 h-3 rounded-full transition-colors duration-300 ${activeMuscle === muscle.id ? 'bg-[#E32119]' : 'bg-stone-300 group-hover/btn:bg-[#E32119]'}`}></span>
+                <span className={`w-3 h-3 rounded-full transition-colors duration-300 ${activeMuscle === muscle.id ? 'bg-brand-primary' : 'bg-stone-300 group-hover/btn:bg-brand-primary'}`}></span>
                 {activeMuscle === muscle.id && (
-                  <span className="absolute w-full h-full rounded-full border border-[#E32119] animate-ping opacity-75"></span>
+                  <span className="absolute w-full h-full rounded-full border border-[var(--brand-cyan)] animate-ping opacity-75"></span>
                 )}
               </button>
             ))}
@@ -91,7 +91,7 @@ export function GymDetailView() {
           {/* Dynamic Content (Right Column) */}
           <div className="flex flex-col justify-center min-h-[400px]">
             <div key={activeMuscle} className="animate-in fade-in slide-in-from-right-8 duration-500">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#E32119]/10 border border-[#E32119]/30 text-[#E32119] font-bold text-sm uppercase tracking-wider mb-6">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-primary/10 border border-[var(--brand-cyan)]/30 text-[var(--brand-cyan)] font-bold text-sm uppercase tracking-wider mb-6">
                 <Target className="w-4 h-4" /> Khu vực tập trung
               </div>
               <h2 className="text-4xl md:text-5xl font-black text-white uppercase mb-6 leading-tight">
@@ -109,15 +109,15 @@ export function GymDetailView() {
                     Tự do tập luyện tại không gian Free-weight đa dạng thiết bị, hoặc lựa chọn gói Huấn luyện viên cá nhân 1-1 để được theo sát từng nhịp thở, tối ưu hóa kỹ thuật (Form) nhằm tránh chấn thương và đạt hiệu quả nhanh nhất.
                   </p>
                 </div>
-                <div className="bg-stone-900/50 p-6 rounded-2xl border border-stone-800 border-l-4 border-l-[#E32119]">
-                  <h4 className="text-[#E32119] text-sm font-bold uppercase tracking-widest mb-2">Kết quả đạt được</h4>
+                <div className="bg-stone-900/50 p-6 rounded-2xl border border-stone-800 border-l-4 border-l-[var(--brand-cyan)]">
+                  <h4 className="text-[var(--brand-cyan)] text-sm font-bold uppercase tracking-widest mb-2">Kết quả đạt được</h4>
                   <p className="text-stone-300 font-medium">
                     {currentData.desc} Tăng cường khối lượng cơ bắp, cải thiện mật độ xương và định hình vóc dáng săn chắc, vạm vỡ theo đúng mục tiêu cá nhân.
                   </p>
                 </div>
               </div>
               
-              <button onClick={() => navigate('/register')} className="bg-[#E32119] hover:bg-red-700 text-white font-black py-5 px-10 rounded-xl uppercase tracking-widest transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(227,33,25,0.4)] w-full sm:w-auto text-center">
+              <button onClick={() => navigate('/register')} className="bg-brand-primary hover:bg-brand-primary-hover text-white font-black py-5 px-10 rounded-xl uppercase tracking-widest transition-all hover:scale-105 hover:shadow-[0_0_30px_var(--brand-cyan-shadow)] w-full sm:w-auto text-center">
                 BẮT ĐẦU LỘ TRÌNH GYM NGAY
               </button>
             </div>

@@ -380,7 +380,7 @@ export function MemberBodyMetricsView() {
       {/* Header */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
+          <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
             VIBE SPORT · MEMBER PORTAL
           </p>
           <h1 className="mt-2 text-3xl font-black text-slate-950">
@@ -400,7 +400,7 @@ export function MemberBodyMetricsView() {
             <button
               type="button"
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-red-700 px-4 py-2.5 text-xs font-bold text-white hover:bg-red-800 transition-colors shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-primary-hover transition-colors shadow-xs cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>{isVi ? "Ghi nhận chỉ số mới" : "Log New Metric"}</span>
@@ -430,7 +430,7 @@ export function MemberBodyMetricsView() {
           onClick={() => setActiveTab("inbody")}
           className={`pb-3 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
             activeTab === "inbody"
-              ? "border-red-600 text-red-600 font-bold"
+              ? "border-brand-primary text-brand-primary font-bold"
               : "border-transparent text-slate-500 hover:text-slate-900"
           }`}
         >
@@ -443,7 +443,7 @@ export function MemberBodyMetricsView() {
           onClick={() => setActiveTab("plans")}
           className={`pb-3 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
             activeTab === "plans"
-              ? "border-red-600 text-red-600 font-bold"
+              ? "border-brand-primary text-brand-primary font-bold"
               : "border-transparent text-slate-500 hover:text-slate-900"
           }`}
         >
@@ -459,7 +459,7 @@ export function MemberBodyMetricsView() {
           onClick={() => setActiveTab("results")}
           className={`pb-3 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
             activeTab === "results"
-              ? "border-red-600 text-red-600 font-bold"
+              ? "border-brand-primary text-brand-primary font-bold"
               : "border-transparent text-slate-500 hover:text-slate-900"
           }`}
         >
@@ -1008,7 +1008,7 @@ export function MemberBodyMetricsView() {
                     value={formHeight}
                     onChange={(e) => setFormHeight(e.target.value)}
                     placeholder="170"
-                    className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-red-500"
+                    className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary"
                   />
                 </div>
                 <div>
@@ -1022,7 +1022,7 @@ export function MemberBodyMetricsView() {
                     value={formWeight}
                     onChange={(e) => setFormWeight(e.target.value)}
                     placeholder="Ví dụ: 70.5"
-                    className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-red-500"
+                    className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary"
                   />
                 </div>
               </div>
@@ -1037,7 +1037,7 @@ export function MemberBodyMetricsView() {
                   value={formFat}
                   onChange={(e) => setFormFat(e.target.value)}
                   placeholder="Ví dụ: 18.5"
-                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-red-500"
+                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary"
                 />
               </div>
 
@@ -1051,7 +1051,7 @@ export function MemberBodyMetricsView() {
                   value={formMuscle}
                   onChange={(e) => setFormMuscle(e.target.value)}
                   placeholder="Ví dụ: 35.0"
-                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-red-500"
+                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary"
                 />
               </div>
 
@@ -1065,7 +1065,7 @@ export function MemberBodyMetricsView() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-red-700 px-5 py-2 text-xs font-bold text-white hover:bg-red-800 cursor-pointer"
+                  className="rounded-lg bg-brand-primary px-5 py-2 text-xs font-bold text-white hover:bg-brand-primary-hover cursor-pointer"
                 >
                   {isVi ? "Lưu kết quả" : "Save Record"}
                 </button>

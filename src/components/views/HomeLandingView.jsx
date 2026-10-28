@@ -285,7 +285,7 @@ export function HomeLandingView({ onOpenLogin }) {
                   onClick={() => setOpenDropdown(null)}
                   className={`text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red ${
                     item.isHome
-                      ? "-skew-x-6 bg-mlc-red px-4 py-3 text-white shadow-mlc hover:bg-rose-700 hover:text-white"
+                      ? "-skew-x-6 bg-mlc-red px-4 py-3 text-white shadow-mlc hover:bg-brand-primary-hover hover:text-white"
                       : "text-mlc-ink hover:text-mlc-red"
                   }`}
                 >
@@ -513,7 +513,7 @@ export function HomeLandingView({ onOpenLogin }) {
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Link
                   to="#courses"
-                  className="inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-mlc-red px-7 text-sm font-bold text-white shadow-mlc transition hover:bg-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                  className="inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-mlc-red px-7 text-sm font-bold text-white shadow-mlc transition hover:bg-brand-primary-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
                 >
                   {isVi ? "Khám phá khóa học" : "Explore courses"}{" "}
                   <ArrowDown className="h-4 w-4" />
@@ -599,11 +599,11 @@ export function HomeLandingView({ onOpenLogin }) {
           </div>
         </section>
 
-        <section id="courses" className="scroll-mt-24 bg-mlc-surface-base py-20 text-white sm:py-28">
+        <section id="courses" className="scroll-mt-24 bg-bg-main py-20 text-brand-dark sm:py-28">
           <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
             <Reveal className="mb-10 flex flex-col justify-between gap-5 sm:mb-14 sm:flex-row sm:items-end">
               <div>
-                <p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-mlc-red">
+                <p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-brand-accent-dark">
                   {isVi ? "TÌM MÔN THỂ THAO CỦA BẠN" : "FIND YOUR SPORT"}
                 </p>
                 <h2 className="font-mlc text-4xl font-extrabold leading-[0.98] tracking-tight sm:text-6xl">
@@ -612,7 +612,7 @@ export function HomeLandingView({ onOpenLogin }) {
                     : `${visibleCourses.length} SPORTS COURSES`}
                 </h2>
               </div>
-              <p className="max-w-lg text-base leading-7 text-white/70">
+              <p className="max-w-lg text-base leading-7 text-text-secondary">
                 {isVi
                   ? "Từ những môn phối hợp đồng đội đến thử thách cá nhân, hãy chọn hoạt động khiến bạn muốn quay lại sân tập."
                   : "From team play to individual challenges, choose an activity that makes you want to come back."}
@@ -623,8 +623,8 @@ export function HomeLandingView({ onOpenLogin }) {
                 const courseIndex = courses.findIndex((item) => item.id === course.id)
                 return (
                 <Item key={course.id} className="h-full">
-                  <article className="group h-full overflow-hidden border border-white/15 border-b-4 border-b-mlc-red bg-white/[0.03] transition duration-300 hover:-translate-y-1 hover:border-white/35 hover:shadow-mlc">
-                    <Link to={`/courses/${course.id}`} aria-label={isVi ? `Xem khóa học ${course.title}` : `View ${course.titleEn} course`} className="relative block aspect-[4/3] overflow-hidden bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white">
+                  <article className="group h-full overflow-hidden border border-brand-primary/20 border-b-4 border-b-brand-primary bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:border-brand-primary/50 hover:shadow-mlc">
+                    <Link to={`/courses/${course.id}`} aria-label={isVi ? `Xem khóa học ${course.title}` : `View ${course.titleEn} course`} className="relative block aspect-[4/3] overflow-hidden bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-primary">
                       <img
                         src={course.image}
                         alt=""
@@ -638,12 +638,12 @@ export function HomeLandingView({ onOpenLogin }) {
                     </Link>
                     <div className="p-5 sm:p-6">
                       <h3 className="font-mlc text-2xl font-bold uppercase leading-tight">
-                        <Link to={`/courses/${course.id}`} className="hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">{isVi ? course.title : course.titleEn}</Link>
+                        <Link to={`/courses/${course.id}`} className="text-brand-dark hover:text-brand-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-primary">{isVi ? course.title : course.titleEn}</Link>
                       </h3>
-                      <p className="mt-3 min-h-[48px] text-sm leading-6 text-white/70">
+                      <p className="mt-3 min-h-[48px] text-sm leading-6 text-text-secondary">
                         {isVi ? course.description : course.descriptionEn}
                       </p>
-                      <Link to={`/courses/${course.id}`} className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-white transition hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
+                      <Link to={`/courses/${course.id}`} className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-brand-primary transition hover:text-brand-primary-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-primary">
                         {isVi ? "Khám phá khóa học" : "Explore this course"}<ArrowRight className="h-4 w-4" />
                       </Link>
                     </div>

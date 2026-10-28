@@ -77,15 +77,15 @@ export function MemberManagement({ onSelectMemberDetail }) {
           onClick={() => setStatusFilter('all')}
           className={`p-3.5 rounded-lg border transition-all cursor-pointer ${
             statusFilter === 'all'
-              ? 'bg-[#181818] text-white border-[#323232] shadow-sm'
-              : 'bg-white text-[#181818] border-slate-200 hover:border-[#323232]'
+              ? 'bg-brand-dark text-white border-brand-dark-hover shadow-sm'
+              : 'bg-white text-brand-dark border-slate-200 hover:border-brand-dark-hover'
           }`}
         >
           <div className="flex items-center justify-between text-xs font-semibold">
             <span className={statusFilter === 'all' ? 'text-stone-300' : 'text-slate-500'}>
               {language === 'vi' ? 'Tổng số hội viên' : 'Total Members'}
             </span>
-            <Users className={`w-4 h-4 ${statusFilter === 'all' ? 'text-[#D62323]' : 'text-slate-400'}`} />
+            <Users className={`w-4 h-4 ${statusFilter === 'all' ? 'text-brand-accent-dark' : 'text-slate-400'}`} />
           </div>
           <div className="mt-2 text-2xl font-black tabular-nums tracking-tight">{totalCount}</div>
         </div>
@@ -96,7 +96,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
           className={`p-3.5 rounded-lg border transition-all cursor-pointer ${
             statusFilter === 'active'
               ? 'bg-emerald-900 text-white border-emerald-800 shadow-sm'
-              : 'bg-white text-[#181818] border-slate-200 hover:border-emerald-300'
+              : 'bg-white text-brand-dark border-slate-200 hover:border-emerald-300'
           }`}
         >
           <div className="flex items-center justify-between text-xs font-semibold">
@@ -115,8 +115,8 @@ export function MemberManagement({ onSelectMemberDetail }) {
           onClick={() => setStatusFilter('grace_period')}
           className={`p-3.5 rounded-lg border transition-all cursor-pointer ${
             statusFilter === 'grace_period'
-              ? 'bg-[#181818] text-white border-amber-800 shadow-sm'
-              : 'bg-white text-[#181818] border-slate-200 hover:border-amber-300'
+              ? 'bg-brand-dark text-white border-amber-800 shadow-sm'
+              : 'bg-white text-brand-dark border-slate-200 hover:border-amber-300'
           }`}
         >
           <div className="flex items-center justify-between text-xs font-semibold">
@@ -140,15 +140,15 @@ export function MemberManagement({ onSelectMemberDetail }) {
           onClick={() => setStatusFilter('none')}
           className={`p-3.5 rounded-lg border transition-all cursor-pointer ${
             statusFilter === 'none'
-              ? 'bg-[#181818] text-white border-[#323232] shadow-sm'
-              : 'bg-white text-[#181818] border-slate-200 hover:border-slate-300'
+              ? 'bg-brand-dark text-white border-brand-dark-hover shadow-sm'
+              : 'bg-white text-brand-dark border-slate-200 hover:border-slate-300'
           }`}
         >
           <div className="flex items-center justify-between text-xs font-semibold">
             <span className={statusFilter === 'none' ? 'text-stone-300' : 'text-slate-500'}>
               {language === 'vi' ? 'Chưa đăng ký gói' : 'No Package'}
             </span>
-            <Sparkles className={`w-4 h-4 ${statusFilter === 'none' ? 'text-[#D62323]' : 'text-slate-400'}`} />
+            <Sparkles className={`w-4 h-4 ${statusFilter === 'none' ? 'text-brand-accent-dark' : 'text-slate-400'}`} />
           </div>
           <div className="mt-2 flex items-baseline justify-between">
             <span className="text-2xl font-black text-slate-700 tabular-nums tracking-tight">
@@ -185,11 +185,11 @@ export function MemberManagement({ onSelectMemberDetail }) {
       {/* 2. Top Header & Actions Bar */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white border border-slate-200 p-4 rounded-lg shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#181818] text-[#D62323] rounded-lg flex items-center justify-center shrink-0 shadow-xs">
+          <div className="w-10 h-10 bg-brand-dark text-brand-accent-dark rounded-lg flex items-center justify-center shrink-0 shadow-xs">
             <UserCheck className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-[#181818] tracking-tight">{t('members')}</h2>
+            <h2 className="text-sm font-bold text-brand-dark tracking-tight">{t('members')}</h2>
             <p className="text-xs text-stone-500">
               {language === 'vi'
                 ? 'Danh sách hồ sơ thành viên từ hệ thống backend và kiểm soát thông tin hội viên'
@@ -203,7 +203,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            className="w-full sm:w-auto bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-[#181818] focus:outline-none focus:border-[#BA0000] focus:bg-white font-medium cursor-pointer"
+            className="w-full sm:w-auto bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:border-brand-primary focus:bg-white font-medium cursor-pointer"
           >
             <option value="all">{language === 'vi' ? 'Tất cả trạng thái' : 'All statuses'}</option>
             <option value="active">{t('active')}</option>
@@ -221,14 +221,14 @@ export function MemberManagement({ onSelectMemberDetail }) {
               placeholder={t('search') + "..."}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full bg-stone-50 border border-slate-300 rounded pl-8 pr-3 py-1.5 text-xs text-[#181818] placeholder-slate-400 focus:outline-none focus:border-[#BA0000] focus:bg-white transition-colors"
+              className="w-full bg-stone-50 border border-slate-300 rounded pl-8 pr-3 py-1.5 text-xs text-brand-dark placeholder-slate-400 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors"
             />
           </div>
 
           {/* Add Member Button */}
           <button
             onClick={() => setIsAddOpen(true)}
-            className="px-3.5 py-1.5 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap transition-colors cursor-pointer w-full sm:w-auto"
+            className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap transition-colors cursor-pointer w-full sm:w-auto"
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span>{t('addMember')}</span>
@@ -240,7 +240,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px]">
-            <thead className="bg-[#181818] text-[#E4E4E4] uppercase tracking-wider border-b border-slate-200 font-bold text-xs">
+            <thead className="bg-brand-dark text-slate-200 uppercase tracking-wider border-b border-slate-200 font-bold text-xs">
               <tr>
                 <th className="py-3 px-4">{language === 'vi' ? 'Mã và họ tên' : 'Code and name'}</th>
                 <th className="py-3 px-4">{language === 'vi' ? 'Liên hệ' : 'Contact'}</th>
@@ -267,7 +267,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
                 ))
               ) : (
                 filteredMembers.map(m => (
-                  <tr key={m.id} className="hover:bg-red-50/20 transition-colors h-[42px]">
+                  <tr key={m.id} className="hover:bg-brand-blue-soft/50 transition-colors h-[42px]">
                     <td className="py-2 px-4 font-bold text-slate-900">
                       <div>{m.name}</div>
                       <div className="text-[11px] text-slate-500 font-mono tabular-nums">{m.code}</div>
@@ -306,7 +306,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
                         {/* Detail View Button */}
                         <button
                           onClick={() => onSelectMemberDetail && onSelectMemberDetail(m.id)}
-                          className="px-2.5 py-1 bg-white hover:bg-stone-50 hover:border-[#BA0000] hover:text-[#BA0000] text-[#181818] border border-slate-300 rounded text-[11px] font-semibold transition-all inline-flex items-center gap-1 shadow-xs cursor-pointer"
+                          className="px-2.5 py-1 bg-white hover:bg-stone-50 hover:border-brand-accent hover:text-brand-primary text-brand-dark border border-slate-300 rounded text-[11px] font-semibold transition-all inline-flex items-center gap-1 shadow-xs cursor-pointer"
                         >
                           <span>{language === 'vi' ? 'Chi tiết' : 'Details'}</span>
                           <ChevronRight className="w-3 h-3" />
@@ -352,7 +352,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
             <button disabled className="px-2 py-1 bg-white border border-slate-200 rounded opacity-50 cursor-not-allowed">
               {language === 'vi' ? 'Trang trước' : 'Previous'}
             </button>
-            <span className="px-2.5 py-1 bg-[#181818] text-white rounded font-bold">1</span>
+            <span className="px-2.5 py-1 bg-brand-dark text-white rounded font-bold">1</span>
             <button disabled className="px-2 py-1 bg-white border border-slate-200 rounded opacity-50 cursor-not-allowed">
               {language === 'vi' ? 'Trang sau' : 'Next'}
             </button>

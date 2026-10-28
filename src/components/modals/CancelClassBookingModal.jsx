@@ -140,7 +140,7 @@ export function CancelClassBookingModal({
             type="button"
             onClick={handleConfirm}
             disabled={cancelling}
-            className="px-4 py-2 bg-[#BA0000] hover:bg-[#8E0000] text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+            className="px-4 py-2 bg-status-error hover:bg-status-error text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
           >
             {cancelling ? (
               <>

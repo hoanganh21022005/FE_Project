@@ -85,7 +85,7 @@ export function MemberFreezeRequestView({ embedded = false }) {
       {!embedded && (
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
               VIBE SPORT · MEMBER
             </p>
             <h1 className="mt-2 text-3xl font-black text-slate-950">
@@ -142,7 +142,7 @@ export function MemberFreezeRequestView({ embedded = false }) {
       {/* Request Form */}
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-          <PauseCircle className="w-5 h-5 text-red-700" />
+          <PauseCircle className="w-5 h-5 text-brand-accent-dark" />
           {isVi ? "Gửi đơn yêu cầu bảo lưu mới" : "Submit New Freeze Request"}
         </h2>
 
@@ -169,7 +169,7 @@ export function MemberFreezeRequestView({ embedded = false }) {
                 value={startDate}
                 min={new Date().toISOString().slice(0, 10)}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 p-3 text-sm outline-none focus:border-red-500 font-sans"
+                className="w-full rounded-xl border border-slate-300 p-3 text-sm outline-none focus:border-brand-primary font-sans"
               />
             </div>
 
@@ -180,7 +180,7 @@ export function MemberFreezeRequestView({ embedded = false }) {
               <select
                 value={days}
                 onChange={(e) => setDays(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 p-3 text-sm outline-none focus:border-red-500 font-sans bg-white"
+                className="w-full rounded-xl border border-slate-300 p-3 text-sm outline-none focus:border-brand-primary font-sans bg-white"
               >
                 <option value="7">
                   7 {isVi ? "ngày (1 tuần)" : "days (1 week)"}
@@ -226,7 +226,7 @@ export function MemberFreezeRequestView({ embedded = false }) {
                   onClick={() => setReason(item.key)}
                   className={`rounded-xl border p-3 text-xs font-bold transition-all text-center cursor-pointer ${
                     reason === item.key
-                      ? "border-red-600 bg-red-50 text-red-900 ring-1 ring-red-500"
+                      ? "border-brand-primary bg-brand-blue-soft text-brand-dark ring-1 ring-brand-primary"
                       : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
                   }`}
                 >
@@ -249,14 +249,14 @@ export function MemberFreezeRequestView({ embedded = false }) {
                   ? "Ví dụ: Đi công tác Đà Nẵng từ ngày 28/10..."
                   : "Additional details..."
               }
-              className="w-full rounded-xl border border-slate-300 p-3 text-sm text-slate-800 placeholder-slate-400 outline-none focus:border-red-500 resize-none"
+              className="w-full rounded-xl border border-slate-300 p-3 text-sm text-slate-800 placeholder-slate-400 outline-none focus:border-brand-primary resize-none"
             />
           </div>
 
           <div className="flex justify-end pt-2">
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-xl bg-red-700 px-6 py-2.5 text-xs font-bold text-white hover:bg-red-800 transition-colors shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-6 py-2.5 text-xs font-bold text-white hover:bg-brand-primary-hover transition-colors shadow-xs cursor-pointer"
             >
               <Send className="w-3.5 h-3.5" />
               <span>
