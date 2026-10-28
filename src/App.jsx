@@ -1286,7 +1286,7 @@ function SCMSApp() {
                         attemptedPath={location.pathname}
                         onForbidden={() => navigate(`/${role}/dashboard`)}
                       >
-                        <MemberBodyMetricsView />
+                        <MemberTrainingView />
                       </RequireRole>
                     }
                   />

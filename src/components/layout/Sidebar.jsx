@@ -27,7 +27,6 @@ import {
   Bell,
   PauseCircle,
   HeartPulse,
-  QrCode,
 } from "lucide-react"
 
 export function Sidebar({ mobileOpen = false, onCloseMobile }) {
@@ -137,54 +136,68 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             icon: LayoutDashboard,
           },
           {
-            path: "/member/catalog",
+            path: "/member/invoices",
             label:
-              language === "vi" ? "Đăng ký khóa học" : "Course Registration",
-            icon: Dumbbell,
-          },
-          {
-            path: "/member/schedule",
-            matchPaths: [
-              "/member/schedule",
-              "/member/enrollments",
-              "/member/feedback",
-            ],
-            label: language === "vi" ? "Lịch học" : "Schedule",
-            icon: Calendar,
-          },
-          {
-            path: "/member/my-coach",
-            label: language === "vi" ? "Huấn luyện viên" : "Coaches",
-            icon: UserCheck,
-          },
-          {
-            path: "/member/attendance",
-            matchPaths: [
-              "/member/attendance",
-              "/member/attendance-history",
-              "/member/checkin",
-            ],
-            labelKey: "attendance",
-            label: language === "vi" ? "Điểm danh" : "Attendance",
-            icon: QrCode,
-          },
-          {
-            path: "/member/body-metrics",
-            matchPaths: ["/member/body-metrics", "/member/progress"],
-            label:
-              language === "vi" ? "Tiến độ tập luyện" : "Training Progress",
-            icon: HeartPulse,
+              language === "vi"
+                ? "Hóa đơn & thanh toán"
+                : "Invoices & payments",
+            icon: CreditCard,
           },
           {
             path: "/member/my-membership",
-            matchPaths: [
-              "/member/my-membership",
-              "/member/invoices",
-              "/member/freeze-request",
-            ],
             labelKey: "myMembership",
-            label: language === "vi" ? "Gói hội viên" : "Membership",
+            label: language === "vi" ? "Gói hội viên của tôi" : "My Membership",
             icon: Award,
+          },
+          {
+            path: "/member/freeze-request",
+            label: language === "vi" ? "Bảo lưu gói tập" : "Freeze membership",
+            icon: PauseCircle,
+          },
+          {
+            path: "/member/catalog",
+            label:
+              language === "vi" ? "Đăng ký khóa học" : "Course registration",
+            icon: Dumbbell,
+          },
+          {
+            path: "/member/enrollments",
+            label:
+              language === "vi" ? "Khóa học đã đăng ký" : "Enrolled courses",
+            icon: CreditCard,
+          },
+          {
+            path: "/member/schedule",
+            label: language === "vi" ? "Lịch học của tôi" : "My schedule",
+            icon: Calendar,
+          },
+          {
+            path: "/member/attendance",
+            labelKey: "attendance",
+            icon: ClipboardCheck,
+          },
+          {
+            path: "/member/my-coach",
+            label: language === "vi" ? "Huấn luyện viên của tôi" : "My Coach",
+            icon: UserCheck,
+          },
+          {
+            path: "/member/progress",
+            label:
+              language === "vi" ? "Tiến độ tập luyện" : "Training progress",
+            icon: Activity,
+          },
+          {
+            path: "/member/body-metrics",
+            label:
+              language === "vi" ? "Chỉ số cơ thể (InBody)" : "Body metrics",
+            icon: HeartPulse,
+          },
+          {
+            path: "/member/feedback",
+            labelKey: "feedback",
+            label: language === "vi" ? "Đánh giá & Feedback" : "Class Feedback",
+            icon: MessageSquareHeart,
           },
         ]
 
