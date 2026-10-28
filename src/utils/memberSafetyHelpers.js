@@ -116,9 +116,10 @@ export const resolveActiveSubscription = (
   if (!apiEnabled) return null
   if (!Array.isArray(subscriptions)) return null
   return (
-    subscriptions.find(
-      (s) => s.status === "active" || s.status === "grace_period",
-    ) || null
+    subscriptions.find((s) => {
+      const st = String(s?.status || "").toLowerCase()
+      return st === "active" || st === "grace_period"
+    }) || null
   )
 }
 
@@ -244,20 +245,23 @@ export const reconcileAndVerifySubscriptionSafety = ({
     ? existingSubscriptions
     : []
 
-  const duplicatePendingOrActive = subsList.find(
-    (s) =>
+  const duplicatePendingOrActive = subsList.find((s) => {
+    const st = String(s?.status || "").toLowerCase()
+    return (
       String(s.packageId) === String(numericPkgId) &&
-      (((s.status === "active" || s.status === "grace_period") && !isRenewal) ||
-        s.status === "pending_payment" ||
-        s.status === "pending"),
-  )
+      (((st === "active" || st === "grace_period") && !isRenewal) ||
+        st === "pending_payment" ||
+        st === "pending")
+    )
+  })
 
   if (duplicatePendingOrActive) {
     const subId =
       duplicatePendingOrActive.subscriptionId ?? duplicatePendingOrActive.id
-    const isPending =
-      duplicatePendingOrActive.status === "pending_payment" ||
-      duplicatePendingOrActive.status === "pending"
+    const dupStatus = String(
+      duplicatePendingOrActive.status || "",
+    ).toLowerCase()
+    const isPending = dupStatus === "pending_payment" || dupStatus === "pending"
     return {
       allowed: false,
       reason: isPending ? "pending_exists" : "active_exists",
@@ -1136,6 +1140,8 @@ export const resolveActiveSubscriptionDetails = (activeSubscription) => {
       hasValidityDays: false,
       validityDays: null,
       packageType: null,
+      effectiveStartDate: null,
+      effectiveEndDate: null,
     }
   }
 
@@ -1154,7 +1160,13 @@ export const resolveActiveSubscriptionDetails = (activeSubscription) => {
     remainingCredit: hasCredit ? activeSubscription.remainingCredit : null,
     hasValidityDays,
     validityDays: hasValidityDays ? activeSubscription.validityDays : null,
-    packageType: activeSubscription.packageType || null,
+    packageType:
+      activeSubscription.packageType ||
+      (activeSubscription.subjectId || hasCredit ? "Advanced" : null),
+    effectiveStartDate:
+      activeSubscription.startDate || activeSubscription.activatedAt || null,
+    effectiveEndDate:
+      activeSubscription.endDate || activeSubscription.expiresAt || null,
   }
 }
 
@@ -1201,7 +1213,8 @@ export const resolvePendingInvoiceBannerState = (
  * }}
  */
 export const resolveSubscriptionRowDisplay = (sub, language = "vi") => {
-  const hasEndDate = Boolean(sub?.endDate)
+  const effectiveEnd = sub?.endDate || sub?.expiresAt
+  const hasEndDate = Boolean(effectiveEnd)
   const hasValidityDays =
     typeof sub?.validityDays === "number" && sub.validityDays > 0
   const validityLabel = hasValidityDays
@@ -1212,7 +1225,7 @@ export const resolveSubscriptionRowDisplay = (sub, language = "vi") => {
 
   return {
     hasEndDate,
-    endDateDisplay: hasEndDate ? sub.endDate : "—",
+    endDateDisplay: hasEndDate ? effectiveEnd : "—",
     hasValidityDays,
     validityLabel,
   }

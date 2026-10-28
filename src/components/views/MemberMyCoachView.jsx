@@ -26,15 +26,34 @@ import {
 import { useSCMS } from "../../context/SCMSContext"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { membershipApi } from "../../api/membershipApi"
+import { invoiceApi } from "../../api/invoiceApi"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { getErrorMessage } from "../../api/apiErrors"
+import {
+  publicCoaches,
+  findPublicCoachMatch,
+  resolveCoachAvatar,
+  filterOfficialPublicCoaches,
+} from "../../data/publicCoaches"
 
 export function MemberMyCoachView() {
-  const { language, currentUser, apiEnabled, showToast } = useSCMS()
+  const { language, currentUser, subjects, apiEnabled, showToast } = useSCMS()
   const isVi = language === "vi"
 
-  // Navigation tab: 'coaches' | 'my_sessions'
+  // Navigation tab: 'coaches' | 'my_sessions' | 'advanced_pt'
   const [activeTab, setActiveTab] = useState("coaches")
+
+  // Advanced PT Registration & Coach Work Schedule state
+  const [advancedRegistrations, setAdvancedRegistrations] = useState([])
+  const [loadingAdvanced, setLoadingAdvanced] = useState(false)
+  const [advancedModalCoach, setAdvancedModalCoach] = useState(null)
+  const [coachWorkSchedule, setCoachWorkSchedule] = useState(null)
+  const [coachCapacity, setCoachCapacity] = useState(null)
+  const [selectedSubjectId, setSelectedSubjectId] = useState("")
+  const [loadingCoachMeta, setLoadingCoachMeta] = useState(false)
+  const [submittingAdvanced, setSubmittingAdvanced] = useState(false)
+  const [advancedError, setAdvancedError] = useState("")
+  const [orderingRegId, setOrderingRegId] = useState(null)
 
   // Coaches state
   const [coaches, setCoaches] = useState([])
@@ -89,52 +108,22 @@ export function MemberMyCoachView() {
         const list = await memberPortalApi.getCoaches({
           keyword: keyword.trim() || undefined,
         })
-        setCoaches(Array.isArray(list) ? list : [])
+        const rawList = Array.isArray(list) ? list : []
+        setCoaches(filterOfficialPublicCoaches(rawList))
       } else {
-        // Mock fallback
-        setCoaches([
-          {
-            id: 1,
-            name: "Nguyễn Văn Hùng",
-            email: "hung.coach@scms.com",
-            phone: "0912 345 678",
-            bio: "Hơn 7 năm kinh nghiệm huấn luyện thể chất chuyên sâu, từng đạt HCB Cúp Boxing toàn quốc.",
-            specializations: [
-              "Boxing & Kickfit",
-              "Strength Training",
-              "Cardio Conditioning",
-            ],
+        // Mock fallback synced with publicCoaches roster (/images/coaches/*.jpg)
+        setCoaches(
+          publicCoaches.map((pc, idx) => ({
+            id: idx + 1,
+            name: pc.name,
+            email: `${pc.sportId.replace("-", "")}.coach@vibesport.vn`,
+            phone: `090${idx + 1} 234 56${idx}`,
+            bio: `Huấn luyện viên trưởng bộ môn ${pc.specialtyVi} tại VIBE Sport Center.`,
+            specializations: [pc.specialtyVi],
             status: "ACTIVE",
-            avatarUrl:
-              "https://images.unsplash.com/photo-1567013127542-490d757e51fc?w=300&auto=format&fit=crop&q=80",
-          },
-          {
-            id: 2,
-            name: "Lê Thị Mai",
-            email: "mai.coach@scms.com",
-            phone: "0987 654 321",
-            bio: "Chuyên gia Yoga & Pilates phục hồi chức năng, chứng chỉ Quốc tế RYT-500.",
-            specializations: [
-              "Yoga Flow",
-              "Pilates Reformer",
-              "Rehabilitation",
-            ],
-            status: "ACTIVE",
-            avatarUrl:
-              "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&auto=format&fit=crop&q=80",
-          },
-          {
-            id: 3,
-            name: "Đặng Tuấn Anh",
-            email: "tuananh.coach@scms.com",
-            phone: "0903 112 233",
-            bio: "HLV chuyên sâu Cầu lông & Thể lực sức bền, cựu VĐV đội tuyển trẻ.",
-            specializations: ["Badminton", "Pickleball", "Agility & Speed"],
-            status: "ACTIVE",
-            avatarUrl:
-              "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
-          },
-        ])
+            avatarUrl: pc.image,
+          })),
+        )
       }
     } catch (err) {
       setCoachesError(
@@ -177,9 +166,10 @@ export function MemberMyCoachView() {
       membershipApi
         .getMemberSubscriptions(memberProfileId)
         .then((subs) => {
-          const valid = (Array.isArray(subs) ? subs : []).filter(
-            (s) => s.status === "active" || s.status === "grace_period",
-          )
+          const valid = (Array.isArray(subs) ? subs : []).filter((s) => {
+            const st = String(s?.status || "").toLowerCase()
+            return st === "active" || st === "grace_period"
+          })
           setSubscriptions(valid)
           if (valid.length > 0)
             setSelectedSubscriptionId(
@@ -198,8 +188,11 @@ export function MemberMyCoachView() {
         const allSessions = await memberPortalApi.getClassSessions()
         const privates = (Array.isArray(allSessions) ? allSessions : []).filter(
           (s) =>
-            s.isPrivate === true ||
-            String(s.type || "").toUpperCase() === "PRIVATE",
+            (s.isPrivate === true ||
+              String(s.type || "").toUpperCase() === "PRIVATE") &&
+            (!memberProfileId ||
+              !s.bookedMemberId ||
+              String(s.bookedMemberId) === String(memberProfileId)),
         )
         setPrivateSessions(privates)
       } else {
@@ -229,9 +222,207 @@ export function MemberMyCoachView() {
     }
   }, [activeTab, fetchPrivateSessions])
 
-  // 4. Fetch Available Slots when Coach & Date are chosen (GET /api/sessions/coaches/{coachId}/available-slots)
+  const fetchAdvancedRegistrations = useCallback(async () => {
+    if (!apiEnabled) return
+    setLoadingAdvanced(true)
+    try {
+      const list = await memberPortalApi.getAdvancedRegistrations()
+      const filtered = (Array.isArray(list) ? list : []).filter(
+        (item) =>
+          !memberProfileId ||
+          !item.memberId ||
+          String(item.memberId) === String(memberProfileId),
+      )
+      setAdvancedRegistrations(filtered)
+    } catch {
+      setAdvancedRegistrations([])
+    } finally {
+      setLoadingAdvanced(false)
+    }
+  }, [apiEnabled, memberProfileId])
+
+  useEffect(() => {
+    if (activeTab === "advanced_pt") {
+      fetchAdvancedRegistrations()
+    }
+  }, [activeTab, fetchAdvancedRegistrations])
+
+  const handleOpenAdvancedModal = async (coach) => {
+    setAdvancedModalCoach(coach)
+    setCoachWorkSchedule(null)
+    setCoachCapacity(null)
+    setAdvancedError("")
+    const defaultSub =
+      subjects?.find((s) => !Number.isNaN(Number(s.id)))?.id || ""
+    setSelectedSubjectId(defaultSub ? String(defaultSub) : "")
+    if (!apiEnabled || !coach?.id) return
+    setLoadingCoachMeta(true)
+    try {
+      const work = await memberPortalApi
+        .getCoachWorkSchedule(coach.id)
+        .catch(() => null)
+      setCoachWorkSchedule(work)
+      if (defaultSub) {
+        const cap = await memberPortalApi
+          .getCoachAdmissionCapacity(coach.id, defaultSub)
+          .catch(() => null)
+        setCoachCapacity(cap)
+      }
+    } finally {
+      setLoadingCoachMeta(false)
+    }
+  }
+
+  const handleChangeSubjectForCapacity = async (newSubjectId) => {
+    setSelectedSubjectId(newSubjectId)
+    setCoachCapacity(null)
+    if (!apiEnabled || !advancedModalCoach?.id || !newSubjectId) return
+    try {
+      const cap = await memberPortalApi.getCoachAdmissionCapacity(
+        advancedModalCoach.id,
+        newSubjectId,
+      )
+      setCoachCapacity(cap)
+    } catch {
+      setCoachCapacity(null)
+    }
+  }
+
+  const handleSubmitAdvancedRegistration = async (e) => {
+    e.preventDefault()
+    if (!advancedModalCoach?.id || !selectedSubjectId) {
+      setAdvancedError(
+        isVi
+          ? "Vui lòng chọn bộ môn huấn luyện chuyên sâu."
+          : "Please select a training subject.",
+      )
+      return
+    }
+    setSubmittingAdvanced(true)
+    setAdvancedError("")
+    try {
+      if (apiEnabled) {
+        await memberPortalApi.createAdvancedRegistration({
+          subjectId: Number(selectedSubjectId),
+          primaryCoachId: Number(advancedModalCoach.id),
+          requestKey: `adv-${memberProfileId || "me"}-${advancedModalCoach.id}-${selectedSubjectId}-${Date.now()}`,
+        })
+      }
+      showToast?.(
+        isVi
+          ? "Đã gửi yêu cầu đăng ký HLV chuyên sâu thành công!"
+          : "Submitted Advanced PT Coach registration!",
+        "success",
+      )
+      setAdvancedModalCoach(null)
+      setActiveTab("advanced_pt")
+      fetchAdvancedRegistrations()
+    } catch (err) {
+      setAdvancedError(
+        getErrorMessage(
+          err,
+          isVi
+            ? "Không thể gửi đăng ký HLV chuyên sâu."
+            : "Could not submit registration.",
+        ),
+      )
+    } finally {
+      setSubmittingAdvanced(false)
+    }
+  }
+
+  const handleCreateOrderForAdvanced = async (reg, paymentMethod = "Cash") => {
+    if (!reg?.id) return
+    setOrderingRegId(reg.id)
+    try {
+      const orderRes = await memberPortalApi.orderAdvancedRegistration(reg.id, {
+        paymentMethod,
+      })
+      showToast?.(
+        isVi
+          ? `Đã tạo đơn thanh toán (${orderRes?.invoiceCode || paymentMethod}) thành công! Hạn thanh toán: 5 phút.`
+          : "Created payment order! 5-minute payment window active.",
+        "success",
+      )
+      await fetchAdvancedRegistrations()
+      if (memberProfileId) {
+        membershipApi
+          .getMemberSubscriptions(memberProfileId)
+          .then((subs) => {
+            const valid = (Array.isArray(subs) ? subs : []).filter((s) => {
+              const st = String(s?.status || "").toLowerCase()
+              return st === "active" || st === "grace_period"
+            })
+            setSubscriptions(valid)
+          })
+          .catch(() => {})
+      }
+      if (String(paymentMethod).toLowerCase() === "vnpay") {
+        let paymentUrl = orderRes?.paymentUrl || null
+        if (!paymentUrl && orderRes?.invoiceId) {
+          const checkout = await invoiceApi
+            .payInvoiceOnline(orderRes.invoiceId)
+            .catch(() => null)
+          paymentUrl = checkout?.paymentUrl || null
+        }
+        if (paymentUrl && typeof window !== "undefined") {
+          window.location.assign(paymentUrl)
+        }
+      }
+    } catch (err) {
+      showToast?.(
+        getErrorMessage(
+          err,
+          isVi
+            ? "Không thể khởi tạo đơn thanh toán cho đăng ký này."
+            : "Could not create payment order.",
+        ),
+        "error",
+      )
+    } finally {
+      setOrderingRegId(null)
+    }
+  }
+
+  const handleConfirmAlternativeCoach = async (reg, accept) => {
+    if (!reg?.id) return
+    setOrderingRegId(reg.id)
+    try {
+      await memberPortalApi.confirmAlternativeCoach(reg.id, {
+        accept: Boolean(accept),
+        note: accept
+          ? "Đồng ý học với HLV thay thế"
+          : "Không đồng ý HLV thay thế",
+      })
+      showToast?.(
+        accept
+          ? isVi
+            ? "Đã xác nhận đồng ý HLV thay thế! Bạn có thể tiến hành tạo đơn thanh toán."
+            : "Alternative coach confirmed! You may now proceed to payment."
+          : isVi
+            ? "Đã từ chối HLV thay thế."
+            : "Alternative coach declined.",
+        accept ? "success" : "info",
+      )
+      await fetchAdvancedRegistrations()
+    } catch (err) {
+      showToast?.(
+        getErrorMessage(
+          err,
+          isVi
+            ? "Không thể xác nhận HLV thay thế."
+            : "Could not confirm alternative coach.",
+        ),
+        "error",
+      )
+    } finally {
+      setOrderingRegId(null)
+    }
+  }
+
+  // 4. Fetch Available Slots when Coach & Date are chosen (GET /api/coaches/{coachId}/available-slots)
   const fetchSlots = useCallback(
-    async (coachId, date) => {
+    async (coachId, date, filterOpts = {}) => {
       if (!coachId || !date) return
       setLoadingSlots(true)
       setSelectedSlot(null)
@@ -240,47 +431,62 @@ export function MemberMyCoachView() {
           const slots = await memberPortalApi.getCoachAvailableSlots(
             coachId,
             date,
+            filterOpts,
           )
           setAvailableSlots(Array.isArray(slots) ? slots : [])
         } else {
-          // Mock slots
+          // 7 standard 90-minute slots per D12
           setAvailableSlots([
             {
               slotNumber: 1,
               slotName: "Ca 1",
-              startTime: "07:00:00",
-              endTime: "08:30:00",
+              startTime: "06:00:00",
+              endTime: "07:30:00",
               isAvailable: true,
             },
             {
               slotNumber: 2,
               slotName: "Ca 2",
-              startTime: "08:45:00",
-              endTime: "10:15:00",
+              startTime: "07:45:00",
+              endTime: "09:15:00",
               isAvailable: false,
               reason: "HLV bận ca lớp nhóm",
             },
             {
               slotNumber: 3,
               slotName: "Ca 3",
-              startTime: "14:00:00",
-              endTime: "15:30:00",
+              startTime: "09:30:00",
+              endTime: "11:00:00",
               isAvailable: true,
             },
             {
               slotNumber: 4,
               slotName: "Ca 4",
-              startTime: "16:00:00",
-              endTime: "17:30:00",
+              startTime: "13:00:00",
+              endTime: "14:30:00",
               isAvailable: true,
             },
             {
               slotNumber: 5,
               slotName: "Ca 5",
-              startTime: "18:00:00",
-              endTime: "19:30:00",
+              startTime: "14:45:00",
+              endTime: "16:15:00",
+              isAvailable: true,
+            },
+            {
+              slotNumber: 6,
+              slotName: "Ca 6",
+              startTime: "16:30:00",
+              endTime: "18:00:00",
               isAvailable: false,
               reason: "Đã có hội viên đặt",
+            },
+            {
+              slotNumber: 7,
+              slotName: "Ca 7",
+              startTime: "18:15:00",
+              endTime: "19:45:00",
+              isAvailable: true,
             },
           ])
         }
@@ -382,8 +588,8 @@ export function MemberMyCoachView() {
     if (
       !window.confirm(
         isVi
-          ? "Bạn có chắc chắn muốn hủy buổi tập riêng này không?"
-          : "Are you sure you want to cancel this private session?",
+          ? "Bạn có chắc chắn muốn hủy buổi tập riêng này (trước ≥ 12h để được hoàn 1 credit) không?"
+          : "Are you sure you want to cancel this private session (≥ 12h notice refunds 1 credit)?",
       )
     )
       return
@@ -393,10 +599,23 @@ export function MemberMyCoachView() {
       }
       showToast?.(
         isVi
-          ? "Đã hủy buổi tập riêng thành công."
-          : "Private session cancelled.",
+          ? "Đã hủy buổi tập riêng và hoàn lại 1 credit vào gói gốc."
+          : "Private session cancelled and 1 credit refunded.",
+        "success",
       )
       fetchPrivateSessions()
+      if (apiEnabled && memberProfileId) {
+        membershipApi
+          .getMemberSubscriptions(memberProfileId)
+          .then((subs) => {
+            const valid = (Array.isArray(subs) ? subs : []).filter((s) => {
+              const st = String(s?.status || "").toLowerCase()
+              return st === "active" || st === "grace_period"
+            })
+            setSubscriptions(valid)
+          })
+          .catch(() => {})
+      }
     } catch (err) {
       alert(
         getErrorMessage(
@@ -490,6 +709,17 @@ export function MemberMyCoachView() {
           >
             {isVi ? "Lịch 1:1 đã đặt" : "My 1-on-1 Bookings"}
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("advanced_pt")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              activeTab === "advanced_pt"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            {isVi ? "Đăng ký HLV Chính (Advanced)" : "Primary Coach Requests"}
+          </button>
         </div>
       </header>
 
@@ -554,12 +784,9 @@ export function MemberMyCoachView() {
                   <div className="space-y-3">
                     <div className="flex items-start gap-3.5">
                       <img
-                        src={
-                          c.avatarUrl ||
-                          "https://images.unsplash.com/photo-1567013127542-490d757e51fc?w=300&auto=format&fit=crop&q=80"
-                        }
+                        src={resolveCoachAvatar(c)}
                         alt={c.name}
-                        className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0 shadow-2xs"
+                        className="w-14 h-14 rounded-xl object-cover object-top border border-slate-200 shrink-0 shadow-2xs"
                       />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -588,27 +815,56 @@ export function MemberMyCoachView() {
 
                     {/* Specializations tags */}
                     <div className="flex flex-wrap gap-1.5 pt-1">
-                      {(c.specializations || ["Fitness", "Conditioning"]).map(
-                        (spec, sIdx) => (
-                          <span
-                            key={sIdx}
-                            className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-semibold"
-                          >
-                            {spec}
-                          </span>
-                        ),
-                      )}
+                      {(Array.isArray(c.specializations) &&
+                      c.specializations.length > 0
+                        ? c.specializations
+                        : c.specialization
+                          ? [c.specialization]
+                          : findPublicCoachMatch(c)?.specialtyVi
+                            ? [
+                                isVi
+                                  ? findPublicCoachMatch(c).specialtyVi
+                                  : findPublicCoachMatch(c).specialty,
+                              ]
+                            : ["VIBE Sport Coach"]
+                      ).map((spec, sIdx) => (
+                        <span
+                          key={sIdx}
+                          className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-semibold"
+                        >
+                          {spec}
+                        </span>
+                      ))}
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => handleOpenBookingModal(c)}
-                      className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer"
                     >
                       <Calendar className="w-3.5 h-3.5 text-red-400" />
-                      <span>{isVi ? "Đặt lịch tập 1:1" : "Book 1-on-1"}</span>
+                      <span>
+                        {apiEnabled
+                          ? isVi
+                            ? "Tra cứu ca trống"
+                            : "Check Slots"
+                          : isVi
+                            ? "Đặt lịch 1:1"
+                            : "Book 1-on-1"}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAdvancedModal(c)}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-800 border border-red-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      <Award className="w-3.5 h-3.5" />
+                      <span>
+                        {isVi ? "Đăng ký HLV chính" : "Primary Coach"}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -726,15 +982,359 @@ export function MemberMyCoachView() {
         </section>
       )}
 
+      {/* TAB 3: ADVANCED PT COACH REGISTRATIONS (/api/advanced-registrations) */}
+      {activeTab === "advanced_pt" && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">
+                {isVi
+                  ? "Danh sách yêu cầu đăng ký HLV chuyên sâu (Advanced PT)"
+                  : "Advanced PT Coach Registrations"}
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isVi
+                  ? "Theo dõi trạng thái HLV duyệt nhận học viên và khởi tạo thanh toán gói Advanced."
+                  : "Track coach acceptance status and initiate payment for Advanced PT packages."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={fetchAdvancedRegistrations}
+              className="text-xs font-bold text-red-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>{isVi ? "Tải lại" : "Refresh"}</span>
+            </button>
+          </div>
+
+          {loadingAdvanced ? (
+            <div className="py-12 text-center text-xs text-slate-500 flex flex-col items-center gap-2">
+              <Loader2 className="w-6 h-6 animate-spin text-red-600" />
+              <span>
+                {isVi ? "Đang tải dữ liệu đăng ký..." : "Loading requests..."}
+              </span>
+            </div>
+          ) : advancedRegistrations.length === 0 ? (
+            <div className="py-12 text-center text-xs text-slate-500 space-y-2">
+              <Award className="w-8 h-8 text-slate-300 mx-auto" />
+              <p className="font-bold text-slate-700 text-sm">
+                {isVi
+                  ? "Chưa có yêu cầu đăng ký HLV chính nào"
+                  : "No primary coach requests"}
+              </p>
+              <p>
+                {isVi
+                  ? "Chọn nút 'Đăng ký HLV chính' trên thẻ HLV ở tab Danh bạ để gửi yêu cầu."
+                  : "Click 'Primary Coach' on any coach card in the Directory tab to apply."}
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {advancedRegistrations.map((reg) => {
+                const st = String(reg.status || "").toLowerCase()
+                const isAlternativeProposed = st.includes("alternative")
+                const canOrder =
+                  st === "accepted" || st === "approved"
+                    ? !reg.subscriptionId
+                    : false
+                return (
+                  <div
+                    key={reg.id}
+                    className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-slate-900 text-sm">
+                          {reg.subjectName || `Bộ môn #${reg.subjectId}`} · HLV{" "}
+                          {reg.primaryCoachName ||
+                            reg.alternativeCoachName ||
+                            `#${reg.primaryCoachId}`}
+                        </span>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            st.includes("accept") || st.includes("approv")
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : st.includes("reject") || st.includes("cancel")
+                                ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                : "bg-amber-50 text-amber-800 border border-amber-200"
+                          }`}
+                        >
+                          {reg.status || "Pending"}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+                        {reg.alternativeCoachName && (
+                          <span className="text-amber-800 font-semibold">
+                            HLV thay thế đề xuất:{" "}
+                            <strong>{reg.alternativeCoachName}</strong>
+                          </span>
+                        )}
+                        {reg.remainingCredit !== undefined &&
+                          reg.remainingCredit !== null && (
+                            <span>
+                              Credit còn lại:{" "}
+                              <strong>{reg.remainingCredit}</strong>
+                            </span>
+                          )}
+                        {reg.subscriptionStatus && (
+                          <span>
+                            Gói: <strong>{reg.subscriptionStatus}</strong>
+                          </span>
+                        )}
+                        {(reg.reason || reg.note) && (
+                          <span>Ghi chú: {reg.reason || reg.note}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {isAlternativeProposed && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          disabled={orderingRegId === reg.id}
+                          onClick={() =>
+                            handleConfirmAlternativeCoach(reg, true)
+                          }
+                          className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold cursor-pointer"
+                        >
+                          {isVi
+                            ? "Đồng ý HLV thay thế"
+                            : "Accept Alternative Coach"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={orderingRegId === reg.id}
+                          onClick={() =>
+                            handleConfirmAlternativeCoach(reg, false)
+                          }
+                          className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold cursor-pointer"
+                        >
+                          {isVi ? "Từ chối" : "Decline"}
+                        </button>
+                      </div>
+                    )}
+
+                    {canOrder && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          disabled={orderingRegId === reg.id}
+                          onClick={() =>
+                            handleCreateOrderForAdvanced(reg, "Cash")
+                          }
+                          className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer"
+                        >
+                          {isVi ? "Tạo đơn Tiền mặt" : "Order (Cash)"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={orderingRegId === reg.id}
+                          onClick={() =>
+                            handleCreateOrderForAdvanced(reg, "VNPay")
+                          }
+                          className="px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-bold cursor-pointer"
+                        >
+                          {isVi ? "Thanh toán VNPay" : "Order (VNPay)"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* MODAL 3: COACH WORK SCHEDULE, CAPACITY & ADVANCED PT REGISTRATION */}
+      {advancedModalCoach && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {isVi
+                    ? `Lịch làm việc & Đăng ký HLV ${advancedModalCoach.name}`
+                    : `Work Schedule & Register Coach ${advancedModalCoach.name}`}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isVi
+                    ? "Kiểm tra ca làm việc, sức chứa học viên và gửi yêu cầu đăng ký HLV chuyên sâu"
+                    : "Review coach schedule, student capacity, and submit an Advanced PT request"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAdvancedModalCoach(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-md cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {loadingCoachMeta ? (
+              <div className="py-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                <span>
+                  {isVi
+                    ? "Đang tải lịch làm việc của HLV..."
+                    : "Loading coach work schedule..."}
+                </span>
+              </div>
+            ) : (
+              coachWorkSchedule && (
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-700">
+                      {isVi
+                        ? "Trạng thái nhận học viên mới:"
+                        : "Accepting new students:"}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded font-bold ${
+                        coachWorkSchedule.acceptingNew !== false
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-rose-100 text-rose-800"
+                      }`}
+                    >
+                      {coachWorkSchedule.acceptingNew !== false
+                        ? isVi
+                          ? "Đang nhận học viên"
+                          : "Open"
+                        : isVi
+                          ? "Tạm ngưng nhận mới"
+                          : "Closed"}
+                    </span>
+                  </div>
+                  {Array.isArray(coachWorkSchedule.weeklySlots) &&
+                    coachWorkSchedule.weeklySlots.length > 0 && (
+                      <div>
+                        <span className="font-bold text-slate-700 block mb-1">
+                          {isVi
+                            ? "Khung ca làm việc trong tuần:"
+                            : "Weekly slots:"}
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {coachWorkSchedule.weeklySlots.map((slot, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 rounded bg-white border border-slate-200 font-mono text-[11px] text-slate-700"
+                            >
+                              {slot}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                </div>
+              )
+            )}
+
+            {advancedError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-800">
+                {advancedError}
+              </div>
+            )}
+
+            <form
+              onSubmit={handleSubmitAdvancedRegistration}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isVi
+                    ? "Chọn bộ môn đăng ký HLV chuyên sâu *"
+                    : "Select Training Subject *"}
+                </label>
+                <select
+                  required
+                  value={selectedSubjectId}
+                  onChange={(e) =>
+                    handleChangeSubjectForCapacity(e.target.value)
+                  }
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs bg-white outline-none focus:border-red-500"
+                >
+                  <option value="">
+                    {isVi ? "-- Chọn bộ môn --" : "-- Select Subject --"}
+                  </option>
+                  {(subjects || []).map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {coachCapacity && (
+                <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200 grid grid-cols-3 gap-2 text-center text-xs">
+                  <div>
+                    <div className="text-[10px] text-slate-500 uppercase font-bold">
+                      {isVi ? "Slot trống" : "Available"}
+                    </div>
+                    <div className="text-base font-extrabold text-blue-900 font-mono">
+                      {coachCapacity.availableSlots ?? "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-500 uppercase font-bold">
+                      {isVi ? "Đang dạy (Credits)" : "Outstanding"}
+                    </div>
+                    <div className="text-base font-extrabold text-slate-900 font-mono">
+                      {coachCapacity.outstandingCredits ?? "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-500 uppercase font-bold">
+                      {isVi ? "Đang chờ duyệt" : "Requested"}
+                    </div>
+                    <div className="text-base font-extrabold text-amber-800 font-mono">
+                      {coachCapacity.requestedCredits ?? "—"}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setAdvancedModalCoach(null)}
+                  className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg cursor-pointer"
+                >
+                  {isVi ? "Đóng" : "Close"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingAdvanced || !selectedSubjectId}
+                  className="px-5 py-2 bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white text-xs font-bold rounded-lg cursor-pointer"
+                >
+                  {submittingAdvanced
+                    ? isVi
+                      ? "Đang gửi..."
+                      : "Submitting..."
+                    : isVi
+                      ? "Gửi yêu cầu đăng ký HLV"
+                      : "Submit Request"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL 1: BOOK PRIVATE 1-ON-1 SESSION (POST /api/sessions/book-private) */}
       {isBookingModalOpen && selectedCoach && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
           <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900">
-                {isVi
-                  ? "Đặt lịch tập 1:1 với Huấn luyện viên"
-                  : "Book 1-on-1 Session"}
+                {apiEnabled
+                  ? isVi
+                    ? "Tra cứu ca trống Huấn luyện viên (7 ca chuẩn 90p · D04/D12)"
+                    : "Coach Available Slots Lookup (D04/D12)"
+                  : isVi
+                    ? "Đặt lịch tập 1:1 với Huấn luyện viên"
+                    : "Book 1-on-1 Session"}
               </h3>
               <button
                 type="button"
@@ -745,15 +1345,23 @@ export function MemberMyCoachView() {
               </button>
             </div>
 
+            {apiEnabled && (
+              <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 leading-relaxed">
+                <strong>Quy định D04 &amp; D12:</strong> Hội viên tra cứu 7 ca
+                chuẩn (90 phút/ca) của HLV tại đây. Sau khi trao đổi thống nhất
+                lịch, <strong>Huấn luyện viên chính (Primary Coach)</strong>{" "}
+                hoặc <strong>Quản lý trung tâm</strong> sẽ là người trực tiếp
+                tạo lịch học 1:1 lên hệ thống (tự động trừ 1 credit khi tạo, yêu
+                cầu trước ≥ 12h).
+              </div>
+            )}
+
             {/* Coach info bar */}
             <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-3">
               <img
-                src={
-                  selectedCoach.avatarUrl ||
-                  "https://images.unsplash.com/photo-1567013127542-490d757e51fc?w=300"
-                }
+                src={resolveCoachAvatar(selectedCoach)}
                 alt={selectedCoach.name}
-                className="w-12 h-12 rounded-lg object-cover"
+                className="w-12 h-12 rounded-lg object-cover object-top"
               />
               <div>
                 <div className="font-bold text-slate-900 text-sm">
@@ -913,33 +1521,35 @@ export function MemberMyCoachView() {
                   type="button"
                   onClick={() => setIsBookingModalOpen(false)}
                   disabled={submittingBooking}
-                  className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50"
+                  className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 cursor-pointer"
                 >
-                  {isVi ? "Hủy" : "Cancel"}
+                  {isVi ? "Đóng" : "Close"}
                 </button>
-                <button
-                  type="submit"
-                  disabled={
-                    submittingBooking ||
-                    !selectedSlot ||
-                    !selectedRoomId ||
-                    !selectedSubscriptionId
-                  }
-                  className="inline-flex items-center gap-2 px-5 py-2 bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors shadow-xs"
-                >
-                  {submittingBooking && (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  )}
-                  <span>
-                    {submittingBooking
-                      ? isVi
-                        ? "Đang gửi..."
-                        : "Booking..."
-                      : isVi
-                        ? "Xác nhận đặt lịch"
-                        : "Confirm Booking"}
-                  </span>
-                </button>
+                {!apiEnabled && (
+                  <button
+                    type="submit"
+                    disabled={
+                      submittingBooking ||
+                      !selectedSlot ||
+                      !selectedRoomId ||
+                      !selectedSubscriptionId
+                    }
+                    className="inline-flex items-center gap-2 px-5 py-2 bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors shadow-xs"
+                  >
+                    {submittingBooking && (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    )}
+                    <span>
+                      {submittingBooking
+                        ? isVi
+                          ? "Đang gửi..."
+                          : "Booking..."
+                        : isVi
+                          ? "Xác nhận đặt lịch (Demo)"
+                          : "Confirm Booking (Demo)"}
+                    </span>
+                  </button>
+                )}
               </div>
             </form>
           </div>

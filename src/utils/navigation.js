@@ -255,6 +255,14 @@ const ROUTE_TAB_MAP = {
     role: ROLE_RECEPTIONIST,
     tab: "reception_dashboard",
   },
+  "/receptionist/checkin": {
+    role: ROLE_RECEPTIONIST,
+    tab: "reception_checkin",
+  },
+  "/receptionist/search": {
+    role: ROLE_RECEPTIONIST,
+    tab: "reception_member_search",
+  },
   "/receptionist/member-search": {
     role: ROLE_RECEPTIONIST,
     tab: "reception_member_search",
@@ -270,6 +278,7 @@ const ROUTE_TAB_MAP = {
 
   // Member routes
   "/member/dashboard": { role: ROLE_MEMBER, tab: "member_dashboard" },
+  "/member/checkin": { role: ROLE_MEMBER, tab: "member_checkin" },
   "/member/enrollments": { role: ROLE_MEMBER, tab: "member_schedule" },
   "/member/schedule": { role: ROLE_MEMBER, tab: "member_schedule" },
   "/member/my-membership": { role: ROLE_MEMBER, tab: "member_my_membership" },
@@ -331,12 +340,14 @@ const TAB_ROUTE_MAP = {
 
   // Receptionist
   reception_dashboard: "/receptionist/dashboard",
-  reception_member_search: "/receptionist/member-search",
+  reception_checkin: "/receptionist/checkin",
+  reception_member_search: "/receptionist/search",
   reception_booking: "/receptionist/booking",
   reception_payments: "/receptionist/payments",
 
   // Member
   member_dashboard: "/member/dashboard",
+  member_checkin: "/member/checkin",
   member_my_membership: "/member/my-membership",
   member_schedule: "/member/schedule",
   member_class_catalog: "/member/class-catalog",

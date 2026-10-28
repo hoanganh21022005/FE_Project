@@ -30,20 +30,67 @@ export const hasScheduledClassSession = (classId, sessions = []) =>
       String(session.status || "").toLowerCase() === "scheduled" &&
       session.isPrivate !== true,
   )
-export const getMemberAttendances = (memberId) =>
-  list(`/api/attendances?memberId=${encodeURIComponent(memberId)}`)
-export const getMemberCheckinCode = () =>
-  httpClient.get("/api/members/me/checkin-code")
+export const getMemberAttendances = async (memberId) => {
+  try {
+    return await list("/api/members/me/attendances")
+  } catch (error) {
+    if (memberId && (error?.status === 404 || error?.status === 403)) {
+      return list(`/api/attendances?memberId=${encodeURIComponent(memberId)}`)
+    }
+    throw error
+  }
+}
+export const getMemberCheckinCode = async () => {
+  try {
+    return await httpClient.get("/api/attendances/me/checkin-code")
+  } catch (error) {
+    if (error?.status === 404) {
+      return httpClient.get("/api/members/me/checkin-code")
+    }
+    throw error
+  }
+}
 export const getMemberTrainingPlans = (memberId) =>
   list(`/api/training-plans?memberId=${encodeURIComponent(memberId)}`)
 export const getMemberTrainingResults = (memberId) =>
   list(`/api/training-results?memberId=${encodeURIComponent(memberId)}`)
+export const getMemberBodyMetrics = async (memberId) => {
+  if (!memberId) return []
+  try {
+    return await list(
+      `/api/body-metrics?memberId=${encodeURIComponent(memberId)}`,
+    )
+  } catch (error) {
+    if (error?.status === 404 || error?.status === 405) return []
+    return []
+  }
+}
+export const getMemberEvaluations = async (memberId) => {
+  if (!memberId) return []
+  try {
+    return await list(
+      `/api/training-results?memberId=${encodeURIComponent(memberId)}`,
+    )
+  } catch {
+    return []
+  }
+}
 export const getTrainingPlanById = (planId) =>
   httpClient.get(`/api/training-plans/${planId}`)
 export const requestAbsence = (sessionId, reason) =>
   httpClient.post(`/api/sessions/${sessionId}/absence`, { reason })
-export const cancelPrivateSession = (sessionId) =>
-  httpClient.post(`/api/sessions/${sessionId}/cancel-private`)
+export const getSessionAbsenceNotices = (sessionId) =>
+  list(`/api/sessions/${sessionId}/absence-notices`)
+export const cancelPrivateSession = async (sessionId) => {
+  try {
+    return await httpClient.delete(`/api/sessions/${sessionId}/cancel-private`)
+  } catch (error) {
+    if (error?.status === 405 || error?.status === 404) {
+      return httpClient.post(`/api/sessions/${sessionId}/cancel-private`)
+    }
+    throw error
+  }
+}
 export const submitClassFeedback = (classId, payload) =>
   httpClient.post(`/api/classes/${classId}/feedback`, {
     classId: Number(classId),
@@ -81,15 +128,29 @@ export const getCoaches = async (params = {}) => {
 export const getCoachAvailableSlots = async (
   coachId,
   date,
-  { subjectId, roomId } = {},
+  { startDate, endDate, subjectId, roomId } = {},
 ) => {
-  if (!coachId || !date) return []
-  const query = new URLSearchParams({ date: String(date).slice(0, 10) })
+  const effectiveDate = String(date || startDate || "").slice(0, 10)
+  if (!coachId || !effectiveDate) return []
+  const query = new URLSearchParams({
+    date: effectiveDate,
+    startDate: String(startDate || effectiveDate).slice(0, 10),
+    endDate: String(endDate || effectiveDate).slice(0, 10),
+  })
   if (subjectId) query.set("subjectId", subjectId)
   if (roomId) query.set("roomId", roomId)
-  return list(
-    `/api/sessions/coaches/${encodeURIComponent(coachId)}/available-slots?${query.toString()}`,
-  )
+  try {
+    return await list(
+      `/api/coaches/${encodeURIComponent(coachId)}/available-slots?${query.toString()}`,
+    )
+  } catch (error) {
+    if (error?.status === 404) {
+      return list(
+        `/api/sessions/coaches/${encodeURIComponent(coachId)}/available-slots?${query.toString()}`,
+      )
+    }
+    throw error
+  }
 }
 
 export const getTimeSlots = async (isOutdoor) => {
@@ -109,7 +170,80 @@ export const getCoachFeedback = async (params = {}) => {
   const query = new URLSearchParams()
   if (params.classId) query.set("classId", params.classId)
   const qStr = query.toString()
-  return list(`/api/coaches/me/feedback${qStr ? `?${qStr}` : ""}`)
+  const data = await httpClient.get(
+    `/api/coaches/me/feedback${qStr ? `?${qStr}` : ""}`,
+  )
+  if (Array.isArray(data)) {
+    return { totalFeedback: data.length, averageCoachRating: 0, feedback: data }
+  }
+  return {
+    totalFeedback: Number(data?.totalFeedback || 0),
+    averageCoachRating: Number(data?.averageCoachRating || 0),
+    feedback: Array.isArray(data?.feedback) ? data.feedback : [],
+  }
+}
+
+export const getCoachWorkSchedule = async (coachId) => {
+  if (!coachId) return null
+  return httpClient.get(
+    `/api/coaches/${encodeURIComponent(coachId)}/work-schedule`,
+  )
+}
+
+export const updateCoachWorkSchedule = async (coachId, payload) => {
+  return httpClient.put(
+    `/api/coaches/${encodeURIComponent(coachId)}/work-schedule`,
+    payload,
+  )
+}
+
+export const getCoachAdmissionCapacity = async (coachId, subjectId) => {
+  return httpClient.get(
+    `/api/coaches/${encodeURIComponent(coachId)}/admission-capacity?subjectId=${encodeURIComponent(subjectId)}`,
+  )
+}
+
+export const getAdvancedRegistrations = async () => {
+  return list("/api/advanced-registrations")
+}
+
+export const createAdvancedRegistration = async (payload) => {
+  return httpClient.post("/api/advanced-registrations", payload)
+}
+
+export const decideAdvancedRegistration = async (id, payload) => {
+  try {
+    return await httpClient.post(
+      `/api/advanced-registrations/${id}/coach-decision`,
+      payload,
+    )
+  } catch (error) {
+    if (error?.status === 404) {
+      return httpClient.post(
+        `/api/advanced-registrations/${id}/decision`,
+        payload,
+      )
+    }
+    throw error
+  }
+}
+
+export const assignAlternativeCoach = async (id, payload) => {
+  return httpClient.post(
+    `/api/advanced-registrations/${id}/assign-alternative-coach`,
+    payload,
+  )
+}
+
+export const confirmAlternativeCoach = async (id, payload) => {
+  return httpClient.post(
+    `/api/advanced-registrations/${id}/member-confirm-alternative`,
+    payload,
+  )
+}
+
+export const orderAdvancedRegistration = async (id, payload) => {
+  return httpClient.post(`/api/advanced-registrations/${id}/order`, payload)
 }
 
 export const memberPortalApi = {
@@ -120,8 +254,11 @@ export const memberPortalApi = {
   getMemberCheckinCode,
   getMemberTrainingPlans,
   getMemberTrainingResults,
+  getMemberBodyMetrics,
+  getMemberEvaluations,
   getTrainingPlanById,
   requestAbsence,
+  getSessionAbsenceNotices,
   cancelPrivateSession,
   submitClassFeedback,
   getMyClassFeedback,
@@ -132,6 +269,15 @@ export const memberPortalApi = {
   getRooms,
   bookPrivateSession,
   getCoachFeedback,
+  getCoachWorkSchedule,
+  updateCoachWorkSchedule,
+  getCoachAdmissionCapacity,
+  getAdvancedRegistrations,
+  createAdvancedRegistration,
+  decideAdvancedRegistration,
+  assignAlternativeCoach,
+  confirmAlternativeCoach,
+  orderAdvancedRegistration,
 }
 
 export default memberPortalApi

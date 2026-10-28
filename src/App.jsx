@@ -153,6 +153,11 @@ const ReceptionistDashboard = React.lazy(() =>
     default: module.ReceptionistDashboard,
   })),
 )
+const ReceptionCheckinView = React.lazy(() =>
+  import("./components/views/ReceptionCheckinView").then((module) => ({
+    default: module.ReceptionCheckinView,
+  })),
+)
 const ReceptionMemberSearch = React.lazy(() =>
   import("./components/views/ReceptionMemberSearch").then((module) => ({
     default: module.ReceptionMemberSearch,
@@ -575,9 +580,7 @@ function SCMSApp() {
               <Route
                 path="/"
                 element={
-                  <HomeLandingView
-                    onOpenLogin={() => navigate("/login")}
-                  />
+                  <HomeLandingView onOpenLogin={() => navigate("/login")} />
                 }
               />
               <Route path="/discipline/pt" element={<PTDetailView />} />
@@ -811,7 +814,7 @@ function SCMSApp() {
                 ? "overflow-y-auto w-full bg-white"
                 : location.pathname === "/manager/packages"
                   ? "min-w-0 p-3 sm:p-4 md:p-6 overflow-y-auto w-full"
-                : "p-3 sm:p-4 md:p-6 overflow-y-auto max-w-7xl w-full mx-auto"
+                  : "p-3 sm:p-4 md:p-6 overflow-y-auto max-w-7xl w-full mx-auto"
             }`}
           >
             <ErrorBoundary inline>
@@ -1092,6 +1095,19 @@ function SCMSApp() {
                     }
                   />
                   <Route
+                    path="/receptionist/checkin"
+                    element={
+                      <RequireRole
+                        allowedRoles={[ROLE_RECEPTIONIST]}
+                        currentRole={role}
+                        attemptedPath={location.pathname}
+                        onForbidden={() => navigate(`/${role}/dashboard`)}
+                      >
+                        <ReceptionCheckinView />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
                     path="/receptionist/search"
                     element={
                       <RequireRole
@@ -1219,6 +1235,10 @@ function SCMSApp() {
                     }
                   />
                   <Route
+                    path="/member/checkin"
+                    element={<Navigate to="/member/attendance" replace />}
+                  />
+                  <Route
                     path="/member/attendance"
                     element={
                       <RequireRole
@@ -1266,7 +1286,7 @@ function SCMSApp() {
                         attemptedPath={location.pathname}
                         onForbidden={() => navigate(`/${role}/dashboard`)}
                       >
-                        <MemberTrainingView />
+                        <MemberBodyMetricsView />
                       </RequireRole>
                     }
                   />

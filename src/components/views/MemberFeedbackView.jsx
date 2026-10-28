@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect, useCallback } from "react"
 import { useSCMS } from "../../context/SCMSContext"
 import { CLUB_COURSES } from "./MemberAttendanceView"
 import { memberPortalApi } from "../../api/memberPortalApi"
+import { getErrorMessage } from "../../api/apiErrors"
+import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { motion, AnimatePresence } from "motion/react"
 import {
   Check,
@@ -53,7 +55,7 @@ const API_ENABLED = import.meta.env.VITE_API_ENABLED
   ? import.meta.env.VITE_API_ENABLED === "true"
   : import.meta.env.MODE !== "mock"
 
-export function MemberFeedbackView() {
+export function MemberFeedbackView({ embedded = false }) {
   const {
     currentUser,
     members,
@@ -147,7 +149,11 @@ export function MemberFeedbackView() {
 
   const fetchBackendFeedbackData = useCallback(async () => {
     if (!API_ENABLED) return
-    const memberId = currentUser?.memberId || currentUser?.id || member?.id
+    const memberId =
+      getAuthoritativeProfileId(currentUser) ||
+      currentUser?.memberId ||
+      currentUser?.id ||
+      member?.id
     setIsLoadingApi(true)
     try {
       let enrollments = []
@@ -159,10 +165,7 @@ export function MemberFeedbackView() {
         console.warn("Could not fetch member enrollments:", err)
       }
 
-      const relevantClasses =
-        Array.isArray(enrollments) && enrollments.length > 0
-          ? enrollments
-          : (classes || []).slice(0, 10)
+      const relevantClasses = Array.isArray(enrollments) ? enrollments : []
 
       setApiEnrollments(relevantClasses)
 
@@ -188,7 +191,7 @@ export function MemberFeedbackView() {
     } finally {
       setIsLoadingApi(false)
     }
-  }, [currentUser, member, classes])
+  }, [currentUser, member])
 
   useEffect(() => {
     fetchBackendFeedbackData()
@@ -196,11 +199,11 @@ export function MemberFeedbackView() {
 
   /**
    * UNIFIED SESSIONS DERIVATION:
-   * Combines Backend API records (when API_ENABLED) or CLUB_COURSES (offline demo)
+   * Strictly uses Backend API records when API_ENABLED (zero fake courses), or CLUB_COURSES in offline demo mode
    */
   const { attendedSessions, pendingSessions, submittedReviews } =
     useMemo(() => {
-      if (API_ENABLED && apiEnrollments.length > 0) {
+      if (API_ENABLED) {
         const apiAttended = []
         const apiPending = []
         const apiSubmitted = []
@@ -588,14 +591,35 @@ export function MemberFeedbackView() {
         createdAt: new Date().toISOString().replace("T", " ").slice(0, 16),
       }
 
-      await submitFeedback(payload)
       if (API_ENABLED) {
+        const parsedClassId = Number(targetClassId)
+        const parsedCoachId = Number(targetCoachId) || 1
+        if (!Number.isNaN(parsedClassId) && parsedClassId > 0) {
+          await memberPortalApi.submitClassFeedback(parsedClassId, {
+            classId: parsedClassId,
+            coachId: parsedCoachId > 0 ? parsedCoachId : 1,
+            classRating: avgClass,
+            coachRating: avgCoach,
+            comment: commentText.trim(),
+          })
+        }
         await fetchBackendFeedbackData()
+        showToast?.(
+          editingFeedbackId
+            ? "Đã cập nhật đánh giá lớp học thành công!"
+            : "Cảm ơn bạn đã gửi đánh giá lớp học!",
+          "success",
+        )
+      } else {
+        await submitFeedback(payload)
       }
       setIsThankYouMode(true)
     } catch (err) {
       setSubmitError(
-        "Không thể lưu bản ghi chép. Vui lòng kiểm tra lại kết nối mạng.",
+        getErrorMessage(
+          err,
+          "Chưa thể gửi đánh giá (Quy tắc D09: Hội viên cần có ghi danh Active và ít nhất 1 buổi điểm danh Present ở lớp này).",
+        ),
       )
     } finally {
       setIsSubmitting(false)
@@ -608,22 +632,30 @@ export function MemberFeedbackView() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-7 sm:py-8 font-['Be_Vietnam_Pro',sans-serif]">
+    <main
+      className={
+        embedded
+          ? "space-y-6 font-['Be_Vietnam_Pro',sans-serif]"
+          : "mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-7 sm:py-8 font-['Be_Vietnam_Pro',sans-serif]"
+      }
+    >
       {/* 1. HEADER */}
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
-            VIBE SPORT · MEMBER
-          </p>
-          <h1 className="mt-2 text-3xl font-black text-slate-950">
-            Đánh giá & Phản hồi
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Ý kiến của bạn giúp chúng tôi liên tục nâng cao chuẩn mực huấn luyện
-            và chất lượng cơ sở vật chất.
-          </p>
-        </div>
-      </header>
+      {!embedded && (
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-red-700">
+              VIBE SPORT · MEMBER
+            </p>
+            <h1 className="mt-2 text-3xl font-black text-slate-950">
+              Đánh giá & Phản hồi
+            </h1>
+            <p className="mt-2 text-sm text-slate-500">
+              Ý kiến của bạn giúp chúng tôi liên tục nâng cao chuẩn mực huấn
+              luyện và chất lượng cơ sở vật chất.
+            </p>
+          </div>
+        </header>
+      )}
 
       {/* 2. DẢI CHỈ SỐ: 4 Thẻ đồng bộ hệ thống */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">

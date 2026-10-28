@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
-import { formatCurrency } from "../../locales/translations"
 import { getErrorMessage } from "../../api/apiErrors"
 import * as authApi from "../../api/authApi"
 import {
@@ -9,34 +8,193 @@ import {
   resolveMockLoginUser,
   ROLE_ADMIN,
 } from "../../utils/navigation"
+import { CoachesHeader } from "../layout/CoachesHeader"
 import { PublicFooter } from "../layout/PublicFooter"
+import "../../styles/coaches.css"
 import {
   Activity,
   AlertCircle,
   ArrowLeft,
   ArrowRight,
-  BarChart3,
   CalendarDays,
   Check,
   CheckCircle2,
-  CreditCard,
-  Dumbbell,
+  Clock,
   Eye,
   EyeOff,
-  Flame,
   KeyRound,
   Lock,
   LogIn,
   Mail,
   Phone,
+  QrCode,
   RefreshCw,
+  ShieldCheck,
+  Sparkles,
   User,
-  UserCheck,
   UserPlus,
+  X,
 } from "lucide-react"
 
 const DEMO_EMAIL = "manager@scms.com"
 const DEMO_PASSWORD = "Scms@2026"
+const RECENT_EMAILS_KEY = "scms_recent_login_emails"
+const EMAIL_DOMAIN_SUGGESTIONS = [
+  "@gmail.com",
+  "@fpt.edu.vn",
+  "@vibesport.vn",
+  "@scms.com",
+]
+
+const SPORT_ONBOARDING_OPTIONS = [
+  {
+    id: "badminton",
+    labelVi: "Cầu lông",
+    labelEn: "Badminton",
+    headlineTopVi: "CHINH PHỤC",
+    headlineAccentVi: "CẦU LÔNG.",
+    headlineTopEn: "MASTER",
+    headlineAccentEn: "BADMINTON.",
+    descVi:
+      "Rèn tốc độ, sự linh hoạt và phản xạ qua từng đường cầu trên hệ thống sân thảm chuẩn BWF.",
+    descEn:
+      "Build speed, agility, and reflexes across every rally on BWF-standard courts.",
+  },
+  {
+    id: "pickleball",
+    labelVi: "Pickleball",
+    labelEn: "Pickleball",
+    headlineTopVi: "BÙNG NỔ CÙNG",
+    headlineAccentVi: "PICKLEBALL.",
+    headlineTopEn: "ENERGIZE WITH",
+    headlineAccentEn: "PICKLEBALL.",
+    descVi:
+      "Môn thể thao xu hướng đầy năng lượng, dễ bắt đầu và kết nối cộng đồng trên mặt sân chuẩn DUPR.",
+    descEn:
+      "An energetic trending sport that is easy to pick up and fun to play together.",
+  },
+  {
+    id: "swimming",
+    labelVi: "Bơi lội",
+    labelEn: "Swimming",
+    headlineTopVi: "SỨC BỀN CÙNG",
+    headlineAccentVi: "BƠI LỘI.",
+    headlineTopEn: "ENDURANCE IN",
+    headlineAccentEn: "SWIMMING.",
+    descVi:
+      "Hoàn thiện kỹ thuật bơi, điều hòa nhịp thở và nâng cao thể lực toàn diện trong hồ bơi 4 mùa.",
+    descEn:
+      "Build swimming technique, breathing control, and total fitness in our 4-season pool.",
+  },
+  {
+    id: "archery",
+    labelVi: "Bắn cung",
+    labelEn: "Archery",
+    headlineTopVi: "TẬP TRUNG CÙNG",
+    headlineAccentVi: "BẮN CUNG.",
+    headlineTopEn: "PRECISION IN",
+    headlineAccentEn: "ARCHERY.",
+    descVi:
+      "Rèn sự tĩnh tại, tư thế chuẩn xác và khả năng làm chủ tâm lý qua từng phát bắn cự ly 15m.",
+    descEn:
+      "Practice focus, posture, and mental control across every 15m target shot.",
+  },
+  {
+    id: "basketball",
+    labelVi: "Bóng rổ",
+    labelEn: "Basketball",
+    headlineTopVi: "BỨT PHÁ CÙNG",
+    headlineAccentVi: "BÓNG RỔ.",
+    headlineTopEn: "ELEVATE WITH",
+    headlineAccentEn: "BASKETBALL.",
+    descVi:
+      "Phát triển kỹ thuật dẫn bóng, sức bật và tinh thần phối hợp đồng đội trên mặt sân gỗ tiêu chuẩn.",
+    descEn:
+      "Develop ball handling, vertical power, and teamwork on pro hardwood courts.",
+  },
+  {
+    id: "tennis",
+    labelVi: "Quần vợt",
+    labelEn: "Tennis",
+    headlineTopVi: "LÀM CHỦ SÂN",
+    headlineAccentVi: "QUẦN VỢT.",
+    headlineTopEn: "COMMAND THE",
+    headlineAccentEn: "TENNIS COURT.",
+    descVi:
+      "Hoàn thiện kỹ thuật giao bóng, bộ chân di chuyển và bản lĩnh kiểm soát trận đấu.",
+    descEn:
+      "Refine your serve, footwork, and match control with specialist coaches.",
+  },
+]
+
+function buildEmailSuggestions(rawValue) {
+  const val = String(rawValue || "").trim()
+  if (!val || val.length < 2 || val.includes(" ")) return []
+  const atIndex = val.indexOf("@")
+  const localPart = atIndex === -1 ? val : val.slice(0, atIndex)
+  const typedDomain = atIndex === -1 ? "" : val.slice(atIndex).toLowerCase()
+  if (!localPart) return []
+  return EMAIL_DOMAIN_SUGGESTIONS.filter((domain) => {
+    if (!typedDomain) return true
+    return domain.startsWith(typedDomain) && domain !== typedDomain
+  }).map((domain) => `${localPart}${domain}`)
+}
+
+function checkIsClubOpenNow() {
+  const now = new Date()
+  const minutes = now.getHours() * 60 + now.getMinutes()
+  // Open 05:30 (330) to 22:00 (1320)
+  return minutes >= 330 && minutes <= 1320
+}
+
+function computePasswordStrength(pwd, isVi) {
+  const val = String(pwd || "")
+  const checks = {
+    length: val.length >= 6,
+    mixedCase: /[A-Z]/.test(val) && /[a-z]/.test(val),
+    number: /\d/.test(val),
+    special: /[^A-Za-z0-9]/.test(val),
+  }
+  if (!val) {
+    return {
+      score: 0,
+      label: "",
+      color: "bg-stone-200",
+      textColor: "text-stone-400",
+      checks,
+    }
+  }
+  let score = 0
+  if (checks.length) score += 1
+  if (val.length >= 8 && checks.mixedCase) score += 1
+  if (checks.number) score += 1
+  if (checks.special) score += 1
+
+  const map = {
+    1: {
+      label: isVi ? "Yếu" : "Weak",
+      color: "bg-rose-500",
+      textColor: "text-rose-600",
+    },
+    2: {
+      label: isVi ? "Trung bình" : "Fair",
+      color: "bg-amber-500",
+      textColor: "text-amber-600",
+    },
+    3: {
+      label: isVi ? "Khá mạnh" : "Good",
+      color: "bg-emerald-500",
+      textColor: "text-emerald-600",
+    },
+    4: {
+      label: isVi ? "Rất mạnh" : "Strong",
+      color: "bg-emerald-600",
+      textColor: "text-emerald-700",
+    },
+  }
+  const picked = map[score] || map[1]
+  return { score: Math.max(1, score), ...picked, checks }
+}
 
 export function LoginView({
   onLoginSuccess,
@@ -71,11 +229,68 @@ export function LoginView({
   const [loginEmail, setLoginEmail] = useState(location.state?.loginEmail || "")
   const [loginPassword, setLoginPassword] = useState("")
   const [showLoginPassword, setShowLoginPassword] = useState(false)
-  const [isLoginCaptchaChecked, setIsLoginCaptchaChecked] = useState(false)
+  const [isLoginCaptchaChecked, setIsLoginCaptchaChecked] = useState(true)
   const [isLoginCaptchaLoading, setIsLoginCaptchaLoading] = useState(false)
   const [loginError, setLoginError] = useState(initialError)
   const [loginNotice, setLoginNotice] = useState("")
   const [isLoginLoading, setIsLoginLoading] = useState(false)
+  const [rememberEmail, setRememberEmail] = useState(true)
+  const [recentEmails, setRecentEmails] = useState(() => {
+    try {
+      const raw = localStorage.getItem(RECENT_EMAILS_KEY)
+      const parsed = raw ? JSON.parse(raw) : []
+      return Array.isArray(parsed) ? parsed.slice(0, 3) : []
+    } catch {
+      return []
+    }
+  })
+  const [capsLockOn, setCapsLockOn] = useState(false)
+  const passwordInputRef = useRef(null)
+
+  const saveRecentEmail = (emailStr) => {
+    if (!rememberEmail || !emailStr) return
+    try {
+      const normalized = emailStr.trim().toLowerCase()
+      const next = [
+        normalized,
+        ...recentEmails.filter((item) => item !== normalized),
+      ].slice(0, 3)
+      setRecentEmails(next)
+      localStorage.setItem(RECENT_EMAILS_KEY, JSON.stringify(next))
+    } catch {
+      // ignore storage quota
+    }
+  }
+
+  const removeRecentEmail = (emailStr, e) => {
+    e?.stopPropagation?.()
+    try {
+      const next = recentEmails.filter((item) => item !== emailStr)
+      setRecentEmails(next)
+      localStorage.setItem(RECENT_EMAILS_KEY, JSON.stringify(next))
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleCapsLockCheck = (e) => {
+    if (typeof e?.getModifierState === "function") {
+      setCapsLockOn(Boolean(e.getModifierState("CapsLock")))
+    }
+  }
+
+  // --- INTERACTIVE LEFT COLUMN & SPORT ONBOARDING STATE ---
+  const [activeGlassTab, setActiveGlassTab] = useState("qr") // 'qr' | 'schedule' | 'inbody'
+  const [qrDemoSeconds, setQrDemoSeconds] = useState(58)
+  const [selectedSportId, setSelectedSportId] = useState("badminton")
+  const isClubOpen = checkIsClubOpenNow()
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setQrDemoSeconds((prev) => (prev <= 1 ? 60 : prev - 1))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   // --- FORGOT PASSWORD STATE ---
   const [isForgotMode, setIsForgotMode] = useState(false)
@@ -89,6 +304,7 @@ export function LoginView({
   const [isForgotResending, setIsForgotResending] = useState(false)
   const [forgotError, setForgotError] = useState("")
   const [forgotNotice, setForgotNotice] = useState("")
+  const [forgotOtpCountdown, setForgotOtpCountdown] = useState(0)
 
   // --- REGISTER STATE ---
   const [regName, setRegName] = useState("")
@@ -97,7 +313,7 @@ export function LoginView({
   const [regPassword, setRegPassword] = useState("")
   const [regConfirmPassword, setRegConfirmPassword] = useState("")
   const [showRegPassword, setShowRegPassword] = useState(false)
-  const [isRegCaptchaChecked, setIsRegCaptchaChecked] = useState(false)
+  const [isRegCaptchaChecked, setIsRegCaptchaChecked] = useState(true)
   const [isRegCaptchaLoading, setIsRegCaptchaLoading] = useState(false)
   const [regErrors, setRegErrors] = useState({})
   const [isRegLoading, setIsRegLoading] = useState(false)
@@ -107,6 +323,19 @@ export function LoginView({
   const [otpCode, setOtpCode] = useState(["", "", "", "", "", ""])
   const [otpNotice, setOtpNotice] = useState("")
   const [isOtpResending, setIsOtpResending] = useState(false)
+  const [otpCountdown, setOtpCountdown] = useState(0)
+
+  useEffect(() => {
+    if (otpCountdown <= 0) return undefined
+    const timer = setTimeout(() => setOtpCountdown((c) => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [otpCountdown])
+
+  useEffect(() => {
+    if (forgotOtpCountdown <= 0) return undefined
+    const timer = setTimeout(() => setForgotOtpCountdown((c) => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [forgotOtpCountdown])
 
   // --- SCROLL ANIMATION STATE ---
   const scrollRef = useRef(null)
@@ -163,6 +392,27 @@ export function LoginView({
     }, 350)
   }
 
+  // Auto-verify smart VIBE Shield for Register when basic fields are filled
+  useEffect(() => {
+    if (
+      regName.trim().length >= 2 &&
+      regPhone.trim().length >= 9 &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim()) &&
+      regPassword.length >= 6 &&
+      !isRegCaptchaChecked &&
+      !isRegCaptchaLoading
+    ) {
+      setIsRegCaptchaChecked(true)
+    }
+  }, [
+    regName,
+    regPhone,
+    regEmail,
+    regPassword,
+    isRegCaptchaChecked,
+    isRegCaptchaLoading,
+  ])
+
   // Handle Captcha Click (Register)
   const handleRegCaptchaClick = () => {
     if (isRegCaptchaChecked) return
@@ -192,8 +442,8 @@ export function LoginView({
     if (!isLoginCaptchaChecked) {
       setLoginError(
         isVi
-          ? "Vui lòng xác minh bạn không phải là người máy."
-          : "Please verify that you are not a robot.",
+          ? "Vui lòng xác minh phiên đăng nhập an toàn."
+          : "Please complete the security verification.",
       )
       return
     }
@@ -217,6 +467,7 @@ export function LoginView({
           )
           return
         }
+        saveRecentEmail(trimmedEmail)
         onLoginSuccess(user)
       } catch (error) {
         setLoginError(
@@ -248,6 +499,7 @@ export function LoginView({
         )
         return
       }
+      saveRecentEmail(trimmedEmail)
       setIsLoginLoading(true)
       setTimeout(async () => {
         setIsLoginLoading(false)
@@ -321,12 +573,20 @@ export function LoginView({
     try {
       if (apiEnabled) {
         const res = await authApi.forgotPassword(email)
-        setForgotNotice(
+        const returnedCode = res?.code ? String(res.code).trim() : ""
+        const baseMsg =
           res?.message ||
-            (isVi
-              ? "Mã xác nhận OTP đã được gửi tới email của bạn."
-              : "An OTP verification code has been sent to your email."),
+          (isVi
+            ? "Mã xác nhận OTP đã được gửi tới email của bạn."
+            : "An OTP verification code has been sent to your email.")
+        setForgotNotice(
+          returnedCode ? `${baseMsg} (Mã OTP: ${returnedCode})` : baseMsg,
         )
+        if (/^\d{6}$/.test(returnedCode)) {
+          setForgotOtp(returnedCode.split(""))
+        } else {
+          setForgotOtp(["", "", "", "", "", ""])
+        }
       } else {
         await new Promise((resolve) => setTimeout(resolve, 450))
         setForgotNotice(
@@ -334,8 +594,9 @@ export function LoginView({
             ? "Mã OTP khôi phục mật khẩu (123456) đã được gửi."
             : "Password reset OTP (123456) has been sent.",
         )
+        setForgotOtp(["", "", "", "", "", ""])
       }
-      setForgotOtp(["", "", "", "", "", ""])
+      setForgotOtpCountdown(60)
       setForgotStep("reset")
     } catch (error) {
       setForgotError(
@@ -369,6 +630,24 @@ export function LoginView({
     }
   }
 
+  const handleForgotOtpPaste = (e) => {
+    const pasted = (e.clipboardData?.getData("text") || "")
+      .replace(/\D/g, "")
+      .slice(0, 6)
+    if (!pasted) return
+    e.preventDefault()
+    const nextOtp = ["", "", "", "", "", ""]
+    for (let i = 0; i < pasted.length; i += 1) {
+      nextOtp[i] = pasted[i]
+    }
+    setForgotOtp(nextOtp)
+    setForgotError("")
+    const targetIdx = Math.min(5, pasted.length - 1)
+    setTimeout(() => {
+      document.getElementById(`forgot-otp-${targetIdx}`)?.focus()
+    }, 10)
+  }
+
   const handleForgotOtpKeyDown = (index, e) => {
     if (e.key === "Backspace" && !forgotOtp[index] && index > 0) {
       const prevInput = document.getElementById(`forgot-otp-${index - 1}`)
@@ -380,7 +659,7 @@ export function LoginView({
   }
 
   const handleResendForgotOtp = async () => {
-    if (isForgotResending) return
+    if (isForgotResending || forgotOtpCountdown > 0) return
     setForgotError("")
     setForgotNotice("")
     const email = forgotEmail.trim().toLowerCase()
@@ -393,18 +672,25 @@ export function LoginView({
         } catch {
           res = await authApi.forgotPassword(email)
         }
-        setForgotNotice(
+        const returnedCode = res?.code ? String(res.code).trim() : ""
+        const baseMsg =
           res?.message ||
-            (isVi
-              ? "Đã gửi lại mã OTP vào email của bạn."
-              : "A new OTP code has been sent to your email."),
+          (isVi
+            ? "Đã gửi lại mã OTP vào email của bạn."
+            : "A new OTP code has been sent to your email.")
+        setForgotNotice(
+          returnedCode ? `${baseMsg} (Mã OTP: ${returnedCode})` : baseMsg,
         )
+        if (/^\d{6}$/.test(returnedCode)) {
+          setForgotOtp(returnedCode.split(""))
+        }
       } else {
         await new Promise((resolve) => setTimeout(resolve, 400))
         setForgotNotice(
           isVi ? "Đã gửi lại mã OTP (123456)." : "OTP resent (123456).",
         )
       }
+      setForgotOtpCountdown(60)
     } catch (error) {
       setForgotError(
         getErrorMessage(
@@ -567,19 +853,37 @@ export function LoginView({
           password: regPassword,
           phone: regPhone.replace(/\s/g, ""),
         })
-        setOtpCode(["", "", "", "", "", ""])
-        if (res?.message) {
-          setOtpNotice(res.message)
+        const returnedCode = res?.code ? String(res.code).trim() : ""
+        if (/^\d{6}$/.test(returnedCode)) {
+          setOtpCode(returnedCode.split(""))
+        } else {
+          setOtpCode(["", "", "", "", "", ""])
         }
+        if (res?.message || returnedCode) {
+          const baseMsg = res?.message || "Mã xác nhận OTP đã được khởi tạo."
+          setOtpNotice(
+            returnedCode ? `${baseMsg} (Mã OTP: ${returnedCode})` : baseMsg,
+          )
+        }
+        setOtpCountdown(60)
         setIsOtpMode(true)
       } catch (error) {
+        const rawMsg = getErrorMessage(
+          error,
+          isVi
+            ? "Không thể khởi tạo đăng ký. Vui lòng kiểm tra lại email hoặc số điện thoại."
+            : "Unable to register account. Please check your email or phone number.",
+        )
+        const isMailConfigErr =
+          error?.code === "MAIL_NOT_CONFIGURED" ||
+          String(rawMsg).includes("MAIL_NOT_CONFIGURED") ||
+          String(rawMsg).toLowerCase().includes("chưa được cấu hình")
         setRegErrors({
-          general: getErrorMessage(
-            error,
-            isVi
-              ? "Không thể khởi tạo đăng ký. Vui lòng kiểm tra lại email hoặc số điện thoại."
-              : "Unable to register account. Please check your email or phone number.",
-          ),
+          general: isMailConfigErr
+            ? isVi
+              ? `${rawMsg} (Máy chủ Backend trên Render hiện chưa bật cấu hình SMTP gửi mail hoặc dev-mode OTP).`
+              : `${rawMsg} (Backend SMTP mail service on Render is not configured yet).`
+            : rawMsg,
         })
       } finally {
         setIsRegLoading(false)
@@ -590,6 +894,7 @@ export function LoginView({
     setTimeout(() => {
       setIsRegLoading(false)
       setOtpCode(["", "", "", "", "", ""])
+      setOtpCountdown(60)
       setIsOtpMode(true) // Switch to OTP View
     }, 450)
   }
@@ -616,6 +921,24 @@ export function LoginView({
         }
       }, 10)
     }
+  }
+
+  const handleOtpPaste = (e) => {
+    const pasted = (e.clipboardData?.getData("text") || "")
+      .replace(/\D/g, "")
+      .slice(0, 6)
+    if (!pasted) return
+    e.preventDefault()
+    const nextOtp = ["", "", "", "", "", ""]
+    for (let i = 0; i < pasted.length; i += 1) {
+      nextOtp[i] = pasted[i]
+    }
+    setOtpCode(nextOtp)
+    setOtpError("")
+    const targetIdx = Math.min(5, pasted.length - 1)
+    setTimeout(() => {
+      document.getElementById(`otp-${targetIdx}`)?.focus()
+    }, 10)
   }
 
   const handleOtpKeyDown = (index, e) => {
@@ -654,6 +977,7 @@ export function LoginView({
           name: regName.trim(),
           email: regEmail.trim().toLowerCase(),
           phone: regPhone.replace(/\s/g, ""),
+          sportId: selectedSportId,
           packageName: isVi ? "Chưa đăng ký gói" : "No package enrolled",
         })
       } catch (error) {
@@ -683,6 +1007,7 @@ export function LoginView({
         setIsOtpMode(false)
         setRegisteredSuccessData({
           ...newMember,
+          sportId: selectedSportId,
           packageName: isVi ? "Chưa đăng ký gói" : "No package enrolled",
         })
       } else {
@@ -696,7 +1021,7 @@ export function LoginView({
   }
 
   const handleResendRegistrationOtp = async () => {
-    if (isOtpResending) return
+    if (isOtpResending || otpCountdown > 0) return
     setOtpError("")
     setOtpNotice("")
     setIsOtpResending(true)
@@ -707,18 +1032,25 @@ export function LoginView({
           email: regEmail.trim().toLowerCase(),
           purpose: "REGISTER",
         })
-        setOtpNotice(
+        const returnedCode = res?.code ? String(res.code).trim() : ""
+        const baseMsg =
           res?.message ||
-            (isVi
-              ? "Đã gửi lại mã OTP mới vào email của bạn."
-              : "A new OTP code has been sent to your email."),
+          (isVi
+            ? "Đã gửi lại mã OTP mới vào email của bạn."
+            : "A new OTP code has been sent to your email.")
+        setOtpNotice(
+          returnedCode ? `${baseMsg} (Mã OTP: ${returnedCode})` : baseMsg,
         )
+        if (/^\d{6}$/.test(returnedCode)) {
+          setOtpCode(returnedCode.split(""))
+        }
       } else {
         await new Promise((resolve) => setTimeout(resolve, 400))
         setOtpNotice(
           isVi ? "Đã gửi lại mã OTP (123456)." : "OTP Resent (123456).",
         )
       }
+      setOtpCountdown(60)
     } catch (error) {
       setOtpError(
         getErrorMessage(
@@ -762,1292 +1094,1394 @@ export function LoginView({
   }
 
   return (
-    <div className="w-full min-h-screen bg-[#0c0a09] text-stone-100 font-sans antialiased select-none flex flex-col">
-      <div className="flex flex-col lg:flex-row min-h-screen w-full relative z-10">
-        {/* LEFT COLUMN: HERO & BRANDING WITH FIRESIDE WARM THEME */}
-        <div
-          className="relative flex-1 flex flex-col justify-between p-8 sm:p-12 lg:p-14 xl:p-16 min-h-[500px] lg:min-h-screen overflow-hidden bg-[#141210] transition-all duration-300"
-          style={{
-            backgroundImage: `
-            linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px)
-          `,
-            backgroundSize: "54px 54px",
-          }}
-        >
-          {/* Background Image for Register Mode */}
-          {authMode === "register" && (
-            <div className="absolute inset-0 z-0 pointer-events-none transition-opacity duration-500">
-              <img
-                src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop"
-                alt="Gym background"
-                className="w-full h-full object-cover opacity-30 mix-blend-luminosity"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#141210] via-transparent to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#141210] via-transparent to-transparent" />
-            </div>
-          )}
+    <div className="min-h-screen bg-white font-mlc text-mlc-ink antialiased selection:bg-mlc-red selection:text-white flex flex-col">
+      {/* Shared Public Header synced with HomeLandingView, AboutView & CoachesView */}
+      <CoachesHeader />
 
-          {/* Subtle radial ambient glow */}
-          <div className="pointer-events-none absolute -top-32 -left-32 w-96 h-96 bg-[#BA0000]/15 rounded-full blur-3xl z-0" />
-          <div className="pointer-events-none absolute bottom-10 right-10 w-96 h-96 bg-[#8E0000]/20 rounded-full blur-3xl z-0" />
-
-          {/* Top Branding (SCMS Logo) */}
-          <div
-            onClick={onBackToHome}
-            className={`relative z-10 flex items-center gap-3 ${
-              onBackToHome ? "cursor-pointer group" : ""
-            }`}
-            title={
-              onBackToHome
-                ? isVi
-                  ? "Quay về Trang chủ"
-                  : "Back to Home"
-                : undefined
-            }
+      {/* Main Split-Screen Editorial Section */}
+      <div className="flex-1 grid lg:grid-cols-[1.08fr_0.92fr] min-h-[calc(100dvh-76px)]">
+        {/* LEFT COLUMN: FULL-HD VIBE SPORT VIDEO SHOWCASE & 1 REFINED FLOATING GLASS BAR */}
+        <div className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-mlc-ink p-12 xl:p-16 text-white">
+          <video
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center opacity-55"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            poster="/videos/vibe-sport-poster.jpg"
+            aria-hidden="true"
           >
-            <img
-              src="/images/MainPage/vibe-sport-logo.png?v=2"
-              alt="Vibe Sport"
-              className="h-20 w-32 object-contain sm:w-36 shrink-0 transition-transform group-hover:scale-[1.02]"
+            <source
+              src="/videos/vibe-sport-montage-1080p.mp4?v=2"
+              type="video/mp4"
             />
-          </div>
+          </video>
 
-          {/* Center Main Content (Dynamic based on Login vs Register) */}
-          <div className="relative z-10 max-w-xl my-10 lg:my-auto">
-            {authMode === "login" ? (
-              <>
-                {/* Overline */}
-                <div className="text-[#D62323] font-bold text-xs tracking-wider uppercase mb-3.5">
-                  {adminEntry
-                    ? isVi
-                      ? "CỔNG QUẢN TRỊ HỆ THỐNG"
-                      : "SYSTEM ADMINISTRATION"
-                    : isVi
-                      ? "NỀN TẢNG QUẢN LÝ"
-                      : "MANAGEMENT PLATFORM"}
-                </div>
+          {/* Editorial Shaders matching HomeLandingView */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-mlc-ink/90 via-mlc-ink/60 to-mlc-ink/20" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-mlc-ink via-transparent to-mlc-ink/30" />
+          <div className="vibe-hero-accent" aria-hidden="true" />
 
-                {/* Heading */}
-                <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-extrabold text-white tracking-tight leading-[1.18]">
-                  <div>
-                    {adminEntry
-                      ? isVi
-                        ? "Quản trị rõ ràng."
-                        : "Clear administration."
-                      : isVi
-                        ? "Một hệ thống."
-                        : "One system."}
-                  </div>
-                  <div
-                    className={adminEntry ? "text-sky-300" : "text-[#E4E4E4]"}
-                  >
-                    {adminEntry
-                      ? isVi
-                        ? "Dữ liệu đáng tin cậy."
-                        : "Trustworthy data."
-                      : isVi
-                        ? "Mọi vận hành."
-                        : "Every operation."}
-                  </div>
-                </h1>
-
-                {/* Subtitle description */}
-                <p className="text-stone-300 text-sm leading-relaxed max-w-lg mt-4 mb-8">
-                  {isVi
-                    ? adminEntry
-                      ? "Theo dõi người dùng, vai trò, quyền và nhật ký hệ thống từ dữ liệu backend."
-                      : "Quản lý hội viên, lớp học, thanh toán và nhân sự trong một nền tảng có phân quyền rõ ràng."
-                    : adminEntry
-                      ? "Review users, roles, permissions, and audit activity from backend data."
-                      : "Manage members, classes, payments, and staff in a single, clearly role-governed platform."}
-                </p>
-
-                {/* 4 Feature Items */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3.5 group">
-                    <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-[#E4E4E4] shrink-0 transition-transform group-hover:scale-105 group-hover:bg-[#BA0000] group-hover:text-white shadow-xs">
-                      <UserCheck className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-white font-semibold text-sm leading-snug">
-                        {adminEntry
-                          ? isVi
-                            ? "Người dùng hệ thống"
-                            : "System users"
-                          : isVi
-                            ? "Quản lý hội viên"
-                            : "Member management"}
-                      </div>
-                      <div className="text-stone-400 text-xs mt-0.5">
-                        {adminEntry
-                          ? isVi
-                            ? "Danh sách và hồ sơ chỉ đọc"
-                            : "Read-only directory and profiles"
-                          : isVi
-                            ? "Hồ sơ, gói tập, lịch sử điểm danh"
-                            : "Profiles, packages, attendance history"}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3.5 group">
-                    <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-[#E4E4E4] shrink-0 transition-transform group-hover:scale-105 group-hover:bg-[#BA0000] group-hover:text-white shadow-xs">
-                      <CalendarDays className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-white font-semibold text-sm leading-snug">
-                        {adminEntry
-                          ? isVi
-                            ? "Vai trò & quyền"
-                            : "Roles & permissions"
-                          : isVi
-                            ? "Lớp học & điểm danh"
-                            : "Classes & attendance"}
-                      </div>
-                      <div className="text-stone-400 text-xs mt-0.5">
-                        {adminEntry
-                          ? isVi
-                            ? "Ma trận phân quyền minh bạch"
-                            : "Transparent permission matrix"
-                          : isVi
-                            ? "Lịch lớp, đặt chỗ, điểm danh"
-                            : "Class schedule, bookings, check-in"}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3.5 group">
-                    <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-[#E4E4E4] shrink-0 transition-transform group-hover:scale-105 group-hover:bg-[#BA0000] group-hover:text-white shadow-xs">
-                      <CreditCard className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-white font-semibold text-sm leading-snug">
-                        {adminEntry
-                          ? isVi
-                            ? "Nhật ký hệ thống"
-                            : "System audit trail"
-                          : isVi
-                            ? "Thanh toán"
-                            : "Payments"}
-                      </div>
-                      <div className="text-stone-400 text-xs mt-0.5">
-                        {adminEntry
-                          ? isVi
-                            ? "Actor, hành động, đối tượng và thời gian"
-                            : "Actor, action, target, and time"
-                          : isVi
-                            ? "Ghi nhận, theo dõi giao dịch"
-                            : "Record and track transactions"}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3.5 group">
-                    <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center text-[#E4E4E4] shrink-0 transition-transform group-hover:scale-105 group-hover:bg-[#BA0000] group-hover:text-white shadow-xs">
-                      <BarChart3 className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-white font-semibold text-sm leading-snug">
-                        {adminEntry
-                          ? isVi
-                            ? "Trạng thái nguồn dữ liệu"
-                            : "Data source status"
-                          : isVi
-                            ? "Báo cáo vận hành"
-                            : "Operations reports"}
-                      </div>
-                      <div className="text-stone-400 text-xs mt-0.5">
-                        {adminEntry
-                          ? isVi
-                            ? "Lỗi từng panel, không mất toàn trang"
-                            : "Panel-level errors without page loss"
-                          : isVi
-                            ? "Doanh thu và hiệu suất"
-                            : "Revenue and performance analytics"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Heading */}
-                <h1 className="text-4xl sm:text-5xl lg:text-[56px] font-black text-white tracking-tight leading-[1.1] uppercase drop-shadow-lg">
-                  {isVi
-                    ? "Tập thử không mất phí tại VIBE Sport"
-                    : "Free Trial At VIBE Sport"}
-                </h1>
-
-                {/* Subtitle description */}
-                <p className="text-stone-300 text-sm sm:text-base leading-relaxed max-w-lg mt-6 mb-8 font-medium drop-shadow-md">
-                  {isVi
-                    ? "Trải nghiệm mọi dịch vụ tại VIBE Sport hoàn toàn miễn phí, chúng tôi sẽ liên hệ đặt lịch hẹn với bạn trong vòng 24h sau khi bạn gửi thông tin, đăng ký ngay!"
-                    : "Experience all services at VIBE Sport entirely for free. We will contact you to schedule an appointment within 24h of submitting your information. Register now!"}
-                </p>
-              </>
-            )}
-          </div>
-
-          {/* Footer Copyright */}
-          <div className="relative z-10 pt-6 text-xs text-stone-500 font-normal">
-            © 2026 VIBE Sport — Sports Center Management System
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN: LOGIN OR REGISTER FORM */}
-        <div className="w-full lg:w-[500px] xl:w-[560px] bg-white text-stone-800 flex flex-col justify-center px-6 sm:px-10 xl:px-12 py-10 relative shadow-2xl overflow-y-auto max-h-screen">
-          {/* Top Header inside Form Card: Back to Home & Language Switcher */}
-          <div className="flex items-center justify-between mb-4 z-20">
-            {onBackToHome ? (
-              <button
-                type="button"
-                onClick={onBackToHome}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-500 hover:text-stone-900 transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>{isVi ? "Quay lại Trang chủ" : "Back to Home"}</span>
-              </button>
-            ) : (
-              <div />
-            )}
-
-            {/* Language Switcher */}
-            <div className="flex items-center bg-stone-100 p-0.5 rounded border border-stone-200 text-xs font-bold">
-              <button
-                type="button"
-                onClick={() => setLanguage("vi")}
-                className={`px-2.5 py-1 rounded transition-all cursor-pointer ${
-                  isVi
-                    ? "bg-[#BA0000] text-white shadow-xs"
-                    : "text-stone-600 hover:text-stone-900"
+          {/* Top Eyebrow + Live Club Status Pill */}
+          <div className="relative z-10 flex items-center justify-between gap-4">
+            <p className="coaches-eyebrow">
+              {adminEntry ? "VIBE SPORT · ADMIN PORTAL" : "VIBE SPORT"}
+            </p>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/35 px-3.5 py-1.5 backdrop-blur-md">
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  isClubOpen
+                    ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)] animate-pulse"
+                    : "bg-amber-400"
                 }`}
-              >
-                VI
-              </button>
-              <button
-                type="button"
-                onClick={() => setLanguage("en")}
-                className={`px-2.5 py-1 rounded transition-all cursor-pointer ${
-                  !isVi
-                    ? "bg-[#BA0000] text-white shadow-xs"
-                    : "text-stone-600 hover:text-stone-900"
-                }`}
-              >
-                EN
-              </button>
+              />
+              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/90">
+                {isClubOpen
+                  ? isVi
+                    ? "ĐANG MỞ CỬA · 05:30 – 22:00"
+                    : "OPEN NOW · 05:30 – 22:00"
+                  : isVi
+                    ? "NGHỈ ĐÊM · MỞ CỬA 05:30"
+                    : "CLOSED · OPENS AT 05:30"}
+              </span>
             </div>
           </div>
 
-          {/* ============================================================ */}
-          {/* MODE: REGISTER SUCCESS MODAL / CARD */}
-          {/* ============================================================ */}
-          {registeredSuccessData ? (
-            <div className="max-w-md w-full mx-auto py-8">
-              <div className="text-center">
-                <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 mx-auto mb-4">
-                  <CheckCircle2 className="w-9 h-9" />
-                </div>
-                <h2 className="text-2xl font-extrabold text-stone-900 tracking-tight">
-                  {isVi
-                    ? "Đăng ký hội viên thành công!"
-                    : "Registration Successful!"}
-                </h2>
-                <p className="text-xs sm:text-sm text-stone-500 mt-2">
-                  {isVi
-                    ? "Chào mừng bạn đến với cộng đồng thể thao VIBE Sport. Hồ sơ hội viên của bạn đã sẵn sàng."
-                    : "Welcome to the VIBE Sport sports community. Your member profile is ready."}
-                </p>
-              </div>
+          {/* Center Editorial Statement (Dynamic with Sport Onboarding on Register) */}
+          {(() => {
+            const activeSport =
+              SPORT_ONBOARDING_OPTIONS.find((s) => s.id === selectedSportId) ||
+              SPORT_ONBOARDING_OPTIONS[0]
 
-              <div className="mt-6 p-4 rounded-xl border border-stone-200 bg-stone-50 space-y-2.5 text-xs">
-                <div className="flex items-center justify-between pb-2 border-b border-stone-200">
-                  <span className="text-stone-500">
-                    {isVi ? "Mã hội viên:" : "Member Code:"}
-                  </span>
-                  <span className="font-mono font-bold text-[#BA0000] bg-red-50 px-2 py-0.5 rounded border border-red-200">
-                    {registeredSuccessData.code}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-stone-500">
-                    {isVi ? "Họ và tên:" : "Full name:"}
-                  </span>
-                  <span className="font-semibold text-stone-900">
-                    {registeredSuccessData.name}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-stone-500">
-                    {isVi ? "Email:" : "Email:"}
-                  </span>
-                  <span className="font-mono text-stone-700">
-                    {registeredSuccessData.email}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-stone-500">
-                    {isVi ? "Số điện thoại:" : "Phone:"}
-                  </span>
-                  <span className="font-mono text-stone-700">
-                    {registeredSuccessData.phone}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between pt-2 border-t border-stone-200">
-                  <span className="text-stone-500">
-                    {isVi ? "Gói tập:" : "Package:"}
-                  </span>
-                  <span className="font-semibold text-stone-700">
-                    {isVi
-                      ? "Chưa đăng ký (Đăng ký sau)"
-                      : "Not enrolled yet (Select later)"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-stone-500">
-                    {isVi ? "Trạng thái tài khoản:" : "Account status:"}
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    {isVi ? "Đã kích hoạt tài khoản" : "Active Account"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-6 space-y-3">
-                <button
-                  type="button"
-                  disabled={isAutoLoggingIn}
-                  onClick={handleFinishRegisterAndLogin}
-                  className="w-full h-11 bg-stone-900 hover:bg-stone-800 disabled:bg-stone-500 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
-                >
-                  {isAutoLoggingIn ? (
-                    <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                  ) : (
-                    <>
-                      <span>
-                        {isVi
-                          ? "Truy cập cổng Hội viên ngay"
-                          : "Go to Member Portal"}
-                      </span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleBackToLoginWithEmail}
-                  className="w-full h-10 bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 rounded-lg font-bold text-xs transition-colors cursor-pointer"
-                >
-                  {isVi ? "Quay lại màn hình đăng nhập" : "Back to Sign In"}
-                </button>
-              </div>
-            </div>
-          ) : authMode === "login" && isForgotMode ? (
-            /* ============================================================ */
-            /* MODE: FORGOT PASSWORD & RESET PASSWORD                       */
-            /* ============================================================ */
-            <div className="max-w-md w-full mx-auto my-auto py-4">
-              <button
-                type="button"
-                onClick={handleCloseForgotPassword}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-500 hover:text-stone-900 mb-5 transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>{isVi ? "Quay lại Đăng nhập" : "Back to Sign in"}</span>
-              </button>
-
-              <div className="mb-6">
-                <div className="w-12 h-12 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center text-[#BA0000] mb-4">
-                  <KeyRound className="w-6 h-6" />
-                </div>
-                <h2 className="text-2xl font-extrabold text-stone-900 tracking-tight">
-                  {forgotStep === "email"
-                    ? isVi
-                      ? "Khôi phục mật khẩu"
-                      : "Forgot password"
-                    : isVi
-                      ? "Đặt lại mật khẩu mới"
-                      : "Reset your password"}
-                </h2>
-                <p className="text-xs sm:text-sm text-stone-500 mt-1.5 leading-relaxed">
-                  {forgotStep === "email" ? (
+            return (
+              <div className="relative z-10 my-auto max-w-xl py-8">
+                <h1 className="font-display text-[clamp(3rem,4.6vw,4.75rem)] font-extrabold uppercase leading-[0.96] tracking-tight text-white transition-all duration-300">
+                  {adminEntry ? (
                     isVi ? (
-                      "Nhập email đăng ký tài khoản của bạn. Hệ thống sẽ gửi mã xác thực OTP 6 chữ số để đặt lại mật khẩu."
+                      <>
+                        QUẢN TRỊ
+                        <br />
+                        <span className="text-mlc-red">HỆ THỐNG.</span>
+                      </>
                     ) : (
-                      "Enter your registered email address. We will send a 6-digit OTP verification code to reset your password."
+                      <>
+                        SYSTEM
+                        <br />
+                        <span className="text-mlc-red">GOVERNANCE.</span>
+                      </>
+                    )
+                  ) : authMode === "register" ? (
+                    isVi ? (
+                      <>
+                        {activeSport.headlineTopVi}
+                        <br />
+                        <span className="text-mlc-red">
+                          {activeSport.headlineAccentVi}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        {activeSport.headlineTopEn}
+                        <br />
+                        <span className="text-mlc-red">
+                          {activeSport.headlineAccentEn}
+                        </span>
+                      </>
                     )
                   ) : isVi ? (
                     <>
-                      Nhập mã OTP đã gửi tới <strong>{forgotEmail}</strong> và
-                      thiết lập mật khẩu mới.
+                      LỚN LÊN CÙNG
+                      <br />
+                      <span className="text-mlc-red">THỂ THAO.</span>
                     </>
                   ) : (
                     <>
-                      Enter the OTP sent to <strong>{forgotEmail}</strong> and
-                      choose a new password.
+                      GROW STRONGER
+                      <br />
+                      <span className="text-mlc-red">THROUGH SPORT.</span>
                     </>
                   )}
+                </h1>
+
+                <p className="mt-7 max-w-lg border-l-[3px] border-mlc-red pl-5 text-base font-medium leading-7 text-white/85 transition-all duration-300">
+                  {adminEntry
+                    ? isVi
+                      ? "Theo dõi người dùng, ma trận phân quyền và nhật ký kiểm toán trực tiếp trên nền tảng dữ liệu thời gian thực."
+                      : "Monitor users, role permissions, and system audit logs in real time."
+                    : authMode === "register"
+                      ? isVi
+                        ? activeSport.descVi
+                        : activeSport.descEn
+                      : isVi
+                        ? "Khám phá niềm vui vận động qua 9 bộ môn thể thao, chủ động đặt lịch huấn luyện viên và theo dõi hành trình thể chất của riêng bạn."
+                        : "Discover the joy of movement across 9 sports, book specialist coaches, and track your personal fitness journey."}
                 </p>
               </div>
+            )
+          })()}
 
-              {forgotError && (
-                <div
-                  role="alert"
-                  className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-md flex items-start gap-2 text-rose-800 text-xs"
-                >
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <span>{forgotError}</span>
-                </div>
-              )}
+          {/* Minimal Luxury Club Highlights Bar */}
+          <div className="relative z-10 grid grid-cols-3 gap-6 rounded-2xl border border-white/15 bg-black/35 px-6 py-4 backdrop-blur-xl">
+            <div className="border-r border-white/10 pr-4">
+              <div className="font-display text-2xl font-extrabold uppercase tracking-tight text-white">
+                09 <span className="text-mlc-red">BỘ MÔN</span>
+              </div>
+              <p className="mt-0.5 text-[11px] font-medium text-white/70">
+                {isVi
+                  ? "Hệ sinh thái sân tập chuẩn quốc tế"
+                  : "International-standard sports courts"}
+              </p>
+            </div>
 
-              {forgotNotice && (
-                <div
-                  role="status"
-                  className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-md flex items-start gap-2 text-emerald-800 text-xs"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>{forgotNotice}</span>
-                </div>
-              )}
+            <div className="border-r border-white/10 pr-4">
+              <div className="font-display text-2xl font-extrabold uppercase tracking-tight text-white">
+                05:30 <span className="text-mlc-red">– 22:00</span>
+              </div>
+              <p className="mt-0.5 text-[11px] font-medium text-white/70">
+                {isVi
+                  ? "Mở cửa xuyên suốt 7 ngày / tuần"
+                  : "Open 7 days a week"}
+              </p>
+            </div>
 
-              {forgotStep === "email" ? (
-                <form onSubmit={handleSendForgotOtp} className="space-y-4">
-                  <div>
-                    <label
-                      htmlFor="forgot-email"
-                      className="text-xs font-bold text-stone-700 block mb-1.5"
-                    >
-                      {isVi ? "Địa chỉ Email" : "Email address"}
-                    </label>
-                    <input
-                      id="forgot-email"
-                      type="email"
-                      required
-                      autoFocus
-                      value={forgotEmail}
-                      onChange={(e) => {
-                        setForgotEmail(e.target.value)
-                        setForgotError("")
-                      }}
-                      placeholder="member@vibesport.vn"
-                      className="w-full h-10 px-3.5 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-red-100 transition-all"
-                    />
-                  </div>
+            <div>
+              <div className="font-display text-2xl font-extrabold uppercase tracking-tight text-white">
+                100% <span className="text-mlc-red">ONLINE</span>
+              </div>
+              <p className="mt-0.5 text-[11px] font-medium text-white/70">
+                {isVi
+                  ? "Đặt lịch tập, PT 1:1 & QR không thẻ cứng"
+                  : "Cardless QR pass & online booking"}
+              </p>
+            </div>
+          </div>
+        </div>
 
+        {/* RIGHT COLUMN: ULTRA-CLEAN, AIRY EDITORIAL FORM */}
+        <div className="flex flex-col justify-center bg-white px-6 py-10 sm:px-12 lg:px-16 xl:px-20">
+          <div className="mx-auto w-full max-w-[430px]">
+            {/* Minimal Pill Mode Switcher */}
+            {!adminEntry &&
+              !registeredSuccessData &&
+              !isForgotMode &&
+              !isOtpMode && (
+                <div className="mb-8 grid grid-cols-2 gap-1 rounded-full border border-mlc-border bg-mlc-surface p-1">
                   <button
-                    type="submit"
-                    disabled={isForgotLoading}
-                    className="w-full h-10 bg-[#BA0000] hover:bg-[#8E0000] disabled:bg-stone-400 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
+                    type="button"
+                    onClick={() => {
+                      if (authMode !== "login") navigate("/login")
+                    }}
+                    className={`rounded-full py-2.5 text-xs font-bold transition-all cursor-pointer ${
+                      authMode === "login"
+                        ? "bg-mlc-ink text-white shadow-sm"
+                        : "text-mlc-muted hover:text-mlc-ink"
+                    }`}
                   >
-                    {isForgotLoading ? (
-                      <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                    {isVi ? "Đăng nhập" : "Sign in"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (authMode !== "register") navigate("/register")
+                    }}
+                    className={`rounded-full py-2.5 text-xs font-bold transition-all cursor-pointer ${
+                      authMode === "register"
+                        ? "bg-mlc-ink text-white shadow-sm"
+                        : "text-mlc-muted hover:text-mlc-ink"
+                    }`}
+                  >
+                    {isVi ? "Đăng ký hội viên" : "Join now"}
+                  </button>
+                </div>
+              )}
+
+            {/* ============================================================ */}
+            {/* MODE: REGISTER SUCCESS CARD                                  */}
+            {/* ============================================================ */}
+            {registeredSuccessData ? (
+              <div className="py-4">
+                <div className="text-center">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-emerald-100 bg-emerald-50 text-emerald-600">
+                    <CheckCircle2 className="h-8 w-8" />
+                  </div>
+                  <h2 className="font-display text-2xl font-extrabold tracking-tight text-mlc-ink">
+                    {isVi
+                      ? "Đăng ký hội viên thành công!"
+                      : "Registration Successful!"}
+                  </h2>
+                  <p className="mt-2 text-sm text-mlc-muted">
+                    {isVi
+                      ? "Chào mừng bạn đến với VIBE Sport. Hồ sơ hội viên của bạn đã sẵn sàng."
+                      : "Welcome to VIBE Sport. Your member profile is ready."}
+                  </p>
+                </div>
+
+                <div className="mt-6 space-y-3 rounded-2xl border border-mlc-border bg-mlc-surface p-5 text-xs">
+                  <div className="flex items-center justify-between border-b border-mlc-border pb-2.5">
+                    <span className="text-mlc-muted">
+                      {isVi ? "Mã hội viên" : "Member Code"}
+                    </span>
+                    <span className="rounded-full bg-mlc-red/10 px-2.5 py-0.5 font-mono font-bold text-mlc-red">
+                      {registeredSuccessData.code}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-mlc-muted">
+                      {isVi ? "Họ và tên" : "Full name"}
+                    </span>
+                    <span className="font-bold text-mlc-ink">
+                      {registeredSuccessData.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-mlc-muted">Email</span>
+                    <span className="font-mono text-mlc-ink">
+                      {registeredSuccessData.email}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-mlc-muted">
+                      {isVi ? "Số điện thoại" : "Phone"}
+                    </span>
+                    <span className="font-mono text-mlc-ink">
+                      {registeredSuccessData.phone}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-mlc-border pt-2.5">
+                    <span className="text-mlc-muted">
+                      {isVi ? "Bộ môn yêu thích" : "Preferred Sport"}
+                    </span>
+                    <span className="font-bold text-mlc-red">
+                      {(() => {
+                        const s =
+                          SPORT_ONBOARDING_OPTIONS.find(
+                            (opt) => opt.id === selectedSportId,
+                          ) || SPORT_ONBOARDING_OPTIONS[0]
+                        return isVi ? s.labelVi : s.labelEn
+                      })()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-6 space-y-3">
+                  <button
+                    type="button"
+                    disabled={isAutoLoggingIn}
+                    onClick={handleFinishRegisterAndLogin}
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-rose-700 disabled:bg-stone-400 cursor-pointer"
+                  >
+                    {isAutoLoggingIn ? (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     ) : (
                       <>
-                        <Mail className="w-4 h-4" />
                         <span>
-                          {isVi ? "Gửi mã xác nhận OTP" : "Send OTP Code"}
+                          {isVi
+                            ? "Truy cập cổng Hội viên ngay"
+                            : "Enter Member Portal"}
                         </span>
+                        <ArrowRight className="h-4 w-4" />
                       </>
                     )}
                   </button>
-                </form>
-              ) : (
-                <form onSubmit={handleResetPassword} className="space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-bold text-stone-700">
-                        {isVi
-                          ? "Mã xác thực OTP (6 số)"
-                          : "OTP Verification Code"}
+
+                  <button
+                    type="button"
+                    onClick={handleBackToLoginWithEmail}
+                    className="h-11 w-full rounded-full border border-mlc-border bg-white text-xs font-bold text-mlc-ink transition hover:bg-mlc-surface cursor-pointer"
+                  >
+                    {isVi ? "Quay lại màn hình đăng nhập" : "Back to Sign in"}
+                  </button>
+                </div>
+              </div>
+            ) : authMode === "login" && isForgotMode ? (
+              /* ============================================================ */
+              /* MODE: FORGOT PASSWORD & RESET PASSWORD                       */
+              /* ============================================================ */
+              <div className="py-2">
+                <button
+                  type="button"
+                  onClick={handleCloseForgotPassword}
+                  className="mb-6 inline-flex items-center gap-1.5 text-xs font-bold text-mlc-muted transition hover:text-mlc-ink cursor-pointer"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>{isVi ? "Quay lại Đăng nhập" : "Back to Sign in"}</span>
+                </button>
+
+                <div className="mb-6">
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-mlc-red">
+                    {isVi ? "KHÔI PHỤC TÀI KHOẢN" : "ACCOUNT RECOVERY"}
+                  </p>
+                  <h2 className="font-display text-3xl font-extrabold tracking-tight text-mlc-ink">
+                    {forgotStep === "email"
+                      ? isVi
+                        ? "Quên mật khẩu?"
+                        : "Forgot password?"
+                      : isVi
+                        ? "Đặt lại mật khẩu"
+                        : "Reset password"}
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-mlc-muted">
+                    {forgotStep === "email" ? (
+                      isVi ? (
+                        "Nhập email đã đăng ký để nhận mã xác thực OTP 6 chữ số."
+                      ) : (
+                        "Enter your registered email to receive a 6-digit OTP code."
+                      )
+                    ) : isVi ? (
+                      <>
+                        Nhập mã OTP đã gửi tới{" "}
+                        <strong className="text-mlc-ink">{forgotEmail}</strong>{" "}
+                        (hỗ trợ dán nhanh 6 số bằng{" "}
+                        <kbd className="rounded border border-stone-300 bg-stone-100 px-1 py-0.5 font-mono text-[10px]">
+                          Ctrl+V
+                        </kbd>
+                        ) và tạo mật khẩu mới.
+                      </>
+                    ) : (
+                      <>
+                        Enter the OTP sent to{" "}
+                        <strong className="text-mlc-ink">{forgotEmail}</strong>{" "}
+                        (supports quick{" "}
+                        <kbd className="rounded border border-stone-300 bg-stone-100 px-1 py-0.5 font-mono text-[10px]">
+                          Ctrl+V
+                        </kbd>{" "}
+                        paste) and choose a new password.
+                      </>
+                    )}
+                  </p>
+                </div>
+
+                {forgotError && (
+                  <div
+                    role="alert"
+                    className="mb-5 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50/80 p-3.5 text-xs text-rose-800"
+                  >
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+                    <span>{forgotError}</span>
+                  </div>
+                )}
+
+                {forgotNotice && (
+                  <div
+                    role="status"
+                    className="mb-5 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-xs text-emerald-800"
+                  >
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                    <span>{forgotNotice}</span>
+                  </div>
+                )}
+
+                {forgotStep === "email" ? (
+                  <form onSubmit={handleSendForgotOtp} className="space-y-5">
+                    <div>
+                      <label
+                        htmlFor="forgot-email"
+                        className="mb-2 block text-xs font-bold text-mlc-ink"
+                      >
+                        {isVi ? "Địa chỉ Email" : "Email address"}
                       </label>
+                      <div className="relative">
+                        <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-mlc-muted" />
+                        <input
+                          id="forgot-email"
+                          type="email"
+                          required
+                          autoFocus
+                          value={forgotEmail}
+                          onChange={(e) => {
+                            setForgotEmail(e.target.value)
+                            setForgotError("")
+                          }}
+                          placeholder="member@vibesport.vn"
+                          className="h-12 w-full rounded-xl border border-mlc-border bg-mlc-surface/60 pl-11 pr-4 text-sm text-mlc-ink placeholder:text-mlc-muted/60 transition-all focus:border-mlc-red focus:bg-white focus:outline-none focus:ring-4 focus:ring-mlc-red/10"
+                        />
+                      </div>
+                      {/* 1-Tap Email Domain Autocomplete */}
+                      {(() => {
+                        const suggestions = buildEmailSuggestions(forgotEmail)
+                        if (suggestions.length === 0) return null
+                        return (
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            {suggestions.map((sug) => (
+                              <button
+                                key={sug}
+                                type="button"
+                                onClick={() => setForgotEmail(sug)}
+                                className="rounded-full border border-mlc-border bg-mlc-surface px-2.5 py-1 text-[11px] font-semibold text-mlc-ink transition hover:border-mlc-red/40 hover:bg-mlc-red/5 hover:text-mlc-red cursor-pointer"
+                              >
+                                {sug}
+                              </button>
+                            ))}
+                          </div>
+                        )
+                      })()}
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isForgotLoading}
+                      className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-rose-700 disabled:bg-stone-400 cursor-pointer"
+                    >
+                      {isForgotLoading ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <>
+                          <span>
+                            {isVi ? "Nhận mã xác thực OTP" : "Send OTP Code"}
+                          </span>
+                          <ArrowRight className="h-4 w-4" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleResetPassword} className="space-y-4">
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <label className="text-xs font-bold text-mlc-ink">
+                          {isVi ? "Mã OTP (6 chữ số)" : "6-digit OTP"}
+                        </label>
+                        <button
+                          type="button"
+                          disabled={isForgotResending || forgotOtpCountdown > 0}
+                          onClick={handleResendForgotOtp}
+                          className="inline-flex items-center gap-1 text-xs font-bold text-mlc-red hover:underline disabled:opacity-50 cursor-pointer"
+                        >
+                          <RefreshCw
+                            className={`h-3 w-3 ${
+                              isForgotResending ? "animate-spin" : ""
+                            }`}
+                          />
+                          <span>
+                            {forgotOtpCountdown > 0
+                              ? isVi
+                                ? `Gửi lại sau ${forgotOtpCountdown}s`
+                                : `Resend in ${forgotOtpCountdown}s`
+                              : isVi
+                                ? "Gửi lại mã"
+                                : "Resend"}
+                          </span>
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        {forgotOtp.map((digit, index) => (
+                          <input
+                            key={index}
+                            id={`forgot-otp-${index}`}
+                            type="text"
+                            inputMode="numeric"
+                            value={digit}
+                            onChange={(e) =>
+                              handleForgotOtpChange(index, e.target.value)
+                            }
+                            onKeyDown={(e) => handleForgotOtpKeyDown(index, e)}
+                            onPaste={handleForgotOtpPaste}
+                            onFocus={(e) => e.target.select()}
+                            className="h-12 w-11 sm:w-12 rounded-xl border border-mlc-border bg-mlc-surface/60 text-center text-lg font-extrabold text-mlc-ink transition-all focus:border-mlc-red focus:bg-white focus:outline-none focus:ring-4 focus:ring-mlc-red/10"
+                            autoFocus={index === 0}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-xs font-bold text-mlc-ink">
+                        {isVi ? "Mật khẩu mới" : "New password"}
+                      </label>
+                      <div className="relative">
+                        <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-mlc-muted" />
+                        <input
+                          type={showForgotPassword ? "text" : "password"}
+                          required
+                          value={forgotNewPassword}
+                          onChange={(e) => setForgotNewPassword(e.target.value)}
+                          placeholder={
+                            isVi ? "Tối thiểu 6 ký tự" : "At least 6 characters"
+                          }
+                          className="h-12 w-full rounded-xl border border-mlc-border bg-mlc-surface/60 pl-11 pr-11 text-sm text-mlc-ink placeholder:text-mlc-muted/60 transition-all focus:border-mlc-red focus:bg-white focus:outline-none focus:ring-4 focus:ring-mlc-red/10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowForgotPassword((v) => !v)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-mlc-muted hover:text-mlc-ink cursor-pointer"
+                        >
+                          {showForgotPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-xs font-bold text-mlc-ink">
+                        {isVi
+                          ? "Xác nhận mật khẩu mới"
+                          : "Confirm new password"}
+                      </label>
+                      <div className="relative">
+                        <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-mlc-muted" />
+                        <input
+                          type={showForgotPassword ? "text" : "password"}
+                          required
+                          value={forgotConfirmPassword}
+                          onChange={(e) =>
+                            setForgotConfirmPassword(e.target.value)
+                          }
+                          placeholder="••••••••"
+                          className="h-12 w-full rounded-xl border border-mlc-border bg-mlc-surface/60 pl-11 pr-4 text-sm text-mlc-ink placeholder:text-mlc-muted/60 transition-all focus:border-mlc-red focus:bg-white focus:outline-none focus:ring-4 focus:ring-mlc-red/10"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 space-y-2">
+                      <button
+                        type="submit"
+                        disabled={isForgotLoading}
+                        className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-rose-700 disabled:bg-stone-400 cursor-pointer"
+                      >
+                        {isForgotLoading ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        ) : (
+                          <span>
+                            {isVi ? "Cập nhật mật khẩu mới" : "Update Password"}
+                          </span>
+                        )}
+                      </button>
+
                       <button
                         type="button"
-                        disabled={isForgotResending}
-                        onClick={handleResendForgotOtp}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#BA0000] hover:underline disabled:opacity-50 cursor-pointer"
+                        onClick={() => {
+                          setForgotStep("email")
+                          setForgotError("")
+                          setForgotNotice("")
+                        }}
+                        className="h-10 w-full text-xs font-bold text-mlc-muted hover:text-mlc-ink transition-colors cursor-pointer"
                       >
-                        <RefreshCw
-                          className={`w-3 h-3 ${
-                            isForgotResending ? "animate-spin" : ""
-                          }`}
-                        />
-                        <span>{isVi ? "Gửi lại mã" : "Resend OTP"}</span>
+                        {isVi ? "Đổi địa chỉ Email khác" : "Change email"}
                       </button>
                     </div>
-                    <div className="flex items-center justify-between gap-2">
-                      {forgotOtp.map((digit, index) => (
+                  </form>
+                )}
+              </div>
+            ) : authMode === "login" ? (
+              /* ============================================================ */
+              /* MODE: LOGIN FORM                                             */
+              /* ============================================================ */
+              <div>
+                {/* Editorial Form Heading */}
+                <div className="mb-7">
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-mlc-red">
+                    {adminEntry
+                      ? "SYSTEM ADMINISTRATION"
+                      : "WELCOME TO VIBE SPORT"}
+                  </p>
+                  <h2 className="font-display text-3xl sm:text-[36px] font-extrabold tracking-tight text-mlc-ink leading-tight">
+                    {adminEntry
+                      ? isVi
+                        ? "Đăng nhập Quản trị"
+                        : "Admin Sign in"
+                      : isVi
+                        ? "Đăng nhập tài khoản"
+                        : "Sign in to your account"}
+                  </h2>
+                  <p className="mt-2 text-sm text-mlc-muted">
+                    {isVi
+                      ? adminEntry
+                        ? "Chỉ tài khoản Quản trị viên được phép truy cập."
+                        : "Nhập email và mật khẩu để truy cập hệ thống VIBE Sport."
+                      : adminEntry
+                        ? "Restricted to Administrator accounts."
+                        : "Enter your credentials to access VIBE Sport."}
+                  </p>
+                </div>
+
+                {/* Error & Status Alerts */}
+                {loginError && (
+                  <div
+                    role="alert"
+                    className="mb-5 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50/80 p-3.5 text-xs text-rose-800"
+                  >
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+                    <span>{loginError}</span>
+                  </div>
+                )}
+
+                {loginNotice && (
+                  <div
+                    role="status"
+                    className="mb-5 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-xs text-emerald-800"
+                  >
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                    <span>{loginNotice}</span>
+                  </div>
+                )}
+
+                {/* Minimal Recent Email Chips (if any) */}
+                {recentEmails.length > 0 && (
+                  <div className="mb-5">
+                    <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-mlc-muted">
+                      {isVi ? "Đăng nhập nhanh" : "Recent accounts"}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {recentEmails.map((savedEmail) => {
+                        const isSelected =
+                          loginEmail.trim().toLowerCase() ===
+                          savedEmail.toLowerCase()
+                        return (
+                          <div
+                            key={savedEmail}
+                            onClick={() => {
+                              setLoginEmail(savedEmail)
+                              setLoginError("")
+                              setTimeout(() => {
+                                passwordInputRef.current?.focus()
+                              }, 30)
+                            }}
+                            className={`inline-flex items-center gap-1.5 rounded-full border pl-2.5 pr-1.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                              isSelected
+                                ? "border-mlc-red/40 bg-mlc-red/5 text-mlc-red"
+                                : "border-mlc-border bg-mlc-surface text-mlc-ink hover:border-stone-300"
+                            }`}
+                          >
+                            <span className="truncate max-w-[180px]">
+                              {savedEmail}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => removeRecentEmail(savedEmail, e)}
+                              title={isVi ? "Xóa" : "Remove"}
+                              className="flex h-4 w-4 items-center justify-center rounded-full text-mlc-muted hover:bg-rose-100 hover:text-rose-600 transition-colors cursor-pointer"
+                            >
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <form
+                  onSubmit={handleLogin}
+                  autoComplete="off"
+                  className="space-y-5"
+                >
+                  {/* Email */}
+                  <div>
+                    <label
+                      htmlFor="login-email"
+                      className="mb-2 block text-xs font-bold text-mlc-ink"
+                    >
+                      {isVi ? "Địa chỉ Email" : "Email address"}
+                    </label>
+                    <div className="relative">
+                      <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-mlc-muted" />
+                      <input
+                        id="login-email"
+                        type="email"
+                        autoComplete="off"
+                        value={loginEmail}
+                        onChange={(e) => setLoginEmail(e.target.value)}
+                        placeholder={
+                          adminEntry ? "admin@scms.com" : "name@example.com"
+                        }
+                        className="h-12 w-full rounded-xl border border-mlc-border bg-mlc-surface/60 pl-11 pr-4 text-sm text-mlc-ink placeholder:text-mlc-muted/60 transition-all focus:border-mlc-red focus:bg-white focus:outline-none focus:ring-4 focus:ring-mlc-red/10"
+                      />
+                    </div>
+                    {/* 1-Tap Email Domain Autocomplete Chips */}
+                    {(() => {
+                      const suggestions = buildEmailSuggestions(loginEmail)
+                      if (suggestions.length === 0) return null
+                      return (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {suggestions.map((sug) => (
+                            <button
+                              key={sug}
+                              type="button"
+                              onClick={() => {
+                                setLoginEmail(sug)
+                                setTimeout(
+                                  () => passwordInputRef.current?.focus(),
+                                  20,
+                                )
+                              }}
+                              className="rounded-full border border-mlc-border bg-mlc-surface px-2.5 py-1 text-[11px] font-semibold text-mlc-ink transition hover:border-mlc-red/40 hover:bg-mlc-red/5 hover:text-mlc-red cursor-pointer"
+                            >
+                              {sug}
+                            </button>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                  </div>
+
+                  {/* Password */}
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <label
+                        htmlFor="login-password"
+                        className="text-xs font-bold text-mlc-ink"
+                      >
+                        {isVi ? "Mật khẩu" : "Password"}
+                      </label>
+                      {!adminEntry && (
+                        <button
+                          type="button"
+                          onClick={handleOpenForgotPassword}
+                          className="text-xs font-bold text-mlc-red hover:underline cursor-pointer"
+                        >
+                          {isVi ? "Quên mật khẩu?" : "Forgot password?"}
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-mlc-muted" />
+                      <input
+                        ref={passwordInputRef}
+                        id="login-password"
+                        type={showLoginPassword ? "text" : "password"}
+                        autoComplete="off"
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        onKeyUp={handleCapsLockCheck}
+                        onKeyDown={handleCapsLockCheck}
+                        placeholder="••••••••"
+                        className="h-12 w-full rounded-xl border border-mlc-border bg-mlc-surface/60 pl-11 pr-11 text-sm text-mlc-ink placeholder:text-mlc-muted/60 transition-all focus:border-mlc-red focus:bg-white focus:outline-none focus:ring-4 focus:ring-mlc-red/10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPassword((v) => !v)}
+                        aria-label={
+                          showLoginPassword ? "Hide password" : "Show password"
+                        }
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-mlc-muted hover:text-mlc-ink cursor-pointer"
+                      >
+                        {showLoginPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                    {capsLockOn && (
+                      <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                        <span>
+                          {isVi ? "Caps Lock đang bật" : "Caps Lock is ON"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Remember account */}
+                  <div className="flex items-center justify-between">
+                    <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={rememberEmail}
+                        onChange={(e) => setRememberEmail(e.target.checked)}
+                        className="h-4 w-4 rounded border-mlc-border accent-mlc-red cursor-pointer"
+                      />
+                      <span className="text-xs font-medium text-mlc-muted">
+                        {isVi
+                          ? "Ghi nhớ tài khoản trên thiết bị này"
+                          : "Remember email on this device"}
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Primary CTA matching HomeLandingView */}
+                  <div className="pt-1">
+                    <button
+                      type="submit"
+                      disabled={isLoginLoading}
+                      className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-rose-700 disabled:bg-stone-400 cursor-pointer"
+                    >
+                      {isLoginLoading ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <>
+                          <span>{isVi ? "Đăng nhập" : "Sign in"}</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Switch to Register */}
+                {!adminEntry && (
+                  <p className="mt-7 text-center text-xs text-mlc-muted">
+                    {isVi
+                      ? "Chưa có tài khoản hội viên?"
+                      : "Don't have a member account?"}{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginError("")
+                        navigate("/register")
+                      }}
+                      className="font-bold text-mlc-red hover:underline cursor-pointer"
+                    >
+                      {isVi ? "Đăng ký ngay" : "Join now"}
+                    </button>
+                  </p>
+                )}
+
+                {/* Quick Demo Fill Helper (Mock mode only) */}
+                {!apiEnabled && (
+                  <div className="mt-6 flex items-center justify-between gap-3 rounded-xl border border-mlc-border bg-mlc-surface p-3.5 text-xs">
+                    <div>
+                      <p className="text-[11px] font-bold text-mlc-ink">
+                        {isVi ? "Tài khoản trình diễn" : "Demo account"}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[11px] text-mlc-muted">
+                        {adminEntry ? "admin@scms.com" : DEMO_EMAIL} ·{" "}
+                        {DEMO_PASSWORD}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={fillDemoAccount}
+                      className="rounded-full border border-mlc-border bg-white px-3 py-1.5 text-[11px] font-bold text-mlc-ink hover:bg-stone-50 cursor-pointer"
+                    >
+                      {isVi ? "Điền nhanh" : "Fill"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : isOtpMode ? (
+              /* ============================================================ */
+              /* MODE: OTP VERIFICATION                                       */
+              /* ============================================================ */
+              <div className="py-4">
+                <div className="mb-7 text-center">
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-mlc-border bg-mlc-surface text-mlc-ink">
+                    <Mail className="h-6 w-6 text-mlc-red" />
+                  </div>
+                  <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-mlc-ink">
+                    {isVi ? "Xác thực Email" : "Verify your Email"}
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-mlc-muted">
+                    {isVi ? (
+                      <>
+                        Mã OTP 6 chữ số đã được gửi tới{" "}
+                        <strong className="text-mlc-ink">
+                          {regEmail || "email của bạn"}
+                        </strong>
+                        . Bạn có thể dán nhanh bằng{" "}
+                        <kbd className="rounded border border-stone-300 bg-stone-100 px-1.5 py-0.5 font-mono text-[10px]">
+                          Ctrl+V
+                        </kbd>
+                        .
+                      </>
+                    ) : (
+                      <>
+                        A 6-digit OTP has been sent to{" "}
+                        <strong className="text-mlc-ink">
+                          {regEmail || "your email"}
+                        </strong>
+                        . You can paste all 6 digits with{" "}
+                        <kbd className="rounded border border-stone-300 bg-stone-100 px-1.5 py-0.5 font-mono text-[10px]">
+                          Ctrl+V
+                        </kbd>
+                        .
+                      </>
+                    )}
+                  </p>
+                </div>
+
+                {otpNotice && (
+                  <div
+                    role="status"
+                    className="mb-5 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-xs text-emerald-800"
+                  >
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                    <span>{otpNotice}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleVerifyOtp} className="space-y-6">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 sm:gap-2.5">
+                      {otpCode.map((digit, index) => (
                         <input
                           key={index}
-                          id={`forgot-otp-${index}`}
+                          id={`otp-${index}`}
                           type="text"
                           inputMode="numeric"
                           value={digit}
                           onChange={(e) =>
-                            handleForgotOtpChange(index, e.target.value)
+                            handleOtpChange(index, e.target.value)
                           }
-                          onKeyDown={(e) => handleForgotOtpKeyDown(index, e)}
+                          onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                          onPaste={handleOtpPaste}
                           onFocus={(e) => e.target.select()}
-                          className="w-10 h-11 sm:w-12 sm:h-12 text-center text-base sm:text-lg font-black rounded-lg border border-stone-300 focus:border-[#BA0000] focus:ring-2 focus:ring-red-100 focus:outline-none bg-white text-stone-900 transition-all"
+                          className={`h-13 w-11 sm:h-14 sm:w-12 rounded-xl border text-center text-lg sm:text-xl font-extrabold transition-all focus:outline-none focus:ring-4 ${
+                            otpError
+                              ? "border-rose-500 bg-rose-50/40 text-rose-600 focus:ring-rose-100"
+                              : "border-mlc-border bg-mlc-surface/60 text-mlc-ink focus:border-mlc-red focus:bg-white focus:ring-mlc-red/10"
+                          }`}
                           autoFocus={index === 0}
                         />
                       ))}
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-stone-700 block mb-1.5">
-                      {isVi ? "Mật khẩu mới" : "New password"}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showForgotPassword ? "text" : "password"}
-                        required
-                        value={forgotNewPassword}
-                        onChange={(e) => setForgotNewPassword(e.target.value)}
-                        placeholder={
-                          isVi ? "Tối thiểu 6 ký tự" : "At least 6 characters"
-                        }
-                        className="w-full h-10 px-3.5 pr-10 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-red-100 transition-all"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowForgotPassword((v) => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
-                      >
-                        {showForgotPassword ? (
-                          <EyeOff className="w-4 h-4" />
-                        ) : (
-                          <Eye className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-stone-700 block mb-1.5">
-                      {isVi ? "Xác nhận mật khẩu mới" : "Confirm new password"}
-                    </label>
-                    <input
-                      type={showForgotPassword ? "text" : "password"}
-                      required
-                      value={forgotConfirmPassword}
-                      onChange={(e) => setForgotConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full h-10 px-3.5 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-red-100 transition-all"
-                    />
-                  </div>
-
-                  <div className="pt-1 flex flex-col gap-2">
-                    <button
-                      type="submit"
-                      disabled={isForgotLoading}
-                      className="w-full h-10 bg-[#181818] hover:bg-[#BA0000] disabled:bg-stone-400 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
-                    >
-                      {isForgotLoading ? (
-                        <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                      ) : (
-                        <>
-                          <Lock className="w-4 h-4" />
-                          <span>
-                            {isVi
-                              ? "Xác nhận đặt lại mật khẩu"
-                              : "Reset Password"}
-                          </span>
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setForgotStep("email")
-                        setForgotError("")
-                        setForgotNotice("")
-                      }}
-                      className="w-full h-9 text-xs font-semibold text-stone-500 hover:text-stone-800 transition-colors cursor-pointer"
-                    >
-                      {isVi
-                        ? "Đổi địa chỉ Email khác"
-                        : "Use a different email"}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          ) : authMode === "login" ? (
-            /* ============================================================ */
-            /* MODE: LOGIN FORM                                             */
-            /* ============================================================ */
-            <div className="max-w-md w-full mx-auto my-auto">
-              {/* Header */}
-              <div className="mb-7">
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
-                  {adminEntry
-                    ? isVi
-                      ? "Đăng nhập Admin"
-                      : "Admin sign in"
-                    : isVi
-                      ? "Đăng nhập"
-                      : "Sign in"}
-                </h2>
-                <p className="text-xs sm:text-sm text-stone-500 mt-2">
-                  {isVi
-                    ? adminEntry
-                      ? "Chỉ tài khoản Admin được phép tiếp tục."
-                      : "Nhập thông tin tài khoản để tiếp tục."
-                    : adminEntry
-                      ? "Only Admin accounts may continue."
-                      : "Enter your credentials to continue."}
-                </p>
-              </div>
-
-              {/* Error Message */}
-              {loginError && (
-                <div
-                  role="alert"
-                  className="mb-5 p-3 bg-rose-50 border border-rose-200 rounded-md flex items-start gap-2 text-rose-800 text-xs"
-                >
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <span>{loginError}</span>
-                </div>
-              )}
-
-              {/* Notice Message (e.g. after password reset) */}
-              {loginNotice && (
-                <div
-                  role="status"
-                  className="mb-5 p-3 bg-emerald-50 border border-emerald-200 rounded-md flex items-start gap-2 text-emerald-800 text-xs"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>{loginNotice}</span>
-                </div>
-              )}
-
-              {/* Form */}
-              <form
-                onSubmit={handleLogin}
-                autoComplete="off"
-                className="space-y-4"
-              >
-                {/* Email field */}
-                <div>
-                  <label
-                    htmlFor="login-email"
-                    className="text-xs font-bold text-stone-700 block mb-1.5"
-                  >
-                    {isVi ? "Email" : "Email address"}
-                  </label>
-                  <input
-                    id="login-email"
-                    type="email"
-                    autoComplete="off"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    placeholder={
-                      adminEntry ? "admin@scms.com" : "manager@scms.com"
-                    }
-                    className="w-full h-10 px-3.5 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-red-100 transition-all"
-                  />
-                </div>
-
-                {/* Password field */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label
-                      htmlFor="login-password"
-                      className="text-xs font-bold text-stone-700"
-                    >
-                      {isVi ? "Mật khẩu" : "Password"}
-                    </label>
-                    {!adminEntry && (
-                      <button
-                        type="button"
-                        onClick={handleOpenForgotPassword}
-                        className="text-[11px] font-semibold text-[#BA0000] hover:underline cursor-pointer"
-                      >
-                        {isVi ? "Quên mật khẩu?" : "Forgot password?"}
-                      </button>
+                    {otpError && (
+                      <p className="mt-3 text-center text-xs font-semibold text-rose-600">
+                        {otpError}
+                      </p>
                     )}
                   </div>
-                  <div className="relative">
-                    <input
-                      id="login-password"
-                      type={showLoginPassword ? "text" : "password"}
-                      autoComplete="off"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full h-10 px-3.5 pr-10 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-stone-900 placeholder:text-stone-300 focus:outline-none focus:border-[#BA0000] focus:ring-2 focus:ring-red-100 transition-all"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowLoginPassword((v) => !v)}
-                      aria-label={
-                        showLoginPassword ? "Hide password" : "Show password"
-                      }
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
-                    >
-                      {showLoginPassword ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
 
-                {/* reCAPTCHA security verification widget */}
-                <div className="pt-1.5">
-                  <label className="text-xs font-bold text-stone-700 block mb-2">
-                    {isVi ? "Xác minh bảo mật" : "Security verification"}
-                  </label>
-                  <div className="bg-[#f9f9f9] border border-stone-300 rounded-[3px] p-3 flex items-center justify-between shadow-[0_1px_1px_rgba(0,0,0,0.06)] max-w-full">
-                    <div
-                      onClick={handleLoginCaptchaClick}
-                      className="flex items-center gap-3 cursor-pointer select-none group"
-                    >
-                      <div
-                        className={`w-7 h-7 rounded-[2px] border-2 flex items-center justify-center transition-all ${
-                          isLoginCaptchaChecked
-                            ? "bg-emerald-600 border-emerald-600 text-white"
-                            : isLoginCaptchaLoading
-                              ? "border-[#BA0000] bg-white"
-                              : "border-stone-300 bg-white group-hover:border-stone-400"
-                        }`}
-                      >
-                        {isLoginCaptchaChecked ? (
-                          <Check className="w-4 h-4 stroke-[3]" />
-                        ) : isLoginCaptchaLoading ? (
-                          <span className="animate-spin w-4 h-4 border-2 border-[#BA0000] border-t-transparent rounded-full" />
-                        ) : null}
-                      </div>
-                      <span className="text-xs text-stone-800 font-normal">
-                        {isVi
-                          ? "Tôi không phải là người máy"
-                          : "I'm not a robot"}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col items-center justify-center pl-4 shrink-0">
-                      <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none">
-                        <path
-                          d="M12 2a10 10 0 0 0-7.07 17.07l2.83-2.83A6 6 0 1 1 18 12h3a9 9 0 0 0-9-10z"
-                          fill="#4285F4"
-                        />
-                        <path
-                          d="M12 22a10 10 0 0 0 7.07-17.07l-2.83 2.83A6 6 0 1 1 6 12H3a9 9 0 0 0 9 10z"
-                          fill="#9AA0A6"
-                        />
-                      </svg>
-                      <span className="text-[9px] text-stone-500 font-bold tracking-tight leading-none mt-0.5">
-                        reCAPTCHA
-                      </span>
-                      <div className="text-[7.5px] text-stone-400 flex items-center gap-1 mt-0.5 leading-none">
-                        <span className="hover:underline cursor-pointer">
-                          {isVi ? "Bảo mật" : "Privacy"}
-                        </span>
-                        <span>-</span>
-                        <span className="hover:underline cursor-pointer">
-                          {isVi ? "Điều khoản" : "Terms"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Submit Button */}
-                <div className="pt-2">
                   <button
                     type="submit"
-                    disabled={isLoginLoading}
-                    className="w-full h-10 bg-[#181818] hover:bg-[#BA0000] active:bg-[#8E0000] disabled:bg-stone-500 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
+                    disabled={isOtpVerifying}
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-rose-700 disabled:bg-stone-400 cursor-pointer"
                   >
-                    {isLoginLoading ? (
-                      <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                    {isOtpVerifying ? (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : isVi ? (
+                      "Xác thực & Kích hoạt tài khoản"
                     ) : (
-                      <>
-                        <LogIn className="w-4 h-4" />
-                        <span>{isVi ? "Đăng nhập" : "Sign in"}</span>
-                      </>
+                      "Verify & Activate Account"
                     )}
                   </button>
-                </div>
-              </form>
+                </form>
 
-              {/* Switch to Register link */}
-              {!adminEntry && (
-                <div className="mt-6 text-center text-xs text-stone-500">
-                  <span>
-                    {isVi
-                      ? "Chưa có tài khoản?"
-                      : "Don't have an account?"}{" "}
-                  </span>
+                <div className="mt-7 flex flex-col items-center gap-3 text-xs text-mlc-muted">
+                  <div>
+                    <span>
+                      {isVi
+                        ? "Chưa nhận được mã?"
+                        : "Didn't receive the code?"}{" "}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isOtpResending || otpCountdown > 0}
+                      className="font-bold text-mlc-red hover:underline disabled:opacity-50 cursor-pointer"
+                      onClick={handleResendRegistrationOtp}
+                    >
+                      {isOtpResending
+                        ? isVi
+                          ? "Đang gửi lại..."
+                          : "Resending..."
+                        : otpCountdown > 0
+                          ? isVi
+                            ? `Gửi lại sau ${otpCountdown}s`
+                            : `Resend in ${otpCountdown}s`
+                          : isVi
+                            ? "Gửi lại mã"
+                            : "Resend"}
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
-                      setLoginError("")
-                      navigate("/register")
+                      setIsOtpMode(false)
+                      setOtpError("")
+                      setOtpNotice("")
                     }}
-                    className="text-[#BA0000] font-semibold hover:underline cursor-pointer"
+                    className="inline-flex items-center gap-1 font-semibold text-mlc-muted hover:text-mlc-ink cursor-pointer"
                   >
-                    {isVi ? "Đăng ký hội viên" : "Register membership"}
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    <span>
+                      {isVi
+                        ? "Quay lại chỉnh sửa thông tin"
+                        : "Back to registration"}
+                    </span>
                   </button>
                 </div>
-              )}
+              </div>
+            ) : (
+              /* ============================================================ */
+              /* MODE: REGISTER FORM                                          */
+              /* ============================================================ */
+              <div>
+                <div className="mb-5">
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-mlc-red">
+                    {isVi ? "THÀNH VIÊN MỚI" : "NEW MEMBERSHIP"}
+                  </p>
+                  <h2 className="font-display text-3xl sm:text-[34px] font-extrabold tracking-tight text-mlc-ink leading-tight">
+                    {isVi ? "Khởi tạo tài khoản" : "Create your member account"}
+                  </h2>
+                  <p className="mt-1.5 text-sm text-mlc-muted">
+                    {isVi
+                      ? "Chọn bộ môn yêu thích và hoàn tất thông tin để bắt đầu hành trình tại VIBE Sport."
+                      : "Pick your favorite sport and complete your profile to get started."}
+                  </p>
+                </div>
 
-              {/* Quick Demo Fill Helper */}
-              {!apiEnabled && (
-                <div className="mt-6 p-3.5 rounded-md border border-stone-200 bg-stone-50/70 flex items-center justify-between gap-3 text-xs">
+                {/* Smart Sport Onboarding Selector */}
+                <div className="mb-5">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-mlc-muted">
+                      {isVi
+                        ? "Bộ môn bạn quan tâm nhất"
+                        : "Your primary sport interest"}
+                    </span>
+                    <span className="text-[11px] font-semibold text-mlc-red">
+                      {isVi ? "Cá nhân hóa lộ trình" : "Personalized"}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SPORT_ONBOARDING_OPTIONS.map((sport) => {
+                      const active = selectedSportId === sport.id
+                      return (
+                        <button
+                          key={sport.id}
+                          type="button"
+                          onClick={() => setSelectedSportId(sport.id)}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                            active
+                              ? "border-mlc-red bg-mlc-red text-white shadow-sm"
+                              : "border-mlc-border bg-mlc-surface text-mlc-ink hover:border-stone-300"
+                          }`}
+                        >
+                          {isVi ? sport.labelVi : sport.labelEn}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {regErrors.general && (
+                  <div
+                    role="alert"
+                    className="mb-5 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50/80 p-3.5 text-xs text-rose-800"
+                  >
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+                    <span>{regErrors.general}</span>
+                  </div>
+                )}
+
+                <form
+                  onSubmit={handleRegister}
+                  autoComplete="off"
+                  className="space-y-4"
+                >
+                  {/* Full Name & Phone in 2 columns on desktop */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-bold text-mlc-ink">
+                        {isVi ? "Họ và tên" : "Full name"}
+                      </label>
+                      <div className="relative">
+                        <User className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-mlc-muted" />
+                        <input
+                          type="text"
+                          required
+                          autoComplete="off"
+                          value={regName}
+                          onChange={(e) => {
+                            setRegName(e.target.value)
+                            if (regErrors.name)
+                              setRegErrors((prev) => ({
+                                ...prev,
+                                name: undefined,
+                              }))
+                          }}
+                          placeholder={isVi ? "Nguyễn Văn A" : "Full name"}
+                          className={`h-11 w-full rounded-xl border bg-mlc-surface/60 pl-10 pr-3.5 text-sm text-mlc-ink placeholder:text-mlc-muted/60 transition-all focus:bg-white focus:outline-none focus:ring-4 ${
+                            regErrors.name
+                              ? "border-rose-500 focus:ring-rose-100"
+                              : "border-mlc-border focus:border-mlc-red focus:ring-mlc-red/10"
+                          }`}
+                        />
+                      </div>
+                      {regErrors.name && (
+                        <p className="mt-1 text-[11px] text-rose-600">
+                          {regErrors.name}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-bold text-mlc-ink">
+                        {isVi ? "Số điện thoại" : "Phone number"}
+                      </label>
+                      <div className="relative">
+                        <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-mlc-muted" />
+                        <input
+                          type="tel"
+                          required
+                          autoComplete="off"
+                          value={regPhone}
+                          onChange={(e) => {
+                            setRegPhone(e.target.value)
+                            if (regErrors.phone)
+                              setRegErrors((prev) => ({
+                                ...prev,
+                                phone: undefined,
+                              }))
+                          }}
+                          placeholder="0988 123 456"
+                          className={`h-11 w-full rounded-xl border bg-mlc-surface/60 pl-10 pr-3.5 text-sm text-mlc-ink placeholder:text-mlc-muted/60 transition-all focus:bg-white focus:outline-none focus:ring-4 ${
+                            regErrors.phone
+                              ? "border-rose-500 focus:ring-rose-100"
+                              : "border-mlc-border focus:border-mlc-red focus:ring-mlc-red/10"
+                          }`}
+                        />
+                      </div>
+                      {regErrors.phone && (
+                        <p className="mt-1 text-[11px] text-rose-600">
+                          {regErrors.phone}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Email */}
                   <div>
-                    <p className="text-[11px] font-bold text-stone-800">
-                      {isVi ? "Tài khoản trình diễn" : "Demo account"}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-stone-500 font-mono">
-                      {adminEntry ? "admin@scms.com" : DEMO_EMAIL} ·{" "}
-                      {DEMO_PASSWORD}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={fillDemoAccount}
-                    className="px-2.5 py-1.5 border border-stone-300 rounded text-[11px] font-bold text-stone-700 bg-white hover:bg-stone-50 whitespace-nowrap cursor-pointer transition-colors shadow-2xs"
-                  >
-                    {isVi ? "Điền lại" : "Fill"}
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : isOtpMode ? (
-            /* ============================================================ */
-            /* MODE: OTP VERIFICATION                                       */
-            /* ============================================================ */
-            <div className="max-w-md w-full mx-auto py-8">
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center text-stone-600 mx-auto mb-4">
-                  <Mail className="w-8 h-8" />
-                </div>
-                <h2 className="text-2xl font-extrabold text-stone-900 tracking-tight">
-                  {isVi ? "Xác thực Email" : "Email Verification"}
-                </h2>
-                <p className="text-xs sm:text-sm text-stone-500 mt-2 leading-relaxed">
-                  {isVi ? (
-                    <>
-                      Mã OTP 6 số đã được gửi tới{" "}
-                      <strong>{regEmail || "email của bạn"}</strong>. Vui lòng
-                      kiểm tra hộp thư đến hoặc mục thư rác.
-                    </>
-                  ) : (
-                    <>
-                      A 6-digit OTP has been sent to{" "}
-                      <strong>{regEmail || "your email"}</strong>. Please check
-                      your inbox or spam folder.
-                    </>
-                  )}
-                </p>
-              </div>
-
-              {otpNotice && (
-                <div
-                  role="status"
-                  className="mb-5 p-3 bg-emerald-50 border border-emerald-200 rounded-md flex items-start gap-2 text-emerald-800 text-xs"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>{otpNotice}</span>
-                </div>
-              )}
-
-              <form onSubmit={handleVerifyOtp} className="space-y-6">
-                <div>
-                  <div className="flex items-center justify-between gap-2 sm:gap-3">
-                    {otpCode.map((digit, index) => (
+                    <label className="mb-1.5 block text-xs font-bold text-mlc-ink">
+                      Email
+                    </label>
+                    <div className="relative">
+                      <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-mlc-muted" />
                       <input
-                        key={index}
-                        id={`otp-${index}`}
-                        type="text"
-                        inputMode="numeric"
-                        value={digit}
-                        onChange={(e) => handleOtpChange(index, e.target.value)}
-                        onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                        onFocus={(e) => e.target.select()}
-                        className={`w-10 h-12 sm:w-12 sm:h-14 text-center text-lg sm:text-xl font-black rounded-lg border focus:outline-none focus:ring-2 transition-all ${
-                          otpError
-                            ? "border-rose-500 focus:ring-rose-100 bg-rose-50/30 text-rose-600"
-                            : "border-stone-300 focus:border-[#BA0000] focus:ring-red-100 bg-white text-stone-900"
+                        type="email"
+                        required
+                        autoComplete="off"
+                        value={regEmail}
+                        onChange={(e) => {
+                          setRegEmail(e.target.value)
+                          if (regErrors.email)
+                            setRegErrors((prev) => ({
+                              ...prev,
+                              email: undefined,
+                            }))
+                        }}
+                        placeholder="name@example.com"
+                        className={`h-11 w-full rounded-xl border bg-mlc-surface/60 pl-10 pr-3.5 text-sm text-mlc-ink placeholder:text-mlc-muted/60 transition-all focus:bg-white focus:outline-none focus:ring-4 ${
+                          regErrors.email
+                            ? "border-rose-500 focus:ring-rose-100"
+                            : "border-mlc-border focus:border-mlc-red focus:ring-mlc-red/10"
                         }`}
-                        autoFocus={index === 0}
                       />
-                    ))}
+                    </div>
+                    {/* 1-Tap Email Domain Autocomplete Chips */}
+                    {(() => {
+                      const suggestions = buildEmailSuggestions(regEmail)
+                      if (suggestions.length === 0) return null
+                      return (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {suggestions.map((sug) => (
+                            <button
+                              key={sug}
+                              type="button"
+                              onClick={() => {
+                                setRegEmail(sug)
+                                if (regErrors.email)
+                                  setRegErrors((prev) => ({
+                                    ...prev,
+                                    email: undefined,
+                                  }))
+                              }}
+                              className="rounded-full border border-mlc-border bg-mlc-surface px-2.5 py-1 text-[11px] font-semibold text-mlc-ink transition hover:border-mlc-red/40 hover:bg-mlc-red/5 hover:text-mlc-red cursor-pointer"
+                            >
+                              {sug}
+                            </button>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                    {regErrors.email && (
+                      <p className="mt-1 text-[11px] text-rose-600">
+                        {regErrors.email}
+                      </p>
+                    )}
                   </div>
-                  {otpError && (
-                    <p className="text-xs text-rose-600 mt-3 text-center font-semibold">
-                      {otpError}
-                    </p>
-                  )}
-                </div>
 
-                <button
-                  type="submit"
-                  disabled={isOtpVerifying}
-                  className="w-full h-11 bg-[#BA0000] hover:bg-[#8E0000] active:bg-[#8E0000] disabled:bg-stone-400 text-white rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-md"
-                >
-                  {isOtpVerifying ? (
-                    <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                  ) : isVi ? (
-                    "Xác thực & Hoàn tất"
-                  ) : (
-                    "Verify & Complete"
-                  )}
-                </button>
-              </form>
+                  {/* Password & Confirm Password */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-bold text-mlc-ink">
+                        {isVi ? "Mật khẩu" : "Password"}
+                      </label>
+                      <div className="relative">
+                        <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-mlc-muted" />
+                        <input
+                          type={showRegPassword ? "text" : "password"}
+                          required
+                          autoComplete="new-password"
+                          value={regPassword}
+                          onChange={(e) => {
+                            setRegPassword(e.target.value)
+                            if (regErrors.password)
+                              setRegErrors((prev) => ({
+                                ...prev,
+                                password: undefined,
+                              }))
+                          }}
+                          onKeyUp={handleCapsLockCheck}
+                          onKeyDown={handleCapsLockCheck}
+                          placeholder={isVi ? "Tối thiểu 6 ký tự" : "6+ chars"}
+                          className={`h-11 w-full rounded-xl border bg-mlc-surface/60 pl-10 pr-9 text-sm text-mlc-ink placeholder:text-mlc-muted/60 transition-all focus:bg-white focus:outline-none focus:ring-4 ${
+                            regErrors.password
+                              ? "border-rose-500 focus:ring-rose-100"
+                              : "border-mlc-border focus:border-mlc-red focus:ring-mlc-red/10"
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowRegPassword((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-mlc-muted hover:text-mlc-ink cursor-pointer"
+                        >
+                          {showRegPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                      {regErrors.password && (
+                        <p className="mt-1 text-[11px] text-rose-600">
+                          {regErrors.password}
+                        </p>
+                      )}
+                    </div>
 
-              <div className="mt-8 flex flex-col items-center gap-3 text-xs text-stone-500">
-                <div>
-                  <span>
-                    {isVi
-                      ? "Chưa nhận được mã?"
-                      : "Didn't receive the code?"}{" "}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={isOtpResending}
-                    className="text-[#BA0000] font-semibold hover:underline disabled:opacity-50 cursor-pointer"
-                    onClick={handleResendRegistrationOtp}
-                  >
-                    {isOtpResending
-                      ? isVi
-                        ? "Đang gửi lại..."
-                        : "Resending..."
-                      : isVi
-                        ? "Gửi lại"
-                        : "Resend"}
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsOtpMode(false)
-                    setOtpError("")
-                    setOtpNotice("")
-                  }}
-                  className="inline-flex items-center gap-1 text-stone-500 hover:text-stone-800 font-medium cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>
-                    {isVi
-                      ? "Quay lại chỉnh sửa thông tin đăng ký"
-                      : "Back to edit registration info"}
-                  </span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* ============================================================ */
-            /* MODE: REGISTER FORM                                          */
-            /* ============================================================ */
-            <div className="max-w-md w-full mx-auto py-2">
-              {/* Header */}
-              <div className="mb-5">
-                <h2 className="text-2xl sm:text-[28px] font-extrabold text-stone-900 tracking-tight leading-tight">
-                  {isVi
-                    ? "Đăng ký & Nhận tập thử"
-                    : "Register & Get Free Trial"}
-                </h2>
-                <p className="text-xs sm:text-sm text-stone-500 mt-1.5">
-                  {isVi
-                    ? "Khởi tạo tài khoản ngay để nhận 1 buổi tập thử hoàn toàn miễn phí."
-                    : "Create your account now to claim 1 free trial session."}
-                </p>
-              </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-bold text-mlc-ink">
+                        {isVi ? "Nhập lại mật khẩu" : "Confirm password"}
+                      </label>
+                      <div className="relative">
+                        <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-mlc-muted" />
+                        <input
+                          type={showRegPassword ? "text" : "password"}
+                          required
+                          autoComplete="new-password"
+                          value={regConfirmPassword}
+                          onChange={(e) => {
+                            setRegConfirmPassword(e.target.value)
+                            if (regErrors.confirmPassword)
+                              setRegErrors((prev) => ({
+                                ...prev,
+                                confirmPassword: undefined,
+                              }))
+                          }}
+                          onKeyUp={handleCapsLockCheck}
+                          onKeyDown={handleCapsLockCheck}
+                          placeholder="••••••••"
+                          className={`h-11 w-full rounded-xl border bg-mlc-surface/60 pl-10 pr-3.5 text-sm text-mlc-ink placeholder:text-mlc-muted/60 transition-all focus:bg-white focus:outline-none focus:ring-4 ${
+                            regErrors.confirmPassword
+                              ? "border-rose-500 focus:ring-rose-100"
+                              : "border-mlc-border focus:border-mlc-red focus:ring-mlc-red/10"
+                          }`}
+                        />
+                      </div>
+                      {regErrors.confirmPassword && (
+                        <p className="mt-1 text-[11px] text-rose-600">
+                          {regErrors.confirmPassword}
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
-              {regErrors.general && (
-                <div
-                  role="alert"
-                  className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-md flex items-start gap-2 text-rose-800 text-xs"
-                >
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <span>{regErrors.general}</span>
-                </div>
-              )}
+                  {/* Subtle 4-bar Password Strength Meter */}
+                  {regPassword.length > 0 &&
+                    (() => {
+                      const strength = computePasswordStrength(
+                        regPassword,
+                        isVi,
+                      )
+                      return (
+                        <div className="space-y-1.5 pt-0.5">
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {[1, 2, 3, 4].map((bar) => (
+                              <div
+                                key={bar}
+                                className={`h-1 rounded-full transition-all ${
+                                  bar <= strength.score
+                                    ? strength.color
+                                    : "bg-stone-200"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-mlc-muted">
+                              {isVi ? "Độ mạnh mật khẩu" : "Password strength"}
+                            </span>
+                            <span className={`font-bold ${strength.textColor}`}>
+                              {strength.label}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })()}
 
-              {/* Form */}
-              <form
-                onSubmit={handleRegister}
-                autoComplete="off"
-                className="space-y-4"
-              >
-                {/* Full Name */}
-                <div>
-                  <input
-                    type="text"
-                    required
-                    autoComplete="off"
-                    value={regName}
-                    onChange={(e) => {
-                      setRegName(e.target.value)
-                      if (regErrors.name)
-                        setRegErrors((prev) => ({ ...prev, name: undefined }))
-                    }}
-                    placeholder={isVi ? "Họ và Tên *" : "Full Name *"}
-                    className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
-                      regErrors.name
-                        ? "border-rose-500"
-                        : "border-stone-300 focus:border-[#BA0000]"
-                    }`}
-                  />
-                  {regErrors.name && (
-                    <p className="text-[11px] text-rose-600 mt-1">
-                      {regErrors.name}
-                    </p>
-                  )}
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <input
-                    type="tel"
-                    required
-                    autoComplete="off"
-                    value={regPhone}
-                    onChange={(e) => {
-                      setRegPhone(e.target.value)
-                      if (regErrors.phone)
-                        setRegErrors((prev) => ({ ...prev, phone: undefined }))
-                    }}
-                    placeholder={isVi ? "Số điện thoại *" : "Phone Number *"}
-                    className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
-                      regErrors.phone
-                        ? "border-rose-500"
-                        : "border-stone-300 focus:border-[#BA0000]"
-                    }`}
-                  />
-                  {regErrors.phone && (
-                    <p className="text-[11px] text-rose-600 mt-1">
-                      {regErrors.phone}
-                    </p>
-                  )}
-                </div>
-
-                {/* Email */}
-                <div>
-                  <input
-                    type="email"
-                    required
-                    autoComplete="off"
-                    value={regEmail}
-                    onChange={(e) => {
-                      setRegEmail(e.target.value)
-                      if (regErrors.email)
-                        setRegErrors((prev) => ({ ...prev, email: undefined }))
-                    }}
-                    placeholder={isVi ? "Email" : "Email"}
-                    className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
-                      regErrors.email
-                        ? "border-rose-500"
-                        : "border-stone-300 focus:border-[#BA0000]"
-                    }`}
-                  />
-                  {regErrors.email && (
-                    <p className="text-[11px] text-rose-600 mt-1">
-                      {regErrors.email}
-                    </p>
-                  )}
-                </div>
-
-                {/* Password and Confirm Password */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="relative">
-                    <input
-                      type={showRegPassword ? "text" : "password"}
-                      required
-                      autoComplete="new-password"
-                      value={regPassword}
-                      onChange={(e) => {
-                        setRegPassword(e.target.value)
-                        if (regErrors.password)
-                          setRegErrors((prev) => ({
-                            ...prev,
-                            password: undefined,
-                          }))
-                      }}
-                      placeholder={isVi ? "Mật khẩu *" : "Password *"}
-                      className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 pr-8 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
-                        regErrors.password
-                          ? "border-rose-500"
-                          : "border-stone-300 focus:border-[#BA0000]"
-                      }`}
-                    />
+                  {/* Submit Button */}
+                  <div className="pt-2">
                     <button
-                      type="button"
-                      onClick={() => setShowRegPassword((v) => !v)}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
+                      type="submit"
+                      disabled={isRegLoading}
+                      className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-rose-700 disabled:bg-stone-400 cursor-pointer"
                     >
-                      {showRegPassword ? (
-                        <EyeOff className="w-4 h-4" />
+                      {isRegLoading ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                       ) : (
-                        <Eye className="w-4 h-4" />
+                        <>
+                          <span>
+                            {isVi
+                              ? "Đăng ký & Nhận mã OTP"
+                              : "Create Member Account"}
+                          </span>
+                          <ArrowRight className="h-4 w-4" />
+                        </>
                       )}
                     </button>
-                    {regErrors.password && (
-                      <p className="text-[11px] text-rose-600 mt-1">
-                        {regErrors.password}
-                      </p>
-                    )}
                   </div>
 
-                  <div className="relative">
-                    <input
-                      type={showRegPassword ? "text" : "password"}
-                      required
-                      autoComplete="new-password"
-                      value={regConfirmPassword}
-                      onChange={(e) => {
-                        setRegConfirmPassword(e.target.value)
-                        if (regErrors.confirmPassword)
-                          setRegErrors((prev) => ({
-                            ...prev,
-                            confirmPassword: undefined,
-                          }))
-                      }}
-                      placeholder={
-                        isVi ? "Xác nhận mật khẩu *" : "Confirm password *"
-                      }
-                      className={`w-full h-11 bg-transparent border-0 border-b-2 px-1 text-sm text-stone-900 placeholder:text-stone-500 focus:outline-none focus:ring-0 transition-all ${
-                        regErrors.confirmPassword
-                          ? "border-rose-500"
-                          : "border-stone-300 focus:border-[#BA0000]"
-                      }`}
-                    />
-                    {regErrors.confirmPassword && (
-                      <p className="text-[11px] text-rose-600 mt-1">
-                        {regErrors.confirmPassword}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* reCAPTCHA for registration */}
-                <div className="pt-2">
-                  <div className="bg-[#f9f9f9] border border-stone-300 rounded-[3px] p-2.5 flex items-center justify-between shadow-[0_1px_1px_rgba(0,0,0,0.06)] max-w-[300px]">
-                    <div
-                      onClick={handleRegCaptchaClick}
-                      className="flex items-center gap-3 cursor-pointer select-none group"
-                    >
-                      <div
-                        className={`w-6 h-6 rounded-[2px] border-2 flex items-center justify-center transition-all ${
-                          isRegCaptchaChecked
-                            ? "bg-emerald-600 border-emerald-600 text-white"
-                            : isRegCaptchaLoading
-                              ? "border-[#BA0000] bg-white"
-                              : "border-stone-300 bg-white group-hover:border-stone-400"
-                        }`}
-                      >
-                        {isRegCaptchaChecked ? (
-                          <Check className="w-3.5 h-3.5 stroke-[3]" />
-                        ) : isRegCaptchaLoading ? (
-                          <span className="animate-spin w-3.5 h-3.5 border-2 border-[#BA0000] border-t-transparent rounded-full" />
-                        ) : null}
-                      </div>
-                      <span className="text-xs text-stone-800 font-normal">
-                        {isVi
-                          ? "Tôi không phải là người máy"
-                          : "I'm not a robot"}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col items-center justify-center pl-4 shrink-0">
-                      <svg viewBox="0 0 24 24" className="w-7 h-7" fill="none">
-                        <path
-                          d="M12 2a10 10 0 0 0-7.07 17.07l2.83-2.83A6 6 0 1 1 18 12h3a9 9 0 0 0-9-10z"
-                          fill="#4285F4"
-                        />
-                        <path
-                          d="M12 22a10 10 0 0 0 7.07-17.07l-2.83 2.83A6 6 0 1 1 6 12H3a9 9 0 0 0 9 10z"
-                          fill="#9AA0A6"
-                        />
-                      </svg>
-                      <span className="text-[8px] text-stone-500 font-bold tracking-tight leading-none mt-0.5">
-                        reCAPTCHA
-                      </span>
-                    </div>
-                  </div>
-                  {regErrors.captcha && (
-                    <p className="text-[11px] text-rose-600 mt-1">
-                      {regErrors.captcha}
-                    </p>
-                  )}
-                </div>
-
-                {/* Submit Button */}
-                <div className="pt-4">
-                  <button
-                    type="submit"
-                    disabled={isRegLoading}
-                    className="w-1/2 min-w-[140px] h-12 bg-[#BA0000] hover:bg-[#8E0000] active:bg-[#8E0000] disabled:bg-stone-500 text-white text-sm font-black tracking-widest uppercase transition-colors cursor-pointer shadow-md"
-                  >
-                    {isRegLoading ? (
-                      <span className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto" />
-                    ) : isVi ? (
-                      "ĐĂNG KÝ"
+                  {/* Clean Privacy Link */}
+                  <p className="pt-2 text-center text-[11px] leading-relaxed text-mlc-muted">
+                    {isVi ? (
+                      <>
+                        Bằng việc đăng ký, bạn đồng ý với{" "}
+                        <Link
+                          to="/privacy-policy"
+                          className="font-semibold text-mlc-ink underline hover:text-mlc-red"
+                        >
+                          Chính sách bảo mật dữ liệu
+                        </Link>{" "}
+                        của VIBE Sport.
+                      </>
                     ) : (
-                      "REGISTER"
+                      <>
+                        By registering, you agree to the VIBE Sport{" "}
+                        <Link
+                          to="/privacy-policy"
+                          className="font-semibold text-mlc-ink underline hover:text-mlc-red"
+                        >
+                          Privacy Policy
+                        </Link>
+                        .
+                      </>
                     )}
-                  </button>
-                </div>
+                  </p>
+                </form>
 
-                {/* Disclaimer */}
-                <div className="pt-6 text-[11px] text-stone-500 leading-relaxed text-justify px-1 font-medium">
-                  {isVi ? (
-                    <>
-                      Bằng việc nhấn "ĐĂNG KÝ", bạn xác nhận đã đọc và đồng ý
-                      với{" "}
-                      <a
-                        href="/privacy-policy"
-                        className="text-stone-800 hover:text-[#BA0000] font-bold underline transition-colors"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Chính sách bảo vệ dữ liệu cá nhân của VIBE Sport
-                      </a>{" "}
-                      và đồng ý cho chúng tôi xử lý thông tin bạn cung cấp để
-                      liên hệ, sắp xếp lịch trải nghiệm miễn phí.
-                    </>
-                  ) : (
-                    <>
-                      By clicking "REGISTER", you agree to the{" "}
-                      <a
-                        href="/privacy-policy"
-                        className="text-stone-800 hover:text-[#BA0000] font-bold underline transition-colors"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        VIBE Sport Privacy Policy
-                      </a>{" "}
-                      and consent to us processing your information to arrange
-                      your free trial session.
-                    </>
-                  )}
-                </div>
-              </form>
-
-              {/* Switch back to Login */}
-              <div className="mt-5 text-center text-xs text-stone-500">
-                <span>
+                {/* Switch back to Login */}
+                <p className="mt-6 text-center text-xs text-mlc-muted">
                   {isVi ? "Đã có tài khoản?" : "Already have an account?"}{" "}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRegErrors({})
-                    navigate("/login")
-                  }}
-                  className="text-[#BA0000] font-semibold hover:underline cursor-pointer"
-                >
-                  {isVi ? "Đăng nhập ngay" : "Sign in now"}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRegErrors({})
+                      navigate("/login")
+                    }}
+                    className="font-bold text-mlc-red hover:underline cursor-pointer"
+                  >
+                    {isVi ? "Đăng nhập ngay" : "Sign in"}
+                  </button>
+                </p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
+          <div className="h-4" />
         </div>
       </div>
 
@@ -2055,38 +2489,38 @@ export function LoginView({
       {/* EXTRA LANDING PAGE SECTIONS FOR REGISTER MODE                */}
       {/* ============================================================ */}
       {authMode === "register" && !isOtpMode && !registeredSuccessData && (
-        <div className="bg-white text-stone-900 flex-1 relative z-20">
-          {/* Section: Benefits (Friend's Exact Layout Adapted with SCMS Content) */}
+        <div className="bg-white text-mlc-ink flex-1 relative z-20">
+          {/* Section: Benefits (Synchronized with HomeLandingView Editorial Palette) */}
           <section
             ref={scrollRef}
-            className="w-full bg-[#171513] relative h-[360vh]"
+            className="w-full bg-mlc-ink relative h-[360vh]"
           >
-            <div className="sticky top-0 h-screen w-full overflow-hidden flex flex-col justify-center gap-10 py-12 border-t border-stone-800">
+            <div className="sticky top-0 h-screen w-full overflow-hidden flex flex-col justify-center gap-10 py-12 border-t border-white/10">
               {/* Background Text Overlay */}
               <div
-                className="absolute top-1/2 -translate-y-1/2 text-[20vw] font-black text-white/[0.02] whitespace-nowrap pointer-events-none"
+                className="font-display absolute top-1/2 -translate-y-1/2 text-[20vw] font-black text-white/[0.03] whitespace-nowrap pointer-events-none"
                 style={{
                   transform: `translate(calc(10% - ${scrollProgress * 70}%), -50%)`,
                 }}
               >
-                QUYỀN LỢI
+                VIBE SPORT
               </div>
 
-              {/* Progress Bar (Friend's Style) */}
+              {/* Section Header + Progress Bar */}
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full shrink-0 relative z-10">
-                <span className="text-[#D62323] font-bold tracking-widest uppercase text-xs sm:text-sm mb-4 block">
-                  Quyền lợi hội viên
+                <span className="coaches-eyebrow mb-3 block">
+                  {isVi ? "ĐẶC QUYỀN HỘI VIÊN" : "MEMBER PRIVILEGES"}
                 </span>
-                <h2 className="text-4xl md:text-5xl lg:text-[64px] font-black text-stone-100 tracking-tight leading-[1.1] max-w-3xl mb-8">
-                  {isVi ? "Bạn nhận được gì " : "What you get with "}
-                  <span className="text-white">
+                <h2 className="font-display text-4xl md:text-5xl lg:text-[60px] font-extrabold text-white tracking-tight leading-[1.06] max-w-3xl mb-7 uppercase">
+                  {isVi ? "Bạn nhận được gì " : "What you unlock at "}
+                  <span className="text-mlc-red">
                     {isVi ? "tại VIBE Sport." : "VIBE Sport."}
                   </span>
                 </h2>
                 {/* Progress bar inside header */}
-                <div className="w-[120px] h-1 bg-white/10 rounded-full overflow-hidden">
+                <div className="w-[140px] h-1.5 bg-white/10 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#BA0000] transition-all duration-75 ease-out"
+                    className="h-full bg-mlc-red transition-all duration-75 ease-out"
                     style={{ width: `${scrollProgress * 100}%` }}
                   />
                 </div>
@@ -2103,193 +2537,197 @@ export function LoginView({
                 }}
               >
                 {/* Card 1 */}
-                <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/10 hover:-translate-y-1.5 flex-shrink-0">
+                <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/[0.04] border border-white/12 rounded-2xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/[0.08] hover:-translate-y-1.5 flex-shrink-0">
                   <div className="flex items-baseline justify-between mb-10">
-                    <span className="text-[#D62323] font-bold text-sm tracking-[0.1em] uppercase">
-                      {isVi ? "THỂ HÌNH" : "FITNESS"}
+                    <span className="text-mlc-red font-bold text-xs tracking-[0.16em] uppercase">
+                      {isVi ? "9 BỘ MÔN THỂ THAO" : "9 SPORTS COURSES"}
                     </span>
-                    <span className="text-5xl font-extrabold text-white/20 leading-none">
+                    <span className="font-display text-5xl font-extrabold text-white/15 leading-none">
                       01
                     </span>
                   </div>
-                  <h3 className="text-3xl sm:text-[40px] font-black text-white uppercase leading-[1.08] mb-3">
+                  <h3 className="font-display text-3xl sm:text-[36px] font-extrabold text-white uppercase leading-[1.08] mb-3">
                     {isVi
-                      ? "Trang thiết bị chuẩn quốc tế"
-                      : "World-class Equipment"}
+                      ? "Tổ hợp sân bãi chuẩn quốc tế"
+                      : "World-class Sport Courts"}
                   </h3>
-                  <p className="text-white/70 text-[15.5px] leading-[1.55] mb-6">
+                  <p className="text-white/70 text-[15px] leading-[1.6] mb-6">
                     {isVi
-                      ? "Mở khóa 100% quyền truy cập vào không gian tập luyện hiện đại. Hệ thống máy tập đa năng, khu cardio và tạ tự do được nhập khẩu trực tiếp."
-                      : "Unlock 100% access to modern workout spaces. Multi-functional machines, cardio zones, and free weights imported directly."}
+                      ? "Trải nghiệm trọn vẹn 9 bộ môn từ Cầu lông, Pickleball, Bơi lội 4 mùa đến Bắn cung, Quần vợt và Bóng rổ trong cùng một hệ sinh thái."
+                      : "Experience 9 sports from Badminton, Pickleball, and 4-season Swimming to Archery, Tennis, and Basketball."}
                   </p>
                   <ul className="border-t border-white/10 pt-2 flex-1 flex flex-col">
-                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">
+                    <li className="py-2.5 text-[14px] text-white/80 border-b border-white/10">
                       {isVi
-                        ? "Không giới hạn thời gian tập"
-                        : "Unlimited training time"}
+                        ? "Check-in QR 60s tự động tại cổng"
+                        : "60s Dynamic QR Gate Check-in"}
                     </li>
-                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">
+                    <li className="py-2.5 text-[14px] text-white/80 border-b border-white/10">
                       {isVi
-                        ? "Phòng tắm, xông hơi cao cấp"
-                        : "Premium sauna & shower"}
+                        ? "Phòng tắm, xông hơi & Locker thông minh"
+                        : "Premium sauna, shower & smart lockers"}
                     </li>
-                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">
+                    <li className="py-2.5 text-[14px] text-white/80 border-b border-white/10">
                       {isVi
-                        ? "Khăn tập & tủ đồ miễn phí"
-                        : "Free towels & lockers"}
+                        ? "Mặt sân thảm BWF & chuẩn thi đấu DUPR"
+                        : "BWF & DUPR standard court surfaces"}
                     </li>
-                    <li className="py-2.5 text-[14.5px] text-white/80">
-                      {isVi ? "Bãi giữ xe rộng rãi" : "Spacious parking"}
+                    <li className="py-2.5 text-[14px] text-white/80">
+                      {isVi
+                        ? "Mở cửa xuyên suốt 05:30 – 22:00 mỗi ngày"
+                        : "Open daily 05:30 – 22:00"}
                     </li>
                   </ul>
                 </div>
 
                 {/* Card 2 */}
-                <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/10 hover:-translate-y-1.5 flex-shrink-0">
+                <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/[0.04] border border-white/12 rounded-2xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/[0.08] hover:-translate-y-1.5 flex-shrink-0">
                   <div className="flex items-baseline justify-between mb-10">
-                    <span className="text-[#D62323] font-bold text-sm tracking-[0.1em] uppercase">
-                      {isVi ? "LỚP NHÓM" : "GROUP CLASSES"}
+                    <span className="text-mlc-red font-bold text-xs tracking-[0.16em] uppercase">
+                      {isVi ? "LỊCH LỚP LINH HOẠT" : "FLEXIBLE SCHEDULES"}
                     </span>
-                    <span className="text-5xl font-extrabold text-white/20 leading-none">
+                    <span className="font-display text-5xl font-extrabold text-white/15 leading-none">
                       02
                     </span>
                   </div>
-                  <h3 className="text-3xl sm:text-[40px] font-black text-white uppercase leading-[1.08] mb-3">
+                  <h3 className="font-display text-3xl sm:text-[36px] font-extrabold text-white uppercase leading-[1.08] mb-3">
                     {isVi
-                      ? "Hơn 50+ lớp học mỗi tuần"
-                      : "Over 50+ classes weekly"}
+                      ? "Đặt lịch tập trực tuyến tức thì"
+                      : "Instant Online Class Booking"}
                   </h3>
-                  <p className="text-white/70 text-[15.5px] leading-[1.55] mb-6">
+                  <p className="text-white/70 text-[15px] leading-[1.6] mb-6">
                     {isVi
-                      ? "Trải nghiệm mọi lớp học nhóm đỉnh cao không giới hạn số buổi. Tham gia cùng cộng đồng năng động dưới sự dẫn dắt chuyên nghiệp."
-                      : "Experience unlimited top-tier group classes. Join an active community under professional guidance."}
+                      ? "Chủ động chọn khung giờ sáng, chiều, tối phù hợp với nhịp sống cá nhân và theo dõi lịch tập trực quan ngay trên cổng Hội viên."
+                      : "Pick morning, afternoon, or evening slots that fit your routine and manage your calendar online."}
                   </p>
                   <ul className="border-t border-white/10 pt-2 flex-1 flex flex-col">
-                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">
-                      {isVi ? "Yoga, Pilates tĩnh tâm" : "Yoga & Pilates"}
-                    </li>
-                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">
+                    <li className="py-2.5 text-[14px] text-white/80 border-b border-white/10">
                       {isVi
-                        ? "Zumba, Aerobic sôi động"
-                        : "Dynamic Zumba & Aerobics"}
+                        ? "Kiểm tra sĩ số lớp theo thời gian thực"
+                        : "Real-time class capacity check"}
                     </li>
-                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">
+                    <li className="py-2.5 text-[14px] text-white/80 border-b border-white/10">
                       {isVi
-                        ? "Boxing, Kickfit đốt mỡ"
-                        : "Fat-burning Boxing & Kickfit"}
+                        ? "Tự động cảnh báo trùng ca tập"
+                        : "Automatic schedule conflict detection"}
                     </li>
-                    <li className="py-2.5 text-[14.5px] text-white/80">
+                    <li className="py-2.5 text-[14px] text-white/80 border-b border-white/10">
                       {isVi
-                        ? "Đặt chỗ trước qua ứng dụng"
-                        : "Pre-booking via app"}
+                        ? "Nhắc lịch tập & thông báo thay đổi sân"
+                        : "Session reminders & court updates"}
+                    </li>
+                    <li className="py-2.5 text-[14px] text-white/80">
+                      {isVi
+                        ? "Chuyển đổi ca tập linh hoạt"
+                        : "Flexible session rescheduling"}
                     </li>
                   </ul>
                 </div>
 
                 {/* Card 3 */}
-                <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/10 hover:-translate-y-1.5 flex-shrink-0">
+                <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/[0.04] border border-white/12 rounded-2xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/[0.08] hover:-translate-y-1.5 flex-shrink-0">
                   <div className="flex items-baseline justify-between mb-10">
-                    <span className="text-[#D62323] font-bold text-sm tracking-[0.1em] uppercase">
-                      {isVi ? "HUẤN LUYỆN VIÊN" : "PERSONAL TRAINERS"}
+                    <span className="text-mlc-red font-bold text-xs tracking-[0.16em] uppercase">
+                      {isVi ? "HUẤN LUYỆN VIÊN & INBODY" : "COACHES & INBODY"}
                     </span>
-                    <span className="text-5xl font-extrabold text-white/20 leading-none">
+                    <span className="font-display text-5xl font-extrabold text-white/15 leading-none">
                       03
                     </span>
                   </div>
-                  <h3 className="text-3xl sm:text-[40px] font-black text-white uppercase leading-[1.08] mb-3">
-                    {isVi ? "Đồng hành chuyên sâu" : "In-depth guidance"}
+                  <h3 className="font-display text-3xl sm:text-[36px] font-extrabold text-white uppercase leading-[1.08] mb-3">
+                    {isVi ? "Đồng hành chuyên sâu" : "In-depth Coaching"}
                   </h3>
-                  <p className="text-white/70 text-[15.5px] leading-[1.55] mb-6">
+                  <p className="text-white/70 text-[15px] leading-[1.6] mb-6">
                     {isVi
-                      ? "Sự tiến bộ của bạn luôn được theo dõi sát sao. HLV ghi lại chỉ số, thiết kế lộ trình dinh dưỡng và tập luyện cá nhân hóa."
-                      : "Your progress is closely monitored. PTs record metrics and design personalized nutrition & workout plans."}
+                      ? "Đội ngũ HLV trưởng giàu kinh nghiệm thi đấu trực tiếp hướng dẫn kỹ thuật, ghi nhận chỉ số InBody và đánh giá tiến độ sau mỗi buổi tập."
+                      : "Experienced head coaches guide your technique, record InBody metrics, and review your progress."}
                   </p>
                   <ul className="border-t border-white/10 pt-2 flex-1 flex flex-col">
-                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">
+                    <li className="py-2.5 text-[14px] text-white/80 border-b border-white/10">
                       {isVi
-                        ? "Đo chỉ số cơ thể InBody miễn phí"
-                        : "Free InBody scans"}
+                        ? "Phân tích cơ – mỡ – nước InBody định kỳ"
+                        : "Periodic InBody body composition scans"}
                     </li>
-                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">
+                    <li className="py-2.5 text-[14px] text-white/80 border-b border-white/10">
                       {isVi
-                        ? "Thiết kế thực đơn dinh dưỡng"
-                        : "Nutrition planning"}
+                        ? "Nhận xét chuyên môn sau từng buổi học"
+                        : "Coach feedback after every session"}
                     </li>
-                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">
+                    <li className="py-2.5 text-[14px] text-white/80 border-b border-white/10">
                       {isVi
-                        ? "Theo dõi tiến độ hàng tuần"
-                        : "Weekly progress tracking"}
+                        ? "Lộ trình từ Cơ bản đến Nâng cao"
+                        : "Structured Beginner to Pro pathways"}
                     </li>
-                    <li className="py-2.5 text-[14.5px] text-white/80">
+                    <li className="py-2.5 text-[14px] text-white/80">
                       {isVi
-                        ? "Sửa lỗi sai tư thế tức thì"
-                        : "Instant posture correction"}
+                        ? "Tư vấn dinh dưỡng & phục hồi thể lực"
+                        : "Nutrition & recovery guidance"}
                     </li>
                   </ul>
                 </div>
 
                 {/* Card 4 */}
-                <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/10 hover:-translate-y-1.5 flex-shrink-0">
+                <div className="w-[320px] sm:w-[400px] lg:w-[440px] bg-white/[0.04] border border-white/12 rounded-2xl p-6 sm:p-8 flex flex-col relative transition-all hover:bg-white/[0.08] hover:-translate-y-1.5 flex-shrink-0">
                   <div className="flex items-baseline justify-between mb-10">
-                    <span className="text-[#D62323] font-bold text-sm tracking-[0.1em] uppercase">
-                      {isVi ? "ĐẶC QUYỀN" : "PRIVILEGES"}
+                    <span className="text-mlc-red font-bold text-xs tracking-[0.16em] uppercase">
+                      {isVi ? "CỘNG ĐỒNG VIBE SPORT" : "VIBE SPORT COMMUNITY"}
                     </span>
-                    <span className="text-5xl font-extrabold text-white/20 leading-none">
+                    <span className="font-display text-5xl font-extrabold text-white/15 leading-none">
                       04
                     </span>
                   </div>
-                  <h3 className="text-3xl sm:text-[40px] font-black text-white uppercase leading-[1.08] mb-3">
-                    {isVi ? "Ưu đãi hội viên" : "Member Perks"}
+                  <h3 className="font-display text-3xl sm:text-[36px] font-extrabold text-white uppercase leading-[1.08] mb-3">
+                    {isVi ? "Đặc quyền hội viên" : "Member Perks"}
                   </h3>
-                  <p className="text-white/70 text-[15.5px] leading-[1.55] mb-6">
+                  <p className="text-white/70 text-[15px] leading-[1.6] mb-6">
                     {isVi
-                      ? "Trở thành một phần của VIBE Sport và tận hưởng hàng ngàn quyền lợi độc quyền từ các đối tác về phong cách sống, ẩm thực."
-                      : "Become part of VIBE Sport and enjoy exclusive perks from our lifestyle, food, and shopping partners."}
+                      ? "Tham gia giải đấu nội bộ hàng quý, kết nối bạn tập cùng trình độ và nhận ưu đãi khi gia hạn gói tập hoặc đăng ký đa bộ môn."
+                      : "Join quarterly club tournaments, connect with training partners, and unlock multi-sport perks."}
                   </p>
                   <ul className="border-t border-white/10 pt-2 flex-1 flex flex-col">
-                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">
+                    <li className="py-2.5 text-[14px] text-white/80 border-b border-white/10">
                       {isVi
-                        ? "Bảo hiểm cá nhân 1 tỷ đồng"
-                        : "1B VND Personal Insurance"}
+                        ? "Giải giao hữu Cầu lông & Pickleball hàng quý"
+                        : "Quarterly Badminton & Pickleball mixers"}
                     </li>
-                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">
+                    <li className="py-2.5 text-[14px] text-white/80 border-b border-white/10">
                       {isVi
-                        ? "Giảm 20% tại chuỗi Supplements"
-                        : "20% off at Supplement stores"}
+                        ? "Thanh toán VietQR minh bạch, tức thì"
+                        : "Instant VietQR digital billing"}
                     </li>
-                    <li className="py-2.5 text-[14.5px] text-white/80 border-b border-white/10">
+                    <li className="py-2.5 text-[14px] text-white/80 border-b border-white/10">
                       {isVi
-                        ? "Sự kiện giao lưu hội viên hàng quý"
-                        : "Quarterly member events"}
+                        ? "Hỗ trợ bảo lưu gói tập linh hoạt"
+                        : "Flexible membership freeze options"}
                     </li>
-                    <li className="py-2.5 text-[14.5px] text-white/80">
+                    <li className="py-2.5 text-[14px] text-white/80">
                       {isVi
-                        ? "Tặng voucher đối tác TTTM"
-                        : "Partner mall vouchers"}
+                        ? "Ưu đãi đặc biệt cho học sinh, sinh viên"
+                        : "Special student & youth privileges"}
                     </li>
                   </ul>
                 </div>
 
                 {/* End Card */}
-                <div className="w-[320px] sm:w-[400px] lg:w-[460px] bg-[#BA0000] border border-[#BA0000] rounded-xl p-8 sm:p-10 flex flex-col justify-center items-start relative transition-all flex-shrink-0 shadow-lg">
-                  <h3 className="text-4xl sm:text-[44px] font-black text-white uppercase leading-[1.08] mb-4">
+                <div className="w-[320px] sm:w-[400px] lg:w-[460px] bg-mlc-red border border-mlc-red rounded-2xl p-8 sm:p-10 flex flex-col justify-center items-start relative transition-all flex-shrink-0 shadow-mlc">
+                  <h3 className="font-display text-4xl sm:text-[42px] font-extrabold text-white uppercase leading-[1.06] mb-4">
                     {isVi
-                      ? "Trải nghiệm ngay hôm nay"
+                      ? "Sẵn sàng bứt phá hôm nay"
                       : "Start your journey today"}
                   </h3>
-                  <p className="text-white/90 text-[15.5px] leading-[1.55] mb-8 font-medium">
+                  <p className="text-white/90 text-[15px] leading-[1.6] mb-8 font-medium">
                     {isVi
-                      ? "Tạo tài khoản miễn phí để nhận ngay ưu đãi tập thử tại toàn bộ hệ thống VIBE Sport. Không ràng buộc, không phí ẩn."
-                      : "Create a free account to receive an exclusive trial pass at any VIBE Sport center. No commitments, no hidden fees."}
+                      ? "Tạo tài khoản trực tuyến chỉ trong 30 giây để mở khóa cổng Hội viên VIBE Sport và đặt lịch tập ngay hôm nay."
+                      : "Create your online account in 30 seconds to unlock the VIBE Sport Member Portal and book your first session."}
                   </p>
                   <button
                     type="button"
                     onClick={() => {
                       window.scrollTo({ top: 0, behavior: "smooth" })
                     }}
-                    className="bg-[#181818] hover:bg-[#323232] text-white font-bold py-3 px-6 rounded flex items-center gap-2 transition-all group cursor-pointer"
+                    className="bg-mlc-ink hover:bg-stone-900 text-white font-bold py-3.5 px-7 rounded-full flex items-center gap-2 transition-all group cursor-pointer"
                   >
-                    {isVi ? "Đăng ký ngay" : "Register now"}{" "}
+                    {isVi ? "Lên đầu trang đăng ký" : "Back to registration"}{" "}
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </button>
                 </div>
@@ -2297,7 +2735,7 @@ export function LoginView({
             </div>
           </section>
 
-          {/* Section: Footer (California Style) */}
+          {/* Section: Footer */}
           <PublicFooter />
         </div>
       )}

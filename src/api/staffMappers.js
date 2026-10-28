@@ -1,4 +1,5 @@
 import { asNumber } from "./mappers.js"
+import { resolveCoachAvatar } from "../data/publicCoaches.js"
 
 export const STAFF_ROLE_MAP = {
   // Coach
@@ -54,6 +55,12 @@ const NAME_VI_CORRECTIONS = {
   "Tran Thi Huong": "Trần Thị Hương",
   "Le Minh Khoa": "Lê Minh Khoa",
   "Pham Thi Lan": "Phạm Thị Lan",
+  "Tran Anh Dung": "Trần Anh Dũng",
+  "Nguyen Van Hoang": "Nguyễn Văn Hoàng",
+  "Le Nguyen Thien Phuc": "Lê Nguyễn Thiên Phúc",
+  "Le Phuong Anh": "Lê Phương Anh",
+  "Le Tran Phi": "Lê Trần Phi",
+  "Huynh Diem My": "Huỳnh Diễm My",
   "Do Thi Mai": "Đỗ Thị Mai",
   "Vu Van Nam": "Vũ Văn Nam",
   "Nguyen Van An": "Nguyễn Văn An",
@@ -75,6 +82,9 @@ export function mapStaff(dto) {
       ? String(dto.fullName).trim()
       : ""
   const name = NAME_VI_CORRECTIONS[rawName] || rawName
+  const avatarUrl =
+    dto.avatarUrl ||
+    (role === "coach" ? resolveCoachAvatar({ id, name, specialization }) : null)
 
   return {
     id,
@@ -87,6 +97,7 @@ export function mapStaff(dto) {
     specialization,
     specializationVi: dto.specializationVi || specialization,
     specialty: specialization, // Backward-compatible alias for existing views
+    avatarUrl,
     status: normalizeStaffStatus(rawStatus, "active"),
     rawStatus,
     activeClassesCount: asNumber(dto.activeClassesCount) || 0,
