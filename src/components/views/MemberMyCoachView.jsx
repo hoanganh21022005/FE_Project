@@ -26,8 +26,15 @@ import {
 import { useSCMS } from "../../context/SCMSContext"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { membershipApi } from "../../api/membershipApi"
+import { invoiceApi } from "../../api/invoiceApi"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { getErrorMessage } from "../../api/apiErrors"
+import {
+  publicCoaches,
+  findPublicCoachMatch,
+  resolveCoachAvatar,
+  filterOfficialPublicCoaches,
+} from "../../data/publicCoaches"
 
 export function MemberMyCoachView() {
   const { language, currentUser, subjects, apiEnabled, showToast } = useSCMS()
@@ -101,52 +108,22 @@ export function MemberMyCoachView() {
         const list = await memberPortalApi.getCoaches({
           keyword: keyword.trim() || undefined,
         })
-        setCoaches(Array.isArray(list) ? list : [])
+        const rawList = Array.isArray(list) ? list : []
+        setCoaches(filterOfficialPublicCoaches(rawList))
       } else {
-        // Mock fallback
-        setCoaches([
-          {
-            id: 1,
-            name: "Nguyễn Văn Hùng",
-            email: "hung.coach@scms.com",
-            phone: "0912 345 678",
-            bio: "Hơn 7 năm kinh nghiệm huấn luyện thể chất chuyên sâu, từng đạt HCB Cúp Boxing toàn quốc.",
-            specializations: [
-              "Boxing & Kickfit",
-              "Strength Training",
-              "Cardio Conditioning",
-            ],
+        // Mock fallback synced with publicCoaches roster (/images/coaches/*.jpg)
+        setCoaches(
+          publicCoaches.map((pc, idx) => ({
+            id: idx + 1,
+            name: pc.name,
+            email: `${pc.sportId.replace("-", "")}.coach@vibesport.vn`,
+            phone: `090${idx + 1} 234 56${idx}`,
+            bio: `Huấn luyện viên trưởng bộ môn ${pc.specialtyVi} tại VIBE Sport Center.`,
+            specializations: [pc.specialtyVi],
             status: "ACTIVE",
-            avatarUrl:
-              "https://images.unsplash.com/photo-1567013127542-490d757e51fc?w=300&auto=format&fit=crop&q=80",
-          },
-          {
-            id: 2,
-            name: "Lê Thị Mai",
-            email: "mai.coach@scms.com",
-            phone: "0987 654 321",
-            bio: "Chuyên gia Yoga & Pilates phục hồi chức năng, chứng chỉ Quốc tế RYT-500.",
-            specializations: [
-              "Yoga Flow",
-              "Pilates Reformer",
-              "Rehabilitation",
-            ],
-            status: "ACTIVE",
-            avatarUrl:
-              "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&auto=format&fit=crop&q=80",
-          },
-          {
-            id: 3,
-            name: "Đặng Tuấn Anh",
-            email: "tuananh.coach@scms.com",
-            phone: "0903 112 233",
-            bio: "HLV chuyên sâu Cầu lông & Thể lực sức bền, cựu VĐV đội tuyển trẻ.",
-            specializations: ["Badminton", "Pickleball", "Agility & Speed"],
-            status: "ACTIVE",
-            avatarUrl:
-              "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
-          },
-        ])
+            avatarUrl: pc.image,
+          })),
+        )
       }
     } catch (err) {
       setCoachesError(
@@ -189,9 +166,10 @@ export function MemberMyCoachView() {
       membershipApi
         .getMemberSubscriptions(memberProfileId)
         .then((subs) => {
-          const valid = (Array.isArray(subs) ? subs : []).filter(
-            (s) => s.status === "active" || s.status === "grace_period",
-          )
+          const valid = (Array.isArray(subs) ? subs : []).filter((s) => {
+            const st = String(s?.status || "").toLowerCase()
+            return st === "active" || st === "grace_period"
+          })
           setSubscriptions(valid)
           if (valid.length > 0)
             setSelectedSubscriptionId(
@@ -362,11 +340,35 @@ export function MemberMyCoachView() {
       })
       showToast?.(
         isVi
-          ? `Đã tạo đơn thanh toán (${orderRes?.invoiceCode || paymentMethod}) thành công!`
-          : "Created payment order successfully!",
+          ? `Đã tạo đơn thanh toán (${orderRes?.invoiceCode || paymentMethod}) thành công! Hạn thanh toán: 5 phút.`
+          : "Created payment order! 5-minute payment window active.",
         "success",
       )
-      fetchAdvancedRegistrations()
+      await fetchAdvancedRegistrations()
+      if (memberProfileId) {
+        membershipApi
+          .getMemberSubscriptions(memberProfileId)
+          .then((subs) => {
+            const valid = (Array.isArray(subs) ? subs : []).filter((s) => {
+              const st = String(s?.status || "").toLowerCase()
+              return st === "active" || st === "grace_period"
+            })
+            setSubscriptions(valid)
+          })
+          .catch(() => {})
+      }
+      if (String(paymentMethod).toLowerCase() === "vnpay") {
+        let paymentUrl = orderRes?.paymentUrl || null
+        if (!paymentUrl && orderRes?.invoiceId) {
+          const checkout = await invoiceApi
+            .payInvoiceOnline(orderRes.invoiceId)
+            .catch(() => null)
+          paymentUrl = checkout?.paymentUrl || null
+        }
+        if (paymentUrl && typeof window !== "undefined") {
+          window.location.assign(paymentUrl)
+        }
+      }
     } catch (err) {
       showToast?.(
         getErrorMessage(
@@ -382,9 +384,45 @@ export function MemberMyCoachView() {
     }
   }
 
-  // 4. Fetch Available Slots when Coach & Date are chosen (GET /api/sessions/coaches/{coachId}/available-slots)
+  const handleConfirmAlternativeCoach = async (reg, accept) => {
+    if (!reg?.id) return
+    setOrderingRegId(reg.id)
+    try {
+      await memberPortalApi.confirmAlternativeCoach(reg.id, {
+        accept: Boolean(accept),
+        note: accept
+          ? "Đồng ý học với HLV thay thế"
+          : "Không đồng ý HLV thay thế",
+      })
+      showToast?.(
+        accept
+          ? isVi
+            ? "Đã xác nhận đồng ý HLV thay thế! Bạn có thể tiến hành tạo đơn thanh toán."
+            : "Alternative coach confirmed! You may now proceed to payment."
+          : isVi
+            ? "Đã từ chối HLV thay thế."
+            : "Alternative coach declined.",
+        accept ? "success" : "info",
+      )
+      await fetchAdvancedRegistrations()
+    } catch (err) {
+      showToast?.(
+        getErrorMessage(
+          err,
+          isVi
+            ? "Không thể xác nhận HLV thay thế."
+            : "Could not confirm alternative coach.",
+        ),
+        "error",
+      )
+    } finally {
+      setOrderingRegId(null)
+    }
+  }
+
+  // 4. Fetch Available Slots when Coach & Date are chosen (GET /api/coaches/{coachId}/available-slots)
   const fetchSlots = useCallback(
-    async (coachId, date) => {
+    async (coachId, date, filterOpts = {}) => {
       if (!coachId || !date) return
       setLoadingSlots(true)
       setSelectedSlot(null)
@@ -393,47 +431,62 @@ export function MemberMyCoachView() {
           const slots = await memberPortalApi.getCoachAvailableSlots(
             coachId,
             date,
+            filterOpts,
           )
           setAvailableSlots(Array.isArray(slots) ? slots : [])
         } else {
-          // Mock slots
+          // 7 standard 90-minute slots per D12
           setAvailableSlots([
             {
               slotNumber: 1,
               slotName: "Ca 1",
-              startTime: "07:00:00",
-              endTime: "08:30:00",
+              startTime: "06:00:00",
+              endTime: "07:30:00",
               isAvailable: true,
             },
             {
               slotNumber: 2,
               slotName: "Ca 2",
-              startTime: "08:45:00",
-              endTime: "10:15:00",
+              startTime: "07:45:00",
+              endTime: "09:15:00",
               isAvailable: false,
               reason: "HLV bận ca lớp nhóm",
             },
             {
               slotNumber: 3,
               slotName: "Ca 3",
-              startTime: "14:00:00",
-              endTime: "15:30:00",
+              startTime: "09:30:00",
+              endTime: "11:00:00",
               isAvailable: true,
             },
             {
               slotNumber: 4,
               slotName: "Ca 4",
-              startTime: "16:00:00",
-              endTime: "17:30:00",
+              startTime: "13:00:00",
+              endTime: "14:30:00",
               isAvailable: true,
             },
             {
               slotNumber: 5,
               slotName: "Ca 5",
-              startTime: "18:00:00",
-              endTime: "19:30:00",
+              startTime: "14:45:00",
+              endTime: "16:15:00",
+              isAvailable: true,
+            },
+            {
+              slotNumber: 6,
+              slotName: "Ca 6",
+              startTime: "16:30:00",
+              endTime: "18:00:00",
               isAvailable: false,
               reason: "Đã có hội viên đặt",
+            },
+            {
+              slotNumber: 7,
+              slotName: "Ca 7",
+              startTime: "18:15:00",
+              endTime: "19:45:00",
+              isAvailable: true,
             },
           ])
         }
@@ -535,8 +588,8 @@ export function MemberMyCoachView() {
     if (
       !window.confirm(
         isVi
-          ? "Bạn có chắc chắn muốn hủy buổi tập riêng này không?"
-          : "Are you sure you want to cancel this private session?",
+          ? "Bạn có chắc chắn muốn hủy buổi tập riêng này (trước ≥ 12h để được hoàn 1 credit) không?"
+          : "Are you sure you want to cancel this private session (≥ 12h notice refunds 1 credit)?",
       )
     )
       return
@@ -546,10 +599,23 @@ export function MemberMyCoachView() {
       }
       showToast?.(
         isVi
-          ? "Đã hủy buổi tập riêng thành công."
-          : "Private session cancelled.",
+          ? "Đã hủy buổi tập riêng và hoàn lại 1 credit vào gói gốc."
+          : "Private session cancelled and 1 credit refunded.",
+        "success",
       )
       fetchPrivateSessions()
+      if (apiEnabled && memberProfileId) {
+        membershipApi
+          .getMemberSubscriptions(memberProfileId)
+          .then((subs) => {
+            const valid = (Array.isArray(subs) ? subs : []).filter((s) => {
+              const st = String(s?.status || "").toLowerCase()
+              return st === "active" || st === "grace_period"
+            })
+            setSubscriptions(valid)
+          })
+          .catch(() => {})
+      }
     } catch (err) {
       alert(
         getErrorMessage(
@@ -718,12 +784,9 @@ export function MemberMyCoachView() {
                   <div className="space-y-3">
                     <div className="flex items-start gap-3.5">
                       <img
-                        src={
-                          c.avatarUrl ||
-                          "https://images.unsplash.com/photo-1567013127542-490d757e51fc?w=300&auto=format&fit=crop&q=80"
-                        }
+                        src={resolveCoachAvatar(c)}
                         alt={c.name}
-                        className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0 shadow-2xs"
+                        className="w-14 h-14 rounded-xl object-cover object-top border border-slate-200 shrink-0 shadow-2xs"
                       />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -752,16 +815,26 @@ export function MemberMyCoachView() {
 
                     {/* Specializations tags */}
                     <div className="flex flex-wrap gap-1.5 pt-1">
-                      {(c.specializations || ["Fitness", "Conditioning"]).map(
-                        (spec, sIdx) => (
-                          <span
-                            key={sIdx}
-                            className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-semibold"
-                          >
-                            {spec}
-                          </span>
-                        ),
-                      )}
+                      {(Array.isArray(c.specializations) &&
+                      c.specializations.length > 0
+                        ? c.specializations
+                        : c.specialization
+                          ? [c.specialization]
+                          : findPublicCoachMatch(c)?.specialtyVi
+                            ? [
+                                isVi
+                                  ? findPublicCoachMatch(c).specialtyVi
+                                  : findPublicCoachMatch(c).specialty,
+                              ]
+                            : ["VIBE Sport Coach"]
+                      ).map((spec, sIdx) => (
+                        <span
+                          key={sIdx}
+                          className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-semibold"
+                        >
+                          {spec}
+                        </span>
+                      ))}
                     </div>
                   </div>
 
@@ -772,7 +845,15 @@ export function MemberMyCoachView() {
                       className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer"
                     >
                       <Calendar className="w-3.5 h-3.5 text-red-400" />
-                      <span>{isVi ? "Đặt lịch 1:1" : "Book 1-on-1"}</span>
+                      <span>
+                        {apiEnabled
+                          ? isVi
+                            ? "Tra cứu ca trống"
+                            : "Check Slots"
+                          : isVi
+                            ? "Đặt lịch 1:1"
+                            : "Book 1-on-1"}
+                      </span>
                     </button>
 
                     <button
@@ -952,6 +1033,7 @@ export function MemberMyCoachView() {
             <div className="divide-y divide-slate-100">
               {advancedRegistrations.map((reg) => {
                 const st = String(reg.status || "").toLowerCase()
+                const isAlternativeProposed = st.includes("alternative")
                 const canOrder =
                   st === "accepted" || st === "approved"
                     ? !reg.subscriptionId
@@ -965,13 +1047,15 @@ export function MemberMyCoachView() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-bold text-slate-900 text-sm">
                           {reg.subjectName || `Bộ môn #${reg.subjectId}`} · HLV{" "}
-                          {reg.primaryCoachName || `#${reg.primaryCoachId}`}
+                          {reg.primaryCoachName ||
+                            reg.alternativeCoachName ||
+                            `#${reg.primaryCoachId}`}
                         </span>
                         <span
                           className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                             st.includes("accept") || st.includes("approv")
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : st.includes("reject")
+                              : st.includes("reject") || st.includes("cancel")
                                 ? "bg-rose-50 text-rose-700 border border-rose-200"
                                 : "bg-amber-50 text-amber-800 border border-amber-200"
                           }`}
@@ -980,6 +1064,12 @@ export function MemberMyCoachView() {
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+                        {reg.alternativeCoachName && (
+                          <span className="text-amber-800 font-semibold">
+                            HLV thay thế đề xuất:{" "}
+                            <strong>{reg.alternativeCoachName}</strong>
+                          </span>
+                        )}
                         {reg.remainingCredit !== undefined &&
                           reg.remainingCredit !== null && (
                             <span>
@@ -992,9 +1082,38 @@ export function MemberMyCoachView() {
                             Gói: <strong>{reg.subscriptionStatus}</strong>
                           </span>
                         )}
-                        {reg.reason && <span>Ghi chú: {reg.reason}</span>}
+                        {(reg.reason || reg.note) && (
+                          <span>Ghi chú: {reg.reason || reg.note}</span>
+                        )}
                       </div>
                     </div>
+
+                    {isAlternativeProposed && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          disabled={orderingRegId === reg.id}
+                          onClick={() =>
+                            handleConfirmAlternativeCoach(reg, true)
+                          }
+                          className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold cursor-pointer"
+                        >
+                          {isVi
+                            ? "Đồng ý HLV thay thế"
+                            : "Accept Alternative Coach"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={orderingRegId === reg.id}
+                          onClick={() =>
+                            handleConfirmAlternativeCoach(reg, false)
+                          }
+                          className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold cursor-pointer"
+                        >
+                          {isVi ? "Từ chối" : "Decline"}
+                        </button>
+                      </div>
+                    )}
 
                     {canOrder && (
                       <div className="flex items-center gap-2 shrink-0">
@@ -1209,9 +1328,13 @@ export function MemberMyCoachView() {
           <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900">
-                {isVi
-                  ? "Đặt lịch tập 1:1 với Huấn luyện viên"
-                  : "Book 1-on-1 Session"}
+                {apiEnabled
+                  ? isVi
+                    ? "Tra cứu ca trống Huấn luyện viên (7 ca chuẩn 90p · D04/D12)"
+                    : "Coach Available Slots Lookup (D04/D12)"
+                  : isVi
+                    ? "Đặt lịch tập 1:1 với Huấn luyện viên"
+                    : "Book 1-on-1 Session"}
               </h3>
               <button
                 type="button"
@@ -1222,15 +1345,23 @@ export function MemberMyCoachView() {
               </button>
             </div>
 
+            {apiEnabled && (
+              <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 leading-relaxed">
+                <strong>Quy định D04 &amp; D12:</strong> Hội viên tra cứu 7 ca
+                chuẩn (90 phút/ca) của HLV tại đây. Sau khi trao đổi thống nhất
+                lịch, <strong>Huấn luyện viên chính (Primary Coach)</strong>{" "}
+                hoặc <strong>Quản lý trung tâm</strong> sẽ là người trực tiếp
+                tạo lịch học 1:1 lên hệ thống (tự động trừ 1 credit khi tạo, yêu
+                cầu trước ≥ 12h).
+              </div>
+            )}
+
             {/* Coach info bar */}
             <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-3">
               <img
-                src={
-                  selectedCoach.avatarUrl ||
-                  "https://images.unsplash.com/photo-1567013127542-490d757e51fc?w=300"
-                }
+                src={resolveCoachAvatar(selectedCoach)}
                 alt={selectedCoach.name}
-                className="w-12 h-12 rounded-lg object-cover"
+                className="w-12 h-12 rounded-lg object-cover object-top"
               />
               <div>
                 <div className="font-bold text-slate-900 text-sm">
@@ -1390,33 +1521,35 @@ export function MemberMyCoachView() {
                   type="button"
                   onClick={() => setIsBookingModalOpen(false)}
                   disabled={submittingBooking}
-                  className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50"
+                  className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 cursor-pointer"
                 >
-                  {isVi ? "Hủy" : "Cancel"}
+                  {isVi ? "Đóng" : "Close"}
                 </button>
-                <button
-                  type="submit"
-                  disabled={
-                    submittingBooking ||
-                    !selectedSlot ||
-                    !selectedRoomId ||
-                    !selectedSubscriptionId
-                  }
-                  className="inline-flex items-center gap-2 px-5 py-2 bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors shadow-xs"
-                >
-                  {submittingBooking && (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  )}
-                  <span>
-                    {submittingBooking
-                      ? isVi
-                        ? "Đang gửi..."
-                        : "Booking..."
-                      : isVi
-                        ? "Xác nhận đặt lịch"
-                        : "Confirm Booking"}
-                  </span>
-                </button>
+                {!apiEnabled && (
+                  <button
+                    type="submit"
+                    disabled={
+                      submittingBooking ||
+                      !selectedSlot ||
+                      !selectedRoomId ||
+                      !selectedSubscriptionId
+                    }
+                    className="inline-flex items-center gap-2 px-5 py-2 bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors shadow-xs"
+                  >
+                    {submittingBooking && (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    )}
+                    <span>
+                      {submittingBooking
+                        ? isVi
+                          ? "Đang gửi..."
+                          : "Booking..."
+                        : isVi
+                          ? "Xác nhận đặt lịch (Demo)"
+                          : "Confirm Booking (Demo)"}
+                    </span>
+                  </button>
+                )}
               </div>
             </form>
           </div>
