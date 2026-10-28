@@ -4,7 +4,7 @@ import { ChevronDown, Menu, X } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { publicSports } from "../../data/publicCoaches"
 
-export function CoachesHeader() {
+export function CoachesHeader({ showRegister = true }) {
   const { language, setLanguage } = useSCMS()
   const isVi = language === "vi"
   const [menuOpen, setMenuOpen] = useState(false)
@@ -89,9 +89,11 @@ export function CoachesHeader() {
             <button type="button" onClick={() => setLanguage("en")} aria-pressed={!isVi} className={`p-1.5 ${!isVi ? "text-mlc-red" : "text-mlc-muted"}`}>EN</button>
           </div>
           <Link to="/login" className="hidden text-xs font-bold hover:text-mlc-red sm:block">{isVi ? "Đăng nhập" : "Login"}</Link>
-          <Link to="/register" className="hidden rounded-full bg-mlc-red px-5 py-3 text-xs font-bold text-white shadow-mlc transition hover:bg-rose-700 sm:block">
-            {isVi ? "Đăng ký ngay" : "Join now"}
-          </Link>
+          {showRegister && (
+            <Link to="/register" className="hidden rounded-full bg-mlc-red px-5 py-3 text-xs font-bold text-white shadow-mlc transition hover:bg-rose-700 sm:block">
+              {isVi ? "Đăng ký ngay" : "Join now"}
+            </Link>
+          )}
           <button
             type="button"
             aria-expanded={menuOpen}
@@ -110,7 +112,7 @@ export function CoachesHeader() {
           {renderLinks(true)}
           <div className="mt-4 flex gap-4 text-sm font-bold">
             <Link to="/login">{isVi ? "Đăng nhập" : "Login"}</Link>
-            <Link to="/register" className="text-mlc-red">{isVi ? "Đăng ký ngay" : "Join now"}</Link>
+            {showRegister && <Link to="/register" className="text-mlc-red">{isVi ? "Đăng ký ngay" : "Join now"}</Link>}
           </div>
         </nav>
       )}

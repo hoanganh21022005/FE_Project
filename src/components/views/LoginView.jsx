@@ -125,6 +125,45 @@ const SPORT_ONBOARDING_OPTIONS = [
     descEn:
       "Refine your serve, footwork, and match control with specialist coaches.",
   },
+  {
+    id: "football",
+    labelVi: "Bóng đá",
+    labelEn: "Football",
+    headlineTopVi: "BỨT TỐC CÙNG",
+    headlineAccentVi: "BÓNG ĐÁ.",
+    headlineTopEn: "MOVE UP WITH",
+    headlineAccentEn: "FOOTBALL.",
+    descVi:
+      "Rèn kỹ thuật, thể lực và phối hợp đồng đội qua từng buổi tập trên sân bóng.",
+    descEn:
+      "Build technique, fitness, and teamwork through focused football training.",
+  },
+  {
+    id: "volleyball",
+    labelVi: "Bóng chuyền",
+    labelEn: "Volleyball",
+    headlineTopVi: "CHINH PHỤC",
+    headlineAccentVi: "BÓNG CHUYỀN.",
+    headlineTopEn: "RISE TO",
+    headlineAccentEn: "VOLLEYBALL.",
+    descVi:
+      "Hoàn thiện kỹ thuật chuyền, đập bóng và phối hợp chiến thuật cùng đồng đội.",
+    descEn:
+      "Improve your passing, attacking, and tactical teamwork on court.",
+  },
+  {
+    id: "table-tennis",
+    labelVi: "Bóng bàn",
+    labelEn: "Table tennis",
+    headlineTopVi: "LÀM CHỦ",
+    headlineAccentVi: "BÓNG BÀN.",
+    headlineTopEn: "MASTER",
+    headlineAccentEn: "TABLE TENNIS.",
+    descVi:
+      "Phát triển phản xạ, độ chính xác và chiến thuật qua từng pha bóng tốc độ.",
+    descEn:
+      "Sharpen your reflexes, precision, and strategy in every fast-paced rally.",
+  },
 ]
 
 function buildEmailSuggestions(rawValue) {
@@ -143,8 +182,8 @@ function buildEmailSuggestions(rawValue) {
 function checkIsClubOpenNow() {
   const now = new Date()
   const minutes = now.getHours() * 60 + now.getMinutes()
-  // Open 05:30 (330) to 22:00 (1320)
-  return minutes >= 330 && minutes <= 1320
+  // Open 06:00 (360) to 20:00 (1200)
+  return minutes >= 360 && minutes < 1200
 }
 
 function computePasswordStrength(pwd, isVi) {
@@ -1096,7 +1135,7 @@ export function LoginView({
   return (
     <div className="min-h-screen bg-white font-mlc text-mlc-ink antialiased selection:bg-mlc-red selection:text-white flex flex-col">
       {/* Shared Public Header synced with HomeLandingView, AboutView & CoachesView */}
-      <CoachesHeader />
+      <CoachesHeader showRegister={false} />
 
       {/* Main Split-Screen Editorial Section */}
       <div className="flex-1 grid lg:grid-cols-[1.08fr_0.92fr] min-h-[calc(100dvh-76px)]">
@@ -1139,11 +1178,11 @@ export function LoginView({
               <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/90">
                 {isClubOpen
                   ? isVi
-                    ? "ĐANG MỞ CỬA · 05:30 – 22:00"
-                    : "OPEN NOW · 05:30 – 22:00"
+                    ? "ĐANG MỞ CỬA · 06:00 – 20:00"
+                    : "OPEN NOW · 06:00 – 20:00"
                   : isVi
-                    ? "NGHỈ ĐÊM · MỞ CỬA 05:30"
-                    : "CLOSED · OPENS AT 05:30"}
+                    ? "NGHỈ ĐÊM · MỞ CỬA 06:00"
+                    : "CLOSED · OPENS AT 06:00"}
               </span>
             </div>
           </div>
@@ -1236,7 +1275,7 @@ export function LoginView({
 
             <div className="border-r border-white/10 pr-4">
               <div className="font-display text-2xl font-extrabold uppercase tracking-tight text-white">
-                05:30 <span className="text-mlc-red">– 22:00</span>
+                06:00 <span className="text-mlc-red">– 20:00</span>
               </div>
               <p className="mt-0.5 text-[11px] font-medium text-white/70">
                 {isVi
@@ -1912,25 +1951,6 @@ export function LoginView({
                   </div>
                 </form>
 
-                {/* Switch to Register */}
-                {!adminEntry && (
-                  <p className="mt-7 text-center text-xs text-mlc-muted">
-                    {isVi
-                      ? "Chưa có tài khoản hội viên?"
-                      : "Don't have a member account?"}{" "}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoginError("")
-                        navigate("/register")
-                      }}
-                      className="font-bold text-mlc-red hover:underline cursor-pointer"
-                    >
-                      {isVi ? "Đăng ký ngay" : "Join now"}
-                    </button>
-                  </p>
-                )}
-
                 {/* Quick Demo Fill Helper (Mock mode only) */}
                 {!apiEnabled && (
                   <div className="mt-6 flex items-center justify-between gap-3 rounded-xl border border-mlc-border bg-mlc-surface p-3.5 text-xs">
@@ -2574,8 +2594,8 @@ export function LoginView({
                     </li>
                     <li className="py-2.5 text-[14px] text-white/80">
                       {isVi
-                        ? "Mở cửa xuyên suốt 05:30 – 22:00 mỗi ngày"
-                        : "Open daily 05:30 – 22:00"}
+                        ? "Mở cửa xuyên suốt 06:00 – 20:00 mỗi ngày"
+                        : "Open daily 06:00 – 20:00"}
                     </li>
                   </ul>
                 </div>
