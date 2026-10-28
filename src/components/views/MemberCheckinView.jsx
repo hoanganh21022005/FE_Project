@@ -281,7 +281,7 @@ const logAttendanceError = (endpoint, error) => {
     endpoint,
     status: error?.status ?? 0,
     requestId: error?.requestId || error?.details?.requestId || null,
-    error,
+    message: error?.message || "Request failed",
   })
 }
 
@@ -412,7 +412,7 @@ export function MemberCheckinView() {
           setSecondsLeft(Math.max(0, Math.ceil((expiry - Date.now()) / 1000)))
           return
         } catch (err) {
-          logAttendanceError("/api/members/me/checkin-code", err)
+          logAttendanceError("/api/attendances/me/checkin-code", err)
           const status = Number(err?.status || 0)
           if (attempt >= 2 || (status > 0 && status < 500)) break
           if (!visibleRef.current) break
@@ -1246,8 +1246,8 @@ export function MemberCheckinView() {
           </div>
           <p className="mt-2 text-center text-xs leading-5 text-slate-600">
             {isVi
-              ? "Chỉ ghi nhận điểm danh trong vòng 30 phút trước hoặc trong giờ học. Đưa mã cho Coach/lễ tân quét."
-              : "Attendance is recorded only within 30 minutes before or during class. Show the code to your coach or reception."}
+              ? "Mã QR có thời hạn động 1–30 giây từ máy chủ (D17) và tự làm mới khi hết hạn. Coach hoặc Staff quét điểm danh trực tiếp trong khung giờ diễn ra buổi học [start, end) (D15)."
+              : "QR codes have a dynamic 1–30s server TTL (D17) and auto-refresh on expiry. Coaches or staff scan attendance during the active session window [start, end) (D15)."}
           </p>
           <div className="mt-2 flex min-h-6 items-center justify-center">
             {scheduleLoading ? (

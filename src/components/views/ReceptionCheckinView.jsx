@@ -60,13 +60,33 @@ export function ReceptionCheckinView() {
 
   const handleScanCheckIn = async (e) => {
     e.preventDefault()
-    const numericMemberId = parseNumericId(scanMemberId)
-    if (!numericMemberId || Number.isNaN(numericMemberId)) {
-      showToast("Vui lòng chọn hội viên cần quét mã Check-in.", "error")
+    const trimmedCode = scanCode.trim()
+    if (!trimmedCode) {
+      showToast("Vui lòng nhập hoặc quét mã QR Check-in của hội viên.", "error")
       return
     }
-    if (!scanCode.trim()) {
-      showToast("Vui lòng nhập hoặc quét mã QR Check-in của hội viên.", "error")
+
+    // D17: Signed QR format SCMS:{memberId}:{timeBucket}:{signature} embeds memberId
+    let resolvedMemberId = parseNumericId(scanMemberId)
+    if (
+      (!resolvedMemberId || Number.isNaN(resolvedMemberId)) &&
+      trimmedCode.startsWith("SCMS:")
+    ) {
+      const parts = trimmedCode.split(":")
+      const embeddedId = Number(parts[1])
+      if (!Number.isNaN(embeddedId) && embeddedId > 0) {
+        resolvedMemberId = embeddedId
+      }
+    }
+
+    if (
+      !trimmedCode.startsWith("SCMS:") &&
+      (!resolvedMemberId || Number.isNaN(resolvedMemberId))
+    ) {
+      showToast(
+        "Vui lòng chọn hội viên hoặc quét mã QR định dạng SCMS:{memberId}:...",
+        "error",
+      )
       return
     }
 
@@ -74,8 +94,10 @@ export function ReceptionCheckinView() {
     try {
       if (apiEnabled) {
         const payload = {
-          memberId: numericMemberId,
-          code: scanCode.trim(),
+          code: trimmedCode,
+        }
+        if (resolvedMemberId && !Number.isNaN(resolvedMemberId)) {
+          payload.memberId = resolvedMemberId
         }
         if (scanSessionId.trim() && !Number.isNaN(Number(scanSessionId))) {
           payload.sessionId = Number(scanSessionId)
@@ -84,17 +106,19 @@ export function ReceptionCheckinView() {
         await loadAttendances()
       }
       const memberObj = members.find(
-        (m) => String(m.id) === String(scanMemberId),
+        (m) =>
+          String(m.id) === String(scanMemberId) ||
+          String(parseNumericId(m.id)) === String(resolvedMemberId),
       )
       addAuditLog?.(
         "QR_SCAN_CHECKIN",
-        `Hội viên: ${memberObj?.name || `#${numericMemberId}`}`,
+        `Hội viên: ${memberObj?.name || (resolvedMemberId ? `#${resolvedMemberId}` : "QR Token")}`,
         "Chưa check-in",
         "Đã Check-in (QR)",
-        `Mã QR: ${scanCode.trim()}`,
+        "Quét mã QR hợp lệ tại quầy",
       )
       showToast(
-        `Đã quét mã QR Check-in thành công cho ${memberObj?.name || `Hội viên #${numericMemberId}`}!`,
+        `Đã quét mã QR Check-in thành công cho ${memberObj?.name || (resolvedMemberId ? `Hội viên #${resolvedMemberId}` : "hội viên")}!`,
         "success",
       )
       setScanCode("")
@@ -257,7 +281,7 @@ export function ReceptionCheckinView() {
             <div className="flex items-center gap-2">
               <QrCode className="w-4 h-4 text-blue-700" />
               <h3 className="text-sm font-bold text-slate-900">
-                Quét Mã QR Check-in Hội Viên (/api/attendances/scan)
+                Quét Mã QR Check-in Hội Viên (/api/attendances/qr-checkin)
               </h3>
             </div>
             <span className="text-xs text-slate-500">

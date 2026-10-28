@@ -4,6 +4,7 @@ import { StatusBadge } from "../common/Badge"
 import { AttendanceCorrectionModal } from "../modals/AttendanceCorrectionModal"
 import { classEnrollmentApi } from "../../api/classEnrollmentApi"
 import { attendanceApi } from "../../api/attendanceApi"
+import { getCatalogClassSessions } from "../../api/managerApi"
 import { ClipboardCheck, Edit2, RefreshCw } from "lucide-react"
 
 export function CoachAttendanceView() {
@@ -38,24 +39,34 @@ export function CoachAttendanceView() {
   const [selectedMemberModal, setSelectedMemberModal] = useState(null)
   const [apiEnrollments, setApiEnrollments] = useState([])
   const [apiAttendances, setApiAttendances] = useState([])
+  const [classSessions, setClassSessions] = useState([])
+  const [selectedSessionId, setSelectedSessionId] = useState("")
   const [loadingRoster, setLoadingRoster] = useState(false)
 
   const loadClassRosterAndAttendance = useCallback(async () => {
     if (!apiEnabled || !selectedClass?.id) return
     setLoadingRoster(true)
     try {
-      const [enrollments, attendances] = await Promise.all([
+      const [enrollments, attendances, sessions] = await Promise.all([
         classEnrollmentApi
           .getEnrollmentsByClass(selectedClass.id)
           .catch(() => []),
         attendanceApi.searchAttendances().catch(() => []),
+        getCatalogClassSessions(selectedClass.id, {
+          notifyForbidden: false,
+        }).catch(() => []),
       ])
       setApiEnrollments(Array.isArray(enrollments) ? enrollments : [])
       setApiAttendances(Array.isArray(attendances) ? attendances : [])
+      const sessionList = Array.isArray(sessions) ? sessions : []
+      setClassSessions(sessionList)
+      if (sessionList.length > 0 && !selectedSessionId) {
+        setSelectedSessionId(String(sessionList[0].id))
+      }
     } finally {
       setLoadingRoster(false)
     }
-  }, [apiEnabled, selectedClass?.id])
+  }, [apiEnabled, selectedClass?.id, selectedSessionId])
 
   useEffect(() => {
     loadClassRosterAndAttendance()
@@ -104,6 +115,7 @@ export function CoachAttendanceView() {
                 value={selectedClass?.id || ""}
                 onChange={(e) => {
                   setSelectedClassId(e.target.value)
+                  setSelectedSessionId("")
                   if (typeof window !== "undefined") {
                     sessionStorage.setItem(
                       "scms_selected_attendance_class_id",
@@ -116,6 +128,20 @@ export function CoachAttendanceView() {
                 {classes.map((cls) => (
                   <option key={cls.id} value={cls.id}>
                     {cls.nameVi || cls.name} ({cls.startTime || "Lịch học"})
+                  </option>
+                ))}
+              </select>
+            )}
+            {classSessions.length > 0 && (
+              <select
+                value={selectedSessionId}
+                onChange={(e) => setSelectedSessionId(e.target.value)}
+                className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
+              >
+                {classSessions.map((ses, idx) => (
+                  <option key={ses.id || idx} value={ses.id}>
+                    Buổi {idx + 1}: {ses.sessionDate || "—"} (
+                    {String(ses.startTime || "").slice(0, 5)})
                   </option>
                 ))}
               </select>
@@ -220,6 +246,16 @@ export function CoachAttendanceView() {
                   <div className="flex items-center gap-1 bg-white p-0.5 rounded border border-slate-300">
                     <button
                       onClick={async () => {
+                        if (apiEnabled && selectedSessionId) {
+                          await attendanceApi
+                            .recordSessionAttendance({
+                              memberId: m.id,
+                              sessionId: Number(selectedSessionId),
+                              status: "Present",
+                              notes: "Điểm danh có mặt đúng giờ",
+                            })
+                            .catch(() => {})
+                        }
                         await recordAttendance(
                           selectedClass?.id,
                           m.id,
@@ -242,6 +278,16 @@ export function CoachAttendanceView() {
                     </button>
                     <button
                       onClick={async () => {
+                        if (apiEnabled && selectedSessionId) {
+                          await attendanceApi
+                            .recordSessionAttendance({
+                              memberId: m.id,
+                              sessionId: Number(selectedSessionId),
+                              status: "Excused",
+                              notes: "Có phép / Đến trễ đã báo trước",
+                            })
+                            .catch(() => {})
+                        }
                         await recordAttendance(
                           selectedClass?.id,
                           m.id,
@@ -260,10 +306,20 @@ export function CoachAttendanceView() {
                           : "text-slate-600 hover:bg-slate-100"
                       }`}
                     >
-                      Trễ
+                      Trễ / Phép
                     </button>
                     <button
                       onClick={async () => {
+                        if (apiEnabled && selectedSessionId) {
+                          await attendanceApi
+                            .recordSessionAttendance({
+                              memberId: m.id,
+                              sessionId: Number(selectedSessionId),
+                              status: "Absent",
+                              notes: "Vắng mặt không phép",
+                            })
+                            .catch(() => {})
+                        }
                         await recordAttendance(
                           selectedClass?.id,
                           m.id,

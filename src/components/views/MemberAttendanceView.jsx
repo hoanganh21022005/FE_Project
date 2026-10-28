@@ -1142,20 +1142,24 @@ export function MemberAttendanceView() {
     setLiveQrLoading(true)
     try {
       const res = await memberPortalApi.getMemberCheckinCode()
-      if (res?.payload) {
-        setLiveQrPayload(res.payload)
-        setLiveQrSeconds(res.validitySeconds || 60)
-      } else if (res?.code) {
-        setLiveQrPayload(res.code)
-        setLiveQrSeconds(60)
+      const ttl = Math.max(
+        1,
+        Math.min(
+          30,
+          Number(res?.expiresInSeconds || res?.validitySeconds || 30),
+        ),
+      )
+      if (res?.code || res?.payload) {
+        setLiveQrPayload(res.code || res.payload)
+        setLiveQrSeconds(ttl)
       }
     } catch {
-      setLiveQrPayload(`SCMS-${member?.code || "MB-1001"}`)
-      setLiveQrSeconds(60)
+      setLiveQrPayload(`SCMS:${memberProfileId || 1}:0:OFFLINE`)
+      setLiveQrSeconds(30)
     } finally {
       setLiveQrLoading(false)
     }
-  }, [apiEnabled, member?.code])
+  }, [apiEnabled, memberProfileId])
 
   const loadApiAttendanceData = useCallback(async () => {
     if (!apiEnabled) return
@@ -1190,7 +1194,7 @@ export function MemberAttendanceView() {
       setLiveQrSeconds((prev) => {
         if (prev <= 1) {
           loadLiveQrCode()
-          return 60
+          return 30
         }
         return prev - 1
       })
