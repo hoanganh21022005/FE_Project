@@ -1,26 +1,43 @@
 ---
 name: SCMS Webzone Operations System
-description: A high-contrast, battle-tested operating system for sports-center administration, unified across member, staff, and management portals using the Webzone palette.
+description: SCMS uses the shared blue/navy palette defined in src/index.css, with cyan accents and separate semantic status colors.
 colors:
-  eerie-black: "#181818"
-  dark-charcoal: "#323232"
-  platinum: "#E4E4E4"
-  maximum-red: "#D62323"
-  ue-red: "#BA0000"
-  dark-red: "#8E0000"
+  brand-dark: "#202B46"
+  brand-dark-hover: "#303B58"
+  brand-primary: "#405BD5"
+  brand-primary-hover: "#3349B5"
+  brand-primary-active: "#283A98"
+  brand-blue-soft: "#E8EDFC"
+  brand-accent: "#24A9D2"
+  brand-accent-dark: "#08799E"
+  brand-accent-soft: "#98D9E8"
+  brand-cyan: "#24A9D2"
+  brand-purple: "#7860C4"
+  brand-purple-dark: "#59429E"
+  brand-lavender-soft: "#DDD5F2"
+  brand-teal: "#168F83"
+  brand-teal-dark: "#087368"
+  brand-mint-soft: "#E0F3EE"
+  brand-amber: "#E8B351"
+  brand-lime: "#A5CD55"
+  brand-sky-soft: "#98D9E8"
+  bg-main: "#F5F7FC"
+  bg-secondary: "#EEF2FA"
+  text-secondary: "#52617C"
+  text-muted: "#6B7890"
   surface-white: "#FFFFFF"
-  border-neutral: "#E4E4E4"
-  border-subtle: "#D4D4D4"
-  success: "#047857"
+  border-neutral: "#DEE4F0"
+  border-subtle: "#DEE4F0"
+  success: "#15803D"
   success-bg: "#ECFDF5"
   success-border: "#A7F3D0"
-  warning: "#D97706"
+  warning: "#B45309"
   warning-bg: "#FFFBEB"
   warning-border: "#FDE68A"
-  info: "#0284C7"
+  info: "#2563EB"
   info-bg: "#F0F9FF"
   info-border: "#BAE6FD"
-  danger: "#8E0000"
+  danger: "#B42318"
   danger-bg: "#FEF2F2"
   danger-border: "#FECACA"
 typography:
@@ -64,30 +81,30 @@ spacing:
   lg: "24px"
 components:
   button-primary:
-    backgroundColor: "{colors.ue-red}"
+    backgroundColor: "{colors.brand-primary}"
     textColor: "{colors.surface-white}"
-    hoverBackgroundColor: "{colors.dark-red}"
+    hoverBackgroundColor: "{colors.brand-primary-hover}"
     rounded: "{rounded.sm}"
     padding: "8px 16px"
     minHeight: "44px"
   button-secondary:
     backgroundColor: "{colors.surface-white}"
-    textColor: "{colors.eerie-black}"
+    textColor: "{colors.brand-dark}"
     borderColor: "{colors.border-subtle}"
-    hoverBackgroundColor: "{colors.platinum}"
+    hoverBackgroundColor: "{colors.bg-secondary}"
     rounded: "{rounded.sm}"
     padding: "8px 16px"
     minHeight: "44px"
   button-destructive:
-    backgroundColor: "{colors.dark-red}"
+    backgroundColor: "{colors.danger}"
     textColor: "{colors.surface-white}"
-    hoverBackgroundColor: "{colors.eerie-black}"
+    hoverBackgroundColor: "{colors.brand-dark}"
     rounded: "{rounded.sm}"
     padding: "8px 16px"
     minHeight: "44px"
   surface:
     backgroundColor: "{colors.surface-white}"
-    textColor: "{colors.eerie-black}"
+    textColor: "{colors.brand-dark}"
     borderColor: "{colors.border-neutral}"
     rounded: "{rounded.md}"
     padding: "16px"
@@ -95,75 +112,68 @@ components:
 
 # Design System: SCMS Webzone Operations System
 
-## 1. Overview
+## 1. Bảng màu hiện hành
 
-**Creative North Star: "Bàn Điều Hành Webzone Chuẩn Xác & Nhất Quán (Webzone Precision Console)"**
+Đồng bộ ngày 29/10/2026 theo commit `d2bf216`. Giữ cấu trúc Webzone hiện có; màu thương hiệu đã chuyển từ đỏ/đen sang xanh dương/navy với điểm nhấn cyan. Tài liệu này mô tả palette đã có, không yêu cầu thiết kế lại màn hình.
 
-Hệ thống SCMS (toàn bộ các phân hệ Admin, Center Manager, Coach, Receptionist, Member và Public/Auth) sử dụng **chung một ngôn ngữ thiết kế đồng bộ** dựa trên bảng màu **Webzone 6 Primitive Colors**:
-- **Không gian nền (Canvas & Divider):** Platinum (`#E4E4E4`) trung tính sắc nét.
-- **Mặt phẳng làm việc (Surfaces):** Bề mặt trắng tinh khiết (`#FFFFFF`) kết hợp bề mặt tối Eerie Black (`#181818`) cho Sidebar và Navigation.
-- **Mực văn bản (Ink):** Eerie Black (`#181818`) làm ink chính và Dark Charcoal (`#323232`) làm ink phụ, đảm bảo độ tương phản WCAG AA trên mọi bề mặt.
-- **Hành động & Nhấn (Primary & Accent):** UE Red (`#BA0000`) cho hành động chính và trạng thái kích hoạt, Maximum Red (`#D62323`) cho focus ring/icon/selection, Dark Red (`#8E0000`) cho trạng thái hover/pressed và cảnh báo nghiêm trọng.
+**Nguồn giá trị runtime:** `src/index.css`, phần `:root`. Tailwind dùng ánh xạ `@theme` trong cùng file. Khi đổi palette, cập nhật cả code và tài liệu; không tạo bộ màu riêng cho từng role.
 
-Tài liệu này là **nguồn sự thật duy nhất (Single Source of Truth)** chốt lại toàn bộ quy chuẩn màu sắc, token ngữ nghĩa và quy tắc tương tác cho toàn bộ hệ thống.
+| Vai trò | CSS token | Giá trị |
+|---|---|---|
+| Primary | `--brand-primary` | `#405BD5` |
+| Primary hover | `--brand-primary-hover` | `#3349B5` |
+| Primary pressed | `--brand-primary-active` | `#283A98` |
+| Primary nhẹ | `--brand-blue-soft` | `#E8EDFC` |
+| Sidebar / nền tối | `--brand-dark`, `--bg-sidebar` | `#202B46` |
+| Hover nền tối | `--brand-dark-hover` | `#303B58` |
+| Accent / cyan | `--brand-accent`, `--brand-cyan` | `#24A9D2` |
+| Accent đậm / nhẹ | `--brand-accent-dark`, `--brand-accent-soft` | `#08799E` / `#98D9E8` |
+| Nền trang | `--bg-main`, `--bg-page` | `#F5F7FC` |
+| Card / modal | `--bg-card` | `#FFFFFF` |
+| Nền phụ | `--bg-secondary` | `#EEF2FA` |
+| Viền | `--border-color` | `#DEE4F0` |
+| Chữ chính / phụ / muted | `--text-primary`, `--text-secondary`, `--text-muted` | `#202B46` / `#52617C` / `#6B7890` |
+| Chữ trên nền tối | `--text-inverse` | `#FFFFFF` |
 
----
+Màu hỗ trợ đã có: purple `#7860C4`, purple-dark `#59429E`, lavender-soft `#DDD5F2`, teal `#168F83`, teal-dark `#087368`, mint-soft `#E0F3EE`, amber `#E8B351`, lime `#A5CD55`, sky-soft `#98D9E8`. Dùng khi component hiện có cần phân nhóm; không thay màu primary bằng các màu này.
 
-## 2. Bảng Màu Webzone Chuẩn Hóa
+## 2. Trạng thái ngữ nghĩa
 
-### 2.1. 6 Primitives Cốt Lõi
+| Trạng thái | Token Tailwind | Giá trị | Nền / viền hỗ trợ |
+|---|---|---|---|
+| Thành công | `status-success` | `#15803D` | emerald-50 / emerald-200 |
+| Cảnh báo | `status-warning` | `#B45309` | amber-50 / amber-200 |
+| Thông tin | `status-info` | `#2563EB` | sky-50 / sky-200 |
+| Lỗi / nguy hiểm | `status-error`, `status-danger` | `#B42318` | rose-50 / rose-200 |
 
-| Primitive | Hex | Vai trò trong hệ thống |
-|---|:---:|---|
-| **Eerie Black** | `#181818` | Ink chính, sidebar, header đậm, dark surface |
-| **Dark Charcoal** | `#323232` | Ink phụ, hover dark surface, text thứ cấp |
-| **Platinum** | `#E4E4E4` | Canvas chính, divider, đường kẻ phân cách, neutral surface |
-| **Maximum Red** | `#D62323` | Accent, focus ring, icon/selection highlight |
-| **UE Red** | `#BA0000` | Primary action (nút chính), active navigation, điểm nhấn trọng tâm |
-| **Dark Red** | `#8E0000` | Hover/pressed của nút chính, destructive emphasis, viền cảnh báo đậm |
+Đỏ chỉ thể hiện lỗi, nguy hiểm hoặc hành động phá hủy. Không thay đỏ ngữ nghĩa thành xanh khi dọn màu thương hiệu. Luôn kèm nhãn/icon, không dùng màu làm dấu hiệu duy nhất. Success/Warning/Info không dùng chung màu primary chỉ để làm giao diện đồng màu.
 
-### 2.2. Ánh Xạ Ngữ Nghĩa Bắt Buộc (Semantic Token Mapping)
+Cyan trên trắng phù hợp làm điểm nhấn, không mặc định đủ tương phản cho chữ nhỏ. Dùng primary hoặc accent-dark cho chữ tương tác; kiểm màu foreground/background thực tế đạt 4.5:1 cho chữ thường, 3:1 cho chữ lớn. Không coi việc dùng token là bằng chứng mọi cặp màu đạt AA.
 
-- **Primary Button:** Nền `#BA0000` (UE Red), hover/pressed `#8E0000` (Dark Red), text `#FFFFFF`.
-- **Focus Ring / Accent:** `#D62323` (Maximum Red). Tuyệt đối không dùng `#D62323` làm body text trên nền Platinum vì độ tương phản chỉ đạt ~4.01:1 (dưới chuẩn WCAG AA 4.5:1).
-- **Văn bản chính (Main text):** `#181818` trên nền trắng/Platinum (đạt chuẩn AAA/AA).
-- **Văn bản phụ (Secondary text):** `#323232` trên nền trắng/Platinum (đạt chuẩn AA).
-- **Bề mặt hỗ trợ (Neutral Surface):** Màu trắng `#FFFFFF` là neutral hỗ trợ cho thẻ card, modal, bảng dữ liệu.
-- **Trạng thái ngữ nghĩa riêng biệt (Semantic States):**
-  - **Success:** Emerald `#047857`, nền `bg-emerald-50`, viền `border-emerald-200`.
-  - **Warning:** Amber `#D97706`, nền `bg-amber-50`, viền `border-amber-200`.
-  - **Info:** Sky `#0284C7`, nền `bg-sky-50`, viền `border-sky-200`.
-  - **Danger / Destructive:** Dark Red `#8E0000`, nền `bg-rose-50`, viền `border-rose-200`.
-  - **Quy tắc trạng thái:** Màu đỏ thương hiệu không được dùng thay thế cho mọi trạng thái; mọi trạng thái phải luôn đi kèm icon và nhãn văn bản tường minh, không chỉ dựa vào màu sắc.
+## 3. Components & Interactions
 
-### 2.3. Quy Tắc Chống Lạm Dụng (Anti-Patterns Prohibited)
+- **Primary button:** `bg-brand-primary hover:bg-brand-primary-hover active:bg-brand-primary-active text-white`.
+- **Secondary button:** nền card, chữ primary/ink, viền border-color; hover nền secondary.
+- **Destructive:** token status-error/danger, giữ ý nghĩa nguy hiểm; không dùng làm màu cho thao tác tạo/lưu/import thông thường.
+- **Sidebar:** `bg-bg-sidebar text-text-inverse`; active `bg-brand-primary text-white border-brand-accent`; inactive dùng chữ sáng và hover brand-dark-hover.
+- **Tab ngang:** chữ/viền primary; cyan chỉ là điểm nhấn bổ trợ.
+- **Input:** nền card, viền border-color; focus `focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 focus:outline-none`.
+- **Header/card/modal/table:** dùng các token bg-card, bg-secondary, text-primary, text-secondary và border-color thay mã hex thương hiệu cũ.
+- **Nút và control:** giữ cấu trúc component hiện có; touch target tối thiểu 44×44px, focus nhìn thấy được, disabled/loading rõ ràng. Thay palette không tự mở rộng thành thay layout hoặc flow.
 
-- **Tuyệt đối cấm:** Gradient màu, hiệu ứng glassmorphism/blur, đốm sáng orb, gam màu tím/xanh tím, vạch kẻ viền dày > 1px, negative letter spacing, lồng thẻ card đa cấp (nested card).
+Các alias cũ như `webzone-red`, `wz-primary`, `mlc-red`, `brand-flame` đã được ánh xạ sang primary xanh để tương thích. Tên có chữ red không còn bảo đảm giá trị đỏ. Code mới ưu tiên `brand-primary` và token trạng thái đúng nghĩa; không thêm alias màu cũ.
 
----
+## 4. Typography & Data Hygiene
 
-## 3. Typography & Data Hygiene
+Phạm vi cập nhật này chỉ thay tài liệu màu và các màu thương hiệu còn sót; không đổi font, cỡ chữ hoặc cấu trúc UI.
 
-- **Display & Heading Font:** Roboto (với Segoe UI và system-ui fallback), hiển thị tiếng Việt hoàn hảo.
-- **Body Font:** Roboto / Inter, kích thước cơ bản 14px (`0.875rem`), khoảng cách dòng 1.5.
-- **Technical & Numeric Font:** JetBrains Mono bắt buộc cho toàn bộ ID hệ thống (số nguyên BE), mã nhân viên (`STF-...`), mã hội viên (`MB-...`), mã lớp học, ngày giờ nhật ký và các chỉ số đo lường với class `tabular-nums`.
+- Giữ typography đang triển khai và quy ước component hiện có.
+- Dùng JetBrains Mono / `tabular-nums` cho mã định danh và dữ liệu số khi phù hợp.
+- Không tạo ID giả `mem-*` / `stf-*` trong API mode. Dùng ID authoritative từ BE.
 
----
+## 5. Quy tắc áp dụng và phối hợp
 
-## 4. Components & Interactions
-
-- **Buttons:** Bo góc chuẩn `rounded-md` (4px - 6px). Chiều cao tối thiểu tiếp cận di động `min-h-[44px]`, padding `px-4 py-2.5`.
-- **Navigation Items (Sidebar & Tabs):**
-  - Active: Nền `#BA0000` text `#FFFFFF` font-bold trên dark sidebar; hoặc `border-b-2 border-[#BA0000] text-[#BA0000]` trên tab ngang.
-  - Inactive: `text-stone-300 hover:text-white hover:bg-stone-800` trên dark sidebar.
-  - Touch target: Tối thiểu 44px x 44px.
-- **Inputs & Filters:** Nền trắng, viền rõ `border-stone-300`, focus ring chuẩn `focus:border-[#BA0000] focus:ring-2 focus:ring-[#D62323]/20 focus:outline-none`.
-- **Tables:** Header xám nhẹ `bg-stone-100/70 text-stone-800 font-bold`, phân dòng sắc nét `border-b border-[#E4E4E4]`, hỗ trợ `tabular-nums` chống xô lệch.
-
----
-
-## 5. Quy Tắc Khóa Hệ Thống (Design System Locks)
-
-1. **Tính nhất quán tuyệt đối:** Không tồn tại bảng màu cam/Fireside cũ làm brand accent; toàn bộ 5 role portals và trang công khai đều tuân theo Webzone Palette.
-2. **Quy chuẩn tiếp cận:** Tất cả nút bấm, liên kết và control tương tác phải đạt tối thiểu `44px x 44px` trên touch layout.
-3. **Quy chuẩn định danh:** Không tạo chuỗi ID giả `mem-*` / `stf-*` trong API mode. Mọi ID hiển thị phải là số nguyên authoritative từ BE.
+1. Không ghi trực tiếp đỏ thương hiệu cũ `#BA0000`, `#D62323`, `#BA1A1A` cho nút tạo/lưu hoặc active navigation. Dùng token hiện hành. Đỏ lỗi/destructive vẫn giữ theo mục2.
+2. Không tạo palette mới theo role, gradient/hiệu ứng trang trí hoặc redesign ngoài scope. Các sắc purple/blue có token ở mục1 là màu hỗ trợ hợp lệ; không còn quy định cấm chúng tuyệt đối như tài liệu cũ.
+3. Thành viên khác đang phụ trách toàn bộ trang Member. Việc đồng bộ màu ở API/context/Header hoặc component dùng chung phải kiểm phạm vi thay đổi để tránh xung đột; không sửa luồng Member trong task màu.
+4. Cập nhật này không chứng nhận tất cả màn đã loại bỏ màu hardcode hoặc đã đạt accessibility; kiểm theo các màn thật được sửa.
