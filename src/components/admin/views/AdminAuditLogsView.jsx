@@ -2,17 +2,7 @@ import React, { useMemo, useState } from "react"
 import { Search } from "lucide-react"
 import { AdminResourceState } from "../AdminResourceState.jsx"
 import { useAdminData } from "../AdminDataContext.jsx"
-
-const formatDateTime = (value) => {
-  if (!value) return "Chưa có"
-  const date = new Date(value)
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat("vi-VN", {
-        dateStyle: "short",
-        timeStyle: "medium",
-      }).format(date)
-}
+import { formatAdminDateTime } from "../adminDateUtils.js"
 
 export function AdminAuditLogsView() {
   const { resources, retry } = useAdminData()
@@ -78,7 +68,7 @@ export function AdminAuditLogsView() {
                     className="hover:bg-stone-50 align-top"
                   >
                     <td className="px-4 py-3 text-xs text-stone-600 whitespace-nowrap tabular-nums font-mono">
-                      {formatDateTime(log.createdAt)}
+                      {formatAdminDateTime(log.createdAt)}
                     </td>
                     <td className="px-4 py-3 font-bold text-stone-950 whitespace-nowrap">
                       {log.actorLabel}

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react"
 import { Search, UserRound, X } from "lucide-react"
 import { AdminResourceState } from "../AdminResourceState.jsx"
 import { useAdminData } from "../AdminDataContext.jsx"
+import { formatAdminDate } from "../adminDateUtils.js"
 
 const statusLabel = (status) =>
   ({
@@ -11,14 +12,6 @@ const statusLabel = (status) =>
   })[status] ||
   status ||
   "Không rõ"
-
-const formatDate = (value) => {
-  if (!value) return "Chưa có"
-  const date = new Date(value)
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium" }).format(date)
-}
 
 export function AdminUsersView() {
   const { resources, retry } = useAdminData()
@@ -160,7 +153,7 @@ export function AdminUsersView() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-xs text-stone-600 tabular-nums">
-                        {formatDate(user.createdAt)}
+                        {formatAdminDate(user.createdAt)}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
@@ -218,7 +211,8 @@ export function AdminUsersView() {
                       `Role #${selectedUser.roleId ?? "?"}`,
                   ],
                   ["Địa chỉ", selectedUser.address || "Chưa có"],
-                  ["Ngày sinh", selectedUser.dateOfBirth || "Chưa có"],
+                  ["Ngày sinh", formatAdminDate(selectedUser.dateOfBirth)],
+                  ["Ngày tạo", formatAdminDate(selectedUser.createdAt)],
                 ].map(([label, value]) => (
                   <div key={label}>
                     <dt className="text-xs font-semibold text-stone-500">
