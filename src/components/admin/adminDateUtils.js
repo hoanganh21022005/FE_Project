@@ -1,6 +1,6 @@
 /**
  * Tiện ích chuẩn hóa và hiển thị thời gian cho Admin Portal.
- * 
+ *
  * Nguyên tắc thiết kế:
  * 1. Xác thực ngày lịch (calendar date) và thành phần giờ trước khi tạo Date để ngăn JavaScript tự động rollover (ví dụ 30/02).
  * 2. Chỉ chấp nhận các định dạng chuỗi đã xác định trong contract:
