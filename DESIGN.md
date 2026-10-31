@@ -1,55 +1,62 @@
 ---
-name: SCMS Webzone Operations System
-description: A high-contrast, battle-tested operating system for sports-center administration, unified across member, staff, and management portals using the Webzone palette.
+name: SCMS Operations System
+description: A clear, unified design system for sports-center administration across member, staff, and management portals using the SCMS palette.
 colors:
-  eerie-black: "#181818"
-  dark-charcoal: "#323232"
-  platinum: "#E4E4E4"
-  maximum-red: "#D62323"
-  ue-red: "#BA0000"
-  dark-red: "#8E0000"
-  surface-white: "#FFFFFF"
-  border-neutral: "#E4E4E4"
-  border-subtle: "#D4D4D4"
-  success: "#047857"
-  success-bg: "#ECFDF5"
-  success-border: "#A7F3D0"
-  warning: "#D97706"
-  warning-bg: "#FFFBEB"
-  warning-border: "#FDE68A"
-  info: "#0284C7"
-  info-bg: "#F0F9FF"
-  info-border: "#BAE6FD"
+  deep-navy: "#202B46"
+  royal-blue: "#405BD5"
+  cyan: "#24A9D2"
+  purple: "#7860C4"
+  teal: "#168F83"
+  amber: "#E8B351"
+  lime: "#A5CD55"
+  sky: "#98D9E8"
+  lavender: "#DDD5F2"
+  mint: "#E0F3EE"
+  background: "#F5F7FC"
+  white: "#FFFFFF"
+  text-primary: "#202B46"
+  text-secondary: "#323B52"
+  border-neutral: "#DDDFF0"
+  border-subtle: "#E7EAF3"
+  success: "#168F83"
+  success-bg: "#E0F3EE"
+  success-border: "#A6D9CC"
+  warning: "#E8B351"
+  warning-bg: "#FFF4D6"
+  warning-border: "#E8B351"
+  info: "#24A9D2"
+  info-bg: "#E5F7FB"
+  info-border: "#98D9E8"
   danger: "#8E0000"
   danger-bg: "#FEF2F2"
   danger-border: "#FECACA"
 typography:
   headline:
-    fontFamily: "Roboto, Segoe UI, Arial, system-ui, sans-serif"
+    fontFamily: "Be Vietnam Pro, sans-serif"
     fontSize: "1.25rem"
     fontWeight: 700
     lineHeight: 1.3
     letterSpacing: "0"
   title:
-    fontFamily: "Roboto, Segoe UI, Arial, system-ui, sans-serif"
+    fontFamily: "Be Vietnam Pro, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 700
     lineHeight: 1.4
     letterSpacing: "0"
   body:
-    fontFamily: "Roboto, Segoe UI, Arial, system-ui, sans-serif"
+    fontFamily: "Be Vietnam Pro, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "0"
   label:
-    fontFamily: "Roboto, Segoe UI, Arial, system-ui, sans-serif"
+    fontFamily: "Be Vietnam Pro, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 600
     lineHeight: 1.4
     letterSpacing: "0"
   mono:
-    fontFamily: "JetBrains Mono, monospace"
+    fontFamily: "Be Vietnam Pro, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 500
     lineHeight: 1.4
@@ -64,89 +71,94 @@ spacing:
   lg: "24px"
 components:
   button-primary:
-    backgroundColor: "{colors.ue-red}"
-    textColor: "{colors.surface-white}"
-    hoverBackgroundColor: "{colors.dark-red}"
+    backgroundColor: "{colors.royal-blue}"
+    textColor: "{colors.white}"
+    hoverBackgroundColor: "{colors.deep-navy}"
     rounded: "{rounded.sm}"
     padding: "8px 16px"
     minHeight: "44px"
   button-secondary:
-    backgroundColor: "{colors.surface-white}"
-    textColor: "{colors.eerie-black}"
+    backgroundColor: "{colors.white}"
+    textColor: "{colors.deep-navy}"
     borderColor: "{colors.border-subtle}"
-    hoverBackgroundColor: "{colors.platinum}"
+    hoverBackgroundColor: "{colors.background}"
     rounded: "{rounded.sm}"
     padding: "8px 16px"
     minHeight: "44px"
   button-destructive:
-    backgroundColor: "{colors.dark-red}"
-    textColor: "{colors.surface-white}"
-    hoverBackgroundColor: "{colors.eerie-black}"
+    backgroundColor: "{colors.danger}"
+    textColor: "{colors.white}"
+    hoverBackgroundColor: "{colors.deep-navy}"
     rounded: "{rounded.sm}"
     padding: "8px 16px"
     minHeight: "44px"
   surface:
-    backgroundColor: "{colors.surface-white}"
-    textColor: "{colors.eerie-black}"
+    backgroundColor: "{colors.white}"
+    textColor: "{colors.deep-navy}"
     borderColor: "{colors.border-neutral}"
     rounded: "{rounded.md}"
     padding: "16px"
 ---
 
-# Design System: SCMS Webzone Operations System
+# Design System: SCMS Operations System
 
 ## 1. Overview
 
-**Creative North Star: "Bàn Điều Hành Webzone Chuẩn Xác & Nhất Quán (Webzone Precision Console)"**
+**Creative North Star: "Bảng Điều Hành SCMS Rõ Ràng & Nhất Quán"**
 
-Hệ thống SCMS (toàn bộ các phân hệ Admin, Center Manager, Coach, Receptionist, Member và Public/Auth) sử dụng **chung một ngôn ngữ thiết kế đồng bộ** dựa trên bảng màu **Webzone 6 Primitive Colors**:
-- **Không gian nền (Canvas & Divider):** Platinum (`#E4E4E4`) trung tính sắc nét.
-- **Mặt phẳng làm việc (Surfaces):** Bề mặt trắng tinh khiết (`#FFFFFF`) kết hợp bề mặt tối Eerie Black (`#181818`) cho Sidebar và Navigation.
-- **Mực văn bản (Ink):** Eerie Black (`#181818`) làm ink chính và Dark Charcoal (`#323232`) làm ink phụ, đảm bảo độ tương phản WCAG AA trên mọi bề mặt.
-- **Hành động & Nhấn (Primary & Accent):** UE Red (`#BA0000`) cho hành động chính và trạng thái kích hoạt, Maximum Red (`#D62323`) cho focus ring/icon/selection, Dark Red (`#8E0000`) cho trạng thái hover/pressed và cảnh báo nghiêm trọng.
+Hệ thống SCMS (các phân hệ Admin, Center Manager, Coach, Receptionist, Member và Public/Auth) sử dụng chung một ngôn ngữ thiết kế dựa trên bảng màu trong ảnh tham chiếu:
+- **Nền:** Background (`#F5F7FC`) tạo canvas sáng, dịu mắt; White (`#FFFFFF`) dùng cho bề mặt nội dung.
+- **Văn bản:** Deep Navy (`#202B46`) làm màu chữ chính; dùng màu chữ phụ có độ tương phản phù hợp trên từng bề mặt.
+- **Hành động & nhấn:** Royal Blue (`#405BD5`) làm hành động chính; Cyan (`#24A9D2`), Teal (`#168F83`) và Purple (`#7860C4`) tạo phân cấp nhấn.
+- **Màu bổ trợ:** Amber (`#E8B351`), Lime (`#A5CD55`), Sky (`#98D9E8`), Lavender (`#DDD5F2`) và Mint (`#E0F3EE`) dùng cho trạng thái, nhóm nội dung và nền nhấn nhẹ.
 
 Tài liệu này là **nguồn sự thật duy nhất (Single Source of Truth)** chốt lại toàn bộ quy chuẩn màu sắc, token ngữ nghĩa và quy tắc tương tác cho toàn bộ hệ thống.
 
 ---
 
-## 2. Bảng Màu Webzone Chuẩn Hóa
+## 2. Bảng Màu SCMS Chuẩn Hóa
 
-### 2.1. 6 Primitives Cốt Lõi
+### 2.1. Bảng màu cốt lõi
 
-| Primitive | Hex | Vai trò trong hệ thống |
+| Màu | Hex | Vai trò trong hệ thống |
 |---|:---:|---|
-| **Eerie Black** | `#181818` | Ink chính, sidebar, header đậm, dark surface |
-| **Dark Charcoal** | `#323232` | Ink phụ, hover dark surface, text thứ cấp |
-| **Platinum** | `#E4E4E4` | Canvas chính, divider, đường kẻ phân cách, neutral surface |
-| **Maximum Red** | `#D62323` | Accent, focus ring, icon/selection highlight |
-| **UE Red** | `#BA0000` | Primary action (nút chính), active navigation, điểm nhấn trọng tâm |
-| **Dark Red** | `#8E0000` | Hover/pressed của nút chính, destructive emphasis, viền cảnh báo đậm |
+| **Deep Navy** | `#202B46` | Chữ chính, điều hướng đậm, tiêu đề và thành phần cần độ tương phản cao |
+| **Royal Blue** | `#405BD5` | Nút chính, liên kết và trạng thái điều hướng đang chọn |
+| **Cyan** | `#24A9D2` | Điểm nhấn phụ, thông tin và biểu đồ |
+| **Purple** | `#7860C4` | Điểm nhấn cho nhóm nội dung và phân loại |
+| **Teal** | `#168F83` | Thành công, trạng thái tích cực và điểm nhấn phụ |
+| **Amber** | `#E8B351` | Cảnh báo nhẹ, nhãn và điểm nhấn ấm |
+| **Lime** | `#A5CD55` | Trạng thái tích cực và nhấn nhẹ |
+| **Sky** | `#98D9E8` | Nền thông tin và bề mặt nhấn nhẹ |
+| **Lavender** | `#DDD5F2` | Bề mặt phụ và nhóm nội dung |
+| **Mint** | `#E0F3EE` | Bề mặt trạng thái tích cực |
+| **Background** | `#F5F7FC` | Canvas chính cho trang và khu vực nội dung |
+| **White** | `#FFFFFF` | Thẻ, modal, bảng và bề mặt nội dung |
 
 ### 2.2. Ánh Xạ Ngữ Nghĩa Bắt Buộc (Semantic Token Mapping)
 
-- **Primary Button:** Nền `#BA0000` (UE Red), hover/pressed `#8E0000` (Dark Red), text `#FFFFFF`.
-- **Focus Ring / Accent:** `#D62323` (Maximum Red). Tuyệt đối không dùng `#D62323` làm body text trên nền Platinum vì độ tương phản chỉ đạt ~4.01:1 (dưới chuẩn WCAG AA 4.5:1).
-- **Văn bản chính (Main text):** `#181818` trên nền trắng/Platinum (đạt chuẩn AAA/AA).
-- **Văn bản phụ (Secondary text):** `#323232` trên nền trắng/Platinum (đạt chuẩn AA).
-- **Bề mặt hỗ trợ (Neutral Surface):** Màu trắng `#FFFFFF` là neutral hỗ trợ cho thẻ card, modal, bảng dữ liệu.
+- **Primary Button:** Nền `#405BD5` (Royal Blue), hover/pressed `#202B46` (Deep Navy), chữ `#FFFFFF`.
+- **Focus Ring / Accent:** Dùng Royal Blue (`#405BD5`) với viền rõ và trạng thái focus nhìn thấy được. Không dùng màu nhấn sáng làm body text nếu không đạt tương phản WCAG AA 4.5:1.
+- **Văn bản chính:** Deep Navy (`#202B46`) trên nền White (`#FFFFFF`) hoặc Background (`#F5F7FC`).
+- **Văn bản phụ:** Chọn sắc độ đủ đậm để đạt WCAG AA trên nền tương ứng; không dùng các màu nền nhạt làm màu chữ nhỏ.
+- **Bề mặt hỗ trợ:** White (`#FFFFFF`) cho card, modal và bảng; Background (`#F5F7FC`) cho canvas; Sky, Lavender và Mint dành cho vùng nhấn nhẹ.
 - **Trạng thái ngữ nghĩa riêng biệt (Semantic States):**
-  - **Success:** Emerald `#047857`, nền `bg-emerald-50`, viền `border-emerald-200`.
-  - **Warning:** Amber `#D97706`, nền `bg-amber-50`, viền `border-amber-200`.
-  - **Info:** Sky `#0284C7`, nền `bg-sky-50`, viền `border-sky-200`.
-  - **Danger / Destructive:** Dark Red `#8E0000`, nền `bg-rose-50`, viền `border-rose-200`.
-  - **Quy tắc trạng thái:** Màu đỏ thương hiệu không được dùng thay thế cho mọi trạng thái; mọi trạng thái phải luôn đi kèm icon và nhãn văn bản tường minh, không chỉ dựa vào màu sắc.
+  - **Success:** Teal `#168F83` hoặc Lime `#A5CD55`, nền Mint `#E0F3EE`.
+  - **Warning:** Amber `#E8B351`, dùng chữ Deep Navy `#202B46` trên nền Amber.
+  - **Info:** Cyan `#24A9D2`, nền Sky `#98D9E8`.
+  - **Danger / Destructive:** Đỏ `#8E0000`, nền `bg-rose-50`, viền `border-rose-200` là màu trạng thái bổ sung ngoài palette.
+  - **Quy tắc trạng thái:** Không dùng một màu thương hiệu thay thế cho mọi trạng thái; mọi trạng thái phải có nhãn văn bản rõ ràng, không chỉ dựa vào màu sắc.
 
 ### 2.3. Quy Tắc Chống Lạm Dụng (Anti-Patterns Prohibited)
 
-- **Tuyệt đối cấm:** Gradient màu, hiệu ứng glassmorphism/blur, đốm sáng orb, gam màu tím/xanh tím, vạch kẻ viền dày > 1px, negative letter spacing, lồng thẻ card đa cấp (nested card).
+- **Tránh:** Gradient màu, glassmorphism/blur, đốm sáng orb, vạch viền dày hơn 1px, negative letter spacing và lồng card nhiều cấp. Các màu Purple và Lavender trong palette được phép dùng theo vai trò đã định nghĩa.
 
 ---
 
 ## 3. Typography & Data Hygiene
 
-- **Display & Heading Font:** Roboto (với Segoe UI và system-ui fallback), hiển thị tiếng Việt hoàn hảo.
-- **Body Font:** Roboto / Inter, kích thước cơ bản 14px (`0.875rem`), khoảng cách dòng 1.5.
-- **Technical & Numeric Font:** JetBrains Mono bắt buộc cho toàn bộ ID hệ thống (số nguyên BE), mã nhân viên (`STF-...`), mã hội viên (`MB-...`), mã lớp học, ngày giờ nhật ký và các chỉ số đo lường với class `tabular-nums`.
+- **Font toàn hệ thống:** Be Vietnam Pro cho nội dung, tiêu đề, biểu mẫu, mã định danh và số liệu; kích thước cơ bản 14px (`0.875rem`), khoảng cách dòng 1.5.
+- **Số liệu kỹ thuật:** Dùng Be Vietnam Pro cùng `tabular-nums` để giữ các chữ số thẳng hàng.
 
 ---
 
@@ -154,16 +166,16 @@ Tài liệu này là **nguồn sự thật duy nhất (Single Source of Truth)**
 
 - **Buttons:** Bo góc chuẩn `rounded-md` (4px - 6px). Chiều cao tối thiểu tiếp cận di động `min-h-[44px]`, padding `px-4 py-2.5`.
 - **Navigation Items (Sidebar & Tabs):**
-  - Active: Nền `#BA0000` text `#FFFFFF` font-bold trên dark sidebar; hoặc `border-b-2 border-[#BA0000] text-[#BA0000]` trên tab ngang.
-  - Inactive: `text-stone-300 hover:text-white hover:bg-stone-800` trên dark sidebar.
+  - Active: Nền `#405BD5`, chữ `#FFFFFF`, font-bold trên Deep Navy; hoặc `border-b-2 border-[#405BD5] text-[#405BD5]` trên tab ngang.
+  - Inactive: Chữ trắng dịu trên Deep Navy; chuyển sang White khi hover và dùng nền tối hơn để tăng phân biệt.
   - Touch target: Tối thiểu 44px x 44px.
-- **Inputs & Filters:** Nền trắng, viền rõ `border-stone-300`, focus ring chuẩn `focus:border-[#BA0000] focus:ring-2 focus:ring-[#D62323]/20 focus:outline-none`.
-- **Tables:** Header xám nhẹ `bg-stone-100/70 text-stone-800 font-bold`, phân dòng sắc nét `border-b border-[#E4E4E4]`, hỗ trợ `tabular-nums` chống xô lệch.
+- **Inputs & Filters:** Nền White, viền trung tính rõ; focus dùng `focus:border-[#405BD5] focus:ring-2 focus:ring-[#405BD5]/20 focus:outline-none`.
+- **Tables:** Header dùng Background `#F5F7FC` với chữ Deep Navy; phân dòng bằng viền trung tính mảnh, hỗ trợ `tabular-nums` chống xô lệch.
 
 ---
 
 ## 5. Quy Tắc Khóa Hệ Thống (Design System Locks)
 
-1. **Tính nhất quán tuyệt đối:** Không tồn tại bảng màu cam/Fireside cũ làm brand accent; toàn bộ 5 role portals và trang công khai đều tuân theo Webzone Palette.
+1. **Tính nhất quán:** Toàn bộ 5 role portals và trang công khai dùng SCMS Palette được định nghĩa trong tài liệu này; chỉ dùng màu ngoài palette cho các trạng thái ngữ nghĩa cần thiết như lỗi nghiêm trọng.
 2. **Quy chuẩn tiếp cận:** Tất cả nút bấm, liên kết và control tương tác phải đạt tối thiểu `44px x 44px` trên touch layout.
 3. **Quy chuẩn định danh:** Không tạo chuỗi ID giả `mem-*` / `stf-*` trong API mode. Mọi ID hiển thị phải là số nguyên authoritative từ BE.

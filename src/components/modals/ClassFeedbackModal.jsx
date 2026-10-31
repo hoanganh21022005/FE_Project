@@ -262,7 +262,7 @@ export function ClassFeedbackModal({
                 <span className="text-[10px] font-mono font-medium uppercase tracking-[0.16em] text-[#24A9D2] block">
                   ĐÁNH GIÁ BUỔI HỌC
                 </span>
-                <h2 className="font-['Newsreader',serif] font-normal text-2xl sm:text-[28px] text-[#202B46] leading-snug">
+                <h2 className="font-sans font-normal text-2xl sm:text-[28px] text-[#202B46] leading-snug">
                   {classItem.nameVi || classItem.name || classItem.className}
                 </h2>
                 <p className="text-xs text-[#6B7890] font-normal">
@@ -290,7 +290,7 @@ export function ClassFeedbackModal({
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="font-['Newsreader',serif] font-normal text-2xl text-[#202B46]">
+                    <h3 className="font-sans font-normal text-2xl text-[#202B46]">
                       Cảm ơn bạn đã phản hồi
                     </h3>
                     <p className="text-xs text-[#6B7890] max-w-xs mx-auto leading-relaxed">
@@ -320,7 +320,7 @@ export function ClassFeedbackModal({
                   {/* BƯỚC 1: THANG ĐIỂM 1.0 – 5.0 */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-['Newsreader',serif] font-normal text-xl text-[#202B46]">
+                      <h3 className="font-sans font-normal text-xl text-[#202B46]">
                         Đánh giá chất lượng buổi tập
                       </h3>
                       <span className="text-[11px] font-mono text-[#24A9D2] uppercase">
@@ -355,7 +355,7 @@ export function ClassFeedbackModal({
                                   : "bg-[#FFFFFF] border-[rgba(222,228,240,0.9)] text-[#6B7890] hover:border-[#202B46]"
                             }`}
                           >
-                            <span className="font-['Newsreader',serif] text-lg font-normal leading-none">
+                            <span className="font-sans text-lg font-normal leading-none">
                               {level}.0
                             </span>
                           </button>
@@ -538,7 +538,7 @@ export function ClassFeedbackModal({
                       </label>
 
                       {isReadOnly ? (
-                        <p className="text-xs text-[#202B46] italic font-['Newsreader',serif] text-[15px] leading-relaxed py-2 border-b border-[rgba(222,228,240,0.9)]">
+                        <p className="text-xs text-[#202B46] italic font-sans text-[15px] leading-relaxed py-2 border-b border-[rgba(222,228,240,0.9)]">
                           “{commentText || "Không có nhận xét chi tiết."}”
                         </p>
                       ) : (
@@ -573,7 +573,7 @@ export function ClassFeedbackModal({
                       )}
                       {isReadOnly && existingFeedback?.coachReply && (
                         <div className="pl-4 border-l-2 border-[#24A9D2]/40 space-y-1 pt-2">
-                          <p className="text-xs sm:text-[13px] text-[#6B7890] italic font-['Newsreader',serif] leading-relaxed">
+                          <p className="text-xs sm:text-[13px] text-[#6B7890] italic font-sans leading-relaxed">
                             “{existingFeedback.coachReply}”
                           </p>
                           <span className="text-[11px] text-[#6B7890] font-normal block font-sans">

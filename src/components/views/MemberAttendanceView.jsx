@@ -1536,7 +1536,7 @@ export function MemberAttendanceView() {
     return (
       <div className="min-h-screen bg-[#F5F7FC] py-20 px-4 font-['Be_Vietnam_Pro',sans-serif] flex items-center justify-center">
         <div className="max-w-md w-full text-center space-y-4 bg-[#FFFFFF] p-8 rounded-lg border border-[rgba(222,228,240,0.9)]">
-          <h2 className="font-['Newsreader',serif] text-2xl text-[#202B46]">
+          <h2 className="font-sans text-2xl text-[#202B46]">
             Không thể kết nối máy chủ
           </h2>
           <p className="text-sm text-[#6B7890] leading-relaxed">
@@ -1559,7 +1559,7 @@ export function MemberAttendanceView() {
     return (
       <div className="min-h-screen bg-[#F5F7FC] py-20 px-4 font-['Be_Vietnam_Pro',sans-serif] flex items-center justify-center">
         <div className="max-w-md w-full text-center space-y-4 bg-[#FFFFFF] p-8 rounded-lg border border-[rgba(222,228,240,0.9)]">
-          <h2 className="font-['Newsreader',serif] text-2xl text-[#202B46]">
+          <h2 className="font-sans text-2xl text-[#202B46]">
             Chưa có lịch điểm danh
           </h2>
           <p className="text-sm text-[#6B7890] leading-relaxed">
@@ -1612,7 +1612,7 @@ export function MemberAttendanceView() {
               </span>
             </div>
 
-            <h1 className="font-['Newsreader',serif] font-normal text-3xl sm:text-4xl text-[#202B46] tracking-tight leading-tight">
+            <h1 className="font-sans font-normal text-3xl sm:text-4xl text-[#202B46] tracking-tight leading-tight">
               Điểm danh & Chuyên cần
             </h1>
             <p className="text-xs sm:text-sm text-[#6B7890] font-normal">
@@ -1700,13 +1700,13 @@ export function MemberAttendanceView() {
                   </div>
 
                   {/* Date Heading in Serif */}
-                  <h2 className="font-['Newsreader',serif] font-normal text-3xl sm:text-4xl text-[#FFFFFF] tracking-tight leading-tight">
+                  <h2 className="font-sans font-normal text-3xl sm:text-4xl text-[#FFFFFF] tracking-tight leading-tight">
                     {heroSession.dayVi}
                   </h2>
 
                   {/* Curriculum Focus: Italic Serif line (~18px) directly under Date */}
                   {heroSession.topic && (
-                    <p className="font-['Newsreader',serif] italic text-lg sm:text-[19px] text-[#405BD5] leading-snug pt-0.5">
+                    <p className="font-sans italic text-lg sm:text-[19px] text-[#405BD5] leading-snug pt-0.5">
                       Trọng tâm: {heroSession.topic}
                     </p>
                   )}
@@ -1979,7 +1979,7 @@ export function MemberAttendanceView() {
                         {isCheckInOpen && (
                           <div className="text-[11px] text-[#FFFFFF]/60 flex items-center justify-center gap-1.5">
                             <span>Mã OTP:</span>
-                            <span className="font-['JetBrains_Mono',monospace] font-medium text-white tracking-widest">
+                            <span className="font-sans font-medium text-white tracking-widest">
                               {otpBackupCode}
                             </span>
                             <svg className="w-3.5 h-3.5 -rotate-90">
@@ -2055,7 +2055,7 @@ export function MemberAttendanceView() {
                   <span className="text-[11px] uppercase tracking-[0.14em] text-[#6B7890] font-medium block">
                     TIẾN ĐỘ KHÓA HỌC
                   </span>
-                  <h3 className="font-['Newsreader',serif] font-normal text-2xl text-[#202B46]">
+                  <h3 className="font-sans font-normal text-2xl text-[#202B46]">
                     Chuyên cần & Điều kiện cấp chứng chỉ
                   </h3>
                 </div>
@@ -2068,7 +2068,7 @@ export function MemberAttendanceView() {
               </div>
 
               <div className="flex items-baseline gap-2 pt-1">
-                <span className="font-['Newsreader',serif] font-normal text-4xl sm:text-5xl text-[#202B46] leading-none lining-nums tabular-nums">
+                <span className="font-sans font-normal text-4xl sm:text-5xl text-[#202B46] leading-none lining-nums tabular-nums">
                   {stats.attended}
                 </span>
                 <span className="text-base text-[#6B7890] font-normal">
@@ -2182,7 +2182,7 @@ export function MemberAttendanceView() {
                           VIBE ATHLETIC CLUB • LỘ TRÌNH 12 BUỔI
                         </span>
                       </div>
-                      <h3 className="font-['Newsreader',serif] font-normal text-2xl text-[#202B46]">
+                      <h3 className="font-sans font-normal text-2xl text-[#202B46]">
                         {activeCourse.name} • {heroSession.coach}
                       </h3>
                     </div>
@@ -2249,7 +2249,7 @@ export function MemberAttendanceView() {
                         </div>
 
                         <div className="flex items-baseline gap-2">
-                          <span className="font-['Newsreader',serif] font-normal text-5xl text-[#202B46] leading-none lining-nums tabular-nums">
+                          <span className="font-sans font-normal text-5xl text-[#202B46] leading-none lining-nums tabular-nums">
                             {stats.attended}
                           </span>
                           <span className="text-2xl text-[#6B7890] font-normal">
@@ -3151,7 +3151,7 @@ export function MemberAttendanceView() {
                   {isVip ? "FOUNDING MEMBER" : "HỘI VIÊN TIÊU CHUẨN"}
                 </span>
               </div>
-              <div className="font-['Newsreader',serif] text-2xl text-[#FFFFFF] tracking-tight">
+              <div className="font-sans text-2xl text-[#FFFFFF] tracking-tight">
                 {activeCourse.name}
               </div>
               <div className="text-xs text-[#FFFFFF]/70 leading-relaxed pt-0.5">
@@ -3221,7 +3221,7 @@ export function MemberAttendanceView() {
                   {isCheckInOpen && (
                     <div className="flex items-center justify-center gap-2 text-xs text-[#FFFFFF]/70">
                       <span>Mã OTP tự động làm mới sau:</span>
-                      <span className="font-['JetBrains_Mono',monospace] text-white font-medium tabular-nums bg-white/10 px-2 py-0.5 rounded">
+                      <span className="font-sans text-white font-medium tabular-nums bg-white/10 px-2 py-0.5 rounded">
                         {qrCountdown}s
                       </span>
                     </div>

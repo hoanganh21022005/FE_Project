@@ -44,7 +44,7 @@ export function AttendancePolicyModal({ isOpen, onClose, language = 'vi' }) {
                 VIBE ATHLETIC CLUB • NỘI QUY HOẠT ĐỘNG
               </span>
             </div>
-            <h2 className="font-['Newsreader',serif] font-normal text-2xl sm:text-3xl text-[#202B46] tracking-tight">
+            <h2 className="font-sans font-normal text-2xl sm:text-3xl text-[#202B46] tracking-tight">
               {language === 'vi' ? 'Quy định điểm danh & vào sân' : 'Attendance & Gate Access Policy'}
             </h2>
           </div>
@@ -61,7 +61,7 @@ export function AttendancePolicyModal({ isOpen, onClose, language = 'vi' }) {
         {/* 3 Large Key Metric Numbers (Quick glance for members) */}
         <div className="grid grid-cols-3 gap-3 p-4 rounded-lg bg-[#F5F7FC] border border-[rgba(222,228,240,0.7)]">
           <div className="space-y-1">
-            <div className="font-['Newsreader',serif] text-2xl sm:text-3xl font-normal text-[#202B46] leading-none tabular-nums">
+            <div className="font-sans text-2xl sm:text-3xl font-normal text-[#202B46] leading-none tabular-nums">
               {policy.minAttendanceRate}%
             </div>
             <div className="text-[11px] text-[#6B7890] leading-snug">
@@ -69,7 +69,7 @@ export function AttendancePolicyModal({ isOpen, onClose, language = 'vi' }) {
             </div>
           </div>
           <div className="space-y-1 border-l border-[rgba(21,23,28,0.1)] pl-3 sm:pl-4">
-            <div className="font-['Newsreader',serif] text-2xl sm:text-3xl font-normal text-[#202B46] leading-none tabular-nums">
+            <div className="font-sans text-2xl sm:text-3xl font-normal text-[#202B46] leading-none tabular-nums">
               {policy.maxAbsent} buổi
             </div>
             <div className="text-[11px] text-[#6B7890] leading-snug">
@@ -77,7 +77,7 @@ export function AttendancePolicyModal({ isOpen, onClose, language = 'vi' }) {
             </div>
           </div>
           <div className="space-y-1 border-l border-[rgba(21,23,28,0.1)] pl-3 sm:pl-4">
-            <div className="font-['Newsreader',serif] text-2xl sm:text-3xl font-normal text-[#202B46] leading-none tabular-nums">
+            <div className="font-sans text-2xl sm:text-3xl font-normal text-[#202B46] leading-none tabular-nums">
               {policy.leaveNoticeHours} giờ
             </div>
             <div className="text-[11px] text-[#6B7890] leading-snug">
@@ -168,7 +168,7 @@ export function AttendancePolicyModal({ isOpen, onClose, language = 'vi' }) {
           {/* Section 01: Turnstile & QR */}
           <div className="space-y-2.5 pt-4 first:pt-0">
             <div className="flex items-center gap-2">
-              <span className="font-['Newsreader',serif] italic text-base text-[#24A9D2] font-medium">01</span>
+              <span className="font-sans italic text-base text-[#24A9D2] font-medium">01</span>
               <h3 className="text-sm font-semibold text-[#202B46]">
                 Quy định quét mã QR & Vào sân
               </h3>
@@ -192,7 +192,7 @@ export function AttendancePolicyModal({ isOpen, onClose, language = 'vi' }) {
           {/* Section 02: Graduation Standards */}
           <div className="space-y-2.5 pt-4">
             <div className="flex items-center gap-2">
-              <span className="font-['Newsreader',serif] italic text-base text-[#24A9D2] font-medium">02</span>
+              <span className="font-sans italic text-base text-[#24A9D2] font-medium">02</span>
               <h3 className="text-sm font-semibold text-[#202B46]">
                 Tiêu chuẩn chuyên cần & Hoàn thành khóa học
               </h3>
@@ -213,7 +213,7 @@ export function AttendancePolicyModal({ isOpen, onClose, language = 'vi' }) {
           {/* Section 03: Disputes & Ground Assistance */}
           <div className="space-y-2.5 pt-4">
             <div className="flex items-center gap-2">
-              <span className="font-['Newsreader',serif] italic text-base text-[#24A9D2] font-medium">03</span>
+              <span className="font-sans italic text-base text-[#24A9D2] font-medium">03</span>
               <h3 className="text-sm font-semibold text-[#202B46]">
                 Khiếu nại & Hỗ trợ tại sân
               </h3>
