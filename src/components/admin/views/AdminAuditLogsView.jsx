@@ -1,13 +1,17 @@
-import React, { useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import { Search } from "lucide-react"
 import { AdminResourceState } from "../AdminResourceState.jsx"
 import { useAdminData } from "../AdminDataContext.jsx"
 import { formatAdminDateTime } from "../adminDateUtils.js"
 
+const PAGE_SIZE = 25
+
 export function AdminAuditLogsView() {
   const { resources, retry } = useAdminData()
   const [query, setQuery] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
   const logs = resources.auditLogs
+
   const filteredLogs = useMemo(() => {
     const normalized = query.trim().toLowerCase()
     if (!normalized) return logs.data
@@ -19,6 +23,31 @@ export function AdminAuditLogsView() {
       ),
     )
   }, [logs.data, query])
+
+  const totalItems = filteredLogs.length
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE))
+  const activePage = Math.min(Math.max(1, currentPage), totalPages)
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
+
+  const handleQueryChange = (event) => {
+    setQuery(event.target.value)
+    setCurrentPage(1)
+  }
+
+  const paginatedLogs = useMemo(() => {
+    const startIdx = (activePage - 1) * PAGE_SIZE
+    return filteredLogs.slice(startIdx, startIdx + PAGE_SIZE)
+  }, [filteredLogs, activePage])
+
+  const startItem =
+    totalItems === 0 ? 0 : (activePage - 1) * PAGE_SIZE + 1
+  const endItem =
+    totalItems === 0 ? 0 : Math.min(activePage * PAGE_SIZE, totalItems)
 
   return (
     <div className="space-y-4">
@@ -37,7 +66,7 @@ export function AdminAuditLogsView() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
           <input
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={handleQueryChange}
             placeholder="Actor, hành động, đối tượng..."
             className="w-full h-11 min-h-[44px] pl-9 pr-3 rounded border border-border-color bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent"
           />
@@ -62,9 +91,10 @@ export function AdminAuditLogsView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-200">
-                {filteredLogs.map((log) => (
+                {paginatedLogs.map((log) => (
                   <tr
                     key={log.id ?? `${log.action}-${log.createdAt}`}
+                    data-log-id={log.id}
                     className="hover:bg-stone-50 align-top"
                   >
                     <td className="px-4 py-3 text-xs text-stone-600 whitespace-nowrap tabular-nums font-mono">
@@ -94,6 +124,35 @@ export function AdminAuditLogsView() {
               Không có nhật ký phù hợp từ khóa.
             </p>
           )}
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 border-t border-stone-200 bg-stone-50">
+            <span className="text-xs text-stone-600 tabular-nums">
+              Hiển thị {startItem}–{endItem} trong tổng số {totalItems} bản ghi
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={activePage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="min-h-[44px] min-w-[44px] px-3 py-2 rounded border border-border-color bg-white text-xs font-bold text-text-primary hover:bg-bg-secondary focus:outline-none focus:ring-2 focus:ring-brand-accent disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                aria-label="Trang trước"
+              >
+                Trang trước
+              </button>
+              <span className="min-h-[44px] inline-flex items-center justify-center px-3 py-1.5 rounded bg-brand-dark text-white text-xs font-bold tabular-nums">
+                Trang {activePage}/{totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={activePage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="min-h-[44px] min-w-[44px] px-3 py-2 rounded border border-border-color bg-white text-xs font-bold text-text-primary hover:bg-bg-secondary focus:outline-none focus:ring-2 focus:ring-brand-accent disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                aria-label="Trang sau"
+              >
+                Trang sau
+              </button>
+            </div>
+          </div>
         </div>
       </AdminResourceState>
     </div>
