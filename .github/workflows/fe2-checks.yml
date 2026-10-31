@@ -8,6 +8,8 @@ on:
       - 'src/components/modals/PaymentModal.jsx'
       - 'src/components/modals/NewClassModal.jsx'
       - 'src/components/views/MyMembershipView.jsx'
+      - 'src/components/views/ReceptionClassBooking.jsx'
+      - 'src/components/views/ReceptionPaymentsView.jsx'
       - 'src/api/invoiceMappers.js'
       - 'src/api/managerApi.js'
       - 'src/api/normalClassCreation.js'
