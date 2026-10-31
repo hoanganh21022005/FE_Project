@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { Award, CalendarDays, CheckCircle2, Clock3, CreditCard, Dumbbell, FileText, RefreshCw, UserRound } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { membershipApi } from "../../api/membershipApi"
@@ -8,6 +8,7 @@ import { classEnrollmentApi } from "../../api/classEnrollmentApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { partitionMemberMembershipData } from "../../utils/memberMembershipData"
+import { isActiveNormalEnrollment } from "../../utils/memberScheduleUtils"
 
 const formatDate = (value, language) => {
   if (!value) return "Chưa có thông tin"
@@ -42,10 +43,10 @@ function SubscriptionCard({ item, language, history = false }) {
     {packageType === "advanced" && !item.subjectName && !item.primaryCoachName && <p className="mt-4 text-xs text-slate-500">Backend chỉ trả mã hoặc thiếu dữ liệu môn/HLV; trang không tự suy đoán tên.</p>}
   </article>
 }
-function EnrollmentCard({ item, history = false }) {
+function EnrollmentCard({ item }) {
   const className = item.className || item.courseName || item.name || (item.classId ? "Lớp #" + item.classId : "Lớp học")
   const subject = item.subjectName || (item.subjectId ? "Môn #" + item.subjectId : "Chưa có thông tin môn")
-  return <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-start gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-blue-soft text-brand-primary"><Dumbbell size={21} /></div><div><p className="text-xs font-bold uppercase tracking-wide text-brand-primary">Normal · lớp đã đăng ký</p><h3 className="mt-1 text-lg font-bold text-slate-900">{className}</h3></div></div><span className={"rounded-full px-3 py-1 text-xs font-semibold " + (history ? "bg-slate-100 text-slate-600" : "bg-emerald-50 text-emerald-700")}>{statusLabel(item.status)}</span></div><div className="mt-5 grid gap-3 sm:grid-cols-3"><Info icon={Dumbbell} label="Môn học" value={subject} /><Info icon={UserRound} label="Huấn luyện viên" value={item.coachName || item.primaryCoachName || "Chưa có thông tin"} /><Info icon={CalendarDays} label="Lịch học" value={item.scheduleText || item.schedule || item.sessionSchedule || "Xem lịch học của tôi"} /></div><p className="mt-4 text-sm text-slate-500">Đăng ký lớp Normal là quyền theo lớp; không hiển thị như gói hội viên Basic/Advanced.</p></article>
+  return <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-start gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-blue-soft text-brand-primary"><Dumbbell size={21} /></div><div><p className="text-xs font-bold uppercase tracking-wide text-brand-primary">Normal · lớp đã đăng ký</p><h3 className="mt-1 text-lg font-bold text-slate-900">{className}</h3></div></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{statusLabel(item.status)}</span></div><div className="mt-5 grid gap-3 sm:grid-cols-3"><Info icon={Dumbbell} label="Môn học" value={subject} /><Info icon={UserRound} label="Huấn luyện viên" value={item.coachName || item.primaryCoachName || "Chưa có thông tin"} /><Info icon={CalendarDays} label="Lịch học" value={item.scheduleText || item.schedule || item.sessionSchedule || "Xem lịch học của tôi"} /></div><p className="mt-4 text-sm text-slate-500">Đăng ký lớp Normal là quyền theo lớp; không hiển thị như gói hội viên Basic/Advanced.</p></article>
 }
 function InvoiceRow({ invoice, language }) {
   const paid = invoice.paymentStatus === "successful"
@@ -53,7 +54,7 @@ function InvoiceRow({ invoice, language }) {
 }
 
 export function MyMembershipView() {
-  const { currentUser, language, apiEnabled } = useSCMS()
+  const { currentUser, language, apiEnabled, t } = useSCMS()
   const location = useLocation()
   const navigate = useNavigate()
   const isHistory = location.pathname.endsWith("/history")
@@ -90,6 +91,10 @@ export function MyMembershipView() {
   }, [apiEnabled, memberId])
   useEffect(() => { load() }, [load, reloadKey])
   const partition = useMemo(() => partitionMemberMembershipData(data), [data])
+  const activeNormalCount = useMemo(
+    () => data.enrollments.filter((row) => isActiveNormalEnrollment(row)).length,
+    [data.enrollments],
+  )
   const retry = () => setReloadKey((value) => value + 1)
   const tabClass = (selected) => "inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition " + (selected ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100")
   return <main className="mx-auto w-full max-w-[1600px] space-y-6 px-4 py-5 sm:px-6 lg:px-8" aria-labelledby="membership-title">
@@ -98,11 +103,48 @@ export function MyMembershipView() {
     {!isHistory ? <div className="space-y-8">
       {partition.pendingInvoices.length > 0 && <aside className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 sm:flex-row sm:items-center"><Clock3 className="shrink-0" size={19} /><p className="text-sm"><strong>Có {partition.pendingInvoices.length} hóa đơn đang chờ thanh toán.</strong> Hóa đơn chờ không được tính là gói đã mua hoặc quyền đang sử dụng.</p><button onClick={() => navigate("/member/invoices")} className="min-h-9 shrink-0 rounded-lg bg-white px-3 text-sm font-semibold ring-1 ring-amber-200 hover:bg-amber-100">Xem hóa đơn</button></aside>}
       <section className="space-y-4"><div><h2 className="text-xl font-bold text-slate-900">Gói hội viên</h2><p className="mt-1 text-sm text-slate-500">Advanced được hiển thị theo môn, Primary Coach và credit. Gói Normal cũ được gắn nhãn riêng, không nhầm với lớp Normal đã đăng ký.</p></div><ResourceState loading={loading.subscriptions} error={errors.subscriptions} onRetry={retry} empty={partition.usableSubscriptions.length === 0 ? "Bạn chưa có gói hội viên đang hoạt động." : null}><div className="grid gap-4 xl:grid-cols-2">{partition.usableSubscriptions.map((item) => <SubscriptionCard key={item.subscriptionId || item.id} item={item} language={language} />)}</div></ResourceState></section>
-      <section className="space-y-4"><div><h2 className="text-xl font-bold text-slate-900">Lớp Normal đã đăng ký</h2><p className="mt-1 text-sm text-slate-500">Normal được quản lý theo từng lớp và số buổi đã đăng ký, không nhầm với gói hội viên cũ.</p></div><ResourceState loading={loading.enrollments} error={errors.enrollments} onRetry={retry} empty={partition.usableEnrollments.length === 0 ? "Bạn chưa có lớp Normal đang đăng ký." : null}><div className="grid gap-4 xl:grid-cols-2">{partition.usableEnrollments.map((item) => <EnrollmentCard key={item.enrollmentId || item.id || (item.classId + "-" + item.subjectId)} item={item} />)}</div></ResourceState></section>
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center"><div><h2 className="text-lg font-bold text-slate-900">Hỗ trợ</h2><p className="mt-1 text-sm text-slate-500">Tìm lớp Normal hoặc xem các khóa học hiện có.</p></div><button onClick={() => navigate("/member/catalog")} className="min-h-10 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800">Khám phá khóa học</button></div></section>
+      <section className="space-y-3">
+        <h2 className="text-xl font-bold text-slate-900">{t("membershipNormalSectionTitle")}</h2>
+        <ResourceState loading={loading.enrollments} error={errors.enrollments} onRetry={retry} empty={null}>
+          {activeNormalCount > 0 ? (
+            <div className="flex flex-col justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:px-6">
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-blue-soft text-brand-primary">
+                  <Dumbbell size={19} />
+                </div>
+                <p className="text-sm font-semibold text-slate-800">
+                  {t("membershipNormalActiveSummary").replace("{count}", String(activeNormalCount))}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/member/enrollments")}
+                className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                {t("membershipBtnViewEnrollments")}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:px-6">
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-500">
+                  <Dumbbell size={19} />
+                </div>
+                <p className="text-sm font-medium text-slate-600">{t("enrollmentsEmptyTitle")}</p>
+              </div>
+              <Link
+                to="/member/catalog"
+                className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-brand-primary transition hover:bg-slate-50"
+              >
+                {t("enrollmentsBtnRegisterCourse")}
+              </Link>
+            </div>
+          )}
+        </ResourceState>
+      </section>
     </div> : <div className="space-y-8">
       <section className="space-y-4"><div><h2 className="text-xl font-bold text-slate-900">Các giao dịch đã thanh toán</h2><p className="mt-1 text-sm text-slate-500">Đối chiếu từ hóa đơn riêng của tài khoản hội viên.</p></div><ResourceState loading={loading.invoices} error={errors.invoices} onRetry={retry} empty={partition.paidInvoices.length === 0 ? "Chưa có hóa đơn đã thanh toán." : null}><div className="overflow-hidden rounded-2xl border border-slate-200 bg-white"><div className="hidden grid-cols-[1.2fr_1fr_1fr_auto] gap-3 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid"><span>Hóa đơn</span><span>Ngày</span><span>Số tiền</span><span>Trạng thái</span></div>{partition.paidInvoices.map((invoice) => <InvoiceRow key={invoice.invoiceId || invoice.id} invoice={invoice} language={language} />)}</div></ResourceState></section>
-      <section className="space-y-4"><div><h2 className="text-xl font-bold text-slate-900">Quyền hội viên đã kết thúc</h2><p className="mt-1 text-sm text-slate-500">Các trạng thái hết hạn, hoàn thành hoặc đã hủy được giữ riêng với quyền đang dùng.</p></div><ResourceState loading={loading.subscriptions || loading.enrollments} error={[errors.subscriptions, errors.enrollments].filter(Boolean).join(" · ")} onRetry={retry} empty={partition.historySubscriptions.length + partition.historyEnrollments.length === 0 ? "Chưa có gói hoặc lớp trong lịch sử." : null}><div className="grid gap-4 xl:grid-cols-2">{partition.historySubscriptions.map((item) => <SubscriptionCard key={item.subscriptionId || item.id} item={item} language={language} history />)}{partition.historyEnrollments.map((item) => <EnrollmentCard key={item.enrollmentId || item.id || (item.classId + "-" + item.subjectId)} item={item} history />)}</div></ResourceState></section>
+      <section className="space-y-4"><div><h2 className="text-xl font-bold text-slate-900">Quyền hội viên đã kết thúc</h2><p className="mt-1 text-sm text-slate-500">Các trạng thái hết hạn, hoàn thành hoặc đã hủy được giữ riêng với quyền đang dùng.</p></div><ResourceState loading={loading.subscriptions || loading.enrollments} error={[errors.subscriptions, errors.enrollments].filter(Boolean).join(" · ")} onRetry={retry} empty={partition.historySubscriptions.length + partition.historyEnrollments.length === 0 ? "Chưa có gói hoặc lớp trong lịch sử." : null}><div className="grid gap-4 xl:grid-cols-2">{partition.historySubscriptions.map((item) => <SubscriptionCard key={item.subscriptionId || item.id} item={item} language={language} history />)}{partition.historyEnrollments.map((item) => <EnrollmentCard key={item.enrollmentId || item.id || (item.classId + "-" + item.subjectId)} item={item} />)}</div></ResourceState></section>
     </div>}
     <footer className="flex items-start gap-2 rounded-xl bg-slate-100 p-4 text-xs leading-5 text-slate-600"><FileText className="mt-0.5 shrink-0" size={15} />Dữ liệu gói, thời hạn, credit và hóa đơn được hiển thị theo phản hồi Backend. Các trạng thái Pending không cấp quyền sử dụng.</footer>
   </main>

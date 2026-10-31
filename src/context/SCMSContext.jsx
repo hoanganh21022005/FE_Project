@@ -1243,7 +1243,9 @@ export const SCMSProvider = ({ children }) => {
   const [dashboardError, setDashboardError] = useState(null)
   const [bookings, setBookings] = useState(INITIAL_BOOKINGS)
   const [attendance, setAttendance] = useState(INITIAL_ATTENDANCE)
-  const [feedbacks, setFeedbacks] = useState(INITIAL_FEEDBACKS)
+  const [feedbacks, setFeedbacks] = useState(
+    API_ENABLED ? [] : INITIAL_FEEDBACKS,
+  )
   const [leaveRequests, setLeaveRequests] = useState([])
   const [attendanceDisputes, setAttendanceDisputes] = useState([])
   const [checkedInCourseSessions, setCheckedInCourseSessions] = useState({})

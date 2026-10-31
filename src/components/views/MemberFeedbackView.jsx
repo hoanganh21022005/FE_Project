@@ -1,59 +1,273 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react"
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import { useSCMS } from "../../context/SCMSContext"
-import { CLUB_COURSES } from "./MemberAttendanceView"
-import { memberPortalApi } from "../../api/memberPortalApi"
+import {
+  getMemberClasses,
+  getClassSessions,
+  getMemberAttendances,
+  getMyClassFeedback,
+  submitClassFeedback,
+} from "../../api/memberPortalApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
+import {
+  FEEDBACK_DEADLINE_DAYS,
+  TIME_FORMATTER_HHMM,
+  getTodayIsoInVn,
+  toDateDdMmYyyy,
+  formatSessionDateTimeSlot,
+  diffCalendarDaysInVn,
+  normalizeScheduleSession,
+  isLegacyStrengthClass,
+} from "../../utils/memberScheduleUtils"
 import { motion, AnimatePresence } from "motion/react"
 import {
   Check,
   X,
   CheckCircle2,
-  ChevronRight,
-  ShieldCheck,
-  Clock,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
 } from "lucide-react"
 
-/**
- * FIXED SERVER DATE (Asia/Ho_Chi_Minh)
- * Standardized date: 2026-10-14 (Thứ Tư, 14 tháng 10 năm 2026)
- */
-const SERVER_TODAY = "2026-10-14"
+export { FEEDBACK_DEADLINE_DAYS }
 
-// Curated high-end appraisal tags (Thay thế tags CSAT thông thường)
-const POSITIVE_APPRAISAL_TAGS = [
-  "Giáo án chuẩn xác",
-  "Cường độ bài tập lý tưởng",
-  "Mặt sàn & Ánh sáng hoàn hảo",
-  "Theo sát kỹ thuật",
-  "Chăm sóc chu đáo",
-  "Truyền cảm hứng",
+// Danh sách mã thẻ nhận định nhanh (qua i18n VI/EN)
+const POSITIVE_TAG_CODES = [
+  "pos_curriculum",
+  "pos_intensity",
+  "pos_court_lighting",
+  "pos_technique",
+  "pos_care",
+  "pos_inspiring",
 ]
 
-const CRITICAL_APPRAISAL_TAGS = [
-  "Cần chỉnh lại nhịp độ",
-  "Mặt sàn chưa tối ưu",
-  "Nhiệt độ phòng chưa chuẩn",
-  "Cần hỗ trợ kỹ thuật sâu hơn",
-  "Âm thanh hơi ồn",
-  "Cần bổ sung dụng cụ bổ trợ",
+const CRITICAL_TAG_CODES = [
+  "crit_pace",
+  "crit_court",
+  "crit_temperature",
+  "crit_technique",
+  "crit_noise",
+  "crit_equipment",
 ]
 
-// Thang định danh chuẩn mực VIP
-const APPRAISAL_VERDICTS = {
-  1: { label: "Cần điều chỉnh chất lượng", desc: "Chưa đạt kỳ vọng cơ bản" },
-  2: { label: "Chưa đạt chuẩn mực CLB", desc: "Cần ban chuyên môn can thiệp" },
-  3: { label: "Đạt yêu cầu cơ bản", desc: "Buổi tập diễn ra đúng kế hoạch" },
-  4: { label: "Chuẩn mực cao", desc: "Chất lượng huấn luyện và sân bãi tốt" },
-  5: {
-    label: "Xuất sắc · Vượt kỳ vọng",
-    desc: "Đẳng cấp huấn luyện và trải nghiệm tuyệt hảo",
-  },
+const TAG_TRANSLATION_KEY_MAP = {
+  pos_curriculum: "feedbackTagPosCurriculum",
+  pos_intensity: "feedbackTagPosIntensity",
+  pos_court_lighting: "feedbackTagPosCourtLighting",
+  pos_technique: "feedbackTagPosTechnique",
+  pos_care: "feedbackTagPosCare",
+  pos_inspiring: "feedbackTagPosInspiring",
+  crit_pace: "feedbackTagCritPace",
+  crit_court: "feedbackTagCritCourt",
+  crit_temperature: "feedbackTagCritTemperature",
+  crit_technique: "feedbackTagCritTechnique",
+  crit_noise: "feedbackTagCritNoise",
+  crit_equipment: "feedbackTagCritEquipment",
 }
 
-const API_ENABLED = import.meta.env.VITE_API_ENABLED
-  ? import.meta.env.VITE_API_ENABLED === "true"
-  : import.meta.env.MODE !== "mock"
+// Ánh xạ ngược cho các thẻ lưu dạng chuỗi tiếng Việt cũ (nếu có) sang mã chuẩn
+const LEGACY_TEXT_TO_TAG_CODE = {
+  "Giáo án chuẩn xác": "pos_curriculum",
+  "Cường độ bài tập lý tưởng": "pos_intensity",
+  "Mặt sàn & Ánh sáng hoàn hảo": "pos_court_lighting",
+  "Theo sát kỹ thuật": "pos_technique",
+  "Chăm sóc chu đáo": "pos_care",
+  "Truyền cảm hứng": "pos_inspiring",
+  "Cần chỉnh lại nhịp độ": "crit_pace",
+  "Mặt sàn chưa tối ưu": "crit_court",
+  "Nhiệt độ phòng chưa chuẩn": "crit_temperature",
+  "Cần hỗ trợ kỹ thuật sâu hơn": "crit_technique",
+  "Âm thanh hơi ồn": "crit_noise",
+  "Cần bổ sung dụng cụ bổ trợ": "crit_equipment",
+}
+
+const normalizeTagCode = (rawTag) => {
+  if (!rawTag) return null
+  const trimmed = String(rawTag).trim()
+  if (TAG_TRANSLATION_KEY_MAP[trimmed]) return trimmed
+  if (LEGACY_TEXT_TO_TAG_CODE[trimmed]) return LEGACY_TEXT_TO_TAG_CODE[trimmed]
+  return trimmed
+}
+
+const getTagLabel = (tagCodeOrText, t) => {
+  const normalized = normalizeTagCode(tagCodeOrText)
+  if (normalized && TAG_TRANSLATION_KEY_MAP[normalized]) {
+    return t(TAG_TRANSLATION_KEY_MAP[normalized])
+  }
+  return String(tagCodeOrText || "")
+}
+
+const getVerdictMeta = (ratingLevel, t) => {
+  const clamped = Math.min(5, Math.max(1, Math.round(Number(ratingLevel) || 5)))
+  return {
+    label: t(`feedbackVerdict${clamped}Label`),
+    desc: t(`feedbackVerdict${clamped}Desc`),
+  }
+}
+
+// Các câu cố định hệ thống trước đây không được phép hiển thị giả danh phản hồi thật của HLV
+const CANNED_SYSTEM_REPLIES = new Set([
+  "HLV và ban chuyên môn đã tiếp nhận phản hồi của bạn.",
+  "Chân thành cảm ơn bạn. Ban chuyên môn và Huấn luyện viên trưởng đã tiếp nhận ghi chú này để hoàn thiện giáo án buổi kế tiếp. Chúc bạn có buổi phục hồi thể lực thật tốt!",
+])
+
+const sanitizeRealCoachReply = (rawReply) => {
+  if (!rawReply || typeof rawReply !== "string") return null
+  const trimmed = rawReply.trim()
+  if (!trimmed || CANNED_SYSTEM_REPLIES.has(trimmed)) return null
+  return trimmed
+}
+
+const isSessionCancelled = (session) => {
+  const raw = String(session?.rawStatus || session?.status || "")
+    .trim()
+    .toLowerCase()
+  return (
+    raw === "cancelled" ||
+    raw === "canceled" ||
+    session?.centerInvalidated === true
+  )
+}
+
+const normalizeAttendanceStateKey = (rawState) => {
+  const upper = String(rawState || "")
+    .trim()
+    .toUpperCase()
+  if (upper.includes("LATE")) return "late"
+  if (
+    upper.includes("PRESENT") ||
+    upper.includes("ATTENDED") ||
+    upper === "CHECKED_IN"
+  ) {
+    return "present"
+  }
+  if (
+    upper.includes("EXCUSED") ||
+    upper.includes("WAIVED") ||
+    upper.includes("PERMITTED")
+  ) {
+    return "excused"
+  }
+  if (upper.includes("ABSENT") || upper.includes("NO_SHOW")) {
+    return "absent"
+  }
+  return "pending"
+}
+
+const findSessionAttendanceRecord = (session, records = []) => {
+  if (!session || !Array.isArray(records)) return null
+  const sessionId = session.id ?? session.sessionId
+  return (
+    records.find((record) => {
+      const sameSession =
+        sessionId != null &&
+        record.sessionId != null &&
+        String(record.sessionId) === String(sessionId)
+      const sameClassDate =
+        session.classId != null &&
+        record.classId != null &&
+        String(record.classId) === String(session.classId) &&
+        String(record.sessionDate || "").slice(0, 10) ===
+          String(session.sessionDate || "").slice(0, 10)
+      return sameSession || sameClassDate
+    }) || null
+  )
+}
+
+// Lưu trữ bổ sung phía client cho các trường UI mà hợp đồng POST /api/classes/{classId}/feedback chưa có
+// (như tags, điểm từng tiêu chí thành phần, cờ ẩn danh/đối thoại, sessionId) để không nhét vào comment và không làm mất khi tải lại/chỉnh sửa
+const FEEDBACK_META_STORAGE_KEY = "scms_member_feedback_meta_v1"
+
+const readStoredFeedbackMeta = () => {
+  if (typeof window === "undefined") return {}
+  try {
+    const raw = window.localStorage.getItem(FEEDBACK_META_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === "object" ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+const writeStoredFeedbackMeta = (metaMap) => {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(
+      FEEDBACK_META_STORAGE_KEY,
+      JSON.stringify(metaMap || {}),
+    )
+  } catch {
+    // ignore storage quota errors
+  }
+}
+
+// Tính toán điều kiện đủ để đánh giá & số ngày hạn còn lại (ưu tiên cờ/hạn từ API nếu có, chỉ dùng FEEDBACK_DEADLINE_DAYS khi API không trả hạn)
+export const evaluateSessionFeedbackEligibility = (
+  session,
+  attendanceRecord,
+  todayIso,
+) => {
+  const apiEligibleFlag =
+    session?.canFeedback ??
+    session?.canReview ??
+    session?.feedbackEligible ??
+    session?.eligibleForFeedback ??
+    attendanceRecord?.canFeedback ??
+    attendanceRecord?.canReview ??
+    attendanceRecord?.feedbackEligible ??
+    attendanceRecord?.eligibleForFeedback ??
+    null
+
+  const apiRemainingDaysRaw =
+    session?.feedbackDeadlineDays ??
+    session?.remainingFeedbackDays ??
+    session?.deadlineDays ??
+    attendanceRecord?.feedbackDeadlineDays ??
+    attendanceRecord?.remainingFeedbackDays ??
+    null
+
+  const apiDeadlineDateRaw =
+    session?.feedbackDeadline ??
+    session?.reviewDeadline ??
+    session?.feedbackExpiresAt ??
+    attendanceRecord?.feedbackDeadline ??
+    attendanceRecord?.reviewDeadline ??
+    null
+
+  let remainingDays = null
+  if (
+    apiRemainingDaysRaw !== null &&
+    apiRemainingDaysRaw !== undefined &&
+    apiRemainingDaysRaw !== "" &&
+    Number.isFinite(Number(apiRemainingDaysRaw))
+  ) {
+    remainingDays = Math.round(Number(apiRemainingDaysRaw))
+  } else if (apiDeadlineDateRaw) {
+    const deadlineIso = String(apiDeadlineDateRaw).slice(0, 10)
+    remainingDays = diffCalendarDaysInVn(todayIso, deadlineIso)
+  } else {
+    const elapsedDays = diffCalendarDaysInVn(session?.sessionDate, todayIso)
+    if (elapsedDays !== null && elapsedDays >= 0) {
+      remainingDays = FEEDBACK_DEADLINE_DAYS - elapsedDays
+    }
+  }
+
+  if (apiEligibleFlag === false) {
+    return { isEligible: false, remainingDays }
+  }
+  if (apiEligibleFlag === true) {
+    return {
+      isEligible: remainingDays === null ? true : remainingDays >= 0,
+      remainingDays: remainingDays ?? FEEDBACK_DEADLINE_DAYS,
+    }
+  }
+
+  return {
+    isEligible: remainingDays !== null && remainingDays >= 0,
+    remainingDays,
+  }
+}
 
 export function MemberFeedbackView({ embedded = false }) {
   const {
@@ -62,23 +276,49 @@ export function MemberFeedbackView({ embedded = false }) {
     classes,
     feedbacks,
     submitFeedback,
-    checkedInCourseSessions,
     showToast,
+    apiEnabled,
+    t,
   } = useSCMS()
+
+  const tr = useCallback(
+    (key, params = {}) => {
+      let text = t(key)
+      for (const [k, v] of Object.entries(params)) {
+        text = text.replaceAll(`{${k}}`, String(v ?? ""))
+      }
+      return text
+    },
+    [t],
+  )
+
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   // Active tab: 'pending' (Cần đánh giá) | 'submitted' (Lịch sử của tôi)
   const [activeTab, setActiveTab] = useState("pending")
 
-  // Backend feedback state in API mode
-  const [apiFeedbackMap, setApiFeedbackMap] = useState({})
+  // Dữ liệu thực từ API (buổi học, điểm danh, đánh giá đã gửi)
   const [apiEnrollments, setApiEnrollments] = useState([])
+  const [apiSessions, setApiSessions] = useState([])
+  const [apiAttendances, setApiAttendances] = useState([])
+  const [apiFeedbackMap, setApiFeedbackMap] = useState({})
+  const [localMetaMap, setLocalMetaMap] = useState(() =>
+    readStoredFeedbackMeta(),
+  )
   const [isLoadingApi, setIsLoadingApi] = useState(false)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null)
 
-  // Filter state for submitted reviews tab
+  // Bộ lọc ở tab "Lịch sử của tôi"
   const [selectedCourseFilter, setSelectedCourseFilter] = useState("all")
   const [selectedTimeFilter, setSelectedTimeFilter] = useState("all")
 
-  // Drawer Sheet state
+  // Trạng thái Ngăn chấm điểm (Drawer)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeSessionForReview, setActiveSessionForReview] = useState(null)
   const [editingFeedbackId, setEditingFeedbackId] = useState(null)
@@ -86,32 +326,33 @@ export function MemberFeedbackView({ embedded = false }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
 
-  // Form states
+  // Trạng thái biểu mẫu chấm điểm (Tiêu chí thành phần KHÔNG mặc định 5/5 ngầm)
   const [overallRating, setOverallRating] = useState(0)
   const [coachCriteria, setCoachCriteria] = useState({
-    expertise: 5,
-    interaction: 5,
-    punctuality: 5,
+    expertise: null,
+    interaction: null,
+    punctuality: null,
   })
   const [facilityCriteria, setFacilityCriteria] = useState({
-    court: 5,
-    lighting: 5,
-    cleanliness: 5,
+    court: null,
+    lighting: null,
+    cleanliness: null,
   })
+  const [customTouchedCriteria, setCustomTouchedCriteria] = useState({})
   const [selectedTags, setSelectedTags] = useState([])
   const [commentText, setCommentText] = useState("")
   const [isAnonymous, setIsAnonymous] = useState(false)
   const [isPrivateContactRequested, setIsPrivateContactRequested] =
     useState(false)
 
-  // Expanded reviews text & criteria breakdown toggle (reviewId -> boolean)
+  // Mở rộng/thu gọn nhận xét dài & chi tiết tiêu chí ở tab "Lịch sử của tôi"
   const [expandedComments, setExpandedComments] = useState({})
   const [expandedBreakdowns, setExpandedBreakdowns] = useState({})
 
-  // ESC key & scroll lock for drawer
+  // Khóa cuộn & phím ESC cho Drawer
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === "Escape" && drawerOpen) {
+      if (e.key === "Escape" && drawerOpen && !isSubmitting) {
         setDrawerOpen(false)
       }
     }
@@ -125,9 +366,9 @@ export function MemberFeedbackView({ embedded = false }) {
       document.removeEventListener("keydown", handleKeyDown)
       document.body.style.overflow = "unset"
     }
-  }, [drawerOpen])
+  }, [drawerOpen, isSubmitting])
 
-  // Current active member
+  // Xác định hội viên hiện tại
   const member = useMemo(() => {
     return (
       (members || []).find(
@@ -138,353 +379,806 @@ export function MemberFeedbackView({ embedded = false }) {
             m.email.toLowerCase() === currentUser.email.toLowerCase()),
       ) ||
       currentUser ||
-      members?.[0] || {
-        id: "mem-1",
-        name: "Bùi Văn Phúc",
-        code: "MEM-001",
-        tier: "Black",
-      }
+      null
     )
   }, [members, currentUser])
 
-  const fetchBackendFeedbackData = useCallback(async () => {
-    if (!API_ENABLED) return
-    const memberId =
-      getAuthoritativeProfileId(currentUser) ||
-      currentUser?.memberId ||
-      currentUser?.id ||
+  const resolvedMemberId = useMemo(() => {
+    const rawId =
+      getAuthoritativeProfileId(currentUser) ??
+      currentUser?.memberId ??
+      currentUser?.id ??
       member?.id
+    const num = Number(rawId)
+    return Number.isInteger(num) && num > 0 ? num : rawId
+  }, [currentUser, member])
+
+  // Tải đồng bộ dữ liệu khóa học, lịch buổi tập, điểm danh và đánh giá từ API thật
+  const fetchBackendFeedbackData = useCallback(async () => {
+    if (!apiEnabled || !resolvedMemberId) {
+      setLastUpdatedAt(new Date())
+      return
+    }
     setIsLoadingApi(true)
     try {
-      let enrollments = []
-      try {
-        if (memberId) {
-          enrollments = await memberPortalApi.getMemberClasses(memberId)
+      const [enrollmentsRes, sessionsRes, attendancesRes] = await Promise.all([
+        getMemberClasses(resolvedMemberId).catch(() => []),
+        getClassSessions().catch(() => []),
+        getMemberAttendances(resolvedMemberId).catch(() => []),
+      ])
+
+      const validEnrollments = (
+        Array.isArray(enrollmentsRes) ? enrollmentsRes : []
+      ).filter(
+        (row) =>
+          !["cancelled", "canceled", "dropped", "rejected"].includes(
+            String(row?.status || row?.enrollmentStatus || "").toLowerCase(),
+          ) && !isLegacyStrengthClass(row),
+      )
+      const sessionList = Array.isArray(sessionsRes) ? sessionsRes : []
+      const attendanceList = Array.isArray(attendancesRes)
+        ? attendancesRes
+        : []
+
+      // Tập hợp tất cả classId của hội viên để lấy đánh giá đã gửi từ API
+      const classIdSet = new Set()
+      validEnrollments.forEach((item) => {
+        const cid = item?.classId ?? item?.id
+        if (cid != null && !Number.isNaN(Number(cid)) && Number(cid) > 0) {
+          classIdSet.add(String(Number(cid)))
         }
-      } catch (err) {
-        console.warn("Could not fetch member enrollments:", err)
-      }
-
-      const relevantClasses = Array.isArray(enrollments) ? enrollments : []
-
-      setApiEnrollments(relevantClasses)
+      })
+      attendanceList.forEach((rec) => {
+        const cid = rec?.classId
+        if (cid != null && !Number.isNaN(Number(cid)) && Number(cid) > 0) {
+          classIdSet.add(String(Number(cid)))
+        }
+      })
 
       const feedbackMap = {}
       await Promise.all(
-        relevantClasses.map(async (item) => {
-          const classId = item.classId || item.id
-          if (classId && !Number.isNaN(Number(classId))) {
-            try {
-              const fb = await memberPortalApi.getMyClassFeedback(classId)
-              if (fb) {
-                feedbackMap[String(classId)] = fb
-              }
-            } catch (fbErr) {
-              // 404 or unauthenticated
+        [...classIdSet].map(async (cidStr) => {
+          try {
+            const fb = await getMyClassFeedback(Number(cidStr))
+            if (fb) {
+              feedbackMap[cidStr] = fb
             }
+          } catch {
+            // 404 khi chưa có đánh giá cho lớp này
           }
         }),
       )
-      setApiFeedbackMap(feedbackMap)
+
+      if (mountedRef.current) {
+        setApiEnrollments(validEnrollments)
+        setApiSessions(sessionList)
+        setApiAttendances(attendanceList)
+        setApiFeedbackMap(feedbackMap)
+        setLocalMetaMap(readStoredFeedbackMeta())
+        setLastUpdatedAt(new Date())
+      }
     } catch (error) {
       console.warn("Error loading feedback data from API:", error)
     } finally {
-      setIsLoadingApi(false)
+      if (mountedRef.current) {
+        setIsLoadingApi(false)
+      }
     }
-  }, [currentUser, member])
+  }, [apiEnabled, resolvedMemberId])
 
   useEffect(() => {
     fetchBackendFeedbackData()
   }, [fetchBackendFeedbackData])
 
-  /**
-   * UNIFIED SESSIONS DERIVATION:
-   * Strictly uses Backend API records when API_ENABLED (zero fake courses), or CLUB_COURSES in offline demo mode
-   */
-  const { attendedSessions, pendingSessions, submittedReviews } =
-    useMemo(() => {
-      if (API_ENABLED) {
-        const apiAttended = []
-        const apiPending = []
-        const apiSubmitted = []
+  const nowMs = Date.now()
+  const todayIso = getTodayIsoInVn(nowMs)
 
-        apiEnrollments.forEach((item) => {
-          const classId = String(item.classId || item.id)
-          const fb =
-            apiFeedbackMap[classId] ||
-            (feedbacks || []).find((f) => String(f.classId) === classId)
-          const matchedClass =
-            (classes || []).find((c) => String(c.id) === classId) || {}
-          const coachId = item.coachId || matchedClass.coachId || 1
-          const coachName =
-            item.coachName ||
-            matchedClass.coachName ||
-            matchedClass.coach ||
-            "Huấn luyện viên CLB"
-          const className =
-            item.className || matchedClass.name || `Lớp học #${classId}`
-          const roomName =
-            item.roomName ||
-            matchedClass.roomName ||
-            matchedClass.room ||
-            "Sân tập CLB"
+  // Chuẩn hóa danh sách buổi tập đã tham gia, buổi cần đánh giá và lịch sử đánh giá
+  // Dùng chung nguồn buổi học & bản ghi điểm danh với trang Điểm danh và Lịch học
+  const {
+    attendedSessions,
+    pendingSessions,
+    submittedReviews,
+    enrolledCoursesList,
+  } = useMemo(() => {
+    const classLookup = new Map(
+      (Array.isArray(classes) ? classes : []).map((c) => [String(c.id), c]),
+    )
+    const enrollmentByClassId = new Map()
+    for (const row of apiEnrollments) {
+      const cid = row?.classId ?? row?.id
+      if (cid != null) {
+        enrollmentByClassId.set(String(cid), row)
+      }
+    }
 
-          const sessionItem = {
-            id: classId,
-            classId: Number(classId) || classId,
-            coachId,
-            className,
-            coach: coachName,
-            discipline:
-              item.subjectName || matchedClass.subjectName || "Khóa học",
-            date: item.enrolledAt ? item.enrolledAt.slice(0, 10) : SERVER_TODAY,
-            dayVi: item.enrolledAt
-              ? new Date(item.enrolledAt).toLocaleDateString("vi-VN")
-              : "Đang theo học",
-            startTime: matchedClass.startTime || "08:00",
-            endTime: matchedClass.endTime || "09:30",
-            court: roomName,
-            attendanceStatus: "present",
-            attendanceNote: "Đã đăng ký / tham gia lớp học",
-            topic: matchedClass.topic || "Chuyên đề đào tạo",
-            deadlineDays: 7,
-          }
+    // 1. Thu thập toàn bộ buổi tập của hội viên giống hệt MemberCheckinView & MemberScheduleView
+    const collectedSessions = []
+    const seenSessionKeys = new Set()
 
-          apiAttended.push(sessionItem)
+    const pushNormalizedSession = (norm) => {
+      if (!norm || !norm.sessionDate) return
+      const key =
+        norm.id != null
+          ? `id:${norm.id}`
+          : `cls:${norm.classId || "pt"}:${norm.sessionDate}:${norm.startTime || ""}`
+      if (seenSessionKeys.has(key)) return
+      seenSessionKeys.add(key)
+      collectedSessions.push(norm)
+    }
 
-          if (fb) {
-            apiSubmitted.push({
-              id: fb.feedbackId || fb.id || `fb-${classId}`,
-              classId: Number(classId) || classId,
-              coachId,
-              className,
-              coachName,
-              rating: fb.classRating || fb.coachRating || fb.rating || 5,
-              classRating: fb.classRating || 5,
-              coachRating: fb.coachRating || 5,
-              comment: fb.comment || "",
-              createdAt: fb.createdAt
-                ? fb.createdAt.slice(0, 16).replace("T", " ")
-                : SERVER_TODAY,
-              date: fb.createdAt ? fb.createdAt.slice(0, 10) : SERVER_TODAY,
-              dayVi: fb.createdAt
-                ? new Date(fb.createdAt).toLocaleDateString("vi-VN")
-                : "Đã đánh giá",
-              sessionMeta: sessionItem,
-              tags: fb.tags || [],
-              coachReply:
-                fb.coachReply ||
-                "HLV và ban chuyên môn đã tiếp nhận phản hồi của bạn.",
-            })
-          } else {
-            apiPending.push(sessionItem)
-          }
-        })
+    for (const row of apiEnrollments) {
+      const matchedClass =
+        row.classId != null ? classLookup.get(String(row.classId)) : null
+      const fallbackMeta = {
+        ...matchedClass,
+        ...row,
+        classId: row.classId ?? row.id,
+        className:
+          row.className || matchedClass?.name || matchedClass?.nameVi || null,
+        coachId: row.coachId ?? matchedClass?.coachId ?? null,
+        coachName:
+          row.coachName || matchedClass?.coachName || matchedClass?.coach || null,
+        roomName:
+          row.roomName ||
+          matchedClass?.roomName ||
+          matchedClass?.roomVi ||
+          matchedClass?.room ||
+          null,
+      }
 
-        return {
-          attendedSessions: apiAttended,
-          pendingSessions: apiPending,
-          submittedReviews: apiSubmitted,
+      const inline =
+        row.sessions || row.classSessions || row.scheduledSessions
+      const rawList =
+        Array.isArray(inline) && inline.length > 0
+          ? inline
+          : fallbackMeta.classId != null
+            ? apiSessions.filter(
+                (s) =>
+                  String(s.classId) === String(fallbackMeta.classId) &&
+                  s.isPrivate !== true,
+              )
+            : []
+
+      for (const rawSession of rawList) {
+        const norm = normalizeScheduleSession(rawSession, fallbackMeta)
+        if (norm) pushNormalizedSession(norm)
+      }
+    }
+
+    // Thêm các buổi PT 1-kèm-1 của hội viên
+    if (resolvedMemberId != null) {
+      for (const rawPt of apiSessions) {
+        if (
+          rawPt?.isPrivate === true &&
+          String(rawPt.bookedMemberId) === String(resolvedMemberId)
+        ) {
+          const norm = normalizeScheduleSession(rawPt)
+          if (norm) pushNormalizedSession(norm)
         }
       }
+    }
 
-      const reviewsList = feedbacks || []
-
-      // Collect completed sessions across active courses
-      const allAttended = []
-
-      // 1. Badminton Course Session 1
-      const bdmCourse = CLUB_COURSES.badminton
-      if (bdmCourse?.sessions?.[0]) {
-        const s = bdmCourse.sessions[0]
-        allAttended.push({
-          id: `badminton-session-${s.num}`,
-          classId: 1,
-          coachId: 1,
-          courseId: "badminton",
-          sessionNum: s.num,
-          className: bdmCourse.name,
-          discipline: bdmCourse.discipline,
-          date: s.date,
-          dayVi: "Thứ Hai, 12/10",
-          startTime: s.startTime,
-          endTime: s.endTime,
-          court: `${s.court} (${s.zone} · Thảm Taraflex)`,
-          coach: `${s.coach}`,
-          attendanceStatus: s.attendance,
-          attendanceNote:
-            s.attendance === "late" ? "Đi muộn 10 phút" : "Có mặt đúng giờ",
-          topic: s.topic,
-          deadlineDays: 8,
-        })
-      }
-
-      // 2. Pickleball Course Session 1
-      const pkbCourse = CLUB_COURSES.pickleball
-      if (pkbCourse?.sessions?.[0]) {
-        const s = pkbCourse.sessions[0]
-        allAttended.push({
-          id: `pickleball-session-${s.num}`,
-          classId: 2,
-          coachId: 2,
-          courseId: "pickleball",
-          sessionNum: s.num,
-          className: pkbCourse.name,
-          discipline: pkbCourse.discipline,
-          date: s.date,
-          dayVi: "Thứ Sáu, 09/10",
-          startTime: "18:15",
-          endTime: "20:00",
-          court: `${s.court} · Khu B`,
-          coach: `${s.coach}`,
-          attendanceStatus: "late",
-          attendanceNote: "Đi muộn 10 phút",
-          topic: s.topic,
-          deadlineDays: 5,
-        })
-      }
-
-      // 3. Dynamically checked-in sessions across all courses (e.g., Archery Session 1 after check-in)
-      Object.values(CLUB_COURSES).forEach((course) => {
-        ;(course.sessions || []).forEach((s) => {
-          const sessionKey = `${course.id}-session-${s.num}`
-          const checkInInfo = checkedInCourseSessions?.[sessionKey]
-          if (checkInInfo && !allAttended.some((a) => a.id === sessionKey)) {
-            allAttended.push({
-              id: sessionKey,
-              classId: 3,
-              coachId: 3,
-              courseId: course.id,
-              sessionNum: s.num,
-              className: course.name,
-              discipline: course.discipline,
-              date: s.date,
-              dayVi: `${s.dayOfWeek}, ${s.date.slice(8, 10)}/${s.date.slice(5, 7)}`,
-              startTime: s.startTime,
-              endTime: s.endTime,
-              court: `${s.court} (${s.zone})`,
-              coach: s.coach,
-              attendanceStatus: checkInInfo.attendance || "present",
-              attendanceNote: `Có mặt · Điểm danh lúc ${checkInInfo.checkInTime || s.startTime}`,
-              topic: s.topic,
-              deadlineDays: 7,
-            })
-          }
-        })
-      })
-
-      // Match each session against submitted feedbacks
-      const submitted = []
-      const pending = []
-
-      for (const session of allAttended) {
-        const existingFb = reviewsList.find(
-          (f) =>
-            f.classId === session.id ||
-            (f.className === session.className && f.date === session.date) ||
-            (f.date === session.date &&
-              f.coachName?.includes(
-                session.coach.replace(/^HLV\s+/, "").split(" ")[0],
-              )),
+    // Bổ sung các buổi có trong lịch sử điểm danh của hội viên nhưng chưa nằm trong danh sách buổi lịch học (nếu có)
+    for (const rec of apiAttendances) {
+      const alreadyMatched = findSessionAttendanceRecord(
+        {
+          id: rec.sessionId,
+          classId: rec.classId,
+          sessionDate: String(rec.sessionDate || rec.checkInTime || "").slice(
+            0,
+            10,
+          ),
+        },
+        collectedSessions.map((s) => ({
+          sessionId: s.id,
+          classId: s.classId,
+          sessionDate: s.sessionDate,
+        })),
+      )
+      if (!alreadyMatched) {
+        const dateIso = String(rec.sessionDate || rec.checkInTime || "").slice(
+          0,
+          10,
         )
-
-        if (existingFb) {
-          submitted.push({
-            ...existingFb,
-            sessionMeta: session,
-          })
-        } else {
-          pending.push(session)
-        }
-      }
-
-      // Also include any other user reviews in submitted
-      for (const fb of reviewsList) {
-        if (!submitted.some((s) => s.id === fb.id)) {
-          submitted.push({
-            ...fb,
-            sessionMeta: {
-              id: fb.classId || `session-${fb.id}`,
-              className: fb.className || "Cầu lông K01 (Nền tảng)",
-              date: fb.date || "2026-10-12",
-              dayVi: fb.dayVi || "Thứ Hai, 12/10",
-              startTime: fb.startTime || "06:00",
-              endTime: fb.endTime || "07:30",
-              court: fb.room || "Sân 02 (Thảm Taraflex)",
-              coach: fb.coachName || "HLV Lê Thị Mai",
+        if (dateIso) {
+          const enrollmentFallback =
+            rec.classId != null
+              ? enrollmentByClassId.get(String(rec.classId)) ||
+                classLookup.get(String(rec.classId)) ||
+                {}
+              : {}
+          const norm = normalizeScheduleSession(
+            {
+              id: rec.sessionId ?? `att-session-${rec.attendanceId || rec.id || dateIso}`,
+              classId: rec.classId ?? enrollmentFallback.classId ?? null,
+              className:
+                rec.className ||
+                enrollmentFallback.className ||
+                enrollmentFallback.name ||
+                null,
+              coachId: rec.coachId ?? enrollmentFallback.coachId ?? null,
+              coachName:
+                rec.coachName ||
+                enrollmentFallback.coachName ||
+                enrollmentFallback.coach ||
+                null,
+              roomName:
+                rec.roomName ||
+                rec.roomLocation ||
+                rec.room ||
+                enrollmentFallback.roomName ||
+                enrollmentFallback.room ||
+                null,
+              sessionDate: dateIso,
+              startTime: rec.startTime || rec.sessionStartTime || enrollmentFallback.startTime || null,
+              endTime: rec.endTime || rec.sessionEndTime || enrollmentFallback.endTime || null,
+              status: "Completed",
             },
-          })
+            enrollmentFallback,
+          )
+          if (norm) pushNormalizedSession(norm)
         }
       }
+    }
 
-      return {
-        attendedSessions: allAttended,
-        pendingSessions: pending,
-        submittedReviews: submitted,
+    // 2. Lọc ra các buổi ĐÃ THAM GIA (attendedSessions):
+    // - Không bị hủy
+    // - Đã diễn ra (sessionDate < todayIso hoặc trong ngày hôm nay và đã bắt đầu/kết thúc hoặc completed)
+    // - Điểm danh của hội viên là Có mặt ('present') hoặc Đến muộn ('late')
+    const attended = []
+    for (const session of collectedSessions) {
+      if (isSessionCancelled(session)) continue
+      if (!session.sessionDate || session.sessionDate > todayIso) continue
+
+      const attendanceRecord = findSessionAttendanceRecord(
+        session,
+        apiAttendances,
+      )
+      const stateKey = attendanceRecord
+        ? normalizeAttendanceStateKey(
+            attendanceRecord.state || attendanceRecord.status,
+          )
+        : "pending"
+
+      if (stateKey !== "present" && stateKey !== "late") continue
+
+      const hasTakenPlace =
+        session.sessionDate < todayIso ||
+        String(session.rawStatus || "").toLowerCase() === "completed" ||
+        (session.sessionDate === todayIso &&
+          ((session.endMs !== null && session.endMs <= nowMs) ||
+            (session.startMs !== null && session.startMs <= nowMs) ||
+            stateKey === "present" ||
+            stateKey === "late"))
+
+      if (!hasTakenPlace) continue
+
+      const matchedClass =
+        session.classId != null
+          ? classLookup.get(String(session.classId))
+          : null
+      const enrollmentRow =
+        session.classId != null
+          ? enrollmentByClassId.get(String(session.classId))
+          : null
+
+      const resolvedClassName =
+        session.className ||
+        enrollmentRow?.className ||
+        matchedClass?.name ||
+        (session.isPrivate
+          ? t("schedulePtDefaultTitle")
+          : session.subjectName || `#${session.classId}`)
+      const resolvedCoachName =
+        session.coachName ||
+        enrollmentRow?.coachName ||
+        matchedClass?.coachName ||
+        matchedClass?.coach ||
+        t("feedbackCoachTbd")
+      const resolvedCoachId =
+        session.coachId ??
+        enrollmentRow?.coachId ??
+        matchedClass?.coachId ??
+        1
+      const resolvedRoomName =
+        session.roomName ||
+        session.roomLocation ||
+        enrollmentRow?.roomName ||
+        matchedClass?.roomName ||
+        matchedClass?.roomVi ||
+        matchedClass?.room ||
+        t("feedbackRoomTbd")
+
+      const sessionKey =
+        session.id != null
+          ? `session-${session.id}`
+          : `class-${session.classId || "pt"}-${session.sessionDate}-${session.startTime || ""}`
+
+      const eligibility = evaluateSessionFeedbackEligibility(
+        session,
+        attendanceRecord,
+        todayIso,
+      )
+
+      attended.push({
+        ...session,
+        id: session.id ?? sessionKey,
+        sessionKey,
+        classId: session.classId,
+        coachId: resolvedCoachId,
+        className: resolvedClassName,
+        coachName: resolvedCoachName,
+        roomName: resolvedRoomName,
+        sessionDate: session.sessionDate,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        attendanceStateKey: stateKey,
+        isEligibleForFeedback: eligibility.isEligible,
+        remainingDeadlineDays: eligibility.remainingDays,
+      })
+    }
+
+    // Sắp xếp buổi đã tham gia mới nhất lên đầu
+    attended.sort((a, b) => {
+      const dateCmp = String(b.sessionDate || "").localeCompare(
+        String(a.sessionDate || ""),
+      )
+      if (dateCmp !== 0) return dateCmp
+      return String(b.startTime || "").localeCompare(String(a.startTime || ""))
+    })
+
+    // 3. Đối chiếu với đánh giá đã gửi (từ API và metadata lưu bổ sung)
+    const memberScope = String(resolvedMemberId || "anon")
+    const memberContextFeedbacks = !apiEnabled
+      ? (Array.isArray(feedbacks) ? feedbacks : []).filter(
+          (f) => String(f.memberId) === String(resolvedMemberId),
+        )
+      : []
+
+    const pending = []
+    const submitted = []
+    const consumedClassApiFeedback = new Set()
+
+    for (const session of attended) {
+      const classIdStr =
+        session.classId != null ? String(session.classId) : null
+      const sessionMetaEntry =
+        localMetaMap[`${memberScope}:session:${session.sessionKey}`] ||
+        (session.id != null
+          ? localMetaMap[`${memberScope}:session:${session.id}`]
+          : null) ||
+        null
+      const classMetaEntry = classIdStr
+        ? localMetaMap[`${memberScope}:class:${classIdStr}`]
+        : null
+      const apiFb = classIdStr ? apiFeedbackMap[classIdStr] : null
+      const ctxFb = memberContextFeedbacks.find(
+        (f) =>
+          String(f.sessionKey || f.id) === String(session.sessionKey) ||
+          (classIdStr &&
+            String(f.classId) === classIdStr &&
+            String(f.date || f.sessionDate || "").slice(0, 10) ===
+              session.sessionDate),
+      )
+
+      // Kiểm tra xem buổi này đã được đánh giá chưa:
+      // - Có bản ghi đánh giá gắn đúng buổi (sessionMetaEntry hoặc ctxFb)
+      // - Hoặc lớp có apiFb từ server và (classMetaEntry khớp buổi này, hoặc chưa có buổi nào khác trong lớp nhận apiFb này)
+      const isMatchedBySessionMeta = Boolean(sessionMetaEntry)
+      const isMatchedByClassApi =
+        Boolean(apiFb) &&
+        !consumedClassApiFeedback.has(classIdStr) &&
+        (!classMetaEntry?.sessionKey ||
+          classMetaEntry.sessionKey === session.sessionKey)
+
+      if (isMatchedBySessionMeta || isMatchedByClassApi || ctxFb) {
+        if (classIdStr && apiFb) {
+          consumedClassApiFeedback.add(classIdStr)
+        }
+        const rawSource = apiFb || ctxFb || {}
+        const metaSource = sessionMetaEntry || classMetaEntry || {}
+
+        const apiCoachRating = Number(rawSource.coachRating) || null
+        const apiClassRating = Number(rawSource.classRating) || null
+        const derivedOverall =
+          Number(metaSource.overallRating) ||
+          Number(rawSource.overallRating) ||
+          Number(rawSource.rating) ||
+          (apiCoachRating && apiClassRating
+            ? Math.round((apiCoachRating + apiClassRating) / 2)
+            : apiCoachRating || apiClassRating || 5)
+
+        const fallbackCoachScore = apiCoachRating || derivedOverall
+        const fallbackFacilityScore = apiClassRating || derivedOverall
+
+        const savedCoachBd =
+          metaSource.coachBreakdown || rawSource.criteria?.coachBreakdown || null
+        const savedFacilityBd =
+          metaSource.facilityBreakdown ||
+          rawSource.criteria?.facilityBreakdown ||
+          null
+
+        const coachBreakdown = {
+          expertise: Number(savedCoachBd?.expertise) || fallbackCoachScore,
+          interaction: Number(savedCoachBd?.interaction) || fallbackCoachScore,
+          punctuality: Number(savedCoachBd?.punctuality) || fallbackCoachScore,
+        }
+        const facilityBreakdown = {
+          court: Number(savedFacilityBd?.court) || fallbackFacilityScore,
+          lighting: Number(savedFacilityBd?.lighting) || fallbackFacilityScore,
+          cleanliness:
+            Number(savedFacilityBd?.cleanliness) || fallbackFacilityScore,
+        }
+
+        const rawTags =
+          Array.isArray(metaSource.tags) && metaSource.tags.length > 0
+            ? metaSource.tags
+            : Array.isArray(rawSource.tags)
+              ? rawSource.tags
+              : []
+        const normalizedTags = rawTags.map(normalizeTagCode).filter(Boolean)
+
+        const realReply = sanitizeRealCoachReply(
+          rawSource.coachReply || rawSource.replyText || rawSource.response,
+        )
+        const replyAuthor =
+          rawSource.repliedByName ||
+          rawSource.coachReplyAuthor ||
+          session.coachName
+        const replyDate =
+          rawSource.repliedAt || rawSource.coachReplyDate || null
+
+        submitted.push({
+          id:
+            rawSource.feedbackId ||
+            rawSource.id ||
+            metaSource.feedbackId ||
+            `fb-${session.sessionKey}`,
+          sessionKey: session.sessionKey,
+          classId: session.classId,
+          coachId: session.coachId,
+          className: session.className,
+          coachName: session.coachName,
+          roomName: session.roomName,
+          sessionDate: session.sessionDate,
+          startTime: session.startTime,
+          endTime: session.endTime,
+          rating: derivedOverall,
+          overallRating: derivedOverall,
+          coachRating: apiCoachRating || fallbackCoachScore,
+          classRating: apiClassRating || fallbackFacilityScore,
+          criteria: {
+            coachBreakdown,
+            facilityBreakdown,
+            customTouchedCriteria: metaSource.customTouchedCriteria || {},
+          },
+          tags: normalizedTags,
+          comment:
+            rawSource.comment !== undefined && rawSource.comment !== null
+              ? String(rawSource.comment)
+              : String(metaSource.comment || ""),
+          isAnonymous: Boolean(
+            metaSource.isAnonymous ?? rawSource.isAnonymous,
+          ),
+          isPrivateContactRequested: Boolean(
+            metaSource.isPrivateContactRequested ??
+              rawSource.isPrivateContactRequested,
+          ),
+          coachReply: realReply,
+          coachReplyAuthor: realReply ? replyAuthor : null,
+          coachReplyDate: realReply ? replyDate : null,
+          createdAt:
+            rawSource.createdAt || metaSource.createdAt || session.sessionDate,
+          sessionMeta: session,
+        })
+      } else if (session.isEligibleForFeedback && !apiFb) {
+        pending.push(session)
       }
-    }, [
-      feedbacks,
-      checkedInCourseSessions,
-      apiEnrollments,
-      apiFeedbackMap,
-      classes,
-    ])
+    }
 
-  // Average rating calculated from submitted reviews
+    // Trường hợp API có trả về đánh giá cho một lớp mà hội viên chưa có bản ghi buổi học tương ứng trong attended
+    for (const [classIdStr, apiFb] of Object.entries(apiFeedbackMap)) {
+      if (consumedClassApiFeedback.has(classIdStr) || !apiFb) continue
+      const enrollmentRow = enrollmentByClassId.get(classIdStr)
+      const matchedClass = classLookup.get(classIdStr)
+      const metaSource =
+        localMetaMap[`${memberScope}:class:${classIdStr}`] || {}
+      const classSessions = collectedSessions.filter(
+        (s) => String(s.classId) === classIdStr && !isSessionCancelled(s),
+      )
+      const latestPastClassSession =
+        [...classSessions]
+          .reverse()
+          .find((s) => s.sessionDate && s.sessionDate <= todayIso) ||
+        classSessions[0] ||
+        null
+
+      const resolvedClassName =
+        metaSource.className ||
+        latestPastClassSession?.className ||
+        enrollmentRow?.className ||
+        matchedClass?.name ||
+        `#${classIdStr}`
+      const resolvedCoachName =
+        metaSource.coachName ||
+        latestPastClassSession?.coachName ||
+        enrollmentRow?.coachName ||
+        matchedClass?.coachName ||
+        t("feedbackCoachTbd")
+      const resolvedRoomName =
+        metaSource.roomName ||
+        latestPastClassSession?.roomName ||
+        enrollmentRow?.roomName ||
+        matchedClass?.roomName ||
+        t("feedbackRoomTbd")
+      const resolvedDate =
+        metaSource.sessionDate ||
+        latestPastClassSession?.sessionDate ||
+        (apiFb.createdAt ? String(apiFb.createdAt).slice(0, 10) : todayIso)
+      const resolvedStart =
+        metaSource.startTime ||
+        latestPastClassSession?.startTime ||
+        enrollmentRow?.startTime ||
+        matchedClass?.startTime ||
+        null
+      const resolvedEnd =
+        metaSource.endTime ||
+        latestPastClassSession?.endTime ||
+        enrollmentRow?.endTime ||
+        matchedClass?.endTime ||
+        null
+
+      const apiCoachRating = Number(apiFb.coachRating) || null
+      const apiClassRating = Number(apiFb.classRating) || null
+      const derivedOverall =
+        Number(metaSource.overallRating) ||
+        Number(apiFb.rating) ||
+        (apiCoachRating && apiClassRating
+          ? Math.round((apiCoachRating + apiClassRating) / 2)
+          : apiCoachRating || apiClassRating || 5)
+
+      const fallbackCoachScore = apiCoachRating || derivedOverall
+      const fallbackFacilityScore = apiClassRating || derivedOverall
+      const savedCoachBd = metaSource.coachBreakdown || null
+      const savedFacilityBd = metaSource.facilityBreakdown || null
+
+      const rawTags = Array.isArray(metaSource.tags)
+        ? metaSource.tags
+        : Array.isArray(apiFb.tags)
+          ? apiFb.tags
+          : []
+      const realReply = sanitizeRealCoachReply(
+        apiFb.coachReply || apiFb.replyText || apiFb.response,
+      )
+
+      const syntheticSession = {
+        id: metaSource.sessionId || `class-${classIdStr}`,
+        sessionKey: metaSource.sessionKey || `class-${classIdStr}`,
+        classId: Number(classIdStr) || classIdStr,
+        coachId:
+          apiFb.coachId ??
+          enrollmentRow?.coachId ??
+          matchedClass?.coachId ??
+          1,
+        className: resolvedClassName,
+        coachName: resolvedCoachName,
+        roomName: resolvedRoomName,
+        sessionDate: resolvedDate,
+        startTime: resolvedStart,
+        endTime: resolvedEnd,
+      }
+
+      submitted.push({
+        id: apiFb.feedbackId || apiFb.id || `fb-${classIdStr}`,
+        sessionKey: syntheticSession.sessionKey,
+        classId: syntheticSession.classId,
+        coachId: syntheticSession.coachId,
+        className: resolvedClassName,
+        coachName: resolvedCoachName,
+        roomName: resolvedRoomName,
+        sessionDate: resolvedDate,
+        startTime: resolvedStart,
+        endTime: resolvedEnd,
+        rating: derivedOverall,
+        overallRating: derivedOverall,
+        coachRating: apiCoachRating || fallbackCoachScore,
+        classRating: apiClassRating || fallbackFacilityScore,
+        criteria: {
+          coachBreakdown: {
+            expertise: Number(savedCoachBd?.expertise) || fallbackCoachScore,
+            interaction:
+              Number(savedCoachBd?.interaction) || fallbackCoachScore,
+            punctuality:
+              Number(savedCoachBd?.punctuality) || fallbackCoachScore,
+          },
+          facilityBreakdown: {
+            court: Number(savedFacilityBd?.court) || fallbackFacilityScore,
+            lighting:
+              Number(savedFacilityBd?.lighting) || fallbackFacilityScore,
+            cleanliness:
+              Number(savedFacilityBd?.cleanliness) || fallbackFacilityScore,
+          },
+          customTouchedCriteria: metaSource.customTouchedCriteria || {},
+        },
+        tags: rawTags.map(normalizeTagCode).filter(Boolean),
+        comment: String(apiFb.comment ?? metaSource.comment ?? ""),
+        isAnonymous: Boolean(metaSource.isAnonymous),
+        isPrivateContactRequested: Boolean(
+          metaSource.isPrivateContactRequested,
+        ),
+        coachReply: realReply,
+        coachReplyAuthor: realReply
+          ? apiFb.repliedByName || resolvedCoachName
+          : null,
+        coachReplyDate: realReply ? apiFb.repliedAt || null : null,
+        createdAt: apiFb.createdAt || resolvedDate,
+        sessionMeta: syntheticSession,
+      })
+    }
+
+    // Danh sách khóa học thật của hội viên để hiển thị bộ lọc ở tab "Lịch sử của tôi"
+    const courseMap = new Map()
+    for (const row of apiEnrollments) {
+      const cid = row?.classId ?? row?.id
+      const cname = row?.className || row?.name
+      if (cid != null && cname) {
+        courseMap.set(String(cid), {
+          classId: String(cid),
+          className: cname,
+        })
+      }
+    }
+    for (const s of attended) {
+      if (s.classId != null && s.className) {
+        courseMap.set(String(s.classId), {
+          classId: String(s.classId),
+          className: s.className,
+        })
+      }
+    }
+    for (const r of submitted) {
+      if (r.classId != null && r.className) {
+        courseMap.set(String(r.classId), {
+          classId: String(r.classId),
+          className: r.className,
+        })
+      }
+    }
+
+    return {
+      attendedSessions: attended,
+      pendingSessions: pending,
+      submittedReviews: submitted,
+      enrolledCoursesList: [...courseMap.values()],
+    }
+  }, [
+    apiEnrollments,
+    apiSessions,
+    apiAttendances,
+    apiFeedbackMap,
+    localMetaMap,
+    classes,
+    feedbacks,
+    apiEnabled,
+    resolvedMemberId,
+    todayIso,
+    nowMs,
+    t,
+  ])
+
+  // Điểm trung bình từ các đánh giá đã gửi
   const averageRating = useMemo(() => {
     if (submittedReviews.length === 0) return "—"
     const sum = submittedReviews.reduce(
-      (acc, r) => acc + (Number(r.rating) || 5),
+      (acc, r) => acc + (Number(r.overallRating || r.rating) || 5),
       0,
     )
     return (sum / submittedReviews.length).toFixed(1)
   }, [submittedReviews])
 
-  // Filtered reviews in Tab 2
+  // Lọc danh sách ở tab "Lịch sử của tôi" theo mã khóa học (classId) và thời gian (dùng todayIso thực tế)
   const filteredSubmittedReviews = useMemo(() => {
-    const serverDateMs = new Date(`${SERVER_TODAY}T23:59:59`).getTime()
     return submittedReviews.filter((r) => {
       if (selectedCourseFilter !== "all") {
-        const nameMatch = (r.className || "")
-          .toLowerCase()
-          .includes(selectedCourseFilter.toLowerCase())
-        if (!nameMatch) return false
+        if (String(r.classId) !== String(selectedCourseFilter)) {
+          return false
+        }
       }
-      if (selectedTimeFilter !== "all" && r.date) {
-        const reviewDateMs = new Date(`${r.date}T12:00:00`).getTime()
-        if (!Number.isNaN(reviewDateMs)) {
-          const diffDays = (serverDateMs - reviewDateMs) / (1000 * 60 * 60 * 24)
+      const reviewDateIso = String(r.sessionDate || r.date || "").slice(0, 10)
+      if (selectedTimeFilter !== "all" && reviewDateIso) {
+        const diffDays = diffCalendarDaysInVn(reviewDateIso, todayIso)
+        if (diffDays !== null) {
           if (selectedTimeFilter === "30days" && diffDays > 30) return false
           if (selectedTimeFilter === "semester" && diffDays > 120) return false
         }
       }
       return true
     })
-  }, [submittedReviews, selectedCourseFilter, selectedTimeFilter])
+  }, [submittedReviews, selectedCourseFilter, selectedTimeFilter, todayIso])
 
-  // Open Drawer to create or edit review
+  // Chọn mức sao tổng quát N:
+  // - Gợi ý các tiêu chí thành phần = N cho những mục người dùng chưa tự chỉnh
+  // - Những mục người dùng đã tự chỉnh (customTouchedCriteria[key] === true) KHÔNG bị ghi đè
+  const handleSelectOverallRating = (level) => {
+    setOverallRating(level)
+    setCoachCriteria((prev) => ({
+      expertise: customTouchedCriteria.expertise ? prev.expertise : level,
+      interaction: customTouchedCriteria.interaction ? prev.interaction : level,
+      punctuality: customTouchedCriteria.punctuality ? prev.punctuality : level,
+    }))
+    setFacilityCriteria((prev) => ({
+      court: customTouchedCriteria.court ? prev.court : level,
+      lighting: customTouchedCriteria.lighting ? prev.lighting : level,
+      cleanliness: customTouchedCriteria.cleanliness ? prev.cleanliness : level,
+    }))
+  }
+
+  const handleSelectCoachCriterion = (key, pt) => {
+    setCustomTouchedCriteria((prev) => ({ ...prev, [key]: true }))
+    setCoachCriteria((prev) => ({ ...prev, [key]: pt }))
+  }
+
+  const handleSelectFacilityCriterion = (key, pt) => {
+    setCustomTouchedCriteria((prev) => ({ ...prev, [key]: true }))
+    setFacilityCriteria((prev) => ({ ...prev, [key]: pt }))
+  }
+
+  // Mở Ngăn chấm điểm (tạo mới hoặc chỉnh sửa đánh giá đã gửi)
   const handleOpenReviewDrawer = (session, existingFeedback = null) => {
     setActiveSessionForReview(session)
     setSubmitError(null)
     setIsThankYouMode(false)
 
     if (existingFeedback) {
+      const baseOverall =
+        Number(existingFeedback.overallRating || existingFeedback.rating) || 5
+      const baseCoach =
+        Number(existingFeedback.coachRating) || baseOverall
+      const baseClass =
+        Number(existingFeedback.classRating) || baseOverall
+      const savedCoachBd = existingFeedback.criteria?.coachBreakdown
+      const savedFacilityBd = existingFeedback.criteria?.facilityBreakdown
+      const nextCoachCriteria = {
+        expertise: Number(savedCoachBd?.expertise) || baseCoach,
+        interaction: Number(savedCoachBd?.interaction) || baseCoach,
+        punctuality: Number(savedCoachBd?.punctuality) || baseCoach,
+      }
+      const nextFacilityCriteria = {
+        court: Number(savedFacilityBd?.court) || baseClass,
+        lighting: Number(savedFacilityBd?.lighting) || baseClass,
+        cleanliness: Number(savedFacilityBd?.cleanliness) || baseClass,
+      }
+      const savedTouched =
+        existingFeedback.criteria?.customTouchedCriteria || {}
+
       setEditingFeedbackId(existingFeedback.id)
-      setOverallRating(existingFeedback.rating || 5)
-      setCoachCriteria({
-        expertise: existingFeedback.criteria?.coachBreakdown?.expertise || 5,
+      setOverallRating(baseOverall)
+      setCoachCriteria(nextCoachCriteria)
+      setFacilityCriteria(nextFacilityCriteria)
+      setCustomTouchedCriteria({
+        expertise:
+          Boolean(savedTouched.expertise) ||
+          nextCoachCriteria.expertise !== baseOverall,
         interaction:
-          existingFeedback.criteria?.coachBreakdown?.interaction || 5,
+          Boolean(savedTouched.interaction) ||
+          nextCoachCriteria.interaction !== baseOverall,
         punctuality:
-          existingFeedback.criteria?.coachBreakdown?.punctuality || 5,
-      })
-      setFacilityCriteria({
-        court: existingFeedback.criteria?.facilityBreakdown?.court || 5,
-        lighting: existingFeedback.criteria?.facilityBreakdown?.lighting || 5,
+          Boolean(savedTouched.punctuality) ||
+          nextCoachCriteria.punctuality !== baseOverall,
+        court:
+          Boolean(savedTouched.court) ||
+          nextFacilityCriteria.court !== baseOverall,
+        lighting:
+          Boolean(savedTouched.lighting) ||
+          nextFacilityCriteria.lighting !== baseOverall,
         cleanliness:
-          existingFeedback.criteria?.facilityBreakdown?.cleanliness || 5,
+          Boolean(savedTouched.cleanliness) ||
+          nextFacilityCriteria.cleanliness !== baseOverall,
       })
-      setSelectedTags(existingFeedback.tags || [])
+      setSelectedTags(
+        (existingFeedback.tags || []).map(normalizeTagCode).filter(Boolean),
+      )
       setCommentText(existingFeedback.comment || "")
       setIsAnonymous(Boolean(existingFeedback.isAnonymous))
       setIsPrivateContactRequested(
@@ -492,9 +1186,18 @@ export function MemberFeedbackView({ embedded = false }) {
       )
     } else {
       setEditingFeedbackId(null)
-      setOverallRating(0) // Not chosen yet
-      setCoachCriteria({ expertise: 5, interaction: 5, punctuality: 5 })
-      setFacilityCriteria({ court: 5, lighting: 5, cleanliness: 5 })
+      setOverallRating(0)
+      setCoachCriteria({
+        expertise: null,
+        interaction: null,
+        punctuality: null,
+      })
+      setFacilityCriteria({
+        court: null,
+        lighting: null,
+        cleanliness: null,
+      })
+      setCustomTouchedCriteria({})
       setSelectedTags([])
       setCommentText("")
       setIsAnonymous(false)
@@ -504,20 +1207,20 @@ export function MemberFeedbackView({ embedded = false }) {
     setDrawerOpen(true)
   }
 
-  // Toggle tag selection
-  const handleToggleTag = (tag) => {
+  // Bật/tắt thẻ nhận định nhanh theo mã
+  const handleToggleTag = (tagCode) => {
     setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+      prev.includes(tagCode)
+        ? prev.filter((item) => item !== tagCode)
+        : [...prev, tagCode],
     )
   }
 
-  // Submit Feedback from Drawer
+  // Gửi đánh giá từ Ngăn chấm điểm
   const handleSubmitReview = async () => {
-    if (!overallRating || overallRating === 0) return
+    if (!overallRating || overallRating === 0 || !activeSessionForReview) return
     if (overallRating <= 2 && !commentText.trim()) {
-      setSubmitError(
-        "Vui lòng cho Giám đốc Chuyên môn biết điều cần cải thiện để đảm bảo chuẩn mực dịch vụ.",
-      )
+      setSubmitError(t("feedbackDrawerLowRatingCommentError"))
       return
     }
 
@@ -525,18 +1228,27 @@ export function MemberFeedbackView({ embedded = false }) {
     setSubmitError(null)
 
     try {
+      const effectiveCoachCriteria = {
+        expertise: coachCriteria.expertise ?? overallRating,
+        interaction: coachCriteria.interaction ?? overallRating,
+        punctuality: coachCriteria.punctuality ?? overallRating,
+      }
+      const effectiveFacilityCriteria = {
+        court: facilityCriteria.court ?? overallRating,
+        lighting: facilityCriteria.lighting ?? overallRating,
+        cleanliness: facilityCriteria.cleanliness ?? overallRating,
+      }
+
       const avgCoach = Math.min(
         5,
         Math.max(
           1,
           Math.round(
-            (coachCriteria.expertise +
-              coachCriteria.interaction +
-              coachCriteria.punctuality) /
+            (effectiveCoachCriteria.expertise +
+              effectiveCoachCriteria.interaction +
+              effectiveCoachCriteria.punctuality) /
               3,
-          ) ||
-            overallRating ||
-            5,
+          ) || overallRating,
         ),
       )
       const avgClass = Math.min(
@@ -544,91 +1256,129 @@ export function MemberFeedbackView({ embedded = false }) {
         Math.max(
           1,
           Math.round(
-            (facilityCriteria.court +
-              facilityCriteria.lighting +
-              facilityCriteria.cleanliness) /
+            (effectiveFacilityCriteria.court +
+              effectiveFacilityCriteria.lighting +
+              effectiveFacilityCriteria.cleanliness) /
               3,
-          ) ||
-            overallRating ||
-            5,
+          ) || overallRating,
         ),
       )
 
       const targetClassId =
-        activeSessionForReview.classId || activeSessionForReview.id
+        activeSessionForReview.classId ?? activeSessionForReview.id
       const targetCoachId = activeSessionForReview.coachId || 1
+      const sessionKey =
+        activeSessionForReview.sessionKey ||
+        `session-${activeSessionForReview.id}`
 
-      const payload = {
-        id: editingFeedbackId || `fb-${Date.now()}`,
+      const metaEntry = {
+        feedbackId: editingFeedbackId || `fb-${Date.now()}`,
+        sessionId: activeSessionForReview.id,
+        sessionKey,
         classId: targetClassId,
         coachId: targetCoachId,
         className: activeSessionForReview.className,
-        coachName: activeSessionForReview.coach,
-        memberId: member.id,
-        memberName: member.name,
-        rating: overallRating,
-        classRating: avgClass,
-        coachRating: avgCoach,
-        date: activeSessionForReview.date,
-        dayVi: activeSessionForReview.dayVi,
+        coachName: activeSessionForReview.coachName,
+        roomName: activeSessionForReview.roomName,
+        sessionDate: activeSessionForReview.sessionDate,
         startTime: activeSessionForReview.startTime,
         endTime: activeSessionForReview.endTime,
-        room: activeSessionForReview.court,
-        criteria: {
-          coachQuality: avgCoach,
-          facilityQuality: avgClass,
-          intensity: "Vừa sức",
-          coachBreakdown: coachCriteria,
-          facilityBreakdown: facilityCriteria,
-        },
+        overallRating,
+        coachRating: avgCoach,
+        classRating: avgClass,
+        coachBreakdown: effectiveCoachCriteria,
+        facilityBreakdown: effectiveFacilityCriteria,
+        customTouchedCriteria,
         tags: selectedTags,
         comment: commentText.trim(),
         isAnonymous,
         isPrivateContactRequested,
-        coachReply: editingFeedbackId
-          ? submittedReviews.find((r) => r.id === editingFeedbackId)?.coachReply
-          : "Chân thành cảm ơn bạn. Ban chuyên môn và Huấn luyện viên trưởng đã tiếp nhận ghi chú này để hoàn thiện giáo án buổi kế tiếp. Chúc bạn có buổi phục hồi thể lực thật tốt!",
-        createdAt: new Date().toISOString().replace("T", " ").slice(0, 16),
+        createdAt: new Date().toISOString(),
       }
 
-      if (API_ENABLED) {
+      if (apiEnabled) {
         const parsedClassId = Number(targetClassId)
         const parsedCoachId = Number(targetCoachId) || 1
         if (!Number.isNaN(parsedClassId) && parsedClassId > 0) {
-          await memberPortalApi.submitClassFeedback(parsedClassId, {
+          const apiRes = await submitClassFeedback(parsedClassId, {
             classId: parsedClassId,
             coachId: parsedCoachId > 0 ? parsedCoachId : 1,
             classRating: avgClass,
             coachRating: avgCoach,
             comment: commentText.trim(),
           })
+          if (apiRes?.feedbackId || apiRes?.id) {
+            metaEntry.feedbackId = apiRes.feedbackId || apiRes.id
+          }
         }
+
+        const memberScope = String(resolvedMemberId || "anon")
+        const nextMeta = {
+          ...readStoredFeedbackMeta(),
+          [`${memberScope}:session:${sessionKey}`]: metaEntry,
+          ...(targetClassId != null
+            ? { [`${memberScope}:class:${targetClassId}`]: metaEntry }
+            : {}),
+        }
+        writeStoredFeedbackMeta(nextMeta)
+        setLocalMetaMap(nextMeta)
+
         await fetchBackendFeedbackData()
         showToast?.(
           editingFeedbackId
-            ? "Đã cập nhật đánh giá lớp học thành công!"
-            : "Cảm ơn bạn đã gửi đánh giá lớp học!",
+            ? t("feedbackToastUpdated")
+            : t("feedbackToastSubmitted"),
           "success",
         )
       } else {
-        await submitFeedback(payload)
+        await submitFeedback({
+          id: metaEntry.feedbackId,
+          sessionKey,
+          classId: targetClassId,
+          coachId: targetCoachId,
+          className: activeSessionForReview.className,
+          coachName: activeSessionForReview.coachName,
+          memberId: resolvedMemberId,
+          memberName: member?.name,
+          rating: overallRating,
+          overallRating,
+          classRating: avgClass,
+          coachRating: avgCoach,
+          date: activeSessionForReview.sessionDate,
+          sessionDate: activeSessionForReview.sessionDate,
+          startTime: activeSessionForReview.startTime,
+          endTime: activeSessionForReview.endTime,
+          room: activeSessionForReview.roomName,
+          criteria: {
+            coachQuality: avgCoach,
+            facilityQuality: avgClass,
+            coachBreakdown: effectiveCoachCriteria,
+            facilityBreakdown: effectiveFacilityCriteria,
+            customTouchedCriteria,
+          },
+          tags: selectedTags,
+          comment: commentText.trim(),
+          isAnonymous,
+          isPrivateContactRequested,
+        })
       }
+
       setIsThankYouMode(true)
     } catch (err) {
       setSubmitError(
-        getErrorMessage(
-          err,
-          "Chưa thể gửi đánh giá (Quy tắc D09: Hội viên cần có ghi danh Active và ít nhất 1 buổi điểm danh Present ở lớp này).",
-        ),
+        getErrorMessage(err, t("feedbackDrawerSubmitErrorDefault")),
       )
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  // Toggle comment expanded in tab 2
   const toggleCommentExpand = (id) => {
     setExpandedComments((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  const toggleBreakdownExpand = (id) => {
+    setExpandedBreakdowns((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
   return (
@@ -644,15 +1394,37 @@ export function MemberFeedbackView({ embedded = false }) {
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
-              VIBE SPORT · MEMBER
+              {t("feedbackBrand")}
             </p>
             <h1 className="mt-2 text-3xl font-black text-slate-950">
-              Đánh giá & Phản hồi
+              {t("feedbackPageTitle")}
             </h1>
             <p className="mt-2 text-sm text-slate-500">
-              Ý kiến của bạn giúp chúng tôi liên tục nâng cao chuẩn mực huấn
-              luyện và chất lượng cơ sở vật chất.
+              {t("feedbackPageSubtitle")}
             </p>
+          </div>
+
+          <div className="flex flex-col items-end gap-1.5">
+            <button
+              type="button"
+              onClick={fetchBackendFeedbackData}
+              disabled={isLoadingApi}
+              aria-label={t("feedbackBtnRefresh")}
+              title={t("feedbackBtnRefresh")}
+              className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 p-2 text-slate-700 disabled:opacity-60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${isLoadingApi ? "animate-spin" : ""}`}
+              />
+            </button>
+
+            {lastUpdatedAt && (
+              <span className="text-xs text-slate-500">
+                {tr("feedbackUpdatedAt", {
+                  time: TIME_FORMATTER_HHMM.format(lastUpdatedAt),
+                })}
+              </span>
+            )}
           </div>
         </header>
       )}
@@ -662,7 +1434,7 @@ export function MemberFeedbackView({ embedded = false }) {
         {/* Cột 1: Chờ đánh giá */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-            CHỜ ĐÁNH GIÁ
+            {t("feedbackKpiPending")}
           </span>
           <div
             className={`text-3xl font-black mt-2 tabular-nums ${
@@ -676,7 +1448,7 @@ export function MemberFeedbackView({ embedded = false }) {
         {/* Cột 2: Đã gửi */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-            ĐÃ GỬI
+            {t("feedbackKpiSubmitted")}
           </span>
           <div className="text-3xl font-black mt-2 tabular-nums text-slate-900">
             {submittedReviews.length}
@@ -686,7 +1458,7 @@ export function MemberFeedbackView({ embedded = false }) {
         {/* Cột 3: Đã tham gia */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-            ĐÃ THAM GIA
+            {t("feedbackKpiAttended")}
           </span>
           <div className="text-3xl font-black mt-2 tabular-nums text-slate-900">
             {attendedSessions.length}
@@ -696,7 +1468,7 @@ export function MemberFeedbackView({ embedded = false }) {
         {/* Cột 4: Điểm bạn đã cho */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-            ĐIỂM BẠN ĐÃ CHO
+            {t("feedbackKpiAvgRating")}
           </span>
           <div className="text-3xl font-black mt-2 tabular-nums text-slate-900 flex items-center gap-1.5">
             <span>{averageRating}</span>
@@ -706,8 +1478,8 @@ export function MemberFeedbackView({ embedded = false }) {
           </div>
           <div className="text-xs text-slate-500 mt-1">
             {submittedReviews.length > 0
-              ? `trung bình, ${submittedReviews.length} đánh giá`
-              : "Chưa có đánh giá"}
+              ? tr("feedbackKpiAvgSub", { count: submittedReviews.length })
+              : t("feedbackKpiNoRating")}
           </div>
         </div>
       </section>
@@ -723,7 +1495,7 @@ export function MemberFeedbackView({ embedded = false }) {
               : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span>Cần đánh giá</span>
+          <span>{t("feedbackTabPending")}</span>
           <span className="px-2 py-0.5 text-xs rounded-full bg-slate-100 text-slate-700 font-semibold">
             {pendingSessions.length}
           </span>
@@ -738,7 +1510,7 @@ export function MemberFeedbackView({ embedded = false }) {
               : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span>Lịch sử của tôi</span>
+          <span>{t("feedbackTabSubmitted")}</span>
           <span className="px-2 py-0.5 text-xs rounded-full bg-slate-100 text-slate-700 font-semibold">
             {submittedReviews.length}
           </span>
@@ -752,72 +1524,108 @@ export function MemberFeedbackView({ embedded = false }) {
             <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-3">
               <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
               <h3 className="text-lg font-bold text-slate-900">
-                Bạn đã hoàn tất mọi đánh giá
+                {t("feedbackEmptyPendingTitle")}
               </h3>
               <p className="text-sm text-slate-500 max-w-md mx-auto">
-                Các buổi tập mới sẽ sẵn sàng đánh giá ngay sau khi buổi học kết
-                thúc.
+                {t("feedbackEmptyPendingDesc")}
               </p>
+              {submittedReviews.length > 0 && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("submitted")}
+                    className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    {t("feedbackEmptyPendingBtnHistory")}
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
               <AnimatePresence>
-                {pendingSessions.map((session) => (
-                  <motion.div
-                    key={session.id}
-                    initial={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0, overflow: "hidden" }}
-                    transition={{ duration: 0.2 }}
-                    className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:border-slate-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                  >
-                    {/* Cột 1: Ngày & Giờ */}
-                    <div className="sm:w-44 shrink-0 space-y-0.5">
-                      <div className="font-bold text-slate-900">
-                        {session.dayVi}
-                      </div>
-                      <div className="text-xs text-slate-500 font-mono">
-                        {session.startTime} – {session.endTime}
-                      </div>
-                    </div>
+                {pendingSessions.map((session) => {
+                  const isLate = session.attendanceStateKey === "late"
+                  const attendanceLabel = isLate
+                    ? t("feedbackStatusLate")
+                    : t("feedbackStatusPresent")
+                  const remainingDays = session.remainingDeadlineDays
 
-                    {/* Cột 2: Khóa học & Thông tin */}
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <h3 className="text-base font-bold text-slate-900 truncate">
-                        {session.className}
-                      </h3>
-                      <p className="text-xs text-slate-600">
-                        {session.court} · Huấn luyện viên{" "}
-                        {session.coach?.replace(/^HLV\s+/, "")}
-                      </p>
-                      <div className="text-xs text-slate-500 flex items-center gap-2 pt-0.5">
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[11px] font-medium">
-                          {session.attendanceNote}
-                        </span>
-                        <span className="text-slate-300">•</span>
-                        <span
-                          className={
-                            session.deadlineDays <= 2
-                              ? "text-amber-600 font-medium"
-                              : "text-slate-500"
-                          }
+                  return (
+                    <motion.div
+                      key={session.sessionKey}
+                      initial={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0, overflow: "hidden" }}
+                      transition={{ duration: 0.2 }}
+                      className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:border-slate-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      {/* Cột 1: Ngày & Giờ chuẩn dd/MM/yyyy · HH:mm–HH:mm */}
+                      <div className="sm:w-56 shrink-0">
+                        <div className="text-sm font-bold text-slate-900 tabular-nums">
+                          {formatSessionDateTimeSlot(
+                            session.sessionDate,
+                            session.startTime,
+                            session.endTime,
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Cột 2: Khóa học & Thông tin */}
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <h3 className="text-base font-bold text-slate-900 truncate">
+                          {session.className}
+                        </h3>
+                        <p className="text-xs text-slate-600">
+                          {session.roomName} · {t("feedbackCoachPrefix")}{" "}
+                          {String(session.coachName || "").replace(
+                            /^HLV\s+/i,
+                            "",
+                          )}
+                        </p>
+                        <div className="text-xs text-slate-500 flex items-center gap-2 pt-0.5 flex-wrap">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[11px] font-medium border ${
+                              isLate
+                                ? "bg-amber-50 text-amber-800 border-amber-200"
+                                : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            }`}
+                          >
+                            {attendanceLabel}
+                          </span>
+                          {remainingDays !== null && (
+                            <>
+                              <span className="text-slate-300">•</span>
+                              <span
+                                className={
+                                  remainingDays <= 2
+                                    ? "text-amber-600 font-medium"
+                                    : "text-slate-500"
+                                }
+                              >
+                                {remainingDays === 0
+                                  ? t("feedbackDeadlineToday")
+                                  : tr("feedbackDeadlineRemaining", {
+                                      days: remainingDays,
+                                    })}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Cột 3: CTA Button */}
+                      <div className="shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenReviewDrawer(session)}
+                          className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all active:scale-[0.98] bg-brand-primary hover:bg-brand-primary-hover text-white shadow-xs"
                         >
-                          Còn {session.deadlineDays} ngày để đánh giá
-                        </span>
+                          {t("feedbackBtnWriteReview")}
+                        </button>
                       </div>
-                    </div>
-
-                    {/* Cột 3: CTA Button */}
-                    <div className="shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenReviewDrawer(session)}
-                        className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all active:scale-[0.98] bg-brand-primary hover:bg-brand-primary-hover text-white shadow-xs"
-                      >
-                        Viết đánh giá
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  )
+                })}
               </AnimatePresence>
             </div>
           )}
@@ -829,16 +1637,18 @@ export function MemberFeedbackView({ embedded = false }) {
         <div className="space-y-4">
           {/* Bộ lọc */}
           <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <select
                 value={selectedCourseFilter}
                 onChange={(e) => setSelectedCourseFilter(e.target.value)}
                 className="bg-slate-50 border border-slate-200 text-xs text-slate-900 rounded-xl px-3 py-2 cursor-pointer outline-none focus:border-brand-accent"
               >
-                <option value="all">Tất cả khóa học</option>
-                <option value="Cầu lông">Cầu lông K01</option>
-                <option value="Pickleball">Pickleball K01</option>
-                <option value="Bắn cung">Bắn cung K01</option>
+                <option value="all">{t("feedbackFilterAllCourses")}</option>
+                {enrolledCoursesList.map((course) => (
+                  <option key={course.classId} value={course.classId}>
+                    {course.className}
+                  </option>
+                ))}
               </select>
 
               <select
@@ -846,48 +1656,62 @@ export function MemberFeedbackView({ embedded = false }) {
                 onChange={(e) => setSelectedTimeFilter(e.target.value)}
                 className="bg-slate-50 border border-slate-200 text-xs text-slate-900 rounded-xl px-3 py-2 cursor-pointer outline-none focus:border-brand-accent"
               >
-                <option value="all">Tất cả thời gian</option>
-                <option value="30days">30 ngày qua</option>
-                <option value="semester">Học kỳ này</option>
+                <option value="all">{t("feedbackFilterAllTime")}</option>
+                <option value="30days">{t("feedbackFilter30Days")}</option>
+                <option value="semester">{t("feedbackFilterSemester")}</option>
               </select>
             </div>
 
             <span className="text-xs text-slate-500 font-medium">
-              {filteredSubmittedReviews.length} đánh giá đã gửi
+              {tr("feedbackSubmittedCount", {
+                count: filteredSubmittedReviews.length,
+              })}
             </span>
           </div>
 
           {filteredSubmittedReviews.length === 0 ? (
             <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-3">
               <p className="text-lg font-bold text-slate-900">
-                Bạn chưa có đánh giá nào
+                {t("feedbackEmptySubmittedTitle")}
               </p>
               <p className="text-xs text-slate-500">
-                Ý kiến của bạn sẽ lưu tại đây sau khi gửi đánh giá buổi học.
+                {t("feedbackEmptySubmittedDesc")}
               </p>
-              <button
-                type="button"
-                onClick={() => setActiveTab("pending")}
-                className="text-xs text-brand-accent-dark underline font-bold cursor-pointer"
-              >
-                Xem danh sách cần đánh giá
-              </button>
+              {pendingSessions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("pending")}
+                  className="text-xs text-brand-accent-dark underline font-bold cursor-pointer"
+                >
+                  {t("feedbackEmptySubmittedBtnPending")}
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
               {filteredSubmittedReviews.map((review) => {
                 const isExpanded = Boolean(expandedComments[review.id])
                 const isBreakdownOpen = Boolean(expandedBreakdowns[review.id])
+                const overallScore =
+                  Number(review.overallRating || review.rating) || 5
+                const coachFallback = Number(review.coachRating) || overallScore
+                const facilityFallback =
+                  Number(review.classRating) || overallScore
                 const coachBd = review.criteria?.coachBreakdown || {
-                  expertise: 5,
-                  interaction: 5,
-                  punctuality: 5,
+                  expertise: coachFallback,
+                  interaction: coachFallback,
+                  punctuality: coachFallback,
                 }
                 const facilityBd = review.criteria?.facilityBreakdown || {
-                  court: 5,
-                  lighting: 5,
-                  cleanliness: 5,
+                  court: facilityFallback,
+                  lighting: facilityFallback,
+                  cleanliness: facilityFallback,
                 }
+                const verdictMeta = getVerdictMeta(overallScore, t)
+                const realCoachReply = sanitizeRealCoachReply(review.coachReply)
+                const replyDateFormatted = review.coachReplyDate
+                  ? toDateDdMmYyyy(review.coachReplyDate)
+                  : null
 
                 return (
                   <div
@@ -902,50 +1726,47 @@ export function MemberFeedbackView({ embedded = false }) {
                           </h3>
                           <span className="text-slate-300">•</span>
                           <span className="text-xs text-slate-500">
-                            {review.room ||
-                              review.sessionMeta?.court ||
-                              review.court}
+                            {review.roomName ||
+                              review.sessionMeta?.roomName ||
+                              t("feedbackRoomTbd")}
                           </span>
                           {review.isAnonymous && (
                             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-                              Ẩn danh
+                              {t("feedbackBadgeAnonymous")}
                             </span>
                           )}
                           {review.isPrivateContactRequested && (
                             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
-                              Yêu cầu đối thoại
+                              {t("feedbackBadgePrivateContact")}
                             </span>
                           )}
                         </div>
                         <p className="text-xs text-slate-500 mt-1">
-                          Huấn luyện viên:{" "}
+                          {t("feedbackHistoryCoachPrefix")}{" "}
                           <span className="font-medium text-slate-800">
-                            {review.coachName ||
-                              review.coach ||
-                              review.sessionMeta?.coach}
+                            {review.coachName || review.sessionMeta?.coachName}
                           </span>{" "}
-                          · {review.dayVi || review.sessionMeta?.dayVi} (
-                          {review.startTime ||
-                            review.sessionMeta?.startTime ||
-                            "06:00"}{" "}
-                          -{" "}
-                          {review.endTime ||
-                            review.sessionMeta?.endTime ||
-                            "07:30"}
-                          )
+                          ·{" "}
+                          <span className="tabular-nums">
+                            {formatSessionDateTimeSlot(
+                              review.sessionDate ||
+                                review.sessionMeta?.sessionDate ||
+                                review.date,
+                              review.startTime || review.sessionMeta?.startTime,
+                              review.endTime || review.sessionMeta?.endTime,
+                            )}
+                          </span>
                         </p>
                       </div>
 
-                      {/* Score Badge */}
+                      {/* Score Badge & Nút Chỉnh sửa */}
                       <div className="flex items-center gap-3 shrink-0">
                         <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl">
                           <span className="text-amber-500 font-black text-sm">
                             ★
                           </span>
-                          <span className="font-bold text-slate-900 text-sm">
-                            {Number(
-                              review.overallRating || review.rating || 5,
-                            ).toFixed(1)}
+                          <span className="font-bold text-slate-900 text-sm tabular-nums">
+                            {overallScore.toFixed(1)}
                           </span>
                         </div>
                         <button
@@ -958,29 +1779,27 @@ export function MemberFeedbackView({ embedded = false }) {
                           }
                           className="text-xs text-brand-accent-dark hover:text-brand-primary-hover font-bold hover:underline cursor-pointer"
                         >
-                          Chỉnh sửa
+                          {t("feedbackBtnEdit")}
                         </button>
                       </div>
                     </div>
 
-                    {/* Verdict label & Tags */}
+                    {/* Mức đánh giá & Thẻ nhận định nhanh */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-brand-accent-dark uppercase tracking-wider">
-                        {APPRAISAL_VERDICTS[
-                          Math.round(review.overallRating || review.rating || 5)
-                        ]?.label || "Chuẩn mực cao"}
+                        {verdictMeta.label}
                       </span>
 
                       {review.tags && review.tags.length > 0 && (
                         <>
                           <span className="text-slate-300">•</span>
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            {review.tags.map((tag) => (
+                            {review.tags.map((tagCode) => (
                               <span
-                                key={tag}
+                                key={tagCode}
                                 className="text-xs px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 font-medium"
                               >
-                                {tag}
+                                {getTagLabel(tagCode, t)}
                               </span>
                             ))}
                           </div>
@@ -988,8 +1807,8 @@ export function MemberFeedbackView({ embedded = false }) {
                       )}
                     </div>
 
-                    {/* Comment */}
-                    {review.comment && (
+                    {/* Nhận xét văn bản (hiển thị tóm tắt khi đang thu gọn chi tiết) */}
+                    {review.comment && !isBreakdownOpen && (
                       <div className="space-y-1">
                         <p
                           className={`text-sm text-slate-700 bg-slate-50 p-3.5 rounded-xl border border-slate-100 italic leading-relaxed ${
@@ -1004,92 +1823,143 @@ export function MemberFeedbackView({ embedded = false }) {
                             onClick={() => toggleCommentExpand(review.id)}
                             className="text-xs text-brand-accent-dark hover:underline font-bold cursor-pointer block"
                           >
-                            {isExpanded ? "Thu gọn" : "Xem toàn văn nhận xét"}
+                            {isExpanded
+                              ? t("feedbackCommentShowLess")
+                              : t("feedbackCommentShowMore")}
                           </button>
                         )}
                       </div>
                     )}
 
-                    {/* Detail criteria toggle */}
+                    {/* Nút mở rộng / thu gọn chi tiết đánh giá tại chỗ */}
                     <div className="pt-1">
                       <button
                         type="button"
-                        onClick={() =>
-                          setExpandedBreakdowns((prev) => ({
-                            ...prev,
-                            [review.id]: !prev[review.id],
-                          }))
-                        }
-                        className="text-xs text-slate-500 hover:text-slate-800 underline cursor-pointer transition-colors"
+                        aria-expanded={isBreakdownOpen}
+                        onClick={() => toggleBreakdownExpand(review.id)}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 cursor-pointer transition-colors"
                       >
-                        {isBreakdownOpen
-                          ? "Ẩn chi tiết tiêu chí đánh giá"
-                          : "Xem chi tiết tiêu chí đánh giá (HLV & Sân tập)"}
+                        <span>
+                          {isBreakdownOpen
+                            ? t("feedbackBreakdownCollapse")
+                            : t("feedbackBreakdownExpand")}
+                        </span>
+                        {isBreakdownOpen ? (
+                          <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                        )}
                       </button>
 
                       {isBreakdownOpen && (
-                        <div className="mt-3 p-4 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                          <div className="space-y-1.5">
-                            <div className="text-[11px] uppercase tracking-wider text-slate-500 font-bold">
-                              Huấn luyện viên
+                        <div className="mt-3 p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-4 text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                              <div className="text-[11px] uppercase tracking-wider text-slate-500 font-bold">
+                                {t("feedbackCriteriaCoachGroup")}
+                              </div>
+                              <div className="flex justify-between text-slate-600">
+                                <span>
+                                  {t("feedbackCriteriaExpertiseShort")}
+                                </span>
+                                <span className="font-bold text-slate-900 tabular-nums">
+                                  {coachBd.expertise}/5
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-slate-600">
+                                <span>
+                                  {t("feedbackCriteriaInteractionShort")}
+                                </span>
+                                <span className="font-bold text-slate-900 tabular-nums">
+                                  {coachBd.interaction}/5
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-slate-600">
+                                <span>
+                                  {t("feedbackCriteriaPunctualityShort")}
+                                </span>
+                                <span className="font-bold text-slate-900 tabular-nums">
+                                  {coachBd.punctuality}/5
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex justify-between text-slate-600">
-                              <span>Chuyên môn:</span>
-                              <span className="font-bold text-slate-900">
-                                {coachBd.expertise}/5
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-slate-600">
-                              <span>Tương tác:</span>
-                              <span className="font-bold text-slate-900">
-                                {coachBd.interaction}/5
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-slate-600">
-                              <span>Đúng giờ:</span>
-                              <span className="font-bold text-slate-900">
-                                {coachBd.punctuality}/5
-                              </span>
+
+                            <div className="space-y-1.5 sm:border-l sm:border-slate-200 sm:pl-4">
+                              <div className="text-[11px] uppercase tracking-wider text-slate-500 font-bold">
+                                {t("feedbackCriteriaFacilityGroup")}
+                              </div>
+                              <div className="flex justify-between text-slate-600">
+                                <span>{t("feedbackCriteriaCourtShort")}</span>
+                                <span className="font-bold text-slate-900 tabular-nums">
+                                  {facilityBd.court}/5
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-slate-600">
+                                <span>
+                                  {t("feedbackCriteriaLightingShort")}
+                                </span>
+                                <span className="font-bold text-slate-900 tabular-nums">
+                                  {facilityBd.lighting}/5
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-slate-600">
+                                <span>
+                                  {t("feedbackCriteriaCleanlinessShort")}
+                                </span>
+                                <span className="font-bold text-slate-900 tabular-nums">
+                                  {facilityBd.cleanliness}/5
+                                </span>
+                              </div>
                             </div>
                           </div>
 
-                          <div className="space-y-1.5 sm:border-l sm:border-slate-200 sm:pl-4">
-                            <div className="text-[11px] uppercase tracking-wider text-slate-500 font-bold">
-                              Sân bãi & Tiện nghi
-                            </div>
-                            <div className="flex justify-between text-slate-600">
-                              <span>Mặt sân:</span>
-                              <span className="font-bold text-slate-900">
-                                {facilityBd.court}/5
+                          {review.tags && review.tags.length > 0 && (
+                            <div className="pt-3 border-t border-slate-200/80 flex items-center gap-2 flex-wrap">
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                {t("feedbackDetailTagsLabel")}
                               </span>
+                              {review.tags.map((tagCode) => (
+                                <span
+                                  key={tagCode}
+                                  className="text-xs px-2.5 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium"
+                                >
+                                  {getTagLabel(tagCode, t)}
+                                </span>
+                              ))}
                             </div>
-                            <div className="flex justify-between text-slate-600">
-                              <span>Ánh sáng:</span>
-                              <span className="font-bold text-slate-900">
-                                {facilityBd.lighting}/5
+                          )}
+
+                          {review.comment && (
+                            <div className="pt-3 border-t border-slate-200/80 space-y-1">
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                                {t("feedbackDetailCommentLabel")}
                               </span>
+                              <p className="text-xs text-slate-700 leading-relaxed">
+                                {review.comment}
+                              </p>
                             </div>
-                            <div className="flex justify-between text-slate-600">
-                              <span>Vệ sinh:</span>
-                              <span className="font-bold text-slate-900">
-                                {facilityBd.cleanliness}/5
-                              </span>
-                            </div>
-                          </div>
+                          )}
                         </div>
                       )}
                     </div>
 
-                    {/* Coach reply if any */}
-                    {review.coachReply && (
+                    {/* Khối trích dẫn phản hồi của HLV: CHỈ hiển thị khi API trả phản hồi thật */}
+                    {realCoachReply && (
                       <div className="pl-4 border-l-2 border-brand-accent/60 space-y-1 pt-1">
                         <p className="text-xs text-slate-600 italic leading-relaxed">
-                          “{review.coachReply}”
+                          “{realCoachReply}”
                         </p>
                         <span className="text-[11px] text-slate-400 block">
-                          — Huấn luyện viên{" "}
-                          {review.coachName?.replace(/^HLV\s+/, "")} · Phản hồi
-                          sau buổi tập
+                          {replyDateFormatted
+                            ? tr("feedbackReplyAuthorWithDate", {
+                                author:
+                                  review.coachReplyAuthor || review.coachName,
+                                date: replyDateFormatted,
+                              })
+                            : tr("feedbackReplyAuthorOnly", {
+                                author:
+                                  review.coachReplyAuthor || review.coachName,
+                              })}
                         </span>
                       </div>
                     )}
@@ -1102,7 +1972,7 @@ export function MemberFeedbackView({ embedded = false }) {
       )}
 
       {/* ============================================================== */}
-      {/* 6. DRAWER ĐÁNH GIÁ (Slide-Over Sheet 480px)                    */}
+      {/* 6. NGĂN ĐÁNH GIÁ (Slide-Over Sheet 480px)                      */}
       {/* ============================================================== */}
       <AnimatePresence>
         {drawerOpen && activeSessionForReview && (
@@ -1133,16 +2003,25 @@ export function MemberFeedbackView({ embedded = false }) {
                   <div className="space-y-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-brand-accent-dark block">
                       {editingFeedbackId
-                        ? "CHỈNH SỬA ĐÁNH GIÁ"
-                        : "ĐÁNH GIÁ BUỔI HỌC"}
+                        ? t("feedbackDrawerBadgeEdit")
+                        : t("feedbackDrawerBadgeNew")}
                     </span>
                     <h2 className="font-bold text-xl text-slate-900 leading-snug">
                       {activeSessionForReview.className}
                     </h2>
-                    <p className="text-xs text-slate-500 font-normal">
-                      {activeSessionForReview.dayVi} ·{" "}
-                      {activeSessionForReview.coach} ·{" "}
-                      {activeSessionForReview.court}
+                    <p className="text-xs text-slate-500 font-normal tabular-nums">
+                      {formatSessionDateTimeSlot(
+                        activeSessionForReview.sessionDate ||
+                          activeSessionForReview.date,
+                        activeSessionForReview.startTime,
+                        activeSessionForReview.endTime,
+                      )}{" "}
+                      ·{" "}
+                      {activeSessionForReview.coachName ||
+                        activeSessionForReview.coach}{" "}
+                      ·{" "}
+                      {activeSessionForReview.roomName ||
+                        activeSessionForReview.court}
                     </p>
                   </div>
 
@@ -1150,7 +2029,7 @@ export function MemberFeedbackView({ embedded = false }) {
                     type="button"
                     onClick={() => !isSubmitting && setDrawerOpen(false)}
                     className="p-1.5 text-slate-400 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-                    title="Đóng (ESC)"
+                    title={t("feedbackDrawerCloseTitle")}
                   >
                     <X className="w-5 h-5 stroke-[1.75]" />
                   </button>
@@ -1167,13 +2046,11 @@ export function MemberFeedbackView({ embedded = false }) {
                       <div className="space-y-2">
                         <h3 className="font-bold text-xl text-slate-900">
                           {editingFeedbackId
-                            ? "Đã cập nhật đánh giá"
-                            : "Cảm ơn bạn đã phản hồi!"}
+                            ? t("feedbackThankYouTitleEdit")
+                            : t("feedbackThankYouTitleNew")}
                         </h3>
                         <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
-                          Ý kiến của bạn đã được chuyển tới Huấn luyện viên và
-                          Ban Quản lý Chuyên môn để liên tục nâng cao chuẩn mực
-                          buổi tập.
+                          {t("feedbackThankYouDesc")}
                         </p>
                       </div>
 
@@ -1184,18 +2061,10 @@ export function MemberFeedbackView({ embedded = false }) {
                             setDrawerOpen(false)
                             setIsThankYouMode(false)
                             setActiveTab("submitted")
-                            if (typeof showToast === "function") {
-                              showToast(
-                                editingFeedbackId
-                                  ? "Đã cập nhật đánh giá thành công."
-                                  : "Đã lưu đánh giá thành công.",
-                                "success",
-                              )
-                            }
                           }}
                           className="w-full py-3 rounded-xl bg-brand-primary text-white text-xs font-bold cursor-pointer hover:bg-brand-primary-hover transition-all shadow-xs"
                         >
-                          Xem trong Lịch sử đánh giá
+                          {t("feedbackThankYouBtnHistory")}
                         </button>
                         <button
                           type="button"
@@ -1205,39 +2074,42 @@ export function MemberFeedbackView({ embedded = false }) {
                           }}
                           className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-medium cursor-pointer hover:bg-slate-50 transition-all"
                         >
-                          Đóng cửa sổ
+                          {t("feedbackThankYouBtnClose")}
                         </button>
                       </div>
                     </div>
                   ) : (
                     <>
-                      {/* BƯỚC 1: THANG ĐIỂM CHẤM 1.0 – 5.0 */}
+                      {/* BƯỚC 1: THANG ĐIỂM CHẤM 1 – 5 */}
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <h3 className="font-bold text-sm text-slate-900">
-                            Đánh giá chất lượng buổi tập
+                            {t("feedbackDrawerStep1Title")}
                           </h3>
                           <span className="text-[11px] font-bold text-brand-accent-dark">
-                            THANG ĐIỂM 1 – 5
+                            {t("feedbackDrawerScaleBadge")}
                           </span>
                         </div>
 
-                        {/* 5 Phím chọn điểm */}
                         <div
                           role="radiogroup"
-                          aria-label="Thang đo chất lượng buổi học"
+                          aria-label={t("feedbackDrawerScaleAria")}
                           className="grid grid-cols-5 gap-2 pt-1"
                         >
                           {[1, 2, 3, 4, 5].map((level) => {
                             const isSelected = overallRating === level
+                            const levelVerdict = getVerdictMeta(level, t)
                             return (
                               <button
                                 key={level}
                                 type="button"
                                 role="radio"
                                 aria-checked={isSelected}
-                                aria-label={`Mức ${level} trên 5: ${APPRAISAL_VERDICTS[level].label}`}
-                                onClick={() => setOverallRating(level)}
+                                aria-label={tr("feedbackDrawerLevelAria", {
+                                  level,
+                                  label: levelVerdict.label,
+                                })}
+                                onClick={() => handleSelectOverallRating(level)}
                                 className={`h-11 rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer font-bold text-sm border ${
                                   isSelected
                                     ? "bg-brand-primary text-white border-brand-accent shadow-xs"
@@ -1252,137 +2124,154 @@ export function MemberFeedbackView({ embedded = false }) {
                           })}
                         </div>
 
-                        {/* Label verdict dưới 5 mức */}
                         <div className="min-h-5 pt-0.5">
                           {overallRating > 0 ? (
                             <div className="flex items-baseline gap-2 animate-in fade-in duration-150">
                               <span className="text-xs font-bold text-brand-accent-dark">
-                                {APPRAISAL_VERDICTS[overallRating].label}
+                                {getVerdictMeta(overallRating, t).label}
                               </span>
                               <span className="text-[11px] text-slate-500">
-                                · {APPRAISAL_VERDICTS[overallRating].desc}
+                                · {getVerdictMeta(overallRating, t).desc}
                               </span>
                             </div>
                           ) : (
                             <span className="text-[11px] text-slate-400">
-                              Chọn số sao đánh giá từ 1 đến 5 sao
+                              {t("feedbackDrawerSelectPrompt")}
                             </span>
                           )}
                         </div>
                       </div>
 
-                      {/* BƯỚC 2: Tiêu chí chi tiết */}
+                      {/* BƯỚC 2: Tiêu chí thành phần (mặc định theo điểm tổng quát N, không ghi đè mục người dùng đã chỉnh) */}
                       {overallRating > 0 && (
                         <div className="space-y-5 pt-3 border-t border-slate-100 animate-in fade-in duration-200">
                           {/* Nhóm 1: Huấn luyện viên */}
                           <div className="space-y-3">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                              TIÊU CHÍ HUẤN LUYỆN VIÊN
-                            </span>
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                {t("feedbackDrawerCoachCriteriaHeader")}
+                              </span>
+                              <span className="text-[11px] text-slate-400 italic">
+                                ({t("feedbackDrawerDefaultFromOverallHint")})
+                              </span>
+                            </div>
 
                             <div className="space-y-2.5">
                               {[
                                 {
                                   key: "expertise",
-                                  label: "Chuyên môn & Giáo án kỹ thuật",
+                                  label: t("feedbackDrawerCoachExpertise"),
                                 },
                                 {
                                   key: "interaction",
-                                  label: "Tương tác & Theo sát cá nhân",
+                                  label: t("feedbackDrawerCoachInteraction"),
                                 },
                                 {
                                   key: "punctuality",
-                                  label: "Tác phong & Đúng giờ",
+                                  label: t("feedbackDrawerCoachPunctuality"),
                                 },
-                              ].map((item) => (
-                                <div
-                                  key={item.key}
-                                  className="flex items-center justify-between text-xs py-1"
-                                >
-                                  <span className="text-slate-700 font-medium">
-                                    {item.label}
-                                  </span>
-                                  <div className="flex items-center gap-1.5">
-                                    {[1, 2, 3, 4, 5].map((pt) => (
-                                      <button
-                                        key={pt}
-                                        type="button"
-                                        onClick={() =>
-                                          setCoachCriteria((prev) => ({
-                                            ...prev,
-                                            [item.key]: pt,
-                                          }))
-                                        }
-                                        className={`w-6 h-6 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                                          coachCriteria[item.key] === pt
-                                            ? "bg-brand-primary text-white"
-                                            : coachCriteria[item.key] >= pt
-                                              ? "bg-brand-accent-soft text-brand-accent-dark"
-                                              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                        }`}
-                                      >
-                                        {pt}
-                                      </button>
-                                    ))}
+                              ].map((item) => {
+                                const currentVal =
+                                  coachCriteria[item.key] ?? overallRating
+                                return (
+                                  <div
+                                    key={item.key}
+                                    className="flex items-center justify-between text-xs py-1"
+                                  >
+                                    <span className="text-slate-700 font-medium">
+                                      {item.label}
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                      {[1, 2, 3, 4, 5].map((pt) => (
+                                        <button
+                                          key={pt}
+                                          type="button"
+                                          onClick={() =>
+                                            handleSelectCoachCriterion(
+                                              item.key,
+                                              pt,
+                                            )
+                                          }
+                                          className={`w-6 h-6 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                                            currentVal === pt
+                                              ? "bg-brand-primary text-white"
+                                              : currentVal >= pt
+                                                ? "bg-brand-accent-soft text-brand-accent-dark"
+                                                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                          }`}
+                                        >
+                                          {pt}
+                                        </button>
+                                      ))}
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                )
+                              })}
                             </div>
                           </div>
 
                           {/* Nhóm 2: Sân bãi & Tiện nghi */}
                           <div className="space-y-3 pt-2 border-t border-slate-100">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                              TIÊU CHÍ SÂN BÃI & TIỆN NGHI
-                            </span>
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                {t("feedbackDrawerFacilityCriteriaHeader")}
+                              </span>
+                              <span className="text-[11px] text-slate-400 italic">
+                                ({t("feedbackDrawerDefaultFromOverallHint")})
+                              </span>
+                            </div>
 
                             <div className="space-y-2.5">
                               {[
                                 {
                                   key: "court",
-                                  label: "Mặt sàn & Ánh sáng thi đấu",
+                                  label: t("feedbackDrawerFacilityCourt"),
                                 },
                                 {
                                   key: "lighting",
-                                  label: "Nhiệt độ không gian & Tiếng ồn",
+                                  label: t("feedbackDrawerFacilityLighting"),
                                 },
                                 {
                                   key: "cleanliness",
-                                  label: "Vệ sinh & Hậu cần sân bãi",
+                                  label: t("feedbackDrawerFacilityCleanliness"),
                                 },
-                              ].map((item) => (
-                                <div
-                                  key={item.key}
-                                  className="flex items-center justify-between text-xs py-1"
-                                >
-                                  <span className="text-slate-700 font-medium">
-                                    {item.label}
-                                  </span>
-                                  <div className="flex items-center gap-1.5">
-                                    {[1, 2, 3, 4, 5].map((pt) => (
-                                      <button
-                                        key={pt}
-                                        type="button"
-                                        onClick={() =>
-                                          setFacilityCriteria((prev) => ({
-                                            ...prev,
-                                            [item.key]: pt,
-                                          }))
-                                        }
-                                        className={`w-6 h-6 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                                          facilityCriteria[item.key] === pt
-                                            ? "bg-brand-primary text-white"
-                                            : facilityCriteria[item.key] >= pt
-                                              ? "bg-brand-accent-soft text-brand-accent-dark"
-                                              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                        }`}
-                                      >
-                                        {pt}
-                                      </button>
-                                    ))}
+                              ].map((item) => {
+                                const currentVal =
+                                  facilityCriteria[item.key] ?? overallRating
+                                return (
+                                  <div
+                                    key={item.key}
+                                    className="flex items-center justify-between text-xs py-1"
+                                  >
+                                    <span className="text-slate-700 font-medium">
+                                      {item.label}
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                      {[1, 2, 3, 4, 5].map((pt) => (
+                                        <button
+                                          key={pt}
+                                          type="button"
+                                          onClick={() =>
+                                            handleSelectFacilityCriterion(
+                                              item.key,
+                                              pt,
+                                            )
+                                          }
+                                          className={`w-6 h-6 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                                            currentVal === pt
+                                              ? "bg-brand-primary text-white"
+                                              : currentVal >= pt
+                                                ? "bg-brand-accent-soft text-brand-accent-dark"
+                                                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                          }`}
+                                        >
+                                          {pt}
+                                        </button>
+                                      ))}
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                )
+                              })}
                             </div>
                           </div>
                         </div>
@@ -1392,26 +2281,35 @@ export function MemberFeedbackView({ embedded = false }) {
                       {overallRating > 0 && (
                         <div className="space-y-2.5 pt-3 border-t border-slate-100">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                            NHẬN ĐỊNH NHANH (CHỌN ĐỂ THÊM VÀO Ý KIẾN)
+                            {t("feedbackDrawerQuickTagsHeader")}
                           </span>
                           <div className="flex flex-wrap gap-2 pt-0.5">
-                            {(overallRating >= 4
-                              ? POSITIVE_APPRAISAL_TAGS
-                              : CRITICAL_APPRAISAL_TAGS
-                            ).map((tag) => {
-                              const isSelected = selectedTags.includes(tag)
+                            {[
+                              ...(overallRating >= 4
+                                ? POSITIVE_TAG_CODES
+                                : CRITICAL_TAG_CODES),
+                              ...selectedTags.filter(
+                                (code) =>
+                                  !(
+                                    overallRating >= 4
+                                      ? POSITIVE_TAG_CODES
+                                      : CRITICAL_TAG_CODES
+                                  ).includes(code),
+                              ),
+                            ].map((tagCode) => {
+                              const isSelected = selectedTags.includes(tagCode)
                               return (
                                 <button
-                                  key={tag}
+                                  key={tagCode}
                                   type="button"
-                                  onClick={() => handleToggleTag(tag)}
+                                  onClick={() => handleToggleTag(tagCode)}
                                   className={`text-xs px-3 py-1.5 rounded-lg transition-all cursor-pointer font-medium border ${
                                     isSelected
                                       ? "bg-brand-accent-soft text-brand-accent-dark border-brand-accent/40 font-bold"
                                       : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                                   }`}
                                 >
-                                  {tag}
+                                  {getTagLabel(tagCode, t)}
                                 </button>
                               )
                             })}
@@ -1423,14 +2321,16 @@ export function MemberFeedbackView({ embedded = false }) {
                       {overallRating > 0 && (
                         <div className="space-y-2 pt-3 border-t border-slate-100">
                           <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                            Ý KIẾN ĐÓNG GÓP CHI TIẾT (TÙY CHỌN)
+                            {overallRating <= 2
+                              ? t("feedbackDrawerCommentRequiredLabel")
+                              : t("feedbackDrawerCommentLabel")}
                           </label>
 
                           <textarea
                             value={commentText}
                             onChange={(e) => setCommentText(e.target.value)}
                             rows={3}
-                            placeholder="Ghi chú chi tiết về bài tập, động tác, nhịp độ hoặc chất lượng sân..."
+                            placeholder={t("feedbackDrawerCommentPlaceholder")}
                             className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all resize-none leading-relaxed"
                           />
                         </div>
@@ -1439,7 +2339,6 @@ export function MemberFeedbackView({ embedded = false }) {
                       {/* BƯỚC 5: Quyền riêng tư & Đối thoại bảo mật */}
                       {overallRating > 0 && (
                         <div className="space-y-2.5 pt-3 border-t border-slate-100">
-                          {/* Ẩn danh */}
                           <label className="flex items-center gap-2.5 cursor-pointer text-xs text-slate-700">
                             <input
                               type="checkbox"
@@ -1447,13 +2346,9 @@ export function MemberFeedbackView({ embedded = false }) {
                               onChange={(e) => setIsAnonymous(e.target.checked)}
                               className="w-4 h-4 rounded border-slate-300 text-brand-accent-dark focus:ring-brand-accent"
                             />
-                            <span>
-                              Gửi ẩn danh với Huấn luyện viên (chỉ Ban Giám đốc
-                              xem được)
-                            </span>
+                            <span>{t("feedbackDrawerAnonymousLabel")}</span>
                           </label>
 
-                          {/* Đối thoại riêng */}
                           <label className="flex items-center gap-2.5 cursor-pointer text-xs text-slate-700">
                             <input
                               type="checkbox"
@@ -1464,8 +2359,7 @@ export function MemberFeedbackView({ embedded = false }) {
                               className="w-4 h-4 rounded border-slate-300 text-brand-accent-dark focus:ring-brand-accent"
                             />
                             <span>
-                              Đề nghị Giám đốc Chuyên môn liên hệ trực tiếp trao
-                              đổi thêm
+                              {t("feedbackDrawerPrivateContactLabel")}
                             </span>
                           </label>
                         </div>
@@ -1488,7 +2382,7 @@ export function MemberFeedbackView({ embedded = false }) {
                       onClick={() => setDrawerOpen(false)}
                       className="px-4 py-2.5 text-xs text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
                     >
-                      Hủy bỏ
+                      {t("feedbackDrawerBtnCancel")}
                     </button>
 
                     <button
@@ -1502,10 +2396,10 @@ export function MemberFeedbackView({ embedded = false }) {
                       }`}
                     >
                       {isSubmitting
-                        ? "Đang gửi..."
+                        ? t("feedbackDrawerBtnSubmitting")
                         : editingFeedbackId
-                          ? "Lưu cập nhật"
-                          : "Gửi đánh giá"}
+                          ? t("feedbackDrawerBtnSaveEdit")
+                          : t("feedbackDrawerBtnSubmit")}
                     </button>
                   </div>
                 )}
