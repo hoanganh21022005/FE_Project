@@ -22,6 +22,7 @@ import {
   requestAbsence,
   getSessionAbsenceNotices,
   cancelPrivateSession,
+  getActiveHolidays,
 } from "../../api/memberPortalApi"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { getErrorMessage } from "../../api/apiErrors"
@@ -101,6 +102,7 @@ export function MemberScheduleView() {
   const [activeTab, setActiveTab] = useState("courses") // 'courses' | 'sessions' | 'private'
   const [rows, setRows] = useState([])
   const [allSessions, setAllSessions] = useState([])
+  const [holidays, setHolidays] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
@@ -122,12 +124,14 @@ export function MemberScheduleView() {
     setLoading(true)
     setError("")
     try {
-      const [enrollments, sessions] = await Promise.all([
+      const [enrollments, sessions, activeHolidays] = await Promise.all([
         getMemberClasses(memberId),
         getClassSessions().catch(() => []),
+        getActiveHolidays().catch(() => []),
       ])
       const sessionList = Array.isArray(sessions) ? sessions : []
       setAllSessions(sessionList)
+      setHolidays(Array.isArray(activeHolidays) ? activeHolidays : [])
       setRows(
         (Array.isArray(enrollments) ? enrollments : []).map((enrollment) => ({
           ...enrollment,
@@ -376,6 +380,22 @@ export function MemberScheduleView() {
           <span>{isVi ? "Đánh giá chất lượng" : "Class Feedback"}</span>
         </button>
       </div>
+
+      {holidays.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 text-xs text-amber-900 flex flex-wrap items-center gap-2">
+          <span className="font-bold">
+            {isVi ? "Lịch nghỉ lễ của Trung tâm:" : "Center Holidays:"}
+          </span>
+          {holidays.map((h) => (
+            <span
+              key={h.id || h.holidayDate}
+              className="rounded-full bg-white px-2.5 py-0.5 font-semibold border border-amber-200"
+            >
+              {h.holidayName || "Nghỉ lễ"} ({h.holidayDate})
+            </span>
+          ))}
+        </div>
+      )}
 
       {!validMember && (
         <div

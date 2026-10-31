@@ -85,30 +85,35 @@ export function PersonalProfileView() {
   const [pwdNotice, setPwdNotice] = useState("")
 
   const refresh = useCallback(async () => {
-    if (!valid) {
-      setLoading(false)
-      return
-    }
     setLoading(true)
     setError("")
     try {
-      const m = await memberApi.getMemberById(memberId)
-      setProfile({
-        ...EMPTY,
-        ...m,
-        name: m.name || currentUser?.name || "",
-        email: m.email || currentUser?.email || "",
-        dateOfBirth: m.dateOfBirth ? String(m.dateOfBirth).slice(0, 10) : "",
-      })
-      if (m.avatarUrl) {
-        setAvatarUrl(m.avatarUrl)
+      let m = null
+      try {
+        m = await memberApi.getMyMemberProfile()
+      } catch (selfErr) {
+        if (valid) {
+          m = await memberApi.getMemberById(memberId)
+        } else {
+          throw selfErr
+        }
+      }
+      if (m && typeof m === "object") {
+        setProfile({
+          ...EMPTY,
+          ...m,
+          name: m.name || currentUser?.name || "",
+          email: m.email || currentUser?.email || "",
+          dateOfBirth: m.dateOfBirth ? String(m.dateOfBirth).slice(0, 10) : "",
+        })
+        if (m.avatarUrl) {
+          setAvatarUrl(m.avatarUrl)
+        }
       }
     } catch (e) {
-      // Backend /api/members/{id} is restricted to Staff/Admin, so Member gets 403 Access Denied.
-      // Fallback gracefully to currentUser from auth session without alarming the user.
       const status = e?.status || e?.response?.status
       const msg = String(e?.message || "")
-      if (status === 403 || msg.toLowerCase().includes("access denied")) {
+      if (status === 403 || status === 404 || msg.toLowerCase().includes("access denied")) {
         setProfile((prev) => ({
           ...prev,
           name: prev.name || currentUser?.name || "",
@@ -138,28 +143,58 @@ export function PersonalProfileView() {
 
   const submit = async (event) => {
     event.preventDefault()
-    if (!valid || saving) return
+    if (saving) return
     setSaving(true)
     setError("")
     setNotice("")
     try {
-      const saved = await memberApi.updateMember(memberId, {
-        name: profile.name,
-        email: profile.email,
-        phone: profile.phone,
-        address: profile.address,
-        gender: profile.gender,
-        dateOfBirth: profile.dateOfBirth,
-        goal: profile.goal,
-        healthNote: profile.healthNote,
-      })
-      setProfile({
+      let saved = null
+      try {
+        saved = await memberApi.patchMyMemberProfile({
+          name: profile.name,
+          phone: profile.phone,
+          address: profile.address,
+          gender: profile.gender,
+          dateOfBirth: profile.dateOfBirth,
+          goal: profile.goal,
+          healthNote: profile.healthNote,
+        })
+      } catch (patchErr) {
+        if (patchErr?.status === 404 && !valid) {
+          saved = await memberApi.registerMemberProfile({
+            name: profile.name,
+            email: profile.email || currentUser?.email,
+            phone: profile.phone,
+            address: profile.address,
+            gender: profile.gender,
+            dateOfBirth: profile.dateOfBirth,
+            goal: profile.goal,
+            healthNote: profile.healthNote,
+          })
+        } else if (valid && (patchErr?.status === 404 || patchErr?.status === 405)) {
+          saved = await memberApi.updateMember(memberId, {
+            name: profile.name,
+            email: profile.email,
+            phone: profile.phone,
+            address: profile.address,
+            gender: profile.gender,
+            dateOfBirth: profile.dateOfBirth,
+            goal: profile.goal,
+            healthNote: profile.healthNote,
+          })
+        } else {
+          throw patchErr
+        }
+      }
+      setProfile((prev) => ({
         ...EMPTY,
-        ...saved,
-        dateOfBirth: saved.dateOfBirth
-          ? String(saved.dateOfBirth).slice(0, 10)
+        ...prev,
+        ...(saved || {}),
+        email: saved?.email || prev.email || currentUser?.email || "",
+        dateOfBirth: (saved?.dateOfBirth ?? prev.dateOfBirth)
+          ? String(saved?.dateOfBirth ?? prev.dateOfBirth).slice(0, 10)
           : "",
-      })
+      }))
       const msg = isVi
         ? "Đã cập nhật thông tin cá nhân thành công."
         : "Profile updated successfully."
@@ -537,14 +572,43 @@ export function PersonalProfileView() {
                       rows={name === "healthNote" ? 3 : 2}
                       className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary transition-colors resize-none leading-relaxed"
                     />
+                  ) : name === "gender" ? (
+                    <select
+                      name="gender"
+                      value={
+                        profile.gender === "Nam"
+                          ? "Male"
+                          : profile.gender === "Nữ" || profile.gender === "Nu"
+                            ? "Female"
+                            : profile.gender || ""
+                      }
+                      onChange={change}
+                      className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm outline-none focus:border-brand-primary transition-colors"
+                    >
+                      <option value="">
+                        {isVi ? "— Chọn giới tính —" : "— Select gender —"}
+                      </option>
+                      <option value="Male">{isVi ? "Nam (Male)" : "Male"}</option>
+                      <option value="Female">
+                        {isVi ? "Nữ (Female)" : "Female"}
+                      </option>
+                      <option value="Other">
+                        {isVi ? "Khác (Other)" : "Other"}
+                      </option>
+                    </select>
                   ) : (
                     <input
                       name={name}
                       type={type || "text"}
                       required={required}
+                      readOnly={name === "email"}
                       value={profile[name] || ""}
                       onChange={change}
-                      className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary transition-colors"
+                      className={`w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary transition-colors ${
+                        name === "email"
+                          ? "bg-slate-50 text-slate-500 cursor-not-allowed"
+                          : ""
+                      }`}
                     />
                   )}
                 </label>
@@ -554,7 +618,7 @@ export function PersonalProfileView() {
             <div className="mt-6 flex justify-end pt-4 border-t border-slate-100">
               <button
                 type="submit"
-                disabled={!valid || saving}
+                disabled={saving}
                 className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-primary-hover disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
               >
                 {saving ? (

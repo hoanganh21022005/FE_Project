@@ -297,6 +297,7 @@ const ROUTE_TAB_MAP = {
     tab: "member_feedback",
   },
   "/member/training-plan": { role: ROLE_MEMBER, tab: "member_training_plan" },
+  "/member/progress": { role: ROLE_MEMBER, tab: "member_training_plan" },
   "/member/invoices": { role: ROLE_MEMBER, tab: "member_invoices" },
   "/member/notifications": { role: ROLE_MEMBER, tab: "member_notifications" },
   "/member/my-coach": { role: ROLE_MEMBER, tab: "member_my_coach" },

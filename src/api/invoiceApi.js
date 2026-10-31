@@ -133,6 +133,54 @@ export const payInvoiceOnline = async (id) => {
   };
 };
 
+export const getInvoiceReceipt = async (id) => {
+  if (!isValidNumericId(id)) {
+    throw new Error('ID hóa đơn không hợp lệ.');
+  }
+  const data = await httpClient.get(`/api/invoices/${id}/receipt`);
+  return mapInvoice(data) || data;
+};
+
+export const getPaymentResolutions = async () => {
+  const data = await httpClient.get('/api/payment-resolutions');
+  const list = extractList(data);
+  return Array.isArray(list) ? list : [];
+};
+
+export const openPaymentResolution = async ({ invoiceId, type = 'RECONCILIATION', reason = '' } = {}) => {
+  if (!isValidNumericId(invoiceId)) {
+    throw new Error('ID hóa đơn không hợp lệ.');
+  }
+  const trimmedReason = String(reason || '').trim();
+  if (!trimmedReason) {
+    throw new Error('Vui lòng nhập lý do cần đối soát hoặc xử lý thanh toán.');
+  }
+  return httpClient.post('/api/payment-resolutions', {
+    invoiceId: Number(invoiceId),
+    type: String(type || 'RECONCILIATION'),
+    reason: trimmedReason,
+  });
+};
+
+export const approvePaymentResolution = async (id) => {
+  if (!isValidNumericId(id)) {
+    throw new Error('ID yêu cầu xử lý thanh toán không hợp lệ.');
+  }
+  return httpClient.post(`/api/payment-resolutions/${id}/approve`);
+};
+
+export const completePaymentResolution = async (id, { evidence, performedAt, moneyNotReceived } = {}) => {
+  if (!isValidNumericId(id)) {
+    throw new Error('ID yêu cầu xử lý thanh toán không hợp lệ.');
+  }
+  const payload = {
+    evidence: String(evidence || '').trim(),
+  };
+  if (performedAt) payload.performedAt = performedAt;
+  if (moneyNotReceived !== undefined) payload.moneyNotReceived = Boolean(moneyNotReceived);
+  return httpClient.post(`/api/payment-resolutions/${id}/complete`, payload);
+};
+
 export const invoiceApi = {
   getInvoices,
   getMyInvoices,
@@ -140,6 +188,7 @@ export const invoiceApi = {
   getMyInvoiceById,
   getMemberOwnInvoices,
   getMemberOwnInvoiceById,
+  getInvoiceReceipt,
   createInvoice,
   payInvoice,
   updateInvoiceStatus,
@@ -147,6 +196,10 @@ export const invoiceApi = {
   startOnlinePayment,
   cancelInvoice,
   payInvoiceOnline,
+  getPaymentResolutions,
+  openPaymentResolution,
+  approvePaymentResolution,
+  completePaymentResolution,
 };
 
 export default invoiceApi;

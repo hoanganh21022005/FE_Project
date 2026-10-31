@@ -237,17 +237,20 @@ export function MemberBodyMetricsView() {
                 .map((ev) => ({
                   resultId: `eval-${ev.evaluationId || ev.id}`,
                   sessionDate: String(
-                    ev.evaluatedAt || ev.createdAt || "",
+                    ev.evaluationDate || ev.evaluatedAt || ev.createdAt || "",
                   ).slice(0, 10),
                   className:
                     ev.className || ev.criteria || "Đánh giá tiến độ định kỳ",
                   coachName: ev.coachName || "Huấn luyện viên CLB",
                   attendanceStatus: "PRESENT",
                   content:
+                    ev.comment ||
                     ev.comments ||
                     ev.feedback ||
                     ev.note ||
-                    (ev.score ? `Điểm đánh giá: ${ev.score}/10` : ""),
+                    (ev.progressScore ?? ev.score
+                      ? `Điểm tiến độ: ${ev.progressScore ?? ev.score}/10`
+                      : ""),
                 }))
             : []
 
