@@ -41,12 +41,51 @@ export const getMemberEnrollments = async (memberId, { strict = false } = {}) =>
   return Array.isArray(list) ? list : []
 }
 
+export const getMemberEnrolledClasses = async (memberId) => {
+  if (!memberId) return []
+  const data = await httpClient.get(`/api/members/${memberId}/classes`)
+  const list = extractList(data)
+  return Array.isArray(list) ? list : []
+}
+
+export const getAllEnrollments = async ({ classId, memberId, status } = {}) => {
+  const query = new URLSearchParams()
+  if (classId) query.set("classId", String(classId))
+  if (memberId) query.set("memberId", String(memberId))
+  if (status) query.set("status", String(status))
+  const qStr = query.toString() ? `?${query.toString()}` : ""
+  const data = await httpClient.get(`/api/enrollments${qStr}`)
+  const list = extractList(data)
+  return Array.isArray(list) ? list : []
+}
+
+export const createEnrollmentRecord = async (payload) => {
+  return httpClient.post("/api/enrollments", payload)
+}
+
+export const cancelEnrollmentById = async (enrollmentId, reason = "") => {
+  if (!enrollmentId) throw new Error("ID đăng ký lớp không hợp lệ.")
+  return httpClient.patch(`/api/enrollments/${enrollmentId}/cancel`, {
+    reason: String(reason || "").trim(),
+  })
+}
+
+export const deleteEnrollmentById = async (enrollmentId, payload) => {
+  if (!enrollmentId) throw new Error("ID đăng ký lớp không hợp lệ.")
+  return httpClient.delete(`/api/enrollments/${enrollmentId}`, payload ? { body: payload } : undefined)
+}
+
 export const classEnrollmentApi = {
   getEnrollmentsByClass,
   enrollMemberInClass,
   enrollCurrentMemberInClass,
   cancelMemberEnrollment,
   getMemberEnrollments,
+  getMemberEnrolledClasses,
+  getAllEnrollments,
+  createEnrollmentRecord,
+  cancelEnrollmentById,
+  deleteEnrollmentById,
 }
 
 export default classEnrollmentApi

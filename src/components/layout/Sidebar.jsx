@@ -162,13 +162,14 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           },
           {
             path: "/member/enrollments",
-            label:
-              language === "vi" ? "Khóa học đã đăng ký" : "Enrolled courses",
+            matchPaths: ["/member/enrollments"],
+            labelKey: "myEnrollments",
             icon: CreditCard,
           },
           {
             path: "/member/schedule",
-            label: language === "vi" ? "Lịch học của tôi" : "My schedule",
+            matchPaths: ["/member/schedule"],
+            labelKey: "schedulePageTitle",
             icon: Calendar,
           },
           {
@@ -196,7 +197,6 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           {
             path: "/member/feedback",
             labelKey: "feedback",
-            label: language === "vi" ? "Đánh giá & Feedback" : "Class Feedback",
             icon: MessageSquareHeart,
           },
         ]
@@ -309,8 +309,13 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = Array.isArray(item.matchPaths)
-                ? item.matchPaths.some((p) => location.pathname.includes(p))
-                : location.pathname.includes(item.path)
+                ? item.matchPaths.some(
+                    (p) =>
+                      location.pathname === p ||
+                      location.pathname.startsWith(`${p}/`),
+                  )
+                : location.pathname === item.path ||
+                  location.pathname.startsWith(`${item.path}/`)
 
               return (
                 <button

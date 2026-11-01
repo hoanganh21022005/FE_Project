@@ -205,6 +205,11 @@ const MemberHomeView = React.lazy(() =>
     default: module.MemberHomeView,
   })),
 )
+const MemberEnrollmentsView = React.lazy(() =>
+  import("./components/views/MemberEnrollmentsView").then((module) => ({
+    default: module.MemberEnrollmentsView,
+  })),
+)
 const MemberScheduleView = React.lazy(() =>
   import("./components/views/MemberScheduleView").then((module) => ({
     default: module.MemberScheduleView,
@@ -505,28 +510,29 @@ function SCMSApp() {
       return language === "vi" ? "Sự cố lịch học" : "Session incidents"
     if (path.includes("/resources"))
       return language === "vi" ? "Bộ môn & phòng tập" : "Subjects & Rooms"
-    if (path.includes("/schedule")) return t("schedule")
-    if (path.includes("/attendance")) return t("attendance")
+    if (path.includes("/enrollments")) return t("myEnrollments")
+    if (path.includes("/schedule"))
+      return path.startsWith("/member/")
+        ? t("schedulePageTitle")
+        : t("schedule")
+    if (path.includes("/attendance") || path.includes("/checkin"))
+      return t("attendance")
     if (path.includes("/assigned-members")) return t("assignedMembers")
-    if (path.includes("/progress")) return t("trainingProgress")
+    if (path.includes("/progress") || path.includes("/training-plan"))
+      return t("trainingProgress")
     if (path.includes("/search")) return t("memberSearch")
     if (path.includes("/booking")) return t("bookings")
+    if (path.includes("/invoices")) return t("memberInvoicesTitle")
     if (path.includes("/payments")) return t("payments")
     if (path.includes("/reports")) return t("reports")
     if (path.includes("/audit-logs")) return t("auditLogs")
     if (path.includes("/my-membership")) return t("myMembership")
-    if (path.includes("/catalog"))
-      return language === "vi" ? "Đăng ký khóa học" : "Course registration"
-    if (path.includes("/feedback"))
-      return language === "vi" ? "Đánh giá & Feedback" : "Class Feedback"
-    if (path.includes("/notifications"))
-      return language === "vi" ? "Thông báo" : "Notifications"
-    if (path.includes("/freeze-request"))
-      return language === "vi" ? "Bảo lưu gói tập" : "Freeze membership"
-    if (path.includes("/my-coach"))
-      return language === "vi" ? "Huấn luyện viên của tôi" : "My Coach"
-    if (path.includes("/body-metrics"))
-      return language === "vi" ? "Chỉ số cơ thể (InBody)" : "Body metrics"
+    if (path.includes("/catalog")) return t("classCatalog")
+    if (path.includes("/feedback")) return t("feedback")
+    if (path.includes("/notifications")) return t("memberNotificationsTitle")
+    if (path.includes("/freeze-request")) return t("memberFreezeTitle")
+    if (path.includes("/my-coach")) return t("memberMyCoachTitle")
+    if (path.includes("/body-metrics")) return t("memberBodyMetricsTitle")
     if (path.includes("/settings")) return t("settings")
     if (path.includes("/support")) return t("support")
     if (path.includes("/profile")) return t("profile")
@@ -1213,7 +1219,7 @@ function SCMSApp() {
                         attemptedPath={location.pathname}
                         onForbidden={() => navigate(`/${role}/dashboard`)}
                       >
-                        <MemberScheduleView />
+                        <MemberEnrollmentsView />
                       </RequireRole>
                     }
                   />
@@ -1285,6 +1291,10 @@ function SCMSApp() {
                         <MemberTrainingView />
                       </RequireRole>
                     }
+                  />
+                  <Route
+                    path="/member/training-plan"
+                    element={<Navigate to="/member/progress" replace />}
                   />
                   <Route
                     path="/member/notifications"

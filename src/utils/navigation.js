@@ -279,9 +279,13 @@ const ROUTE_TAB_MAP = {
   // Member routes
   "/member/dashboard": { role: ROLE_MEMBER, tab: "member_dashboard" },
   "/member/checkin": { role: ROLE_MEMBER, tab: "member_checkin" },
-  "/member/enrollments": { role: ROLE_MEMBER, tab: "member_schedule" },
+  "/member/enrollments": { role: ROLE_MEMBER, tab: "member_enrollments" },
   "/member/schedule": { role: ROLE_MEMBER, tab: "member_schedule" },
   "/member/my-membership": { role: ROLE_MEMBER, tab: "member_my_membership" },
+  "/member/my-membership/history": {
+    role: ROLE_MEMBER,
+    tab: "member_my_membership",
+  },
   "/member/catalog": { role: ROLE_MEMBER, tab: "member_class_catalog" },
   "/member/class-catalog": { role: ROLE_MEMBER, tab: "member_class_catalog" },
   "/member/attendance": {
@@ -297,6 +301,7 @@ const ROUTE_TAB_MAP = {
     tab: "member_feedback",
   },
   "/member/training-plan": { role: ROLE_MEMBER, tab: "member_training_plan" },
+  "/member/progress": { role: ROLE_MEMBER, tab: "member_training_plan" },
   "/member/invoices": { role: ROLE_MEMBER, tab: "member_invoices" },
   "/member/notifications": { role: ROLE_MEMBER, tab: "member_notifications" },
   "/member/my-coach": { role: ROLE_MEMBER, tab: "member_my_coach" },
@@ -349,6 +354,7 @@ const TAB_ROUTE_MAP = {
   member_dashboard: "/member/dashboard",
   member_checkin: "/member/checkin",
   member_my_membership: "/member/my-membership",
+  member_enrollments: "/member/enrollments",
   member_schedule: "/member/schedule",
   member_class_catalog: "/member/class-catalog",
   member_attendance_history: "/member/attendance-history",

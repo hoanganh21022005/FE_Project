@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   PauseCircle,
@@ -11,8 +11,13 @@ import {
   Send,
   FileText,
   ArrowLeft,
+  CalendarCheck2,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
+import { membershipApi } from "../../api/membershipApi"
+import { memberPortalApi } from "../../api/memberPortalApi"
+import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
+import { getErrorMessage } from "../../api/apiErrors"
 
 const INITIAL_REQUESTS = [
   {
@@ -30,37 +35,114 @@ const INITIAL_REQUESTS = [
 
 export function MemberFreezeRequestView({ embedded = false }) {
   const navigate = useNavigate()
-  const { language, apiEnabled } = useSCMS()
+  const { language, apiEnabled, currentUser } = useSCMS()
   const isVi = language === "vi"
 
+  const memberId =
+    getAuthoritativeProfileId(currentUser) ?? currentUser?.memberId
+
   const [requests, setRequests] = useState(apiEnabled ? [] : INITIAL_REQUESTS)
+  const [subscriptions, setSubscriptions] = useState([])
+  const [selectedSubId, setSelectedSubId] = useState("")
+  const [activeHolidays, setActiveHolidays] = useState([])
+  const [centerIncidents, setCenterIncidents] = useState([])
   const [startDate, setStartDate] = useState("")
   const [days, setDays] = useState("7")
   const [reason, setReason] = useState("business")
   const [notes, setNotes] = useState("")
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState("")
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    if (!apiEnabled) return
+    memberPortalApi
+      .getActiveHolidays()
+      .then((list) => setActiveHolidays(Array.isArray(list) ? list : []))
+      .catch(() => {})
+    memberPortalApi
+      .getCenterIncidents()
+      .then((list) => setCenterIncidents(Array.isArray(list) ? list : []))
+      .catch(() => {})
+    if (memberId) {
+      membershipApi
+        .getMemberSubscriptions(memberId)
+        .then((subs) => {
+          const list = Array.isArray(subs) ? subs : []
+          setSubscriptions(list)
+          const firstActive = list.find((s) =>
+            ["active", "grace_period"].includes(
+              String(s.status || "").toLowerCase(),
+            ),
+          )
+          if (firstActive) {
+            setSelectedSubId(
+              String(firstActive.subscriptionId || firstActive.id),
+            )
+          } else if (list[0]) {
+            setSelectedSubId(String(list[0].subscriptionId || list[0].id))
+          }
+        })
+        .catch(() => {})
+    }
+  }, [apiEnabled, memberId])
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!startDate || !days) return
+    setSubmitError("")
+
+    const reasonTextVi =
+      reason === "business"
+        ? "Đi công tác"
+        : reason === "medical"
+          ? "Lý do sức khỏe / điều trị"
+          : "Lý do cá nhân"
+    const reasonTextEn =
+      reason === "business"
+        ? "Business trip"
+        : reason === "medical"
+          ? "Medical reasons"
+          : "Personal reasons"
+    const fullReason = notes.trim()
+      ? `${reasonTextVi} (${startDate}): ${notes.trim()}`
+      : `${reasonTextVi} (từ ${startDate})`
+
+    const selectedSub = subscriptions.find(
+      (s) => String(s.subscriptionId || s.id) === String(selectedSubId),
+    )
+
+    if (apiEnabled && selectedSubId) {
+      setSubmitting(true)
+      try {
+        await membershipApi.extendSubscription(selectedSubId, {
+          extendDays: parseInt(days, 10),
+          reason: fullReason,
+        })
+      } catch (err) {
+        // If backend denies direct extension for member role, still record request locally & inform user
+        setSubmitError(
+          getErrorMessage(
+            err,
+            isVi
+              ? "Đã ghi nhận phiếu đề xuất bảo lưu để Quản lý trung tâm phê duyệt."
+              : "Freeze request logged for Center Manager review.",
+          ),
+        )
+      } finally {
+        setSubmitting(false)
+      }
+    }
 
     const newReq = {
       id: `req-${Date.now().toString().slice(-4)}`,
-      packageName: isVi ? "Gói hội viên hiện tại" : "Current Membership",
+      packageName:
+        selectedSub?.packageName ||
+        (isVi ? "Gói hội viên hiện tại" : "Current Membership"),
       startDate,
       days: parseInt(days, 10),
-      reasonVi:
-        reason === "business"
-          ? "Đi công tác"
-          : reason === "medical"
-            ? "Lý do sức khỏe / điều trị"
-            : "Lý do cá nhân",
-      reasonEn:
-        reason === "business"
-          ? "Business trip"
-          : reason === "medical"
-            ? "Medical reasons"
-            : "Personal reasons",
+      reasonVi: reasonTextVi,
+      reasonEn: reasonTextEn,
       status: "pending",
       createdAt: new Date().toISOString().slice(0, 10),
       adminNote: null,
@@ -137,6 +219,28 @@ export function MemberFreezeRequestView({ embedded = false }) {
               : "Authoritative package expiration is always governed by the server expiresAt timestamp."}
           </li>
         </ul>
+        {(activeHolidays.length > 0 || centerIncidents.length > 0) && (
+          <div className="mt-3 pt-3 border-t border-amber-200/80 flex flex-wrap gap-2">
+            {activeHolidays.map((h) => (
+              <span
+                key={h.id || h.holidayDate}
+                className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-bold text-amber-900 border border-amber-200"
+              >
+                <CalendarCheck2 className="w-3.5 h-3.5 text-amber-700" />
+                {h.holidayName || "Ngày nghỉ lễ"} ({h.holidayDate})
+              </span>
+            ))}
+            {centerIncidents.map((inc) => (
+              <span
+                key={inc.id}
+                className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-bold text-rose-800 border border-rose-200"
+              >
+                <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+                {inc.title || inc.reason || "Sự cố trung tâm"} ({inc.incidentDate || inc.startDate || ""})
+              </span>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Request Form */}
@@ -157,7 +261,35 @@ export function MemberFreezeRequestView({ embedded = false }) {
           </div>
         )}
 
+        {submitError && (
+          <div className="mt-3 flex items-center gap-2 rounded-xl bg-blue-50 border border-blue-200 p-3 text-xs text-blue-900">
+            <Info className="w-4 h-4 text-blue-600 shrink-0" />
+            <span>{submitError}</span>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+          {subscriptions.length > 0 && (
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                {isVi ? "Chọn gói hội viên cần bảo lưu *" : "Select Membership *"}
+              </label>
+              <select
+                value={selectedSubId}
+                onChange={(e) => setSelectedSubId(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 p-3 text-sm outline-none focus:border-brand-primary font-sans bg-white"
+              >
+                {subscriptions.map((sub) => {
+                  const sid = sub.subscriptionId || sub.id
+                  return (
+                    <option key={sid} value={sid}>
+                      {sub.packageName || `Gói #${sid}`} ({sub.status || "Active"})
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">

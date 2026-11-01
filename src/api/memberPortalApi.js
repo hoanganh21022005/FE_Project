@@ -1,6 +1,30 @@
 import { httpClient } from "./httpClient.js"
 import { extractList } from "./schemaValidators.js"
-import { getMemberEnrollments } from "./classEnrollmentApi.js"
+import {
+  getMemberEnrollments,
+  getMemberEnrolledClasses,
+  cancelEnrollmentById,
+} from "./classEnrollmentApi.js"
+import {
+  getMyMemberProfile,
+  patchMyMemberProfile,
+  registerMemberProfile,
+} from "./memberApi.js"
+import {
+  getInvoiceReceipt,
+  getPaymentResolutions,
+  openPaymentResolution,
+} from "./invoiceApi.js"
+import {
+  getMyActiveConversation,
+  getMyChatUnreadCount,
+  getOrCreateConversation,
+  getConversationMessages,
+  sendConversationMessage,
+  markConversationRead,
+  closeConversation,
+  reopenConversation,
+} from "./chatApi.js"
 
 const list = async (path) => {
   const data = await httpClient.get(path)
@@ -10,12 +34,32 @@ const list = async (path) => {
 // The member enrollment history is the documented source for enrolled Normal classes.
 // /api/sessions is a general schedule lookup and is not member-scoped by the API contract.
 export const getMemberClasses = (memberId) => getMemberEnrollments(memberId)
-export const getClassSessions = () => list("/api/sessions")
-export const getClassCatalogSessions = async (classId, { strict = false } = {}) => {
+export const getClassSessions = (params = {}) => {
+  const query = new URLSearchParams()
+  for (const [key, val] of Object.entries(params || {})) {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, String(val))
+    }
+  }
+  const qStr = query.toString() ? `?${query.toString()}` : ""
+  return list(`/api/sessions${qStr}`)
+}
+export const getSessionById = (sessionId) =>
+  httpClient.get(`/api/sessions/${encodeURIComponent(sessionId)}`)
+
+export const checkSessionConflict = (payload) =>
+  httpClient.post("/api/sessions/check-conflict", payload)
+
+export const getClassCatalogSessions = async (
+  classId,
+  { strict = false } = {},
+) => {
   if (!Number.isInteger(Number(classId)) || Number(classId) <= 0) {
     throw new Error("ID lớp học không hợp lệ.")
   }
-  const response = await httpClient.get(`/api/sessions/catalog/${Number(classId)}`)
+  const response = await httpClient.get(
+    `/api/sessions/catalog/${Number(classId)}`,
+  )
   const sessions = extractList(response)
   if (strict && !Array.isArray(sessions)) {
     throw new Error("Backend trả về lịch lớp không đúng định dạng.")
@@ -30,15 +74,17 @@ export const hasScheduledClassSession = (classId, sessions = []) =>
       String(session.status || "").toLowerCase() === "scheduled" &&
       session.isPrivate !== true,
   )
-export const getMemberAttendances = async (memberId) => {
-  try {
-    return await list("/api/members/me/attendances")
-  } catch (error) {
-    if (memberId && (error?.status === 404 || error?.status === 403)) {
-      return list(`/api/attendances?memberId=${encodeURIComponent(memberId)}`)
-    }
-    throw error
+export const getMemberAttendances = async (memberId, params = {}) => {
+  const query = new URLSearchParams()
+  if (memberId !== undefined && memberId !== null && memberId !== "") {
+    query.set("memberId", String(memberId))
   }
+  if (params.sessionId) query.set("sessionId", String(params.sessionId))
+  if (params.state) query.set("state", String(params.state))
+  if (params.startDate) query.set("startDate", String(params.startDate))
+  if (params.endDate) query.set("endDate", String(params.endDate))
+  const qStr = query.toString() ? `?${query.toString()}` : ""
+  return list(`/api/attendances${qStr}`)
 }
 export const getMemberCheckinCode = async () => {
   try {
@@ -54,27 +100,26 @@ export const getMemberTrainingPlans = (memberId) =>
   list(`/api/training-plans?memberId=${encodeURIComponent(memberId)}`)
 export const getMemberTrainingResults = (memberId) =>
   list(`/api/training-results?memberId=${encodeURIComponent(memberId)}`)
-export const getMemberBodyMetrics = async (memberId) => {
-  if (!memberId) return []
-  try {
-    return await list(
-      `/api/body-metrics?memberId=${encodeURIComponent(memberId)}`,
-    )
-  } catch (error) {
-    if (error?.status === 404 || error?.status === 405) return []
-    return []
-  }
+export const recordBulkTrainingResults = (payload) =>
+  httpClient.post("/api/training-results/bulk", payload)
+
+export const getMemberBodyMetrics = async () => {
+  // Body metrics are self-logged locally by the member; backend does not expose /api/body-metrics
+  return []
 }
 export const getMemberEvaluations = async (memberId) => {
   if (!memberId) return []
   try {
     return await list(
-      `/api/training-results?memberId=${encodeURIComponent(memberId)}`,
+      `/api/evaluations?memberId=${encodeURIComponent(memberId)}`,
     )
   } catch {
     return []
   }
 }
+export const getEvaluationById = (id) =>
+  httpClient.get(`/api/evaluations/${encodeURIComponent(id)}`)
+
 export const getTrainingPlanById = (planId) =>
   httpClient.get(`/api/training-plans/${planId}`)
 export const requestAbsence = (sessionId, reason) =>
@@ -82,14 +127,7 @@ export const requestAbsence = (sessionId, reason) =>
 export const getSessionAbsenceNotices = (sessionId) =>
   list(`/api/sessions/${sessionId}/absence-notices`)
 export const cancelPrivateSession = async (sessionId) => {
-  try {
-    return await httpClient.delete(`/api/sessions/${sessionId}/cancel-private`)
-  } catch (error) {
-    if (error?.status === 405 || error?.status === 404) {
-      return httpClient.post(`/api/sessions/${sessionId}/cancel-private`)
-    }
-    throw error
-  }
+  return httpClient.post(`/api/sessions/${sessionId}/cancel-private`)
 }
 export const submitClassFeedback = (classId, payload) =>
   httpClient.post(`/api/classes/${classId}/feedback`, {
@@ -162,6 +200,22 @@ export const getRooms = async () => {
   return list("/api/rooms")
 }
 
+export const getActiveHolidays = async () => {
+  try {
+    return await list("/api/holidays/active")
+  } catch {
+    return []
+  }
+}
+
+export const getCenterIncidents = async () => {
+  try {
+    return await list("/api/center-incidents")
+  } catch {
+    return []
+  }
+}
+
 export const bookPrivateSession = async (payload) => {
   return httpClient.post("/api/sessions/book-private", payload)
 }
@@ -211,51 +265,67 @@ export const createAdvancedRegistration = async (payload) => {
   return httpClient.post("/api/advanced-registrations", payload)
 }
 
-export const decideAdvancedRegistration = async (id, payload) => {
-  try {
-    return await httpClient.post(
-      `/api/advanced-registrations/${id}/coach-decision`,
-      payload,
-    )
-  } catch (error) {
-    if (error?.status === 404) {
-      return httpClient.post(
-        `/api/advanced-registrations/${id}/decision`,
-        payload,
-      )
-    }
-    throw error
-  }
+export const decideAdvancedRegistration = async (id, payload = {}) => {
+  const accepted = Boolean(
+    payload.accepted !== undefined ? payload.accepted : payload.accept,
+  )
+  const reason = String(payload.reason ?? payload.note ?? "").trim()
+  return httpClient.post(`/api/advanced-registrations/${id}/decision`, {
+    accepted,
+    reason,
+  })
 }
 
-export const assignAlternativeCoach = async (id, payload) => {
-  return httpClient.post(
-    `/api/advanced-registrations/${id}/assign-alternative-coach`,
-    payload,
-  )
+export const assignAlternativeCoach = async (id, payload = {}) => {
+  return decideAdvancedRegistration(id, payload)
 }
 
-export const confirmAlternativeCoach = async (id, payload) => {
-  return httpClient.post(
-    `/api/advanced-registrations/${id}/member-confirm-alternative`,
-    payload,
-  )
+export const confirmAlternativeCoach = async (id, payload = {}) => {
+  return decideAdvancedRegistration(id, payload)
 }
 
 export const orderAdvancedRegistration = async (id, payload) => {
   return httpClient.post(`/api/advanced-registrations/${id}/order`, payload)
 }
 
+export {
+  getMyMemberProfile,
+  patchMyMemberProfile,
+  registerMemberProfile,
+  getMemberEnrolledClasses,
+  cancelEnrollmentById,
+  getInvoiceReceipt,
+  getPaymentResolutions,
+  openPaymentResolution,
+  getMyActiveConversation,
+  getMyChatUnreadCount,
+  getOrCreateConversation,
+  getConversationMessages,
+  sendConversationMessage,
+  markConversationRead,
+  closeConversation,
+  reopenConversation,
+}
+
 export const memberPortalApi = {
+  getMyMemberProfile,
+  patchMyMemberProfile,
+  registerMemberProfile,
   getMemberClasses,
+  getMemberEnrolledClasses,
+  cancelEnrollmentById,
   getClassSessions,
+  getSessionById,
+  checkSessionConflict,
   getClassCatalogSessions,
   getMemberAttendances,
   getMemberCheckinCode,
   getMemberTrainingPlans,
   getMemberTrainingResults,
+  recordBulkTrainingResults,
   getMemberBodyMetrics,
   getMemberEvaluations,
+  getEvaluationById,
   getTrainingPlanById,
   requestAbsence,
   getSessionAbsenceNotices,
@@ -267,6 +337,8 @@ export const memberPortalApi = {
   getCoachAvailableSlots,
   getTimeSlots,
   getRooms,
+  getActiveHolidays,
+  getCenterIncidents,
   bookPrivateSession,
   getCoachFeedback,
   getCoachWorkSchedule,
@@ -278,6 +350,17 @@ export const memberPortalApi = {
   assignAlternativeCoach,
   confirmAlternativeCoach,
   orderAdvancedRegistration,
+  getInvoiceReceipt,
+  getPaymentResolutions,
+  openPaymentResolution,
+  getMyActiveConversation,
+  getMyChatUnreadCount,
+  getOrCreateConversation,
+  getConversationMessages,
+  sendConversationMessage,
+  markConversationRead,
+  closeConversation,
+  reopenConversation,
 }
 
 export default memberPortalApi
