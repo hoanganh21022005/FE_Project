@@ -7,6 +7,7 @@ on:
       - 'src/components/admin/**'
       - 'src/components/modals/PaymentModal.jsx'
       - 'src/components/modals/NewClassModal.jsx'
+      - 'src/components/views/CoachAssignedMembersView.jsx'
       - 'src/components/views/MyMembershipView.jsx'
       - 'src/components/views/ReceptionClassBooking.jsx'
       - 'src/components/views/ReceptionPaymentsView.jsx'
