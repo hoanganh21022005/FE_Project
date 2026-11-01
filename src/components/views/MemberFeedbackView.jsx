@@ -202,69 +202,63 @@ const writeStoredFeedbackMeta = (metaMap) => {
   }
 }
 
-// Tính toán điều kiện đủ để đánh giá & số ngày hạn còn lại (ưu tiên cờ/hạn từ API nếu có, chỉ dùng FEEDBACK_DEADLINE_DAYS khi API không trả hạn)
-export const evaluateSessionFeedbackEligibility = (
-  session,
-  attendanceRecord,
+// Trích xuất hạn đánh giá cấp KHÓA/LỚP từ dữ liệu API (nếu API có trả về).
+// Nếu API không trả hạn theo khóa/lớp thì trả về null để ẩn đếm ngược, KHÔNG tự tính theo buổi.
+export const evaluateCourseFeedbackDeadline = (
+  enrollmentRow,
+  matchedClass,
   todayIso,
 ) => {
-  const apiEligibleFlag =
-    session?.canFeedback ??
-    session?.canReview ??
-    session?.feedbackEligible ??
-    session?.eligibleForFeedback ??
-    attendanceRecord?.canFeedback ??
-    attendanceRecord?.canReview ??
-    attendanceRecord?.feedbackEligible ??
-    attendanceRecord?.eligibleForFeedback ??
-    null
-
   const apiRemainingDaysRaw =
-    session?.feedbackDeadlineDays ??
-    session?.remainingFeedbackDays ??
-    session?.deadlineDays ??
-    attendanceRecord?.feedbackDeadlineDays ??
-    attendanceRecord?.remainingFeedbackDays ??
+    enrollmentRow?.feedbackDeadlineDays ??
+    enrollmentRow?.remainingFeedbackDays ??
+    enrollmentRow?.deadlineDays ??
+    matchedClass?.feedbackDeadlineDays ??
+    matchedClass?.remainingFeedbackDays ??
+    matchedClass?.deadlineDays ??
     null
 
   const apiDeadlineDateRaw =
-    session?.feedbackDeadline ??
-    session?.reviewDeadline ??
-    session?.feedbackExpiresAt ??
-    attendanceRecord?.feedbackDeadline ??
-    attendanceRecord?.reviewDeadline ??
+    enrollmentRow?.feedbackDeadline ??
+    enrollmentRow?.reviewDeadline ??
+    enrollmentRow?.feedbackExpiresAt ??
+    matchedClass?.feedbackDeadline ??
+    matchedClass?.reviewDeadline ??
+    matchedClass?.feedbackExpiresAt ??
     null
 
-  let remainingDays = null
   if (
     apiRemainingDaysRaw !== null &&
     apiRemainingDaysRaw !== undefined &&
     apiRemainingDaysRaw !== "" &&
     Number.isFinite(Number(apiRemainingDaysRaw))
   ) {
-    remainingDays = Math.round(Number(apiRemainingDaysRaw))
-  } else if (apiDeadlineDateRaw) {
+    const days = Math.round(Number(apiRemainingDaysRaw))
+    return days >= 0 ? days : null
+  }
+
+  if (apiDeadlineDateRaw) {
     const deadlineIso = String(apiDeadlineDateRaw).slice(0, 10)
-    remainingDays = diffCalendarDaysInVn(todayIso, deadlineIso)
-  } else {
-    const elapsedDays = diffCalendarDaysInVn(session?.sessionDate, todayIso)
-    if (elapsedDays !== null && elapsedDays >= 0) {
-      remainingDays = FEEDBACK_DEADLINE_DAYS - elapsedDays
-    }
+    const days = diffCalendarDaysInVn(todayIso, deadlineIso)
+    return days !== null && days >= 0 ? days : null
   }
 
-  if (apiEligibleFlag === false) {
-    return { isEligible: false, remainingDays }
-  }
-  if (apiEligibleFlag === true) {
-    return {
-      isEligible: remainingDays === null ? true : remainingDays >= 0,
-      remainingDays: remainingDays ?? FEEDBACK_DEADLINE_DAYS,
-    }
-  }
+  return null
+}
 
+// Giữ hàm tương thích nếu có nơi import kiểm tra
+export const evaluateSessionFeedbackEligibility = (
+  session,
+  attendanceRecord,
+  todayIso,
+) => {
+  const remainingDays = evaluateCourseFeedbackDeadline(
+    session,
+    attendanceRecord,
+    todayIso,
+  )
   return {
-    isEligible: remainingDays !== null && remainingDays >= 0,
+    isEligible: true,
     remainingDays,
   }
 }
@@ -322,6 +316,8 @@ export function MemberFeedbackView({ embedded = false }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeSessionForReview, setActiveSessionForReview] = useState(null)
   const [editingFeedbackId, setEditingFeedbackId] = useState(null)
+  const [isEditingWithoutLocalMeta, setIsEditingWithoutLocalMeta] =
+    useState(false)
   const [isThankYouMode, setIsThankYouMode] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
@@ -473,11 +469,12 @@ export function MemberFeedbackView({ embedded = false }) {
   const nowMs = Date.now()
   const todayIso = getTodayIsoInVn(nowMs)
 
-  // Chuẩn hóa danh sách buổi tập đã tham gia, buổi cần đánh giá và lịch sử đánh giá
+  // Chuẩn hóa dữ liệu cấp KHÓA HỌC (đồng bộ hợp đồng API: mỗi hội viên 1 đánh giá cho mỗi lớp/khóa)
   // Dùng chung nguồn buổi học & bản ghi điểm danh với trang Điểm danh và Lịch học
   const {
     attendedSessions,
-    pendingSessions,
+    attendedCoursesCount,
+    pendingCourses,
     submittedReviews,
     enrolledCoursesList,
   } = useMemo(() => {
@@ -590,7 +587,9 @@ export function MemberFeedbackView({ embedded = false }) {
               : {}
           const norm = normalizeScheduleSession(
             {
-              id: rec.sessionId ?? `att-session-${rec.attendanceId || rec.id || dateIso}`,
+              id:
+                rec.sessionId ??
+                `att-session-${rec.attendanceId || rec.id || dateIso}`,
               classId: rec.classId ?? enrollmentFallback.classId ?? null,
               className:
                 rec.className ||
@@ -611,8 +610,16 @@ export function MemberFeedbackView({ embedded = false }) {
                 enrollmentFallback.room ||
                 null,
               sessionDate: dateIso,
-              startTime: rec.startTime || rec.sessionStartTime || enrollmentFallback.startTime || null,
-              endTime: rec.endTime || rec.sessionEndTime || enrollmentFallback.endTime || null,
+              startTime:
+                rec.startTime ||
+                rec.sessionStartTime ||
+                enrollmentFallback.startTime ||
+                null,
+              endTime:
+                rec.endTime ||
+                rec.sessionEndTime ||
+                enrollmentFallback.endTime ||
+                null,
               status: "Completed",
             },
             enrollmentFallback,
@@ -695,12 +702,6 @@ export function MemberFeedbackView({ embedded = false }) {
           ? `session-${session.id}`
           : `class-${session.classId || "pt"}-${session.sessionDate}-${session.startTime || ""}`
 
-      const eligibility = evaluateSessionFeedbackEligibility(
-        session,
-        attendanceRecord,
-        todayIso,
-      )
-
       attended.push({
         ...session,
         id: session.id ?? sessionKey,
@@ -714,8 +715,6 @@ export function MemberFeedbackView({ embedded = false }) {
         startTime: session.startTime,
         endTime: session.endTime,
         attendanceStateKey: stateKey,
-        isEligibleForFeedback: eligibility.isEligible,
-        remainingDeadlineDays: eligibility.remainingDays,
       })
     }
 
@@ -728,7 +727,95 @@ export function MemberFeedbackView({ embedded = false }) {
       return String(b.startTime || "").localeCompare(String(a.startTime || ""))
     })
 
-    // 3. Đối chiếu với đánh giá đã gửi (từ API và metadata lưu bổ sung)
+    // 3. Gom nhóm theo KHÓA HỌC (Course/Class) để đồng bộ hợp đồng API 1 đánh giá / 1 khóa
+    const courseGroupMap = new Map()
+
+    for (const session of attended) {
+      const courseKey =
+        session.classId != null
+          ? String(session.classId)
+          : `pt-${session.sessionKey}`
+      const existingGroup = courseGroupMap.get(courseKey)
+      if (!existingGroup) {
+        const enrollmentRow =
+          session.classId != null
+            ? enrollmentByClassId.get(String(session.classId))
+            : null
+        const matchedClass =
+          session.classId != null
+            ? classLookup.get(String(session.classId))
+            : null
+        const remainingDeadlineDays = evaluateCourseFeedbackDeadline(
+          enrollmentRow,
+          matchedClass,
+          todayIso,
+        )
+
+        courseGroupMap.set(courseKey, {
+          courseKey,
+          classId: session.classId ?? session.id,
+          coachId: session.coachId,
+          className: session.className,
+          coachName: session.coachName,
+          roomName: session.roomName,
+          attendedSessionCount: 1,
+          latestSession: session,
+          remainingDeadlineDays,
+        })
+      } else {
+        existingGroup.attendedSessionCount += 1
+      }
+    }
+
+    // Bổ sung khóa đã có bản ghi đánh giá trên API (nếu danh sách điểm danh chưa kịp trả về buổi tương ứng)
+    // để hệ thức Chờ đánh giá + Đã gửi = Khóa đã tham gia luôn đúng với mọi dữ liệu
+    for (const [classIdStr, apiFb] of Object.entries(apiFeedbackMap)) {
+      if (!apiFb || courseGroupMap.has(classIdStr)) continue
+      const enrollmentRow = enrollmentByClassId.get(classIdStr)
+      const matchedClass = classLookup.get(classIdStr)
+      const classSessions = collectedSessions.filter(
+        (s) => String(s.classId) === classIdStr && !isSessionCancelled(s),
+      )
+      const latestPastSession =
+        [...classSessions]
+          .reverse()
+          .find((s) => s.sessionDate && s.sessionDate <= todayIso) ||
+        classSessions[0] ||
+        null
+
+      courseGroupMap.set(classIdStr, {
+        courseKey: classIdStr,
+        classId: Number(classIdStr) || classIdStr,
+        coachId:
+          apiFb.coachId ??
+          enrollmentRow?.coachId ??
+          matchedClass?.coachId ??
+          1,
+        className:
+          latestPastSession?.className ||
+          enrollmentRow?.className ||
+          matchedClass?.name ||
+          `#${classIdStr}`,
+        coachName:
+          latestPastSession?.coachName ||
+          enrollmentRow?.coachName ||
+          matchedClass?.coachName ||
+          t("feedbackCoachTbd"),
+        roomName:
+          latestPastSession?.roomName ||
+          enrollmentRow?.roomName ||
+          matchedClass?.roomName ||
+          t("feedbackRoomTbd"),
+        attendedSessionCount: 0,
+        latestSession: latestPastSession,
+        remainingDeadlineDays: evaluateCourseFeedbackDeadline(
+          enrollmentRow,
+          matchedClass,
+          todayIso,
+        ),
+      })
+    }
+
     const memberScope = String(resolvedMemberId || "anon")
     const memberContextFeedbacks = !apiEnabled
       ? (Array.isArray(feedbacks) ? feedbacks : []).filter(
@@ -736,88 +823,137 @@ export function MemberFeedbackView({ embedded = false }) {
         )
       : []
 
+    if (!apiEnabled) {
+      for (const ctxFb of memberContextFeedbacks) {
+        const cidStr =
+          ctxFb.classId != null ? String(ctxFb.classId) : String(ctxFb.id)
+        if (!courseGroupMap.has(cidStr)) {
+          courseGroupMap.set(cidStr, {
+            courseKey: cidStr,
+            classId: ctxFb.classId ?? ctxFb.id,
+            coachId: ctxFb.coachId || 1,
+            className: ctxFb.className || `#${cidStr}`,
+            coachName: ctxFb.coachName || t("feedbackCoachTbd"),
+            roomName: ctxFb.room || t("feedbackRoomTbd"),
+            attendedSessionCount: 1,
+            latestSession: null,
+            remainingDeadlineDays: null,
+          })
+        }
+      }
+    }
+
+    // 4. Phân hoạch tập khóa đã tham gia thành 2 tập rời nhau:
+    //    - submittedReviews (khóa đã có đánh giá)
+    //    - pendingCourses (khóa chưa có đánh giá)
+    //    Đảm bảo: pendingCourses.length + submittedReviews.length === attendedCoursesCount
     const pending = []
     const submitted = []
-    const consumedClassApiFeedback = new Set()
 
-    for (const session of attended) {
-      const classIdStr =
-        session.classId != null ? String(session.classId) : null
-      const sessionMetaEntry =
-        localMetaMap[`${memberScope}:session:${session.sessionKey}`] ||
-        (session.id != null
-          ? localMetaMap[`${memberScope}:session:${session.id}`]
-          : null) ||
-        null
-      const classMetaEntry = classIdStr
-        ? localMetaMap[`${memberScope}:class:${classIdStr}`]
+    for (const course of courseGroupMap.values()) {
+      const classIdStr = String(course.courseKey)
+      const apiFb = apiEnabled ? apiFeedbackMap[classIdStr] || null : null
+      const ctxFb = !apiEnabled
+        ? memberContextFeedbacks.find(
+            (f) => String(f.classId ?? f.id) === classIdStr,
+          ) || null
         : null
-      const apiFb = classIdStr ? apiFeedbackMap[classIdStr] : null
-      const ctxFb = memberContextFeedbacks.find(
-        (f) =>
-          String(f.sessionKey || f.id) === String(session.sessionKey) ||
-          (classIdStr &&
-            String(f.classId) === classIdStr &&
-            String(f.date || f.sessionDate || "").slice(0, 10) ===
-              session.sessionDate),
-      )
+      const metaSource =
+        localMetaMap[`${memberScope}:class:${classIdStr}`] || null
 
-      // Kiểm tra xem buổi này đã được đánh giá chưa:
-      // - Có bản ghi đánh giá gắn đúng buổi (sessionMetaEntry hoặc ctxFb)
-      // - Hoặc lớp có apiFb từ server và (classMetaEntry khớp buổi này, hoặc chưa có buổi nào khác trong lớp nhận apiFb này)
-      const isMatchedBySessionMeta = Boolean(sessionMetaEntry)
-      const isMatchedByClassApi =
-        Boolean(apiFb) &&
-        !consumedClassApiFeedback.has(classIdStr) &&
-        (!classMetaEntry?.sessionKey ||
-          classMetaEntry.sessionKey === session.sessionKey)
+      const hasReview = apiEnabled
+        ? Boolean(apiFb)
+        : Boolean(ctxFb || metaSource)
 
-      if (isMatchedBySessionMeta || isMatchedByClassApi || ctxFb) {
-        if (classIdStr && apiFb) {
-          consumedClassApiFeedback.add(classIdStr)
-        }
+      if (hasReview) {
         const rawSource = apiFb || ctxFb || {}
-        const metaSource = sessionMetaEntry || classMetaEntry || {}
-
         const apiCoachRating = Number(rawSource.coachRating) || null
         const apiClassRating = Number(rawSource.classRating) || null
+
+        const hasLocalMetadata = Boolean(
+          (metaSource &&
+            metaSource.coachBreakdown &&
+            metaSource.facilityBreakdown) ||
+            (rawSource.criteria?.coachBreakdown &&
+              rawSource.criteria?.facilityBreakdown),
+        )
+
         const derivedOverall =
-          Number(metaSource.overallRating) ||
+          (hasLocalMetadata ? Number(metaSource?.overallRating) : 0) ||
           Number(rawSource.overallRating) ||
           Number(rawSource.rating) ||
           (apiCoachRating && apiClassRating
             ? Math.round((apiCoachRating + apiClassRating) / 2)
             : apiCoachRating || apiClassRating || 5)
 
-        const fallbackCoachScore = apiCoachRating || derivedOverall
-        const fallbackFacilityScore = apiClassRating || derivedOverall
-
         const savedCoachBd =
-          metaSource.coachBreakdown || rawSource.criteria?.coachBreakdown || null
+          metaSource?.coachBreakdown ||
+          rawSource.criteria?.coachBreakdown ||
+          null
         const savedFacilityBd =
-          metaSource.facilityBreakdown ||
+          metaSource?.facilityBreakdown ||
           rawSource.criteria?.facilityBreakdown ||
           null
 
-        const coachBreakdown = {
-          expertise: Number(savedCoachBd?.expertise) || fallbackCoachScore,
-          interaction: Number(savedCoachBd?.interaction) || fallbackCoachScore,
-          punctuality: Number(savedCoachBd?.punctuality) || fallbackCoachScore,
-        }
-        const facilityBreakdown = {
-          court: Number(savedFacilityBd?.court) || fallbackFacilityScore,
-          lighting: Number(savedFacilityBd?.lighting) || fallbackFacilityScore,
-          cleanliness:
-            Number(savedFacilityBd?.cleanliness) || fallbackFacilityScore,
-        }
+        const criteria = hasLocalMetadata
+          ? {
+              coachBreakdown: {
+                expertise:
+                  Number(savedCoachBd?.expertise) ||
+                  apiCoachRating ||
+                  derivedOverall,
+                interaction:
+                  Number(savedCoachBd?.interaction) ||
+                  apiCoachRating ||
+                  derivedOverall,
+                punctuality:
+                  Number(savedCoachBd?.punctuality) ||
+                  apiCoachRating ||
+                  derivedOverall,
+              },
+              facilityBreakdown: {
+                court:
+                  Number(savedFacilityBd?.court) ||
+                  apiClassRating ||
+                  derivedOverall,
+                lighting:
+                  Number(savedFacilityBd?.lighting) ||
+                  apiClassRating ||
+                  derivedOverall,
+                cleanliness:
+                  Number(savedFacilityBd?.cleanliness) ||
+                  apiClassRating ||
+                  derivedOverall,
+              },
+              customTouchedCriteria: metaSource?.customTouchedCriteria || {},
+            }
+          : null
 
-        const rawTags =
-          Array.isArray(metaSource.tags) && metaSource.tags.length > 0
+        const rawTags = hasLocalMetadata
+          ? Array.isArray(metaSource?.tags) && metaSource.tags.length > 0
             ? metaSource.tags
             : Array.isArray(rawSource.tags)
               ? rawSource.tags
               : []
+          : Array.isArray(rawSource.tags)
+            ? rawSource.tags
+            : []
         const normalizedTags = rawTags.map(normalizeTagCode).filter(Boolean)
+
+        // Ngày gửi thật từ API (không dùng giờ mặc định hay ngày buổi học)
+        const rawApiSubmittedDate =
+          rawSource.createdAt ??
+          rawSource.submittedAt ??
+          rawSource.updatedAt ??
+          rawSource.feedbackDate ??
+          (!apiEnabled ? rawSource.date : null) ??
+          null
+        const submittedDateIso = rawApiSubmittedDate
+          ? String(rawApiSubmittedDate).slice(0, 10)
+          : null
+        const submittedDateFormatted = submittedDateIso
+          ? toDateDdMmYyyy(submittedDateIso)
+          : null
 
         const realReply = sanitizeRealCoachReply(
           rawSource.coachReply || rawSource.replyText || rawSource.response,
@@ -825,7 +961,7 @@ export function MemberFeedbackView({ embedded = false }) {
         const replyAuthor =
           rawSource.repliedByName ||
           rawSource.coachReplyAuthor ||
-          session.coachName
+          course.coachName
         const replyDate =
           rawSource.repliedAt || rawSource.coachReplyDate || null
 
@@ -833,224 +969,75 @@ export function MemberFeedbackView({ embedded = false }) {
           id:
             rawSource.feedbackId ||
             rawSource.id ||
-            metaSource.feedbackId ||
-            `fb-${session.sessionKey}`,
-          sessionKey: session.sessionKey,
-          classId: session.classId,
-          coachId: session.coachId,
-          className: session.className,
-          coachName: session.coachName,
-          roomName: session.roomName,
-          sessionDate: session.sessionDate,
-          startTime: session.startTime,
-          endTime: session.endTime,
+            metaSource?.feedbackId ||
+            `fb-${classIdStr}`,
+          courseKey: course.courseKey,
+          classId: course.classId,
+          coachId: course.coachId,
+          className: course.className,
+          coachName: course.coachName,
+          roomName: course.roomName,
+          attendedSessionCount: course.attendedSessionCount,
+          latestSession: course.latestSession,
           rating: derivedOverall,
           overallRating: derivedOverall,
-          coachRating: apiCoachRating || fallbackCoachScore,
-          classRating: apiClassRating || fallbackFacilityScore,
-          criteria: {
-            coachBreakdown,
-            facilityBreakdown,
-            customTouchedCriteria: metaSource.customTouchedCriteria || {},
-          },
+          coachRating: apiCoachRating || derivedOverall,
+          classRating: apiClassRating || derivedOverall,
+          hasLocalMetadata,
+          criteria,
           tags: normalizedTags,
           comment:
             rawSource.comment !== undefined && rawSource.comment !== null
               ? String(rawSource.comment)
-              : String(metaSource.comment || ""),
-          isAnonymous: Boolean(
-            metaSource.isAnonymous ?? rawSource.isAnonymous,
-          ),
-          isPrivateContactRequested: Boolean(
-            metaSource.isPrivateContactRequested ??
-              rawSource.isPrivateContactRequested,
-          ),
+              : String(metaSource?.comment || ""),
+          isAnonymous: hasLocalMetadata
+            ? Boolean(metaSource?.isAnonymous ?? rawSource.isAnonymous)
+            : Boolean(rawSource.isAnonymous),
+          isPrivateContactRequested: hasLocalMetadata
+            ? Boolean(
+                metaSource?.isPrivateContactRequested ??
+                  rawSource.isPrivateContactRequested,
+              )
+            : Boolean(rawSource.isPrivateContactRequested),
           coachReply: realReply,
           coachReplyAuthor: realReply ? replyAuthor : null,
           coachReplyDate: realReply ? replyDate : null,
-          createdAt:
-            rawSource.createdAt || metaSource.createdAt || session.sessionDate,
-          sessionMeta: session,
+          submittedDateIso,
+          submittedDateFormatted,
+          courseMeta: course,
         })
-      } else if (session.isEligibleForFeedback && !apiFb) {
-        pending.push(session)
+      } else {
+        pending.push(course)
       }
-    }
-
-    // Trường hợp API có trả về đánh giá cho một lớp mà hội viên chưa có bản ghi buổi học tương ứng trong attended
-    for (const [classIdStr, apiFb] of Object.entries(apiFeedbackMap)) {
-      if (consumedClassApiFeedback.has(classIdStr) || !apiFb) continue
-      const enrollmentRow = enrollmentByClassId.get(classIdStr)
-      const matchedClass = classLookup.get(classIdStr)
-      const metaSource =
-        localMetaMap[`${memberScope}:class:${classIdStr}`] || {}
-      const classSessions = collectedSessions.filter(
-        (s) => String(s.classId) === classIdStr && !isSessionCancelled(s),
-      )
-      const latestPastClassSession =
-        [...classSessions]
-          .reverse()
-          .find((s) => s.sessionDate && s.sessionDate <= todayIso) ||
-        classSessions[0] ||
-        null
-
-      const resolvedClassName =
-        metaSource.className ||
-        latestPastClassSession?.className ||
-        enrollmentRow?.className ||
-        matchedClass?.name ||
-        `#${classIdStr}`
-      const resolvedCoachName =
-        metaSource.coachName ||
-        latestPastClassSession?.coachName ||
-        enrollmentRow?.coachName ||
-        matchedClass?.coachName ||
-        t("feedbackCoachTbd")
-      const resolvedRoomName =
-        metaSource.roomName ||
-        latestPastClassSession?.roomName ||
-        enrollmentRow?.roomName ||
-        matchedClass?.roomName ||
-        t("feedbackRoomTbd")
-      const resolvedDate =
-        metaSource.sessionDate ||
-        latestPastClassSession?.sessionDate ||
-        (apiFb.createdAt ? String(apiFb.createdAt).slice(0, 10) : todayIso)
-      const resolvedStart =
-        metaSource.startTime ||
-        latestPastClassSession?.startTime ||
-        enrollmentRow?.startTime ||
-        matchedClass?.startTime ||
-        null
-      const resolvedEnd =
-        metaSource.endTime ||
-        latestPastClassSession?.endTime ||
-        enrollmentRow?.endTime ||
-        matchedClass?.endTime ||
-        null
-
-      const apiCoachRating = Number(apiFb.coachRating) || null
-      const apiClassRating = Number(apiFb.classRating) || null
-      const derivedOverall =
-        Number(metaSource.overallRating) ||
-        Number(apiFb.rating) ||
-        (apiCoachRating && apiClassRating
-          ? Math.round((apiCoachRating + apiClassRating) / 2)
-          : apiCoachRating || apiClassRating || 5)
-
-      const fallbackCoachScore = apiCoachRating || derivedOverall
-      const fallbackFacilityScore = apiClassRating || derivedOverall
-      const savedCoachBd = metaSource.coachBreakdown || null
-      const savedFacilityBd = metaSource.facilityBreakdown || null
-
-      const rawTags = Array.isArray(metaSource.tags)
-        ? metaSource.tags
-        : Array.isArray(apiFb.tags)
-          ? apiFb.tags
-          : []
-      const realReply = sanitizeRealCoachReply(
-        apiFb.coachReply || apiFb.replyText || apiFb.response,
-      )
-
-      const syntheticSession = {
-        id: metaSource.sessionId || `class-${classIdStr}`,
-        sessionKey: metaSource.sessionKey || `class-${classIdStr}`,
-        classId: Number(classIdStr) || classIdStr,
-        coachId:
-          apiFb.coachId ??
-          enrollmentRow?.coachId ??
-          matchedClass?.coachId ??
-          1,
-        className: resolvedClassName,
-        coachName: resolvedCoachName,
-        roomName: resolvedRoomName,
-        sessionDate: resolvedDate,
-        startTime: resolvedStart,
-        endTime: resolvedEnd,
-      }
-
-      submitted.push({
-        id: apiFb.feedbackId || apiFb.id || `fb-${classIdStr}`,
-        sessionKey: syntheticSession.sessionKey,
-        classId: syntheticSession.classId,
-        coachId: syntheticSession.coachId,
-        className: resolvedClassName,
-        coachName: resolvedCoachName,
-        roomName: resolvedRoomName,
-        sessionDate: resolvedDate,
-        startTime: resolvedStart,
-        endTime: resolvedEnd,
-        rating: derivedOverall,
-        overallRating: derivedOverall,
-        coachRating: apiCoachRating || fallbackCoachScore,
-        classRating: apiClassRating || fallbackFacilityScore,
-        criteria: {
-          coachBreakdown: {
-            expertise: Number(savedCoachBd?.expertise) || fallbackCoachScore,
-            interaction:
-              Number(savedCoachBd?.interaction) || fallbackCoachScore,
-            punctuality:
-              Number(savedCoachBd?.punctuality) || fallbackCoachScore,
-          },
-          facilityBreakdown: {
-            court: Number(savedFacilityBd?.court) || fallbackFacilityScore,
-            lighting:
-              Number(savedFacilityBd?.lighting) || fallbackFacilityScore,
-            cleanliness:
-              Number(savedFacilityBd?.cleanliness) || fallbackFacilityScore,
-          },
-          customTouchedCriteria: metaSource.customTouchedCriteria || {},
-        },
-        tags: rawTags.map(normalizeTagCode).filter(Boolean),
-        comment: String(apiFb.comment ?? metaSource.comment ?? ""),
-        isAnonymous: Boolean(metaSource.isAnonymous),
-        isPrivateContactRequested: Boolean(
-          metaSource.isPrivateContactRequested,
-        ),
-        coachReply: realReply,
-        coachReplyAuthor: realReply
-          ? apiFb.repliedByName || resolvedCoachName
-          : null,
-        coachReplyDate: realReply ? apiFb.repliedAt || null : null,
-        createdAt: apiFb.createdAt || resolvedDate,
-        sessionMeta: syntheticSession,
-      })
     }
 
     // Danh sách khóa học thật của hội viên để hiển thị bộ lọc ở tab "Lịch sử của tôi"
-    const courseMap = new Map()
+    const courseFilterMap = new Map()
     for (const row of apiEnrollments) {
       const cid = row?.classId ?? row?.id
       const cname = row?.className || row?.name
       if (cid != null && cname) {
-        courseMap.set(String(cid), {
+        courseFilterMap.set(String(cid), {
           classId: String(cid),
           className: cname,
         })
       }
     }
-    for (const s of attended) {
-      if (s.classId != null && s.className) {
-        courseMap.set(String(s.classId), {
-          classId: String(s.classId),
-          className: s.className,
-        })
-      }
-    }
-    for (const r of submitted) {
-      if (r.classId != null && r.className) {
-        courseMap.set(String(r.classId), {
-          classId: String(r.classId),
-          className: r.className,
+    for (const c of courseGroupMap.values()) {
+      if (c.classId != null && c.className) {
+        courseFilterMap.set(String(c.classId), {
+          classId: String(c.classId),
+          className: c.className,
         })
       }
     }
 
     return {
       attendedSessions: attended,
-      pendingSessions: pending,
+      attendedCoursesCount: pending.length + submitted.length,
+      pendingCourses: pending,
       submittedReviews: submitted,
-      enrolledCoursesList: [...courseMap.values()],
+      enrolledCoursesList: [...courseFilterMap.values()],
     }
   }, [
     apiEnrollments,
@@ -1085,9 +1072,10 @@ export function MemberFeedbackView({ embedded = false }) {
           return false
         }
       }
-      const reviewDateIso = String(r.sessionDate || r.date || "").slice(0, 10)
-      if (selectedTimeFilter !== "all" && reviewDateIso) {
-        const diffDays = diffCalendarDaysInVn(reviewDateIso, todayIso)
+      const filterDateIso =
+        r.submittedDateIso || r.latestSession?.sessionDate || null
+      if (selectedTimeFilter !== "all" && filterDateIso) {
+        const diffDays = diffCalendarDaysInVn(filterDateIso, todayIso)
         if (diffDays !== null) {
           if (selectedTimeFilter === "30days" && diffDays > 30) return false
           if (selectedTimeFilter === "semester" && diffDays > 120) return false
@@ -1102,16 +1090,24 @@ export function MemberFeedbackView({ embedded = false }) {
   // - Những mục người dùng đã tự chỉnh (customTouchedCriteria[key] === true) KHÔNG bị ghi đè
   const handleSelectOverallRating = (level) => {
     setOverallRating(level)
-    setCoachCriteria((prev) => ({
-      expertise: customTouchedCriteria.expertise ? prev.expertise : level,
-      interaction: customTouchedCriteria.interaction ? prev.interaction : level,
-      punctuality: customTouchedCriteria.punctuality ? prev.punctuality : level,
-    }))
-    setFacilityCriteria((prev) => ({
-      court: customTouchedCriteria.court ? prev.court : level,
-      lighting: customTouchedCriteria.lighting ? prev.lighting : level,
-      cleanliness: customTouchedCriteria.cleanliness ? prev.cleanliness : level,
-    }))
+    if (!isEditingWithoutLocalMeta) {
+      setCoachCriteria((prev) => ({
+        expertise: customTouchedCriteria.expertise ? prev.expertise : level,
+        interaction: customTouchedCriteria.interaction
+          ? prev.interaction
+          : level,
+        punctuality: customTouchedCriteria.punctuality
+          ? prev.punctuality
+          : level,
+      }))
+      setFacilityCriteria((prev) => ({
+        court: customTouchedCriteria.court ? prev.court : level,
+        lighting: customTouchedCriteria.lighting ? prev.lighting : level,
+        cleanliness: customTouchedCriteria.cleanliness
+          ? prev.cleanliness
+          : level,
+      }))
+    }
   }
 
   const handleSelectCoachCriterion = (key, pt) => {
@@ -1124,68 +1120,92 @@ export function MemberFeedbackView({ embedded = false }) {
     setFacilityCriteria((prev) => ({ ...prev, [key]: pt }))
   }
 
-  // Mở Ngăn chấm điểm (tạo mới hoặc chỉnh sửa đánh giá đã gửi)
-  const handleOpenReviewDrawer = (session, existingFeedback = null) => {
-    setActiveSessionForReview(session)
+  // Mở Ngăn chấm điểm (tạo mới cho khóa học hoặc chỉnh sửa đánh giá đã gửi)
+  const handleOpenReviewDrawer = (courseOrReview, existingFeedback = null) => {
+    setActiveSessionForReview(
+      existingFeedback
+        ? { ...courseOrReview, ...existingFeedback }
+        : courseOrReview,
+    )
     setSubmitError(null)
     setIsThankYouMode(false)
 
     if (existingFeedback) {
       const baseOverall =
         Number(existingFeedback.overallRating || existingFeedback.rating) || 5
-      const baseCoach =
-        Number(existingFeedback.coachRating) || baseOverall
-      const baseClass =
-        Number(existingFeedback.classRating) || baseOverall
-      const savedCoachBd = existingFeedback.criteria?.coachBreakdown
-      const savedFacilityBd = existingFeedback.criteria?.facilityBreakdown
-      const nextCoachCriteria = {
-        expertise: Number(savedCoachBd?.expertise) || baseCoach,
-        interaction: Number(savedCoachBd?.interaction) || baseCoach,
-        punctuality: Number(savedCoachBd?.punctuality) || baseCoach,
-      }
-      const nextFacilityCriteria = {
-        court: Number(savedFacilityBd?.court) || baseClass,
-        lighting: Number(savedFacilityBd?.lighting) || baseClass,
-        cleanliness: Number(savedFacilityBd?.cleanliness) || baseClass,
-      }
-      const savedTouched =
-        existingFeedback.criteria?.customTouchedCriteria || {}
-
       setEditingFeedbackId(existingFeedback.id)
       setOverallRating(baseOverall)
-      setCoachCriteria(nextCoachCriteria)
-      setFacilityCriteria(nextFacilityCriteria)
-      setCustomTouchedCriteria({
-        expertise:
-          Boolean(savedTouched.expertise) ||
-          nextCoachCriteria.expertise !== baseOverall,
-        interaction:
-          Boolean(savedTouched.interaction) ||
-          nextCoachCriteria.interaction !== baseOverall,
-        punctuality:
-          Boolean(savedTouched.punctuality) ||
-          nextCoachCriteria.punctuality !== baseOverall,
-        court:
-          Boolean(savedTouched.court) ||
-          nextFacilityCriteria.court !== baseOverall,
-        lighting:
-          Boolean(savedTouched.lighting) ||
-          nextFacilityCriteria.lighting !== baseOverall,
-        cleanliness:
-          Boolean(savedTouched.cleanliness) ||
-          nextFacilityCriteria.cleanliness !== baseOverall,
-      })
-      setSelectedTags(
-        (existingFeedback.tags || []).map(normalizeTagCode).filter(Boolean),
-      )
       setCommentText(existingFeedback.comment || "")
-      setIsAnonymous(Boolean(existingFeedback.isAnonymous))
-      setIsPrivateContactRequested(
-        Boolean(existingFeedback.isPrivateContactRequested),
-      )
+
+      if (existingFeedback.hasLocalMetadata && existingFeedback.criteria) {
+        setIsEditingWithoutLocalMeta(false)
+        const baseCoach = Number(existingFeedback.coachRating) || baseOverall
+        const baseClass = Number(existingFeedback.classRating) || baseOverall
+        const savedCoachBd = existingFeedback.criteria.coachBreakdown
+        const savedFacilityBd = existingFeedback.criteria.facilityBreakdown
+        const nextCoachCriteria = {
+          expertise: Number(savedCoachBd?.expertise) || baseCoach,
+          interaction: Number(savedCoachBd?.interaction) || baseCoach,
+          punctuality: Number(savedCoachBd?.punctuality) || baseCoach,
+        }
+        const nextFacilityCriteria = {
+          court: Number(savedFacilityBd?.court) || baseClass,
+          lighting: Number(savedFacilityBd?.lighting) || baseClass,
+          cleanliness: Number(savedFacilityBd?.cleanliness) || baseClass,
+        }
+        const savedTouched =
+          existingFeedback.criteria.customTouchedCriteria || {}
+
+        setCoachCriteria(nextCoachCriteria)
+        setFacilityCriteria(nextFacilityCriteria)
+        setCustomTouchedCriteria({
+          expertise:
+            Boolean(savedTouched.expertise) ||
+            nextCoachCriteria.expertise !== baseOverall,
+          interaction:
+            Boolean(savedTouched.interaction) ||
+            nextCoachCriteria.interaction !== baseOverall,
+          punctuality:
+            Boolean(savedTouched.punctuality) ||
+            nextCoachCriteria.punctuality !== baseOverall,
+          court:
+            Boolean(savedTouched.court) ||
+            nextFacilityCriteria.court !== baseOverall,
+          lighting:
+            Boolean(savedTouched.lighting) ||
+            nextFacilityCriteria.lighting !== baseOverall,
+          cleanliness:
+            Boolean(savedTouched.cleanliness) ||
+            nextFacilityCriteria.cleanliness !== baseOverall,
+        })
+        setSelectedTags(
+          (existingFeedback.tags || []).map(normalizeTagCode).filter(Boolean),
+        )
+        setIsAnonymous(Boolean(existingFeedback.isAnonymous))
+        setIsPrivateContactRequested(
+          Boolean(existingFeedback.isPrivateContactRequested),
+        )
+      } else {
+        // Đánh giá không có metadata trong localStorage: hiển thị gọn điểm tổng và nhận xét, ẩn tiêu chí & thẻ
+        setIsEditingWithoutLocalMeta(true)
+        setCoachCriteria({
+          expertise: null,
+          interaction: null,
+          punctuality: null,
+        })
+        setFacilityCriteria({
+          court: null,
+          lighting: null,
+          cleanliness: null,
+        })
+        setCustomTouchedCriteria({})
+        setSelectedTags([])
+        setIsAnonymous(false)
+        setIsPrivateContactRequested(false)
+      }
     } else {
       setEditingFeedbackId(null)
+      setIsEditingWithoutLocalMeta(false)
       setOverallRating(0)
       setCoachCriteria({
         expertise: null,
@@ -1216,7 +1236,7 @@ export function MemberFeedbackView({ embedded = false }) {
     )
   }
 
-  // Gửi đánh giá từ Ngăn chấm điểm
+  // Gửi đánh giá từ Ngăn chấm điểm (theo khóa/lớp)
   const handleSubmitReview = async () => {
     if (!overallRating || overallRating === 0 || !activeSessionForReview) return
     if (overallRating <= 2 && !commentText.trim()) {
@@ -1228,100 +1248,119 @@ export function MemberFeedbackView({ embedded = false }) {
     setSubmitError(null)
 
     try {
-      const effectiveCoachCriteria = {
-        expertise: coachCriteria.expertise ?? overallRating,
-        interaction: coachCriteria.interaction ?? overallRating,
-        punctuality: coachCriteria.punctuality ?? overallRating,
-      }
-      const effectiveFacilityCriteria = {
-        court: facilityCriteria.court ?? overallRating,
-        lighting: facilityCriteria.lighting ?? overallRating,
-        cleanliness: facilityCriteria.cleanliness ?? overallRating,
-      }
-
-      const avgCoach = Math.min(
-        5,
-        Math.max(
-          1,
-          Math.round(
-            (effectiveCoachCriteria.expertise +
-              effectiveCoachCriteria.interaction +
-              effectiveCoachCriteria.punctuality) /
-              3,
-          ) || overallRating,
-        ),
-      )
-      const avgClass = Math.min(
-        5,
-        Math.max(
-          1,
-          Math.round(
-            (effectiveFacilityCriteria.court +
-              effectiveFacilityCriteria.lighting +
-              effectiveFacilityCriteria.cleanliness) /
-              3,
-          ) || overallRating,
-        ),
-      )
-
       const targetClassId =
         activeSessionForReview.classId ?? activeSessionForReview.id
       const targetCoachId = activeSessionForReview.coachId || 1
-      const sessionKey =
-        activeSessionForReview.sessionKey ||
-        `session-${activeSessionForReview.id}`
 
-      const metaEntry = {
-        feedbackId: editingFeedbackId || `fb-${Date.now()}`,
-        sessionId: activeSessionForReview.id,
-        sessionKey,
-        classId: targetClassId,
-        coachId: targetCoachId,
-        className: activeSessionForReview.className,
-        coachName: activeSessionForReview.coachName,
-        roomName: activeSessionForReview.roomName,
-        sessionDate: activeSessionForReview.sessionDate,
-        startTime: activeSessionForReview.startTime,
-        endTime: activeSessionForReview.endTime,
-        overallRating,
-        coachRating: avgCoach,
-        classRating: avgClass,
-        coachBreakdown: effectiveCoachCriteria,
-        facilityBreakdown: effectiveFacilityCriteria,
-        customTouchedCriteria,
-        tags: selectedTags,
-        comment: commentText.trim(),
-        isAnonymous,
-        isPrivateContactRequested,
-        createdAt: new Date().toISOString(),
+      const prevOverall =
+        Number(
+          activeSessionForReview.overallRating || activeSessionForReview.rating,
+        ) || overallRating
+      let avgCoach =
+        isEditingWithoutLocalMeta && overallRating === prevOverall
+          ? Number(activeSessionForReview.coachRating) || overallRating
+          : overallRating
+      let avgClass =
+        isEditingWithoutLocalMeta && overallRating === prevOverall
+          ? Number(activeSessionForReview.classRating) || overallRating
+          : overallRating
+      let effectiveCoachCriteria = null
+      let effectiveFacilityCriteria = null
+
+      if (!isEditingWithoutLocalMeta) {
+        effectiveCoachCriteria = {
+          expertise: coachCriteria.expertise ?? overallRating,
+          interaction: coachCriteria.interaction ?? overallRating,
+          punctuality: coachCriteria.punctuality ?? overallRating,
+        }
+        effectiveFacilityCriteria = {
+          court: facilityCriteria.court ?? overallRating,
+          lighting: facilityCriteria.lighting ?? overallRating,
+          cleanliness: facilityCriteria.cleanliness ?? overallRating,
+        }
+
+        avgCoach = Math.min(
+          5,
+          Math.max(
+            1,
+            Math.round(
+              (effectiveCoachCriteria.expertise +
+                effectiveCoachCriteria.interaction +
+                effectiveCoachCriteria.punctuality) /
+                3,
+            ) || overallRating,
+          ),
+        )
+        avgClass = Math.min(
+          5,
+          Math.max(
+            1,
+            Math.round(
+              (effectiveFacilityCriteria.court +
+                effectiveFacilityCriteria.lighting +
+                effectiveFacilityCriteria.cleanliness) /
+                3,
+            ) || overallRating,
+          ),
+        )
       }
 
       if (apiEnabled) {
         const parsedClassId = Number(targetClassId)
         const parsedCoachId = Number(targetCoachId) || 1
+        let apiRes = null
         if (!Number.isNaN(parsedClassId) && parsedClassId > 0) {
-          const apiRes = await submitClassFeedback(parsedClassId, {
+          apiRes = await submitClassFeedback(parsedClassId, {
             classId: parsedClassId,
             coachId: parsedCoachId > 0 ? parsedCoachId : 1,
             classRating: avgClass,
             coachRating: avgCoach,
             comment: commentText.trim(),
           })
-          if (apiRes?.feedbackId || apiRes?.id) {
-            metaEntry.feedbackId = apiRes.feedbackId || apiRes.id
-          }
+          setApiFeedbackMap((prev) => ({
+            ...prev,
+            [String(parsedClassId)]: apiRes || {
+              ...prev[String(parsedClassId)],
+              classId: parsedClassId,
+              coachId: parsedCoachId,
+              classRating: avgClass,
+              coachRating: avgCoach,
+              comment: commentText.trim(),
+            },
+          }))
         }
 
-        const memberScope = String(resolvedMemberId || "anon")
-        const nextMeta = {
-          ...readStoredFeedbackMeta(),
-          [`${memberScope}:session:${sessionKey}`]: metaEntry,
-          ...(targetClassId != null
-            ? { [`${memberScope}:class:${targetClassId}`]: metaEntry }
-            : {}),
+        if (!isEditingWithoutLocalMeta && targetClassId != null) {
+          const memberScope = String(resolvedMemberId || "anon")
+          const metaEntry = {
+            feedbackId:
+              apiRes?.feedbackId ||
+              apiRes?.id ||
+              editingFeedbackId ||
+              `fb-${targetClassId}`,
+            classId: targetClassId,
+            coachId: targetCoachId,
+            className: activeSessionForReview.className,
+            coachName: activeSessionForReview.coachName,
+            roomName: activeSessionForReview.roomName,
+            overallRating,
+            coachRating: avgCoach,
+            classRating: avgClass,
+            coachBreakdown: effectiveCoachCriteria,
+            facilityBreakdown: effectiveFacilityCriteria,
+            customTouchedCriteria,
+            tags: selectedTags,
+            comment: commentText.trim(),
+            isAnonymous,
+            isPrivateContactRequested,
+          }
+          const nextMeta = {
+            ...readStoredFeedbackMeta(),
+            [`${memberScope}:class:${targetClassId}`]: metaEntry,
+          }
+          writeStoredFeedbackMeta(nextMeta)
+          setLocalMetaMap(nextMeta)
         }
-        writeStoredFeedbackMeta(nextMeta)
-        setLocalMetaMap(nextMeta)
 
         await fetchBackendFeedbackData()
         showToast?.(
@@ -1332,8 +1371,7 @@ export function MemberFeedbackView({ embedded = false }) {
         )
       } else {
         await submitFeedback({
-          id: metaEntry.feedbackId,
-          sessionKey,
+          id: editingFeedbackId || `fb-${targetClassId}`,
           classId: targetClassId,
           coachId: targetCoachId,
           className: activeSessionForReview.className,
@@ -1344,18 +1382,16 @@ export function MemberFeedbackView({ embedded = false }) {
           overallRating,
           classRating: avgClass,
           coachRating: avgCoach,
-          date: activeSessionForReview.sessionDate,
-          sessionDate: activeSessionForReview.sessionDate,
-          startTime: activeSessionForReview.startTime,
-          endTime: activeSessionForReview.endTime,
           room: activeSessionForReview.roomName,
-          criteria: {
-            coachQuality: avgCoach,
-            facilityQuality: avgClass,
-            coachBreakdown: effectiveCoachCriteria,
-            facilityBreakdown: effectiveFacilityCriteria,
-            customTouchedCriteria,
-          },
+          criteria: effectiveCoachCriteria
+            ? {
+                coachQuality: avgCoach,
+                facilityQuality: avgClass,
+                coachBreakdown: effectiveCoachCriteria,
+                facilityBreakdown: effectiveFacilityCriteria,
+                customTouchedCriteria,
+              }
+            : null,
           tags: selectedTags,
           comment: commentText.trim(),
           isAnonymous,
@@ -1429,23 +1465,23 @@ export function MemberFeedbackView({ embedded = false }) {
         </header>
       )}
 
-      {/* 2. DẢI CHỈ SỐ: 4 Thẻ đồng bộ hệ thống */}
+      {/* 2. DẢI CHỈ SỐ: 4 Thẻ cùng đơn vị là KHÓA (Chờ đánh giá + Đã gửi = Khóa đã tham gia) */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* Cột 1: Chờ đánh giá */}
+        {/* Cột 1: Chờ đánh giá (số khóa chưa có đánh giá) */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
             {t("feedbackKpiPending")}
           </span>
           <div
             className={`text-3xl font-black mt-2 tabular-nums ${
-              pendingSessions.length > 0 ? "text-amber-600" : "text-slate-900"
+              pendingCourses.length > 0 ? "text-amber-600" : "text-slate-900"
             }`}
           >
-            {pendingSessions.length}
+            {pendingCourses.length}
           </div>
         </div>
 
-        {/* Cột 2: Đã gửi */}
+        {/* Cột 2: Đã gửi (số khóa đã có đánh giá) */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
             {t("feedbackKpiSubmitted")}
@@ -1455,13 +1491,16 @@ export function MemberFeedbackView({ embedded = false }) {
           </div>
         </div>
 
-        {/* Cột 3: Đã tham gia */}
+        {/* Cột 3: Khóa đã tham gia (= Chờ đánh giá + Đã gửi), kèm dòng phụ N buổi có mặt */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
             {t("feedbackKpiAttended")}
           </span>
           <div className="text-3xl font-black mt-2 tabular-nums text-slate-900">
-            {attendedSessions.length}
+            {attendedCoursesCount}
+          </div>
+          <div className="text-xs text-slate-500 mt-1 tabular-nums">
+            {tr("feedbackKpiAttendedSub", { count: attendedSessions.length })}
           </div>
         </div>
 
@@ -1497,7 +1536,7 @@ export function MemberFeedbackView({ embedded = false }) {
         >
           <span>{t("feedbackTabPending")}</span>
           <span className="px-2 py-0.5 text-xs rounded-full bg-slate-100 text-slate-700 font-semibold">
-            {pendingSessions.length}
+            {pendingCourses.length}
           </span>
         </button>
 
@@ -1517,10 +1556,10 @@ export function MemberFeedbackView({ embedded = false }) {
         </button>
       </div>
 
-      {/* 4. TAB 1: CẦN ĐÁNH GIÁ */}
+      {/* 4. TAB 1: CẦN ĐÁNH GIÁ (mỗi dòng là một KHÓA) */}
       {activeTab === "pending" && (
         <div className="space-y-4">
-          {pendingSessions.length === 0 ? (
+          {pendingCourses.length === 0 ? (
             <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-3">
               <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
               <h3 className="text-lg font-bold text-slate-900">
@@ -1544,54 +1583,52 @@ export function MemberFeedbackView({ embedded = false }) {
           ) : (
             <div className="space-y-3">
               <AnimatePresence>
-                {pendingSessions.map((session) => {
-                  const isLate = session.attendanceStateKey === "late"
-                  const attendanceLabel = isLate
-                    ? t("feedbackStatusLate")
-                    : t("feedbackStatusPresent")
-                  const remainingDays = session.remainingDeadlineDays
+                {pendingCourses.map((course) => {
+                  const latestSlot = course.latestSession
+                    ? formatSessionDateTimeSlot(
+                        course.latestSession.sessionDate,
+                        course.latestSession.startTime,
+                        course.latestSession.endTime,
+                      )
+                    : null
+                  const remainingDays = course.remainingDeadlineDays
 
                   return (
                     <motion.div
-                      key={session.sessionKey}
+                      key={course.courseKey}
                       initial={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0, overflow: "hidden" }}
                       transition={{ duration: 0.2 }}
                       className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:border-slate-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                     >
-                      {/* Cột 1: Ngày & Giờ chuẩn dd/MM/yyyy · HH:mm–HH:mm */}
-                      <div className="sm:w-56 shrink-0">
-                        <div className="text-sm font-bold text-slate-900 tabular-nums">
-                          {formatSessionDateTimeSlot(
-                            session.sessionDate,
-                            session.startTime,
-                            session.endTime,
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Cột 2: Khóa học & Thông tin */}
-                      <div className="flex-1 min-w-0 space-y-1">
+                      {/* Thông tin Khóa học: Tên khóa, HLV, sân, số buổi đã tham gia, buổi gần nhất */}
+                      <div className="flex-1 min-w-0 space-y-1.5">
                         <h3 className="text-base font-bold text-slate-900 truncate">
-                          {session.className}
+                          {course.className}
                         </h3>
                         <p className="text-xs text-slate-600">
-                          {session.roomName} · {t("feedbackCoachPrefix")}{" "}
-                          {String(session.coachName || "").replace(
+                          {course.roomName} · {t("feedbackCoachPrefix")}{" "}
+                          {String(course.coachName || "").replace(
                             /^HLV\s+/i,
                             "",
                           )}
                         </p>
                         <div className="text-xs text-slate-500 flex items-center gap-2 pt-0.5 flex-wrap">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[11px] font-medium border ${
-                              isLate
-                                ? "bg-amber-50 text-amber-800 border-amber-200"
-                                : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            }`}
-                          >
-                            {attendanceLabel}
+                          <span className="px-2 py-0.5 rounded text-[11px] font-medium border bg-emerald-50 text-emerald-700 border-emerald-200 tabular-nums">
+                            {tr("feedbackCourseAttendedCount", {
+                              count: course.attendedSessionCount,
+                            })}
                           </span>
+                          {latestSlot && (
+                            <>
+                              <span className="text-slate-300">•</span>
+                              <span className="text-slate-600 tabular-nums">
+                                {tr("feedbackCourseLatestSession", {
+                                  slot: latestSlot,
+                                })}
+                              </span>
+                            </>
+                          )}
                           {remainingDays !== null && (
                             <>
                               <span className="text-slate-300">•</span>
@@ -1613,11 +1650,11 @@ export function MemberFeedbackView({ embedded = false }) {
                         </div>
                       </div>
 
-                      {/* Cột 3: CTA Button */}
+                      {/* CTA Button */}
                       <div className="shrink-0">
                         <button
                           type="button"
-                          onClick={() => handleOpenReviewDrawer(session)}
+                          onClick={() => handleOpenReviewDrawer(course)}
                           className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all active:scale-[0.98] bg-brand-primary hover:bg-brand-primary-hover text-white shadow-xs"
                         >
                           {t("feedbackBtnWriteReview")}
@@ -1677,7 +1714,7 @@ export function MemberFeedbackView({ embedded = false }) {
               <p className="text-xs text-slate-500">
                 {t("feedbackEmptySubmittedDesc")}
               </p>
-              {pendingSessions.length > 0 && (
+              {pendingCourses.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setActiveTab("pending")}
@@ -1694,19 +1731,11 @@ export function MemberFeedbackView({ embedded = false }) {
                 const isBreakdownOpen = Boolean(expandedBreakdowns[review.id])
                 const overallScore =
                   Number(review.overallRating || review.rating) || 5
-                const coachFallback = Number(review.coachRating) || overallScore
-                const facilityFallback =
-                  Number(review.classRating) || overallScore
-                const coachBd = review.criteria?.coachBreakdown || {
-                  expertise: coachFallback,
-                  interaction: coachFallback,
-                  punctuality: coachFallback,
-                }
-                const facilityBd = review.criteria?.facilityBreakdown || {
-                  court: facilityFallback,
-                  lighting: facilityFallback,
-                  cleanliness: facilityFallback,
-                }
+                const hasLocalMeta = Boolean(
+                  review.hasLocalMetadata && review.criteria,
+                )
+                const coachBd = review.criteria?.coachBreakdown
+                const facilityBd = review.criteria?.facilityBreakdown
                 const verdictMeta = getVerdictMeta(overallScore, t)
                 const realCoachReply = sanitizeRealCoachReply(review.coachReply)
                 const replyDateFormatted = review.coachReplyDate
@@ -1722,13 +1751,11 @@ export function MemberFeedbackView({ embedded = false }) {
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-base font-bold text-slate-900">
-                            {review.className || review.sessionMeta?.className}
+                            {review.className}
                           </h3>
                           <span className="text-slate-300">•</span>
                           <span className="text-xs text-slate-500">
-                            {review.roomName ||
-                              review.sessionMeta?.roomName ||
-                              t("feedbackRoomTbd")}
+                            {review.roomName || t("feedbackRoomTbd")}
                           </span>
                           {review.isAnonymous && (
                             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-600">
@@ -1744,18 +1771,19 @@ export function MemberFeedbackView({ embedded = false }) {
                         <p className="text-xs text-slate-500 mt-1">
                           {t("feedbackHistoryCoachPrefix")}{" "}
                           <span className="font-medium text-slate-800">
-                            {review.coachName || review.sessionMeta?.coachName}
-                          </span>{" "}
-                          ·{" "}
-                          <span className="tabular-nums">
-                            {formatSessionDateTimeSlot(
-                              review.sessionDate ||
-                                review.sessionMeta?.sessionDate ||
-                                review.date,
-                              review.startTime || review.sessionMeta?.startTime,
-                              review.endTime || review.sessionMeta?.endTime,
-                            )}
+                            {review.coachName}
                           </span>
+                          {review.submittedDateFormatted && (
+                            <>
+                              {" "}
+                              ·{" "}
+                              <span className="tabular-nums">
+                                {tr("feedbackSubmittedDateLabel", {
+                                  date: review.submittedDateFormatted,
+                                })}
+                              </span>
+                            </>
+                          )}
                         </p>
                       </div>
 
@@ -1773,7 +1801,7 @@ export function MemberFeedbackView({ embedded = false }) {
                           type="button"
                           onClick={() =>
                             handleOpenReviewDrawer(
-                              review.sessionMeta || review,
+                              review.courseMeta || review,
                               review,
                             )
                           }
@@ -1790,7 +1818,7 @@ export function MemberFeedbackView({ embedded = false }) {
                         {verdictMeta.label}
                       </span>
 
-                      {review.tags && review.tags.length > 0 && (
+                      {hasLocalMeta && review.tags && review.tags.length > 0 && (
                         <>
                           <span className="text-slate-300">•</span>
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -1853,79 +1881,98 @@ export function MemberFeedbackView({ embedded = false }) {
 
                       {isBreakdownOpen && (
                         <div className="mt-3 p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-4 text-xs">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                              <div className="text-[11px] uppercase tracking-wider text-slate-500 font-bold">
-                                {t("feedbackCriteriaCoachGroup")}
-                              </div>
-                              <div className="flex justify-between text-slate-600">
-                                <span>
-                                  {t("feedbackCriteriaExpertiseShort")}
-                                </span>
-                                <span className="font-bold text-slate-900 tabular-nums">
-                                  {coachBd.expertise}/5
-                                </span>
-                              </div>
-                              <div className="flex justify-between text-slate-600">
-                                <span>
-                                  {t("feedbackCriteriaInteractionShort")}
-                                </span>
-                                <span className="font-bold text-slate-900 tabular-nums">
-                                  {coachBd.interaction}/5
-                                </span>
-                              </div>
-                              <div className="flex justify-between text-slate-600">
-                                <span>
-                                  {t("feedbackCriteriaPunctualityShort")}
-                                </span>
-                                <span className="font-bold text-slate-900 tabular-nums">
-                                  {coachBd.punctuality}/5
-                                </span>
-                              </div>
-                            </div>
+                          {hasLocalMeta && coachBd && facilityBd ? (
+                            <>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                  <div className="text-[11px] uppercase tracking-wider text-slate-500 font-bold">
+                                    {t("feedbackCriteriaCoachGroup")}
+                                  </div>
+                                  <div className="flex justify-between text-slate-600">
+                                    <span>
+                                      {t("feedbackCriteriaExpertiseShort")}
+                                    </span>
+                                    <span className="font-bold text-slate-900 tabular-nums">
+                                      {coachBd.expertise}/5
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between text-slate-600">
+                                    <span>
+                                      {t("feedbackCriteriaInteractionShort")}
+                                    </span>
+                                    <span className="font-bold text-slate-900 tabular-nums">
+                                      {coachBd.interaction}/5
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between text-slate-600">
+                                    <span>
+                                      {t("feedbackCriteriaPunctualityShort")}
+                                    </span>
+                                    <span className="font-bold text-slate-900 tabular-nums">
+                                      {coachBd.punctuality}/5
+                                    </span>
+                                  </div>
+                                </div>
 
-                            <div className="space-y-1.5 sm:border-l sm:border-slate-200 sm:pl-4">
-                              <div className="text-[11px] uppercase tracking-wider text-slate-500 font-bold">
-                                {t("feedbackCriteriaFacilityGroup")}
+                                <div className="space-y-1.5 sm:border-l sm:border-slate-200 sm:pl-4">
+                                  <div className="text-[11px] uppercase tracking-wider text-slate-500 font-bold">
+                                    {t("feedbackCriteriaFacilityGroup")}
+                                  </div>
+                                  <div className="flex justify-between text-slate-600">
+                                    <span>{t("feedbackCriteriaCourtShort")}</span>
+                                    <span className="font-bold text-slate-900 tabular-nums">
+                                      {facilityBd.court}/5
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between text-slate-600">
+                                    <span>
+                                      {t("feedbackCriteriaLightingShort")}
+                                    </span>
+                                    <span className="font-bold text-slate-900 tabular-nums">
+                                      {facilityBd.lighting}/5
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between text-slate-600">
+                                    <span>
+                                      {t("feedbackCriteriaCleanlinessShort")}
+                                    </span>
+                                    <span className="font-bold text-slate-900 tabular-nums">
+                                      {facilityBd.cleanliness}/5
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="flex justify-between text-slate-600">
-                                <span>{t("feedbackCriteriaCourtShort")}</span>
-                                <span className="font-bold text-slate-900 tabular-nums">
-                                  {facilityBd.court}/5
-                                </span>
-                              </div>
-                              <div className="flex justify-between text-slate-600">
-                                <span>
-                                  {t("feedbackCriteriaLightingShort")}
-                                </span>
-                                <span className="font-bold text-slate-900 tabular-nums">
-                                  {facilityBd.lighting}/5
-                                </span>
-                              </div>
-                              <div className="flex justify-between text-slate-600">
-                                <span>
-                                  {t("feedbackCriteriaCleanlinessShort")}
-                                </span>
-                                <span className="font-bold text-slate-900 tabular-nums">
-                                  {facilityBd.cleanliness}/5
-                                </span>
-                              </div>
-                            </div>
-                          </div>
 
-                          {review.tags && review.tags.length > 0 && (
-                            <div className="pt-3 border-t border-slate-200/80 flex items-center gap-2 flex-wrap">
-                              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                                {t("feedbackDetailTagsLabel")}
-                              </span>
-                              {review.tags.map((tagCode) => (
-                                <span
-                                  key={tagCode}
-                                  className="text-xs px-2.5 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium"
-                                >
-                                  {getTagLabel(tagCode, t)}
+                              {review.tags && review.tags.length > 0 && (
+                                <div className="pt-3 border-t border-slate-200/80 flex items-center gap-2 flex-wrap">
+                                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                    {t("feedbackDetailTagsLabel")}
+                                  </span>
+                                  {review.tags.map((tagCode) => (
+                                    <span
+                                      key={tagCode}
+                                      className="text-xs px-2.5 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium"
+                                    >
+                                      {getTagLabel(tagCode, t)}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-amber-500 font-black">
+                                  ★ {overallScore.toFixed(1)}/5
                                 </span>
-                              ))}
+                                <span className="text-slate-300">·</span>
+                                <span className="font-semibold text-slate-800">
+                                  {verdictMeta.label}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 italic">
+                                {t("feedbackMissingLocalMetaNote")}
+                              </p>
                             </div>
                           )}
 
@@ -2009,19 +2056,27 @@ export function MemberFeedbackView({ embedded = false }) {
                     <h2 className="font-bold text-xl text-slate-900 leading-snug">
                       {activeSessionForReview.className}
                     </h2>
-                    <p className="text-xs text-slate-500 font-normal tabular-nums">
-                      {formatSessionDateTimeSlot(
-                        activeSessionForReview.sessionDate ||
-                          activeSessionForReview.date,
-                        activeSessionForReview.startTime,
-                        activeSessionForReview.endTime,
-                      )}{" "}
-                      ·{" "}
+                    <p className="text-xs text-slate-500 font-normal">
                       {activeSessionForReview.coachName ||
                         activeSessionForReview.coach}{" "}
                       ·{" "}
                       {activeSessionForReview.roomName ||
                         activeSessionForReview.court}
+                      {!editingFeedbackId &&
+                        activeSessionForReview.latestSession && (
+                          <>
+                            {" "}
+                            ·{" "}
+                            <span className="tabular-nums">
+                              {formatSessionDateTimeSlot(
+                                activeSessionForReview.latestSession
+                                  .sessionDate,
+                                activeSessionForReview.latestSession.startTime,
+                                activeSessionForReview.latestSession.endTime,
+                              )}
+                            </span>
+                          </>
+                        )}
                     </p>
                   </div>
 
@@ -2142,8 +2197,15 @@ export function MemberFeedbackView({ embedded = false }) {
                         </div>
                       </div>
 
-                      {/* BƯỚC 2: Tiêu chí thành phần (mặc định theo điểm tổng quát N, không ghi đè mục người dùng đã chỉnh) */}
-                      {overallRating > 0 && (
+                      {/* Khi chỉnh sửa đánh giá không có metadata trong localStorage: ẩn tiêu chí & thẻ, hiện chú thích gọn */}
+                      {overallRating > 0 && isEditingWithoutLocalMeta && (
+                        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500 italic">
+                          {t("feedbackMissingLocalMetaNote")}
+                        </div>
+                      )}
+
+                      {/* BƯỚC 2: Tiêu chí thành phần (ẩn khi chỉnh sửa đánh giá không có metadata localStorage) */}
+                      {overallRating > 0 && !isEditingWithoutLocalMeta && (
                         <div className="space-y-5 pt-3 border-t border-slate-100 animate-in fade-in duration-200">
                           {/* Nhóm 1: Huấn luyện viên */}
                           <div className="space-y-3">
@@ -2277,8 +2339,8 @@ export function MemberFeedbackView({ embedded = false }) {
                         </div>
                       )}
 
-                      {/* BƯỚC 3: Gợi ý nhận định nhanh */}
-                      {overallRating > 0 && (
+                      {/* BƯỚC 3: Gợi ý nhận định nhanh (ẩn khi chỉnh sửa đánh giá không có metadata localStorage) */}
+                      {overallRating > 0 && !isEditingWithoutLocalMeta && (
                         <div className="space-y-2.5 pt-3 border-t border-slate-100">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
                             {t("feedbackDrawerQuickTagsHeader")}
@@ -2337,7 +2399,7 @@ export function MemberFeedbackView({ embedded = false }) {
                       )}
 
                       {/* BƯỚC 5: Quyền riêng tư & Đối thoại bảo mật */}
-                      {overallRating > 0 && (
+                      {overallRating > 0 && !isEditingWithoutLocalMeta && (
                         <div className="space-y-2.5 pt-3 border-t border-slate-100">
                           <label className="flex items-center gap-2.5 cursor-pointer text-xs text-slate-700">
                             <input
