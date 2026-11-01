@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react"
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useSCMS } from "../../context/SCMSContext"
 import { StatusBadge } from "../common/Badge"
 import { memberApi } from "../../api/memberApi"
@@ -43,6 +43,7 @@ export function CoachAssignedMembersView() {
   const [atRiskIds, setAtRiskIds] = useState(new Set())
   const [advancedRequests, setAdvancedRequests] = useState([])
   const [decidingId, setDecidingId] = useState(null)
+  const isProcessingRef = useRef(false)
 
   // Private PT Booking modal state (Mục 6 / D04)
   const [bookingMember, setBookingMember] = useState(null)
@@ -91,21 +92,53 @@ export function CoachAssignedMembersView() {
 
   const handleCoachDecision = async (reqItem, decision) => {
     if (!reqItem?.id) return
+    if (decision !== "APPROVE" && decision !== "REJECT") return
+
+    const st = String(reqItem.status || "").toLowerCase()
+    if (!st.includes("pending") && !st.includes("request")) {
+      showToast?.("Yêu cầu này không ở trạng thái chờ duyệt.", "info")
+      return
+    }
+
+    if (isProcessingRef.current || decidingId === reqItem.id) return
+    isProcessingRef.current = true
     setDecidingId(reqItem.id)
+
+    const accepted = decision === "APPROVE"
+    const reason = accepted
+      ? "Coach đồng ý nhận học viên PT 1-kèm-1"
+      : "Coach hiện đã kín lịch khung giờ này"
+
     try {
-      await memberPortalApi.decideAdvancedRegistration(reqItem.id, {
-        decision,
-        note:
-          decision === "APPROVE"
-            ? "Coach đồng ý nhận học viên PT 1-kèm-1"
-            : "Coach hiện đã kín lịch khung giờ này",
-      })
-      showToast?.(
-        decision === "APPROVE"
-          ? "Đã duyệt nhận học viên PT 1-kèm-1!"
-          : "Đã từ chối yêu cầu đăng ký PT.",
-        decision === "APPROVE" ? "success" : "info",
+      const response = await memberPortalApi.decideAdvancedRegistration(
+        reqItem.id,
+        {
+          accepted,
+          reason,
+        },
       )
+
+      const respStatus = String(response?.status || "").toUpperCase()
+      if (accepted) {
+        if (respStatus === "ACCEPTED") {
+          showToast?.("Đã duyệt nhận học viên PT 1-kèm-1!", "success")
+        } else {
+          showToast?.(
+            `Phản hồi từ máy chủ không khớp (Trạng thái: ${response?.status || "Không xác định"}).`,
+            "error",
+          )
+        }
+      } else {
+        if (respStatus === "REJECTED") {
+          showToast?.("Đã từ chối yêu cầu đăng ký PT.", "info")
+        } else {
+          showToast?.(
+            `Phản hồi từ máy chủ không khớp (Trạng thái: ${response?.status || "Không xác định"}).`,
+            "warning",
+          )
+        }
+      }
+
       await loadAdvancedRequests()
     } catch (err) {
       showToast?.(
@@ -113,6 +146,7 @@ export function CoachAssignedMembersView() {
         "error",
       )
     } finally {
+      isProcessingRef.current = false
       setDecidingId(null)
     }
   }
@@ -261,21 +295,29 @@ export function CoachAssignedMembersView() {
                     </div>
                   </div>
                   {isPending && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <button
                         type="button"
-                        disabled={decidingId === req.id}
+                        disabled={decidingId !== null}
                         onClick={() => handleCoachDecision(req, "APPROVE")}
-                        className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded font-bold flex items-center gap-1 cursor-pointer"
+                        aria-label={`Duyệt nhận yêu cầu học viên #${req.memberId}`}
+                        className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded font-bold flex items-center gap-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Duyệt nhận</span>
+                        {decidingId === req.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        )}
+                        <span>
+                          {decidingId === req.id ? "Đang xử lý..." : "Duyệt nhận"}
+                        </span>
                       </button>
                       <button
                         type="button"
-                        disabled={decidingId === req.id}
+                        disabled={decidingId !== null}
                         onClick={() => handleCoachDecision(req, "REJECT")}
-                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded font-bold flex items-center gap-1 cursor-pointer"
+                        aria-label={`Từ chối yêu cầu học viên #${req.memberId}`}
+                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed text-rose-700 border border-rose-200 rounded font-bold flex items-center gap-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-1 transition-all"
                       >
                         <XCircle className="w-3.5 h-3.5" />
                         <span>Từ chối</span>
