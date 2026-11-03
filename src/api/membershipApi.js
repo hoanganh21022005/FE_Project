@@ -147,7 +147,11 @@ export const updateSubscriptionStatus = async (id, status) => {
   return mapMemberSubscription(response)
 }
 
-export const extendSubscription = async (id, { extendDays, reason } = {}) => {
+export const extendSubscription = async (
+  id,
+  { extendDays, reason } = {},
+  options,
+) => {
   if (!isValidNumericId(id)) {
     throw new Error("ID đăng ký gói không hợp lệ.")
   }
@@ -158,6 +162,7 @@ export const extendSubscription = async (id, { extendDays, reason } = {}) => {
   const response = await httpClient.post(
     `/api/subscriptions/${id}/extend`,
     payload,
+    options,
   )
   return mapMemberSubscription(response)
 }

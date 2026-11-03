@@ -115,10 +115,14 @@ export function MemberFreezeRequestView({ embedded = false }) {
     if (apiEnabled && selectedSubId) {
       setSubmitting(true)
       try {
-        await membershipApi.extendSubscription(selectedSubId, {
-          extendDays: parseInt(days, 10),
-          reason: fullReason,
-        })
+        await membershipApi.extendSubscription(
+          selectedSubId,
+          {
+            extendDays: parseInt(days, 10),
+            reason: fullReason,
+          },
+          { notifyForbidden: false },
+        )
       } catch (err) {
         // If backend denies direct extension for member role, still record request locally & inform user
         setSubmitError(

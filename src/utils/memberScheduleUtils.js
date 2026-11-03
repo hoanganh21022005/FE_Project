@@ -327,7 +327,32 @@ export const isActiveNormalEnrollment = (enrollment) => {
   )
     .trim()
     .toLowerCase()
-  if (["cancelled", "canceled", "dropped", "rejected"].includes(status)) {
+  const paymentStatus = String(enrollment.paymentStatus || "")
+    .trim()
+    .toLowerCase()
+  if (
+    [
+      "cancelled",
+      "canceled",
+      "dropped",
+      "rejected",
+      "pending",
+      "pending_payment",
+      "expired",
+      "failed",
+      "withdrawn",
+    ].includes(status)
+  ) {
+    return false
+  }
+  if (
+    ["pending", "pending_payment", "expired", "failed", "cancelled", "canceled"].includes(
+      paymentStatus,
+    ) &&
+    !["registered", "active", "confirmed", "completed", "enrolled"].includes(
+      status,
+    )
+  ) {
     return false
   }
   return !isLegacyStrengthClass(enrollment)
