@@ -209,10 +209,7 @@ export const getRooms = async () => {
 
 export const getActiveHolidays = async () => {
   try {
-    const data = await httpClient.get("/api/holidays/active", {
-      notifyForbidden: false,
-    })
-    return extractList(data) || []
+    return await list("/api/holidays/active")
   } catch {
     return []
   }
@@ -220,10 +217,7 @@ export const getActiveHolidays = async () => {
 
 export const getCenterIncidents = async () => {
   try {
-    const data = await httpClient.get("/api/center-incidents", {
-      notifyForbidden: false,
-    })
-    return extractList(data) || []
+    return await list("/api/center-incidents")
   } catch {
     return []
   }

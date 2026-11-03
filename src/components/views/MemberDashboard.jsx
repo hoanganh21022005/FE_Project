@@ -326,7 +326,10 @@ export function MemberDashboard() {
               `/api/sessions?memberId=${encodedId}`,
               "Lịch học",
             )
-            return list
+            return list.filter(
+              (session) =>
+                String(session?.bookedMemberId ?? "") === String(memberId),
+            )
           }),
           loadResource("attendance", async () => {
             const list = await listFrom(
@@ -418,33 +421,6 @@ export function MemberDashboard() {
 
   const upcomingSessions = useMemo(() => {
     const apiSessions = resources.sessions.data || []
-    const activeNormalByClassId = new Map(
-      normalEnrollments
-        .filter((e) => e?.classId !== null && e?.classId !== undefined)
-        .map((e) => [String(e.classId), e]),
-    )
-    const matchedClassApiSessions = apiSessions
-      .filter(
-        (session) =>
-          session?.isPrivate !== true &&
-          session?.classId !== null &&
-          session?.classId !== undefined &&
-          activeNormalByClassId.has(String(session.classId)),
-      )
-      .map((session) => {
-        const enrollment = activeNormalByClassId.get(String(session.classId))
-        return {
-          ...session,
-          className:
-            session?.className || enrollment?.className || enrollment?.name,
-          subjectName: session?.subjectName || enrollment?.subjectName,
-          coachName: session?.coachName || enrollment?.coachName,
-          __ownerVerified: true,
-        }
-      })
-    const privateApiSessions = apiSessions.filter(
-      (session) => String(session?.bookedMemberId ?? "") === String(memberId),
-    )
     const enrollmentSessions = enrollments.flatMap((enrollment) => {
       const nested =
         enrollment?.sessions ||
@@ -470,11 +446,11 @@ export function MemberDashboard() {
       }))
     })
     return getUpcomingSessions(
-      [...privateApiSessions, ...matchedClassApiSessions, ...enrollmentSessions],
+      [...apiSessions, ...enrollmentSessions],
       memberId,
       getVietnamLocalDateTimeKey(),
     )
-  }, [resources.sessions.data, enrollments, normalEnrollments, memberId])
+  }, [resources.sessions.data, enrollments, memberId])
 
   const attendedCount = useMemo(
     () => getAttendedCount(attendance, memberId),
@@ -544,16 +520,7 @@ export function MemberDashboard() {
     setQrExpiresAt(null)
     setQrSecondsLeft(0)
     try {
-      let response
-      try {
-        response = await httpClient.get("/api/attendances/me/checkin-code")
-      } catch (err) {
-        if (err?.status === 404) {
-          response = await httpClient.get("/api/members/me/checkin-code")
-        } else {
-          throw err
-        }
-      }
+      const response = await httpClient.get("/api/attendances/me/checkin-code")
       if (qrRequestId.current !== requestId) return
       const payload =
         typeof response?.payload === "string" ? response.payload : ""
