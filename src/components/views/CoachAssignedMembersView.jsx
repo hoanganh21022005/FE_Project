@@ -147,6 +147,23 @@ function checkRegistrationEntitlement(item, currentUser) {
   return { canBook: true, reason: "" }
 }
 
+export function isRoomAvailable(room, isApi = true) {
+  if (!room || typeof room !== "object") return false
+  if (!isApi) {
+    const s = String(room.status || "").trim().toLowerCase()
+    return s !== "closed" && s !== "maintenance"
+  }
+  const s = String(room.status || "").trim().toLowerCase()
+  return s === "available"
+}
+
+export function formatRoomOptionLabel(room) {
+  if (!room || typeof room !== "object") return ""
+  const code = room.roomCode ? String(room.roomCode).trim() : ""
+  const name = room.name || `Sân #${room.id ?? ""}`
+  return code ? `${code} - ${name}` : name
+}
+
 export function verifySessionResponseMatch(resp, payload, regItem) {
   if (!resp || typeof resp !== "object") {
     return { valid: false, reason: "Phản hồi từ máy chủ không hợp lệ." }
@@ -277,7 +294,13 @@ export function CoachAssignedMembersView() {
   const [bookingReg, setBookingReg] = useState(null)
   const [bookingDate, setBookingDate] = useState(() => getVietnamDatePlusDays(2))
   const [selectedRoomId, setSelectedRoomId] = useState("")
-  const [roomsList, setRoomsList] = useState(() => (Array.isArray(contextRooms) ? contextRooms : []))
+  const [roomsList, setRoomsList] = useState(() => {
+    if (!Array.isArray(contextRooms)) return []
+    if (!apiEnabled) {
+      return contextRooms.filter((r) => isRoomAvailable(r, false))
+    }
+    return contextRooms.filter((r) => isPositiveInteger(r.id) && isRoomAvailable(r, true))
+  })
   const [loadingRooms, setLoadingRooms] = useState(false)
   const [roomsError, setRoomsError] = useState(null)
 
@@ -295,6 +318,8 @@ export function CoachAssignedMembersView() {
 
   // Persisted Attempts Map by Subscription ID: { [subscriptionId]: AttemptObject }
   const [attemptsBySubId, setAttemptsBySubId] = useState({})
+  const attemptsBySubIdRef = useRef(attemptsBySubId)
+  attemptsBySubIdRef.current = attemptsBySubId
   const [requestKey, setRequestKey] = useState(() => generateRequestKey())
   const [readbackError, setReadbackError] = useState(false)
 
@@ -317,7 +342,10 @@ export function CoachAssignedMembersView() {
   // Load rooms with validation & return valid list
   const loadRooms = useCallback(async () => {
     if (!apiEnabled) {
-      const mockRooms = Array.isArray(contextRooms) && contextRooms.length > 0 ? contextRooms : [{ id: 1, name: "Sân tập CLB #1" }]
+      const mockRooms =
+        Array.isArray(contextRooms) && contextRooms.length > 0
+          ? contextRooms.filter((r) => isRoomAvailable(r, false))
+          : [{ id: 1, name: "Sân tập CLB #1" }]
       setRoomsList(mockRooms)
       return mockRooms
     }
@@ -325,7 +353,9 @@ export function CoachAssignedMembersView() {
     setRoomsError(null)
     try {
       const list = await memberPortalApi.getRooms()
-      const valid = Array.isArray(list) ? list.filter((r) => isPositiveInteger(r.id)) : []
+      const valid = Array.isArray(list)
+        ? list.filter((r) => isPositiveInteger(r.id) && isRoomAvailable(r, true))
+        : []
       setRoomsList(valid)
       return valid
     } catch (err) {
@@ -572,10 +602,27 @@ export function CoachAssignedMembersView() {
       return
     }
 
-    if (valid.length > 0) {
+    // Bảo toàn giao dịch đang đối soát:
+    // Đọc attempt mới nhất từ attemptsBySubIdRef để tránh stale closure sau await loadRooms
+    const latestAttempt = targetSubId ? attemptsBySubIdRef.current[targetSubId] : null
+    const isLockedAttempt =
+      latestAttempt &&
+      (latestAttempt.status === "uncertain" || latestAttempt.status === "pending")
+    if (isLockedAttempt) {
+      return
+    }
+
+    const stillAvailable = valid.some((r) => String(r.id) === String(selectedRoomId))
+    if (stillAvailable && selectedRoomId) {
+      fetchAvailableSlots(targetDate, selectedRoomId, targetReg)
+    } else if (valid.length > 0) {
       const firstRoomId = String(valid[0].id)
       setSelectedRoomId(firstRoomId)
       fetchAvailableSlots(targetDate, firstRoomId, targetReg)
+    } else {
+      setSelectedRoomId("")
+      setAvailableSlots([])
+      setSelectedSlot(null)
     }
   }
 
@@ -678,11 +725,11 @@ export function CoachAssignedMembersView() {
         showToast?.("Vui lòng chọn phòng / sân tập hợp lệ.", "warning")
         return
       }
-      const isRoomInList = roomsList.some(
+      const selectedRoom = roomsList.find(
         (r) => isPositiveInteger(r.id) && Number(r.id) === Number(selectedRoomId),
       )
-      if (!isRoomInList) {
-        showToast?.("Phòng tập đã chọn không tồn tại trong danh sách phòng hiện hành.", "error")
+      if (!selectedRoom || !isRoomAvailable(selectedRoom, true)) {
+        showToast?.("Phòng tập đã chọn không tồn tại hoặc không khả dụng (chỉ chấp nhận phòng Available).", "error")
         return
       }
 
@@ -1602,15 +1649,38 @@ export function CoachAssignedMembersView() {
                       onChange={(e) => handleRoomChange(e.target.value)}
                       className="w-full border border-slate-300 rounded px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
                     >
-                      {roomsList.length === 0 ? (
-                        <option value="">Không có sân tập khả dụng</option>
-                      ) : (
-                        roomsList.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name || `Sân #${r.id}`}
-                          </option>
-                        ))
-                      )}
+                      {(() => {
+                        const isLocked =
+                          currentAttempt?.status === "uncertain" ||
+                          currentAttempt?.status === "pending"
+                        const hasMatchInAvailable = roomsList.some(
+                          (r) => String(r.id) === String(selectedRoomId),
+                        )
+
+                        const orphanSnapshotOption =
+                          isLocked && selectedRoomId && !hasMatchInAvailable ? (
+                            <option key={`locked-${selectedRoomId}`} value={selectedRoomId} disabled>
+                              {currentAttempt.snapshot?.roomName
+                                ? `${currentAttempt.snapshot.roomName} (Đã gửi trong giao dịch)`
+                                : `Sân #${selectedRoomId} (Đã gửi trong giao dịch)`}
+                            </option>
+                          ) : null
+
+                        if (roomsList.length === 0 && !orphanSnapshotOption) {
+                          return <option value="">Không có sân tập khả dụng</option>
+                        }
+
+                        return (
+                          <>
+                            {orphanSnapshotOption}
+                            {roomsList.map((r) => (
+                              <option key={r.id} value={r.id}>
+                                {formatRoomOptionLabel(r)}
+                              </option>
+                            ))}
+                          </>
+                        )
+                      })()}
                     </select>
                   )}
                 </div>
