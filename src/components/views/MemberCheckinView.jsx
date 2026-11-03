@@ -4,16 +4,18 @@ import {
   AlertCircle,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   ClipboardCheck,
   ClipboardList,
+  Copy,
   Info,
+  Lock,
   QrCode,
   RefreshCw,
   Search,
-  ShieldCheck,
-  Trash2,
   X,
 } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
@@ -23,146 +25,253 @@ import {
   getMemberCheckinCode,
   getMemberAttendances,
   getMemberClasses,
+  getClassSessions,
 } from "../../api/memberPortalApi"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
+import {
+  CHECKIN_WINDOW_MINUTES_BEFORE,
+  DEFAULT_NORMAL_REQUIRED_SESSIONS,
+  normalizeScheduleSession,
+  toDateDdMmYyyy,
+  formatLocalTime,
+  getTodayIsoInVn,
+} from "../../utils/memberScheduleUtils"
 
-const getSessions = (enrollment) => {
-  const sessions =
-    enrollment.sessions ||
-    enrollment.classSessions ||
-    enrollment.scheduledSessions
-  return Array.isArray(sessions) ? sessions : []
-}
+// ============================================================================
+// HẰNG SỐ CẤU HÌNH NGHIỆP VỤ
+// ============================================================================
+// [Cần xác nhận #1] Tab "Sắp tới" hiển thị các buổi hợp lệ từ ngày mai trở đi trong vòng 14 ngày
+export const UPCOMING_SCHEDULE_LOOKAHEAD_DAYS = 14
 
-const toTimestamp = (session) => {
-  const date = session.sessionDate || session.date
-  if (!date) return Number.POSITIVE_INFINITY
-  const time = String(session.startTime || "00:00").slice(0, 5)
-  const value = new Date(
-    `${String(date).slice(0, 10)}T${time}:00+07:00`,
-  ).getTime()
-  return Number.isFinite(value) ? value : Number.POSITIVE_INFINITY
-}
+// [Cần xác nhận #2] Khung điểm danh: từ 30 phút trước giờ bắt đầu đến hết giờ kết thúc (đồng bộ với MemberScheduleView)
+export const CHECKIN_OPEN_MINUTES_BEFORE = CHECKIN_WINDOW_MINUTES_BEFORE || 30
 
-const getSessionEndTimestamp = (session) => {
-  const date = session.sessionDate || session.date
-  if (!date) return toTimestamp(session)
-  const time = String(session.endTime || session.startTime || "23:59").slice(
-    0,
-    5,
-  )
-  const value = new Date(
-    `${String(date).slice(0, 10)}T${time}:00+07:00`,
-  ).getTime()
-  return Number.isFinite(value) ? value : toTimestamp(session)
-}
+// [Cần xác nhận #7] Số bản ghi lịch sử điểm danh mỗi trang trước khi bấm "Tải thêm"
+export const HISTORY_PAGE_SIZE = 10
 
-const isSessionCheckinOpen = (session, now) => {
-  return (
-    now >= toTimestamp(session) - 30 * 60 * 1000 &&
-    now <= getSessionEndTimestamp(session)
-  )
-}
+// Số ngày quá khứ tối đa để chọn buổi học trong ngăn "Báo thiếu buổi tập" (Mục 4.5.3)
+export const DISPUTE_PAST_SESSIONS_DAYS = 30
 
-const getTodayInVietnam = () => {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
+// Ngưỡng làm mới mã QR sớm trước khi hết hạn để tránh nhấp nháy (Mục 4.2.5)
+const QR_PRE_EXPIRY_REFRESH_SECONDS = 3
+
+// Thời hạn mặc định hiển thị trong hướng dẫn ngắn nếu chưa lấy từ phản hồi (Mục 4.2.2)
+const DEFAULT_QR_TTL_SECONDS = 15
+
+const VN_TIMEZONE = "Asia/Ho_Chi_Minh"
+
+const TIME_FORMATTER_HHMM = new Intl.DateTimeFormat("en-GB", {
+  timeZone: VN_TIMEZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+})
+
+const TIME_FORMATTER_HHMMSS = new Intl.DateTimeFormat("en-GB", {
+  timeZone: VN_TIMEZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+})
+
+const isLegacyStrengthClass = (enrollment) =>
+  String(enrollment?.className || "")
+    .trim()
+    .toLocaleLowerCase("vi") === "gym suc manh"
+
+const addDaysToIsoDate = (isoDate, days) => {
+  if (!isoDate) return ""
+  const base = new Date(`${String(isoDate).slice(0, 10)}T12:00:00+07:00`)
+  if (Number.isNaN(base.getTime())) return isoDate
+  base.setUTCDate(base.getUTCDate() + days)
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: VN_TIMEZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).formatToParts(new Date())
-  const values = Object.fromEntries(
-    parts.map((part) => [part.type, part.value]),
-  )
-  return `${values.year}-${values.month}-${values.day}`
+  }).format(base)
 }
 
-const attendanceStateLabel = (state, isVi) => {
-  const value = String(state || "").toUpperCase()
+const isSessionCancelled = (session) => {
+  const raw = String(session?.rawStatus || session?.status || "")
+    .trim()
+    .toLowerCase()
+  return (
+    raw === "cancelled" ||
+    raw === "canceled" ||
+    session?.centerInvalidated === true
+  )
+}
+
+const isSessionInCheckinWindow = (session, nowMs) => {
+  if (!session || isSessionCancelled(session)) return false
+  if (session.startMs === null || session.endMs === null) return false
+  const openMs = session.startMs - CHECKIN_OPEN_MINUTES_BEFORE * 60 * 1000
+  return nowMs >= openMs && nowMs <= session.endMs
+}
+
+// Chuẩn hóa mã trạng thái điểm danh từ API (Mục 3.4)
+export const normalizeAttendanceStateKey = (rawState) => {
+  const upper = String(rawState || "")
+    .trim()
+    .toUpperCase()
+  if (upper.includes("LATE")) return "late"
   if (
-    value.includes("PRESENT") ||
-    value.includes("ATTENDED") ||
-    value === "CHECKED_IN"
+    upper.includes("PRESENT") ||
+    upper.includes("ATTENDED") ||
+    upper === "CHECKED_IN"
+  ) {
+    return "present"
+  }
+  if (
+    upper.includes("EXCUSED") ||
+    upper.includes("WAIVED") ||
+    upper.includes("PERMITTED")
+  ) {
+    return "excused"
+  }
+  if (upper.includes("ABSENT") || upper.includes("NO_SHOW")) {
+    return "absent"
+  }
+  return "pending"
+}
+
+export const getAttendanceBadgeMeta = (stateKey, t) => {
+  switch (stateKey) {
+    case "present":
+      return {
+        icon: "✓",
+        label: t("checkinStatusPresent"),
+        className: "bg-emerald-50 text-emerald-800 border-emerald-200",
+      }
+    case "late":
+      return {
+        icon: "◑",
+        label: t("checkinStatusLate"),
+        className: "bg-amber-50 text-amber-900 border-amber-200",
+      }
+    case "excused":
+      return {
+        icon: "◈",
+        label: t("checkinStatusExcused"),
+        className: "bg-blue-50 text-blue-800 border-blue-200",
+      }
+    case "absent":
+      return {
+        icon: "✕",
+        label: t("checkinStatusAbsent"),
+        className: "bg-rose-50 text-rose-800 border-rose-200",
+      }
+    case "pending":
+    default:
+      return {
+        icon: "○",
+        label: t("checkinStatusPending"),
+        className: "bg-slate-100 text-slate-700 border-slate-300",
+      }
+  }
+}
+
+const findSessionAttendanceRecord = (session, records = []) => {
+  if (!session || !Array.isArray(records)) return null
+  const sessionId = session.id ?? session.sessionId
+  return (
+    records.find((record) => {
+      const sameSession =
+        sessionId != null &&
+        record.sessionId != null &&
+        String(record.sessionId) === String(sessionId)
+      const sameClassDate =
+        session.classId != null &&
+        record.classId != null &&
+        String(record.classId) === String(session.classId) &&
+        String(record.sessionDate || "").slice(0, 10) ===
+          String(session.sessionDate || "").slice(0, 10)
+      return sameSession || sameClassDate
+    }) || null
   )
-    return isVi ? "Có mặt" : "Present"
-  if (value.includes("ABSENT") || value.includes("NO_SHOW"))
-    return isVi ? "Vắng mặt" : "Absent"
-  if (value.includes("LATE")) return isVi ? "Đi trễ" : "Late"
-  if (value.includes("EXCUSED")) return isVi ? "Có phép" : "Excused"
-  return state || (isVi ? "Chưa cập nhật" : "Not updated")
 }
 
-const getSessionAttendance = (session, records) =>
-  records.find((record) => {
-    const sessionId = session.sessionId || session.id
-    const sameSession =
-      sessionId &&
-      record.sessionId &&
-      String(record.sessionId) === String(sessionId)
-    const sameClassDate =
-      session.classId &&
-      record.classId &&
-      String(record.classId) === String(session.classId) &&
-      String(record.sessionDate || "").slice(0, 10) ===
-        String(session.sessionDate || session.date || "").slice(0, 10)
-    return sameSession || sameClassDate
-  })
-
-const getScheduleStatus = (session, record, now, isVi) => {
-  if (record) return attendanceStateLabel(record.state, isVi)
-  const start = toTimestamp(session)
-  const end = getSessionEndTimestamp(session)
-  if (now > end) return isVi ? "Chưa có ghi nhận" : "No record yet"
-  if (now >= start - 30 * 60 * 1000 && now <= end)
-    return isVi ? "Trong khung điểm danh" : "Check-in window"
-  return isVi ? "Sắp diễn ra" : "Upcoming"
+const extractTimeFromIso = (value) => {
+  if (!value) return null
+  const str = String(value).trim()
+  if (/^\d{2}:\d{2}/.test(str)) return str.slice(0, 5)
+  const parsed = new Date(str)
+  if (Number.isNaN(parsed.getTime())) return null
+  return TIME_FORMATTER_HHMM.format(parsed)
 }
 
-const formatSessionDate = (session, isVi) => {
-  const date = session.sessionDate || session.date
-  if (!date) return isVi ? "Chưa có ngày học" : "Date not set"
-  const parsed = new Date(`${String(date).slice(0, 10)}T00:00:00+07:00`)
-  return new Intl.DateTimeFormat(isVi ? "vi-VN" : "en-US", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(parsed)
-}
+// Họa tiết ô vuông cố định giả lập QR (không có finder pattern / dữ liệu QR hợp lệ, không thể giải mã khi quét)
+const FAKE_QR_GRID_ROWS = [
+  "10110101011",
+  "01101011010",
+  "11010010101",
+  "10101101011",
+  "01010001010",
+  "11000000011",
+  "01010001010",
+  "10110101101",
+  "11001010011",
+  "01101101100",
+  "10110010111",
+]
 
-const formatAttendanceDate = (value, isVi) => {
-  if (!value) return "—"
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return String(value)
-  return new Intl.DateTimeFormat(isVi ? "vi-VN" : "en-US", {
-    dateStyle: "medium",
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(parsed)
-}
+function LockedQrPlaceholderPattern({ size = 148 }) {
+  const gridSize = FAKE_QR_GRID_ROWS.length
+  const cellSize = 10
+  const gap = 2
+  const viewBoxSize = gridSize * cellSize + (gridSize - 1) * gap
 
-const formatTime = (value) => (value ? String(value).slice(0, 5) : "—")
-
-const formatDateInput = (value) => {
-  if (!value) return ""
-  const [year, month, day] = String(value).slice(0, 10).split("-")
-  return year && month && day ? `${day}/${month}/${year}` : ""
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      {FAKE_QR_GRID_ROWS.map((rowStr, rIdx) =>
+        rowStr.split("").map((bit, cIdx) => {
+          if (bit !== "1") return null
+          const x = cIdx * (cellSize + gap)
+          const y = rIdx * (cellSize + gap)
+          return (
+            <rect
+              key={`${rIdx}-${cIdx}`}
+              x={x}
+              y={y}
+              width={cellSize}
+              height={cellSize}
+              rx={2.5}
+              className="fill-slate-800"
+            />
+          )
+        }),
+      )}
+    </svg>
+  )
 }
 
 function LocalDatePicker({ value, onChange, isVi, label, min, max, error }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
-  const selected = value ? new Date(`${value}T12:00:00`) : new Date()
+  const selected = value ? new Date(`${value}T12:00:00+07:00`) : new Date()
   const [view, setView] = useState(() => ({
     year: selected.getFullYear(),
     month: selected.getMonth(),
   }))
+
   useEffect(() => {
     if (value) {
-      const date = new Date(`${value}T12:00:00`)
-      if (!Number.isNaN(date.getTime()))
+      const date = new Date(`${value}T12:00:00+07:00`)
+      if (!Number.isNaN(date.getTime())) {
         setView({ year: date.getFullYear(), month: date.getMonth() })
+      }
     }
   }, [value])
+
   useEffect(() => {
     if (!open) return undefined
     const onPointerDown = (event) => {
@@ -171,6 +280,7 @@ function LocalDatePicker({ value, onChange, isVi, label, min, max, error }) {
     document.addEventListener("mousedown", onPointerDown)
     return () => document.removeEventListener("mousedown", onPointerDown)
   }, [open])
+
   const firstDay = new Date(view.year, view.month, 1).getDay()
   const offset = (firstDay + 6) % 7
   const days = new Date(view.year, view.month + 1, 0).getDate()
@@ -183,6 +293,7 @@ function LocalDatePicker({ value, onChange, isVi, label, min, max, error }) {
   const weekdayNames = isVi
     ? ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
     : ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+
   return (
     <div className="relative" ref={rootRef}>
       <button
@@ -191,14 +302,14 @@ function LocalDatePicker({ value, onChange, isVi, label, min, max, error }) {
         aria-expanded={open}
         aria-invalid={Boolean(error)}
         onClick={() => setOpen((state) => !state)}
-        className={`mt-1.5 inline-flex min-h-10 w-full items-center justify-between rounded-lg border bg-white px-3 py-2.5 text-left text-sm font-normal ${
-          error ? "border-red-400" : "border-slate-200"
+        className={`mt-1 inline-flex min-h-[40px] w-full items-center justify-between rounded-lg border bg-white px-3 py-2 text-left text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer ${
+          error ? "border-rose-400" : "border-slate-200 hover:border-slate-300"
         }`}
       >
         <span className={value ? "text-slate-900" : "text-slate-400"}>
-          {formatDateInput(value) || (isVi ? "dd/MM/yyyy" : "DD/MM/YYYY")}
+          {toDateDdMmYyyy(value) || "dd/MM/yyyy"}
         </span>
-        <CalendarDays className="h-4 w-4 text-slate-500" />
+        <CalendarDays className="h-4 w-4 text-slate-500 shrink-0" />
       </button>
       {open && (
         <div className="absolute left-0 top-full z-50 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
@@ -213,11 +324,11 @@ function LocalDatePicker({ value, onChange, isVi, label, min, max, error }) {
                     : { ...current, month: current.month - 1 },
                 )
               }
-              className="rounded-md p-1.5 hover:bg-slate-100"
+              className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-md p-1.5 hover:bg-slate-100 cursor-pointer"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="text-sm font-bold capitalize text-slate-800">
+            <span className="text-xs font-bold capitalize text-slate-800">
               {monthName}
             </span>
             <button
@@ -230,7 +341,7 @@ function LocalDatePicker({ value, onChange, isVi, label, min, max, error }) {
                     : { ...current, month: current.month + 1 },
                 )
               }
-              className="rounded-md p-1.5 hover:bg-slate-100"
+              className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-md p-1.5 hover:bg-slate-100 cursor-pointer"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -259,7 +370,7 @@ function LocalDatePicker({ value, onChange, isVi, label, min, max, error }) {
                     onChange(date)
                     setOpen(false)
                   }}
-                  className={`mx-auto grid h-8 w-8 place-items-center rounded-full text-xs ${
+                  className={`mx-auto grid h-8 w-8 place-items-center rounded-full text-xs cursor-pointer ${
                     value === date
                       ? "bg-brand-primary font-bold text-white"
                       : "text-slate-700 hover:bg-brand-accent-soft"
@@ -277,7 +388,7 @@ function LocalDatePicker({ value, onChange, isVi, label, min, max, error }) {
 }
 
 const logAttendanceError = (endpoint, error) => {
-  console.error("[member-attendance] API request failed", {
+  console.error("[member-attendance] Request failed", {
     endpoint,
     status: error?.status ?? 0,
     requestId: error?.requestId || error?.details?.requestId || null,
@@ -286,54 +397,76 @@ const logAttendanceError = (endpoint, error) => {
 }
 
 export function MemberCheckinView() {
-  const { currentUser, language, apiEnabled } = useSCMS()
+  const { currentUser, language, apiEnabled, t, showToast } = useSCMS()
   const isVi = language === "vi"
+
+  const tr = useCallback(
+    (key, params = {}) => {
+      let text = t(key)
+      for (const [k, v] of Object.entries(params)) {
+        text = text.replaceAll(`{${k}}`, String(v ?? ""))
+      }
+      return text
+    },
+    [t],
+  )
+
   const resolvedProfileId =
     getAuthoritativeProfileId(currentUser) ??
     currentUser?.memberId ??
     currentUser?.id
   const memberId = Number(resolvedProfileId)
   const validMember = Number.isInteger(memberId) && memberId > 0
+
+  // Trạng thái mã QR
   const [code, setCode] = useState(null)
   const [secondsLeft, setSecondsLeft] = useState(0)
-  const [codeDuration, setCodeDuration] = useState(30)
+  const [codeDuration, setCodeDuration] = useState(DEFAULT_QR_TTL_SECONDS)
   const [codeExpiresAt, setCodeExpiresAt] = useState(0)
   const [codeUpdatedAt, setCodeUpdatedAt] = useState(null)
+  const [refreshingCode, setRefreshingCode] = useState(false)
+  const [codeError, setCodeError] = useState("")
+
+  // Đồng hồ thời gian thực cho tính toán khung điểm danh
   const [clockNow, setClockNow] = useState(() => Date.now())
-  const [sessions, setSessions] = useState([])
-  const [allSessions, setAllSessions] = useState([])
-  const [classOptions, setClassOptions] = useState([])
+
+  // Dữ liệu khóa học, buổi học, lịch sử điểm danh
+  const [activeEnrollmentsCount, setActiveEnrollmentsCount] = useState(0)
+  const [allNormalizedSessions, setAllNormalizedSessions] = useState([])
   const [attendanceRows, setAttendanceRows] = useState([])
   const [scheduleLoading, setScheduleLoading] = useState(true)
   const [historyLoading, setHistoryLoading] = useState(true)
-  const [refreshingCode, setRefreshingCode] = useState(false)
   const [scheduleError, setScheduleError] = useState("")
   const [historyError, setHistoryError] = useState("")
   const [scheduleFailed, setScheduleFailed] = useState(false)
-  const [scheduleErrorDismissed, setScheduleErrorDismissed] = useState(false)
   const [historyFailed, setHistoryFailed] = useState(false)
-  const [historyErrorDismissed, setHistoryErrorDismissed] = useState(false)
-  const [codeError, setCodeError] = useState("")
-  const [codeErrorDismissed, setCodeErrorDismissed] = useState(false)
-  const [codeStale, setCodeStale] = useState(false)
+
+  // Tab Lịch trình & Bộ lọc Lịch sử
+  const [scheduleTab, setScheduleTab] = useState("today")
   const [historySearch, setHistorySearch] = useState("")
   const [historyStatus, setHistoryStatus] = useState("all")
   const [historyDateFrom, setHistoryDateFrom] = useState("")
   const [historyDateTo, setHistoryDateTo] = useState("")
-  const [reviewDrafts, setReviewDrafts] = useState([])
-  const [reviewClassName, setReviewClassName] = useState("")
-  const [reviewDate, setReviewDate] = useState("")
-  const [reviewTime, setReviewTime] = useState("")
-  const [reviewDetails, setReviewDetails] = useState("")
-  const [reviewNotice, setReviewNotice] = useState("")
-  const [reviewStorageError, setReviewStorageError] = useState("")
-  const [reviewErrors, setReviewErrors] = useState({})
-  const [editingDraftId, setEditingDraftId] = useState(null)
-  const [scheduleTab, setScheduleTab] = useState("today")
-  const [showHelpModal, setShowHelpModal] = useState(false)
-  const [showDisputeDrawer, setShowDisputeDrawer] = useState(false)
+  const [visibleHistoryCount, setVisibleHistoryCount] =
+    useState(HISTORY_PAGE_SIZE)
+
+  // Hộp trợ giúp (Popover "Gặp sự cố?"), Phóng to QR, Hướng dẫn 3 bước và Ngăn "Báo thiếu buổi tập"
+  const [showHelpPopover, setShowHelpPopover] = useState(false)
   const [showQrSpotlight, setShowQrSpotlight] = useState(false)
+  const [showHowToSteps, setShowHowToSteps] = useState(() =>
+    typeof window === "undefined" ? true : window.innerWidth >= 640,
+  )
+  const [showDisputeDrawer, setShowDisputeDrawer] = useState(false)
+  const [selectedDisputeSessionKey, setSelectedDisputeSessionKey] = useState("")
+  const [disputeNote, setDisputeNote] = useState("")
+  const [copiedBanner, setCopiedBanner] = useState(false)
+
+  // Refs quản lý focus & lifecycle
   const historySearchRef = useRef(null)
+  const helpPopoverRef = useRef(null)
+  const disputeDrawerRef = useRef(null)
+  const disputeSelectRef = useRef(null)
+  const lastDisputeTriggerRef = useRef(null)
   const mountedRef = useRef(true)
   const visibleRef = useRef(
     typeof document === "undefined" || document.visibilityState === "visible",
@@ -342,46 +475,348 @@ export function MemberCheckinView() {
   const retryTimerRef = useRef(null)
   const retryResolveRef = useRef(null)
 
-  const openReviewForRow = (row) => {
-    setReviewClassName(row.className || "")
-    setReviewDate(String(row.sessionDate || row.checkInTime || "").slice(0, 10))
-    setReviewTime(
-      String(
-        row.startTime || row.sessionTime || row.classStartTime || "",
-      ).slice(0, 5),
-    )
-    setReviewDetails("")
-    setReviewNotice("")
-    setShowDisputeDrawer(true)
-  }
-
-  const reloadAll = () => {
-    refreshPage()
-    refreshCode()
-  }
-
-  const refreshCode = useCallback(async () => {
-    if (!visibleRef.current || refreshingCodeRef.current) return
-    if (!apiEnabled) {
-      const demoNow = Date.now()
-      const demoExpiry = demoNow + 60 * 1000
-      const demoToken = String((Math.floor(demoNow / 1000) % 900000) + 100000)
-      setCode(demoToken)
-      setCodeStale(false)
-      setCodeDuration(60)
-      setCodeExpiresAt(demoExpiry)
-      setCodeUpdatedAt(new Date(demoNow))
-      setSecondsLeft(60)
+  // Tải danh sách khóa học & toàn bộ buổi học (đồng bộ nguồn dữ liệu và quy tắc buổi hợp lệ với MemberScheduleView)
+  const refreshSchedule = useCallback(async () => {
+    if (!apiEnabled || !validMember) {
+      setScheduleLoading(false)
+      setScheduleError("")
+      setScheduleFailed(false)
+      setActiveEnrollmentsCount(0)
+      setAllNormalizedSessions([])
       return
     }
-    if (!validMember) return
+    setScheduleLoading(true)
+    setScheduleError("")
+    setScheduleFailed(false)
+    try {
+      const [enrollments, globalSessions] = await Promise.all([
+        getMemberClasses(memberId),
+        getClassSessions().catch(() => []),
+      ])
+      const globalSessionList = Array.isArray(globalSessions)
+        ? globalSessions
+        : []
+      const activeEnrollments = (
+        Array.isArray(enrollments) ? enrollments : []
+      ).filter(
+        (row) =>
+          !["cancelled", "canceled", "dropped", "rejected"].includes(
+            String(row.status || "").toLowerCase(),
+          ) && !isLegacyStrengthClass(row),
+      )
+
+      // Chuẩn hóa buổi học từ từng khóa học (hoặc fallback từ getClassSessions giống trang Lịch học)
+      const collected = []
+      for (const row of activeEnrollments) {
+        const inline =
+          row.sessions || row.classSessions || row.scheduledSessions
+        const rawList =
+          Array.isArray(inline) && inline.length > 0
+            ? inline
+            : row.classId
+              ? globalSessionList.filter(
+                  (s) =>
+                    String(s.classId) === String(row.classId) &&
+                    s.isPrivate !== true,
+                )
+              : []
+        const normalizedList = rawList
+          .map((s) => normalizeScheduleSession(s, row))
+          .filter(Boolean)
+          .sort((a, b) => {
+            const dateCmp = String(a.sessionDate || "").localeCompare(
+              String(b.sessionDate || ""),
+            )
+            if (dateCmp !== 0) return dateCmp
+            return String(a.startTime || "").localeCompare(
+              String(b.startTime || ""),
+            )
+          })
+
+        const requiredSessions =
+          Number(row.totalSessions || row.requiredSessions) > 0
+            ? Number(row.totalSessions || row.requiredSessions)
+            : DEFAULT_NORMAL_REQUIRED_SESSIONS
+
+        // Liên kết thông tin buổi bù giống trang Lịch học
+        const byId = new Map(normalizedList.map((s) => [Number(s.id), s]))
+        const linkedCancelledIds = new Set()
+        for (const s of normalizedList) {
+          if (
+            !isSessionCancelled(s) &&
+            s.makeupForSessionId &&
+            byId.has(Number(s.makeupForSessionId))
+          ) {
+            const target = byId.get(Number(s.makeupForSessionId))
+            s.isMakeup = true
+            s.makeupTargetDate = toDateDdMmYyyy(target.sessionDate)
+            target.replacedByDate = toDateDdMmYyyy(s.sessionDate)
+            linkedCancelledIds.add(Number(target.id))
+          }
+        }
+
+        const cancelledInCourse = normalizedList.filter((s) =>
+          isSessionCancelled(s),
+        )
+        const validInCourse = normalizedList.filter(
+          (s) => !isSessionCancelled(s),
+        )
+        const unlinkedCancelled = cancelledInCourse.filter(
+          (c) => !linkedCancelledIds.has(Number(c.id)) && !c.replacedByDate,
+        )
+        if (
+          unlinkedCancelled.length > 0 &&
+          normalizedList.length > requiredSessions &&
+          validInCourse.length > requiredSessions - cancelledInCourse.length
+        ) {
+          const candidateMakeups = validInCourse
+            .filter((s) => !s.isMakeup)
+            .slice(-unlinkedCancelled.length)
+          unlinkedCancelled.forEach((cancelledItem, idx) => {
+            const makeupItem = candidateMakeups[idx]
+            if (
+              makeupItem &&
+              makeupItem.sessionDate > cancelledItem.sessionDate
+            ) {
+              makeupItem.isMakeup = true
+              makeupItem.makeupTargetDate = toDateDdMmYyyy(
+                cancelledItem.sessionDate,
+              )
+              cancelledItem.replacedByDate = toDateDdMmYyyy(
+                makeupItem.sessionDate,
+              )
+            }
+          })
+        }
+
+        collected.push(...normalizedList)
+      }
+
+      // Thêm cả các buổi PT 1:1 của hội viên nếu có
+      const privateList = globalSessionList
+        .filter(
+          (s) =>
+            s.isPrivate === true &&
+            String(s.bookedMemberId) === String(memberId),
+        )
+        .map((s) => normalizeScheduleSession(s))
+        .filter(Boolean)
+
+      const merged = [...collected, ...privateList].sort((a, b) => {
+        const dateCmp = String(a.sessionDate || "").localeCompare(
+          String(b.sessionDate || ""),
+        )
+        if (dateCmp !== 0) return dateCmp
+        return String(a.startTime || "").localeCompare(String(b.startTime || ""))
+      })
+
+      if (mountedRef.current) {
+        setActiveEnrollmentsCount(activeEnrollments.length)
+        setAllNormalizedSessions(merged)
+      }
+    } catch (err) {
+      logAttendanceError(`/api/members/${memberId}/enrollments`, err)
+      if (mountedRef.current) {
+        setScheduleError(t("checkinScheduleLoadError"))
+        setScheduleFailed(true)
+      }
+    } finally {
+      if (mountedRef.current) setScheduleLoading(false)
+    }
+  }, [apiEnabled, memberId, validMember, t])
+
+  const refreshHistory = useCallback(async () => {
+    if (!apiEnabled || !validMember) {
+      setHistoryLoading(false)
+      setHistoryError("")
+      setHistoryFailed(false)
+      setAttendanceRows([])
+      return
+    }
+    setHistoryLoading(true)
+    setHistoryError("")
+    setHistoryFailed(false)
+    try {
+      const records = await getMemberAttendances(memberId)
+      if (mountedRef.current) {
+        setAttendanceRows(
+          (Array.isArray(records) ? records : []).slice().sort((a, b) => {
+            const dateA = String(a.sessionDate || a.checkInTime || "")
+            const dateB = String(b.sessionDate || b.checkInTime || "")
+            return dateB.localeCompare(dateA)
+          }),
+        )
+      }
+    } catch (err) {
+      logAttendanceError(`/api/attendances?memberId=${memberId}`, err)
+      if (mountedRef.current) {
+        setHistoryError(t("checkinHistoryLoadError"))
+        setHistoryFailed(true)
+      }
+    } finally {
+      if (mountedRef.current) setHistoryLoading(false)
+    }
+  }, [apiEnabled, memberId, validMember, t])
+
+  const refreshPage = useCallback(
+    () => Promise.all([refreshSchedule(), refreshHistory()]),
+    [refreshSchedule, refreshHistory],
+  )
+
+  // Tính toán các nhóm buổi học theo múi giờ Asia/Ho_Chi_Minh
+  const todayIso = getTodayIsoInVn(clockNow)
+  const maxUpcomingIso = useMemo(
+    () => addDaysToIsoDate(todayIso, UPCOMING_SCHEDULE_LOOKAHEAD_DAYS),
+    [todayIso],
+  )
+  const minDisputeIso = useMemo(
+    () => addDaysToIsoDate(todayIso, -DISPUTE_PAST_SESSIONS_DAYS),
+    [todayIso],
+  )
+
+  // Map tra cứu nhanh thông tin buổi học (giờ, sân) cho bảng Lịch sử điểm danh
+  const sessionLookupMap = useMemo(() => {
+    const byId = new Map()
+    const byClassAndDate = new Map()
+    for (const s of allNormalizedSessions) {
+      if (s.id != null) byId.set(String(s.id), s)
+      if (s.classId != null && s.sessionDate) {
+        byClassAndDate.set(`${s.classId}:${s.sessionDate}`, s)
+      }
+    }
+    return { byId, byClassAndDate }
+  }, [allNormalizedSessions])
+
+  // Tất cả buổi học hôm nay
+  const todayAllSessions = useMemo(
+    () => allNormalizedSessions.filter((s) => s.sessionDate === todayIso),
+    [allNormalizedSessions, todayIso],
+  )
+
+  // Buổi hợp lệ hôm nay (không tính buổi hủy; buổi bù tính như buổi thường)
+  const todayValidSessions = useMemo(
+    () => todayAllSessions.filter((s) => !isSessionCancelled(s)),
+    [todayAllSessions],
+  )
+
+  // Buổi hợp lệ sắp tới: từ ngày mai trở đi, trong vòng 14 ngày, không tính buổi hủy
+  const upcomingValidSessions = useMemo(
+    () =>
+      allNormalizedSessions.filter(
+        (s) =>
+          !isSessionCancelled(s) &&
+          s.sessionDate > todayIso &&
+          s.sessionDate <= maxUpcomingIso,
+      ),
+    [allNormalizedSessions, todayIso, maxUpcomingIso],
+  )
+
+  // Buổi hợp lệ tiếp theo gần nhất (cho card Lịch trình học tập khi hôm nay không có buổi)
+  const nextFutureValidSession = useMemo(
+    () =>
+      allNormalizedSessions.find(
+        (s) =>
+          !isSessionCancelled(s) &&
+          (s.sessionDate > todayIso ||
+            (s.sessionDate === todayIso &&
+              s.endMs !== null &&
+              s.endMs >= clockNow)),
+      ) || null,
+    [allNormalizedSessions, todayIso, clockNow],
+  )
+
+  // Xác định trạng thái Card QR:
+  // - Khi CÓ buổi trong khung điểm danh [start - 30p, end]: "active" (hoặc "checked_in" nếu buổi đang mở đã điểm danh).
+  // - Khi KHÔNG có buổi trong khung điểm danh: "locked" (hiển thị QR mờ + icon khóa + giờ mở + đếm ngược tới buổi hợp lệ kế tiếp).
+  const qrContext = useMemo(() => {
+    const openSessions = todayValidSessions
+      .filter((s) => isSessionInCheckinWindow(s, clockNow))
+      .sort((a, b) => (a.startMs || 0) - (b.startMs || 0))
+
+    // 1. Có buổi trong khung chưa điểm danh -> trạng thái Đang hoạt động
+    const activeUnchecked = openSessions.find((s) => {
+      const rec = findSessionAttendanceRecord(s, attendanceRows)
+      const stateKey = rec ? normalizeAttendanceStateKey(rec.state) : null
+      return stateKey !== "present" && stateKey !== "late"
+    })
+
+    if (activeUnchecked) {
+      return {
+        mode: "active",
+        session: activeUnchecked,
+        record: null,
+        openMs: null,
+      }
+    }
+
+    // 2. Buổi đang trong khung điểm danh hôm nay đã được ghi nhận có mặt
+    if (openSessions.length > 0) {
+      const checkedSession = openSessions[0]
+      const rec = findSessionAttendanceRecord(checkedSession, attendanceRows)
+      return {
+        mode: "checked_in",
+        session: checkedSession,
+        record: rec,
+        openMs: null,
+      }
+    }
+
+    // 3. Không có buổi nào đang trong khung điểm danh -> trạng thái Khóa ("locked")
+    // Tìm buổi hợp lệ kế tiếp có mốc mở QR (30 phút trước giờ bắt đầu) ở tương lai
+    const nextLockedSession =
+      allNormalizedSessions.find(
+        (s) =>
+          !isSessionCancelled(s) &&
+          s.startMs !== null &&
+          clockNow < s.startMs - CHECKIN_OPEN_MINUTES_BEFORE * 60 * 1000,
+      ) || null
+
+    if (nextLockedSession && nextLockedSession.startMs !== null) {
+      const openMs =
+        nextLockedSession.startMs - CHECKIN_OPEN_MINUTES_BEFORE * 60 * 1000
+      const openDateObj = new Date(openMs)
+      const openTimeFormatted = TIME_FORMATTER_HHMM.format(openDateObj)
+      const openDateFormatted = toDateDdMmYyyy(openDateObj.toISOString())
+      const diffMs = Math.max(0, openMs - clockNow)
+      const totalMinutes = Math.max(1, Math.ceil(diffMs / (60 * 1000)))
+      const totalHours = Math.floor(totalMinutes / 60)
+      const days = Math.floor(totalHours / 24)
+      const hours = totalHours % 24
+      const minutes = totalMinutes % 60
+
+      return {
+        mode: "locked",
+        session: null,
+        nextLockedSession,
+        openMs,
+        openTimeFormatted,
+        openDateFormatted,
+        countdown: { days, hours, minutes },
+      }
+    }
+
+    return {
+      mode: "locked",
+      session: null,
+      nextLockedSession: null,
+      openMs: null,
+      openTimeFormatted: null,
+      openDateFormatted: null,
+      countdown: null,
+    }
+  }, [todayValidSessions, allNormalizedSessions, clockNow, attendanceRows])
+
+  const isQrActiveMode = qrContext.mode === "active"
+
+  // Hàm lấy mã QR mới từ server — CHỈ gọi khi đang ở trạng thái hoạt động (có buổi trong khung điểm danh)
+  const refreshCode = useCallback(async () => {
+    if (!visibleRef.current || refreshingCodeRef.current) return
+    if (!isQrActiveMode || !apiEnabled || !validMember) return
+
     refreshingCodeRef.current = true
     setRefreshingCode(true)
     setCodeError("")
-    setCodeErrorDismissed(false)
-    setCode(null)
-    setSecondsLeft(0)
-    setCodeStale(true)
+
     try {
       for (let attempt = 0; attempt < 3; attempt += 1) {
         if (!mountedRef.current || !visibleRef.current) return
@@ -389,27 +824,30 @@ export function MemberCheckinView() {
           const result = await getMemberCheckinCode()
           if (!result?.payload) throw new Error("QR payload missing")
           if (!mountedRef.current || !visibleRef.current) return
+
           const receivedAt = Date.now()
           const rawExpiresAt = result.expiresAt
           const parsedExpiresAt =
             typeof rawExpiresAt === "number" && rawExpiresAt < 1e12
               ? rawExpiresAt * 1000
               : new Date(rawExpiresAt).getTime()
-          const expiresAt = rawExpiresAt ? parsedExpiresAt : NaN
-          const fallbackDuration = Math.max(
-            1,
-            Number(result.expiresInSeconds) || 30,
-          )
-          const expiry = Number.isFinite(expiresAt)
-            ? expiresAt
-            : receivedAt + fallbackDuration * 1000
-          if (expiry <= receivedAt) throw new Error("QR already expired")
+          const serverDurationSec = Number(result.expiresInSeconds)
+          const ttlMs =
+            Number.isFinite(serverDurationSec) && serverDurationSec > 0
+              ? serverDurationSec * 1000
+              : Number.isFinite(parsedExpiresAt) && parsedExpiresAt > receivedAt
+                ? parsedExpiresAt - receivedAt
+                : DEFAULT_QR_TTL_SECONDS * 1000
+
+          const expiry = receivedAt + ttlMs
+          const durationSec = Math.max(1, Math.round(ttlMs / 1000))
+
           setCode(String(result.payload))
-          setCodeStale(false)
-          setCodeDuration(Math.max(1, Math.ceil((expiry - receivedAt) / 1000)))
+          setCodeDuration(durationSec)
           setCodeExpiresAt(expiry)
           setCodeUpdatedAt(new Date(receivedAt))
-          setSecondsLeft(Math.max(0, Math.ceil((expiry - Date.now()) / 1000)))
+          setSecondsLeft(durationSec)
+          setCodeError("")
           return
         } catch (err) {
           logAttendanceError("/api/attendances/me/checkin-code", err)
@@ -430,136 +868,169 @@ export function MemberCheckinView() {
         }
       }
       if (mountedRef.current) {
-        setCodeError(
-          isVi
-            ? "Mã hết hạn, không thể tải mã mới. Vui lòng thử lại."
-            : "The code expired and a new one could not be loaded. Please retry.",
-        )
+        // Không bao giờ hiển thị mã hết hạn như còn hiệu lực
+        setCodeError(t("checkinStateErrorTitle"))
+        setSecondsLeft(0)
       }
     } finally {
       refreshingCodeRef.current = false
       if (mountedRef.current) setRefreshingCode(false)
     }
-  }, [apiEnabled, isVi, validMember])
+  }, [apiEnabled, isQrActiveMode, validMember, t])
 
-  const refreshSchedule = useCallback(async () => {
-    if (!apiEnabled || !validMember) {
-      setScheduleLoading(false)
-      setScheduleError("")
-      setScheduleFailed(false)
-      setAllSessions([])
-      setSessions([])
-      setClassOptions([])
+  const reloadAll = useCallback(() => {
+    refreshPage()
+    if (isQrActiveMode) {
+      refreshCode()
+    }
+  }, [refreshPage, isQrActiveMode, refreshCode])
+
+  useEffect(() => {
+    refreshPage()
+  }, [refreshPage])
+
+  // Khi không ở trạng thái Đang hoạt động, xóa mã cũ và không gọi API lấy mã QR
+  useEffect(() => {
+    if (!isQrActiveMode) {
+      setShowQrSpotlight(false)
+      setCode(null)
+      setSecondsLeft(0)
+      setCodeExpiresAt(0)
+      setCodeError("")
       return
     }
-    setScheduleLoading(true)
-    setScheduleError("")
-    setScheduleFailed(false)
-    setScheduleErrorDismissed(false)
-    try {
-      const enrollments = await getMemberClasses(memberId)
-      const activeEnrollments = (enrollments || []).filter(
-        (row) =>
-          !["cancelled", "canceled", "dropped", "rejected"].includes(
-            String(row.status || "").toLowerCase(),
-          ),
+    if (!scheduleLoading && !code && !refreshingCode && !codeError) {
+      refreshCode()
+    }
+  }, [
+    isQrActiveMode,
+    scheduleLoading,
+    code,
+    refreshingCode,
+    codeError,
+    refreshCode,
+  ])
+
+  // Đếm ngược thời hạn mã QR (15 giây) — CHỈ chạy khi đang ở trạng thái hoạt động và có mã hợp lệ
+  useEffect(() => {
+    if (!isQrActiveMode || !code || !codeExpiresAt) return undefined
+    let timer = null
+    const stopTimer = () => {
+      if (timer) window.clearInterval(timer)
+      timer = null
+    }
+    const tick = () => {
+      const remaining = Math.max(
+        0,
+        Math.ceil((codeExpiresAt - Date.now()) / 1000),
       )
-      const options = activeEnrollments
-        .map((row) => ({
-          id:
-            row.classId ??
-            row.id ??
-            row.enrollmentId ??
-            row.className ??
-            row.name,
-          name: row.className || row.name || row.subjectName || "",
-        }))
-        .filter((row) => row.name)
-      const scheduled = activeEnrollments
-        .flatMap((row) =>
-          getSessions(row).map((session) => ({
-            ...session,
-            classId: session.classId ?? row.classId,
-            className: session.className || row.className || row.name,
-            subjectName: session.subjectName || row.subjectName,
-            coachName: session.coachName || row.coachName,
-            roomName: session.roomName || session.room || row.roomName,
-            enrollmentStatus: row.status,
-          })),
-        )
-        .sort((a, b) => toTimestamp(a) - toTimestamp(b))
-      if (mountedRef.current) {
-        setClassOptions(
-          Array.from(
-            new Map(options.map((item) => [String(item.id), item])).values(),
-          ),
-        )
-        setAllSessions(scheduled)
-        setSessions(
-          scheduled.filter(
-            (session) => getSessionEndTimestamp(session) >= Date.now(),
-          ),
+      setSecondsLeft(remaining)
+      if (
+        remaining <= QR_PRE_EXPIRY_REFRESH_SECONDS &&
+        !refreshingCodeRef.current
+      ) {
+        refreshCode()
+      }
+    }
+    const startTimer = () => {
+      stopTimer()
+      if (!visibleRef.current) return
+      tick()
+      timer = window.setInterval(tick, 250)
+    }
+    const onVisibilityChange = () => {
+      visibleRef.current = document.visibilityState === "visible"
+      if (visibleRef.current) {
+        if (
+          !code ||
+          Date.now() >= codeExpiresAt - QR_PRE_EXPIRY_REFRESH_SECONDS * 1000
+        ) {
+          refreshCode()
+        }
+        startTimer()
+      } else {
+        stopTimer()
+      }
+    }
+    startTimer()
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    return () => {
+      stopTimer()
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+    }
+  }, [isQrActiveMode, code, codeExpiresAt, refreshCode])
+
+  // Cập nhật đồng hồ mỗi phút (và tự động kích hoạt ngay tại thời điểm mở khung điểm danh)
+  useEffect(() => {
+    let intervalId = null
+    let exactOpenTimeoutId = null
+
+    const clearTimers = () => {
+      if (intervalId) window.clearInterval(intervalId)
+      if (exactOpenTimeoutId) window.clearTimeout(exactOpenTimeoutId)
+      intervalId = null
+      exactOpenTimeoutId = null
+    }
+
+    const startTimers = () => {
+      clearTimers()
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState !== "visible"
+      ) {
+        return
+      }
+      const now = Date.now()
+      setClockNow(now)
+
+      // Cập nhật định kỳ để bộ đếm ngược phút luôn chính xác
+      intervalId = window.setInterval(() => {
+        setClockNow(Date.now())
+      }, 30000)
+
+      // Nếu đang khóa và có mốc mở sắp tới (trong vòng 24 giờ), đặt hẹn giờ chính xác đến mili-giây mở khung để tự chuyển sang active ngay lập tức
+      if (
+        qrContext.openMs &&
+        qrContext.openMs > now &&
+        qrContext.openMs - now <= 24 * 60 * 60 * 1000
+      ) {
+        exactOpenTimeoutId = window.setTimeout(
+          () => {
+            setClockNow(Date.now())
+          },
+          Math.max(100, qrContext.openMs - now + 50),
         )
       }
-    } catch (err) {
-      logAttendanceError(`/api/members/${memberId}/enrollments`, err)
-      if (mountedRef.current) {
-        setScheduleError(
-          isVi
-            ? "Không tải được lịch học. Vui lòng thử lại."
-            : "Could not load your schedule. Please try again.",
-        )
-        setScheduleFailed(true)
+    }
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        startTimers()
+      } else {
+        clearTimers()
       }
-    } finally {
-      if (mountedRef.current) setScheduleLoading(false)
     }
-  }, [apiEnabled, isVi, memberId, validMember])
 
-  const refreshHistory = useCallback(async () => {
-    if (!apiEnabled || !validMember) {
-      setHistoryLoading(false)
-      setHistoryError("")
-      setHistoryFailed(false)
-      setAttendanceRows([])
-      return
+    startTimers()
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => {
+      clearTimers()
+      document.removeEventListener("visibilitychange", onVisibility)
     }
-    setHistoryLoading(true)
-    setHistoryError("")
-    setHistoryFailed(false)
-    setHistoryErrorDismissed(false)
-    try {
-      const records = await getMemberAttendances(memberId)
-      if (mountedRef.current)
-        setAttendanceRows(
-          (records || [])
-            .slice()
-            .sort((a, b) =>
-              String(b.sessionDate || "").localeCompare(
-                String(a.sessionDate || ""),
-              ),
-            ),
-        )
-    } catch (err) {
-      logAttendanceError(`/api/attendances?memberId=${memberId}`, err)
-      if (mountedRef.current) {
-        setHistoryError(
-          isVi
-            ? "Không tải được lịch sử điểm danh. Vui lòng thử lại."
-            : "Could not load attendance history. Please try again.",
-        )
-        setHistoryFailed(true)
-      }
-    } finally {
-      if (mountedRef.current) setHistoryLoading(false)
+  }, [qrContext.openMs])
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      if (retryTimerRef.current) window.clearTimeout(retryTimerRef.current)
+      retryTimerRef.current = null
+      retryResolveRef.current?.()
+      retryResolveRef.current = null
     }
-  }, [apiEnabled, isVi, memberId, validMember])
+  }, [])
 
-  const refreshPage = useCallback(
-    () => Promise.all([refreshSchedule(), refreshHistory()]),
-    [refreshSchedule, refreshHistory],
-  )
-
+  // Phím tắt "/" để tìm kiếm và "R" để tải lại
   useEffect(() => {
     const onKeyDown = (event) => {
       if (event.altKey || event.ctrlKey || event.metaKey) return
@@ -574,497 +1045,522 @@ export function MemberCheckinView() {
         historySearchRef.current?.focus()
       } else if (event.key.toLowerCase() === "r") {
         event.preventDefault()
-        refreshPage()
+        reloadAll()
       }
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [refreshPage])
+  }, [reloadAll])
 
+  // Đóng popover "Gặp sự cố?" khi bấm ra ngoài hoặc nhấn Esc
   useEffect(() => {
-    refreshPage()
-  }, [refreshPage])
-  useEffect(() => {
-    refreshCode()
-  }, [refreshCode])
-
-  useEffect(() => {
-    mountedRef.current = true
-    return () => {
-      mountedRef.current = false
-      if (retryTimerRef.current) window.clearTimeout(retryTimerRef.current)
-      retryTimerRef.current = null
-      retryResolveRef.current?.()
-      retryResolveRef.current = null
+    if (!showHelpPopover) return undefined
+    const onPointerDown = (e) => {
+      if (!helpPopoverRef.current?.contains(e.target)) {
+        setShowHelpPopover(false)
+      }
     }
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setShowHelpPopover(false)
+    }
+    document.addEventListener("mousedown", onPointerDown)
+    window.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown)
+      window.removeEventListener("keydown", onKeyDown)
+    }
+  }, [showHelpPopover])
+
+  // Quản lý đóng ngăn "Báo thiếu buổi tập" / QR spotlight bằng Esc, khóa cuộn & giữ tiêu điểm
+  const closeDisputeDrawer = useCallback(() => {
+    setShowDisputeDrawer(false)
+    window.setTimeout(() => {
+      lastDisputeTriggerRef.current?.focus?.()
+    }, 0)
+  }, [])
+
+  const openDisputeDrawer = useCallback((triggerEl = null) => {
+    if (triggerEl instanceof HTMLElement) {
+      lastDisputeTriggerRef.current = triggerEl
+    } else if (document.activeElement instanceof HTMLElement) {
+      lastDisputeTriggerRef.current = document.activeElement
+    }
+    setShowHelpPopover(false)
+    setShowDisputeDrawer(true)
   }, [])
 
   useEffect(() => {
-    if (!showHelpModal && !showDisputeDrawer && !showQrSpotlight)
-      return undefined
-    const closeOnEscape = (event) => {
-      if (event.key === "Escape") {
-        setShowHelpModal(false)
-        setShowDisputeDrawer(false)
-        setShowQrSpotlight(false)
-      }
-    }
+    if (!showDisputeDrawer && !showQrSpotlight) return undefined
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = "hidden"
-    window.addEventListener("keydown", closeOnEscape)
+
+    if (showDisputeDrawer) {
+      window.setTimeout(() => {
+        disputeSelectRef.current?.focus?.()
+      }, 50)
+    }
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        if (showQrSpotlight) setShowQrSpotlight(false)
+        if (showDisputeDrawer) closeDisputeDrawer()
+        return
+      }
+      if (
+        event.key === "Tab" &&
+        showDisputeDrawer &&
+        disputeDrawerRef.current
+      ) {
+        const focusable = disputeDrawerRef.current.querySelectorAll(
+          'button:not([disabled]), select:not([disabled]), textarea:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        )
+        if (focusable.length === 0) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first.focus()
+        }
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown)
     return () => {
       document.body.style.overflow = previousOverflow
-      window.removeEventListener("keydown", closeOnEscape)
+      window.removeEventListener("keydown", onKeyDown)
     }
-  }, [showHelpModal, showDisputeDrawer, showQrSpotlight])
+  }, [showDisputeDrawer, showQrSpotlight, closeDisputeDrawer])
 
-  useEffect(() => {
-    if (!code) return undefined
-    let timer = null
-    const stopTimer = () => {
-      if (timer) window.clearInterval(timer)
-      timer = null
-    }
-    const startTimer = () => {
-      stopTimer()
-      if (!visibleRef.current) return
-      timer = window.setInterval(() => {
-        const remaining = Math.max(
-          0,
-          Math.ceil((codeExpiresAt - Date.now()) / 1000),
+  // Danh sách các buổi đã qua trong 30 ngày gần nhất của các khóa hội viên đang học (Mục 4.5.3)
+  // Không đưa buổi đã hủy vào danh sách. Gắn trạng thái điểm danh hiện tại, xếp buổi chưa có trạng thái "Có mặt" lên đầu, sau đó giảm dần theo thời gian.
+  const pastSessionsForDispute = useMemo(() => {
+    const list = allNormalizedSessions.filter((s) => {
+      if (isSessionCancelled(s)) return false
+      if (!s.sessionDate) return false
+      const isPast =
+        s.sessionDate < todayIso ||
+        (s.sessionDate === todayIso && s.startMs !== null && s.startMs <= clockNow)
+      return isPast && s.sessionDate >= minDisputeIso
+    })
+    return list
+      .map((s, idx) => {
+        const record = findSessionAttendanceRecord(s, attendanceRows)
+        const attendanceStateKey = record
+          ? normalizeAttendanceStateKey(record.state || record.status)
+          : "pending"
+        const attendanceBadge = getAttendanceBadgeMeta(attendanceStateKey, t)
+        const displayClassName =
+          s.className ||
+          (s.isPrivate
+            ? t("schedulePtDefaultTitle")
+            : s.subjectName || `#${s.classId}`)
+        return {
+          ...s,
+          attendanceStateKey,
+          attendanceStatusLabel: attendanceBadge.label,
+          displayClassName,
+          optionKey: String(
+            s.id ?? `${s.classId || "c"}-${s.sessionDate}-${s.startTime}-${idx}`,
+          ),
+        }
+      })
+      .sort((a, b) => {
+        const aIsPresent = a.attendanceStateKey === "present" ? 1 : 0
+        const bIsPresent = b.attendanceStateKey === "present" ? 1 : 0
+        if (aIsPresent !== bIsPresent) return aIsPresent - bIsPresent
+        const dateCmp = String(b.sessionDate || "").localeCompare(
+          String(a.sessionDate || ""),
         )
-        setSecondsLeft(remaining)
-        if (!remaining) setCodeStale(true)
-      }, 250)
-    }
-    const onVisibilityChange = () =>
-      document.visibilityState === "visible" ? startTimer() : stopTimer()
-    startTimer()
-    document.addEventListener("visibilitychange", onVisibilityChange)
-    return () => {
-      stopTimer()
-      document.removeEventListener("visibilitychange", onVisibilityChange)
-    }
-  }, [code, codeExpiresAt])
+        if (dateCmp !== 0) return dateCmp
+        return String(b.startTime || "").localeCompare(String(a.startTime || ""))
+      })
+  }, [allNormalizedSessions, todayIso, clockNow, minDisputeIso, attendanceRows, t])
 
-  useEffect(() => {
-    if (!allSessions.length) return undefined
-    let timer = null
-    const stop = () => {
-      if (timer) window.clearInterval(timer)
-      timer = null
-    }
-    const start = () => {
-      stop()
-      if (document.visibilityState !== "visible") return
-      setClockNow(Date.now())
-      timer = window.setInterval(() => setClockNow(Date.now()), 5000)
-    }
-    const onVisibility = () =>
-      document.visibilityState === "visible" ? start() : stop()
-    start()
-    document.addEventListener("visibilitychange", onVisibility)
-    return () => {
-      stop()
-      document.removeEventListener("visibilitychange", onVisibility)
-    }
-  }, [allSessions])
-
-  useEffect(() => {
-    if (secondsLeft === 0) setShowQrSpotlight(false)
-  }, [secondsLeft])
-
-  const todayKey = getTodayInVietnam()
-  const todaySessions = allSessions.filter(
-    (session) =>
-      String(session.sessionDate || session.date || "").slice(0, 10) ===
-      todayKey,
-  )
-  const upcomingSessions = sessions.filter(
-    (session) =>
-      String(session.sessionDate || session.date || "").slice(0, 10) > todayKey,
-  )
-  const now = clockNow
-  const activeCheckinSession = todaySessions.find((session) =>
-    isSessionCheckinOpen(session, now),
-  )
-  const nextCheckinSession = todaySessions
-    .filter((session) => toTimestamp(session) - 30 * 60 * 1000 > now)
-    .sort((a, b) => toTimestamp(a) - toTimestamp(b))[0]
-  const reviewStorageKey = validMember
-    ? `scms:attendance-review-drafts:${memberId}`
-    : null
-  const filteredAttendance = useMemo(
+  const selectedDisputeSession = useMemo(
     () =>
-      attendanceRows.filter((row) => {
-        const state = String(row.state || "").toUpperCase()
-        const query = historySearch.trim().toLocaleLowerCase(isVi ? "vi" : "en")
-        const matchesSearch =
-          !query ||
-          String(row.className || "")
-            .toLocaleLowerCase(isVi ? "vi" : "en")
-            .includes(query)
-        const matchesStatus =
-          historyStatus === "all" ||
-          (historyStatus === "present" &&
-            (state.includes("PRESENT") ||
-              state.includes("ATTENDED") ||
-              state === "CHECKED_IN" ||
-              state.includes("LATE"))) ||
-          (historyStatus === "absent" &&
-            !(
-              state.includes("PRESENT") ||
-              state.includes("ATTENDED") ||
-              state === "CHECKED_IN" ||
-              state.includes("LATE")
-            ))
-        const date = String(row.sessionDate || row.checkInTime || "").slice(
-          0,
-          10,
-        )
-        return (
-          matchesSearch &&
-          matchesStatus &&
-          (!historyDateFrom || date >= historyDateFrom) &&
-          (!historyDateTo || date <= historyDateTo)
-        )
-      }),
-    [
-      attendanceRows,
-      historyDateFrom,
-      historyDateTo,
-      historySearch,
-      historyStatus,
-      isVi,
-    ],
+      pastSessionsForDispute.find(
+        (s) => s.optionKey === selectedDisputeSessionKey,
+      ) || null,
+    [pastSessionsForDispute, selectedDisputeSessionKey],
   )
 
-  const historyStats = useMemo(() => {
-    const present = attendanceRows.filter((row) => {
-      const state = String(row.state || "").toUpperCase()
-      return (
-        state.includes("PRESENT") ||
-        state.includes("ATTENDED") ||
-        state === "CHECKED_IN" ||
-        state.includes("LATE")
+  // Kiểm tra lỗi thứ tự ngày lọc lịch sử (Mục 4.4: Từ ngày <= Đến ngày)
+  const hasDateOrderError = Boolean(
+    historyDateFrom && historyDateTo && historyDateFrom > historyDateTo,
+  )
+
+  // Làm giàu dữ liệu lịch sử điểm danh (ghép giờ bắt đầu-kết thúc và sân từ danh sách buổi học nếu bản ghi lịch sử chưa có)
+  const enrichedAttendanceRows = useMemo(() => {
+    return attendanceRows.map((row) => {
+      const dateIso = String(row.sessionDate || row.checkInTime || "").slice(
+        0,
+        10,
       )
-    }).length
-    return {
-      all: attendanceRows.length,
-      present,
-      absentOther: attendanceRows.length - present,
+      const matchedSession =
+        (row.sessionId != null &&
+          sessionLookupMap.byId.get(String(row.sessionId))) ||
+        (row.classId != null &&
+          dateIso &&
+          sessionLookupMap.byClassAndDate.get(`${row.classId}:${dateIso}`)) ||
+        null
+
+      const startTime = formatLocalTime(
+        row.startTime ||
+          row.sessionStartTime ||
+          matchedSession?.startTime ||
+          null,
+      )
+      const endTime = formatLocalTime(
+        row.endTime || row.sessionEndTime || matchedSession?.endTime || null,
+      )
+      const roomName =
+        row.roomName ||
+        row.roomLocation ||
+        row.room ||
+        matchedSession?.roomName ||
+        null
+      const checkInTimeHhMm = extractTimeFromIso(
+        row.checkInTime || row.checkedInAt || row.recordedAt,
+      )
+      const scannerName =
+        row.scannedByName ||
+        row.recordedByName ||
+        row.checkedInBy ||
+        row.staffName ||
+        null
+      const stateKey = normalizeAttendanceStateKey(row.state || row.status)
+
+      return {
+        ...row,
+        dateIso,
+        dateFormatted: toDateDdMmYyyy(dateIso) || "—",
+        startTime,
+        endTime,
+        roomName,
+        checkInTimeHhMm,
+        scannerName,
+        stateKey,
+      }
+    })
+  }, [attendanceRows, sessionLookupMap])
+
+  // Lọc theo ô tìm kiếm & khoảng ngày (làm cơ sở tính số đếm nhất quán trên các chip lọc trạng thái - Mục 4.4)
+  const baseFilteredAttendance = useMemo(() => {
+    if (hasDateOrderError) return []
+    const query = historySearch.trim().toLocaleLowerCase(isVi ? "vi" : "en")
+    return enrichedAttendanceRows.filter((row) => {
+      const matchesSearch =
+        !query ||
+        String(row.className || "")
+          .toLocaleLowerCase(isVi ? "vi" : "en")
+          .includes(query)
+      const matchesDateFrom = !historyDateFrom || row.dateIso >= historyDateFrom
+      const matchesDateTo = !historyDateTo || row.dateIso <= historyDateTo
+      return matchesSearch && matchesDateFrom && matchesDateTo
+    })
+  }, [
+    enrichedAttendanceRows,
+    hasDateOrderError,
+    historySearch,
+    historyDateFrom,
+    historyDateTo,
+    isVi,
+  ])
+
+  // Số đếm trên từng chip trạng thái khớp với bộ lọc tìm kiếm/ngày hiện tại (Mục 3.4 & 4.4)
+  const historyCounts = useMemo(() => {
+    const counts = {
+      all: baseFilteredAttendance.length,
+      present: 0,
+      late: 0,
+      absent: 0,
+      excused: 0,
     }
-  }, [attendanceRows])
+    for (const row of baseFilteredAttendance) {
+      if (row.stateKey === "present") counts.present += 1
+      else if (row.stateKey === "late") counts.late += 1
+      else if (row.stateKey === "absent") counts.absent += 1
+      else if (row.stateKey === "excused") counts.excused += 1
+    }
+    return counts
+  }, [baseFilteredAttendance])
+
+  const filteredAttendance = useMemo(() => {
+    if (historyStatus === "all") return baseFilteredAttendance
+    return baseFilteredAttendance.filter(
+      (row) => row.stateKey === historyStatus,
+    )
+  }, [baseFilteredAttendance, historyStatus])
+
+  // Reset phân trang khi đổi bộ lọc
+  useEffect(() => {
+    setVisibleHistoryCount(HISTORY_PAGE_SIZE)
+  }, [historySearch, historyStatus, historyDateFrom, historyDateTo])
+
+  const visibleAttendanceRows = useMemo(
+    () => filteredAttendance.slice(0, visibleHistoryCount),
+    [filteredAttendance, visibleHistoryCount],
+  )
+
   const hasHistoryFilters = Boolean(
-    historySearch ||
+    historySearch.trim() ||
       historyStatus !== "all" ||
       historyDateFrom ||
       historyDateTo,
   )
 
-  useEffect(() => {
-    if (!scheduleLoading && !code && !refreshingCode && !codeError)
-      refreshCode()
-  }, [scheduleLoading, code, refreshingCode, codeError, refreshCode])
-
-  useEffect(() => {
-    if (code && secondsLeft === 0 && !refreshingCode) refreshCode()
-  }, [code, secondsLeft, refreshingCode, refreshCode])
-
-  useEffect(() => {
-    const onVisibilityChange = () => {
-      visibleRef.current = document.visibilityState === "visible"
-      if (!visibleRef.current) return
-      if (!code || Date.now() >= codeExpiresAt) refreshCode()
-      else
-        setSecondsLeft(
-          code
-            ? Math.max(0, Math.ceil((codeExpiresAt - Date.now()) / 1000))
-            : 0,
-        )
-    }
-    document.addEventListener("visibilitychange", onVisibilityChange)
-    return () =>
-      document.removeEventListener("visibilitychange", onVisibilityChange)
-  }, [code, codeExpiresAt, refreshCode])
-
-  useEffect(() => {
-    if (!reviewStorageKey) {
-      setReviewDrafts([])
-      return
-    }
-    try {
-      const saved = window.localStorage.getItem(reviewStorageKey)
-      const drafts = saved ? JSON.parse(saved) : []
-      setReviewDrafts(Array.isArray(drafts) ? drafts : [])
-      setReviewStorageError("")
-    } catch {
-      setReviewDrafts([])
-      setReviewStorageError(
-        isVi
-          ? "Không đọc được bản nháp trên thiết bị này."
-          : "Could not read drafts on this device.",
-      )
-    }
-  }, [isVi, reviewStorageKey])
-
-  useEffect(() => {
-    if (!reviewNotice) return undefined
-    const timer = window.setTimeout(() => setReviewNotice(""), 3200)
-    return () => window.clearTimeout(timer)
-  }, [reviewNotice])
-
-  const saveReviewDrafts = (next) => {
-    try {
-      if (reviewStorageKey)
-        window.localStorage.setItem(reviewStorageKey, JSON.stringify(next))
-      setReviewDrafts(next)
-      setReviewStorageError("")
-      return true
-    } catch {
-      setReviewStorageError(
-        isVi
-          ? "Không lưu được bản nháp. Hãy kiểm tra dung lượng lưu trữ của trình duyệt."
-          : "Could not save the draft. Check your browser storage.",
-      )
-      return false
-    }
+  const clearHistoryFilters = () => {
+    setHistorySearch("")
+    setHistoryStatus("all")
+    setHistoryDateFrom("")
+    setHistoryDateTo("")
   }
 
-  const handleReviewDraftSubmit = (event) => {
+  // Sao chép thông tin báo thiếu buổi tập gồm: tên hội viên, lớp, ngày, giờ, sân, ghi chú (nếu có)
+  const handleCopyDisputeInfo = async (event) => {
     event.preventDefault()
-    const nextErrors = {}
-    if (!reviewClassName)
-      nextErrors.className = isVi
-        ? "Vui lòng chọn lớp hoặc môn học."
-        : "Choose a class or sport."
-    if (!reviewDate)
-      nextErrors.sessionDate = isVi
-        ? "Vui lòng chọn ngày học."
-        : "Choose the class date."
-    else if (reviewDate > getTodayInVietnam())
-      nextErrors.sessionDate = isVi
-        ? "Ngày học không thể ở tương lai."
-        : "The class date cannot be in the future."
-    if (!reviewDetails.trim())
-      nextErrors.details = isVi
-        ? "Vui lòng nhập thông tin cần đối soát."
-        : "Enter the details to review."
-    if (reviewTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(reviewTime))
-      nextErrors.sessionTime = isVi
-        ? "Nhập giờ theo định dạng 24 giờ HH:mm."
-        : "Enter time in 24-hour HH:mm format."
-    setReviewErrors(nextErrors)
-    if (Object.keys(nextErrors).length) return
-    const draft = {
-      id:
-        editingDraftId ||
-        (typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `${Date.now()}`),
-      className: reviewClassName.trim(),
-      sessionDate: reviewDate,
-      sessionTime: reviewTime,
-      details: reviewDetails.trim(),
-      createdAt: new Date().toISOString(),
-      status: "draft",
-    }
-    const nextDrafts = editingDraftId
-      ? reviewDrafts.map((item) => (item.id === editingDraftId ? draft : item))
-      : [draft, ...reviewDrafts]
-    if (saveReviewDrafts(nextDrafts)) {
-      setReviewNotice(
-        isVi ? "Đã lưu bản nháp trên thiết bị." : "Draft saved on this device.",
+    if (!selectedDisputeSession) return
+
+    const memberDisplayName =
+      currentUser?.fullName ||
+      currentUser?.name ||
+      currentUser?.username ||
+      `#${memberId}`
+    const timeRange =
+      selectedDisputeSession.startTime !== "—" &&
+      selectedDisputeSession.endTime !== "—"
+        ? `${selectedDisputeSession.startTime}–${selectedDisputeSession.endTime}`
+        : selectedDisputeSession.startTime
+    const roomStr = selectedDisputeSession.roomName || t("scheduleRoomTbd")
+    const lines = [
+      `[${t("checkinDisputeCopyTemplateHeader")}]`,
+      `- ${t("checkinDisputeCopyMember")}: ${memberDisplayName}`,
+      `- ${t("checkinDisputeFieldClass")}: ${selectedDisputeSession.displayClassName || selectedDisputeSession.className || selectedDisputeSession.subjectName || "—"}`,
+      `- ${t("checkinDisputeFieldDate")}: ${toDateDdMmYyyy(selectedDisputeSession.sessionDate)}`,
+      `- ${t("checkinDisputeFieldTime")}: ${timeRange}`,
+      `- ${t("checkinDisputeFieldRoom")}: ${roomStr}`,
+      `- ${t("checkinDisputeFieldStatus")}: ${selectedDisputeSession.attendanceStatusLabel}`,
+    ]
+    if (disputeNote.trim()) {
+      lines.push(
+        `- ${t("checkinDisputeNoteLabel")}: ${disputeNote.trim()}`,
       )
-      setReviewDetails("")
-      setEditingDraftId(null)
-      setReviewErrors({})
+    }
+    const summaryText = lines.join("\n")
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(summaryText)
+      }
+      setCopiedBanner(true)
+      showToast?.(t("checkinDisputeCopiedConfirm"), "success")
+      window.setTimeout(() => setCopiedBanner(false), 3000)
+    } catch {
+      setCopiedBanner(true)
+      window.setTimeout(() => setCopiedBanner(false), 3000)
     }
   }
 
-  const renderScheduleRows = (rows, emptyText) =>
-    scheduleLoading ? (
-      <div
-        className="flex flex-1 flex-col justify-center gap-3 py-5"
-        aria-label={isVi ? "Đang tải lịch học" : "Loading schedule"}
+  // Render dòng buổi học trong card Lịch trình học tập (Mục 4.3)
+  const renderScheduleRowItem = (session, index) => {
+    const record = findSessionAttendanceRecord(session, attendanceRows)
+    const cancelled = isSessionCancelled(session)
+    const inWindow = isSessionInCheckinWindow(session, clockNow)
+    const recordStateKey = record
+      ? normalizeAttendanceStateKey(record.state)
+      : null
+    const isCheckedIn =
+      recordStateKey === "present" || recordStateKey === "late"
+    const isOngoing =
+      !cancelled &&
+      session.startMs !== null &&
+      session.endMs !== null &&
+      clockNow >= session.startMs &&
+      clockNow <= session.endMs
+
+    let statusBadge = {
+      icon: "○",
+      label: t("checkinStatusUpcoming"),
+      className: "bg-slate-100 text-slate-800 border-slate-300",
+    }
+    if (cancelled) {
+      statusBadge = {
+        icon: "✕",
+        label: t("checkinStatusCancelled"),
+        className: "bg-rose-50 text-rose-800 border-rose-200",
+      }
+    } else if (isCheckedIn) {
+      statusBadge = {
+        icon: "✓",
+        label: t("checkinStatusCheckedIn"),
+        className: "bg-emerald-50 text-emerald-800 border-emerald-200",
+      }
+    } else if (isOngoing) {
+      statusBadge = {
+        icon: "●",
+        label: t("checkinStatusOngoing"),
+        className: "bg-blue-50 text-blue-800 border-blue-200",
+      }
+    }
+
+    const timeRange =
+      session.startTime !== "—" && session.endTime !== "—"
+        ? `${session.startTime}–${session.endTime}`
+        : session.startTime
+    const sessionTitle =
+      session.className ||
+      (session.isPrivate
+        ? t("schedulePtDefaultTitle")
+        : session.subjectName || `#${session.classId}`)
+
+    return (
+      <article
+        key={session.id || `${session.classId}-${session.sessionDate}-${index}`}
+        className={`rounded-xl border p-3.5 transition-colors flex flex-wrap items-center justify-between gap-3 ${
+          inWindow && !isCheckedIn
+            ? "border-emerald-300 bg-emerald-50/50 ring-1 ring-emerald-200"
+            : cancelled
+              ? "border-slate-200 bg-slate-50/70 text-slate-400"
+              : "border-slate-200/90 bg-slate-50/40"
+        }`}
       >
-        {[0, 1, 2].map((key) => (
-          <div key={key} className="animate-pulse rounded-lg bg-slate-100 p-4">
-            <div className="h-3 w-1/3 rounded bg-slate-200" />
-            <div className="mt-3 h-4 w-2/3 rounded bg-slate-200" />
-            <div className="mt-2 h-3 w-1/2 rounded bg-slate-200" />
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-wide text-brand-accent-dark">
+              {session.subjectName || "VIBE SPORT"}
+            </span>
+            {session.isPrivate && (
+              <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-bold text-slate-700">
+                {t("checkinPtSessionBadge")}
+              </span>
+            )}
+            {inWindow && !isCheckedIn && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-900">
+                <span aria-hidden="true">●</span>
+                <span>{t("checkinWindowActiveBadge")}</span>
+              </span>
+            )}
           </div>
-        ))}
-      </div>
-    ) : scheduleFailed ? (
-      <div
-        role={scheduleErrorDismissed ? "status" : "alert"}
-        className="my-auto rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-status-error"
-      >
-        <p>
-          {scheduleErrorDismissed
-            ? isVi
-              ? "Lịch học chưa tải được."
-              : "Schedule is unavailable."
-            : scheduleError}
-        </p>
-        <div className="mt-3 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={refreshSchedule}
-            className="rounded-md bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-primary-hover"
+
+          <h3
+            className={`text-sm font-extrabold ${
+              cancelled ? "line-through text-slate-400" : "text-slate-900"
+            }`}
           >
-            {isVi ? "Thử lại" : "Retry"}
-          </button>
-          {!scheduleErrorDismissed && (
-            <button
-              type="button"
-              aria-label={isVi ? "Đóng" : "Close"}
-              onClick={() => setScheduleErrorDismissed(true)}
-              className="rounded-md p-1 hover:bg-brand-blue-soft"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            {sessionTitle}
+          </h3>
+
+          <p className="text-xs font-medium text-slate-700">
+            {toDateDdMmYyyy(session.sessionDate)} · {timeRange} ·{" "}
+            {session.roomName || t("scheduleRoomTbd")}
+            {session.coachName ? ` · ${session.coachName}` : ""}
+          </p>
+
+          {cancelled && session.replacedByDate && (
+            <p className="text-xs font-semibold text-slate-600">
+              {tr("scheduleReplacedByDate", { date: session.replacedByDate })}
+            </p>
           )}
         </div>
-      </div>
-    ) : rows.length ? (
-      <div className="divide-y divide-slate-100">
-        {rows.map((session, index) => {
-          const record = getSessionAttendance(session, attendanceRows)
-          const status = getScheduleStatus(session, record, Date.now(), isVi)
-          const active =
-            status === "Trong khung điểm danh" || status === "Check-in window"
-          const absent = /ABSENT|NO_SHOW/.test(
-            String(record?.state || "").toUpperCase(),
-          )
-          const present = /PRESENT|ATTENDED|CHECKED_IN|LATE/.test(
-            String(record?.state || "").toUpperCase(),
-          )
-          return (
-            <article
-              key={
-                session.sessionId ||
-                session.id ||
-                `${session.className}-${index}`
-              }
-              className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0"
-            >
-              <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wide text-brand-accent-dark">
-                  {session.subjectName || "VIBE SPORT"}
-                </p>
-                <h3 className="mt-1 font-bold text-slate-900">
-                  {session.className ||
-                    (isVi ? "Buổi tập" : "Training session")}
-                </h3>
-                <p className="mt-1 text-sm text-slate-600">
-                  {formatSessionDate(session, isVi)} ·{" "}
-                  {formatTime(session.startTime)}
-                  {session.endTime ? `–${formatTime(session.endTime)}` : ""}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {session.roomName ||
-                    session.room ||
-                    (isVi ? "Chưa có sân" : "Room pending")}
-                  {session.coachName ? ` · ${session.coachName}` : ""}
-                </p>
-              </div>
-              <span
-                className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
-                  active
-                    ? "bg-amber-100 text-amber-900"
-                    : absent
-                      ? "bg-rose-50 text-status-error"
-                      : present
-                        ? "bg-emerald-50 text-emerald-800"
-                        : "bg-slate-100 text-slate-700"
-                }`}
-              >
-                {status}
-              </span>
-            </article>
-          )
-        })}
-      </div>
-    ) : (
-      <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 px-5 py-8 text-center text-sm text-slate-600">
-        <CalendarDays className="mb-3 h-8 w-8 text-slate-400" />
-        <p>{emptyText}</p>
-        <Link
-          to="/member/enrollments"
-          className="mt-3 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+
+        <span
+          className={`inline-flex items-center gap-1 shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${statusBadge.className}`}
         >
-          {isVi ? "Đăng ký khóa học" : "Browse courses"}
-        </Link>
-      </div>
+          <span aria-hidden="true">{statusBadge.icon}</span>
+          <span>{statusBadge.label}</span>
+        </span>
+      </article>
     )
+  }
+
+  // Khối "Cách điểm danh" (3 bước ngắn):
+  // - Khi QR khóa trên màn hình lớn (lg): đặt trong card "Lịch trình học tập" (dưới danh sách buổi) để hai card cân chiều cao.
+  // - Khi QR hoạt động trên màn hình lớn (lg): đặt trong card QR như cũ.
+  // - Trên mobile 1 cột (< lg): luôn nằm ngay sau QR, trước Lịch trình học tập.
+  const renderHowToStepsBox = (extraClassName = "") => (
+    <div
+      className={`rounded-xl border border-slate-200/80 bg-slate-50/70 px-3.5 py-3 ${extraClassName}`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-bold text-slate-800">
+          {t("checkinHowToTitle")}
+        </p>
+        <button
+          type="button"
+          aria-expanded={showHowToSteps}
+          onClick={() => setShowHowToSteps((prev) => !prev)}
+          className="sm:hidden inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+        >
+          {showHowToSteps ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+        </button>
+      </div>
+      <ol
+        className={`${
+          showHowToSteps ? "mt-2 block" : "hidden sm:mt-2 sm:block"
+        } space-y-1.5 text-xs text-slate-600`}
+      >
+        <li className="flex items-start gap-2">
+          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-[11px] font-bold text-slate-700">
+            1
+          </span>
+          <span>{t("checkinHowToStep1")}</span>
+        </li>
+        <li className="flex items-start gap-2">
+          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-[11px] font-bold text-slate-700">
+            2
+          </span>
+          <span>{t("checkinHowToStep2")}</span>
+        </li>
+        <li className="flex items-start gap-2">
+          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-[11px] font-bold text-slate-700">
+            3
+          </span>
+          <span>{t("checkinHowToStep3")}</span>
+        </li>
+      </ol>
+    </div>
+  )
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-7 sm:py-8">
-      <AnimatePresence>
-        {reviewNotice && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            role="status"
-            aria-live="polite"
-            className="fixed bottom-5 right-5 z-[100] flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-800 shadow-xl"
-          >
-            <CheckCircle2 className="h-5 w-5" />
-            {reviewNotice}
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <header className="flex flex-wrap items-center justify-between gap-4">
+    <main className="mx-auto max-w-[1100px] space-y-6 px-4 py-6 sm:px-7 sm:py-8">
+      {/* 4.1 Header: giữ tiêu đề, mô tả tự nhiên và nút Tải lại (icon, có trạng thái đang tải); bỏ nút Yêu cầu đối soát + nhãn Bản nháp */}
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
-            VIBE SPORT · MEMBER
+            {t("checkinBrand")}
           </p>
-          <h1 className="mt-1 text-3xl font-black text-slate-950">
-            {isVi ? "Điểm danh" : "Check-in"}
+          <h1 className="mt-2 text-3xl font-black text-slate-950">
+            {t("checkinPageTitle")}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {isVi
-              ? "Mở mã QR để Coach hoặc lễ tân quét khi đến buổi tập."
-              : "Show your QR code to your coach or reception when you arrive."}
+          <p className="mt-2 text-sm text-slate-500">
+            {t("checkinPageSubtitle")}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+
+        <div className="group relative">
           <button
             type="button"
-            onClick={() => setShowDisputeDrawer(true)}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+            onClick={reloadAll}
+            disabled={refreshingCode || scheduleLoading || historyLoading}
+            aria-label={t("checkinBtnRefresh")}
+            title={t("checkinRefreshShortcutHint")}
+            className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 p-2 text-slate-700 disabled:opacity-60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
           >
-            <ClipboardCheck className="h-4 w-4" />
-            {isVi ? "Yêu cầu đối soát" : "Attendance review"}
-            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-bold text-amber-900">
-              {isVi ? "Bản nháp" : "Draft"}
-            </span>
+            <RefreshCw
+              className={`h-4 w-4 ${
+                refreshingCode || scheduleLoading || historyLoading
+                  ? "animate-spin"
+                  : ""
+              }`}
+            />
           </button>
-          <div className="group relative">
-            <button
-              type="button"
-              onClick={reloadAll}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${
-                  refreshingCode || scheduleLoading || historyLoading
-                    ? "animate-spin"
-                    : ""
-                }`}
-              />
-              {isVi ? "Tải lại" : "Refresh"}
-            </button>
-            <span
-              role="tooltip"
-              className="pointer-events-none absolute right-0 top-full z-20 mt-2 whitespace-nowrap rounded-md bg-slate-900 px-2.5 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-            >
-              {isVi ? "Làm mới dữ liệu (Phím R)" : "Refresh data (R)"}
-            </span>
-          </div>
         </div>
       </header>
 
@@ -1073,1031 +1569,1054 @@ export function MemberCheckinView() {
           role="status"
           className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
         >
-          {isVi
-            ? "Tài khoản chưa được liên kết với hồ sơ hội viên. Vui lòng liên hệ lễ tân để cập nhật hồ sơ."
-            : "This account is not linked to a member profile. Please contact reception."}
-        </div>
-      )}
-      {!apiEnabled && (
-        <div
-          role="status"
-          className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"
-        >
-          {isVi
-            ? "Chế độ xem thử không phát mã TOTP thật. Kết nối API để sử dụng điểm danh QR."
-            : "Demo mode does not issue real TOTP codes. Connect to the API to use QR check-in."}
+          {t("checkinUnlinkedAccount")}
         </div>
       )}
 
-      <section className="grid items-stretch gap-5 lg:auto-rows-fr lg:grid-cols-12">
-        <article className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:col-span-5">
+      {/* 4.6 Bố cục 2 cột trên màn hình rộng; Mobile 1 cột: thứ tự QR, Cách điểm danh, Lịch trình */}
+      <section className="grid items-start lg:items-stretch gap-5 lg:grid-cols-12">
+        {/* 4.2 Card Mã QR điểm danh */}
+        <article className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6 lg:col-span-5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <QrCode className="h-5 w-5 text-brand-accent-dark" />
+              <QrCode className="h-5 w-5 text-brand-accent-dark shrink-0" />
               <h2 className="text-lg font-extrabold text-slate-900">
-                {isVi ? "Mã QR điểm danh" : "Check-in QR code"}
+                {t("checkinQrCardTitle")}
               </h2>
             </div>
-            <div className="group relative z-20 shrink-0">
+
+            {/* 4.2.6 Liên kết "Gặp sự cố?" mở hộp nhỏ (popover) */}
+            <div className="relative" ref={helpPopoverRef}>
               <button
                 type="button"
-                onClick={() => setShowHelpModal(true)}
-                className="text-xs font-semibold text-slate-600 hover:text-slate-800"
+                aria-expanded={showHelpPopover}
+                onClick={() => setShowHelpPopover((prev) => !prev)}
+                className="min-h-[40px] inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
               >
-                <Info className="mr-1 inline h-3.5 w-3.5" />
-                {isVi ? "Gặp sự cố?" : "Need help?"}
+                <Info className="h-3.5 w-3.5 shrink-0" />
+                <span>{t("checkinNeedHelp")}</span>
               </button>
-              <div className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-[320px] origin-top-right translate-y-1 rounded-2xl bg-white p-4 text-left text-sm leading-6 text-slate-600 opacity-0 shadow-[0_20px_25px_-5px_rgba(0,0,0,0.15)] transition duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100">
-                <p className="font-bold text-slate-900">
-                  {isVi
-                    ? "Gặp sự cố khi điểm danh?"
-                    : "Having trouble checking in?"}
-                </p>
-                <p className="mt-1">
-                  {isVi
-                    ? "Xem hướng dẫn xử lý lỗi QR, mã hết hạn hoặc buổi học chưa được ghi nhận."
-                    : "Get help with QR errors, expired codes, or missing attendance records."}
-                </p>
-                <span className="mt-2 inline-block text-xs font-semibold text-brand-accent-dark">
-                  {isVi
-                    ? "Nhấn để xem hướng dẫn chi tiết"
-                    : "Click for detailed help"}{" "}
-                  →
-                </span>
-              </div>
+
+              {showHelpPopover && (
+                <div
+                  role="dialog"
+                  aria-label={t("checkinHelpTitle")}
+                  className="absolute right-0 top-full z-40 mt-1.5 w-72 sm:w-80 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-700 shadow-xl space-y-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-bold text-slate-900">
+                      {t("checkinHelpTitle")}
+                    </p>
+                    <button
+                      type="button"
+                      aria-label={t("checkinclose")}
+                      onClick={() => setShowHelpPopover(false)}
+                      className="min-h-[32px] min-w-[32px] inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  <ul className="list-disc pl-4 space-y-1.5 leading-relaxed text-slate-600">
+                    <li>{t("checkinHelpTipBrightness")}</li>
+                    <li>{t("checkinHelpTipReload")}</li>
+                    <li>{t("checkinHelpTipManual")}</li>
+                  </ul>
+
+                  <div className="border-t border-slate-100 pt-2.5">
+                    <button
+                      type="button"
+                      onClick={(e) => openDisputeDrawer(e.currentTarget)}
+                      className="min-h-[36px] w-full inline-flex items-center justify-between rounded-lg bg-slate-50 hover:bg-slate-100 px-3 py-2 text-xs font-bold text-brand-accent-dark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+                    >
+                      <span>{t("checkinMissingSessionLink")}</span>
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-          <p className="mt-1 text-sm text-slate-500">
-            {isVi
-              ? "Mã bảo mật tự đổi theo thời hạn do máy chủ cấp."
-              : "The secure code refreshes according to the server timer."}
-          </p>
-          <div className="mx-auto mt-4 flex min-h-[250px] w-full max-w-[330px] flex-1 flex-col items-center justify-center rounded-2xl bg-slate-50 p-4 text-center">
-            {code && secondsLeft > 0 ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setShowQrSpotlight(true)}
-                  aria-label={isVi ? "Phóng to mã QR" : "Enlarge QR code"}
-                  className="group relative overflow-hidden rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200 transition hover:shadow-md hover:ring-brand-primary/40 focus:outline-none focus:ring-2 focus:ring-brand-primary cursor-pointer"
-                >
-                  <QRCodeSVG value={code} size={188} level="M" includeMargin />
-                  <motion.span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-3 right-3 h-1 rounded-full bg-gradient-to-r from-transparent via-brand-cyan/70 to-transparent"
-                    animate={{ top: ["8%", "92%", "8%"] }}
-                    transition={{
-                      duration: 3,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                  />
-                  <span className="absolute inset-x-0 bottom-0 bg-slate-950/65 px-2 py-1.5 text-xs font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-                    🔍 {isVi ? "Nhấn để phóng to" : "Click to enlarge"}
-                  </span>
-                </button>
-                <p className="mt-3 font-mono text-2xl font-bold tracking-[.28em] text-slate-900">
-                  {code}
-                </p>
-                <p
-                  className={`mt-1 text-sm ${
-                    secondsLeft <= 3 ? "text-brand-accent-dark" : "text-slate-600"
-                  }`}
-                >
-                  {refreshingCode
-                    ? isVi
-                      ? "Đang kiểm tra mã mới…"
-                      : "Checking for a new code…"
-                    : isVi
-                      ? "Mã mới sau"
-                      : "New code in"}{" "}
-                  <strong className={`tabular-nums ${secondsLeft <= 3 ? "text-status-warning" : "text-brand-primary"}`}>
-                    {secondsLeft}s
-                  </strong>
-                </p>
-                <div className="mt-2 h-1 w-full max-w-[230px] overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    className={`h-full transition-[width] duration-300 ${
-                      secondsLeft <= 3 ? "bg-status-warning" : "bg-brand-primary"
-                    }`}
-                    style={{
-                      width: `${Math.min(100, Math.max(0, (secondsLeft / codeDuration) * 100))}%`,
-                    }}
-                  />
-                </div>
-              </>
-            ) : code && (codeStale || secondsLeft === 0) ? (
-              <>
-                <div className="relative">
-                  <div className="rounded-xl bg-white p-3 opacity-60 blur-[3px]">
-                    <QRCodeSVG
-                      value={code}
-                      size={188}
-                      level="M"
-                      includeMargin
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={refreshCode}
-                    disabled={refreshingCode}
-                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-brand-primary px-4 py-2 text-sm font-bold text-white shadow-lg hover:bg-brand-primary-hover disabled:opacity-60"
-                  >
-                    ↻ {isVi ? "Thử lại ngay" : "Retry now"}
-                  </button>
-                </div>
-                <p className="mt-3 font-mono text-xl font-bold tracking-[.2em] text-slate-500 blur-[2px]">
-                  {code}
-                </p>
-                <p className="mt-1 text-sm text-slate-600">
-                  {refreshingCode
-                    ? isVi
-                      ? "Mã hết hạn, đang thử lại..."
-                      : "Code expired, retrying..."
-                    : isVi
-                      ? "Mã hết hạn. Hãy thử tải mã mới."
-                      : "Code expired. Retry to load a new code."}
-                </p>
-              </>
-            ) : (
-              <>
-                <ShieldCheck className="h-10 w-10 text-slate-300" />
-                <p className="mt-3 text-sm text-slate-600">
-                  {refreshingCode
-                    ? isVi
-                      ? "Đang tạo mã QR bảo mật..."
-                      : "Generating secure QR code..."
-                    : codeError ||
-                      (isVi
-                        ? "Mã QR điểm danh đang được khởi tạo."
-                        : "Initializing check-in QR code.")}
-                </p>
-                {(validMember || !apiEnabled) && (
-                  <button
-                    type="button"
-                    onClick={refreshCode}
-                    className="mt-4 rounded-lg bg-brand-primary px-4 py-2 text-sm font-bold text-white hover:bg-brand-primary-hover"
-                  >
-                    {isVi ? "Tạo mã QR mới" : "Generate QR code"}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-          <p className="mt-2 text-center text-xs leading-5 text-slate-600">
-            {isVi
-              ? "Mã QR có thời hạn động 1–30 giây từ máy chủ (D17) và tự làm mới khi hết hạn. Coach hoặc Staff quét điểm danh trực tiếp trong khung giờ diễn ra buổi học [start, end) (D15)."
-              : "QR codes have a dynamic 1–30s server TTL (D17) and auto-refresh on expiry. Coaches or staff scan attendance during the active session window [start, end) (D15)."}
-          </p>
-          <div className="mt-2 flex min-h-6 items-center justify-center">
+
+          {/* 3.2 Nội dung Card QR theo 5 trạng thái */}
+          <div className="mt-4 flex flex-1 min-h-[250px] w-full flex-col items-center justify-center rounded-2xl bg-slate-50 border border-slate-200/70 p-4 text-center">
             {scheduleLoading ? (
-              <span className="h-5 w-32 animate-pulse rounded-full bg-slate-200" />
-            ) : scheduleFailed ? (
-              <span className="text-xs font-semibold text-amber-800">
-                {isVi
-                  ? "Chưa thể xác định khung giờ quét."
-                  : "Could not verify the check-in window."}
-              </span>
-            ) : activeCheckinSession ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                {isVi ? "Đang mở điểm danh" : "Check-in is open"}
-              </span>
-            ) : nextCheckinSession ? (
-              <span className="text-center text-xs font-medium text-slate-700">
-                {isVi
-                  ? `Chưa đến giờ quét. Buổi tiếp theo: ${nextCheckinSession.className || "Buổi tập"} ${formatTime(nextCheckinSession.startTime)}, quét được từ ${new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(toTimestamp(nextCheckinSession) - 30 * 60 * 1000))}.`
-                  : `Not time to check in yet. Next: ${nextCheckinSession.className || "Class"} at ${formatTime(nextCheckinSession.startTime)}; scanning opens 30 minutes earlier.`}
-              </span>
+              <div
+                aria-busy="true"
+                className="w-full max-w-[240px] space-y-3 py-6 animate-pulse"
+              >
+                <div className="mx-auto h-40 w-40 rounded-xl bg-slate-200" />
+                <div className="mx-auto h-5 w-32 rounded bg-slate-200" />
+                <div className="mx-auto h-3 w-44 rounded bg-slate-200" />
+              </div>
+            ) : qrContext.mode === "active" ? (
+              /* TRẠNG THÁI 1: ĐANG HOẠT ĐỘNG (Hoặc LỖI LÀM MỚI) */
+              <div className="w-full space-y-3">
+                {/* 4.2.3 Hiển thị rõ buổi đang áp dụng: tên lớp, giờ bắt đầu–kết thúc, sân */}
+                {qrContext.session && (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-950">
+                    <p className="font-extrabold">
+                      {qrContext.session.className ||
+                        qrContext.session.subjectName}
+                    </p>
+                    <p className="mt-0.5 font-medium text-emerald-800">
+                      {qrContext.session.startTime}–{qrContext.session.endTime}{" "}
+                      · {qrContext.session.roomName || t("scheduleRoomTbd")}
+                    </p>
+                  </div>
+                )}
+
+                {code && secondsLeft > 0 && !codeError ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setShowQrSpotlight(true)}
+                      aria-label={t("checkinEnlargeQrAria")}
+                      className="group relative mx-auto inline-flex flex-col items-center overflow-hidden rounded-xl bg-white p-3 shadow-xs ring-1 ring-slate-200 transition hover:shadow-md hover:ring-brand-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+                    >
+                      <QRCodeSVG
+                        value={code}
+                        size={188}
+                        level="M"
+                        includeMargin
+                      />
+                      <span className="mt-1 text-xs font-semibold text-slate-500 group-hover:text-brand-primary">
+                        {t("checkinEnlargeQr")}
+                      </span>
+                    </button>
+
+                    {/* 4.2.7 Mã số 6 chữ số kèm nhãn nhỏ "Mã nhập tay" & hỗ trợ trình đọc màn hình */}
+                    <div className="space-y-0.5">
+                      <span className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        {t("checkinManualCodeLabel")}
+                      </span>
+                      <p
+                        aria-label={`${t("checkinManualCodeLabel")}: ${String(code).split("").join(" ")}`}
+                        className="font-mono text-2xl font-black tracking-[.26em] text-slate-950"
+                      >
+                        {code}
+                      </p>
+                    </div>
+
+                    {/* 4.2.5 & 4.8 Thanh đếm ngược (không đọc mỗi giây) */}
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-slate-600">
+                        {refreshingCode ? (
+                          <span>{t("checkinRefreshingCode")}</span>
+                        ) : (
+                          <>
+                            {t("checkinNewCodeIn")}{" "}
+                            <strong className="font-bold tabular-nums text-brand-primary">
+                              {secondsLeft}s
+                            </strong>
+                          </>
+                        )}
+                      </p>
+                      <div
+                        role="progressbar"
+                        aria-label={t("checkinNewCodeIn")}
+                        aria-valuenow={secondsLeft}
+                        aria-valuemin={0}
+                        aria-valuemax={codeDuration}
+                        className="mx-auto h-1.5 w-full max-w-[220px] overflow-hidden rounded-full bg-slate-200"
+                      >
+                        <div
+                          className="h-full bg-brand-primary transition-[width] duration-300"
+                          style={{
+                            width: `${Math.min(100, Math.max(0, (secondsLeft / codeDuration) * 100))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  /* TRẠNG THÁI 5: LỖI LÀM MỚI — Làm mờ mã cũ, không bao giờ hiển thị mã hết hạn như còn hiệu lực */
+                  <div className="space-y-3 py-3" role="alert">
+                    <div className="relative mx-auto w-fit">
+                      <div
+                        aria-hidden="true"
+                        className="rounded-xl bg-white p-3 opacity-35 blur-[4px] select-none pointer-events-none"
+                      >
+                        <LockedQrPlaceholderPattern size={172} />
+                      </div>
+                      <div className=" inset-0 flex flex-col items-center justify-center">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-900 border border-rose-200">
+                          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                          <span>{t("checkinStateErrorTitle")}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-600">
+                      {t("checkinStateErrorSub")}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={refreshCode}
+                      disabled={refreshingCode}
+                      className="min-h-[40px] inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-primary hover:bg-brand-primary-hover px-4 py-2 text-xs font-bold text-white shadow-2xs disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+                    >
+                      <RefreshCw
+                        className={`h-3.5 w-3.5 ${refreshingCode ? "animate-spin" : ""}`}
+                      />
+                      <span>{t("checkinBtnRetry")}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : qrContext.mode === "checked_in" ? (
+              /* TRẠNG THÁI 2: ĐÃ ĐIỂM DANH */
+              <div className="space-y-2.5 py-6">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                  <CheckCircle2 className="h-8 w-8" />
+                </div>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  { qrContext.record &&
+                  extractTimeFromIso(
+                    qrContext.record.checkInTime ||
+                      qrContext.record.checkedInAt,
+                  )
+                    ? tr("checkinStateCheckedInTime", {
+                        time: extractTimeFromIso(
+                          qrContext.record.checkInTime ||
+                            qrContext.record.checkedInAt,
+                        ),
+                      })
+                    : t("checkinStateCheckedInTitle")}
+                </h3>
+                {qrContext.session && (
+                  <p className="text-xs font-medium text-slate-600">
+                    {qrContext.session.className ||
+                      qrContext.session.subjectName}{" "}
+                    · {qrContext.session.startTime}–{qrContext.session.endTime}{" "}
+                    · {qrContext.session.roomName || t("scheduleRoomTbd")}
+                  </p>
+                )}
+              </div>
             ) : (
-              <span className="text-xs font-medium text-slate-600">
-                {todaySessions.length
-                  ? isVi
-                    ? "Các buổi học hôm nay đã kết thúc."
-                    : "Today’s classes have ended."
-                  : isVi
-                    ? "Hôm nay bạn không có buổi học."
-                    : "You have no class today."}
-              </span>
+              /* TRẠNG THÁI 3: KHÓA MÃ QR (Không có buổi trong khung điểm danh) */
+              <div className="w-full space-y-3.5 py-2">
+                {/* Hình QR mờ dạng placeholder (họa tiết giả cố định không giải mã được) với biểu tượng khóa ở giữa */}
+                <div className="relative mx-auto flex h-44 w-44 items-center justify-center rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs">
+                  <div
+                    aria-hidden="true"
+                    className="opacity-20 blur-[1.5px] select-none pointer-events-none"
+                  >
+                    <LockedQrPlaceholderPattern size={148} />
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-sm">
+                      <Lock className="h-5 w-5" />
+                    </span>
+                  </div>
+                </div>
+
+                {qrContext.nextLockedSession ? (
+                  <div className="space-y-1.5 px-2">
+                    <p className="text-sm font-bold text-slate-900">
+                      {tr("checkinQrLockedOpenAt", {
+                        time: qrContext.openTimeFormatted,
+                        date: qrContext.openDateFormatted,
+                      })}
+                    </p>
+                    {qrContext.countdown && (
+                      <p className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                        {qrContext.countdown.days >= 1
+                          ? tr("checkinQrLockedCountdownDays", {
+                              days: qrContext.countdown.days,
+                              hours: qrContext.countdown.hours,
+                            })
+                          : tr("checkinQrLockedCountdownHours", {
+                              hours: qrContext.countdown.hours,
+                              minutes: qrContext.countdown.minutes,
+                            })}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="px-2 text-sm font-bold text-slate-700">
+                    {t("checkinQrLockedNoSession")}
+                  </p>
+                )}
+              </div>
             )}
           </div>
-          {codeUpdatedAt && (
-            <p className="mt-1 text-center text-xs text-slate-600">
-              {isVi ? "Cập nhật lúc" : "Updated at"}{" "}
-              {new Intl.DateTimeFormat(isVi ? "vi-VN" : "en-GB", {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: false,
-                timeZone: "Asia/Ho_Chi_Minh",
-              }).format(codeUpdatedAt)}
+
+          {/* 4.2.1 & 4.2.2 Ẩn dòng hướng dẫn quét/15s khi không có mã đang hoạt động */}
+          {isQrActiveMode && code && secondsLeft > 0 && !codeError && (
+            <p className="mt-3 text-center text-xs leading-relaxed text-slate-600">
+              {tr("checkinQrGuideShort", { seconds: codeDuration })}
             </p>
           )}
-          {codeError && !codeErrorDismissed && (
-            <div
-              role="alert"
-              className="mt-3 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-status-error"
-            >
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <div className="flex-1">
-                <p className="font-bold">
-                  {isVi ? "Mã chưa sẵn sàng" : "Code unavailable"}
-                </p>
-                <p className="mt-1">{codeError}</p>
-                <p className="mt-2">
-                  {isVi
-                    ? "Kiểm tra kết nối rồi thử tải lại. Nếu vẫn lỗi, vui lòng nhờ lễ tân kiểm tra trạng thái tài khoản."
-                    : "Check your connection and retry. If it still fails, ask reception to check your account."}
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label={isVi ? "Đóng" : "Close"}
-                onClick={() => setCodeErrorDismissed(true)}
-                className="rounded-md p-1 hover:bg-brand-blue-soft"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+
+          {/* 4.2.8 Dòng "Cập nhật lúc HH:mm:ss" nhỏ, nhạt */}
+          {isQrActiveMode && codeUpdatedAt && (
+            <p className="mt-1 text-center text-xs text-slate-400">
+              {tr("checkinUpdatedAt", {
+                time: TIME_FORMATTER_HHMMSS.format(codeUpdatedAt),
+              })}
+            </p>
+          )}
+
+          {/* Khi QR hoạt động: giữ "Cách điểm danh" trong card QR; trên mobile (< lg): luôn hiển thị ngay dưới QR để giữ thứ tự QR -> Cách điểm danh -> Lịch trình */}
+          {renderHowToStepsBox(
+            qrContext.mode === "locked" ? "mt-4 lg:hidden" : "mt-4",
           )}
         </article>
 
-        <article className="flex h-full min-h-[420px] flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:col-span-7">
+        {/* 4.3 Card Lịch trình học tập */}
+        <article className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6 lg:col-span-7">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-brand-accent-dark" />
+              <CalendarDays className="h-5 w-5 text-brand-accent-dark shrink-0" />
               <h2 className="text-lg font-extrabold text-slate-900">
-                {isVi ? "Lịch trình học tập" : "Your schedule"}
+                {t("checkinScheduleCardTitle")}
               </h2>
             </div>
+
             <div
-              className="inline-flex rounded-lg bg-slate-100 p-1"
+              className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1"
               role="tablist"
-              aria-label={isVi ? "Lịch học" : "Class schedule"}
+              aria-label={t("checkinScheduleCardTitle")}
             >
               <button
                 type="button"
                 role="tab"
                 aria-selected={scheduleTab === "today"}
                 onClick={() => setScheduleTab("today")}
-                className={`rounded-md px-3 py-1.5 text-xs font-bold ${
+                className={`min-h-[36px] rounded-lg px-3 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer ${
                   scheduleTab === "today"
-                    ? "bg-white text-brand-accent-dark shadow-sm"
+                    ? "bg-white text-slate-900 shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                {isVi ? "Hôm nay" : "Today"}{" "}
-                <span className="ml-1 text-xs text-slate-700">
-                  {scheduleLoading || scheduleFailed
-                    ? "–"
-                    : todaySessions.length}
-                </span>
+                {t("checkinTabToday")} (
+                {scheduleLoading || scheduleFailed
+                  ? "–"
+                  : todayValidSessions.length}
+                )
               </button>
               <button
                 type="button"
                 role="tab"
                 aria-selected={scheduleTab === "upcoming"}
                 onClick={() => setScheduleTab("upcoming")}
-                className={`rounded-md px-3 py-1.5 text-xs font-bold ${
+                className={`min-h-[36px] rounded-lg px-3 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer ${
                   scheduleTab === "upcoming"
-                    ? "bg-white text-brand-accent-dark shadow-sm"
+                    ? "bg-white text-slate-900 shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                {isVi ? "Sắp tới" : "Upcoming"}{" "}
-                <span className="ml-1 text-xs text-slate-700">
-                  {scheduleLoading || scheduleFailed
-                    ? "–"
-                    : upcomingSessions.length}
-                </span>
+                {t("checkinTabUpcoming")} (
+                {scheduleLoading || scheduleFailed
+                  ? "–"
+                  : upcomingValidSessions.length}
+                )
               </button>
             </div>
           </div>
-          <div className="mt-5 flex min-h-0 flex-1 flex-col overflow-y-auto">
-            {scheduleTab === "today"
-              ? renderScheduleRows(
-                  todaySessions,
-                  isVi
-                    ? "Hôm nay bạn không có buổi học nào trong lịch đăng ký."
-                    : "You have no classes scheduled today.",
-                )
-              : renderScheduleRows(
-                  upcomingSessions,
-                  isVi
-                    ? "Chưa có buổi học sắp tới trong lịch đăng ký."
-                    : "No upcoming classes in your schedule.",
+
+          <div className="mt-4">
+            {scheduleLoading ? (
+              <div
+                aria-busy="true"
+                className="space-y-3 py-2"
+              >
+                {[0, 1].map((key) => (
+                  <div
+                    key={key}
+                    className="animate-pulse rounded-xl bg-slate-100 p-4 space-y-2"
+                  >
+                    <div className="h-3 w-1/4 rounded bg-slate-200" />
+                    <div className="h-4 w-2/3 rounded bg-slate-200" />
+                    <div className="h-3 w-1/2 rounded bg-slate-200" />
+                  </div>
+                ))}
+              </div>
+            ) : scheduleFailed ? (
+              <div
+                role="alert"
+                className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-status-error flex flex-wrap items-center justify-between gap-3"
+              >
+                <span>{scheduleError}</span>
+                <button
+                  type="button"
+                  onClick={refreshSchedule}
+                  className="min-h-[36px] rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+                >
+                  {t("checkinBtnRetry")}
+                </button>
+              </div>
+            ) : scheduleTab === "today" ? (
+              todayValidSessions.length > 0 ? (
+                <div className="space-y-2.5">
+                  {todayValidSessions.map((session, idx) =>
+                    renderScheduleRowItem(session, idx),
+                  )}
+                </div>
+              ) : activeEnrollmentsCount === 0 ? (
+                /* 4.3 Trạng thái rỗng khi hội viên CHƯA có khóa nào: hiện nút Đăng ký khóa học */
+                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-5 py-6 text-center space-y-2.5">
+                  <p className="text-sm font-bold text-slate-800">
+                    {t("checkinEmptyNoCourse")}
+                  </p>
+                  <Link
+                    to="/member/catalog"
+                    className="min-h-[40px] inline-flex items-center justify-center rounded-lg bg-brand-primary hover:bg-brand-primary-hover px-4 py-2 text-xs font-bold text-white shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                  >
+                    {t("checkinBtnRegisterCourse")}
+                  </Link>
+                </div>
+              ) : (
+                /* 4.3 Trạng thái rỗng khi hội viên ĐÃ có khóa nhưng hôm nay không có buổi: kèm buổi kế tiếp, KHÔNG có nút đăng ký */
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-5 py-5 text-center space-y-1.5">
+                  <p className="text-sm font-bold text-slate-800">
+                    {t("checkinEmptyTodayHasCourse")}
+                  </p>
+                  {nextFutureValidSession && (
+                    <p className="text-xs font-medium text-slate-600">
+                      {tr("checkinNextSessionLabel", {
+                        date: toDateDdMmYyyy(
+                          nextFutureValidSession.sessionDate,
+                        ),
+                        time: `${nextFutureValidSession.startTime}–${nextFutureValidSession.endTime}`,
+                        room:
+                          nextFutureValidSession.roomName ||
+                          t("scheduleRoomTbd"),
+                      })}
+                    </p>
+                  )}
+                </div>
+              )
+            ) : upcomingValidSessions.length > 0 ? (
+              <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                {upcomingValidSessions.map((session, idx) =>
+                  renderScheduleRowItem(session, idx),
                 )}
+              </div>
+            ) : activeEnrollmentsCount === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-5 py-6 text-center space-y-2.5">
+                <p className="text-sm font-bold text-slate-800">
+                  {t("checkinEmptyNoCourse")}
+                </p>
+                <Link
+                  to="/member/catalog"
+                  className="min-h-[40px] inline-flex items-center justify-center rounded-lg bg-brand-primary hover:bg-brand-primary-hover px-4 py-2 text-xs font-bold text-white shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                >
+                  {t("checkinBtnRegisterCourse")}
+                </Link>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-5 py-5 text-center space-y-1.5">
+                <p className="text-sm font-bold text-slate-800">
+                  {tr("checkinEmptyUpcomingHasCourse", {
+                    days: UPCOMING_SCHEDULE_LOOKAHEAD_DAYS,
+                  })}
+                </p>
+                {nextFutureValidSession && (
+                  <p className="text-xs font-medium text-slate-600">
+                    {tr("checkinNextSessionLabel", {
+                      date: toDateDdMmYyyy(nextFutureValidSession.sessionDate),
+                      time: `${nextFutureValidSession.startTime}–${nextFutureValidSession.endTime}`,
+                      room:
+                        nextFutureValidSession.roomName ||
+                        t("scheduleRoomTbd"),
+                    })}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* Khi QR ở trạng thái khóa trên màn hình lớn (lg): đặt khối "Cách điểm danh" dưới danh sách buổi để hai card cân chiều cao */}
+          {qrContext.mode === "locked" &&
+            renderHowToStepsBox("hidden lg:block mt-4")}
         </article>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+      {/* 4.4 Lịch sử điểm danh */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <ClipboardCheck className="h-5 w-5 text-brand-accent-dark" />
+            <ClipboardCheck className="h-5 w-5 text-brand-accent-dark shrink-0" />
             <h2 className="text-lg font-extrabold text-slate-900">
-              {isVi ? "Lịch sử điểm danh" : "Attendance history"}
+              {t("checkinHistoryCardTitle")}
             </h2>
           </div>
+
+          {/* 4.4 & 4.5.1 Lối vào chính của chức năng đối soát */}
           <button
             type="button"
-            onClick={() => setShowDisputeDrawer(true)}
-            className="text-sm font-semibold text-brand-accent-dark hover:text-brand-primary-hover"
+            onClick={(e) => openDisputeDrawer(e.currentTarget)}
+            className="min-h-[40px] inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold text-brand-accent-dark hover:bg-brand-accent-soft transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
           >
-            {isVi
-              ? "Thiếu buổi tập? Gửi đối soát"
-              : "Missing a class? Request review"}{" "}
-            <ChevronRight className="inline h-4 w-4" />
+            <span>{t("checkinMissingSessionLink")}</span>
+            <ChevronRight className="h-4 w-4 shrink-0" />
           </button>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(180px,1fr)_170px_170px]">
-          <label className="relative">
-            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <input
-              ref={historySearchRef}
-              value={historySearch}
-              onChange={(event) => setHistorySearch(event.target.value)}
-              placeholder={isVi ? "Tìm theo tên lớp" : "Search class"}
-              className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-12 text-sm outline-none focus:border-brand-primary"
-            />
-            <span className="pointer-events-none absolute right-2.5 top-2 inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-400">
-              /
+
+        {/* Bộ lọc tìm kiếm & khoảng ngày */}
+        <div className="grid gap-3 sm:grid-cols-[minmax(200px,1fr)_180px_180px] items-end">
+          <div>
+            <label
+              htmlFor="checkin-history-search"
+              className="block text-xs font-semibold text-slate-600 mb-1"
+            >
+              {t("search")}
+            </label>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
+              <input
+                id="checkin-history-search"
+                ref={historySearchRef}
+                value={historySearch}
+                onChange={(event) => setHistorySearch(event.target.value)}
+                placeholder={t("checkinSearchPlaceholder")}
+                className="min-h-[40px] w-full rounded-lg border border-slate-200 py-2 pl-9 pr-10 text-xs text-slate-900 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+              />
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute right-2.5 top-2.5 inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-400"
+              >
+                /
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <span className="block text-xs font-semibold text-slate-600">
+              {t("checkinFilterFromDate")}
             </span>
-          </label>
-          <label className="text-xs font-semibold text-slate-600">
-            {isVi ? "Từ ngày" : "From"}
             <LocalDatePicker
               value={historyDateFrom}
               onChange={setHistoryDateFrom}
               isVi={isVi}
-              label={isVi ? "Ngày bắt đầu" : "Start date"}
-              max={historyDateTo || getTodayInVietnam()}
+              label={t("checkinFilterFromDate")}
+              max={todayIso}
+              error={hasDateOrderError}
             />
-          </label>
-          <label className="text-xs font-semibold text-slate-600">
-            {isVi ? "Đến ngày" : "To"}
+          </div>
+
+          <div>
+            <span className="block text-xs font-semibold text-slate-600">
+              {t("checkinFilterToDate")}
+            </span>
             <LocalDatePicker
               value={historyDateTo}
               onChange={setHistoryDateTo}
               isVi={isVi}
-              label={isVi ? "Ngày kết thúc" : "End date"}
-              min={historyDateFrom || undefined}
-              max={getTodayInVietnam()}
+              label={t("checkinFilterToDate")}
+              max={todayIso}
+              error={hasDateOrderError}
             />
-          </label>
+          </div>
         </div>
-        <div
-          className="mt-3 flex flex-wrap items-center gap-2"
-          aria-label={
-            isVi ? "Lọc nhanh lịch sử điểm danh" : "Quick attendance filters"
-          }
-        >
-          <button
-            type="button"
-            onClick={() => setHistoryStatus("all")}
-            aria-pressed={historyStatus === "all"}
-            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-              historyStatus === "all"
-                ? "border-slate-400 bg-slate-100 text-slate-900"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
+
+        {/* Báo lỗi nhỏ tại chỗ nếu Từ ngày > Đến ngày (Mục 4.4) */}
+        {hasDateOrderError && (
+          <p
+            role="alert"
+            className="text-xs font-semibold text-rose-700 flex items-center gap-1.5"
           >
-            {isVi ? "Tất cả" : "All"} (
-            {historyLoading || historyFailed ? "–" : historyStats.all})
-          </button>
-          <button
-            type="button"
-            onClick={() => setHistoryStatus("present")}
-            aria-pressed={historyStatus === "present"}
-            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-              historyStatus === "present"
-                ? "border-emerald-400 bg-emerald-100 text-emerald-900"
-                : "border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
-            }`}
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            <span>{t("checkinDateOrderError")}</span>
+          </p>
+        )}
+
+        {/* 4.4 Chip lọc trạng thái: chip đang chọn nhìn rõ (nền đậm + chữ trắng), chip số đếm 0 làm mờ nhưng vẫn bấm được */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div
+            className="flex flex-wrap items-center gap-1.5"
+            role="group"
+            aria-label={t("filter")}
           >
-            ✓ {isVi ? "Có mặt" : "Present"} (
-            {historyLoading || historyFailed ? "–" : historyStats.present})
-          </button>
-          <button
-            type="button"
-            onClick={() => setHistoryStatus("absent")}
-            aria-pressed={historyStatus === "absent"}
-            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-              historyStatus === "absent"
-                ? "border-rose-200 bg-rose-50 text-status-error"
-                : "border-brand-accent/40 bg-brand-accent-soft text-brand-primary hover:bg-brand-accent-soft"
-            }`}
-          >
-            • {isVi ? "Vắng mặt / Khác" : "Absent / Other"} (
-            {historyLoading || historyFailed ? "–" : historyStats.absentOther})
-          </button>
+            {[
+              {
+                key: "all",
+                icon: null,
+                label: t("checkinFilterAll"),
+                count: historyCounts.all,
+              },
+              {
+                key: "present",
+                icon: "✓",
+                label: t("checkinFilterPresent"),
+                count: historyCounts.present,
+              },
+              {
+                key: "late",
+                icon: "◑",
+                label: t("checkinFilterLate"),
+                count: historyCounts.late,
+              },
+              {
+                key: "absent",
+                icon: "✕",
+                label: t("checkinFilterAbsent"),
+                count: historyCounts.absent,
+              },
+              {
+                key: "excused",
+                icon: "◈",
+                label: t("checkinFilterExcused"),
+                count: historyCounts.excused,
+              },
+            ].map((chip) => {
+              const isSelected = historyStatus === chip.key
+              const isZero =
+                !historyLoading && !historyFailed && chip.count === 0
+              return (
+                <button
+                  key={chip.key}
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => setHistoryStatus(chip.key)}
+                  className={`min-h-[40px] inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer ${
+                    isSelected
+                      ? "border-slate-900 bg-slate-900 text-white shadow-2xs"
+                      : isZero
+                        ? "border-slate-200 bg-slate-50 text-slate-400 opacity-65 hover:opacity-100"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {chip.icon && <span aria-hidden="true">{chip.icon}</span>}
+                  <span>
+                    {chip.label} (
+                    {historyLoading || historyFailed ? "–" : chip.count})
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
           {hasHistoryFilters && (
             <button
               type="button"
-              onClick={() => {
-                setHistorySearch("")
-                setHistoryStatus("all")
-                setHistoryDateFrom("")
-                setHistoryDateTo("")
-              }}
-              className="ml-auto rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-700 underline hover:text-slate-950"
+              onClick={clearHistoryFilters}
+              className="min-h-[40px] inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 underline hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
             >
-              {isVi ? "Xóa bộ lọc" : "Clear filters"}
+              <X className="h-3.5 w-3.5" />
+              <span>{t("checkinClearFilters")}</span>
             </button>
           )}
         </div>
+
+        {/* Nội dung danh sách Lịch sử điểm danh */}
         {historyFailed ? (
           <div
-            role={historyErrorDismissed ? "status" : "alert"}
-            className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-status-error"
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-status-error"
           >
-            <span>
-              {historyErrorDismissed
-                ? isVi
-                  ? "Lịch sử chưa tải được."
-                  : "Attendance history is unavailable."
-                : historyError}
-            </span>
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={refreshHistory}
-                className="rounded-md bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-primary-hover"
+            <span>{historyError}</span>
+            <button
+              type="button"
+              onClick={refreshHistory}
+              className="min-h-[36px] rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+            >
+              {t("checkinBtnRetry")}
+            </button>
+          </div>
+        ) : historyLoading ? (
+          <div aria-busy="true" className="space-y-3 py-2">
+            {[0, 1, 2].map((key) => (
+              <div
+                key={key}
+                className="animate-pulse border-b border-slate-100 py-3 space-y-2"
               >
-                {isVi ? "Thử lại" : "Retry"}
-              </button>
-              {!historyErrorDismissed && (
+                <div className="h-4 w-1/3 rounded bg-slate-200" />
+                <div className="h-3 w-1/2 rounded bg-slate-100" />
+              </div>
+            ))}
+          </div>
+        ) : visibleAttendanceRows.length > 0 ? (
+          <div className="space-y-3">
+            <div className="divide-y divide-slate-100">
+              {visibleAttendanceRows.map((row, index) => {
+                const badge = getAttendanceBadgeMeta(row.stateKey, t)
+                const timeRangeStr =
+                  row.startTime !== "—" && row.endTime !== "—"
+                    ? `${row.startTime}–${row.endTime}`
+                    : row.startTime !== "—"
+                      ? row.startTime
+                      : null
+
+                return (
+                  <article
+                    key={
+                      row.attendanceId ||
+                      row.id ||
+                      `${row.sessionId || "att"}-${index}`
+                    }
+                    className="flex flex-wrap items-center justify-between gap-3 py-3.5 first:pt-1"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <h3 className="text-sm font-extrabold text-slate-900">
+                        {row.className ||
+                          row.subjectName ||
+                          `#${row.sessionId || index + 1}`}
+                      </h3>
+
+                      {/* 4.4 Mỗi dòng gồm: ngày dd/MM/yyyy, giờ bắt đầu–kết thúc, sân */}
+                      <p className="text-xs font-medium text-slate-700">
+                        {row.dateFormatted}
+                        {timeRangeStr ? ` · ${timeRangeStr}` : ""}
+                        {` · ${row.roomName || t("scheduleRoomTbd")}`}
+                      </p>
+
+                      {/* Giờ điểm danh thực tế & người quét nếu API có trả về */}
+                      {(row.checkInTimeHhMm || row.scannerName) && (
+                        <p className="text-xs text-slate-500">
+                          {row.checkInTimeHhMm
+                            ? tr("checkinCheckedInAtLabel", {
+                                time: row.checkInTimeHhMm,
+                              })
+                            : ""}
+                          {row.checkInTimeHhMm && row.scannerName ? " · " : ""}
+                          {row.scannerName
+                            ? tr("checkinScannedByLabel", {
+                                scanner: row.scannerName,
+                              })
+                            : ""}
+                        </p>
+                      )}
+                    </div>
+
+                    <span
+                      className={`inline-flex items-center gap-1 shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${badge.className}`}
+                    >
+                      <span aria-hidden="true">{badge.icon}</span>
+                      <span>{badge.label}</span>
+                    </span>
+                  </article>
+                )
+              })}
+            </div>
+
+            {/* Tổng số bản ghi & nút Tải thêm */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+              <span className="text-xs text-slate-500">
+                {tr("checkinHistoryTotalCount", {
+                  shown: visibleAttendanceRows.length,
+                  total: filteredAttendance.length,
+                })}
+              </span>
+
+              {visibleHistoryCount < filteredAttendance.length && (
                 <button
                   type="button"
-                  aria-label={isVi ? "Đóng" : "Close"}
-                  onClick={() => setHistoryErrorDismissed(true)}
-                  className="rounded-md p-1 hover:bg-brand-blue-soft"
+                  onClick={() =>
+                    setVisibleHistoryCount(
+                      (prev) => prev + HISTORY_PAGE_SIZE,
+                    )
+                  }
+                  className="min-h-[40px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2 text-xs font-bold text-slate-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
                 >
-                  <X className="h-4 w-4" />
+                  {tr("checkinLoadMore", {
+                    remaining:
+                      filteredAttendance.length - visibleHistoryCount,
+                  })}
                 </button>
               )}
             </div>
           </div>
-        ) : historyLoading ? (
-          <div
-            className="mt-4 space-y-3"
-            aria-label={
-              isVi ? "Đang tải lịch sử điểm danh" : "Loading attendance history"
-            }
-          >
-            {[0, 1, 2].map((key) => (
-              <div
-                key={key}
-                className="animate-pulse border-b border-slate-100 py-4"
-              >
-                <div className="h-4 w-1/3 rounded bg-slate-200" />
-                <div className="mt-2 h-3 w-1/4 rounded bg-slate-100" />
-              </div>
-            ))}
-          </div>
-        ) : filteredAttendance.length ? (
-          <div className="mt-4 divide-y divide-slate-100">
-            {filteredAttendance.map((row, index) => {
-              const state = String(row.state || "").toUpperCase()
-              const present =
-                state.includes("PRESENT") ||
-                state.includes("ATTENDED") ||
-                state === "CHECKED_IN" ||
-                state.includes("LATE")
-              return (
-                <article
-                  key={
-                    row.attendanceId ||
-                    `${row.sessionId || "attendance"}-${index}`
-                  }
-                  className="group flex flex-wrap items-center justify-between gap-3 py-4"
-                >
-                  <div>
-                    <h3 className="font-bold text-slate-900">
-                      {row.className ||
-                        (isVi ? "Buổi tập" : "Training session")}
-                    </h3>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {formatAttendanceDate(
-                        row.sessionDate || row.checkInTime,
-                        isVi,
-                      )}
-                      {row.checkInTime
-                        ? ` · ${String(row.checkInTime).slice(11, 16)}`
-                        : ""}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => openReviewForRow(row)}
-                      className="rounded-md px-2 py-1 text-xs font-semibold text-brand-accent-dark opacity-100 transition hover:bg-brand-accent-soft sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-                    >
-                      {isVi ? "Đối soát buổi này →" : "Review this class →"}
-                    </button>
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-bold ${
-                        present
-                          ? "bg-emerald-50 text-emerald-800"
-                          : state.includes("ABSENT")
-                            ? "bg-rose-50 text-status-error"
-                            : "bg-slate-100 text-slate-700"
-                      }`}
-                    >
-                      {attendanceStateLabel(row.state, isVi)}
-                    </span>
-                  </div>
-                </article>
-              )
-            })}
-          </div>
         ) : (
-          <div className="mt-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 px-5 py-10 text-center text-sm text-slate-500">
-            {attendanceRows.length ? (
-              <p>
-                {isVi
-                  ? "Không có bản ghi khớp với bộ lọc."
-                  : "No records match these filters."}
-              </p>
-            ) : (
+          /* 4.4 Trạng thái rỗng phân biệt "Chưa có lịch sử điểm danh" và "Không có kết quả phù hợp bộ lọc" */
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 px-5 py-8 text-center space-y-2">
+            <ClipboardList className="h-7 w-7 text-slate-400" />
+            {attendanceRows.length > 0 && hasHistoryFilters ? (
               <>
-                <ClipboardList className="mb-2 h-7 w-7 opacity-40" />
-                <p>
-                  {isVi
-                    ? "Chưa có dữ liệu điểm danh."
-                    : "No attendance records yet."}
+                <p className="text-sm font-bold text-slate-800">
+                  {t("checkinEmptyHistoryFiltered")}
                 </p>
+                <button
+                  type="button"
+                  onClick={clearHistoryFilters}
+                  className="min-h-[40px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-3.5 py-1.5 text-xs font-bold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+                >
+                  {t("checkinClearFilters")}
+                </button>
               </>
+            ) : (
+              <p className="text-sm font-medium text-slate-600">
+                {t("checkinEmptyHistoryAll")}
+              </p>
             )}
           </div>
         )}
       </section>
 
       <AnimatePresence>
-        {showQrSpotlight && code && secondsLeft > 0 && (
+        {/* Modal phóng to mã QR */}
+        {showQrSpotlight && isQrActiveMode && code && secondsLeft > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[90] flex items-center justify-center bg-white p-4"
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/60 p-4"
             onMouseDown={(event) => {
               if (event.target === event.currentTarget)
                 setShowQrSpotlight(false)
             }}
           >
             <motion.section
-              initial={{ opacity: 0, scale: 0.94 }}
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.18 }}
+              transition={{ duration: 0.16 }}
               role="dialog"
               aria-modal="true"
               aria-labelledby="qr-spotlight-title"
-              className="relative flex w-full max-w-md flex-col items-center rounded-3xl bg-white p-4 text-center sm:p-8"
+              className="relative flex w-full max-w-md flex-col items-center rounded-3xl bg-white p-6 text-center shadow-2xl"
             >
               <button
                 type="button"
                 onClick={() => setShowQrSpotlight(false)}
-                aria-label={isVi ? "Đóng mã QR phóng to" : "Close enlarged QR"}
-                className="absolute right-3 top-3 rounded-full p-2 text-slate-500 hover:bg-slate-100"
+                aria-label={t("checkinCloseSpotlightAria")}
+                className="min-h-[40px] min-w-[40px] absolute right-3 top-3 inline-flex items-center justify-center rounded-full p-2 text-slate-500 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
+
               <p
                 id="qr-spotlight-title"
-                className="text-sm font-bold uppercase tracking-wider text-brand-accent-dark"
+                className="text-xs font-bold uppercase tracking-wider text-brand-accent-dark"
               >
-                {isVi ? "Mã QR điểm danh" : "Check-in QR code"}
+                {t("checkinQrCardTitle")}
               </p>
-              <div className="mt-5 rounded-2xl bg-white p-3 shadow-md ring-1 ring-slate-200">
+
+              {qrContext.session && (
+                <p className="mt-1 text-xs font-bold text-slate-800">
+                  {qrContext.session.className ||
+                    qrContext.session.subjectName}{" "}
+                  · {qrContext.session.startTime}–{qrContext.session.endTime}
+                </p>
+              )}
+
+              <div className="mt-4 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
                 <QRCodeSVG
                   value={code}
                   size={
                     typeof window === "undefined"
-                      ? 280
-                      : Math.min(320, window.innerWidth - 72)
+                      ? 260
+                      : Math.min(280, window.innerWidth - 80)
                   }
                   level="M"
                   includeMargin
                 />
               </div>
-              <p className="mt-5 font-mono text-4xl font-black tracking-[.3em] text-slate-950">
+
+              <span className="mt-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                {t("checkinManualCodeLabel")}
+              </span>
+              <p className="font-mono text-3xl font-black tracking-[.28em] text-slate-950">
                 {code}
               </p>
-              <p className="mt-2 text-sm text-slate-600">
-                {isVi ? "Mã mới sau" : "New code in"}{" "}
-                <strong className={`tabular-nums ${secondsLeft <= 3 ? "text-status-warning" : "text-brand-primary"}`}>
+              <p className="mt-2 text-xs text-slate-600">
+                {t("checkinNewCodeIn")}{" "}
+                <strong className="tabular-nums text-brand-primary">
                   {secondsLeft}s
                 </strong>
               </p>
             </motion.section>
           </motion.div>
         )}
-        {showHelpModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 p-4"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) setShowHelpModal(false)
-            }}
-          >
-            <motion.section
-              initial={{ opacity: 0, scale: 0.97, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97, y: 8 }}
-              transition={{ duration: 0.16 }}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="attendance-help-title"
-              className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-brand-accent-dark">
-                    VIBE SPORT · MEMBER
-                  </p>
-                  <h2
-                    id="attendance-help-title"
-                    className="mt-1 text-xl font-extrabold text-slate-900"
-                  >
-                    {isVi
-                      ? "Gặp sự cố khi điểm danh?"
-                      : "Having trouble checking in?"}
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  aria-label={isVi ? "Đóng" : "Close"}
-                  onClick={() => setShowHelpModal(false)}
-                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="mt-5 space-y-4 text-sm leading-6 text-slate-600">
-                <p>
-                  <strong className="text-slate-900">
-                    {isVi
-                      ? "QR không tải hoặc hết hạn:"
-                      : "QR does not load or has expired:"}
-                  </strong>{" "}
-                  {isVi
-                    ? "Kiểm tra mạng, nhấn Tải lại và dùng mã mới nhất trên màn hình."
-                    : "Check your connection, refresh, and use the latest code on screen."}
-                </p>
-                <p>
-                  <strong className="text-slate-900">
-                    {isVi ? "Không quét được:" : "QR will not scan:"}
-                  </strong>{" "}
-                  {isVi
-                    ? "Tăng độ sáng màn hình, phóng to QR và nhờ Coach/lễ tân nhập mã 6 số hiển thị bên dưới QR."
-                    : "Increase screen brightness, enlarge the QR, and ask staff to enter the six-digit code shown below it."}
-                </p>
-                <p>
-                  <strong className="text-slate-900">
-                    {isVi
-                      ? "Đã quét nhưng chưa ghi nhận:"
-                      : "Scanned but not recorded:"}
-                  </strong>{" "}
-                  {isVi
-                    ? "Tải lại lịch sử sau ít phút. Nếu vẫn thiếu, ghi lại tên lớp, ngày và giờ buổi học rồi liên hệ lễ tân để đối soát."
-                    : "Refresh your history after a few minutes. If the record is still missing, note the class, date, and time and contact reception."}
-                </p>
-                <p className="rounded-lg bg-slate-100 p-3 text-xs leading-5">
-                  {isVi
-                    ? "Điểm danh chỉ hợp lệ trong vòng 30 phút trước hoặc trong giờ buổi học. Lỗi đăng nhập hoặc tài khoản chưa liên kết hồ sơ cần được lễ tân kiểm tra."
-                    : "Check-in is available within 30 minutes before or during class. Reception can help with sign-in or member profile issues."}
-                </p>
-              </div>
-              <div className="mt-6 flex flex-wrap justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowHelpModal(false)}
-                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  {isVi ? "Đóng" : "Close"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowHelpModal(false)
-                    setShowDisputeDrawer(true)
-                  }}
-                  className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-bold text-white hover:bg-brand-primary-hover"
-                >
-                  {isVi ? "Mở form đối soát" : "Open review form"}
-                </button>
-              </div>
-            </motion.section>
-          </motion.div>
-        )}
 
+        {/* 4.5 Ngăn trượt "Báo thiếu buổi tập" (Mobile rộng toàn màn hình w-full sm:max-w-md) */}
         {showDisputeDrawer && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[80] bg-slate-950/40"
+            className="fixed inset-0 z-[80] bg-slate-950/50"
             onMouseDown={(event) => {
-              if (event.target === event.currentTarget)
-                setShowDisputeDrawer(false)
+              if (event.target === event.currentTarget) closeDisputeDrawer()
             }}
           >
             <motion.aside
+              ref={disputeDrawerRef}
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
-              transition={{ type: "tween", duration: 0.22 }}
+              transition={{ type: "tween", duration: 0.2 }}
               role="dialog"
               aria-modal="true"
               aria-labelledby="attendance-dispute-title"
-              className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl"
+              className="absolute inset-y-0 right-0 flex w-full sm:max-w-md flex-col justify-between overflow-y-auto bg-white shadow-2xl"
             >
-              <header className="sticky top-0 flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-5 py-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-brand-accent-dark">
-                    VIBE SPORT · MEMBER
-                  </p>
-                  <h2
-                    id="attendance-dispute-title"
-                    className="mt-1 text-xl font-extrabold text-slate-900"
+              <div>
+                <header className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-5 py-4">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-brand-accent-dark">
+                      {t("checkinBrand")}
+                    </p>
+                    <h2
+                      id="attendance-dispute-title"
+                      className="mt-1 text-lg font-extrabold text-slate-900"
+                    >
+                      {t("checkinDisputeDrawerTitle")}
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label={t("checkinclose")}
+                    onClick={closeDisputeDrawer}
+                    className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg p-2 text-slate-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
                   >
-                    {isVi
-                      ? "Yêu cầu đối soát điểm danh"
-                      : "Attendance review request"}
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  aria-label={isVi ? "Đóng" : "Close"}
-                  onClick={() => setShowDisputeDrawer(false)}
-                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </header>
-              <div className="flex-1 p-5">
-                <p className="text-sm leading-6 text-slate-600">
-                  {isVi
-                    ? "Ghi lại thông tin buổi học cần kiểm tra để trao đổi với lễ tân. Bản nháp chỉ lưu trên trình duyệt của thiết bị này."
-                    : "Record the session details to discuss with reception. Drafts are stored only in this device’s browser."}
-                </p>
-                <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-900">
-                  {isVi
-                    ? "Bản nháp chưa được gửi đến trung tâm. API hiện chưa hỗ trợ Member gửi yêu cầu đối soát; vui lòng liên hệ lễ tân để xử lý."
-                    : "Drafts are not sent to the center. The API does not yet support Member review requests; please contact reception for help."}
-                </div>
+                    <X className="h-5 w-5" />
+                  </button>
+                </header>
+
                 <form
-                  onSubmit={handleReviewDraftSubmit}
-                  className="mt-5 space-y-4"
+                  id="dispute-report-form"
+                  onSubmit={handleCopyDisputeInfo}
+                  className="p-5 space-y-4"
                 >
-                  <label className="block text-sm font-semibold text-slate-700">
-                    {isVi ? "Lớp / môn học" : "Class / sport"}
+                  {/* 4.5.2 & 4.5.7 Giải thích ngắn bằng ngôn ngữ thường, màu trung tính */}
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs leading-relaxed text-slate-700">
+                    {t("checkinDisputeIntro")}
+                  </div>
+
+                  {/* 4.5.3 Chọn buổi từ danh sách các buổi đã qua trong 30 ngày gần nhất */}
+                  <div>
+                    <label
+                      htmlFor="dispute-session-select"
+                      className="block text-xs font-bold text-slate-800 mb-1.5"
+                    >
+                      {t("checkinDisputeSelectSessionLabel")}
+                    </label>
                     <select
-                      required
-                      value={reviewClassName}
-                      onChange={(event) => {
-                        setReviewClassName(event.target.value)
-                        setReviewErrors((errors) => ({
-                          ...errors,
-                          className: "",
-                        }))
+                      id="dispute-session-select"
+                      ref={disputeSelectRef}
+                      value={selectedDisputeSessionKey}
+                      onChange={(e) => {
+                        setSelectedDisputeSessionKey(e.target.value)
+                        setCopiedBanner(false)
                       }}
-                      className={`mt-1.5 w-full rounded-lg border bg-white px-3 py-2.5 text-sm font-normal ${
-                        reviewErrors.className
-                          ? "border-red-400"
-                          : "border-slate-200"
-                      }`}
+                      className="min-h-[40px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
                     >
                       <option value="">
-                        {isVi
-                          ? "Chọn lớp đã đăng ký"
-                          : "Choose an enrolled class"}
+                        {pastSessionsForDispute.length > 0
+                          ? t("checkinDisputeSelectPlaceholder")
+                          : t("checkinDisputeNoPastSessions")}
                       </option>
-                      {reviewClassName &&
-                        !classOptions.some(
-                          (option) => option.name === reviewClassName,
-                        ) && (
-                          <option value={reviewClassName}>
-                            {reviewClassName}
-                          </option>
-                        )}
-                      {classOptions.map((option) => (
-                        <option key={String(option.id)} value={option.name}>
-                          {option.name}
+                      {pastSessionsForDispute.map((s) => (
+                        <option key={s.optionKey} value={s.optionKey}>
+                          {`${toDateDdMmYyyy(s.sessionDate)} · ${s.startTime}–${s.endTime} · ${s.displayClassName} · ${s.attendanceStatusLabel}`}
                         </option>
                       ))}
                     </select>
-                    {reviewErrors.className && (
-                      <span className="mt-1 block text-xs text-brand-accent-dark">
-                        {reviewErrors.className}
-                      </span>
-                    )}
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="block text-sm font-semibold text-slate-700">
-                      {isVi ? "Ngày học" : "Class date"}
-                      <LocalDatePicker
-                        value={reviewDate}
-                        onChange={(date) => {
-                          setReviewDate(date)
-                          setReviewErrors((errors) => ({
-                            ...errors,
-                            sessionDate: "",
-                          }))
-                        }}
-                        isVi={isVi}
-                        label={isVi ? "Chọn ngày học" : "Choose class date"}
-                        max={getTodayInVietnam()}
-                        error={reviewErrors.sessionDate}
-                      />
-                      {reviewErrors.sessionDate && (
-                        <span className="mt-1 block text-xs text-brand-accent-dark">
-                          {reviewErrors.sessionDate}
-                        </span>
-                      )}
-                    </label>
-                    <label className="block text-sm font-semibold text-slate-700">
-                      {isVi ? "Giờ học" : "Class time"}
-                      <input
-                        inputMode="numeric"
-                        value={reviewTime}
-                        onChange={(event) => {
-                          const value = event.target.value
-                            .replace(/[^\d:]/g, "")
-                            .slice(0, 5)
-                          setReviewTime(value)
-                          setReviewErrors((errors) => ({
-                            ...errors,
-                            sessionTime: "",
-                          }))
-                        }}
-                        className={`mt-1.5 w-full rounded-lg border px-3 py-2.5 text-sm font-normal ${
-                          reviewErrors.sessionTime
-                            ? "border-red-400"
-                            : "border-slate-200"
-                        }`}
-                        placeholder="HH:mm"
-                        aria-label={
-                          isVi
-                            ? "Giờ học 24 giờ"
-                            : "Class time in 24-hour format"
-                        }
-                      />
-                      {reviewErrors.sessionTime && (
-                        <span className="mt-1 block text-xs text-brand-accent-dark">
-                          {reviewErrors.sessionTime}
-                        </span>
-                      )}
-                    </label>
                   </div>
-                  <label className="block text-sm font-semibold text-slate-700">
-                    {isVi ? "Thông tin cần đối soát" : "What needs review"}
+
+                  {/* Tự điền đủ lớp, ngày, giờ, sân và trạng thái hiện tại khi đã chọn buổi */}
+                  {selectedDisputeSession && (
+                    <dl className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2 text-xs">
+                      <div className="flex justify-between gap-2">
+                        <dt className="font-semibold text-slate-500">
+                          {t("checkinDisputeFieldClass")}:
+                        </dt>
+                        <dd className="font-bold text-slate-900 text-right">
+                          {selectedDisputeSession.displayClassName}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="font-semibold text-slate-500">
+                          {t("checkinDisputeFieldDate")}:
+                        </dt>
+                        <dd className="font-bold text-slate-900">
+                          {toDateDdMmYyyy(selectedDisputeSession.sessionDate)}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="font-semibold text-slate-500">
+                          {t("checkinDisputeFieldTime")}:
+                        </dt>
+                        <dd className="font-bold text-slate-900">
+                          {selectedDisputeSession.startTime}–
+                          {selectedDisputeSession.endTime}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="font-semibold text-slate-500">
+                          {t("checkinDisputeFieldRoom")}:
+                        </dt>
+                        <dd className="font-semibold text-slate-800">
+                          {selectedDisputeSession.roomName ||
+                            t("scheduleRoomTbd")}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="font-semibold text-slate-500">
+                          {t("checkinDisputeFieldStatus")}:
+                        </dt>
+                        <dd className="font-bold text-slate-900">
+                          {selectedDisputeSession.attendanceStatusLabel}
+                        </dd>
+                      </div>
+                    </dl>
+                  )}
+
+                  {/* 4.5.4 Ô ghi chú cho lễ tân (tùy chọn), tối đa 1000 ký tự, có bộ đếm */}
+                  <div>
+                    <label
+                      htmlFor="dispute-note-textarea"
+                      className="block text-xs font-bold text-slate-800 mb-1.5"
+                    >
+                      {t("checkinDisputeNoteLabel")}
+                    </label>
                     <textarea
+                      id="dispute-note-textarea"
                       maxLength={1000}
                       rows={4}
-                      value={reviewDetails}
-                      onChange={(event) => {
-                        setReviewDetails(event.target.value)
-                        setReviewErrors((errors) => ({
-                          ...errors,
-                          details: "",
-                        }))
-                      }}
-                      className={`mt-1.5 w-full resize-y rounded-lg border px-3 py-2.5 text-sm font-normal ${
-                        reviewErrors.details
-                          ? "border-red-400"
-                          : "border-slate-200"
-                      }`}
-                      placeholder={
-                        isVi
-                          ? "Mô tả ngắn sự việc, ví dụ đã có mặt nhưng chưa thấy ghi nhận..."
-                          : "Briefly describe the issue, such as attending but not seeing a record..."
-                      }
+                      value={disputeNote}
+                      onChange={(e) => setDisputeNote(e.target.value)}
+                      placeholder={t("checkinDisputeNotePlaceholder")}
+                      className="w-full rounded-lg border border-slate-300 bg-white p-3 text-xs text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
                     />
-                    <span className="mt-1 flex justify-between text-xs font-normal text-slate-500">
-                      <span>{reviewErrors.details || ""}</span>
-                      <span>{reviewDetails.length}/1000</span>
-                    </span>
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="submit"
-                      disabled={!validMember}
-                      className="flex-1 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {editingDraftId
-                        ? isVi
-                          ? "Cập nhật bản nháp"
-                          : "Update draft"
-                        : isVi
-                          ? "Lưu bản nháp trên thiết bị"
-                          : "Save draft on this device"}
-                    </button>
-                    {editingDraftId && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingDraftId(null)
-                          setReviewClassName("")
-                          setReviewDate("")
-                          setReviewTime("")
-                          setReviewDetails("")
-                          setReviewErrors({})
-                        }}
-                        className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-semibold text-slate-700"
-                      >
-                        {isVi ? "Hủy sửa" : "Cancel edit"}
-                      </button>
-                    )}
+                    <div className="mt-1 flex justify-end text-xs text-slate-500">
+                      <span>{disputeNote.length}/1000</span>
+                    </div>
                   </div>
-                </form>
-                {reviewStorageError && (
-                  <p
-                    role="alert"
-                    className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-status-error"
-                  >
-                    {reviewStorageError}
-                  </p>
-                )}
-                <div className="mt-6 space-y-3 border-t border-slate-100 pt-5">
-                  <h3 className="text-sm font-bold text-slate-900">
-                    {isVi ? "Nháp đã lưu" : "Saved drafts"}
-                  </h3>
-                  {reviewDrafts.length ? (
-                    reviewDrafts.map((draft) => (
-                      <article
-                        key={draft.id}
-                        className="rounded-xl border border-slate-200 bg-slate-50 p-3"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="font-bold text-slate-900">
-                              {draft.className}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-600">
-                              {formatDateInput(draft.sessionDate)}
-                              {draft.sessionTime
-                                ? ` · ${draft.sessionTime}`
-                                : ""}
-                            </p>
-                            <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">
-                              {draft.details}
-                            </p>
-                            <span className="mt-2 inline-flex rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900">
-                              {isVi
-                                ? "Bản nháp · Chưa gửi"
-                                : "Draft · Not sent"}
-                            </span>
-                          </div>
-                          <div className="flex shrink-0 gap-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingDraftId(draft.id)
-                                setReviewClassName(draft.className)
-                                setReviewDate(draft.sessionDate)
-                                setReviewTime(draft.sessionTime || "")
-                                setReviewDetails(draft.details)
-                                setReviewErrors({})
-                                setReviewNotice("")
-                              }}
-                              className="rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-white"
-                            >
-                              {isVi ? "Sửa" : "Edit"}
-                            </button>
-                            <button
-                              type="button"
-                              aria-label={
-                                isVi ? "Xóa bản nháp" : "Delete draft"
-                              }
-                              onClick={() => {
-                                saveReviewDrafts(
-                                  reviewDrafts.filter(
-                                    (item) => item.id !== draft.id,
-                                  ),
-                                )
-                                if (editingDraftId === draft.id)
-                                  setEditingDraftId(null)
-                              }}
-                              className="rounded-lg p-2 text-slate-500 hover:bg-white hover:text-brand-accent-dark"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </article>
-                    ))
-                  ) : (
-                    <p className="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-center text-xs text-slate-600">
-                      {isVi
-                        ? "Chưa có bản nháp nào được lưu."
-                        : "No drafts saved yet."}
-                    </p>
+
+                  {copiedBanner && (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-900 flex items-center gap-2"
+                    >
+                      <CheckCircle2 className="h-4 w-4 text-emerald-700 shrink-0" />
+                      <span>{t("checkinDisputeCopiedToast")}</span>
+                    </div>
                   )}
-                </div>
+                </form>
+              </div>
+
+              {/* 4.5.5 & 4.5.8 Footer: Nút chính "Sao chép thông tin" vô hiệu hóa cho đến khi chọn một buổi, Nút phụ "Đóng" */}
+              <div className="sticky bottom-0 border-t border-slate-200 bg-white px-5 py-4 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closeDisputeDrawer}
+                  className="min-h-[40px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+                >
+                  {t("checkinclose")}
+                </button>
+                <button
+                  type="submit"
+                  form="dispute-report-form"
+                  disabled={!selectedDisputeSession}
+                  className="min-h-[40px] inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-primary hover:bg-brand-primary-hover px-4 py-2 text-xs font-bold text-white shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+                >
+                  {copiedBanner ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                  <span>
+                    {copiedBanner
+                      ? t("checkinDisputeCopiedConfirm")
+                      : t("checkinDisputeCopyBtn")}
+                  </span>
+                </button>
               </div>
             </motion.aside>
           </motion.div>

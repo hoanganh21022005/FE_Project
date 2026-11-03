@@ -270,8 +270,22 @@ assert.ok(
   err401 instanceof UnauthorizedError,
   "401 error must be UnauthorizedError",
 )
-assert.strictEqual(err401.code, "UNAUTHORIZED")
+assert.strictEqual(err401.code, null)
 assert.strictEqual(err401.status, 401)
+assert.strictEqual(err401.message, "Session expired")
+
+const err401WithCode = createApiError(
+  401,
+  { code: "AUTH_SESSION_EXPIRED", message: "Phiên đăng nhập đã hết hạn" },
+  "Unauthorized",
+)
+assert.ok(
+  err401WithCode instanceof UnauthorizedError,
+  "401 error with business code must be UnauthorizedError",
+)
+assert.strictEqual(err401WithCode.code, "AUTH_SESSION_EXPIRED")
+assert.strictEqual(err401WithCode.status, 401)
+assert.strictEqual(err401WithCode.message, "Phiên đăng nhập đã hết hạn")
 
 const err403 = createApiError(
   403,
@@ -286,8 +300,26 @@ assert.ok(
   !(err403 instanceof UnauthorizedError),
   "403 error must NOT be UnauthorizedError",
 )
-assert.strictEqual(err403.code, "FORBIDDEN")
+assert.strictEqual(err403.code, null)
 assert.strictEqual(err403.status, 403)
+assert.strictEqual(err403.message, "Access denied")
+
+const err403WithCode = createApiError(
+  403,
+  { code: "MGR-1001", message: "Không đủ quyền thao tác" },
+  "Forbidden",
+)
+assert.ok(
+  err403WithCode instanceof ForbiddenError,
+  "403 error with business code must be ForbiddenError",
+)
+assert.ok(
+  !(err403WithCode instanceof UnauthorizedError),
+  "403 error with business code must NOT be UnauthorizedError",
+)
+assert.strictEqual(err403WithCode.code, "MGR-1001")
+assert.strictEqual(err403WithCode.status, 403)
+assert.strictEqual(err403WithCode.message, "Không đủ quyền thao tác")
 
 const err500 = createApiError(500, { message: "Internal error" }, "Server error")
 assert.ok(

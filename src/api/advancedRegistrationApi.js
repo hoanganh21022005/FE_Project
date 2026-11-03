@@ -46,6 +46,19 @@ export const createAdvancedOrder = async (registrationId, paymentMethod) => {
   return httpClient.post(`/api/advanced-registrations/${registrationId}/order`, { paymentMethod })
 }
 
+export const decideAdvancedRegistration = async (registrationId, { accepted, reason = '' } = {}) => {
+  if (!isValidNumericId(registrationId)) throw new Error('ID đăng ký Advanced không hợp lệ.')
+  return httpClient.post(`/api/advanced-registrations/${registrationId}/decision`, {
+    accepted: Boolean(accepted),
+    reason: String(reason || '').trim(),
+  })
+}
+
+export const getCoachWorkSchedule = async (coachId) => {
+  if (!isValidNumericId(coachId)) throw new Error('ID huấn luyện viên không hợp lệ.')
+  return httpClient.get(`/api/coaches/${coachId}/work-schedule`)
+}
+
 export const advancedRegistrationApi = {
   getMyAdvancedRegistrations,
   getSubjectSpecializations,
@@ -53,4 +66,6 @@ export const advancedRegistrationApi = {
   getCoachAdmissionCapacity,
   requestAdvancedRegistration,
   createAdvancedOrder,
+  decideAdvancedRegistration,
+  getCoachWorkSchedule,
 }

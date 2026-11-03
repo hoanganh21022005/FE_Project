@@ -1,33 +1,43 @@
 ---
-name: SCMS Operations System
-description: A clear, unified design system for sports-center administration across member, staff, and management portals using the SCMS palette.
+name: SCMS Webzone Operations System
+description: SCMS uses the shared blue/navy palette defined in src/index.css, with cyan accents and separate semantic status colors.
 colors:
-  deep-navy: "#202B46"
-  royal-blue: "#405BD5"
-  cyan: "#24A9D2"
-  purple: "#7860C4"
-  teal: "#168F83"
-  amber: "#E8B351"
-  lime: "#A5CD55"
-  sky: "#98D9E8"
-  lavender: "#DDD5F2"
-  mint: "#E0F3EE"
-  background: "#F5F7FC"
-  white: "#FFFFFF"
-  text-primary: "#202B46"
-  text-secondary: "#323B52"
-  border-neutral: "#DDDFF0"
-  border-subtle: "#E7EAF3"
-  success: "#168F83"
-  success-bg: "#E0F3EE"
-  success-border: "#A6D9CC"
-  warning: "#E8B351"
-  warning-bg: "#FFF4D6"
-  warning-border: "#E8B351"
-  info: "#24A9D2"
-  info-bg: "#E5F7FB"
-  info-border: "#98D9E8"
-  danger: "#8E0000"
+  brand-dark: "#202B46"
+  brand-dark-hover: "#303B58"
+  brand-primary: "#405BD5"
+  brand-primary-hover: "#3349B5"
+  brand-primary-active: "#283A98"
+  brand-blue-soft: "#E8EDFC"
+  brand-accent: "#24A9D2"
+  brand-accent-dark: "#08799E"
+  brand-accent-soft: "#98D9E8"
+  brand-cyan: "#24A9D2"
+  brand-purple: "#7860C4"
+  brand-purple-dark: "#59429E"
+  brand-lavender-soft: "#DDD5F2"
+  brand-teal: "#168F83"
+  brand-teal-dark: "#087368"
+  brand-mint-soft: "#E0F3EE"
+  brand-amber: "#E8B351"
+  brand-lime: "#A5CD55"
+  brand-sky-soft: "#98D9E8"
+  bg-main: "#F5F7FC"
+  bg-secondary: "#EEF2FA"
+  text-secondary: "#52617C"
+  text-muted: "#6B7890"
+  surface-white: "#FFFFFF"
+  border-neutral: "#DEE4F0"
+  border-subtle: "#DEE4F0"
+  success: "#15803D"
+  success-bg: "#ECFDF5"
+  success-border: "#A7F3D0"
+  warning: "#B45309"
+  warning-bg: "#FFFBEB"
+  warning-border: "#FDE68A"
+  info: "#2563EB"
+  info-bg: "#F0F9FF"
+  info-border: "#BAE6FD"
+  danger: "#B42318"
   danger-bg: "#FEF2F2"
   danger-border: "#FECACA"
 typography:
@@ -71,111 +81,99 @@ spacing:
   lg: "24px"
 components:
   button-primary:
-    backgroundColor: "{colors.royal-blue}"
-    textColor: "{colors.white}"
-    hoverBackgroundColor: "{colors.deep-navy}"
+    backgroundColor: "{colors.brand-primary}"
+    textColor: "{colors.surface-white}"
+    hoverBackgroundColor: "{colors.brand-primary-hover}"
     rounded: "{rounded.sm}"
     padding: "8px 16px"
     minHeight: "44px"
   button-secondary:
-    backgroundColor: "{colors.white}"
-    textColor: "{colors.deep-navy}"
+    backgroundColor: "{colors.surface-white}"
+    textColor: "{colors.brand-dark}"
     borderColor: "{colors.border-subtle}"
-    hoverBackgroundColor: "{colors.background}"
+    hoverBackgroundColor: "{colors.bg-secondary}"
     rounded: "{rounded.sm}"
     padding: "8px 16px"
     minHeight: "44px"
   button-destructive:
     backgroundColor: "{colors.danger}"
-    textColor: "{colors.white}"
-    hoverBackgroundColor: "{colors.deep-navy}"
+    textColor: "{colors.surface-white}"
+    hoverBackgroundColor: "{colors.brand-dark}"
     rounded: "{rounded.sm}"
     padding: "8px 16px"
     minHeight: "44px"
   surface:
-    backgroundColor: "{colors.white}"
-    textColor: "{colors.deep-navy}"
+    backgroundColor: "{colors.surface-white}"
+    textColor: "{colors.brand-dark}"
     borderColor: "{colors.border-neutral}"
     rounded: "{rounded.md}"
     padding: "16px"
 ---
 
-# Design System: SCMS Operations System
+# Design System: SCMS Webzone Operations System
 
-## 1. Overview
+## 1. Bảng màu hiện hành
 
-**Creative North Star: "Bảng Điều Hành SCMS Rõ Ràng & Nhất Quán"**
+Đồng bộ ngày 29/10/2026 theo commit `d2bf216`. Giữ cấu trúc Webzone hiện có; màu thương hiệu đã chuyển từ đỏ/đen sang xanh dương/navy với điểm nhấn cyan. Tài liệu này mô tả palette đã có, không yêu cầu thiết kế lại màn hình.
 
-Hệ thống SCMS (các phân hệ Admin, Center Manager, Coach, Receptionist, Member và Public/Auth) sử dụng chung một ngôn ngữ thiết kế dựa trên bảng màu trong ảnh tham chiếu:
-- **Nền:** Background (`#F5F7FC`) tạo canvas sáng, dịu mắt; White (`#FFFFFF`) dùng cho bề mặt nội dung.
-- **Văn bản:** Deep Navy (`#202B46`) làm màu chữ chính; dùng màu chữ phụ có độ tương phản phù hợp trên từng bề mặt.
-- **Hành động & nhấn:** Royal Blue (`#405BD5`) làm hành động chính; Cyan (`#24A9D2`), Teal (`#168F83`) và Purple (`#7860C4`) tạo phân cấp nhấn.
-- **Màu bổ trợ:** Amber (`#E8B351`), Lime (`#A5CD55`), Sky (`#98D9E8`), Lavender (`#DDD5F2`) và Mint (`#E0F3EE`) dùng cho trạng thái, nhóm nội dung và nền nhấn nhẹ.
+**Nguồn giá trị runtime:** `src/index.css`, phần `:root`. Tailwind dùng ánh xạ `@theme` trong cùng file. Khi đổi palette, cập nhật cả code và tài liệu; không tạo bộ màu riêng cho từng role.
 
-Tài liệu này là **nguồn sự thật duy nhất (Single Source of Truth)** chốt lại toàn bộ quy chuẩn màu sắc, token ngữ nghĩa và quy tắc tương tác cho toàn bộ hệ thống.
+| Vai trò | CSS token | Giá trị |
+|---|---|---|
+| Primary | `--brand-primary` | `#405BD5` |
+| Primary hover | `--brand-primary-hover` | `#3349B5` |
+| Primary pressed | `--brand-primary-active` | `#283A98` |
+| Primary nhẹ | `--brand-blue-soft` | `#E8EDFC` |
+| Sidebar / nền tối | `--brand-dark`, `--bg-sidebar` | `#202B46` |
+| Hover nền tối | `--brand-dark-hover` | `#303B58` |
+| Accent / cyan | `--brand-accent`, `--brand-cyan` | `#24A9D2` |
+| Accent đậm / nhẹ | `--brand-accent-dark`, `--brand-accent-soft` | `#08799E` / `#98D9E8` |
+| Nền trang | `--bg-main`, `--bg-page` | `#F5F7FC` |
+| Card / modal | `--bg-card` | `#FFFFFF` |
+| Nền phụ | `--bg-secondary` | `#EEF2FA` |
+| Viền | `--border-color` | `#DEE4F0` |
+| Chữ chính / phụ / muted | `--text-primary`, `--text-secondary`, `--text-muted` | `#202B46` / `#52617C` / `#6B7890` |
+| Chữ trên nền tối | `--text-inverse` | `#FFFFFF` |
 
----
+Màu hỗ trợ đã có: purple `#7860C4`, purple-dark `#59429E`, lavender-soft `#DDD5F2`, teal `#168F83`, teal-dark `#087368`, mint-soft `#E0F3EE`, amber `#E8B351`, lime `#A5CD55`, sky-soft `#98D9E8`. Dùng khi component hiện có cần phân nhóm; không thay màu primary bằng các màu này.
 
-## 2. Bảng Màu SCMS Chuẩn Hóa
+## 2. Trạng thái ngữ nghĩa
 
-### 2.1. Bảng màu cốt lõi
+| Trạng thái | Token Tailwind | Giá trị | Nền / viền hỗ trợ |
+|---|---|---|---|
+| Thành công | `status-success` | `#15803D` | emerald-50 / emerald-200 |
+| Cảnh báo | `status-warning` | `#B45309` | amber-50 / amber-200 |
+| Thông tin | `status-info` | `#2563EB` | sky-50 / sky-200 |
+| Lỗi / nguy hiểm | `status-error`, `status-danger` | `#B42318` | rose-50 / rose-200 |
 
-| Màu | Hex | Vai trò trong hệ thống |
-|---|:---:|---|
-| **Deep Navy** | `#202B46` | Chữ chính, điều hướng đậm, tiêu đề và thành phần cần độ tương phản cao |
-| **Royal Blue** | `#405BD5` | Nút chính, liên kết và trạng thái điều hướng đang chọn |
-| **Cyan** | `#24A9D2` | Điểm nhấn phụ, thông tin và biểu đồ |
-| **Purple** | `#7860C4` | Điểm nhấn cho nhóm nội dung và phân loại |
-| **Teal** | `#168F83` | Thành công, trạng thái tích cực và điểm nhấn phụ |
-| **Amber** | `#E8B351` | Cảnh báo nhẹ, nhãn và điểm nhấn ấm |
-| **Lime** | `#A5CD55` | Trạng thái tích cực và nhấn nhẹ |
-| **Sky** | `#98D9E8` | Nền thông tin và bề mặt nhấn nhẹ |
-| **Lavender** | `#DDD5F2` | Bề mặt phụ và nhóm nội dung |
-| **Mint** | `#E0F3EE` | Bề mặt trạng thái tích cực |
-| **Background** | `#F5F7FC` | Canvas chính cho trang và khu vực nội dung |
-| **White** | `#FFFFFF` | Thẻ, modal, bảng và bề mặt nội dung |
+Đỏ chỉ thể hiện lỗi, nguy hiểm hoặc hành động phá hủy. Không thay đỏ ngữ nghĩa thành xanh khi dọn màu thương hiệu. Luôn kèm nhãn/icon, không dùng màu làm dấu hiệu duy nhất. Success/Warning/Info không dùng chung màu primary chỉ để làm giao diện đồng màu.
 
-### 2.2. Ánh Xạ Ngữ Nghĩa Bắt Buộc (Semantic Token Mapping)
+Cyan trên trắng phù hợp làm điểm nhấn, không mặc định đủ tương phản cho chữ nhỏ. Dùng primary hoặc accent-dark cho chữ tương tác; kiểm màu foreground/background thực tế đạt 4.5:1 cho chữ thường, 3:1 cho chữ lớn. Không coi việc dùng token là bằng chứng mọi cặp màu đạt AA.
 
-- **Primary Button:** Nền `#405BD5` (Royal Blue), hover/pressed `#202B46` (Deep Navy), chữ `#FFFFFF`.
-- **Focus Ring / Accent:** Dùng Royal Blue (`#405BD5`) với viền rõ và trạng thái focus nhìn thấy được. Không dùng màu nhấn sáng làm body text nếu không đạt tương phản WCAG AA 4.5:1.
-- **Văn bản chính:** Deep Navy (`#202B46`) trên nền White (`#FFFFFF`) hoặc Background (`#F5F7FC`).
-- **Văn bản phụ:** Chọn sắc độ đủ đậm để đạt WCAG AA trên nền tương ứng; không dùng các màu nền nhạt làm màu chữ nhỏ.
-- **Bề mặt hỗ trợ:** White (`#FFFFFF`) cho card, modal và bảng; Background (`#F5F7FC`) cho canvas; Sky, Lavender và Mint dành cho vùng nhấn nhẹ.
-- **Trạng thái ngữ nghĩa riêng biệt (Semantic States):**
-  - **Success:** Teal `#168F83` hoặc Lime `#A5CD55`, nền Mint `#E0F3EE`.
-  - **Warning:** Amber `#E8B351`, dùng chữ Deep Navy `#202B46` trên nền Amber.
-  - **Info:** Cyan `#24A9D2`, nền Sky `#98D9E8`.
-  - **Danger / Destructive:** Đỏ `#8E0000`, nền `bg-rose-50`, viền `border-rose-200` là màu trạng thái bổ sung ngoài palette.
-  - **Quy tắc trạng thái:** Không dùng một màu thương hiệu thay thế cho mọi trạng thái; mọi trạng thái phải có nhãn văn bản rõ ràng, không chỉ dựa vào màu sắc.
+## 3. Components & Interactions
 
-### 2.3. Quy Tắc Chống Lạm Dụng (Anti-Patterns Prohibited)
+- **Primary button:** `bg-brand-primary hover:bg-brand-primary-hover active:bg-brand-primary-active text-white`.
+- **Secondary button:** nền card, chữ primary/ink, viền border-color; hover nền secondary.
+- **Destructive:** token status-error/danger, giữ ý nghĩa nguy hiểm; không dùng làm màu cho thao tác tạo/lưu/import thông thường.
+- **Sidebar:** `bg-bg-sidebar text-text-inverse`; active `bg-brand-primary text-white border-brand-accent`; inactive dùng chữ sáng và hover brand-dark-hover.
+- **Tab ngang:** chữ/viền primary; cyan chỉ là điểm nhấn bổ trợ.
+- **Input:** nền card, viền border-color; focus `focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 focus:outline-none`.
+- **Header/card/modal/table:** dùng các token bg-card, bg-secondary, text-primary, text-secondary và border-color thay mã hex thương hiệu cũ.
+- **Nút và control:** giữ cấu trúc component hiện có; touch target tối thiểu 44×44px, focus nhìn thấy được, disabled/loading rõ ràng. Thay palette không tự mở rộng thành thay layout hoặc flow.
 
-- **Tránh:** Gradient màu, glassmorphism/blur, đốm sáng orb, vạch viền dày hơn 1px, negative letter spacing và lồng card nhiều cấp. Các màu Purple và Lavender trong palette được phép dùng theo vai trò đã định nghĩa.
+Các alias cũ như `webzone-red`, `wz-primary`, `mlc-red`, `brand-flame` đã được ánh xạ sang primary xanh để tương thích. Tên có chữ red không còn bảo đảm giá trị đỏ. Code mới ưu tiên `brand-primary` và token trạng thái đúng nghĩa; không thêm alias màu cũ.
 
----
+## 4. Typography & Data Hygiene
 
-## 3. Typography & Data Hygiene
+Ứng dụng hiện dùng Be Vietnam Pro cho nội dung và tiêu đề theo cấu hình trong `src/index.css`; dữ liệu số dùng `tabular-nums` khi phù hợp.
 
-- **Font toàn hệ thống:** Be Vietnam Pro cho nội dung, tiêu đề, biểu mẫu, mã định danh và số liệu; kích thước cơ bản 14px (`0.875rem`), khoảng cách dòng 1.5.
-- **Số liệu kỹ thuật:** Dùng Be Vietnam Pro cùng `tabular-nums` để giữ các chữ số thẳng hàng.
+- Dùng Be Vietnam Pro theo cấu hình hiện hành trong `src/index.css`.
+- Dùng `tabular-nums` cho mã định danh và dữ liệu số khi phù hợp.
+- Không tạo ID giả `mem-*` / `stf-*` trong API mode. Dùng ID authoritative từ BE.
 
----
+## 5. Quy tắc áp dụng và phối hợp
 
-## 4. Components & Interactions
-
-- **Buttons:** Bo góc chuẩn `rounded-md` (4px - 6px). Chiều cao tối thiểu tiếp cận di động `min-h-[44px]`, padding `px-4 py-2.5`.
-- **Navigation Items (Sidebar & Tabs):**
-  - Active: Nền `#405BD5`, chữ `#FFFFFF`, font-bold trên Deep Navy; hoặc `border-b-2 border-[#405BD5] text-[#405BD5]` trên tab ngang.
-  - Inactive: Chữ trắng dịu trên Deep Navy; chuyển sang White khi hover và dùng nền tối hơn để tăng phân biệt.
-  - Touch target: Tối thiểu 44px x 44px.
-- **Inputs & Filters:** Nền White, viền trung tính rõ; focus dùng `focus:border-[#405BD5] focus:ring-2 focus:ring-[#405BD5]/20 focus:outline-none`.
-- **Tables:** Header dùng Background `#F5F7FC` với chữ Deep Navy; phân dòng bằng viền trung tính mảnh, hỗ trợ `tabular-nums` chống xô lệch.
-
----
-
-## 5. Quy Tắc Khóa Hệ Thống (Design System Locks)
-
-1. **Tính nhất quán:** Toàn bộ 5 role portals và trang công khai dùng SCMS Palette được định nghĩa trong tài liệu này; chỉ dùng màu ngoài palette cho các trạng thái ngữ nghĩa cần thiết như lỗi nghiêm trọng.
-2. **Quy chuẩn tiếp cận:** Tất cả nút bấm, liên kết và control tương tác phải đạt tối thiểu `44px x 44px` trên touch layout.
-3. **Quy chuẩn định danh:** Không tạo chuỗi ID giả `mem-*` / `stf-*` trong API mode. Mọi ID hiển thị phải là số nguyên authoritative từ BE.
+1. Không ghi trực tiếp đỏ thương hiệu cũ `#BA0000`, `#D62323`, `#BA1A1A` cho nút tạo/lưu hoặc active navigation. Dùng token hiện hành. Đỏ lỗi/destructive vẫn giữ theo mục2.
+2. Không tạo palette mới theo role, gradient/hiệu ứng trang trí hoặc redesign ngoài scope. Các sắc purple/blue có token ở mục1 là màu hỗ trợ hợp lệ; không còn quy định cấm chúng tuyệt đối như tài liệu cũ.
+3. Thành viên khác đang phụ trách toàn bộ trang Member. Việc đồng bộ màu ở API/context/Header hoặc component dùng chung phải kiểm phạm vi thay đổi để tránh xung đột; không sửa luồng Member trong task màu.
+4. Cập nhật này không chứng nhận tất cả màn đã loại bỏ màu hardcode hoặc đã đạt accessibility; kiểm theo các màn thật được sửa.

@@ -389,8 +389,8 @@ export function MemberMyCoachView() {
     setOrderingRegId(reg.id)
     try {
       await memberPortalApi.confirmAlternativeCoach(reg.id, {
-        accept: Boolean(accept),
-        note: accept
+        accepted: Boolean(accept),
+        reason: accept
           ? "Đồng ý học với HLV thay thế"
           : "Không đồng ý HLV thay thế",
       })
@@ -558,6 +558,17 @@ export function MemberMyCoachView() {
 
     try {
       if (apiEnabled) {
+        const conflictRes = await memberPortalApi
+          .checkSessionConflict(payload)
+          .catch(() => null)
+        if (conflictRes?.hasConflict || conflictRes?.conflict) {
+          throw new Error(
+            conflictRes.message ||
+              (isVi
+                ? "Khung giờ hoặc phòng tập này đang bị trùng lịch."
+                : "This slot or room has a schedule conflict."),
+          )
+        }
         await memberPortalApi.bookPrivateSession(payload)
       }
       setBookingSuccess(

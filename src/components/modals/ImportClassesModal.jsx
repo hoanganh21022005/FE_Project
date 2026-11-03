@@ -238,7 +238,7 @@ export function ImportClassesModal({ isOpen, onClose, onImportSuccess }) {
         {/* Header */}
         <div className="px-6 py-4 border-b border-stone-200 flex items-center justify-between shrink-0 bg-stone-50/70">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-rose-50 text-[#BA1A1A] flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-brand-blue-soft text-brand-primary flex items-center justify-center shrink-0">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
@@ -287,10 +287,10 @@ export function ImportClassesModal({ isOpen, onClose, onImportSuccess }) {
             {/* Upload file */}
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="p-4 bg-stone-50 hover:bg-rose-50/40 border border-dashed border-stone-300 hover:border-[#BA1A1A] rounded-xl flex items-center justify-between gap-3 cursor-pointer transition-colors group"
+              className="p-4 bg-stone-50 hover:bg-brand-blue-soft/40 border border-dashed border-stone-300 hover:border-brand-primary rounded-xl flex items-center justify-between gap-3 cursor-pointer transition-colors group"
             >
               <div>
-                <p className="text-xs font-bold text-stone-900 group-hover:text-[#BA1A1A]">
+                <p className="text-xs font-bold text-stone-900 group-hover:text-brand-primary">
                   2. {file ? file.name : "Chọn file từ máy tính"}
                 </p>
                 <p className="text-[11px] text-stone-500 mt-0.5">
@@ -299,7 +299,7 @@ export function ImportClassesModal({ isOpen, onClose, onImportSuccess }) {
                     : "Kéo thả hoặc nhấp để tải lên (.csv)"}
                 </p>
               </div>
-              <span className="h-8 px-3 bg-white group-hover:bg-[#BA1A1A] group-hover:text-white border border-stone-300 group-hover:border-transparent rounded-lg text-xs font-semibold text-stone-700 flex items-center gap-1.5 transition-all shadow-2xs">
+              <span className="h-8 px-3 bg-white group-hover:bg-brand-primary group-hover:text-white border border-stone-300 group-hover:border-transparent rounded-lg text-xs font-semibold text-stone-700 flex items-center gap-1.5 transition-all shadow-2xs">
                 <Upload className="w-3.5 h-3.5" />
                 <span>{file ? "Đổi file" : "Tải lên"}</span>
               </span>
@@ -465,7 +465,7 @@ export function ImportClassesModal({ isOpen, onClose, onImportSuccess }) {
             type="button"
             onClick={handleExecuteImport}
             disabled={isProcessing || validCount === 0}
-            className="h-10 px-5 bg-[#BA1A1A] hover:bg-[#991313] text-white rounded-xl text-xs font-semibold transition-all shadow-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+            className="h-10 px-5 bg-brand-primary hover:bg-brand-primary-hover text-white rounded-xl text-xs font-semibold transition-all shadow-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
           >
             {isProcessing ? (
               <>

@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Search, UserRound, X } from "lucide-react"
 import { AdminResourceState } from "../AdminResourceState.jsx"
 import { useAdminData } from "../AdminDataContext.jsx"
+import { formatAdminDate } from "../adminDateUtils.js"
 
 const statusLabel = (status) =>
   ({
@@ -12,20 +13,49 @@ const statusLabel = (status) =>
   status ||
   "Không rõ"
 
-const formatDate = (value) => {
-  if (!value) return "Chưa có"
-  const date = new Date(value)
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium" }).format(date)
-}
-
 export function AdminUsersView() {
   const { resources, retry } = useAdminData()
   const [query, setQuery] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedUser, setSelectedUser] = useState(null)
+
+  const asideRef = useRef(null)
+  const closeBtnRef = useRef(null)
+  const lastTriggerRef = useRef(null)
+
+  const isSmallScreen = () =>
+    typeof window !== "undefined" &&
+    !window.matchMedia("(min-width: 1280px)").matches
+
+  const handleSelectUser = (user, event) => {
+    lastTriggerRef.current = event?.currentTarget || null
+    setSelectedUser(user)
+  }
+
+  const handleCloseDetails = () => {
+    setSelectedUser(null)
+    if (lastTriggerRef.current && document.contains(lastTriggerRef.current)) {
+      if (isSmallScreen()) {
+        lastTriggerRef.current.scrollIntoView({
+          behavior: "instant",
+          block: "nearest",
+        })
+      }
+      lastTriggerRef.current.focus({ preventScroll: true })
+    }
+  }
+
+  useEffect(() => {
+    if (!selectedUser) return
+    if (isSmallScreen() && asideRef.current) {
+      asideRef.current.scrollIntoView({
+        behavior: "instant",
+        block: "start",
+      })
+      closeBtnRef.current?.focus({ preventScroll: true })
+    }
+  }, [selectedUser])
 
   const roleOptions = useMemo(() => {
     const fromRoles = resources.roles.data.map((role) => role.name)
@@ -160,13 +190,13 @@ export function AdminUsersView() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-xs text-stone-600 tabular-nums">
-                        {formatDate(user.createdAt)}
+                        {formatAdminDate(user.createdAt)}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
                           type="button"
-                          onClick={() => setSelectedUser(user)}
-                          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 rounded border border-border-color text-xs font-bold text-text-primary hover:bg-bg-secondary focus:outline-none focus:ring-2 focus:ring-brand-accent cursor-pointer transition-colors"
+                          onClick={(event) => handleSelectUser(user, event)}
+                          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 rounded border border-border-color text-xs font-bold text-text-primary hover:bg-bg-secondary focus:outline-none focus:ring-2 focus:ring-brand-accent cursor-pointer transition-colors scroll-mt-20"
                         >
                           Xem
                         </button>
@@ -185,7 +215,8 @@ export function AdminUsersView() {
 
           {selectedUser && (
             <aside
-              className="bg-white border border-stone-200 rounded-lg p-5 h-fit"
+              ref={asideRef}
+              className="bg-white border border-stone-200 rounded-lg p-5 h-fit scroll-mt-20"
               aria-label="Chi tiết người dùng"
             >
               <div className="flex items-start justify-between gap-3">
@@ -193,8 +224,9 @@ export function AdminUsersView() {
                   <UserRound className="w-5 h-5" />
                 </div>
                 <button
+                  ref={closeBtnRef}
                   type="button"
-                  onClick={() => setSelectedUser(null)}
+                  onClick={handleCloseDetails}
                   className="w-11 h-11 min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 rounded text-stone-600 hover:bg-stone-100 cursor-pointer transition-colors"
                   aria-label="Đóng chi tiết"
                 >
@@ -218,7 +250,8 @@ export function AdminUsersView() {
                       `Role #${selectedUser.roleId ?? "?"}`,
                   ],
                   ["Địa chỉ", selectedUser.address || "Chưa có"],
-                  ["Ngày sinh", selectedUser.dateOfBirth || "Chưa có"],
+                  ["Ngày sinh", formatAdminDate(selectedUser.dateOfBirth)],
+                  ["Ngày tạo", formatAdminDate(selectedUser.createdAt)],
                 ].map(([label, value]) => (
                   <div key={label}>
                     <dt className="text-xs font-semibold text-stone-500">

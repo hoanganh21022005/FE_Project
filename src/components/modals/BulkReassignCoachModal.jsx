@@ -104,7 +104,7 @@ export function BulkReassignCoachModal({
         {/* Header */}
         <div className="px-6 py-4 border-b border-stone-200 flex items-center justify-between bg-stone-50/70">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-rose-50 text-[#BA1A1A] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-brand-blue-soft text-brand-primary flex items-center justify-center">
               <UserCheck className="w-4 h-4" />
             </div>
             <div>
@@ -200,7 +200,7 @@ export function BulkReassignCoachModal({
             <button
               type="submit"
               disabled={isSubmitting || !selectedCoachId}
-              className="px-4 py-2 text-xs font-semibold text-white bg-[#BA1A1A] hover:bg-[#991313] rounded-xl transition-all shadow-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold text-white bg-brand-primary hover:bg-brand-primary-hover rounded-xl transition-all shadow-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer"
             >
               {isSubmitting ? (
                 <>

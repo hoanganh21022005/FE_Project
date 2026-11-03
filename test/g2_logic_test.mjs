@@ -2,8 +2,17 @@ import assert from "node:assert/strict"
 import {
   ROLE_ADMIN,
   ROLE_MANAGER,
+  DEMO_STAFF_ACCOUNTS,
   checkRouteAccess,
+  getDefaultDashboard,
+  getDefaultTab,
+  getLoginDestination,
   getRouteForTab,
+  isPathAllowedForRole,
+  isTabAllowedForRole,
+  normalizeRole,
+  resolveAuthenticatedRoute,
+  resolveMockLoginUser,
   resolveRoute,
 } from "../src/utils/navigation.js"
 import {
@@ -101,28 +110,60 @@ const fixtures = {
       roleName: "Admin",
     },
   ],
+  "/api/users?role=Coach&search=hung": [
+    {
+      id: 24,
+      fullName: "Nguyen Van Hung",
+      email: "hung.coach@scms.com",
+      status: "Active",
+      roleId: 3,
+      roleName: "Coach",
+    },
+  ],
   "/api/roles": [{ id: 5, name: "Admin", permissions: [] }],
   "/api/permissions": [{ id: 10, name: "MANAGE_RBAC" }],
   "/api/audit-logs": [{ id: 1, userId: null, action: "SYNC" }],
 }
 
 const originalFetch = globalThis.fetch
-globalThis.fetch = async (path, options) => {
-  requestedPaths.push({ path: String(path), method: options?.method })
-  return new Response(JSON.stringify(fixtures[path]), {
+globalThis.fetch = async (input, options = {}) => {
+  const rawUrl =
+    typeof input === "string"
+      ? input
+      : input && typeof input.url === "string"
+        ? input.url
+        : String(input ?? "")
+  const parsedUrl = new URL(rawUrl, "http://localhost")
+  const lookupKey = `${parsedUrl.pathname}${parsedUrl.search}`
+  const method = String(
+    options?.method ||
+      (typeof Request !== "undefined" && input instanceof Request
+        ? input.method
+        : "GET"),
+  ).toUpperCase()
+  requestedPaths.push({ path: lookupKey, method })
+  if (!Object.prototype.hasOwnProperty.call(fixtures, lookupKey)) {
+    throw new Error(`UNEXPECTED_FETCH_REQUEST: ${method} ${lookupKey}`)
+  }
+  return new Response(JSON.stringify(fixtures[lookupKey]), {
     status: 200,
     headers: { "content-type": "application/json" },
   })
 }
 
 try {
-  const [users, roles, permissions, logs] = await Promise.all([
-    getAdminUsers(),
-    getAdminRoles(),
-    getAdminPermissions(),
-    getAdminAuditLogs(),
-  ])
+  const [users, filteredCoachUsers, roles, permissions, logs] =
+    await Promise.all([
+      getAdminUsers(),
+      getAdminUsers({ role: "Coach", search: "hung" }),
+      getAdminRoles(),
+      getAdminPermissions(),
+      getAdminAuditLogs(),
+    ])
   assert.equal(users[0].id, 1)
+  assert.equal(filteredCoachUsers.length, 1)
+  assert.equal(filteredCoachUsers[0].id, 24)
+  assert.equal(filteredCoachUsers[0].roleName, "Coach")
   assert.equal(roles[0].id, 5)
   assert.equal(permissions[0].id, 10)
   assert.equal(logs[0].actorLabel, "System")
@@ -131,10 +172,19 @@ try {
     Object.keys(fixtures).sort(),
   )
   assert.ok(requestedPaths.every((entry) => entry.method === "GET"))
+
+  await assert.rejects(
+    () => globalThis.fetch(new Request("http://localhost/api/users?role=UnknownRole", { method: "GET" })),
+    /UNEXPECTED_FETCH_REQUEST: GET \/api\/users\?role=UnknownRole/,
+  )
+  await assert.rejects(
+    () => getAdminUsers({ role: "UnknownRole" }),
+    (error) => error?.name === "ApiError" && error?.status === 0,
+  )
 } finally {
   globalThis.fetch = originalFetch
 }
-console.log("PASS: G2.3 adapters call exactly four documented GET endpoints")
+console.log("PASS: G2.3 adapters call documented GET endpoints, preserve query params, and reject unknown requests")
 
 const initialResources = createAdminResources()
 const usersLoaded = updateAdminResource(initialResources, "users", {
@@ -177,20 +227,50 @@ assert.deepEqual(getAdminNavItems("member"), [])
 assert.deepEqual(getAdminNavItems(null), [])
 console.log("PASS: G2 Remediation: Admin navigation invariant (all 4 tabs always visible, non-admin blocked)")
 
-// --- REMEDIATION TEST: ROLE_ADMIN TRANSLATION & PROFILE COHESION ---
+// --- REMEDIATION TEST: ROLE_ADMIN TRANSLATION & ADMIN IDENTITY/SESSION BEHAVIOR ---
 const { translations } = await import("../src/locales/translations.js")
 assert.equal(translations.vi.roleAdmin, "Quản trị viên")
 assert.equal(translations.en.roleAdmin, "System Administrator")
 
-const profileSource = await import("node:fs").then(({ readFileSync }) =>
-  readFileSync(
-    new URL("../src/components/views/PersonalProfileView.jsx", import.meta.url),
-    "utf8",
-  ),
+assert.equal(normalizeRole("Admin", { isApiMode: true }), ROLE_ADMIN)
+assert.equal(normalizeRole("ROLE_ADMIN", { isApiMode: true }), ROLE_ADMIN)
+assert.equal(getDefaultDashboard(ROLE_ADMIN), "/admin/dashboard")
+assert.equal(getDefaultTab(ROLE_ADMIN), "admin_dashboard")
+
+const mockAdmin = resolveMockLoginUser({
+  email: "admin@scms.com",
+  password: "demo-pass",
+  demoPassword: "demo-pass",
+})
+assert.deepEqual(mockAdmin, {
+  role: ROLE_ADMIN,
+  email: "admin@scms.com",
+  fullName: DEMO_STAFF_ACCOUNTS["admin@scms.com"].fullName,
+})
+assert.equal(
+  resolveMockLoginUser({
+    email: "fake-admin@scms.com",
+    password: "demo-pass",
+    demoPassword: "demo-pass",
+  }),
+  null,
 )
-assert.match(profileSource, /role === ['"]admin['"]\s*\?\s*['"]roleAdmin['"]/)
-assert.doesNotMatch(profileSource, /role === ['"]manager['"]\s*\?\s*['"]roleManager['"]\s*:\s*.*:\s*['"]roleMember['"](?!\s*\))/)
-console.log("PASS: G2 Remediation: roleAdmin VI/EN translations and profile mapping")
+
+assert.deepEqual(
+  getLoginDestination({ role: "Admin" }, "/admin/roles", { isApiMode: true }),
+  { role: ROLE_ADMIN, path: "/admin/roles" },
+)
+assert.deepEqual(
+  getLoginDestination({ role: "Admin" }, "/manager/staff", { isApiMode: true }),
+  { role: ROLE_ADMIN, path: "/admin/dashboard" },
+)
+assert.equal(
+  resolveAuthenticatedRoute("/profile", ROLE_ADMIN)?.path,
+  "/profile",
+)
+assert.equal(isPathAllowedForRole("/profile", ROLE_ADMIN), true)
+assert.equal(isTabAllowedForRole("profile", ROLE_ADMIN), true)
+console.log("PASS: G2 Remediation: roleAdmin translations and Admin identity/session routing behaviors verified")
 
 // --- REMEDIATION TEST: TOUCH TARGET CONTRACT (>= 44px) ---
 const headerSource = await import("node:fs").then(({ readFileSync }) =>

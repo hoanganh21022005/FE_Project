@@ -1838,7 +1838,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             disabled={
               isSubmitting || conflict?.hasConflict || isFirstSessionInPast || isNormalClassApiCreationBlocked(apiEnabled)
             }
-            className="h-10 px-6 rounded-lg bg-[#BA1A1A] hover:bg-[#A31616] text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer flex items-center gap-2"
+            className="h-10 px-6 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer flex items-center gap-2"
             title={
               conflict?.hasConflict
                 ? conflict.message
