@@ -116,14 +116,12 @@ export function resolveCoachAvatar(coach = {}) {
 export function filterOfficialPublicCoaches(apiCoaches = []) {
   if (!Array.isArray(apiCoaches) || apiCoaches.length === 0) return []
   const matchedList = []
-  const matchedIds = new Set()
   for (const pc of publicCoaches) {
     const targetName = stripAccents(pc.name)
     const found = apiCoaches.find(
       (c) => stripAccents(c?.name || c?.fullName || "") === targetName,
     )
     if (found) {
-      if (found.id != null) matchedIds.add(String(found.id))
       matchedList.push({
         ...found,
         name: pc.name,
@@ -135,16 +133,6 @@ export function filterOfficialPublicCoaches(apiCoaches = []) {
             : [pc.specialtyVi],
       })
     }
-  }
-  for (const c of apiCoaches) {
-    if (!c || (c.id != null && matchedIds.has(String(c.id)))) continue
-    const st = String(c.status || "active").toLowerCase()
-    if (st === "locked" || st === "inactive") continue
-    matchedList.push({
-      ...c,
-      name: c.name || c.fullName || "Huấn luyện viên",
-      avatarUrl: resolveCoachAvatar(c),
-    })
   }
   return matchedList.length > 0 ? matchedList : apiCoaches
 }

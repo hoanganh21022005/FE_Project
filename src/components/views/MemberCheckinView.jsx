@@ -35,7 +35,6 @@ import {
   toDateDdMmYyyy,
   formatLocalTime,
   getTodayIsoInVn,
-  isActiveNormalEnrollment,
 } from "../../utils/memberScheduleUtils"
 
 // ============================================================================
@@ -75,6 +74,11 @@ const TIME_FORMATTER_HHMMSS = new Intl.DateTimeFormat("en-GB", {
   second: "2-digit",
   hour12: false,
 })
+
+const isLegacyStrengthClass = (enrollment) =>
+  String(enrollment?.className || "")
+    .trim()
+    .toLocaleLowerCase("vi") === "gym suc manh"
 
 const addDaysToIsoDate = (isoDate, days) => {
   if (!isoDate) return ""
@@ -494,7 +498,12 @@ export function MemberCheckinView() {
         : []
       const activeEnrollments = (
         Array.isArray(enrollments) ? enrollments : []
-      ).filter((row) => isActiveNormalEnrollment(row))
+      ).filter(
+        (row) =>
+          !["cancelled", "canceled", "dropped", "rejected"].includes(
+            String(row.status || "").toLowerCase(),
+          ) && !isLegacyStrengthClass(row),
+      )
 
       // Chuẩn hóa buổi học từ từng khóa học (hoặc fallback từ getClassSessions giống trang Lịch học)
       const collected = []
