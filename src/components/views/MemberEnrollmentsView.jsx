@@ -160,6 +160,15 @@ export function MemberEnrollmentsView() {
       )
   }, [rawEnrollments, allSessions, holidayDateSet, nowMs, t])
 
+  const pendingEnrollments = useMemo(() => {
+    return rawEnrollments.filter((row) => {
+      const st = String(row?.status || row?.enrollmentStatus || "")
+        .trim()
+        .toLowerCase()
+      return st === "pending" || st === "pending_payment"
+    })
+  }, [rawEnrollments])
+
   const holidayWithinLookahead = useMemo(
     () =>
       upcomingHolidayGroups.find(
@@ -354,6 +363,41 @@ export function MemberEnrollmentsView() {
       </header>
 
       {renderHolidayBanner()}
+
+      {pendingEnrollments.length > 0 && (
+        <aside className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs sm:text-sm text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <p className="font-bold">
+              Bạn có {pendingEnrollments.length} đơn đăng ký lớp đang chờ thanh toán (giữ chỗ 5 phút)
+            </p>
+            <p className="text-amber-800 text-xs">
+              Lớp{" "}
+              <strong>
+                {pendingEnrollments
+                  .map((item) => item.className || item.name || `#${item.classId}`)
+                  .join(", ")}
+              </strong>{" "}
+              chỉ chính thức kích hoạt và mở lịch học 12 buổi sau khi hoàn tất thanh toán (Tiền mặt tại quầy Lễ tân hoặc VNPay).
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => navigate("/member/invoices")}
+              className="rounded-lg bg-amber-900 px-3 py-2 text-xs font-bold text-white hover:bg-amber-950 cursor-pointer"
+            >
+              Xem hóa đơn & Thanh toán
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/member/catalog")}
+              className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100 cursor-pointer"
+            >
+              Đổi phương thức / Hủy đơn chờ
+            </button>
+          </div>
+        </aside>
+      )}
 
       {!validMember && (
         <div

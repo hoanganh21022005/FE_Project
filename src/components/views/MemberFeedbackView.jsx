@@ -17,7 +17,7 @@ import {
   formatSessionDateTimeSlot,
   diffCalendarDaysInVn,
   normalizeScheduleSession,
-  isLegacyStrengthClass,
+  isActiveNormalEnrollment,
 } from "../../utils/memberScheduleUtils"
 import { motion, AnimatePresence } from "motion/react"
 import {
@@ -405,12 +405,7 @@ export function MemberFeedbackView({ embedded = false }) {
 
       const validEnrollments = (
         Array.isArray(enrollmentsRes) ? enrollmentsRes : []
-      ).filter(
-        (row) =>
-          !["cancelled", "canceled", "dropped", "rejected"].includes(
-            String(row?.status || row?.enrollmentStatus || "").toLowerCase(),
-          ) && !isLegacyStrengthClass(row),
-      )
+      ).filter((row) => isActiveNormalEnrollment(row))
       const sessionList = Array.isArray(sessionsRes) ? sessionsRes : []
       const attendanceList = Array.isArray(attendancesRes)
         ? attendancesRes
