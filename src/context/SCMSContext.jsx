@@ -1443,7 +1443,9 @@ export const SCMSProvider = ({ children }) => {
     if (authUser.role !== ROLE_MANAGER) {
       Promise.all([
         managerApi.getSubjects({ notifyForbidden: false }).catch(() => []),
-        staffApi.getStaff({ notifyForbidden: false }).catch(() => []),
+        authUser.role === ROLE_MEMBER
+          ? Promise.resolve([])
+          : staffApi.getStaff({ notifyForbidden: false }).catch(() => []),
         managerApi.getRooms({ notifyForbidden: false }).catch(() => []),
         managerApi.getPackages({ notifyForbidden: false }).catch(() => []),
       ])
@@ -1966,17 +1968,28 @@ export const SCMSProvider = ({ children }) => {
     // In API mode, let the backend validate current membership, capacity and schedule.
     // The member portal does not have manager-only class/member lists in context.
     if (API_ENABLED) {
-      const result = await classEnrollmentApi.enrollMemberInClass(
-        classId,
-        effectiveMemberId,
-      )
-      showToast(
-        language === "vi"
-          ? "Đã gửi đăng ký khóa học."
-          : "Course enrollment submitted.",
-        "success",
-      )
-      return { success: true, data: result }
+      try {
+        const result = await classEnrollmentApi.enrollMemberInClass(
+          classId,
+          effectiveMemberId,
+        )
+        showToast(
+          language === "vi"
+            ? "Đã gửi đăng ký khóa học."
+            : "Course enrollment submitted.",
+          "success",
+        )
+        return { success: true, data: result }
+      } catch (err) {
+        const errMsg = getErrorMessage(
+          err,
+          language === "vi"
+            ? "Không thể đăng ký lớp học."
+            : "Failed to enroll in class.",
+        )
+        showToast(errMsg, "error")
+        return { success: false, message: errMsg }
+      }
     }
     const cls = classes.find((c) => String(c.id) === String(classId))
     const member =
