@@ -134,6 +134,31 @@ export function ReportsView() {
   const chartContainerClass = 'bg-white border border-slate-200 p-5 rounded-lg shadow-xs';
   const axisProps = { tick: { fontSize: 10, fill: '#64748B' }, axisLine: false, tickLine: false };
 
+  const handleExportReport = () => {
+    const rows = [
+      ['Metric', 'Value'],
+      ['Total Revenue', revenueValue ?? 0],
+      ['Total Paid Transactions', apiEnabled ? (revenueReport?.totalTransactions ?? 0) : payments.filter((p) => p.status === 'successful').length],
+      ['Average Transaction Value', apiEnabled ? (revenueReport?.averageTransactionValue ?? 0) : ''],
+      ['Total Members', apiEnabled ? (memberReport?.totalMembers ?? 0) : members.length],
+      ['Active Members', apiEnabled ? (memberReport?.activeMembers ?? 0) : members.filter((m) => m.status === 'active').length],
+      ['Expired Members', apiEnabled ? (memberReport?.expiredMembers ?? 0) : members.filter((m) => m.status === 'expired').length],
+      [],
+      ['Period', 'Revenue', 'Transactions'],
+      ...timeline.map((item) => [item.period || item.month || '', item.revenue ?? 0, item.count ?? '']),
+    ];
+    const csvContent = '\uFEFF' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `scms-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white border border-slate-200 p-4 rounded-lg shadow-xs">
@@ -144,7 +169,7 @@ export function ReportsView() {
             <p className="text-xs text-slate-500">{vi ? 'Báo cáo doanh thu và tăng trưởng hội viên' : 'Revenue and member growth reports'}</p>
           </div>
         </div>
-        <button className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 rounded text-xs font-bold flex items-center gap-1.5 border border-slate-300 shadow-xs">
+        <button type="button" onClick={handleExportReport} className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 rounded text-xs font-bold flex items-center gap-1.5 border border-slate-300 shadow-xs cursor-pointer">
           <Download className="w-3.5 h-3.5 text-slate-600" /><span>{t('exportReport')}</span>
         </button>
       </div>

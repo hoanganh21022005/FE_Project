@@ -9,6 +9,7 @@ import {
 import { useSCMS } from "../../context/SCMSContext"
 import {
   getActiveHolidays,
+  getClassCatalogSessions,
   getClassSessions,
   getMemberClasses,
   getSessionAbsenceNotices,
@@ -82,8 +83,38 @@ export function MemberEnrollmentsView() {
         getClassSessions().catch(() => []),
         getActiveHolidays().catch(() => []),
       ])
-      setAllSessions(Array.isArray(sessions) ? sessions : [])
-      setRawEnrollments(Array.isArray(enrollments) ? enrollments : [])
+      const baseSessions = Array.isArray(sessions) ? sessions : []
+      const enrollmentRows = Array.isArray(enrollments) ? enrollments : []
+      const missingClassIds = Array.from(
+        new Set(
+          enrollmentRows
+            .map((row) => row?.classId ?? row?.sportsClassId)
+            .filter(
+              (cid) =>
+                cid != null &&
+                !baseSessions.some((s) => String(s?.classId) === String(cid)),
+            ),
+        ),
+      )
+      let mergedSessions = baseSessions
+      if (missingClassIds.length > 0) {
+        const extraLists = await Promise.all(
+          missingClassIds.map((cid) =>
+            getClassCatalogSessions(cid).catch(() => []),
+          ),
+        )
+        mergedSessions = [
+          ...baseSessions,
+          ...extraLists.flatMap((list, idx) =>
+            (Array.isArray(list) ? list : []).map((s) => ({
+              ...s,
+              classId: s?.classId ?? missingClassIds[idx],
+            })),
+          ),
+        ]
+      }
+      setAllSessions(mergedSessions)
+      setRawEnrollments(enrollmentRows)
       setHolidays(Array.isArray(activeHolidays) ? activeHolidays : [])
       setLastUpdatedAt(new Date())
     } catch (err) {

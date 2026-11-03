@@ -57,14 +57,21 @@ export const getClassCatalogSessions = async (
   if (!Number.isInteger(Number(classId)) || Number(classId) <= 0) {
     throw new Error("ID lớp học không hợp lệ.")
   }
-  const response = await httpClient.get(
-    `/api/sessions/catalog/${Number(classId)}`,
-  )
-  const sessions = extractList(response)
-  if (strict && !Array.isArray(sessions)) {
-    throw new Error("Backend trả về lịch lớp không đúng định dạng.")
+  try {
+    const response = await httpClient.get(
+      `/api/sessions/catalog/${Number(classId)}`,
+    )
+    const sessions = extractList(response)
+    if (strict && !Array.isArray(sessions)) {
+      throw new Error("Backend trả về lịch lớp không đúng định dạng.")
+    }
+    return Array.isArray(sessions) ? sessions : []
+  } catch (error) {
+    if (error?.status === 404) {
+      return getClassSessions({ classId: Number(classId) }).catch(() => [])
+    }
+    throw error
   }
-  return Array.isArray(sessions) ? sessions : []
 }
 export const hasScheduledClassSession = (classId, sessions = []) =>
   Array.isArray(sessions) &&
