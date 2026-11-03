@@ -42,31 +42,31 @@ colors:
   danger-border: "#FECACA"
 typography:
   headline:
-    fontFamily: "Roboto, Segoe UI, Arial, system-ui, sans-serif"
+    fontFamily: "Be Vietnam Pro, sans-serif"
     fontSize: "1.25rem"
     fontWeight: 700
     lineHeight: 1.3
     letterSpacing: "0"
   title:
-    fontFamily: "Roboto, Segoe UI, Arial, system-ui, sans-serif"
+    fontFamily: "Be Vietnam Pro, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 700
     lineHeight: 1.4
     letterSpacing: "0"
   body:
-    fontFamily: "Roboto, Segoe UI, Arial, system-ui, sans-serif"
+    fontFamily: "Be Vietnam Pro, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "0"
   label:
-    fontFamily: "Roboto, Segoe UI, Arial, system-ui, sans-serif"
+    fontFamily: "Be Vietnam Pro, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 600
     lineHeight: 1.4
     letterSpacing: "0"
   mono:
-    fontFamily: "JetBrains Mono, monospace"
+    fontFamily: "Be Vietnam Pro, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 500
     lineHeight: 1.4
@@ -165,10 +165,10 @@ Các alias cũ như `webzone-red`, `wz-primary`, `mlc-red`, `brand-flame` đã �
 
 ## 4. Typography & Data Hygiene
 
-Phạm vi cập nhật này chỉ thay tài liệu màu và các màu thương hiệu còn sót; không đổi font, cỡ chữ hoặc cấu trúc UI.
+Ứng dụng hiện dùng Be Vietnam Pro cho nội dung và tiêu đề theo cấu hình trong `src/index.css`; dữ liệu số dùng `tabular-nums` khi phù hợp.
 
-- Giữ typography đang triển khai và quy ước component hiện có.
-- Dùng JetBrains Mono / `tabular-nums` cho mã định danh và dữ liệu số khi phù hợp.
+- Dùng Be Vietnam Pro theo cấu hình hiện hành trong `src/index.css`.
+- Dùng `tabular-nums` cho mã định danh và dữ liệu số khi phù hợp.
 - Không tạo ID giả `mem-*` / `stf-*` trong API mode. Dùng ID authoritative từ BE.
 
 ## 5. Quy tắc áp dụng và phối hợp
