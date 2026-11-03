@@ -37,16 +37,20 @@ export const mapSubject = (subject) => ({
   outdoor: subject.outdoor ?? null,
 })
 
-export const mapRoom = (room) => ({
-  id: room.id,
-  name: room.name ?? null,
-  location: room.location ?? null,
-  capacity: asNumber(room.capacity),
-  status: normalizeStatus(room.status, null),
-  rawStatus: room.status ?? null,
-  facilityType: room.facilityType ?? null,
-  outdoor: typeof room.outdoor === "boolean" ? room.outdoor : null,
-})
+export const mapRoom = (room) => {
+  const code = room?.roomCode ?? room?.room_code ?? null
+  return {
+    id: room?.id,
+    roomCode: typeof code === "string" ? code.trim() || null : (code ?? null),
+    name: room?.name ?? null,
+    location: room?.location ?? null,
+    capacity: asNumber(room?.capacity),
+    status: normalizeStatus(room?.status, null),
+    rawStatus: room?.status ?? null,
+    facilityType: room?.facilityType ?? null,
+    outdoor: typeof room?.outdoor === "boolean" ? room?.outdoor : null,
+  }
+}
 
 export function mapSession(item) {
   if (!item || typeof item !== "object") return null

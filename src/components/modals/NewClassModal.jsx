@@ -448,7 +448,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
   const validCenterRooms = useMemo(() => {
     return (rooms || []).filter((r) => {
-      if (apiEnabled) return ["available", "active", "open"].includes(String(r.status || "").toLowerCase())
+      if (apiEnabled) return String(r.status || "").trim().toLowerCase() === "available"
       const name = (r.name || "").toLowerCase()
       return (
         !name.includes("yoga") &&
@@ -527,30 +527,65 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     return { matchedCoaches: matched, otherCoaches: other }
   }, [coaches, currentSport])
 
-  // Keep sport-based defaults for capacity, room, and coach.
+  // Keep sport-based defaults for capacity and coach.
+  const prevSportRef = useRef(currentSport?.id)
   useEffect(() => {
     if (currentSport) {
-      // Auto-set sport default capacity
-      setCapacity(currentSport.defaultCapacity || 8)
+      const sportChanged = prevSportRef.current !== currentSport.id
+      prevSportRef.current = currentSport.id
 
-      // Auto-select first dedicated court of the sport
-      if (!apiEnabled && currentSport.courts && currentSport.courts.length > 0) {
-        setRoomId(String(currentSport.courts[0].id))
-      } else if (validCenterRooms.length > 0) {
-        setRoomId(String(validCenterRooms[0].id))
+      // Auto-set sport default capacity
+      if (sportChanged) {
+        setCapacity(currentSport.defaultCapacity || 8)
       }
 
-      // Auto-select first coach with matching specialization
+      // Auto-select first coach with matching specialization when sport changes or initially empty
       const matched = coaches.filter((c) =>
         isCoachMatchingSport(c, currentSport.name),
       )
-      if (matched.length > 0) {
-        setCoachId(String(matched[0].id))
-      } else if (coaches.length > 0) {
-        setCoachId("")
+      if (sportChanged) {
+        if (matched.length > 0) {
+          setCoachId(String(matched[0].id))
+        } else if (coaches.length > 0) {
+          setCoachId("")
+        }
+      } else {
+        setCoachId((prev) => {
+          if (prev) return prev
+          return matched.length > 0 ? String(matched[0].id) : ""
+        })
       }
     }
-  }, [apiEnabled, currentSport?.id, coaches, validCenterRooms])
+  }, [currentSport?.id, coaches])
+
+  // Keep sport-based default room.
+  const prevSportForRoomRef = useRef(currentSport?.id)
+  useEffect(() => {
+    if (currentSport) {
+      const sportChanged = prevSportForRoomRef.current !== currentSport.id
+      prevSportForRoomRef.current = currentSport.id
+
+      // Auto-select first dedicated court of the sport
+      if (!apiEnabled && currentSport.courts && currentSport.courts.length > 0) {
+        setRoomId((prevRoomId) => {
+          if (sportChanged || !prevRoomId) {
+            return String(currentSport.courts[0].id)
+          }
+          return prevRoomId
+        })
+      } else if (validCenterRooms.length > 0) {
+        setRoomId((prevRoomId) => {
+          if (!prevRoomId) {
+            return String(validCenterRooms[0].id)
+          }
+          if (sportChanged && !validCenterRooms.some((r) => String(r.id) === String(prevRoomId))) {
+            return String(validCenterRooms[0].id)
+          }
+          return prevRoomId
+        })
+      }
+    }
+  }, [apiEnabled, currentSport?.id, validCenterRooms])
 
   // Handle prefilled clone / duplicate class
   useEffect(() => {
@@ -894,6 +929,13 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         showToast("Môn ngoài trời không được xếp vào ca 3 hoặc ca 4.", "error")
         return
       }
+      if (apiEnabled) {
+        const isRoomValid = validCenterRooms.some((r) => String(r.id) === String(roomId)) && selectedRoomObj
+        if (!isRoomValid) {
+          showToast("Phòng tập đã chọn không còn khả dụng hoặc không tồn tại. Vui lòng chọn lại sân/phòng tập.", "error")
+          return
+        }
+      }
     }
     if (apiEnabled && targetStatus !== "Draft" && (!targetSubjectId || !Number.isFinite(normalPrice) || !selectedRoomObj?.id)) {
       showToast("Thiếu môn học, normalPrice hoặc sân/phòng từ API. Vui lòng tải lại danh mục.", "error")
@@ -902,7 +944,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
     setIsSubmitting(true)
     try {
-      const roomBackendId = Number(selectedRoomObj?.backendId ?? selectedRoomObj?.id ?? roomId)
+      const roomBackendId = Number(selectedRoomObj?.backendId ?? selectedRoomObj?.id)
       const payload = {
         name: className.trim(),
         nameVi: className.trim(),
@@ -1166,7 +1208,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   className="w-full h-11 px-3.5 pr-10 bg-white border border-stone-300 rounded-xl text-sm text-stone-900 font-normal appearance-none focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800 cursor-pointer"
                 >
                   <option value="">Chọn sân tập...</option>
-                  {sportCourts.length > 0 && (
+                  {!apiEnabled && sportCourts.length > 0 && (
                     <optgroup label={`Sân chuyên dụng ${currentSport.name}`}>
                       {sportCourts.map((court) => (
                         <option key={court.id} value={court.id}>
@@ -1175,13 +1217,23 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                       ))}
                     </optgroup>
                   )}
+                  {apiEnabled && roomId && !validCenterRooms.some((r) => String(r.id) === String(roomId)) && (
+                    <option value={roomId} disabled>
+                      {`Phòng #${roomId} (không còn khả dụng)`}
+                    </option>
+                  )}
                   {validCenterRooms.length > 0 && (
                     <optgroup label="Sân đa năng / Liên hợp">
-                      {validCenterRooms.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.name}
-                        </option>
-                      ))}
+                      {validCenterRooms.map((r) => {
+                        const code = r.roomCode ? String(r.roomCode).trim() : ""
+                        const name = r.name || `Sân #${r.id}`
+                        const label = code ? `${code} - ${name}` : name
+                        return (
+                          <option key={r.id} value={r.id}>
+                            {label}
+                          </option>
+                        )
+                      })}
                     </optgroup>
                   )}
                 </select>
