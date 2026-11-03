@@ -268,7 +268,7 @@ export function ResourceManagement() {
             <tbody className="divide-y divide-slate-100">
               {rooms.map(item => (
                 <tr key={item.id}>
-                  <td className="p-3 font-bold text-slate-900">{item.name || '—'}</td>
+                  <td className="p-3 font-bold text-slate-900">{item.roomCode ? `${String(item.roomCode).trim()} - ${item.name || `Sân #${item.id}`}` : (item.name || '—')}</td>
                   <td className="p-3">{item.location || '—'}</td>
                   <td className="p-3 tabular-nums">{item.capacity ?? '—'}</td>
                   <td className="p-3">{item.facilityType || (item.outdoor == null ? '—' : item.outdoor ? 'Outdoor' : 'Indoor')}</td>
