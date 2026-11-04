@@ -7,13 +7,22 @@ import { classEnrollmentApi } from "../../api/classEnrollmentApi"
 import { attendanceApi } from "../../api/attendanceApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getCatalogClassSessions } from "../../api/managerApi"
+import { getErrorMessage } from "../../api/apiErrors"
 import { isActiveNormalEnrollment } from "../../utils/memberScheduleUtils"
 import {
   canCheckIn,
   canCorrectAttendance,
   isSessionCancelled,
 } from "../../utils/permissions"
-import { ClipboardCheck, Edit2, RefreshCw, CheckCheck, AlertCircle } from "lucide-react"
+import {
+  ClipboardCheck,
+  Edit2,
+  RefreshCw,
+  CheckCheck,
+  AlertCircle,
+  Search,
+  X,
+} from "lucide-react"
 
 export function CoachAttendanceView() {
   const {
@@ -82,8 +91,11 @@ export function CoachAttendanceView() {
   })
   const [loadingRoster, setLoadingRoster] = useState(false)
   const [bulkSaving, setBulkSaving] = useState(false)
+  const [showBulkConfirmModal, setShowBulkConfirmModal] = useState(false)
   const [quickMemberInput, setQuickMemberInput] = useState("")
   const [quickSaving, setQuickSaving] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [optimisticStatusMap, setOptimisticStatusMap] = useState({})
 
   const loadClassRosterAndAttendance = useCallback(async () => {
     if (!apiEnabled || !selectedClass?.id) return
@@ -248,21 +260,199 @@ export function CoachAttendanceView() {
   const normalizeAttendanceStatus = (state) => {
     const s = String(state || "").toLowerCase()
     if (s.includes("present") || s.includes("checked")) return "present"
-    if (s.includes("late") || s.includes("excused")) return "late"
+    if (s.includes("excuse")) return "excused"
+    if (s.includes("late")) return "late"
     if (s.includes("absent")) return "absent"
     return "not_recorded"
   }
 
-  const handleBulkMarkPresent = async () => {
-    if (enrolledMembers.length === 0 || bulkSaving) return
-    setBulkSaving(true)
+  const getMemberStatusAndMeta = useCallback(
+    (m) => {
+      const optKey = `${selectedSessionId || selectedClass?.id || "cls"}_${m.id}`
+      const optVal = optimisticStatusMap[optKey]
+
+      const localAtt = attendance.find(
+        (a) =>
+          String(a.classId) === String(selectedClass?.id) &&
+          String(a.memberId) === String(m.id),
+      )
+      const sessionResultAtt = sessionTrainingResults.find(
+        (r) =>
+          String(r.memberId) === String(m.id) &&
+          (!selectedSessionId ||
+            String(r.sessionId) === String(selectedSessionId)),
+      )
+      const backendAtt =
+        apiAttendances.find(
+          (a) =>
+            String(a.memberId) === String(m.id) &&
+            selectedSessionId &&
+            String(a.sessionId) === String(selectedSessionId),
+        ) ||
+        apiAttendances.find(
+          (a) =>
+            String(a.memberId) === String(m.id) &&
+            (!a.classId || String(a.classId) === String(selectedClass?.id)),
+        )
+
+      const currentStatus =
+        optVal ||
+        (localAtt
+          ? localAtt.status
+          : sessionResultAtt?.attendanceStatus
+            ? normalizeAttendanceStatus(sessionResultAtt.attendanceStatus)
+            : backendAtt
+              ? normalizeAttendanceStatus(backendAtt.state)
+              : "not_recorded")
+
+      const attendanceId =
+        localAtt?.attendanceId || backendAtt?.attendanceId || null
+
+      const absenceNotice = sessionAbsenceNotices.find(
+        (n) =>
+          String(n.memberId) === String(m.id) ||
+          (n.memberName &&
+            String(n.memberName).toLowerCase() ===
+              String(m.name || "").toLowerCase()),
+      )
+
+      return { currentStatus, attendanceId, absenceNotice }
+    },
+    [
+      selectedSessionId,
+      selectedClass?.id,
+      optimisticStatusMap,
+      attendance,
+      sessionTrainingResults,
+      apiAttendances,
+      sessionAbsenceNotices,
+    ],
+  )
+
+  const summaryCounts = useMemo(() => {
+    const counts = {
+      present: 0,
+      late: 0,
+      excused: 0,
+      absent: 0,
+      not_recorded: 0,
+    }
+    enrolledMembers.forEach((m) => {
+      const { currentStatus } = getMemberStatusAndMeta(m)
+      if (counts[currentStatus] !== undefined) {
+        counts[currentStatus] += 1
+      } else {
+        counts.not_recorded += 1
+      }
+    })
+    return counts
+  }, [enrolledMembers, getMemberStatusAndMeta])
+
+  const unmarkedMembers = useMemo(
+    () =>
+      enrolledMembers.filter(
+        (m) => getMemberStatusAndMeta(m).currentStatus === "not_recorded",
+      ),
+    [enrolledMembers, getMemberStatusAndMeta],
+  )
+
+  const filteredMembers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return enrolledMembers
+    return enrolledMembers.filter(
+      (m) =>
+        String(m.name || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(m.code || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(m.id || "").includes(q),
+    )
+  }, [enrolledMembers, searchQuery])
+
+  const handleOneTouchCheckIn = async (member, targetStatus, attendanceId) => {
+    const optKey = `${selectedSessionId || selectedClass?.id || "cls"}_${member.id}`
+    const prevStatus = getMemberStatusAndMeta(member).currentStatus
+
+    // Optimistic update (P2.2)
+    setOptimisticStatusMap((prev) => ({
+      ...prev,
+      [optKey]: targetStatus,
+    }))
+
+    const apiStatusMap = {
+      present: "Present",
+      late: "Late",
+      excused: "Excused",
+      absent: "Absent",
+    }
+
     try {
+      if (apiEnabled && selectedSessionId) {
+        await attendanceApi.recordSessionAttendance({
+          memberId: member.id,
+          sessionId: Number(selectedSessionId),
+          coachId: resolvedCoachId,
+          status: apiStatusMap[targetStatus] || "Present",
+          notes:
+            targetStatus === "excused"
+              ? "Vắng có phép"
+              : targetStatus === "late"
+                ? "Đi trễ"
+                : targetStatus === "absent"
+                  ? "Vắng mặt"
+                  : "Có mặt đúng giờ",
+        })
+      }
+      await recordAttendance(
+        selectedClass?.id,
+        member.id,
+        targetStatus === "excused" ? "late" : targetStatus,
+        undefined,
+        {
+          attendanceId,
+          memberName: member.name,
+          sessionId: selectedSessionId,
+          coachId: resolvedCoachId,
+        },
+      )
+    } catch (err) {
+      // Rollback on failure
+      setOptimisticStatusMap((prev) => ({
+        ...prev,
+        [optKey]: prevStatus,
+      }))
+      showToast?.(
+        getErrorMessage(err, "Không thể lưu điểm danh. Đã hoàn tác trạng thái."),
+        "error",
+      )
+    }
+  }
+
+  const handleConfirmBulkMarkPresent = async () => {
+    const targets =
+      unmarkedMembers.length > 0 ? unmarkedMembers : enrolledMembers
+    if (targets.length === 0 || bulkSaving) {
+      setShowBulkConfirmModal(false)
+      return
+    }
+    setBulkSaving(true)
+    setShowBulkConfirmModal(false)
+    try {
+      const nextOpt = {}
+      targets.forEach((m) => {
+        const optKey = `${selectedSessionId || selectedClass?.id || "cls"}_${m.id}`
+        nextOpt[optKey] = "present"
+      })
+      setOptimisticStatusMap((prev) => ({ ...prev, ...nextOpt }))
+
       if (apiEnabled && selectedSessionId) {
         await memberPortalApi
           .recordBulkTrainingResults({
             sessionId: Number(selectedSessionId),
             coachId: Number(resolvedCoachId),
-            items: enrolledMembers.map((m) => ({
+            items: targets.map((m) => ({
               memberId: Number(m.id),
               attendanceStatus: "Present",
               content: "Có mặt đầy đủ theo điểm danh lớp",
@@ -270,7 +460,7 @@ export function CoachAttendanceView() {
           })
           .catch(() => {})
       }
-      for (const m of enrolledMembers) {
+      for (const m of targets) {
         await recordAttendance(selectedClass?.id, m.id, "present", undefined, {
           memberName: m.name,
           sessionId: selectedSessionId,
@@ -279,7 +469,7 @@ export function CoachAttendanceView() {
       }
       await loadClassRosterAndAttendance()
       showToast?.(
-        `Đã điểm danh Có mặt cho toàn bộ ${enrolledMembers.length} học viên!`,
+        `Đã điểm danh Có mặt cho ${targets.length} học viên!`,
         "success",
       )
     } finally {
@@ -382,7 +572,8 @@ export function CoachAttendanceView() {
               >
                 {classes.map((cls) => (
                   <option key={cls.id} value={cls.id}>
-                    {cls.nameVi || cls.name} ({cls.startTime ? formatTime(cls.startTime) : "Lịch học"})
+                    {cls.nameVi || cls.name} (
+                    {cls.startTime ? formatTime(cls.startTime) : "Lịch học"})
                   </option>
                 ))}
               </select>
@@ -439,15 +630,15 @@ export function CoachAttendanceView() {
           })()}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {enrolledMembers.length > 0 && allowCheckIn && !sessionCancelled && (
             <button
               type="button"
-              onClick={handleBulkMarkPresent}
+              onClick={() => setShowBulkConfirmModal(true)}
               disabled={bulkSaving || loadingRoster}
-              className="px-3 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white rounded text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2 min-h-[44px] bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white rounded text-xs font-bold flex items-center gap-1.5 cursor-pointer"
             >
-              <CheckCheck className="w-3.5 h-3.5" />
+              <CheckCheck className="w-4 h-4" />
               <span>
                 {bulkSaving ? "Đang điểm danh..." : "Điểm danh tất cả Có mặt"}
               </span>
@@ -458,7 +649,7 @@ export function CoachAttendanceView() {
               type="button"
               onClick={loadClassRosterAndAttendance}
               disabled={loadingRoster}
-              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded border border-slate-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-2 min-h-[44px] bg-slate-100 hover:bg-slate-200 text-slate-700 rounded border border-slate-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
             >
               <RefreshCw
                 className={`w-3.5 h-3.5 ${loadingRoster ? "animate-spin" : ""}`}
@@ -505,7 +696,7 @@ export function CoachAttendanceView() {
 
       {/* Attendance Roster */}
       <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-200 pb-3">
           <div>
             <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
               <ClipboardCheck className="w-4 h-4 text-slate-700 shrink-0" />
@@ -521,210 +712,202 @@ export function CoachAttendanceView() {
                 : "Edits require mandatory reason input & audit log recording"}
             </span>
           </div>
-          {allowCheckIn && !sessionCancelled && (
-            <form
-              onSubmit={handleQuickCheckin}
-              className="flex items-center gap-2"
-            >
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Search by student name or code (P2.2) */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                value={quickMemberInput}
-                onChange={(e) => setQuickMemberInput(e.target.value)}
-                placeholder="Nhập mã học viên hoặc mã điểm danh..."
-                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded focus:outline-none focus:border-blue-600 w-64"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t("coachSearchStudentPlaceholder")}
+                className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded focus:outline-none focus:border-blue-600 w-56"
               />
-              <button
-                type="submit"
-                disabled={quickSaving || !quickMemberInput.trim()}
-                className="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded text-xs font-bold whitespace-nowrap cursor-pointer"
+            </div>
+
+            {allowCheckIn && !sessionCancelled && (
+              <form
+                onSubmit={handleQuickCheckin}
+                className="flex items-center gap-2"
               >
-                {quickSaving ? "Đang xử lý..." : "Điểm danh nhanh"}
-              </button>
-            </form>
-          )}
+                <input
+                  type="text"
+                  value={quickMemberInput}
+                  onChange={(e) => setQuickMemberInput(e.target.value)}
+                  placeholder="Nhập mã check-in / mã HV..."
+                  className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded focus:outline-none focus:border-blue-600 w-48"
+                />
+                <button
+                  type="submit"
+                  disabled={quickSaving || !quickMemberInput.trim()}
+                  className="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded text-xs font-bold whitespace-nowrap cursor-pointer"
+                >
+                  {quickSaving ? "Đang xử lý..." : "Điểm danh nhanh"}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
 
+        {/* Sticky Attendance Summary Bar (P2.2) */}
+        {enrolledMembers.length > 0 && (
+          <div className="sticky top-0 z-10 bg-slate-900 text-white px-4 py-2.5 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs font-mono shadow-xs">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-emerald-300 font-bold">
+                {t("coachAttendanceSummaryPresent")}: {summaryCounts.present}
+              </span>
+              <span>&bull;</span>
+              <span className="text-amber-300 font-bold">
+                {t("coachAttendanceSummaryLate")}: {summaryCounts.late}
+              </span>
+              <span>&bull;</span>
+              <span className="text-blue-300 font-bold">
+                {t("coachAttendanceSummaryExcused")}: {summaryCounts.excused}
+              </span>
+              <span>&bull;</span>
+              <span className="text-rose-300 font-bold">
+                {t("coachAttendanceSummaryAbsent")}: {summaryCounts.absent}
+              </span>
+              <span>&bull;</span>
+              <span className="text-slate-300 font-bold">
+                {t("coachAttendanceSummaryUnmarked")}:{" "}
+                {summaryCounts.not_recorded}
+              </span>
+            </div>
+            <div className="text-slate-300">
+              Tổng: {enrolledMembers.length} HV
+            </div>
+          </div>
+        )}
+
         <div className="space-y-3">
-          {enrolledMembers.length === 0 ? (
+          {loadingRoster ? (
+            <div className="space-y-2.5">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-14 bg-slate-100 animate-pulse rounded border border-slate-200"
+                />
+              ))}
+            </div>
+          ) : filteredMembers.length === 0 ? (
             <div className="p-6 text-center text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded">
-              {Number(selectedClass?.enrolledCount || 0) > 0
-                ? `Lớp đã có ${selectedClass.enrolledCount} học viên đăng ký. Bạn có thể nhập mã học viên hoặc mã điểm danh ở ô "Điểm danh nhanh" phía trên để ghi nhận buổi học.`
-                : "Lớp học này hiện chưa có học viên nào đăng ký chính thức."}
+              {enrolledMembers.length > 0
+                ? "Không tìm thấy học viên khớp với từ khóa."
+                : Number(selectedClass?.enrolledCount || 0) > 0
+                  ? `Lớp đã có ${selectedClass.enrolledCount} học viên đăng ký. Bạn có thể nhập mã học viên hoặc mã điểm danh ở ô "Điểm danh nhanh" phía trên để ghi nhận buổi học.`
+                  : "Lớp học này hiện chưa có học viên nào đăng ký chính thức."}
             </div>
           ) : (
-            enrolledMembers.map((m) => {
-              const localAtt = attendance.find(
-                (a) =>
-                  String(a.classId) === String(selectedClass?.id) &&
-                  String(a.memberId) === String(m.id),
-              )
-              const sessionResultAtt = sessionTrainingResults.find(
-                (r) =>
-                  String(r.memberId) === String(m.id) &&
-                  (!selectedSessionId ||
-                    String(r.sessionId) === String(selectedSessionId)),
-              )
-              const backendAtt =
-                apiAttendances.find(
-                  (a) =>
-                    String(a.memberId) === String(m.id) &&
-                    selectedSessionId &&
-                    String(a.sessionId) === String(selectedSessionId),
-                ) ||
-                apiAttendances.find(
-                  (a) =>
-                    String(a.memberId) === String(m.id) &&
-                    (!a.classId || String(a.classId) === String(selectedClass?.id)),
-                )
-              const currentStatus = localAtt
-                ? localAtt.status
-                : sessionResultAtt?.attendanceStatus
-                  ? normalizeAttendanceStatus(sessionResultAtt.attendanceStatus)
-                  : backendAtt
-                    ? normalizeAttendanceStatus(backendAtt.state)
-                    : "not_recorded"
-              const attendanceId =
-                localAtt?.attendanceId || backendAtt?.attendanceId || null
+            filteredMembers.map((m) => {
+              const { currentStatus, attendanceId, absenceNotice } =
+                getMemberStatusAndMeta(m)
 
               return (
                 <div
                   key={m.id}
-                  className="p-3.5 bg-slate-50 border border-slate-200 rounded flex flex-col md:flex-row items-start md:items-center justify-between gap-3"
+                  className="min-h-[56px] p-3.5 bg-slate-50 border border-slate-200 rounded-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-3"
                 >
-                  <div>
-                    <div className="text-sm font-bold text-slate-900">
-                      {m.name}
+                  <div className="space-y-0.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-bold text-slate-900">
+                        {m.name}
+                      </span>
+                      <span className="text-xs font-mono text-slate-500">
+                        ({m.code})
+                      </span>
+                      {absenceNotice && (
+                        <span
+                          title={absenceNotice.reason || ""}
+                          className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold"
+                        >
+                          {t("coachHasAbsenceNoticeBadge")}
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-slate-500 font-mono tabular-nums">
                       {t("coachPkgLabel")}: {m.currentPackageName}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <CoachStatusBadge type="attendance" value={currentStatus} />
-
-                    {/* Rapid Attendance Buttons (only when session is Scheduled) */}
-                    {allowCheckIn && !sessionCancelled && (
-                      <div className="flex items-center gap-1 bg-white p-0.5 rounded border border-slate-300">
-                        <button
-                          onClick={async () => {
-                            if (apiEnabled && selectedSessionId) {
-                              await attendanceApi
-                                .recordSessionAttendance({
-                                  memberId: m.id,
-                                  sessionId: Number(selectedSessionId),
-                                  coachId: resolvedCoachId,
-                                  status: "Present",
-                                  notes: "Điểm danh có mặt đúng giờ",
-                                })
-                                .catch(() => {})
-                            }
-                            await recordAttendance(
-                              selectedClass?.id,
-                              m.id,
-                              "present",
-                              undefined,
-                              {
-                                attendanceId,
-                                memberName: m.name,
-                              },
-                            )
-                            loadClassRosterAndAttendance()
-                          }}
-                          className={`px-2.5 py-1 text-xs font-bold rounded cursor-pointer ${
-                            currentStatus === "present"
-                              ? "bg-[#DCFCE7] text-[#166534] border border-[#BBF7D0]"
-                              : "text-slate-600 hover:bg-slate-100"
-                          }`}
-                        >
-                          {t("coachStatusPresent")}
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (apiEnabled && selectedSessionId) {
-                              await attendanceApi
-                                .recordSessionAttendance({
-                                  memberId: m.id,
-                                  sessionId: Number(selectedSessionId),
-                                  coachId: resolvedCoachId,
-                                  status: "Late",
-                                  notes: "Có phép / Đến trễ đã báo trước",
-                                })
-                                .catch(() => {})
-                            }
-                            await recordAttendance(
-                              selectedClass?.id,
-                              m.id,
-                              "late",
-                              undefined,
-                              {
-                                attendanceId,
-                                memberName: m.name,
-                              },
-                            )
-                            loadClassRosterAndAttendance()
-                          }}
-                          className={`px-2.5 py-1 text-xs font-bold rounded cursor-pointer ${
-                            currentStatus === "late"
-                              ? "bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]"
-                              : "text-slate-600 hover:bg-slate-100"
-                          }`}
-                        >
-                          {t("coachStatusLate")} / Phép
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (apiEnabled && selectedSessionId) {
-                              await attendanceApi
-                                .recordSessionAttendance({
-                                  memberId: m.id,
-                                  sessionId: Number(selectedSessionId),
-                                  coachId: resolvedCoachId,
-                                  status: "Absent",
-                                  notes: "Vắng mặt không phép",
-                                })
-                                .catch(() => {})
-                            }
-                            await recordAttendance(
-                              selectedClass?.id,
-                              m.id,
-                              "absent",
-                              undefined,
-                              {
-                                attendanceId,
-                                memberName: m.name,
-                              },
-                            )
-                            loadClassRosterAndAttendance()
-                          }}
-                          className={`px-2.5 py-1 text-xs font-bold rounded cursor-pointer ${
-                            currentStatus === "absent"
-                              ? "bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA]"
-                              : "text-slate-600 hover:bg-slate-100"
-                          }`}
-                        >
-                          {t("coachStatusAbsent")}
-                        </button>
+                  <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+                    {/* Single status indicator rule (P2.2):
+                        - When Scheduled (allowCheckIn): the 4 one-touch buttons act as the single status indicator.
+                        - When Completed/Cancelled: show CoachStatusBadge + optional Correction button. */}
+                    {allowCheckIn && !sessionCancelled ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 w-full sm:w-auto">
+                        {[
+                          {
+                            key: "present",
+                            label: t("coachStatusPresent"),
+                            activeCls:
+                              "bg-[#DCFCE7] text-[#166534] border-[#86EFAC] ring-1 ring-[#166534]/20",
+                          },
+                          {
+                            key: "late",
+                            label: t("coachStatusLate"),
+                            activeCls:
+                              "bg-[#FEF3C7] text-[#92400E] border-[#FDE68A] ring-1 ring-[#92400E]/20",
+                          },
+                          {
+                            key: "excused",
+                            label: t("coachStatusExcused"),
+                            activeCls:
+                              "bg-[#DBEAFE] text-[#1E40AF] border-[#BFDBFE] ring-1 ring-[#1E40AF]/20",
+                          },
+                          {
+                            key: "absent",
+                            label: t("coachStatusAbsent"),
+                            activeCls:
+                              "bg-[#FEE2E2] text-[#991B1B] border-[#FECACA] ring-1 ring-[#991B1B]/20",
+                          },
+                        ].map((btn) => {
+                          const isSelected = currentStatus === btn.key
+                          return (
+                            <button
+                              key={btn.key}
+                              type="button"
+                              aria-pressed={isSelected}
+                              onClick={() =>
+                                handleOneTouchCheckIn(m, btn.key, attendanceId)
+                              }
+                              className={`min-h-[44px] px-3 py-1.5 text-xs font-bold rounded border transition-colors cursor-pointer ${
+                                isSelected
+                                  ? btn.activeCls
+                                  : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
+                              }`}
+                            >
+                              {btn.label}
+                            </button>
+                          )
+                        })}
                       </div>
-                    )}
-
-                    {/* Edit with reason modal (only when session is Completed) */}
-                    {allowCorrection && !sessionCancelled && (
-                      <button
-                        onClick={() =>
-                          setSelectedMemberModal({
-                            memberId: m.id,
-                            memberName: m.name,
-                            status: currentStatus,
-                            attendanceId,
-                          })
-                        }
-                        className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded border border-slate-300 text-xs font-bold shadow-2xs flex items-center gap-1 cursor-pointer"
-                        title="Chỉnh sửa &amp; nhập lý do"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                        <span>{t("coachBtnViewOrCorrectAttendance")}</span>
-                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2.5">
+                        <CoachStatusBadge
+                          type="attendance"
+                          value={currentStatus}
+                        />
+                        {allowCorrection && !sessionCancelled && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSelectedMemberModal({
+                                memberId: m.id,
+                                memberName: m.name,
+                                status: currentStatus,
+                                attendanceId,
+                              })
+                            }
+                            className="min-h-[44px] px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded border border-slate-300 text-xs font-bold shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                            title="Chỉnh sửa &amp; nhập lý do"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            <span>{t("coachBtnViewOrCorrectAttendance")}</span>
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -733,6 +916,52 @@ export function CoachAttendanceView() {
           )}
         </div>
       </div>
+
+      {/* Confirmation Modal for Bulk Mark Present (P2.2) */}
+      {showBulkConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-lg max-w-md w-full p-5 shadow-lg space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+              <h4 className="text-sm font-bold text-slate-900">
+                {t("coachConfirmBulkPresentTitle")}
+              </h4>
+              <button
+                type="button"
+                onClick={() => setShowBulkConfirmModal(false)}
+                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-700 leading-relaxed">
+              {t("coachConfirmBulkPresentDesc").replace(
+                "{count}",
+                String(
+                  unmarkedMembers.length > 0
+                    ? unmarkedMembers.length
+                    : enrolledMembers.length,
+                ),
+              )}
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setShowBulkConfirmModal(false)}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-bold cursor-pointer"
+              >
+                {t("coachCancelBtn")}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBulkMarkPresent}
+                className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold cursor-pointer"
+              >
+                {t("coachConfirmBtn")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedMemberModal && (
         <AttendanceCorrectionModal

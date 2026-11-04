@@ -6,7 +6,11 @@ import { attendanceApi } from "../../api/attendanceApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import { canLogResult } from "../../utils/permissions"
 import { formatDate, formatTime } from "../../utils/datetime"
-import { normalizeScore, formatScore, scoreToBarWidthPercent } from "../../utils/score"
+import {
+  normalizeScore,
+  formatScore,
+  scoreToBarWidthPercent,
+} from "../../utils/score"
 import { CoachStatusBadge } from "../coach/StatusBadge"
 import {
   Activity,
@@ -39,6 +43,7 @@ export function CoachTrainingProgress() {
     return !Number.isNaN(parsed) && parsed > 0 ? parsed : 1
   }, [currentUser?.coachId, currentUser?.id, plan?.coachId])
 
+  const [activeTab, setActiveTab] = useState("overview") // 'overview' | 'plans' | 'logs' | 'evaluations'
   const [selectedMemberId, setSelectedMemberId] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = sessionStorage.getItem("scms_selected_progress_member_id")
@@ -46,8 +51,9 @@ export function CoachTrainingProgress() {
     }
     return ""
   })
-  const [comment, setComment] = useState(plan?.resultNotes || "")
-  // Backend EvaluationRequest.progressScore has minimum=0, maximum=10
+
+  // Create forms start EMPTY per P2.4 (use placeholder instead of sample text)
+  const [comment, setComment] = useState("")
   const [progressScore, setProgressScore] = useState(
     apiEnabled
       ? Number(((plan?.progressPercent || 80) / 10).toFixed(1))
@@ -62,16 +68,10 @@ export function CoachTrainingProgress() {
   const [saving, setSaving] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
 
-  // New Training Plan form state (/api/training-plans)
-  const [planTitle, setPlanTitle] = useState(
-    "Giáo án phát triển kỹ thuật & thể lực chuyên sâu",
-  )
-  const [planGoal, setPlanGoal] = useState(
-    plan?.goalVi || "Tăng cường sức bền, tốc độ di chuyển và độ chuẩn xác kỹ thuật.",
-  )
-  const [planContent, setPlanContent] = useState(
-    "Buổi 1-4: Khởi động khớp chuyên sâu, bài tập bộ chân di chuyển 4 góc sân (3 hiệp x 15 phút).\nBuổi 5-8: Kỹ thuật đánh cầu/bóng bền kết hợp phản xạ tốc độ cao.\nBuổi 9-12: Đấu tập chiến thuật và kiểm tra thể lực cuối khóa.",
-  )
+  // New Training Plan form state (empty by default, placeholder only per P2.4)
+  const [planTitle, setPlanTitle] = useState("")
+  const [planGoal, setPlanGoal] = useState("")
+  const [planContent, setPlanContent] = useState("")
   const [planStartDate, setPlanStartDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   )
@@ -81,12 +81,11 @@ export function CoachTrainingProgress() {
   })
   const [savingPlan, setSavingPlan] = useState(false)
 
-  // New Training Result form state (/api/training-results)
+  // New Training Result form state (empty by default, placeholder only per P2.4)
   const [selectedSessionId, setSelectedSessionId] = useState("")
-  const [resultContent, setResultContent] = useState(
-    "Học viên hoàn thành đầy đủ khối lượng bài tập trong buổi, kỹ thuật động tác đúng chuẩn.",
-  )
+  const [resultContent, setResultContent] = useState("")
   const [savingResult, setSavingResult] = useState(false)
+
   const [showAllPlans, setShowAllPlans] = useState(false)
   const [showAllResults, setShowAllResults] = useState(false)
   const [showAllEvaluations, setShowAllEvaluations] = useState(false)
@@ -130,7 +129,6 @@ export function CoachTrainingProgress() {
     loadAllProgressData()
   }, [loadAllProgressData])
 
-  // Merge available students from members context + assigned PT registrations + plans/evaluations
   const availableStudents = useMemo(() => {
     const map = new Map()
     ;(members || []).forEach((m) => {
@@ -217,23 +215,39 @@ export function CoachTrainingProgress() {
       return "Present"
     }
     return "Present"
-  }, [selectedSessionId, selectedMemberId, selectedStudent?.id, apiResults, apiAttendances])
+  }, [
+    selectedSessionId,
+    selectedMemberId,
+    selectedStudent?.id,
+    apiResults,
+    apiAttendances,
+  ])
 
   const formatPlanTargetLabel = useCallback(
     (p) => {
       if (!p) return t("coachPlanTargetGeneral")
-      const hasMember = p.memberId != null && String(p.memberId) !== "" && String(p.memberId) !== "null"
-      const hasClass = p.classId != null && String(p.classId) !== "" && String(p.classId) !== "null"
+      const hasMember =
+        p.memberId != null &&
+        String(p.memberId) !== "" &&
+        String(p.memberId) !== "null"
+      const hasClass =
+        p.classId != null &&
+        String(p.classId) !== "" &&
+        String(p.classId) !== "null"
       const memberName = hasMember
         ? p.memberName ||
-          availableStudents.find((s) => String(s.id) === String(p.memberId))?.name ||
+          availableStudents.find((s) => String(s.id) === String(p.memberId))
+            ?.name ||
           `Học viên #${p.memberId}`
         : ""
       const matchedClass = hasClass
         ? classes.find((c) => String(c.id) === String(p.classId))
         : null
       const className = hasClass
-        ? p.className || matchedClass?.nameVi || matchedClass?.name || `Lớp #${p.classId}`
+        ? p.className ||
+          matchedClass?.nameVi ||
+          matchedClass?.name ||
+          `Lớp #${p.classId}`
         : ""
 
       if (hasClass && hasMember) {
@@ -264,8 +278,8 @@ export function CoachTrainingProgress() {
 
   const handleSaveTrainingPlan = async (e) => {
     if (e) e.preventDefault()
-    if (!planTitle.trim()) {
-      showToast("Vui lòng nhập tiêu đề giáo án tập luyện.", "warning")
+    if (!planTitle.trim() || !planGoal.trim()) {
+      showToast(t("coachEmptyFieldValidationError"), "warning")
       return
     }
     setSavingPlan(true)
@@ -285,6 +299,9 @@ export function CoachTrainingProgress() {
           startDate: planStartDate || undefined,
           endDate: planEndDate || undefined,
         })
+        setPlanTitle("")
+        setPlanGoal("")
+        setPlanContent("")
         await loadAllProgressData()
         showToast("Đã tạo và lưu giáo án tập luyện lên hệ thống!", "success")
       } else if (plan) {
@@ -310,7 +327,14 @@ export function CoachTrainingProgress() {
   const handleSaveTrainingResult = async (e) => {
     if (e) e.preventDefault()
     if (apiEnabled && !selectedSessionId) {
-      showToast("Vui lòng chọn một buổi học đã hoàn thành để ghi nhận kết quả.", "warning")
+      showToast(
+        "Vui lòng chọn một buổi học đã hoàn thành để ghi nhận kết quả.",
+        "warning",
+      )
+      return
+    }
+    if (!resultContent.trim()) {
+      showToast(t("coachEmptyFieldValidationError"), "warning")
       return
     }
     setSavingResult(true)
@@ -325,13 +349,13 @@ export function CoachTrainingProgress() {
           memberId: memberIdNum,
           coachId: resolvedCoachId,
           attendanceStatus: readOnlyAttendanceStatus,
-          content:
-            resultContent.trim() ||
-            "Hoàn thành tốt nội dung huấn luyện trong buổi.",
+          content: resultContent.trim(),
         })
+        setResultContent("")
         await loadAllProgressData()
         showToast("Đã ghi nhận kết quả buổi tập thành công!", "success")
       } else {
+        setResultContent("")
         showToast("Đã ghi nhận kết quả buổi tập!", "success")
       }
     } catch (err) {
@@ -345,6 +369,10 @@ export function CoachTrainingProgress() {
   }
 
   const handleSaveEvaluation = async () => {
+    if (!comment.trim()) {
+      showToast(t("coachEmptyFieldValidationError"), "warning")
+      return
+    }
     setSaving(true)
     try {
       const rawScore = Number(progressScore)
@@ -353,16 +381,14 @@ export function CoachTrainingProgress() {
           selectedMemberId || plan?.memberId,
           1,
         )
-        const scoreOutOf10 =
-          !Number.isNaN(rawScore) && rawScore > 10
-            ? Number((rawScore / 10).toFixed(1))
-            : Math.max(0, Math.min(10, Number.isNaN(rawScore) ? 8.5 : rawScore))
+        const scoreOutOf10 = normalizeScore(rawScore) ?? 8.5
         await evaluationApi.createEvaluation({
           memberId: memberIdNum,
           coachId: resolvedCoachId,
           progressScore: scoreOutOf10,
-          comment: comment || "Hoàn thành tốt giáo án tập luyện.",
+          comment: comment.trim(),
         })
+        setComment("")
         await loadAllProgressData()
         showToast("Đã lưu đánh giá tiến độ tập luyện thành công!", "success")
       } else if (plan) {
@@ -376,7 +402,9 @@ export function CoachTrainingProgress() {
           resultNotes: comment,
           progressPercent: newPercent,
         })
+        setComment("")
       } else {
+        setComment("")
         showToast("Đã lưu đánh giá tiến độ tập luyện thành công!", "success")
       }
     } catch (err) {
@@ -398,57 +426,103 @@ export function CoachTrainingProgress() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-white border border-slate-200 p-4 rounded-lg shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-slate-100 text-slate-800 rounded border border-slate-200">
-            <Activity className="w-5 h-5" />
+      {/* Sticky Student Selector + 4 Horizontal Tabs (P2.4) */}
+      <div className="sticky top-0 z-10 bg-white border border-slate-200 p-4 rounded-lg shadow-xs space-y-3">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-slate-100 text-slate-800 rounded border border-slate-200">
+              <Activity className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 tracking-tight">
+                {t("trainingProgress")}
+              </h2>
+              <p className="text-xs text-slate-500">
+                {t("coachProgressSubtitle")}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-              {t("trainingProgress")}
-            </h2>
-            <p className="text-xs text-slate-500">
-              {t("coachProgressSubtitle")}
-            </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {apiEnabled && (
+              <button
+                type="button"
+                onClick={loadAllProgressData}
+                disabled={loadingData}
+                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-xs font-bold text-slate-700 flex items-center gap-1 cursor-pointer"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${loadingData ? "animate-spin" : ""}`}
+                />
+                <span>{t("coachBtnRefresh")}</span>
+              </button>
+            )}
+            {availableStudents.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-600">
+                  {t("coachEvaluatedStudentLabel")}
+                </span>
+                <select
+                  value={selectedMemberId}
+                  onChange={(e) => {
+                    setSelectedMemberId(e.target.value)
+                    if (typeof window !== "undefined") {
+                      sessionStorage.setItem(
+                        "scms_selected_progress_member_id",
+                        e.target.value,
+                      )
+                    }
+                  }}
+                  className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
+                >
+                  {availableStudents.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {apiEnabled && (
+        {/* 4 Tabs: Tổng quan | Giáo án | Nhật ký buổi tập | Đánh giá */}
+        <div
+          role="tablist"
+          className="flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3"
+        >
+          {[
+            { id: "overview", label: t("coachTabOverview") },
+            { id: "plans", label: `${t("coachTabPlans")} (${apiPlans.length})` },
+            {
+              id: "logs",
+              label: `${t("coachTabSessionLogs")} (${apiResults.length})`,
+            },
+            {
+              id: "evaluations",
+              label: `${t("coachTabEvaluations")} (${evaluations.length})`,
+            },
+          ].map((tab) => (
             <button
+              key={tab.id}
               type="button"
-              onClick={loadAllProgressData}
-              disabled={loadingData}
-              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-xs font-bold text-slate-700 flex items-center gap-1 cursor-pointer"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-3.5 py-1.5 rounded text-xs font-bold border transition-colors cursor-pointer ${
+                activeTab === tab.id
+                  ? "bg-slate-900 text-white border-slate-900"
+                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+              }`}
             >
-              <RefreshCw
-                className={`w-3.5 h-3.5 ${loadingData ? "animate-spin" : ""}`}
-              />
-              <span>{t("coachBtnRefresh")}</span>
+              {tab.label}
             </button>
-          )}
-          {availableStudents.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-600">
-                {t("coachEvaluatedStudentLabel")}
-              </span>
-              <select
-                value={selectedMemberId}
-                onChange={(e) => setSelectedMemberId(e.target.value)}
-                className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
-              >
-                {availableStudents.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          ))}
         </div>
       </div>
 
-      {(plan || activeStudentApiPlan) && (
+      {/* TAB 1: OVERVIEW */}
+      {activeTab === "overview" && (plan || activeStudentApiPlan) && (
         <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-6 shadow-xs">
           <div className="flex items-center justify-between border-b border-slate-200 pb-4">
             <div>
@@ -462,7 +536,10 @@ export function CoachTrainingProgress() {
                   t("coachStudentLabel")}
               </h3>
               <p className="text-xs text-slate-500">
-                {t("coachMainCoachLabel")}: {currentUser?.name || plan?.coachName || t("coachDefaultCoachName")}
+                {t("coachMainCoachLabel")}:{" "}
+                {currentUser?.name ||
+                  plan?.coachName ||
+                  t("coachDefaultCoachName")}
               </p>
             </div>
 
@@ -479,21 +556,20 @@ export function CoachTrainingProgress() {
             </div>
           </div>
 
-          {/* Goal Section */}
           <div className="p-4 bg-slate-50 border border-slate-200 rounded">
             <div className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 whitespace-nowrap">
               {language === "vi" ? "Mục tiêu tập luyện" : "Training Goal"}
             </div>
             <p className="text-xs text-slate-800 font-medium">
               {apiEnabled
-                ? activeStudentApiPlan?.goal || planGoal
+                ? activeStudentApiPlan?.goal ||
+                  "Chưa thiết lập mục tiêu tập luyện cho học viên này."
                 : language === "vi"
                   ? plan?.goalVi
                   : plan?.goal}
             </p>
           </div>
 
-          {/* Exercise Content / Table */}
           {apiEnabled ? (
             activeStudentApiPlan?.content ? (
               <div className="p-4 bg-white border border-slate-200 rounded space-y-1.5">
@@ -556,51 +632,11 @@ export function CoachTrainingProgress() {
               </div>
             )
           )}
-
-          {/* Coach Result Comments & Progress Score */}
-          <div className="space-y-3">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                Đánh giá định kỳ của Coach
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-600">
-                  Điểm tiến độ (Thang 0 – 10):
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  max={10}
-                  step="0.5"
-                  value={normalizedScore10}
-                  onChange={(e) => setProgressScore(Number(e.target.value))}
-                  className="w-20 bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold text-slate-900"
-                />
-              </div>
-            </div>
-            <textarea
-              rows={3}
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-300 rounded p-3 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
-            />
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={handleSaveEvaluation}
-                disabled={saving}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
-              >
-                <Save className="w-3.5 h-3.5" />
-                <span>{saving ? "Đang lưu..." : "Lưu Đánh Giá Tiến Độ"}</span>
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
-      {/* Create Training Plan & Record Session Training Result Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Form 1: Lập Kế Hoạch Tập Luyện */}
+      {/* TAB 2: TRAINING PLANS */}
+      {activeTab === "plans" && (
         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -622,6 +658,7 @@ export function CoachTrainingProgress() {
                 required
                 value={planTitle}
                 onChange={(e) => setPlanTitle(e.target.value)}
+                placeholder="VD: Giáo án phát triển kỹ thuật & thể lực chuyên sâu"
                 className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900 font-semibold"
               />
             </div>
@@ -634,6 +671,7 @@ export function CoachTrainingProgress() {
                 required
                 value={planGoal}
                 onChange={(e) => setPlanGoal(e.target.value)}
+                placeholder="VD: Tăng cường sức bền, tốc độ di chuyển và độ chuẩn xác kỹ thuật"
                 className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900"
               />
             </div>
@@ -672,9 +710,10 @@ export function CoachTrainingProgress() {
                 Nội dung bài tập chi tiết
               </label>
               <textarea
-                rows={3}
+                rows={4}
                 value={planContent}
                 onChange={(e) => setPlanContent(e.target.value)}
+                placeholder="Nhập danh sách bài tập, số hiệp (sets), số lần lặp (reps) hoặc thời lượng..."
                 className="w-full bg-slate-50 border border-slate-300 rounded p-2.5 text-slate-900"
               />
             </div>
@@ -685,7 +724,9 @@ export function CoachTrainingProgress() {
                 className="px-3.5 py-2 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>{savingPlan ? "Đang lưu..." : "Lưu Giáo Án Tập Luyện"}</span>
+                <span>
+                  {savingPlan ? "Đang lưu..." : "Lưu Giáo Án Tập Luyện"}
+                </span>
               </button>
             </div>
           </form>
@@ -722,8 +763,10 @@ export function CoachTrainingProgress() {
             </div>
           )}
         </div>
+      )}
 
-        {/* Form 2: Ghi Nhận Kết Quả Buổi Tập (P0.2: Completed only, P0.6: Read-only attendance status) */}
+      {/* TAB 3: SESSION LOGS */}
+      {activeTab === "logs" && (
         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -766,7 +809,10 @@ export function CoachTrainingProgress() {
                   {t("coachAttendanceReadOnlyLabel")}
                 </label>
                 <div className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-2 text-slate-800 font-bold flex items-center justify-between">
-                  <CoachStatusBadge domain="attendance" value={readOnlyAttendanceStatus} />
+                  <CoachStatusBadge
+                    domain="attendance"
+                    value={readOnlyAttendanceStatus}
+                  />
                   <span className="text-[10px] font-mono text-slate-500 uppercase">
                     {t("coachReadOnlyTag")}
                   </span>
@@ -783,6 +829,7 @@ export function CoachTrainingProgress() {
                 required
                 value={resultContent}
                 onChange={(e) => setResultContent(e.target.value)}
+                placeholder="Nhập nhận xét thực tế về khối lượng bài tập, kỹ thuật động tác và thể lực của học viên trong buổi..."
                 className="w-full bg-slate-50 border border-slate-300 rounded p-2.5 text-slate-900"
               />
             </div>
@@ -790,7 +837,9 @@ export function CoachTrainingProgress() {
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={savingResult || (apiEnabled && completedSessions.length === 0)}
+                disabled={
+                  savingResult || (apiEnabled && completedSessions.length === 0)
+                }
                 className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white rounded font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <Save className="w-3.5 h-3.5" />
@@ -806,9 +855,12 @@ export function CoachTrainingProgress() {
               {(showAllResults ? apiResults : apiResults.slice(0, 5)).map((r) => {
                 const memberLabel =
                   r.memberName ||
-                  availableStudents.find((s) => String(s.id) === String(r.memberId))
-                    ?.name ||
-                  (r.memberId ? `Học viên #${r.memberId}` : t("coachStudentLabel"))
+                  availableStudents.find(
+                    (s) => String(s.id) === String(r.memberId),
+                  )?.name ||
+                  (r.memberId
+                    ? `Học viên #${r.memberId}`
+                    : t("coachStudentLabel"))
                 const sessionLabel =
                   r.className ||
                   (r.sessionId ? `Buổi #${r.sessionId}` : "Buổi tập")
@@ -823,7 +875,10 @@ export function CoachTrainingProgress() {
                       </div>
                       <div className="text-slate-600 mt-0.5">{r.content}</div>
                     </div>
-                    <CoachStatusBadge domain="attendance" value={r.attendanceStatus || "Present"} />
+                    <CoachStatusBadge
+                      domain="attendance"
+                      value={r.attendanceStatus || "Present"}
+                    />
                   </div>
                 )
               })}
@@ -841,58 +896,112 @@ export function CoachTrainingProgress() {
             </div>
           )}
         </div>
-      </div>
+      )}
 
-      {evaluations.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Award className="w-4 h-4 text-emerald-700" />
-              <span>Lịch Sử Đánh Giá Học Viên ({evaluations.length})</span>
-            </h3>
-          </div>
-          <div className="space-y-2">
-            {(showAllEvaluations ? evaluations : evaluations.slice(0, 6)).map((ev) => {
-              const evMemberLabel =
-                ev.memberName ||
-                availableStudents.find((s) => String(s.id) === String(ev.memberId))
-                  ?.name ||
-                (ev.memberId ? `Học viên #${ev.memberId}` : t("coachStudentLabel"))
-              return (
-                <div
-                  key={ev.id || `${ev.memberId}-${ev.evaluationDate}`}
-                  className="p-3 bg-slate-50 border border-slate-200 rounded flex items-center justify-between text-xs"
-                >
-                  <div>
-                    <div className="font-bold text-slate-900">
-                      {evMemberLabel} &bull; HLV:{" "}
-                      {ev.coachName || currentUser?.name}
-                    </div>
-                    <div className="text-slate-600 mt-0.5">{ev.comment}</div>
-                  </div>
-                  <div className="text-right font-mono">
-                    <div className="font-bold text-emerald-800">
-                      {t("coachScorePrefix")}: {formatScore(ev.progressScore)}
-                    </div>
-                    <div className="text-[11px] text-slate-400">
-                      {formatDate(ev.evaluationDate)}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-            {evaluations.length > 6 && (
+      {/* TAB 4: EVALUATIONS */}
+      {activeTab === "evaluations" && (
+        <div className="space-y-6">
+          <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-200 pb-3">
+              <label className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Award className="w-4 h-4 text-emerald-700" />
+                <span>Đánh giá định kỳ của Coach</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-600">
+                  Điểm tiến độ (Thang 0 – 10):
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={10}
+                  step="0.5"
+                  value={normalizedScore10}
+                  onChange={(e) => setProgressScore(Number(e.target.value))}
+                  className="w-20 bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold text-slate-900"
+                />
+              </div>
+            </div>
+            <textarea
+              rows={3}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Nhập nhận xét đánh giá định kỳ cho học viên..."
+              className="w-full bg-slate-50 border border-slate-300 rounded p-3 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
+            />
+            <div className="flex justify-end">
               <button
                 type="button"
-                onClick={() => setShowAllEvaluations((v) => !v)}
-                className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+                onClick={handleSaveEvaluation}
+                disabled={saving}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
-                {showAllEvaluations
-                  ? t("coachShowLess")
-                  : `${t("coachShowMore")} (${evaluations.length - 6})`}
+                <Save className="w-3.5 h-3.5" />
+                <span>{saving ? "Đang lưu..." : "Lưu Đánh Giá Tiến Độ"}</span>
               </button>
-            )}
+            </div>
           </div>
+
+          {evaluations.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Award className="w-4 h-4 text-emerald-700" />
+                  <span>Lịch Sử Đánh Giá Học Viên ({evaluations.length})</span>
+                </h3>
+              </div>
+              <div className="space-y-2">
+                {(showAllEvaluations ? evaluations : evaluations.slice(0, 6)).map(
+                  (ev) => {
+                    const evMemberLabel =
+                      ev.memberName ||
+                      availableStudents.find(
+                        (s) => String(s.id) === String(ev.memberId),
+                      )?.name ||
+                      (ev.memberId
+                        ? `Học viên #${ev.memberId}`
+                        : t("coachStudentLabel"))
+                    return (
+                      <div
+                        key={ev.id || `${ev.memberId}-${ev.evaluationDate}`}
+                        className="p-3 bg-slate-50 border border-slate-200 rounded flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <div className="font-bold text-slate-900">
+                            {evMemberLabel} &bull; HLV:{" "}
+                            {ev.coachName || currentUser?.name}
+                          </div>
+                          <div className="text-slate-600 mt-0.5">
+                            {ev.comment}
+                          </div>
+                        </div>
+                        <div className="text-right font-mono">
+                          <div className="font-bold text-emerald-800">
+                            {t("coachScorePrefix")}:{" "}
+                            {formatScore(ev.progressScore)}
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            {formatDate(ev.evaluationDate)}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  },
+                )}
+                {evaluations.length > 6 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllEvaluations((v) => !v)}
+                    className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+                  >
+                    {showAllEvaluations
+                      ? t("coachShowLess")
+                      : `${t("coachShowMore")} (${evaluations.length - 6})`}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

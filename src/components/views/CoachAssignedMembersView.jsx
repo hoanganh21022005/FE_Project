@@ -27,6 +27,7 @@ import {
   RefreshCw,
   AlertCircle,
   Lock,
+  Search,
 } from "lucide-react"
 
 const STANDARD_SLOTS = [
@@ -1071,6 +1072,10 @@ export function CoachAssignedMembersView() {
     }
   }
 
+  const [memberSearchQuery, setMemberSearchQuery] = useState("")
+  const [subjectFilter, setSubjectFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
+
   // Pending PT requests (ONLY REQUESTED / PENDING per rule 3.5 & P0.3)
   const pendingAdvancedRequests = useMemo(() => {
     if (!Array.isArray(advancedRequests)) return []
@@ -1094,6 +1099,73 @@ export function CoachAssignedMembersView() {
       )
     })
   }, [apiEnabled, advancedRequests])
+
+  const availableSubjects = useMemo(() => {
+    const set = new Set()
+    apiBookingCandidates.forEach((c) => {
+      const sub = c.subjectName || (c.subjectId ? `Môn #${c.subjectId}` : "")
+      if (sub) set.add(sub)
+    })
+    return Array.from(set)
+  }, [apiBookingCandidates])
+
+  const filteredCandidates = useMemo(() => {
+    const q = memberSearchQuery.trim().toLowerCase()
+    return apiBookingCandidates.filter((item) => {
+      if (q) {
+        const mName = String(
+          item.memberName || (item.memberId ? `Học viên #${item.memberId}` : ""),
+        ).toLowerCase()
+        const mId = String(item.memberId || "").toLowerCase()
+        if (!mName.includes(q) && !mId.includes(q)) return false
+      }
+      if (subjectFilter !== "all") {
+        const sub = item.subjectName || (item.subjectId ? `Môn #${item.subjectId}` : "")
+        if (sub !== subjectFilter) return false
+      }
+      if (statusFilter !== "all") {
+        const st = String(item.subscriptionStatus || item.status || "").toLowerCase()
+        if (statusFilter === "active" && st !== "active") return false
+        if (
+          statusFilter === "awaiting" &&
+          st !== "accepted" &&
+          st !== "invoiced"
+        )
+          return false
+        if (
+          statusFilter === "expired" &&
+          st !== "expired" &&
+          st !== "cancelled" &&
+          st !== "frozen"
+        )
+          return false
+      }
+      return true
+    })
+  }, [apiBookingCandidates, memberSearchQuery, subjectFilter, statusFilter])
+
+  // Group filtered candidates by memberId (P2.4: 1 card per student, listing their PT packages inside)
+  const groupedStudentCards = useMemo(() => {
+    const map = new Map()
+    filteredCandidates.forEach((item) => {
+      const key = String(item.memberId || item.id)
+      const memberDisplayName =
+        item.memberName ||
+        (item.memberId ? `Học viên #${item.memberId}` : "Hội viên PT")
+      const existing = map.get(key)
+      if (!existing) {
+        map.set(key, {
+          memberKey: key,
+          memberId: item.memberId,
+          memberName: memberDisplayName,
+          packages: [item],
+        })
+      } else {
+        existing.packages.push(item)
+      }
+    })
+    return Array.from(map.values())
+  }, [filteredCandidates])
 
   // Mock mode fallback assigned members
   const mockAssignedMembers = useMemo(() => {
@@ -1265,28 +1337,61 @@ export function CoachAssignedMembersView() {
       {/* Main Content Area: API Mode Candidates OR Mock Mode Members */}
       {apiEnabled ? (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Award className="w-4 h-4 text-emerald-700" />
-              <span>Học Viên &amp; Gói PT 1:1 Được Phân Công</span>
+              <span>
+                Học Viên &amp; Gói PT 1:1 Được Phân Công ({groupedStudentCards.length} HV)
+              </span>
             </h3>
-            <div className="flex items-center gap-2">
+
+            {/* Search & Filter Bar (P2.4) */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={memberSearchQuery}
+                  onChange={(e) => setMemberSearchQuery(e.target.value)}
+                  placeholder={t("coachSearchStudentPlaceholder")}
+                  className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded focus:outline-none focus:border-blue-600 w-52"
+                />
+              </div>
+
+              <select
+                value={subjectFilter}
+                onChange={(e) => setSubjectFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-semibold text-slate-900"
+              >
+                <option value="all">{t("coachFilterAllSubjects")}</option>
+                {availableSubjects.map((sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-semibold text-slate-900"
+              >
+                <option value="all">{t("coachFilterAllStatuses")}</option>
+                <option value="active">{t("coachStatusActive")}</option>
+                <option value="awaiting">{t("coachPtAwaitingPackagePayment")}</option>
+                <option value="expired">{t("coachStatusExpired")}</option>
+              </select>
+
               <button
                 type="button"
                 disabled={loadingRequests}
                 onClick={() => loadAdvancedRequests().catch(() => {})}
                 aria-label={t("coachBtnRefresh")}
-                className="p-1 text-slate-500 hover:text-slate-800 rounded transition-all cursor-pointer"
+                className="p-1.5 text-slate-500 hover:text-slate-800 rounded border border-slate-200 transition-all cursor-pointer"
                 title={t("coachBtnRefresh")}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loadingRequests ? "animate-spin" : ""}`} />
               </button>
-              {loadingRequests && (
-                <span className="text-xs text-slate-500 flex items-center gap-1">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Đang tải...
-                </span>
-              )}
             </div>
           </div>
 
@@ -1303,190 +1408,212 @@ export function CoachAssignedMembersView() {
             </div>
           )}
 
-          {apiBookingCandidates.length === 0 && !loadingRequests && !requestsError ? (
+          {loadingRequests ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="h-48 bg-slate-100 animate-pulse rounded-lg border border-slate-200"
+                />
+              ))}
+            </div>
+          ) : groupedStudentCards.length === 0 && !requestsError ? (
             <div className="bg-white border border-slate-200 rounded-lg p-8 text-center text-xs text-slate-500">
-              Chưa có học viên hoặc gói 1-kèm-1 nào được phân công trực tiếp cho HLV.
+              {apiBookingCandidates.length > 0
+                ? "Không có học viên nào khớp với bộ lọc hiện tại."
+                : "Chưa có học viên hoặc gói 1-kèm-1 nào được phân công trực tiếp cho HLV."}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {apiBookingCandidates.map((item) => {
-                const entitlement = checkRegistrationEntitlement(item, currentUser)
-                const pkgAllowed = canCoachActOnPackage(item)
-                const canBook = entitlement.canBook && pkgAllowed
-                const unbookableReason =
-                  getPackageActionBlockReason(item, t) || entitlement.reason
-
-                const credit = Number(item.remainingCredit ?? 0)
-                const rawStatus = String(
-                  item.subscriptionStatus || item.status || "",
-                ).toLowerCase()
-                const isSubActive = rawStatus === "active"
-                const isAwaitingPayment =
-                  !isSubActive &&
-                  (rawStatus === "accepted" || rawStatus === "invoiced")
-
-                const hasUnresolvedConflict =
-                  unresolvedAttempt && unresolvedAttempt.subscriptionId === Number(item.subscriptionId)
-                const isOtherUnresolved =
-                  unresolvedAttempt && unresolvedAttempt.subscriptionId !== Number(item.subscriptionId)
-
-                const memberDisplayName =
-                  item.memberName ||
-                  (item.memberId ? `Học viên #${item.memberId}` : "Hội viên PT")
-                const subjectDisplayName =
-                  item.subjectName ||
-                  (item.subjectId ? `Môn #${item.subjectId}` : "PT 1:1")
-
+              {groupedStudentCards.map((studentGroup) => {
+                const memberDisplayName = studentGroup.memberName
                 return (
                   <div
-                    key={item.id}
+                    key={studentGroup.memberKey}
                     className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4 hover:border-slate-300 transition-all"
                   >
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between border-b border-slate-100 pb-3">
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-slate-900">
-                            {memberDisplayName}
-                          </span>
+                        <div className="text-sm font-bold text-slate-900">
+                          {memberDisplayName}
                         </div>
-                        <div className="text-xs text-slate-500 font-mono tabular-nums mt-0.5">
-                          Môn: {subjectDisplayName}
+                        <div className="text-xs text-slate-500 font-mono">
+                          Mã HV: #{studentGroup.memberId} &bull; {studentGroup.packages.length}{" "}
+                          {t("coachPkgLabel")}
                         </div>
                       </div>
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                          isSubActive
-                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                            : isAwaitingPayment
-                              ? "bg-amber-50 text-amber-800 border-amber-200"
-                              : "bg-slate-100 text-slate-700 border-slate-200"
-                        }`}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (typeof window !== "undefined" && studentGroup.memberId) {
+                            sessionStorage.setItem(
+                              "scms_selected_progress_member_id",
+                              String(studentGroup.memberId),
+                            )
+                          }
+                          setCurrentTab("trainingProgress")
+                          navigate("/coach/progress")
+                        }}
+                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer transition-all"
                       >
-                        {isSubActive
-                          ? t("coachStatusActive")
-                          : isAwaitingPayment
-                            ? t("coachPtAwaitingPackagePayment")
-                            : item.subscriptionStatus || item.status || "Chưa kích hoạt"}
-                      </span>
+                        <Dumbbell className="w-3.5 h-3.5 shrink-0" />
+                        <span>Giáo án &amp; Đánh giá</span>
+                      </button>
                     </div>
 
-                    <div className="p-3 bg-slate-50 rounded border border-slate-200 space-y-2 text-xs">
-                      <div className="flex items-center justify-between text-slate-700">
-                        <span className="flex items-center gap-1 font-bold">
-                          <Award className="w-3.5 h-3.5 text-amber-600" />
-                          <span>{t("coachPkgLabel")}:</span>
-                        </span>
-                        <span className="font-semibold text-slate-900">
-                          {item.packageName ||
-                            (item.subscriptionId
-                              ? `${subjectDisplayName} PT`
-                              : t("coachPtAwaitingPackagePayment"))}
-                        </span>
-                      </div>
+                    {/* List of PT Packages belonging to this student (P2.4) */}
+                    <div className="space-y-3">
+                      {studentGroup.packages.map((item) => {
+                        const entitlement = checkRegistrationEntitlement(item, currentUser)
+                        const pkgAllowed = canCoachActOnPackage(item)
+                        const canBook = entitlement.canBook && pkgAllowed
+                        const unbookableReason =
+                          getPackageActionBlockReason(item, t) || entitlement.reason
 
-                      <div className="flex items-center justify-between text-slate-700">
-                        <span className="flex items-center gap-1 font-bold">
-                          <Target className="w-3.5 h-3.5 text-blue-600" />
-                          <span>{t("coachRemainingSessionsLabel")}:</span>
-                        </span>
-                        <span
-                          className={`font-mono font-bold tabular-nums ${
-                            credit > 0 ? "text-emerald-700 font-bold" : "text-rose-600"
-                          }`}
-                        >
-                          {credit} buổi
-                        </span>
-                      </div>
+                        const credit = Number(item.remainingCredit ?? 0)
+                        const totalCredit = Math.max(
+                          credit,
+                          Number(item.totalCredit || item.totalSessions || 10),
+                        )
+                        const usedCredit = Math.max(0, totalCredit - credit)
+                        const progressPct =
+                          totalCredit > 0
+                            ? Math.min(100, Math.round((credit / totalCredit) * 100))
+                            : 0
 
-                      <div className="flex items-center justify-between text-slate-700">
-                        <span className="flex items-center gap-1 font-medium text-slate-600">
-                          <Clock className="w-3.5 h-3.5 text-slate-500" />
-                          <span>{t("coachExpiryDateLabel")}:</span>
-                        </span>
-                        <span className="font-mono text-slate-800">
-                          {formatVietnamDateOnly(item.expiresAt)}
-                        </span>
-                      </div>
-                    </div>
+                        const rawStatus = String(
+                          item.subscriptionStatus || item.status || "",
+                        ).toLowerCase()
+                        const isSubActive = rawStatus === "active"
+                        const isAwaitingPayment =
+                          !isSubActive &&
+                          (rawStatus === "accepted" || rawStatus === "invoiced")
 
-                    <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                      <div className="text-[11px] text-slate-500 font-mono">
-                        Đăng ký: {formatVietnamDateOnly(item.createdAt)}
-                      </div>
+                        const hasUnresolvedConflict =
+                          unresolvedAttempt &&
+                          unresolvedAttempt.subscriptionId === Number(item.subscriptionId)
+                        const isOtherUnresolved =
+                          unresolvedAttempt &&
+                          unresolvedAttempt.subscriptionId !== Number(item.subscriptionId)
 
-                      <div className="flex items-center gap-2">
-                        {hasUnresolvedConflict ? (
-                          <button
-                            type="button"
-                            onClick={() => openBookPrivateModal(item)}
-                            aria-label={`Xem lại đối soát cho học viên ${memberDisplayName}`}
-                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer transition-all animate-pulse"
+                        const subjectDisplayName =
+                          item.subjectName ||
+                          (item.subjectId ? `Môn #${item.subjectId}` : "PT 1:1")
+
+                        return (
+                          <div
+                            key={item.id}
+                            className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 space-y-2.5 text-xs"
                           >
-                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                            <span>Đối soát giao dịch</span>
-                          </button>
-                        ) : isOtherUnresolved ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded font-medium flex items-center gap-1">
-                              <Lock className="w-3 h-3 text-slate-400" />
-                              Khóa (Đang có GD khác chờ đối soát)
-                            </span>
-                            <button
-                              type="button"
-                              disabled
-                              aria-disabled="true"
-                              title="Khóa do đang có giao dịch khác chờ đối soát"
-                              className="px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200 rounded text-xs font-bold flex items-center gap-1 cursor-not-allowed opacity-60"
-                            >
-                              <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
-                              <span>Đặt lịch PT 1:1</span>
-                            </button>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                                <Award className="w-3.5 h-3.5 text-amber-600" />
+                                <span>
+                                  {item.packageName ||
+                                    (item.subscriptionId
+                                      ? `${subjectDisplayName} PT`
+                                      : `${subjectDisplayName} (${t("coachPtAwaitingPackagePayment")})`)}
+                                </span>
+                              </span>
+                              <CoachStatusBadge
+                                type="package"
+                                value={
+                                  isSubActive
+                                    ? "Active"
+                                    : isAwaitingPayment
+                                      ? "INVOICED"
+                                      : item.subscriptionStatus || item.status || "Pending"
+                                }
+                              />
+                            </div>
+
+                            {/* Remaining sessions progress bar */}
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-slate-700">
+                                <span className="font-medium text-slate-600">
+                                  {t("coachRemainingSessionsLabel")}:
+                                </span>
+                                <span
+                                  className={`font-mono font-bold tabular-nums ${
+                                    credit > 0 ? "text-emerald-700" : "text-rose-600"
+                                  }`}
+                                >
+                                  Còn {credit}/{totalCredit} buổi (Đã tập {usedCredit})
+                                </span>
+                              </div>
+                              <div className="w-full h-1.5 bg-slate-200 rounded overflow-hidden">
+                                <div
+                                  style={{ width: `${progressPct}%` }}
+                                  className={`h-full rounded ${
+                                    credit > 0 ? "bg-emerald-600" : "bg-rose-500"
+                                  }`}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between text-slate-600 pt-1">
+                              <span className="font-mono">
+                                {t("coachExpiryDateLabel")}:{" "}
+                                <strong>{formatVietnamDateOnly(item.expiresAt)}</strong>
+                              </span>
+
+                              <div className="flex items-center gap-2">
+                                {hasUnresolvedConflict ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => openBookPrivateModal(item)}
+                                    aria-label={`Xem lại đối soát cho học viên ${memberDisplayName}`}
+                                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer transition-all animate-pulse"
+                                  >
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                    <span>Đối soát giao dịch</span>
+                                  </button>
+                                ) : isOtherUnresolved ? (
+                                  <button
+                                    type="button"
+                                    disabled
+                                    aria-disabled="true"
+                                    title="Khóa do đang có giao dịch khác chờ đối soát"
+                                    className="px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200 rounded text-xs font-bold flex items-center gap-1 cursor-not-allowed opacity-60"
+                                  >
+                                    <Lock className="w-3 h-3 shrink-0" />
+                                    <span>Đặt lịch PT 1:1</span>
+                                  </button>
+                                ) : canBook ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => openBookPrivateModal(item)}
+                                    aria-label={`Đặt lịch PT 1:1 cho học viên ${memberDisplayName}`}
+                                    className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer transition-all"
+                                  >
+                                    <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
+                                    <span>Đặt lịch PT 1:1</span>
+                                  </button>
+                                ) : (
+                                  <div
+                                    className="flex items-center gap-1.5"
+                                    title={unbookableReason || ""}
+                                  >
+                                    <span className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-medium">
+                                      {unbookableReason}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      disabled
+                                      aria-disabled="true"
+                                      title={unbookableReason || ""}
+                                      className="px-2.5 py-1 bg-slate-100 text-slate-400 border border-slate-200 rounded text-xs font-bold flex items-center gap-1 cursor-not-allowed opacity-60"
+                                    >
+                                      <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
+                                      <span>Đặt lịch PT 1:1</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        ) : canBook ? (
-                          <button
-                            type="button"
-                            onClick={() => openBookPrivateModal(item)}
-                            aria-label={`Đặt lịch PT 1:1 cho học viên ${memberDisplayName}`}
-                            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer transition-all"
-                          >
-                            <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
-                            <span>Đặt lịch PT 1:1</span>
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-2" title={unbookableReason || ""}>
-                            <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-medium">
-                              {unbookableReason}
-                            </span>
-                            <button
-                              type="button"
-                              disabled
-                              aria-disabled="true"
-                              title={unbookableReason || ""}
-                              className="px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200 rounded text-xs font-bold flex items-center gap-1 cursor-not-allowed opacity-60"
-                            >
-                              <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
-                              <span>Đặt lịch PT 1:1</span>
-                            </button>
-                          </div>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (typeof window !== "undefined" && item.memberId) {
-                              sessionStorage.setItem(
-                                "scms_selected_progress_member_id",
-                                String(item.memberId),
-                              )
-                            }
-                            setCurrentTab("trainingProgress")
-                            navigate("/coach/progress")
-                          }}
-                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer transition-all"
-                        >
-                          <Dumbbell className="w-3.5 h-3.5 shrink-0" />
-                          <span>Giáo án</span>
-                        </button>
-                      </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )
