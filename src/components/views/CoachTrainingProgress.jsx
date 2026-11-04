@@ -11,7 +11,18 @@ import {
   formatScore,
   scoreToBarWidthPercent,
 } from "../../utils/score"
+import { serializePlan } from "../../utils/trainingPlan"
 import { CoachStatusBadge } from "../coach/StatusBadge"
+import { PlanBuilder, PlanContentView } from "../coach/PlanBuilder"
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts"
 import {
   Activity,
   Save,
@@ -20,6 +31,7 @@ import {
   ClipboardList,
   CheckCircle2,
   RefreshCw,
+  TrendingUp,
 } from "lucide-react"
 
 export function CoachTrainingProgress() {
@@ -68,10 +80,11 @@ export function CoachTrainingProgress() {
   const [saving, setSaving] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
 
-  // New Training Plan form state (empty by default, placeholder only per P2.4)
+  // New Training Plan form state (P3.1 Structured PlanBuilder)
   const [planTitle, setPlanTitle] = useState("")
   const [planGoal, setPlanGoal] = useState("")
-  const [planContent, setPlanContent] = useState("")
+  const [planExercises, setPlanExercises] = useState([])
+  const [planNotes, setPlanNotes] = useState("")
   const [planStartDate, setPlanStartDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   )
@@ -276,9 +289,53 @@ export function CoachTrainingProgress() {
     )
   }, [apiEnabled, apiPlans, selectedMemberId, selectedStudent?.id])
 
+  // P3.2: Score trend chart data for the selected student (or all evaluations if none matched)
+  const scoreChartData = useMemo(() => {
+    const memberIdStr = String(selectedMemberId || selectedStudent?.id || "")
+    const studentEvals = evaluations.filter(
+      (ev) => !memberIdStr || String(ev.memberId) === memberIdStr,
+    )
+    const source = studentEvals.length > 0 ? studentEvals : evaluations
+    return [...source]
+      .reverse()
+      .slice(-10)
+      .map((ev, idx) => ({
+        label: formatDate(ev.evaluationDate) || `Lần ${idx + 1}`,
+        score: normalizeScore(ev.progressScore) ?? 0,
+      }))
+  }, [evaluations, selectedMemberId, selectedStudent?.id])
+
+  // P3.2: Student attendance rate summary
+  const studentAttendanceSummary = useMemo(() => {
+    const memberIdStr = String(selectedMemberId || selectedStudent?.id || "")
+    const studentAtt = apiAttendances.filter(
+      (a) => !memberIdStr || String(a.memberId) === memberIdStr,
+    )
+    const total = studentAtt.length
+    if (total === 0) {
+      return { total: 0, attended: 0, ratePercent: 100 }
+    }
+    const attended = studentAtt.filter((a) => {
+      const s = String(a.state || "").toLowerCase()
+      return s.includes("present") || s.includes("checked") || s.includes("late")
+    }).length
+    return {
+      total,
+      attended,
+      ratePercent: Math.round((attended / total) * 100),
+    }
+  }, [apiAttendances, selectedMemberId, selectedStudent?.id])
+
   const handleSaveTrainingPlan = async (e) => {
     if (e) e.preventDefault()
-    if (!planTitle.trim() || !planGoal.trim()) {
+    const validExercises = planExercises.filter(
+      (ex) => String(ex?.name || "").trim() !== "",
+    )
+    if (
+      !planTitle.trim() ||
+      !planGoal.trim() ||
+      (validExercises.length === 0 && !planNotes.trim())
+    ) {
       showToast(t("coachEmptyFieldValidationError"), "warning")
       return
     }
@@ -288,6 +345,10 @@ export function CoachTrainingProgress() {
         selectedMemberId || plan?.memberId,
         1,
       )
+      const serializedContent = serializePlan({
+        exercises: validExercises,
+        notes: planNotes.trim(),
+      })
       if (apiEnabled) {
         await memberPortalApi.createTrainingPlan({
           coachId: resolvedCoachId,
@@ -295,13 +356,14 @@ export function CoachTrainingProgress() {
           classId: classes[0]?.id ? Number(classes[0].id) : undefined,
           title: planTitle.trim(),
           goal: planGoal.trim(),
-          content: planContent.trim(),
+          content: serializedContent,
           startDate: planStartDate || undefined,
           endDate: planEndDate || undefined,
         })
         setPlanTitle("")
         setPlanGoal("")
-        setPlanContent("")
+        setPlanExercises([])
+        setPlanNotes("")
         await loadAllProgressData()
         showToast("Đã tạo và lưu giáo án tập luyện lên hệ thống!", "success")
       } else if (plan) {
@@ -522,120 +584,187 @@ export function CoachTrainingProgress() {
       </div>
 
       {/* TAB 1: OVERVIEW */}
-      {activeTab === "overview" && (plan || activeStudentApiPlan) && (
-        <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-6 shadow-xs">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-            <div>
-              <span className="text-[10px] text-blue-800 font-mono font-bold uppercase">
-                {t("coachAssignedStudentTag")}
-              </span>
-              <h3 className="text-base font-bold text-slate-900 mt-0.5">
-                {selectedStudent?.name ||
-                  activeStudentApiPlan?.memberName ||
-                  plan?.memberName ||
-                  t("coachStudentLabel")}
-              </h3>
-              <p className="text-xs text-slate-500">
-                {t("coachMainCoachLabel")}:{" "}
-                {currentUser?.name ||
-                  plan?.coachName ||
-                  t("coachDefaultCoachName")}
-              </p>
-            </div>
+      {activeTab === "overview" && (
+        <div className="space-y-6">
+          {(plan || activeStudentApiPlan) && (
+            <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-6 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+                <div>
+                  <span className="text-[10px] text-blue-800 font-mono font-bold uppercase">
+                    {t("coachAssignedStudentTag")}
+                  </span>
+                  <h3 className="text-base font-bold text-slate-900 mt-0.5">
+                    {selectedStudent?.name ||
+                      activeStudentApiPlan?.memberName ||
+                      plan?.memberName ||
+                      t("coachStudentLabel")}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {t("coachMainCoachLabel")}:{" "}
+                    {currentUser?.name ||
+                      plan?.coachName ||
+                      t("coachDefaultCoachName")}
+                  </p>
+                </div>
 
-            <div className="text-right">
-              <div className="text-xs text-slate-600 font-bold mb-1 font-mono tabular-nums">
-                {t("coachProgressScoreDisplay")}: {formatScore(normalizedScore10)}
-              </div>
-              <div className="w-48 bg-slate-100 h-2 rounded overflow-hidden border border-slate-200">
-                <div
-                  style={{ width: `${displayPercent}%` }}
-                  className="bg-slate-900 h-full rounded"
-                />
-              </div>
-            </div>
-          </div>
+                <div className="flex flex-wrap items-center gap-6">
+                  {/* Attendance rate summary (P3.2) */}
+                  <div className="text-right">
+                    <div className="text-xs text-slate-600 font-bold mb-1 font-mono tabular-nums">
+                      {t("coachAttendanceRateTitle")}:{" "}
+                      {studentAttendanceSummary.ratePercent}% (
+                      {studentAttendanceSummary.attended}/
+                      {studentAttendanceSummary.total} buổi)
+                    </div>
+                    <div className="w-40 bg-slate-100 h-2 rounded overflow-hidden border border-slate-200 ml-auto">
+                      <div
+                        style={{
+                          width: `${studentAttendanceSummary.ratePercent}%`,
+                        }}
+                        className="bg-emerald-600 h-full rounded"
+                      />
+                    </div>
+                  </div>
 
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded">
-            <div className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 whitespace-nowrap">
-              {language === "vi" ? "Mục tiêu tập luyện" : "Training Goal"}
-            </div>
-            <p className="text-xs text-slate-800 font-medium">
-              {apiEnabled
-                ? activeStudentApiPlan?.goal ||
-                  "Chưa thiết lập mục tiêu tập luyện cho học viên này."
-                : language === "vi"
-                  ? plan?.goalVi
-                  : plan?.goal}
-            </p>
-          </div>
-
-          {apiEnabled ? (
-            activeStudentApiPlan?.content ? (
-              <div className="p-4 bg-white border border-slate-200 rounded space-y-1.5">
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  {activeStudentApiPlan.title || "Nội dung giáo án hiện tại"}
-                </h4>
-                <p className="text-xs text-slate-700 whitespace-pre-line leading-relaxed">
-                  {activeStudentApiPlan.content}
-                </p>
-              </div>
-            ) : null
-          ) : (
-            plan?.exercises && (
-              <div>
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 whitespace-nowrap">
-                  {language === "vi"
-                    ? "Danh sách bài tập thiết kế"
-                    : "Assigned Exercise Routine"}
-                </h4>
-                <div className="overflow-x-auto border border-slate-200 rounded">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 text-slate-600 uppercase tracking-wider font-bold border-b border-slate-200 whitespace-nowrap">
-                      <tr>
-                        <th className="py-2.5 px-3">
-                          {language === "vi" ? "Tên bài tập" : "Exercise Name"}
-                        </th>
-                        <th className="py-2.5 px-3">
-                          {language === "vi" ? "Số Sets" : "Sets"}
-                        </th>
-                        <th className="py-2.5 px-3">
-                          {language === "vi"
-                            ? "Reps / Thời gian"
-                            : "Reps / Duration"}
-                        </th>
-                        <th className="py-2.5 px-3">
-                          {t("coachLoadOrNoteLabel")}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 text-slate-800">
-                      {plan.exercises.map((ex, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50 h-[36px]">
-                          <td className="py-2 px-3 font-bold text-slate-900">
-                            {ex.name}
-                          </td>
-                          <td className="py-2 px-3 font-mono tabular-nums">
-                            {ex.sets}
-                          </td>
-                          <td className="py-2 px-3 font-mono tabular-nums">
-                            {ex.reps}
-                          </td>
-                          <td className="py-2 px-3 font-mono tabular-nums text-slate-700 font-semibold">
-                            {ex.weight || "Trọng lượng cơ thể"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  {/* Progress Score 0-10 */}
+                  <div className="text-right">
+                    <div className="text-xs text-slate-600 font-bold mb-1 font-mono tabular-nums">
+                      {t("coachProgressScoreDisplay")}:{" "}
+                      {formatScore(normalizedScore10)}
+                    </div>
+                    <div className="w-44 bg-slate-100 h-2 rounded overflow-hidden border border-slate-200 ml-auto">
+                      <div
+                        style={{ width: `${displayPercent}%` }}
+                        className="bg-slate-900 h-full rounded"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-            )
+
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded">
+                <div className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 whitespace-nowrap">
+                  {language === "vi" ? "Mục tiêu tập luyện" : "Training Goal"}
+                </div>
+                <p className="text-xs text-slate-800 font-medium">
+                  {apiEnabled
+                    ? activeStudentApiPlan?.goal ||
+                      "Chưa thiết lập mục tiêu tập luyện cho học viên này."
+                    : language === "vi"
+                      ? plan?.goalVi
+                      : plan?.goal}
+                </p>
+              </div>
+
+              {/* Structured or Plain-text Exercise Content (P3.1) */}
+              {apiEnabled ? (
+                activeStudentApiPlan?.content ? (
+                  <div className="p-4 bg-white border border-slate-200 rounded space-y-2">
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      {activeStudentApiPlan.title ||
+                        "Nội dung giáo án hiện tại"}
+                    </h4>
+                    <PlanContentView content={activeStudentApiPlan.content} />
+                  </div>
+                ) : null
+              ) : (
+                plan?.exercises && (
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 whitespace-nowrap">
+                      {language === "vi"
+                        ? "Danh sách bài tập thiết kế"
+                        : "Assigned Exercise Routine"}
+                    </h4>
+                    <div className="overflow-x-auto border border-slate-200 rounded">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-slate-600 uppercase tracking-wider font-bold border-b border-slate-200 whitespace-nowrap">
+                          <tr>
+                            <th className="py-2.5 px-3">
+                              {t("coachPlanBuilderExName")}
+                            </th>
+                            <th className="py-2.5 px-3">
+                              {t("coachPlanBuilderSets")}
+                            </th>
+                            <th className="py-2.5 px-3">
+                              {t("coachPlanBuilderReps")}
+                            </th>
+                            <th className="py-2.5 px-3">
+                              {t("coachLoadOrNoteLabel")}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 text-slate-800">
+                          {plan.exercises.map((ex, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50 h-[36px]">
+                              <td className="py-2 px-3 font-bold text-slate-900">
+                                {ex.name}
+                              </td>
+                              <td className="py-2 px-3 font-mono tabular-nums">
+                                {ex.sets}
+                              </td>
+                              <td className="py-2 px-3 font-mono tabular-nums">
+                                {ex.reps}
+                              </td>
+                              <td className="py-2 px-3 font-mono tabular-nums text-slate-700 font-semibold">
+                                {ex.weight || "Trọng lượng cơ thể"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+
+          {/* P3.2: Progress Score Trend Chart (Recharts) */}
+          {scoreChartData.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-blue-700" />
+                  <span>{t("coachChartScoreTrendTitle")}</span>
+                </h3>
+                <span className="text-xs font-mono text-slate-500">
+                  {scoreChartData.length} kỳ đánh giá
+                </span>
+              </div>
+              <div className="h-56 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={scoreChartData}
+                    margin={{ top: 10, right: 20, left: 0, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 11, fill: "#475569" }}
+                    />
+                    <YAxis
+                      domain={[0, 10]}
+                      tick={{ fontSize: 11, fill: "#475569" }}
+                    />
+                    <Tooltip
+                      formatter={(val) => [`${Number(val).toFixed(1)}/10`, "Điểm"]}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="score"
+                      stroke="#1D4ED8"
+                      strokeWidth={2.5}
+                      dot={{ r: 4, fill: "#1D4ED8" }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           )}
         </div>
       )}
 
-      {/* TAB 2: TRAINING PLANS */}
+      {/* TAB 2: TRAINING PLANS (P3.1 Structured PlanBuilder) */}
       {activeTab === "plans" && (
         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
@@ -648,33 +777,36 @@ export function CoachTrainingProgress() {
             </span>
           </div>
 
-          <form onSubmit={handleSaveTrainingPlan} className="space-y-3 text-xs">
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">
-                Tiêu đề giáo án *
-              </label>
-              <input
-                type="text"
-                required
-                value={planTitle}
-                onChange={(e) => setPlanTitle(e.target.value)}
-                placeholder="VD: Giáo án phát triển kỹ thuật & thể lực chuyên sâu"
-                className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900 font-semibold"
-              />
+          <form onSubmit={handleSaveTrainingPlan} className="space-y-4 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Tiêu đề giáo án *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={planTitle}
+                  onChange={(e) => setPlanTitle(e.target.value)}
+                  placeholder="VD: Giáo án phát triển kỹ thuật & thể lực chuyên sâu"
+                  className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900 font-semibold"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Mục tiêu huấn luyện *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={planGoal}
+                  onChange={(e) => setPlanGoal(e.target.value)}
+                  placeholder="VD: Tăng cường sức bền, tốc độ di chuyển và độ chuẩn xác kỹ thuật"
+                  className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900"
+                />
+              </div>
             </div>
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">
-                Mục tiêu huấn luyện *
-              </label>
-              <input
-                type="text"
-                required
-                value={planGoal}
-                onChange={(e) => setPlanGoal(e.target.value)}
-                placeholder="VD: Tăng cường sức bền, tốc độ di chuyển và độ chuẩn xác kỹ thuật"
-                className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900"
-              />
-            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="font-bold text-slate-700 block mb-1">
@@ -705,18 +837,15 @@ export function CoachTrainingProgress() {
                 </div>
               </div>
             </div>
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">
-                Nội dung bài tập chi tiết
-              </label>
-              <textarea
-                rows={4}
-                value={planContent}
-                onChange={(e) => setPlanContent(e.target.value)}
-                placeholder="Nhập danh sách bài tập, số hiệp (sets), số lần lặp (reps) hoặc thời lượng..."
-                className="w-full bg-slate-50 border border-slate-300 rounded p-2.5 text-slate-900"
-              />
-            </div>
+
+            {/* P3.1: Structured Exercise Builder + General Notes */}
+            <PlanBuilder
+              exercises={planExercises}
+              onExercisesChange={setPlanExercises}
+              notes={planNotes}
+              onNotesChange={setPlanNotes}
+            />
+
             <div className="flex justify-end">
               <button
                 type="submit"
@@ -732,21 +861,24 @@ export function CoachTrainingProgress() {
           </form>
 
           {apiPlans.length > 0 && (
-            <div className="pt-3 border-t border-slate-200 space-y-2">
+            <div className="pt-3 border-t border-slate-200 space-y-2.5">
               {(showAllPlans ? apiPlans : apiPlans.slice(0, 5)).map((p) => (
                 <div
                   key={p.planId || p.id}
-                  className="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs"
+                  className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-2"
                 >
-                  <div className="font-bold text-slate-900">
-                    {p.title} &bull; {formatPlanTargetLabel(p)}
-                  </div>
-                  <div className="text-slate-600 mt-0.5">{p.goal}</div>
-                  {(p.startDate || p.endDate) && (
-                    <div className="text-[11px] font-mono text-slate-500 mt-1">
-                      {formatDate(p.startDate)} – {formatDate(p.endDate)}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-bold text-slate-900">
+                      {p.title} &bull; {formatPlanTargetLabel(p)}
                     </div>
-                  )}
+                    {(p.startDate || p.endDate) && (
+                      <span className="text-[11px] font-mono text-slate-500">
+                        {formatDate(p.startDate)} – {formatDate(p.endDate)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-slate-600">{p.goal}</div>
+                  {p.content && <PlanContentView content={p.content} />}
                 </div>
               ))}
               {apiPlans.length > 5 && (
