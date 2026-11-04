@@ -105,8 +105,33 @@ export const getMemberCheckinCode = async () => {
 }
 export const getMemberTrainingPlans = (memberId) =>
   list(`/api/training-plans?memberId=${encodeURIComponent(memberId)}`)
+export const getTrainingPlans = (params = {}) => {
+  const query = new URLSearchParams()
+  if (params.coachId) query.set("coachId", String(params.coachId))
+  if (params.classId) query.set("classId", String(params.classId))
+  if (params.memberId) query.set("memberId", String(params.memberId))
+  const qStr = query.toString() ? `?${query.toString()}` : ""
+  return list(`/api/training-plans${qStr}`)
+}
+export const createTrainingPlan = (payload) =>
+  httpClient.post("/api/training-plans", payload)
+export const updateTrainingPlanById = (id, payload) =>
+  httpClient.put(`/api/training-plans/${encodeURIComponent(id)}`, payload)
+export const deleteTrainingPlanById = (id) =>
+  httpClient.delete(`/api/training-plans/${encodeURIComponent(id)}`)
+
 export const getMemberTrainingResults = (memberId) =>
   list(`/api/training-results?memberId=${encodeURIComponent(memberId)}`)
+export const getTrainingResults = (params = {}) => {
+  const query = new URLSearchParams()
+  if (params.sessionId) query.set("sessionId", String(params.sessionId))
+  if (params.memberId) query.set("memberId", String(params.memberId))
+  if (params.coachId) query.set("coachId", String(params.coachId))
+  const qStr = query.toString() ? `?${query.toString()}` : ""
+  return list(`/api/training-results${qStr}`)
+}
+export const createTrainingResult = (payload) =>
+  httpClient.post("/api/training-results", payload)
 export const recordBulkTrainingResults = (payload) =>
   httpClient.post("/api/training-results/bulk", payload)
 
@@ -328,7 +353,13 @@ export const memberPortalApi = {
   getMemberAttendances,
   getMemberCheckinCode,
   getMemberTrainingPlans,
+  getTrainingPlans,
+  createTrainingPlan,
+  updateTrainingPlanById,
+  deleteTrainingPlanById,
   getMemberTrainingResults,
+  getTrainingResults,
+  createTrainingResult,
   recordBulkTrainingResults,
   getMemberBodyMetrics,
   getMemberEvaluations,

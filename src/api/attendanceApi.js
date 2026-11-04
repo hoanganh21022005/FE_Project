@@ -15,25 +15,47 @@ export const scanAttendance = async (payload) => {
 export const recordSessionAttendance = async ({
   memberId,
   sessionId,
+  coachId,
   status = "Present",
   notes = "",
 }) => {
-  const payload = {
-    memberId: Number(memberId),
-    status,
-    notes,
-  }
-  if (sessionId && !Number.isNaN(Number(sessionId))) {
-    payload.sessionId = Number(sessionId)
-  }
-  try {
-    return await httpClient.post("/api/attendances", payload)
-  } catch (error) {
-    if (error?.status === 404 || error?.status === 405) {
-      return httpClient.post("/api/attendances/check-in", payload)
+  const numericMemberId = Number(memberId)
+  const numericSessionId = Number(sessionId)
+  const numericCoachId = Number(coachId)
+  const normalizedStatus = String(status || "Present").trim()
+
+  if (
+    !Number.isNaN(numericSessionId) &&
+    numericSessionId > 0 &&
+    !Number.isNaN(numericCoachId) &&
+    numericCoachId > 0
+  ) {
+    try {
+      await httpClient.post(
+        "/api/training-results",
+        {
+          sessionId: numericSessionId,
+          memberId: numericMemberId,
+          coachId: numericCoachId,
+          attendanceStatus: normalizedStatus,
+          content: notes || `Điểm danh buổi tập: ${normalizedStatus}`,
+          reason: notes || undefined,
+        },
+        { notifyForbidden: false },
+      )
+    } catch {
+      // ignore if training-results fails or requires existing result update
     }
-    throw error
   }
+
+  if (normalizedStatus.toLowerCase() === "absent") {
+    return { memberId: numericMemberId, sessionId: numericSessionId || null, state: "Absent" }
+  }
+
+  return httpClient.post("/api/attendances/check-in", {
+    memberId: numericMemberId,
+    notes: notes || `Điểm danh: ${normalizedStatus}`,
+  })
 }
 
 export const manualCheckIn = async (payload) => {

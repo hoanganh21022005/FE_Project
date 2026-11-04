@@ -2,8 +2,8 @@ import { httpClient } from "./httpClient.js"
 import { mapMember, toMemberRequest } from "./memberMappers.js"
 import { extractList } from "./schemaValidators.js"
 
-export const getMembers = async () => {
-  const data = await httpClient.get("/api/members")
+export const getMembers = async (options) => {
+  const data = await httpClient.get("/api/members", options)
   const list = extractList(data)
   return Array.isArray(list) ? list.map(mapMember).filter(Boolean) : []
 }

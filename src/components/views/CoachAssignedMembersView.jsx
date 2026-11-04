@@ -117,7 +117,17 @@ function checkRegistrationEntitlement(item, currentUser) {
   }
 
   const currentCoachId = currentUser?.coachId ?? currentUser?.userId ?? currentUser?.id
-  if (!isPositiveInteger(currentCoachId) || Number(item.primaryCoachId) !== Number(currentCoachId)) {
+  const coachNameMatches =
+    !isPositiveInteger(currentUser?.coachId) &&
+    item.primaryCoachName &&
+    currentUser?.name &&
+    String(item.primaryCoachName).trim().toLowerCase() ===
+      String(currentUser.name).trim().toLowerCase()
+  if (
+    !coachNameMatches &&
+    (!isPositiveInteger(currentCoachId) ||
+      Number(item.primaryCoachId) !== Number(currentCoachId))
+  ) {
     return { canBook: false, reason: "Không phải HLV phụ trách gói này" }
   }
 
@@ -1150,7 +1160,10 @@ export function CoachAssignedMembersView() {
                 >
                   <div>
                     <div className="font-bold text-slate-900">
-                      Học viên #{req.memberId} &bull; {req.subjectName || `Môn #${req.subjectId}`}
+                      {req.memberName
+                        ? `${req.memberName} (#${req.memberId})`
+                        : `Học viên #${req.memberId}`}{" "}
+                      &bull; {req.subjectName || `Môn #${req.subjectId}`}
                     </div>
                     <div className="text-slate-500 mt-0.5">
                       Trạng thái: <strong className="text-slate-800">{req.status}</strong>
@@ -1375,6 +1388,22 @@ export function CoachAssignedMembersView() {
                             </button>
                           </div>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (typeof window !== "undefined" && item.memberId) {
+                              sessionStorage.setItem(
+                                "scms_selected_progress_member_id",
+                                String(item.memberId),
+                              )
+                            }
+                            setCurrentTab("trainingProgress")
+                          }}
+                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer transition-all"
+                        >
+                          <Dumbbell className="w-3.5 h-3.5 shrink-0" />
+                          <span>Giáo án</span>
+                        </button>
                       </div>
                     </div>
                   </div>

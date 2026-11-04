@@ -29,9 +29,17 @@ export const getAuthoritativeProfileId = (user) => {
  */
 export const buildCurrentUser = (authUser, fallbackUser) => {
   if (!authUser) return fallbackUser
+  const rawCoachId = authUser.coachId ?? authUser.staffId
+  const coachId =
+    typeof rawCoachId === "number" &&
+    Number.isInteger(rawCoachId) &&
+    rawCoachId > 0
+      ? rawCoachId
+      : null
   return {
     id: authUser.userId,
     memberId: getAuthoritativeProfileId(authUser),
+    ...(coachId ? { coachId } : {}),
     name: authUser.fullName,
     email: authUser.email,
     role: authUser.role,

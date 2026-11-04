@@ -42,37 +42,49 @@ export function CoachDashboard() {
     feedback: [],
   })
   const [atRiskMembers, setAtRiskMembers] = useState([])
+  const [ptRegistrationsCount, setPtRegistrationsCount] = useState(null)
 
   useEffect(() => {
     if (!apiEnabled) return
     let active = true
-    Promise.all([memberPortalApi.getCoachFeedback().catch(() => ({
+    Promise.all([
+      memberPortalApi.getCoachFeedback().catch(() => ({
         totalFeedback: 0,
         averageCoachRating: 0,
         feedback: [],
-      })), memberApi.getCoachAtRiskMembers().catch(() => [])]).then(
-      ([fbData, riskList]) => {
-        if (!active) return
-        if (fbData) setCoachFeedbackSummary(fbData)
-        if (Array.isArray(riskList)) setAtRiskMembers(riskList)
-      },
-    )
+      })),
+      memberApi.getCoachAtRiskMembers().catch(() => []),
+      memberPortalApi.getAdvancedRegistrations().catch(() => []),
+    ]).then(([fbData, riskList, advList]) => {
+      if (!active) return
+      if (fbData) setCoachFeedbackSummary(fbData)
+      if (Array.isArray(riskList)) setAtRiskMembers(riskList)
+      if (Array.isArray(advList)) {
+        const activeOrAccepted = advList.filter((r) => {
+          const st = String(r.status || "").toLowerCase()
+          return r.subscriptionId || (st !== "rejected" && st !== "cancelled")
+        })
+        setPtRegistrationsCount(activeOrAccepted.length)
+      }
+    })
     return () => {
       active = false
     }
   }, [apiEnabled])
 
   const myClasses = useMemo(() => {
+    const resolvedCoachId = currentUser.coachId || currentUser.id
     const matched = classes.filter(
       (c) =>
+        String(c.coachId) === String(resolvedCoachId) ||
         String(c.coachId) === String(currentUser.id) ||
         String(c.coachName || "")
           .toLowerCase()
           .includes(String(currentUser.name || "").toLowerCase()) ||
-        String(c.coachName || "").includes("Mai"),
+        (!apiEnabled && String(c.coachName || "").includes("Mai")),
     )
     return matched.length > 0 ? matched : classes
-  }, [classes, currentUser.id, currentUser.name])
+  }, [classes, currentUser.coachId, currentUser.id, currentUser.name, apiEnabled])
 
   const feedbackItems = useMemo(() => {
     if (apiEnabled && coachFeedbackSummary.feedback?.length > 0) {
@@ -177,7 +189,7 @@ export function CoachDashboard() {
             <Users className="w-4 h-4 text-brand-purple" />
           </div>
           <div className="text-2xl font-bold text-slate-900 tabular-nums mt-2">
-            8
+            {apiEnabled && ptRegistrationsCount !== null ? ptRegistrationsCount : 8}
           </div>
         </div>
 
