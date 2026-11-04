@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from "react"
+import { useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import { formatDate, formatDateTime, formatTimeRange } from "../../utils/datetime"
 import { formatMemberCode } from "../../utils/formatMember"
+import { CoachStatusBadge } from "../coach/StatusBadge"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { memberApi } from "../../api/memberApi"
 import { attendanceApi } from "../../api/attendanceApi"
 import { getCatalogClassSessions } from "../../api/managerApi"
-import { isSessionCancelled } from "../../utils/permissions"
+import { isSessionCancelled, canCheckIn } from "../../utils/permissions"
 import {
   Calendar,
   Users,
@@ -18,6 +20,9 @@ import {
   AlertTriangle,
   MessageSquare,
   HelpCircle,
+  BellRing,
+  ArrowRight,
+  MapPin,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -40,6 +45,7 @@ export function CoachDashboard() {
     t,
     language,
   } = useSCMS()
+  const navigate = useNavigate()
 
   const [coachFeedbackSummary, setCoachFeedbackSummary] = useState({
     totalFeedback: 0,
@@ -132,6 +138,25 @@ export function CoachDashboard() {
     }
   }, [apiEnabled, myClasses, currentUser.coachId, currentUser.id])
 
+  const todayIso = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date()),
+    [],
+  )
+
+  // R5.3: Pending PT 1:1 requests (REQUESTED / PENDING)
+  const pendingPtRequests = useMemo(() => {
+    return advRegistrations.filter((r) => {
+      const st = String(r.status || "").toLowerCase()
+      return st.includes("pending") || st.includes("request")
+    })
+  }, [advRegistrations])
+
   // R2.1: Count unique PT students by memberId (and total active/accepted PT packages separately)
   const ptStats = useMemo(() => {
     const activeOrAccepted = advRegistrations.filter((r) => {
@@ -159,18 +184,175 @@ export function CoachDashboard() {
   // Merge all real sessions belonging to this coach (class sessions + PT sessions)
   const allKnownSessions = useMemo(() => {
     const byId = new Map()
-    Object.values(sessionsByClassId).forEach((list) => {
+    const myClassMap = new Map(myClasses.map((c) => [String(c.id), c]))
+
+    Object.entries(sessionsByClassId).forEach(([cId, list]) => {
+      const cls = myClassMap.get(String(cId))
       ;(Array.isArray(list) ? list : []).forEach((s) => {
-        if (s?.id != null) byId.set(String(s.id), s)
+        if (s?.id != null) {
+          byId.set(String(s.id), {
+            ...s,
+            classId: s.classId ?? cls?.id,
+            className: s.className || cls?.nameVi || cls?.name || "",
+            subjectName: s.subjectName || cls?.category || "Thể thao",
+            roomName: s.roomName || cls?.roomVi || cls?.room || "Sân tập trung tâm",
+            enrolledCount: s.enrolledCount ?? cls?.enrolledCount ?? 0,
+            maxCapacity: s.maxCapacity ?? cls?.capacity ?? 12,
+          })
+        }
       })
     })
     coachSessions.forEach((s) => {
-      if (s?.id != null && !byId.has(String(s.id))) {
-        byId.set(String(s.id), s)
+      if (s?.id != null) {
+        const prev = byId.get(String(s.id)) || {}
+        const cls = s.classId ? myClassMap.get(String(s.classId)) : null
+        byId.set(String(s.id), {
+          ...prev,
+          ...s,
+          className:
+            s.className || prev.className || cls?.nameVi || cls?.name || "",
+          subjectName:
+            s.subjectName || prev.subjectName || cls?.category || "Thể thao",
+          roomName:
+            s.roomName ||
+            prev.roomName ||
+            cls?.roomVi ||
+            cls?.room ||
+            "Sân tập trung tâm",
+          enrolledCount:
+            s.enrolledCount ?? prev.enrolledCount ?? cls?.enrolledCount ?? 0,
+          maxCapacity:
+            s.maxCapacity ?? prev.maxCapacity ?? cls?.capacity ?? 12,
+        })
       }
     })
-    return Array.from(byId.values())
-  }, [sessionsByClassId, coachSessions])
+    return Array.from(byId.values()).sort((a, b) => {
+      const dA = `${a.sessionDate || ""}T${a.startTime || "00:00"}`
+      const dB = `${b.sessionDate || ""}T${b.startTime || "00:00"}`
+      return dA.localeCompare(dB)
+    })
+  }, [sessionsByClassId, coachSessions, myClasses])
+
+  // R5.1: Today's sessions (both group class + PT 1:1) & unchecked count
+  const todaySessionsInfo = useMemo(() => {
+    const todayList = allKnownSessions.filter(
+      (s) => String(s.sessionDate || "").slice(0, 10) === todayIso,
+    )
+    const recordedSessionIds = new Set(
+      attendanceRecords
+        .filter((r) => {
+          const st = String(r.status || "").toLowerCase()
+          return st && st !== "unmarked"
+        })
+        .map((r) => String(r.sessionId)),
+    )
+    const uncheckedCount = todayList.filter(
+      (s) => !isSessionCancelled(s) && !recordedSessionIds.has(String(s.id)),
+    ).length
+    return {
+      sessions: todayList,
+      uncheckedCount,
+    }
+  }, [allKnownSessions, attendanceRecords, todayIso])
+
+  // R5.1: Upcoming teaching sessions (including both group classes AND PT 1:1 sessions)
+  const upcomingCombinedSessions = useMemo(() => {
+    return allKnownSessions
+      .filter(
+        (s) =>
+          !isSessionCancelled(s) &&
+          String(s.sessionDate || "").slice(0, 10) >= todayIso,
+      )
+      .slice(0, 6)
+  }, [allKnownSessions, todayIso])
+
+  // R5.2: Enrich at-risk students with concrete data-driven reasons (absent X/Y recent sessions, expiring package, or no scheduled PT session)
+  const enrichedAtRiskMembers = useMemo(() => {
+    return atRiskMembers.map((rm) => {
+      const mId = String(rm.memberId)
+      const reasons = []
+
+      // 1. Explicit reason from BE if provided
+      if (rm.reason || rm.riskReason || rm.alertReason) {
+        reasons.push(String(rm.reason || rm.riskReason || rm.alertReason))
+      }
+
+      // 2. Check attendance records of this student
+      const studentRecords = attendanceRecords.filter(
+        (r) =>
+          String(r.memberId) === mId &&
+          r.status &&
+          String(r.status).toLowerCase() !== "unmarked",
+      )
+      if (studentRecords.length > 0) {
+        const absentCount = studentRecords.filter((r) =>
+          String(r.status).toLowerCase().includes("absent"),
+        ).length
+        if (absentCount > 0) {
+          reasons.push(
+            language === "vi"
+              ? `Vắng ${absentCount}/${studentRecords.length} buổi đã điểm danh`
+              : `Absent ${absentCount}/${studentRecords.length} recorded sessions`,
+          )
+        }
+      }
+
+      // 3. Check PT packages of this student
+      const studentPackages = advRegistrations.filter(
+        (r) =>
+          String(r.memberId) === mId &&
+          String(r.subscriptionStatus || r.status || "").toLowerCase() ===
+            "active",
+      )
+      const hasUpcomingPtSession = allKnownSessions.some(
+        (s) =>
+          s.isPrivate === true &&
+          String(s.bookedMemberId) === mId &&
+          !isSessionCancelled(s) &&
+          String(s.sessionDate || "").slice(0, 10) >= todayIso,
+      )
+
+      if (studentPackages.length > 0) {
+        const nearestPkg = studentPackages[0]
+        const rem = Number(nearestPkg.remainingCredit ?? 0)
+        const expStr = formatDate(nearestPkg.expiresAt)
+        if (!hasUpcomingPtSession && rem > 0) {
+          reasons.push(
+            language === "vi"
+              ? `Chưa đặt lịch PT tiếp theo (còn ${rem} buổi · HSD ${expStr})`
+              : `No upcoming PT booked (${rem} left · exp ${expStr})`,
+          )
+        } else if (rem > 0 && expStr) {
+          reasons.push(
+            language === "vi"
+              ? `Gói còn ${rem} buổi, hết hạn ngày ${expStr}`
+              : `${rem} session(s) left, expires ${expStr}`,
+          )
+        }
+      }
+
+      if (reasons.length === 0) {
+        reasons.push(
+          language === "vi"
+            ? "Chưa ghi nhận buổi tập gần đây"
+            : "No recent training activity recorded",
+        )
+      }
+
+      return {
+        ...rm,
+        memberCode: formatMemberCode(rm.memberId, rm.memberCode),
+        computedReasons: reasons,
+      }
+    })
+  }, [
+    atRiskMembers,
+    attendanceRecords,
+    advRegistrations,
+    allKnownSessions,
+    todayIso,
+    language,
+  ])
 
   // R2.1: Real attendance rate & weekly breakdown ONLY for days with real sessions/records
   const realAttendanceMetrics = useMemo(() => {
@@ -299,14 +481,28 @@ export function CoachDashboard() {
     }
   })
 
-  const handleGoToAttendance = (cls) => {
-    if (typeof window !== "undefined" && cls?.id) {
-      sessionStorage.setItem(
-        "scms_selected_attendance_class_id",
-        String(cls.id),
-      )
+  const handleGoToAttendance = (clsOrSes) => {
+    if (typeof window !== "undefined") {
+      if (clsOrSes?.isPrivate === true) {
+        sessionStorage.setItem("scms_selected_attendance_class_id", "PT_1ON1")
+      } else {
+        const cId = clsOrSes?.classId ?? clsOrSes?.id
+        if (cId) {
+          sessionStorage.setItem(
+            "scms_selected_attendance_class_id",
+            String(cId),
+          )
+        }
+      }
+      if (clsOrSes?.sessionDate && clsOrSes?.id) {
+        sessionStorage.setItem(
+          "scms_selected_attendance_session_id",
+          String(clsOrSes.id),
+        )
+      }
     }
     setCurrentTab("attendance")
+    navigate("/coach/attendance")
   }
 
   return (
@@ -325,11 +521,147 @@ export function CoachDashboard() {
             </h2>
             <p className="text-xs text-slate-500">
               {language === "vi"
-                ? "Lịch dạy, quản lý học viên phân công, thống kê điểm danh & phản hồi học viên"
-                : "Teaching schedule, assigned students, attendance statistics & student feedback"}
+                ? "Lịch dạy hôm nay, quản lý học viên phân công, thống kê điểm danh & phản hồi học viên"
+                : "Today's sessions, assigned students, attendance statistics & student feedback"}
             </p>
           </div>
         </div>
+      </div>
+
+      {/* R5.3: Prominent Banner when Pending PT 1:1 Registration Requests exist */}
+      {pendingPtRequests.length > 0 && (
+        <div className="p-4 bg-amber-50 border border-amber-300 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-100 text-amber-800 rounded-lg border border-amber-300">
+              <BellRing className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-amber-950">
+                {t("coachPendingPtBannerTitle").replace(
+                  "{count}",
+                  String(pendingPtRequests.length),
+                )}
+              </div>
+              <div className="text-xs text-amber-800 mt-0.5">
+                {language === "vi"
+                  ? "Vui lòng chấp nhận hoặc từ chối để hội viên tiếp tục chọn gói & thanh toán."
+                  : "Please accept or reject so the member can proceed with package selection & payment."}
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setCurrentTab("assignedMembers")
+              navigate("/coach/assigned-members")
+            }}
+            className="px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded text-xs font-bold flex items-center gap-1.5 shrink-0 self-start sm:self-auto cursor-pointer"
+          >
+            <span>{t("coachPendingPtBannerBtn")}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* R5.1: Top Priority Section – "Hôm nay bạn dạy gì" */}
+      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-blue-700" />
+            <h3 className="text-sm font-bold text-slate-900">
+              {t("coachTodayTeachingTitle")} ({formatDate(todayIso)})
+            </h3>
+            <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200 text-xs font-bold">
+              {todaySessionsInfo.sessions.length}{" "}
+              {language === "vi" ? "buổi" : "sessions"}
+            </span>
+          </div>
+          {todaySessionsInfo.uncheckedCount > 0 && (
+            <span className="px-2.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold">
+              {language === "vi"
+                ? `${todaySessionsInfo.uncheckedCount} buổi chưa điểm danh`
+                : `${todaySessionsInfo.uncheckedCount} unchecked session(s)`}
+            </span>
+          )}
+        </div>
+
+        {todaySessionsInfo.sessions.length === 0 ? (
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-600">
+            <span>{t("coachTodayNoSessions")}</span>
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentTab("schedule")
+                navigate("/coach/schedule")
+              }}
+              className="text-blue-700 hover:underline font-bold cursor-pointer self-start sm:self-auto"
+            >
+              {language === "vi" ? "Xem toàn bộ lịch dạy →" : "View full schedule →"}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {todaySessionsInfo.sessions.map((ses) => {
+              const cancelled = isSessionCancelled(ses)
+              return (
+                <div
+                  key={ses.id}
+                  className="p-3.5 bg-blue-50/40 border border-blue-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-bold border ${
+                          ses.isPrivate
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : "bg-blue-100 text-blue-900 border-blue-200"
+                        }`}
+                      >
+                        {ses.isPrivate ? "PT 1:1" : ses.subjectName || "Lớp nhóm"}
+                      </span>
+                      <span className="text-sm font-bold text-slate-900">
+                        {ses.isPrivate
+                          ? `${ses.subjectName || "PT 1:1"} — ${
+                              ses.bookedMemberName || "Hội viên PT"
+                            }`
+                          : ses.className || "Buổi học lớp nhóm"}
+                      </span>
+                      <CoachStatusBadge
+                        type="session"
+                        value={
+                          cancelled && ses.centerInvalidated
+                            ? "centerInvalidated"
+                            : ses.status || "Scheduled"
+                        }
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+                      <span className="font-mono font-bold text-slate-800 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-blue-700" />
+                        {formatTimeRange(ses.startTime, ses.endTime)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-rose-600" />
+                        {ses.roomName || "Sân tập trung tâm"}
+                      </span>
+                    </div>
+                  </div>
+                  {!cancelled && (
+                    <button
+                      type="button"
+                      onClick={() => handleGoToAttendance(ses)}
+                      className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs cursor-pointer self-start sm:self-auto"
+                    >
+                      {canCheckIn(ses)
+                        ? t("coachBtnCheckInThisSession")
+                        : t("coachBtnViewOrCorrectAttendance")}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* KPI Row */}
@@ -413,7 +745,7 @@ export function CoachDashboard() {
 
       {/* Statistical Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Class Enrollment vs Capacity Chart */}
+        {/* Class Enrollment vs Capacity (R5.1: clean stat card if < 2 classes, bar chart if >= 2 classes) */}
         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs">
           <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-3">
             <div className="flex items-center gap-2">
@@ -426,48 +758,99 @@ export function CoachDashboard() {
             </div>
           </div>
 
-          <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={chartData}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke="#E2E8F0"
-                />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 12, fill: "#64748B" }}
-                />
-                <YAxis tick={{ fontSize: 12, fill: "#64748B" }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#FFFFFF",
-                    borderRadius: "6px",
-                    border: "1px solid #CBD5E1",
-                    fontSize: "12px",
-                  }}
-                />
-                <Legend
-                  wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }}
-                />
-                <Bar
-                  dataKey="enrolled"
-                  name={language === "vi" ? "Đã đăng ký" : "Enrolled"}
-                  fill="var(--brand-primary)"
-                  radius={[4, 4, 0, 0]}
-                />
-                <Bar
-                  dataKey="capacity"
-                  name={language === "vi" ? "Sức chứa tối đa" : "Capacity"}
-                  fill="var(--brand-lime)"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {myClasses.length < 2 ? (
+            <div className="space-y-4 py-2">
+              {myClasses.map((cls) => {
+                const enrolled = cls.enrolledCount ?? 0
+                const capacity = cls.capacity ?? 12
+                const fillPct =
+                  capacity > 0
+                    ? Math.min(100, Math.round((enrolled / capacity) * 100))
+                    : 0
+                return (
+                  <div
+                    key={cls.id}
+                    className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-bold text-slate-900">
+                          {language === "vi" ? cls.nameVi || cls.name : cls.name}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          {language === "vi"
+                            ? `Khóa học: ${formatDate(cls.date || cls.startDate)}${
+                                cls.endDate ? ` – ${formatDate(cls.endDate)}` : ""
+                              }`
+                            : `Course: ${formatDate(cls.date || cls.startDate)}`}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xl font-bold font-mono text-slate-900 tabular-nums">
+                          {enrolled}/{capacity}{" "}
+                          <span className="text-xs font-normal text-slate-500">
+                            {language === "vi" ? "học viên" : "students"}
+                          </span>
+                        </div>
+                        <div className="text-xs font-mono text-blue-700 font-semibold">
+                          {fillPct}% {language === "vi" ? "sức chứa" : "filled"}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        style={{ width: `${fillPct}%` }}
+                        className="h-full bg-blue-600 rounded-full"
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="h-56 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={chartData}
+                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#E2E8F0"
+                  />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 12, fill: "#64748B" }}
+                  />
+                  <YAxis tick={{ fontSize: 12, fill: "#64748B" }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#FFFFFF",
+                      borderRadius: "6px",
+                      border: "1px solid #CBD5E1",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }}
+                  />
+                  <Bar
+                    dataKey="enrolled"
+                    name={language === "vi" ? "Đã đăng ký" : "Enrolled"}
+                    fill="var(--brand-primary)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="capacity"
+                    name={language === "vi" ? "Sức chứa tối đa" : "Capacity"}
+                    fill="var(--brand-lime)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
 
         {/* Weekly Attendance Trend Chart (R2.1: only real data, no fake numbers) */}
@@ -611,30 +994,60 @@ export function CoachDashboard() {
               </span>
             </h3>
             <span className="text-xs font-mono text-amber-800 font-bold">
-              {atRiskMembers.length} học viên
+              {enrichedAtRiskMembers.length} học viên
             </span>
           </div>
 
-          {atRiskMembers.length === 0 ? (
+          {enrichedAtRiskMembers.length === 0 ? (
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded text-xs text-emerald-900 font-medium">
               Tất cả học viên phụ trách đều duy trì lịch tập luyện đều đặn.
             </div>
           ) : (
-            <div className="space-y-2">
-              {atRiskMembers.map((rm) => (
+            <div className="space-y-2.5">
+              {enrichedAtRiskMembers.map((rm) => (
                 <div
                   key={rm.memberId}
-                  className="p-3 bg-amber-50 border border-amber-200 rounded flex items-center justify-between text-xs"
+                  className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-lg space-y-2 text-xs"
                 >
-                  <div>
-                    <div className="font-bold text-slate-900">
-                      {rm.memberName}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-900">
+                        {rm.memberName}
+                      </span>
+                      <span className="px-2 py-0.5 bg-white text-slate-700 border border-amber-200 rounded font-mono text-xs font-semibold">
+                        {rm.memberCode}
+                      </span>
                     </div>
-                    <div className="text-slate-600 font-mono">{rm.email}</div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (typeof window !== "undefined" && rm.memberId) {
+                          sessionStorage.setItem(
+                            "scms_selected_progress_member_id",
+                            String(rm.memberId),
+                          )
+                        }
+                        setCurrentTab("assignedMembers")
+                        navigate("/coach/assigned-members")
+                      }}
+                      className="text-amber-900 hover:underline font-bold cursor-pointer"
+                    >
+                      {language === "vi" ? "Chi tiết →" : "Details →"}
+                    </button>
                   </div>
-                  <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-bold text-[10px] border border-amber-300">
-                    Cần nhắc lịch tập
-                  </span>
+                  {rm.email && (
+                    <div className="text-slate-600 font-mono">{rm.email}</div>
+                  )}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    {rm.computedReasons.map((reasonText, rIdx) => (
+                      <span
+                        key={rIdx}
+                        className="px-2.5 py-0.5 rounded bg-amber-100 text-amber-900 font-semibold text-xs border border-amber-300"
+                      >
+                        {reasonText}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -642,66 +1055,136 @@ export function CoachDashboard() {
         </div>
       </div>
 
-      {/* Teaching Schedule */}
+      {/* R5.1: Upcoming Teaching Sessions (Both Group Classes & PT 1:1) */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs">
-        <h3 className="text-sm font-bold text-slate-900 mb-4 border-b border-slate-200 pb-2 whitespace-nowrap">
-          {language === "vi" ? "Các Lớp Dạy Sắp Tới" : "Teaching Schedule"}
-        </h3>
+        <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
+          <h3 className="text-sm font-bold text-slate-900 whitespace-nowrap">
+            {language === "vi"
+              ? "Các buổi dạy sắp tới (lớp nhóm & PT 1:1)"
+              : "Upcoming teaching sessions (group & 1:1 PT)"}
+          </h3>
+          <button
+            type="button"
+            onClick={() => {
+              setCurrentTab("schedule")
+              navigate("/coach/schedule")
+            }}
+            className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+          >
+            {language === "vi" ? "Xem lịch đầy đủ →" : "Full schedule →"}
+          </button>
+        </div>
         <div className="space-y-3">
-          {myClasses.map((cls) => {
-            const clsSessions = sessionsByClassId[String(cls.id)] || []
-            const activeSession =
-              clsSessions.find((s) => !isSessionCancelled(s)) ||
-              clsSessions[0] ||
-              null
-            const displayDate = activeSession?.sessionDate
-              ? formatDate(activeSession.sessionDate, language)
-              : formatDate(cls.date || cls.startDate, language)
-            const displayTime = activeSession?.startTime
-              ? `${String(activeSession.startTime).slice(0, 5)}${
-                  activeSession.endTime
-                    ? ` – ${String(activeSession.endTime).slice(0, 5)}`
-                    : ""
-                }`
-              : cls.startTime || "Theo ca học"
-            const displayRoom =
-              activeSession?.roomName ||
-              (language === "vi" ? cls.roomVi || cls.room : cls.room) ||
-              "Sân tập trung tâm"
-
-            return (
-              <div
-                key={cls.id}
-                className="p-3.5 bg-slate-50 border border-slate-200 rounded flex items-center justify-between"
-              >
-                <div>
-                  <div className="text-sm font-bold text-slate-900">
-                    {language === "vi" ? cls.nameVi || cls.name : cls.name}
-                  </div>
-                  <div className="text-xs text-slate-500 flex items-center gap-2 mt-1">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="tabular-nums font-mono">
-                      {displayDate} &bull; {displayTime}
-                    </span>
-                    <span>&bull; {displayRoom}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono font-bold text-slate-900 tabular-nums">
-                    {cls.enrolledCount ?? 0}/{cls.capacity ?? 12}{" "}
-                    {language === "vi" ? "Học viên" : "Students"}
-                  </span>
-                  <button
-                    onClick={() => handleGoToAttendance(cls)}
-                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs cursor-pointer"
+          {upcomingCombinedSessions.length > 0
+            ? upcomingCombinedSessions.map((ses) => {
+                const displayDate = formatDate(ses.sessionDate)
+                const displayTime = formatTimeRange(ses.startTime, ses.endTime)
+                const displayRoom = ses.roomName || "Sân tập trung tâm"
+                return (
+                  <div
+                    key={ses.id}
+                    className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                   >
-                    {t("attendance")}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs font-bold border ${
+                            ses.isPrivate
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                              : "bg-blue-100 text-blue-900 border-blue-200"
+                          }`}
+                        >
+                          {ses.isPrivate ? "PT 1:1" : ses.subjectName || "Lớp nhóm"}
+                        </span>
+                        <span className="text-sm font-bold text-slate-900">
+                          {ses.isPrivate
+                            ? `${ses.subjectName || "PT 1:1"} — ${
+                                ses.bookedMemberName || "Hội viên PT"
+                              }`
+                            : ses.className || "Buổi học lớp nhóm"}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500 flex flex-wrap items-center gap-2 mt-1">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="tabular-nums font-mono font-semibold text-slate-700">
+                          {displayDate} &bull; {displayTime}
+                        </span>
+                        <span>&bull; {displayRoom}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 self-start sm:self-auto">
+                      {!ses.isPrivate && (
+                        <span className="text-xs font-mono font-bold text-slate-900 tabular-nums">
+                          {ses.enrolledCount ?? 0}/{ses.maxCapacity ?? 12}{" "}
+                          {language === "vi" ? "học viên" : "students"}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleGoToAttendance(ses)}
+                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs cursor-pointer"
+                      >
+                        {t("attendance")}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })
+            : myClasses.map((cls) => {
+                const clsSessions = sessionsByClassId[String(cls.id)] || []
+                const activeSession =
+                  clsSessions.find((s) => !isSessionCancelled(s)) ||
+                  clsSessions[0] ||
+                  null
+                const displayDate = activeSession?.sessionDate
+                  ? formatDate(activeSession.sessionDate)
+                  : formatDate(cls.date || cls.startDate)
+                const displayTime = activeSession?.startTime
+                  ? formatTimeRange(
+                      activeSession.startTime,
+                      activeSession.endTime,
+                    )
+                  : cls.startTime || "Theo ca học"
+                const displayRoom =
+                  activeSession?.roomName ||
+                  (language === "vi" ? cls.roomVi || cls.room : cls.room) ||
+                  "Sân tập trung tâm"
+
+                return (
+                  <div
+                    key={cls.id}
+                    className="p-3.5 bg-slate-50 border border-slate-200 rounded flex items-center justify-between"
+                  >
+                    <div>
+                      <div className="text-sm font-bold text-slate-900">
+                        {language === "vi" ? cls.nameVi || cls.name : cls.name}
+                      </div>
+                      <div className="text-xs text-slate-500 flex items-center gap-2 mt-1">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="tabular-nums font-mono">
+                          {displayDate} &bull; {displayTime}
+                        </span>
+                        <span>&bull; {displayRoom}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-mono font-bold text-slate-900 tabular-nums">
+                        {cls.enrolledCount ?? 0}/{cls.capacity ?? 12}{" "}
+                        {language === "vi" ? "học viên" : "students"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleGoToAttendance(cls)}
+                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs cursor-pointer"
+                      >
+                        {t("attendance")}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
         </div>
       </div>
     </div>
