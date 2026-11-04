@@ -4,6 +4,18 @@ import { useSCMS } from "../../context/SCMSContext"
 import { getErrorMessage } from "../../api/apiErrors"
 import * as authApi from "../../api/authApi"
 import {
+  buildRegistrationPayload,
+  classifyRegisterResponse,
+  getAuthErrorCode,
+  getOtpDigitsAfterResend,
+  getRegistrationOtpErrorMessage,
+  getRegistrationPhoneError,
+  isRegistrationOtpErrorCode,
+  normalizeRegistrationPhone,
+  releaseRequestLock,
+  tryAcquireRequestLock,
+} from "../../utils/registrationAuth"
+import {
   normalizeRole,
   resolveMockLoginUser,
   ROLE_ADMIN,
@@ -38,6 +50,7 @@ import {
 
 const DEMO_EMAIL = "manager@scms.com"
 const DEMO_PASSWORD = "Scms@2026"
+const REGISTRATION_OTP_REQUEST_TIMEOUT_MS = 30000
 const RECENT_EMAILS_KEY = "scms_recent_login_emails"
 const EMAIL_DOMAIN_SUGGESTIONS = [
   "@gmail.com",
@@ -363,6 +376,12 @@ export function LoginView({
   const [otpNotice, setOtpNotice] = useState("")
   const [isOtpResending, setIsOtpResending] = useState(false)
   const [otpCountdown, setOtpCountdown] = useState(0)
+  const [verificationEmail, setVerificationEmail] = useState("")
+  const [otpResendLimitReached, setOtpResendLimitReached] = useState(false)
+  const [otpAttemptsExceeded, setOtpAttemptsExceeded] = useState(false)
+  const registerRequestLock = useRef(false)
+  const verifyRequestLock = useRef(false)
+  const resendRequestLock = useRef(false)
 
   useEffect(() => {
     if (otpCountdown <= 0) return undefined
@@ -435,7 +454,7 @@ export function LoginView({
   useEffect(() => {
     if (
       regName.trim().length >= 2 &&
-      regPhone.trim().length >= 9 &&
+      (!regPhone.trim() || regPhone.trim().length >= 9) &&
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim()) &&
       regPassword.length >= 6 &&
       !isRegCaptchaChecked &&
@@ -611,21 +630,11 @@ export function LoginView({
     setIsForgotLoading(true)
     try {
       if (apiEnabled) {
-        const res = await authApi.forgotPassword(email)
-        const returnedCode = res?.code ? String(res.code).trim() : ""
-        const baseMsg =
-          res?.message ||
-          (isVi
-            ? "Mã xác nhận OTP đã được gửi tới email của bạn."
-            : "An OTP verification code has been sent to your email.")
-        setForgotNotice(
-          returnedCode ? `${baseMsg} (Mã OTP: ${returnedCode})` : baseMsg,
-        )
-        if (/^\d{6}$/.test(returnedCode)) {
-          setForgotOtp(returnedCode.split(""))
-        } else {
-          setForgotOtp(["", "", "", "", "", ""])
-        }
+        await authApi.forgotPassword(email)
+        setForgotNotice(isVi
+          ? "Yêu cầu khôi phục đã được tiếp nhận. Hãy kiểm tra email và thư mục Spam."
+          : "Your recovery request was accepted. Check your email and spam folder.")
+        setForgotOtp(["", "", "", "", "", ""])
       } else {
         await new Promise((resolve) => setTimeout(resolve, 450))
         setForgotNotice(
@@ -705,24 +714,15 @@ export function LoginView({
     setIsForgotResending(true)
     try {
       if (apiEnabled) {
-        let res
         try {
-          res = await authApi.resendOtp({ email, purpose: "RESET_PASSWORD" })
+          await authApi.resendOtp({ email, purpose: "RESET_PASSWORD" })
         } catch {
-          res = await authApi.forgotPassword(email)
+          await authApi.forgotPassword(email)
         }
-        const returnedCode = res?.code ? String(res.code).trim() : ""
-        const baseMsg =
-          res?.message ||
-          (isVi
-            ? "Đã gửi lại mã OTP vào email của bạn."
-            : "A new OTP code has been sent to your email.")
-        setForgotNotice(
-          returnedCode ? `${baseMsg} (Mã OTP: ${returnedCode})` : baseMsg,
-        )
-        if (/^\d{6}$/.test(returnedCode)) {
-          setForgotOtp(returnedCode.split(""))
-        }
+        setForgotOtp(["", "", "", "", "", ""])
+        setForgotNotice(isVi
+          ? "Yêu cầu gửi lại OTP đã được tiếp nhận. Hãy kiểm tra email và thư mục Spam."
+          : "The OTP resend request was accepted. Check your email and spam folder.")
       } else {
         await new Promise((resolve) => setTimeout(resolve, 400))
         setForgotNotice(
@@ -819,21 +819,14 @@ export function LoginView({
     const errors = {}
     const name = regName.trim()
     const email = regEmail.trim()
-    const phone = regPhone.replace(/\s/g, "")
+    const phone = normalizeRegistrationPhone(regPhone)
 
     if (!name) {
       errors.name = isVi ? "Vui lòng nhập họ và tên." : "Full name is required."
     }
 
-    if (!phone) {
-      errors.phone = isVi
-        ? "Vui lòng nhập số điện thoại."
-        : "Phone number is required."
-    } else if (!/^(0|\+84)[0-9]{8,10}$/.test(phone)) {
-      errors.phone = isVi
-        ? "Số điện thoại chưa hợp lệ (VD: 0988123456)."
-        : "Invalid phone number format."
-    }
+    const phoneError = getRegistrationPhoneError(phone, isVi)
+    if (phoneError) errors.phone = phoneError
 
     if (!email) {
       errors.email = isVi ? "Vui lòng nhập email." : "Email is required."
@@ -877,36 +870,72 @@ export function LoginView({
   // Handle Register Submit -> Go to OTP
   const handleRegister = async (e) => {
     e.preventDefault()
-    if (!validateRegister()) return
+    if (!tryAcquireRequestLock(registerRequestLock)) return
+    if (!validateRegister()) {
+      releaseRequestLock(registerRequestLock)
+      return
+    }
 
     setIsRegLoading(true)
     setRegErrors({})
     setOtpError("")
     setOtpNotice("")
+    setOtpResendLimitReached(false)
+    setOtpAttemptsExceeded(false)
+    const email = regEmail.trim().toLowerCase()
+    const enterOtpStep = (notice, cooldown = 60) => {
+      setVerificationEmail(email)
+      setRegEmail(email)
+      setOtpCode(["", "", "", "", "", ""])
+      setOtpCountdown(cooldown)
+      setOtpNotice(notice)
+      setIsOtpMode(true)
+    }
 
     if (apiEnabled) {
       try {
-        const res = await authApi.register({
-          fullName: regName.trim(),
-          email: regEmail.trim().toLowerCase(),
-          password: regPassword,
-          phone: regPhone.replace(/\s/g, ""),
-        })
-        const returnedCode = res?.code ? String(res.code).trim() : ""
-        if (/^\d{6}$/.test(returnedCode)) {
-          setOtpCode(returnedCode.split(""))
-        } else {
-          setOtpCode(["", "", "", "", "", ""])
-        }
-        if (res?.message || returnedCode) {
-          const baseMsg = res?.message || "Mã xác nhận OTP đã được khởi tạo."
-          setOtpNotice(
-            returnedCode ? `${baseMsg} (Mã OTP: ${returnedCode})` : baseMsg,
+        const res = await authApi.register(
+          buildRegistrationPayload({
+            fullName: regName.trim(),
+            email,
+            password: regPassword,
+            phone: regPhone,
+          }),
+          { timeoutMs: REGISTRATION_OTP_REQUEST_TIMEOUT_MS },
+        )
+        const responseCode = getAuthErrorCode(res)
+        const responseAction = classifyRegisterResponse(res)
+        if (responseAction === "resume-verification") {
+          enterOtpStep(
+            isVi
+              ? "Tài khoản này đang chờ xác minh. Hãy nhập OTP đã nhận; nếu chưa có mã, bạn có thể yêu cầu gửi lại sau thời gian chờ."
+              : "This account is awaiting verification. Enter the OTP you received; if you do not have it, request another after the cooldown.",
+            60,
           )
+          return
         }
-        setOtpCountdown(60)
-        setIsOtpMode(true)
+        if (responseAction === "error") {
+          setRegErrors({
+            general: getRegistrationOtpErrorMessage(
+              { code: responseCode },
+              { isVi },
+            ),
+          })
+          return
+        }
+        enterOtpStep(
+          isVi
+            ? "Yêu cầu đăng ký đã được tiếp nhận. Hãy kiểm tra email và thư mục Spam; nếu chưa nhận mã, bạn có thể yêu cầu gửi lại sau thời gian chờ."
+            : "Your registration request was accepted. Check your email and spam folder; if you do not have a code, you can request another after the cooldown.",
+        )
       } catch (error) {
+        if (getAuthErrorCode(error) === "REGISTRATION_PENDING") {
+          enterOtpStep(
+            getRegistrationOtpErrorMessage(error, { isVi }),
+            60,
+          )
+          return
+        }
         const rawMsg = getErrorMessage(
           error,
           isVi
@@ -914,11 +943,13 @@ export function LoginView({
             : "Unable to register account. Please check your email or phone number.",
         )
         const isMailConfigErr =
-          error?.code === "MAIL_NOT_CONFIGURED" ||
+          getAuthErrorCode(error) === "MAIL_NOT_CONFIGURED" ||
           String(rawMsg).includes("MAIL_NOT_CONFIGURED") ||
           String(rawMsg).toLowerCase().includes("chưa được cấu hình")
         setRegErrors({
-          general: isMailConfigErr
+          general: isRegistrationOtpErrorCode(getAuthErrorCode(error))
+            ? getRegistrationOtpErrorMessage(error, { isVi })
+            : isMailConfigErr
             ? isVi
               ? `${rawMsg} (Máy chủ Backend trên Render hiện chưa bật cấu hình SMTP gửi mail hoặc dev-mode OTP).`
               : `${rawMsg} (Backend SMTP mail service on Render is not configured yet).`
@@ -926,15 +957,19 @@ export function LoginView({
         })
       } finally {
         setIsRegLoading(false)
+        releaseRequestLock(registerRequestLock)
       }
       return
     }
 
     setTimeout(() => {
       setIsRegLoading(false)
-      setOtpCode(["", "", "", "", "", ""])
-      setOtpCountdown(60)
-      setIsOtpMode(true) // Switch to OTP View
+      enterOtpStep(
+        isVi
+          ? "Yêu cầu đăng ký đã được tiếp nhận. Nhập mã OTP của fixture mô phỏng để tiếp tục."
+          : "Your registration request was accepted. Enter the mock fixture OTP to continue.",
+      )
+      releaseRequestLock(registerRequestLock)
     }, 450)
   }
 
@@ -992,44 +1027,51 @@ export function LoginView({
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault()
+    if (otpAttemptsExceeded) return
+    if (!tryAcquireRequestLock(verifyRequestLock)) return
     const code = otpCode.join("")
     if (code.length < 6) {
       setOtpError(
         isVi ? "Vui lòng nhập đủ 6 số OTP." : "Please enter 6-digit OTP.",
       )
+      releaseRequestLock(verifyRequestLock)
       return
     }
 
     setIsOtpVerifying(true)
     setOtpError("")
     setOtpNotice("")
+    const email = (verificationEmail || regEmail).trim().toLowerCase()
 
     if (apiEnabled) {
       try {
         await authApi.verifyRegistration({
-          email: regEmail.trim().toLowerCase(),
+          email,
           otp: code,
-        })
+        }, { timeoutMs: REGISTRATION_OTP_REQUEST_TIMEOUT_MS })
+        setOtpCode(["", "", "", "", "", ""])
         setIsOtpMode(false)
         setRegisteredSuccessData({
-          code: isVi ? "ĐÃ XÁC THỰC" : "VERIFIED",
+          verificationStatus: "verified",
           name: regName.trim(),
-          email: regEmail.trim().toLowerCase(),
-          phone: regPhone.replace(/\s/g, ""),
+          email,
+          phone: normalizeRegistrationPhone(regPhone),
           sportId: selectedSportId,
           packageName: isVi ? "Chưa đăng ký gói" : "No package enrolled",
         })
       } catch (error) {
-        setOtpError(
-          getErrorMessage(
-            error,
-            isVi
-              ? "Mã OTP không chính xác hoặc đã hết hạn. Vui lòng thử lại."
-              : "Incorrect or expired OTP. Please try again.",
-          ),
-        )
+        if (getAuthErrorCode(error) === "OTP_ATTEMPTS_EXCEEDED") {
+          setOtpAttemptsExceeded(true)
+        }
+        setOtpError(getRegistrationOtpErrorMessage(error, {
+          isVi,
+          fallback: isVi
+            ? "Không thể xác minh OTP. Vui lòng thử lại."
+            : "Could not verify the OTP. Please try again.",
+        }))
       } finally {
         setIsOtpVerifying(false)
+        releaseRequestLock(verifyRequestLock)
       }
       return
     }
@@ -1056,66 +1098,76 @@ export function LoginView({
             : "Incorrect OTP. Please try again.",
         )
       }
+      releaseRequestLock(verifyRequestLock)
     }, 600)
   }
 
   const handleResendRegistrationOtp = async () => {
-    if (isOtpResending || otpCountdown > 0) return
+    if (isOtpResending || otpCountdown > 0 || otpResendLimitReached) return
+    if (!tryAcquireRequestLock(resendRequestLock)) return
     setOtpError("")
     setOtpNotice("")
     setIsOtpResending(true)
 
     try {
       if (apiEnabled) {
-        const res = await authApi.resendOtp({
-          email: regEmail.trim().toLowerCase(),
+        const response = await authApi.resendOtp({
+          email: (verificationEmail || regEmail).trim().toLowerCase(),
           purpose: "REGISTER",
-        })
-        const returnedCode = res?.code ? String(res.code).trim() : ""
-        const baseMsg =
-          res?.message ||
-          (isVi
-            ? "Đã gửi lại mã OTP mới vào email của bạn."
-            : "A new OTP code has been sent to your email.")
-        setOtpNotice(
-          returnedCode ? `${baseMsg} (Mã OTP: ${returnedCode})` : baseMsg,
-        )
-        if (/^\d{6}$/.test(returnedCode)) {
-          setOtpCode(returnedCode.split(""))
+        }, { timeoutMs: REGISTRATION_OTP_REQUEST_TIMEOUT_MS })
+        const responseCode = getAuthErrorCode(response)
+        if (isRegistrationOtpErrorCode(responseCode)) {
+          throw Object.assign(new Error("OTP resend was not accepted."), {
+            code: responseCode,
+            details: response,
+            status: 200,
+          })
         }
+        setOtpCode(getOtpDigitsAfterResend(otpCode, true))
+        setOtpNotice(isVi
+          ? "Backend đã tiếp nhận yêu cầu gửi lại OTP. Hãy kiểm tra email và thư mục Spam; phản hồi này không xác nhận thư đã vào Inbox."
+          : "The Backend accepted the OTP resend request. Check your email and spam folder; this response does not confirm inbox delivery.")
       } else {
         await new Promise((resolve) => setTimeout(resolve, 400))
-        setOtpNotice(
-          isVi ? "Đã gửi lại mã OTP (123456)." : "OTP Resent (123456).",
-        )
+        setOtpCode(getOtpDigitsAfterResend(otpCode, true))
+        setOtpNotice(isVi
+          ? "Yêu cầu gửi lại OTP mô phỏng đã được tiếp nhận."
+          : "The mock OTP resend request was accepted.")
       }
       setOtpCountdown(60)
+      setOtpResendLimitReached(false)
+      setOtpAttemptsExceeded(false)
     } catch (error) {
-      setOtpError(
-        getErrorMessage(
-          error,
-          isVi
-            ? "Không thể gửi lại mã OTP. Vui lòng thử lại sau."
-            : "Unable to resend OTP. Please try again.",
-        ),
-      )
+      const errorCode = getAuthErrorCode(error)
+      setOtpError(getRegistrationOtpErrorMessage(error, {
+        isVi,
+        fallback: isVi
+          ? "Không thể gửi lại mã OTP. Vui lòng thử lại sau."
+          : "Unable to resend OTP. Please try again.",
+      }))
+      if (errorCode === "OTP_RESEND_TOO_SOON" || error?.status === 0) {
+        setOtpCountdown(60)
+      }
+      if (errorCode === "OTP_RESEND_LIMIT") setOtpResendLimitReached(true)
     } finally {
       setIsOtpResending(false)
+      releaseRequestLock(resendRequestLock)
     }
   }
 
   const handleFinishRegisterAndLogin = async () => {
     if (!registeredSuccessData) return
 
-    if (apiEnabled && regEmail && regPassword) {
+    const verifiedEmail = registeredSuccessData.email || regEmail
+    if (apiEnabled && verifiedEmail && regPassword) {
       setIsAutoLoggingIn(true)
       try {
-        const user = await login(regEmail.trim().toLowerCase(), regPassword)
+        const user = await login(verifiedEmail.trim().toLowerCase(), regPassword)
         onLoginSuccess(user)
         return
       } catch {
         navigate("/login", {
-          state: { loginEmail: registeredSuccessData.email || "" },
+          state: { loginEmail: verifiedEmail || "" },
         })
         return
       } finally {
@@ -1346,23 +1398,35 @@ export function LoginView({
                   </div>
                   <h2 className="font-display text-2xl font-extrabold tracking-tight text-mlc-ink">
                     {isVi
-                      ? "Đăng ký hội viên thành công!"
-                      : "Registration Successful!"}
+                      ? registeredSuccessData.verificationStatus
+                        ? "Xác thực email thành công"
+                        : "Đăng ký hội viên thành công!"
+                      : registeredSuccessData.verificationStatus
+                        ? "Email verified successfully"
+                        : "Registration Successful!"}
                   </h2>
                   <p className="mt-2 text-sm text-mlc-muted">
                     {isVi
-                      ? "Chào mừng bạn đến với VIBE Sport. Hồ sơ hội viên của bạn đã sẵn sàng."
-                      : "Welcome to VIBE Sport. Your member profile is ready."}
+                      ? registeredSuccessData.verificationStatus
+                        ? "Email đã được Backend xác minh. Đăng nhập để tiếp tục vào cổng Hội viên."
+                        : "Chào mừng bạn đến với VIBE Sport."
+                      : registeredSuccessData.verificationStatus
+                        ? "The Backend verified your email. Sign in to continue to the Member portal."
+                        : "Welcome to VIBE Sport."}
                   </p>
                 </div>
 
                 <div className="mt-6 space-y-3 rounded-2xl border border-mlc-border bg-mlc-surface p-5 text-xs">
                   <div className="flex items-center justify-between border-b border-mlc-border pb-2.5">
                     <span className="text-mlc-muted">
-                      {isVi ? "Mã hội viên" : "Member Code"}
+                      {registeredSuccessData.verificationStatus
+                        ? isVi ? "Trạng thái email" : "Email status"
+                        : isVi ? "Mã hội viên" : "Member Code"}
                     </span>
                     <span className="rounded-full bg-mlc-red/10 px-2.5 py-0.5 font-mono font-bold text-mlc-red">
-                      {registeredSuccessData.code}
+                      {registeredSuccessData.verificationStatus
+                        ? isVi ? "Đã xác minh" : "Verified"
+                        : registeredSuccessData.code}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1416,8 +1480,8 @@ export function LoginView({
                       <>
                         <span>
                           {isVi
-                            ? "Truy cập cổng Hội viên ngay"
-                            : "Enter Member Portal"}
+                            ? "Đăng nhập & vào cổng Hội viên"
+                            : "Sign in to Member Portal"}
                         </span>
                         <ArrowRight className="h-4 w-4" />
                       </>
@@ -1988,11 +2052,11 @@ export function LoginView({
                   <p className="mt-2 text-sm leading-relaxed text-mlc-muted">
                     {isVi ? (
                       <>
-                        Mã OTP 6 chữ số đã được gửi tới{" "}
+                        Nhập mã OTP 6 chữ số bạn nhận được qua email{" "}
                         <strong className="text-mlc-ink">
-                          {regEmail || "email của bạn"}
+                          {verificationEmail || regEmail || "email của bạn"}
                         </strong>
-                        . Bạn có thể dán nhanh bằng{" "}
+                        . Nếu chưa thấy thư, hãy kiểm tra Spam. Bạn có thể dán nhanh bằng{" "}
                         <kbd className="rounded border border-stone-300 bg-stone-100 px-1.5 py-0.5 font-mono text-[10px]">
                           Ctrl+V
                         </kbd>
@@ -2000,11 +2064,11 @@ export function LoginView({
                       </>
                     ) : (
                       <>
-                        A 6-digit OTP has been sent to{" "}
+                        Enter the 6-digit OTP you received by email at{" "}
                         <strong className="text-mlc-ink">
-                          {regEmail || "your email"}
+                          {verificationEmail || regEmail || "your email"}
                         </strong>
-                        . You can paste all 6 digits with{" "}
+                        . Check your spam folder if needed. You can paste all 6 digits with{" "}
                         <kbd className="rounded border border-stone-300 bg-stone-100 px-1.5 py-0.5 font-mono text-[10px]">
                           Ctrl+V
                         </kbd>
@@ -2058,15 +2122,15 @@ export function LoginView({
 
                   <button
                     type="submit"
-                    disabled={isOtpVerifying}
+                    disabled={isOtpVerifying || otpAttemptsExceeded}
                     className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-mlc-red text-sm font-bold text-white shadow-mlc transition hover:bg-brand-primary-hover disabled:bg-stone-400 cursor-pointer"
                   >
                     {isOtpVerifying ? (
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     ) : isVi ? (
-                      "Xác thực & Kích hoạt tài khoản"
+                      "Xác thực Email"
                     ) : (
-                      "Verify & Activate Account"
+                      "Verify Email"
                     )}
                   </button>
                 </form>
@@ -2080,7 +2144,7 @@ export function LoginView({
                     </span>
                     <button
                       type="button"
-                      disabled={isOtpResending || otpCountdown > 0}
+                      disabled={isOtpResending || otpCountdown > 0 || otpResendLimitReached}
                       className="font-bold text-mlc-red hover:underline disabled:opacity-50 cursor-pointer"
                       onClick={handleResendRegistrationOtp}
                     >
@@ -2088,7 +2152,11 @@ export function LoginView({
                         ? isVi
                           ? "Đang gửi lại..."
                           : "Resending..."
-                        : otpCountdown > 0
+                        : otpResendLimitReached
+                          ? isVi
+                            ? "Đã đạt giới hạn trong giờ này"
+                            : "Hourly limit reached"
+                          : otpCountdown > 0
                           ? isVi
                             ? `Gửi lại sau ${otpCountdown}s`
                             : `Resend in ${otpCountdown}s`
@@ -2101,6 +2169,7 @@ export function LoginView({
                     type="button"
                     onClick={() => {
                       setIsOtpMode(false)
+                      setVerificationEmail("")
                       setOtpError("")
                       setOtpNotice("")
                     }}
@@ -2220,13 +2289,12 @@ export function LoginView({
 
                     <div>
                       <label className="mb-1.5 block text-xs font-bold text-mlc-ink">
-                        {isVi ? "Số điện thoại" : "Phone number"}
+                        {isVi ? "Số điện thoại (không bắt buộc)" : "Phone number (optional)"}
                       </label>
                       <div className="relative">
                         <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-mlc-muted" />
                         <input
                           type="tel"
-                          required
                           autoComplete="off"
                           value={regPhone}
                           onChange={(e) => {

@@ -46,6 +46,9 @@ export const buildCurrentUser = (authUser, fallbackUser) => {
     avatarUrl:
       authUser.avatarUrl || authUser.avatar || fallbackUser?.avatarUrl || null,
     authorities: authUser.authorities || [],
+    ...(typeof authUser.isFirstLogin === "boolean"
+      ? { isFirstLogin: authUser.isFirstLogin }
+      : {}),
   }
 }
 
