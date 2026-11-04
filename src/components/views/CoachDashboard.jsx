@@ -87,7 +87,7 @@ export function CoachDashboard() {
       Promise.all(
         myClasses.map((cls) =>
           Promise.all([
-            attendanceApi.getSessions({ classId: cls.id }).catch(() => []),
+            memberPortalApi.getClassSessions({ classId: cls.id }).catch(() => []),
             getCatalogClassSessions(cls.id, { notifyForbidden: false }).catch(
               () => [],
             ),
@@ -105,8 +105,8 @@ export function CoachDashboard() {
           }),
         ),
       ),
-      attendanceApi
-        .getSessions(resolvedCoachId ? { coachId: resolvedCoachId } : {})
+      memberPortalApi
+        .getClassSessions(resolvedCoachId ? { coachId: resolvedCoachId } : {})
         .catch(() => []),
       attendanceApi.searchAttendances().catch(() => []),
     ]).then(

@@ -7,7 +7,6 @@ import { formatMemberCode } from "../../utils/formatMember"
 import { formatScore, scoreToBarWidthPercent } from "../../utils/score"
 import { memberApi } from "../../api/memberApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
-import { attendanceApi } from "../../api/attendanceApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import { parseVietnamDateTime } from "../../utils/memberSafetyHelpers"
 import {
@@ -404,14 +403,14 @@ export function CoachAssignedMembersView() {
         setAtRiskIds(new Set(list.map((item) => String(item.memberId))))
       })
       .catch(() => {})
-    attendanceApi
-      .getSessions(resolvedCoachId ? { coachId: resolvedCoachId } : {})
+    memberPortalApi
+      .getClassSessions(resolvedCoachId ? { coachId: resolvedCoachId } : {})
       .then((list) => {
         if (!active || !Array.isArray(list)) return
         setCoachSessions(list)
       })
       .catch(() => {})
-    memberApi
+    memberPortalApi
       .getTrainingResults(resolvedCoachId ? { coachId: resolvedCoachId } : {})
       .then((list) => {
         if (!active || !Array.isArray(list)) return

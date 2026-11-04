@@ -109,13 +109,27 @@ export const searchAttendances = async (params = {}) => {
   return extractList(data) || []
 }
 
+export const getSessions = async (params = {}) => {
+  const query = new URLSearchParams()
+  for (const [key, val] of Object.entries(params || {})) {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, String(val))
+    }
+  }
+  const qStr = query.toString() ? `?${query.toString()}` : ""
+  const data = await httpClient.get(`/api/sessions${qStr}`)
+  return extractList(data) || []
+}
+
 export const attendanceApi = {
   scanAttendance,
+  scanCheckin: scanAttendance,
   recordSessionAttendance,
   manualCheckIn,
   manualCheckOut,
   correctAttendance,
   searchAttendances,
+  getSessions,
 }
 
 export default attendanceApi

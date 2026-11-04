@@ -640,7 +640,7 @@ export function CoachAttendanceView() {
           "success",
         )
       } else {
-        await attendanceApi.scanCheckin({
+        await attendanceApi.scanAttendance({
           checkinCode: raw,
           sessionId: selectedSessionId ? Number(selectedSessionId) : undefined,
         })
