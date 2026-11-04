@@ -64,26 +64,34 @@ export function CoachAttendanceView() {
   const [apiEnrollments, setApiEnrollments] = useState([])
   const [apiAttendances, setApiAttendances] = useState([])
   const [sessionTrainingResults, setSessionTrainingResults] = useState([])
+  const [classTrainingPlans, setClassTrainingPlans] = useState([])
+  const [sessionAbsenceNotices, setSessionAbsenceNotices] = useState([])
   const [classSessions, setClassSessions] = useState([])
   const [selectedSessionId, setSelectedSessionId] = useState("")
   const [loadingRoster, setLoadingRoster] = useState(false)
   const [bulkSaving, setBulkSaving] = useState(false)
+  const [quickMemberInput, setQuickMemberInput] = useState("")
+  const [quickSaving, setQuickSaving] = useState(false)
 
   const loadClassRosterAndAttendance = useCallback(async () => {
     if (!apiEnabled || !selectedClass?.id) return
     setLoadingRoster(true)
     try {
-      const [enrollments, attendances, sessions] = await Promise.all([
+      const [enrollments, attendances, sessions, plans] = await Promise.all([
         classEnrollmentApi
-          .getEnrollmentsByClass(selectedClass.id)
+          .getEnrollmentsByClass(selectedClass.id, { notifyForbidden: false })
           .catch(() => []),
         attendanceApi.searchAttendances().catch(() => []),
         getCatalogClassSessions(selectedClass.id, {
           notifyForbidden: false,
         }).catch(() => []),
+        memberPortalApi
+          .getTrainingPlans({ classId: selectedClass.id })
+          .catch(() => []),
       ])
       setApiEnrollments(Array.isArray(enrollments) ? enrollments : [])
       setApiAttendances(Array.isArray(attendances) ? attendances : [])
+      setClassTrainingPlans(Array.isArray(plans) ? plans : [])
       const sessionList = Array.isArray(sessions) ? sessions : []
       setClassSessions(sessionList)
       const effectiveSessionId =
@@ -93,12 +101,19 @@ export function CoachAttendanceView() {
         setSelectedSessionId(String(sessionList[0].id))
       }
       if (effectiveSessionId) {
-        const results = await memberPortalApi
-          .getTrainingResults({ sessionId: effectiveSessionId })
-          .catch(() => [])
+        const [results, notices] = await Promise.all([
+          memberPortalApi
+            .getTrainingResults({ sessionId: effectiveSessionId })
+            .catch(() => []),
+          memberPortalApi
+            .getSessionAbsenceNotices(effectiveSessionId)
+            .catch(() => []),
+        ])
         setSessionTrainingResults(Array.isArray(results) ? results : [])
+        setSessionAbsenceNotices(Array.isArray(notices) ? notices : [])
       } else {
         setSessionTrainingResults([])
+        setSessionAbsenceNotices([])
       }
     } finally {
       setLoadingRoster(false)
@@ -111,28 +126,111 @@ export function CoachAttendanceView() {
 
   const enrolledMembers = useMemo(() => {
     if (apiEnabled) {
+      const rosterMap = new Map()
+      const upsertMember = (id, name, code, pkgStatus) => {
+        const numId = Number(id)
+        if (!Number.isInteger(numId) || numId <= 0) return
+        const key = String(numId)
+        const matched = members.find((m) => String(m.id) === key)
+        const existing = rosterMap.get(key)
+        rosterMap.set(key, {
+          id: numId,
+          name:
+            name ||
+            existing?.name ||
+            matched?.name ||
+            `Học viên #${numId}`,
+          code:
+            code ||
+            existing?.code ||
+            matched?.code ||
+            `MB-${1000 + numId}`,
+          currentPackageName:
+            pkgStatus ||
+            existing?.currentPackageName ||
+            matched?.currentPackageName ||
+            "Đã ghi danh",
+        })
+      }
+
       const activeList = apiEnrollments.filter((enr) =>
         isActiveNormalEnrollment(enr),
       )
-      const sourceList = activeList.length > 0 ? activeList : []
-      return sourceList.map((enr) => {
-        const matched = members.find(
-          (m) => String(m.id) === String(enr.memberId),
+      activeList.forEach((enr) =>
+        upsertMember(
+          enr.memberId,
+          enr.memberName,
+          enr.memberCode,
+          enr.status || "Đã ghi danh",
+        ),
+      )
+
+      const selectedSesObj = classSessions.find(
+        (s) => String(s.id) === String(selectedSessionId),
+      )
+      if (selectedSesObj?.bookedMemberId) {
+        upsertMember(
+          selectedSesObj.bookedMemberId,
+          selectedSesObj.bookedMemberName,
+          null,
+          "Lịch PT 1:1",
         )
-        return {
-          id: enr.memberId,
-          name: enr.memberName || matched?.name || `Học viên #${enr.memberId}`,
-          code:
-            enr.memberCode ||
-            matched?.code ||
-            `MB-${1000 + Number(enr.memberId || 0)}`,
-          currentPackageName:
-            matched?.currentPackageName || enr.status || "Đã ghi danh",
-        }
-      })
+      }
+
+      sessionTrainingResults.forEach((res) =>
+        upsertMember(res.memberId, res.memberName, null, "Đã ghi nhận buổi tập"),
+      )
+
+      apiAttendances
+        .filter(
+          (a) =>
+            (selectedSessionId &&
+              String(a.sessionId) === String(selectedSessionId)) ||
+            (selectedClass?.id &&
+              String(a.classId) === String(selectedClass.id)),
+        )
+        .forEach((att) =>
+          upsertMember(
+            att.memberId,
+            att.memberName,
+            att.memberCode,
+            "Điểm danh lớp",
+          ),
+        )
+
+      classTrainingPlans.forEach((plan) =>
+        upsertMember(
+          plan.memberId,
+          plan.memberName,
+          null,
+          "Có giáo án lớp",
+        ),
+      )
+
+      sessionAbsenceNotices.forEach((notice) =>
+        upsertMember(
+          notice.memberId,
+          notice.memberName,
+          null,
+          `Báo vắng: ${notice.reason || "Có phép"}`,
+        ),
+      )
+
+      return Array.from(rosterMap.values())
     }
     return members.slice(0, 5)
-  }, [apiEnabled, apiEnrollments, members])
+  }, [
+    apiEnabled,
+    apiEnrollments,
+    classSessions,
+    selectedSessionId,
+    sessionTrainingResults,
+    apiAttendances,
+    selectedClass?.id,
+    classTrainingPlans,
+    sessionAbsenceNotices,
+    members,
+  ])
 
   const normalizeAttendanceStatus = (state) => {
     const s = String(state || "").toLowerCase()
@@ -173,6 +271,62 @@ export function CoachAttendanceView() {
       )
     } finally {
       setBulkSaving(false)
+    }
+  }
+
+  const handleQuickCheckin = async (e) => {
+    e.preventDefault()
+    const raw = String(quickMemberInput || "").trim()
+    if (!raw || quickSaving) return
+    setQuickSaving(true)
+    try {
+      const mbMatch = raw.match(/^(?:MB-)?(\d+)$/i)
+      if (mbMatch) {
+        const rawNum = Number(mbMatch[1])
+        const resolvedMemberId = rawNum > 1000 ? rawNum - 1000 : rawNum
+        if (apiEnabled && selectedSessionId) {
+          await attendanceApi.recordSessionAttendance({
+            memberId: resolvedMemberId,
+            sessionId: Number(selectedSessionId),
+            coachId: resolvedCoachId,
+            status: "Present",
+            notes: "Điểm danh nhanh theo Mã/ID học viên",
+          })
+        }
+        await recordAttendance(
+          selectedClass?.id,
+          resolvedMemberId,
+          "present",
+          undefined,
+          {
+            memberName: `Học viên #${resolvedMemberId}`,
+            sessionId: selectedSessionId,
+            coachId: resolvedCoachId,
+          },
+        )
+        setQuickMemberInput("")
+        await loadClassRosterAndAttendance()
+        showToast?.(
+          `Đã điểm danh Có mặt cho học viên #${resolvedMemberId}!`,
+          "success",
+        )
+      } else {
+        await attendanceApi.scanCheckin({
+          checkinCode: raw,
+          sessionId: selectedSessionId ? Number(selectedSessionId) : undefined,
+        })
+        setQuickMemberInput("")
+        await loadClassRosterAndAttendance()
+        showToast?.(`Đã quét mã điểm danh ${raw} thành công!`, "success")
+      }
+    } catch (err) {
+      showToast?.(
+        err?.message ||
+          "Không thể điểm danh cho mã học viên / mã check-in này.",
+        "error",
+      )
+    } finally {
+      setQuickSaving(false)
     }
   }
 
@@ -275,26 +429,49 @@ export function CoachAttendanceView() {
 
       {/* Attendance Roster */}
       <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-5 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <ClipboardCheck className="w-4 h-4 text-slate-700 shrink-0" />
-            <span className="whitespace-nowrap">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <ClipboardCheck className="w-4 h-4 text-slate-700 shrink-0" />
+              <span className="whitespace-nowrap">
+                {language === "vi"
+                  ? "Danh Sách Học Viên Điểm Danh"
+                  : "Attendance Roster"}
+              </span>
+            </h3>
+            <span className="text-xs text-amber-800 font-semibold">
               {language === "vi"
-                ? "Danh Sách Học Viên Điểm Danh"
-                : "Attendance Roster"}
+                ? "Thao tác sửa sẽ bắt buộc nhập lý do & ghi Audit Log"
+                : "Edits require mandatory reason input & Audit Log recording"}
             </span>
-          </h3>
-          <span className="text-xs text-amber-800 font-semibold">
-            {language === "vi"
-              ? "Thao tác sửa sẽ bắt buộc nhập lý do & ghi Audit Log"
-              : "Edits require mandatory reason input & Audit Log recording"}
-          </span>
+          </div>
+          <form
+            onSubmit={handleQuickCheckin}
+            className="flex items-center gap-2"
+          >
+            <input
+              type="text"
+              value={quickMemberInput}
+              onChange={(e) => setQuickMemberInput(e.target.value)}
+              placeholder="Nhập ID (VD: 1, MB-1001) hoặc Mã Check-in..."
+              className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded focus:outline-none focus:border-blue-600 w-64"
+            />
+            <button
+              type="submit"
+              disabled={quickSaving || !quickMemberInput.trim()}
+              className="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded text-xs font-bold whitespace-nowrap cursor-pointer"
+            >
+              {quickSaving ? "Đang xử lý..." : "Điểm danh nhanh"}
+            </button>
+          </form>
         </div>
 
         <div className="space-y-3">
           {enrolledMembers.length === 0 ? (
             <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded">
-              Lớp học này hiện chưa có học viên nào đăng ký chính thức (Active).
+              {Number(selectedClass?.enrolledCount || 0) > 0
+                ? `Lớp đã có ${selectedClass.enrolledCount} học viên đăng ký. Bạn có thể nhập ID học viên (VD: 1 hoặc MB-1001) hoặc Mã Check-in ở ô "Điểm danh nhanh" phía trên để ghi nhận buổi học.`
+                : "Lớp học này hiện chưa có học viên nào đăng ký chính thức (Active)."}
             </div>
           ) : (
             enrolledMembers.map((m) => {
