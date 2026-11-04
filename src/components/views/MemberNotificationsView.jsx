@@ -17,27 +17,6 @@ import { useSCMS } from "../../context/SCMSContext"
 import { notificationApi } from "../../api/notificationApi"
 import { getErrorMessage } from "../../api/apiErrors"
 
-const INITIAL_MOCK_NOTIFICATIONS = [
-  {
-    id: "notif-1",
-    type: "SESSION_REMINDER",
-    title: "Nhắc nhở: Lớp Boxing cơ bản sắp diễn ra",
-    message:
-      "Lớp học của bạn sẽ bắt đầu lúc 18:00 hôm nay tại Phòng Boxing 1. Vui lòng có mặt trước 10 phút.",
-    createdAt: "2026-10-24T08:30:00",
-    isRead: false,
-  },
-  {
-    id: "notif-2",
-    type: "PAYMENT_SUCCESS",
-    title: "Thanh toán gói tập thành công",
-    message:
-      "Hóa đơn gia hạn gói VIBE VIP 3 Tháng đã được ghi nhận thành công qua VNPay.",
-    createdAt: "2026-10-23T15:20:00",
-    isRead: false,
-  },
-]
-
 const categorizeNotificationType = (rawType) => {
   const t = String(rawType || "").toUpperCase()
   if (
@@ -101,10 +80,7 @@ export function MemberNotificationsView() {
   const { language, apiEnabled, showToast } = useSCMS()
   const isVi = language === "vi"
 
-  // Strictly empty in API mode — never use mock data when apiEnabled is true
-  const [notifications, setNotifications] = useState(() =>
-    apiEnabled ? [] : INITIAL_MOCK_NOTIFICATIONS,
-  )
+  const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(Boolean(apiEnabled))
   const [error, setError] = useState("")
   const [filterType, setFilterType] = useState("all")

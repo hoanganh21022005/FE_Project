@@ -38,7 +38,6 @@ import {
 export function CoachDashboard() {
   const {
     classes,
-    feedbacks,
     currentUser,
     setCurrentTab,
     apiEnabled,
@@ -60,17 +59,18 @@ export function CoachDashboard() {
 
   const myClasses = useMemo(() => {
     const resolvedCoachId = currentUser.coachId || currentUser.id
-    const matched = classes.filter(
+    const coachNameLower = String(currentUser.name || "").trim().toLowerCase()
+    return classes.filter(
       (c) =>
-        String(c.coachId) === String(resolvedCoachId) ||
-        String(c.coachId) === String(currentUser.id) ||
-        String(c.coachName || "")
-          .toLowerCase()
-          .includes(String(currentUser.name || "").toLowerCase()) ||
-        (!apiEnabled && String(c.coachName || "").includes("Mai")),
+        (resolvedCoachId && String(c.coachId) === String(resolvedCoachId)) ||
+        (currentUser.id && String(c.coachId) === String(currentUser.id)) ||
+        (coachNameLower &&
+          String(c.coachName || "")
+            .trim()
+            .toLowerCase()
+            .includes(coachNameLower)),
     )
-    return matched.length > 0 ? matched : classes
-  }, [classes, currentUser.coachId, currentUser.id, currentUser.name, apiEnabled])
+  }, [classes, currentUser.coachId, currentUser.id, currentUser.name])
 
   useEffect(() => {
     if (!apiEnabled) return
@@ -444,30 +444,23 @@ export function CoachDashboard() {
   }, [allKnownSessions, attendanceRecords, language])
 
   const feedbackItems = useMemo(() => {
-    if (apiEnabled && coachFeedbackSummary.feedback?.length > 0) {
+    if (Array.isArray(coachFeedbackSummary.feedback)) {
       return coachFeedbackSummary.feedback
     }
-    return feedbacks.map((fb) => ({
-      classId: fb.classId,
-      className: fb.className,
-      classRating: fb.classRating || fb.rating || 5,
-      coachRating: fb.coachRating || fb.rating || 5,
-      comment: fb.comment,
-      createdAt: fb.createdAt,
-    }))
-  }, [apiEnabled, coachFeedbackSummary.feedback, feedbacks])
+    return []
+  }, [coachFeedbackSummary.feedback])
 
   const averageRating = useMemo(() => {
-    if (apiEnabled && coachFeedbackSummary.averageCoachRating > 0) {
+    if (coachFeedbackSummary.averageCoachRating > 0) {
       return Number(coachFeedbackSummary.averageCoachRating).toFixed(1)
     }
-    if (feedbackItems.length === 0) return "5.0"
+    if (feedbackItems.length === 0) return "—"
     const sum = feedbackItems.reduce(
-      (acc, item) => acc + Number(item.coachRating || 5),
+      (acc, item) => acc + Number(item.coachRating || 0),
       0,
     )
-    return (sum / feedbackItems.length).toFixed(1)
-  }, [apiEnabled, coachFeedbackSummary.averageCoachRating, feedbackItems])
+    return sum > 0 ? (sum / feedbackItems.length).toFixed(1) : "—"
+  }, [coachFeedbackSummary.averageCoachRating, feedbackItems])
 
   const chartData = myClasses.map((c) => {
     const label = language === "vi" ? c.nameVi || c.name : c.name
@@ -686,8 +679,8 @@ export function CoachDashboard() {
             <Users className="w-4 h-4 text-brand-purple" />
           </div>
           <div className="text-2xl font-bold text-slate-900 tabular-nums mt-2 flex items-baseline gap-2">
-            <span>{apiEnabled ? ptStats.uniqueStudentCount : 1}</span>
-            {apiEnabled && ptStats.packageCount > 0 && (
+            <span>{ptStats.uniqueStudentCount}</span>
+            {ptStats.packageCount > 0 && (
               <span className="text-xs font-normal text-slate-500">
                 ({ptStats.packageCount} {t("coachPkgLabel")})
               </span>

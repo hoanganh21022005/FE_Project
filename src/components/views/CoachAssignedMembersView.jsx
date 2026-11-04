@@ -2,9 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import { CoachStatusBadge } from "../coach/StatusBadge"
-import { formatDate } from "../../utils/datetime"
 import { formatMemberCode } from "../../utils/formatMember"
-import { formatScore, scoreToBarWidthPercent } from "../../utils/score"
 import { memberApi } from "../../api/memberApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getErrorMessage } from "../../api/apiErrors"
@@ -15,10 +13,8 @@ import {
 } from "../../utils/permissions"
 import {
   Users,
-  Target,
   Dumbbell,
   Award,
-  AlertTriangle,
   CalendarPlus,
   CheckCircle2,
   XCircle,
@@ -30,16 +26,6 @@ import {
   Lock,
   Search,
 } from "lucide-react"
-
-const STANDARD_SLOTS = [
-  { slotNumber: 1, name: "Ca 1", startTime: "06:00:00", endTime: "07:30:00" },
-  { slotNumber: 2, name: "Ca 2", startTime: "07:45:00", endTime: "09:15:00" },
-  { slotNumber: 3, name: "Ca 3", startTime: "09:30:00", endTime: "11:00:00" },
-  { slotNumber: 4, name: "Ca 4", startTime: "13:00:00", endTime: "14:30:00" },
-  { slotNumber: 5, name: "Ca 5", startTime: "14:45:00", endTime: "16:15:00" },
-  { slotNumber: 6, name: "Ca 6", startTime: "16:30:00", endTime: "18:00:00" },
-  { slotNumber: 7, name: "Ca 7", startTime: "18:15:00", endTime: "19:45:00" },
-]
 
 function isPositiveInteger(val) {
   if (typeof val === "number") return Number.isInteger(val) && val > 0
@@ -291,8 +277,6 @@ export function verifySessionResponseMatch(resp, payload, regItem) {
 
 export function CoachAssignedMembersView() {
   const {
-    members,
-    trainingPlans,
     currentUser,
     rooms: contextRooms,
     setCurrentTab,
@@ -303,7 +287,7 @@ export function CoachAssignedMembersView() {
   } = useSCMS()
   const navigate = useNavigate()
 
-  const [atRiskIds, setAtRiskIds] = useState(new Set())
+  const [, setAtRiskIds] = useState(new Set())
   const [advancedRequests, setAdvancedRequests] = useState([])
   const [coachSessions, setCoachSessions] = useState([])
   const [coachTrainingResults, setCoachTrainingResults] = useState([])
@@ -367,12 +351,7 @@ export function CoachAssignedMembersView() {
   // Load rooms with validation & return valid list
   const loadRooms = useCallback(async () => {
     if (!apiEnabled) {
-      const mockRooms =
-        Array.isArray(contextRooms) && contextRooms.length > 0
-          ? contextRooms.filter((r) => isRoomAvailable(r, false))
-          : [{ id: 1, name: "Sân tập CLB #1" }]
-      setRoomsList(mockRooms)
-      return mockRooms
+      return []
     }
     setLoadingRooms(true)
     setRoomsError(null)
@@ -436,8 +415,6 @@ export function CoachAssignedMembersView() {
       setLoadingSlots(true)
 
       if (!apiEnabled) {
-        setAvailableSlots(STANDARD_SLOTS)
-        setSelectedSlot(STANDARD_SLOTS[0])
         setLoadingSlots(false)
         return
       }
@@ -1200,14 +1177,6 @@ export function CoachAssignedMembersView() {
     })
   }, [filteredCandidates])
 
-  // Mock mode fallback assigned members
-  const mockAssignedMembers = useMemo(() => {
-    const filtered = (members || []).filter(
-      (m) => m.primaryCoachId || m.primaryCoachName,
-    )
-    return filtered.length > 0 ? filtered : members || []
-  }, [members])
-
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
@@ -1242,8 +1211,7 @@ export function CoachAssignedMembersView() {
             </button>
           )}
           <div className="text-xs font-mono font-bold bg-slate-100 border border-slate-200 px-3 py-1.5 rounded text-slate-900">
-            Tổng số: {apiEnabled ? apiBookingCandidates.length : mockAssignedMembers.length}{" "}
-            {apiEnabled ? t("coachPkgLabel") : "Học viên"}
+            Tổng số: {apiBookingCandidates.length} {t("coachPkgLabel")}
           </div>
         </div>
       </div>
@@ -1367,9 +1335,8 @@ export function CoachAssignedMembersView() {
         </div>
       )}
 
-      {/* Main Content Area: API Mode Candidates OR Mock Mode Members */}
-      {apiEnabled ? (
-        <div className="space-y-4">
+      {/* Main Content Area: API Candidates */}
+      <div className="space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Award className="w-4 h-4 text-emerald-700" />
@@ -1560,7 +1527,7 @@ export function CoachAssignedMembersView() {
                             <span>
                               {t("coachPtCompletedNoResultHint")} (
                               <strong>
-                                {formatDate(unloggedCompletedPt.sessionDate)}
+                                {formatVietnamDateOnly(unloggedCompletedPt.sessionDate)}
                               </strong>
                               )
                             </span>
@@ -1841,129 +1808,7 @@ export function CoachAssignedMembersView() {
               })}
             </div>
           )}
-        </div>
-      ) : (
-        /* Mock Mode Member Cards Grid */
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {mockAssignedMembers.map((m) => {
-            const plan = trainingPlans.find((p) => String(p.memberId) === String(m.id))
-            const isAtRisk = atRiskIds.has(String(m.id))
-
-            const mockCandidate = {
-              id: m.id,
-              memberId: m.id,
-              memberName: m.name,
-              subjectId: 1,
-              subjectName: "Tennis",
-              primaryCoachId: m.primaryCoachId || 1,
-              subscriptionId: 1,
-              subscriptionStatus: "Active",
-              remainingCredit: 12,
-              activatedAt: "2026-10-01T08:00:00",
-              expiresAt: "2026-12-31T23:59:59",
-            }
-
-            return (
-              <div
-                key={m.id}
-                className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4 hover:border-slate-300 transition-all"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-900">{m.name}</span>
-                      {isAtRisk && (
-                        <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3" />
-                          Cần lưu ý
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-slate-500 font-mono tabular-nums">
-                      {m.phone || m.email || "—"}
-                    </div>
-                  </div>
-                  <CoachStatusBadge type="package" value={m.membershipStatus || "Active"} />
-                </div>
-
-                <div className="p-3 bg-slate-50 rounded border border-slate-200 space-y-2 text-xs">
-                  <div className="flex items-center justify-between text-slate-700">
-                    <span className="flex items-center gap-1 font-bold">
-                      <Award className="w-3.5 h-3.5 text-amber-600" />
-                      <span>{t("coachPkgLabel")}:</span>
-                    </span>
-                    <span className="font-semibold text-slate-900">{m.currentPackageName}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-slate-700">
-                    <span className="flex items-center gap-1 font-bold">
-                      <Target className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Mục tiêu PT:</span>
-                    </span>
-                    <span className="font-medium text-slate-900">
-                      {plan
-                        ? language === "vi"
-                          ? plan.goalVi
-                          : plan.goal
-                        : "Tăng cơ, giảm mỡ & nâng thể lực"}
-                    </span>
-                  </div>
-                </div>
-
-                {plan && (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs text-slate-600 font-medium">
-                      <span>Điểm tiến độ:</span>
-                      <span className="font-mono font-bold text-slate-900 tabular-nums">
-                        {formatScore(plan.progressPercent)}
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-1.5 rounded overflow-hidden border border-slate-200">
-                      <div
-                        style={{ width: `${scoreToBarWidthPercent(plan.progressPercent)}%` }}
-                        className="bg-slate-900 h-full rounded"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs text-slate-500 font-mono">
-                    Tham gia: {formatDate(m.joinDate)}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openBookPrivateModal(mockCandidate)}
-                      className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer"
-                    >
-                      <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
-                      <span>{language === "vi" ? "Đặt lịch PT 1:1" : "Book 1:1 PT"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (typeof window !== "undefined" && m.id) {
-                          sessionStorage.setItem(
-                            "scms_selected_progress_member_id",
-                            String(m.id),
-                          )
-                        }
-                        setCurrentTab("trainingProgress")
-                        navigate("/coach/progress")
-                      }}
-                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer"
-                    >
-                      <Dumbbell className="w-3.5 h-3.5 shrink-0" />
-                      <span>{language === "vi" ? "Giáo án" : "Training Plan"}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      </div>
 
       {/* Mandatory Rejection Reason Modal (P0.3) */}
       {rejectModalTarget && (

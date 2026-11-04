@@ -167,19 +167,7 @@ export function mapClass(
   const coach = coaches.find(
     (entry) => idNumber(entry.id) === asNumber(item.coachId),
   )
-  let localMeta = {}
-  if (typeof window !== "undefined" && window.localStorage) {
-    try {
-      const allMeta = JSON.parse(
-        localStorage.getItem("scms_class_metadata") || "{}",
-      )
-      if (allMeta[item.id]) {
-        localMeta = allMeta[item.id]
-      }
-    } catch {
-      // ignore
-    }
-  }
+  const localMeta = {}
   const cleanFallback = Object.fromEntries(
     Object.entries(fallback || {}).filter(
       ([_, v]) => v !== undefined && v !== null,
