@@ -50,16 +50,17 @@ export function CoachAttendanceView() {
   }, [currentUser?.coachId, currentUser?.id])
 
   const coachClasses = useMemo(() => {
+    const coachNameLower = String(currentUser?.name || "").trim().toLowerCase()
     const matched = classes.filter(
       (c) =>
         String(c.coachId) === String(resolvedCoachId) ||
-        String(c.coachId) === String(currentUser?.id) ||
-        String(c.coachName || "")
-          .toLowerCase()
-          .includes(String(currentUser?.name || "").toLowerCase()) ||
-        (!apiEnabled && String(c.coachName || "").includes("Mai")),
+        (currentUser?.id && String(c.coachId) === String(currentUser.id)) ||
+        (coachNameLower &&
+          String(c.coachName || "")
+            .trim()
+            .toLowerCase()
+            .includes(coachNameLower)),
     )
-    const baseList = matched.length > 0 ? matched : classes
     const ptVirtual = {
       id: "PT_1ON1",
       name: "PT 1:1 Sessions",
@@ -70,8 +71,8 @@ export function CoachAttendanceView() {
       room: "Sân tập PT",
       roomVi: "Sân tập PT",
     }
-    return [...baseList, ptVirtual]
-  }, [classes, resolvedCoachId, currentUser?.id, currentUser?.name, apiEnabled])
+    return [...matched, ptVirtual]
+  }, [classes, resolvedCoachId, currentUser?.id, currentUser?.name])
 
   const [selectedClassId, setSelectedClassId] = useState(() => {
     if (typeof window !== "undefined") {
@@ -283,77 +284,69 @@ export function CoachAttendanceView() {
   }, [classSessions.length, selectedClass?.totalSessions, selectedClass?.sessionCount])
 
   const enrolledMembers = useMemo(() => {
-    if (apiEnabled) {
-      const rosterMap = new Map()
-      const upsertMember = (id, name, code) => {
-        const numId = Number(id)
-        if (!Number.isInteger(numId) || numId <= 0) return
-        const key = String(numId)
-        const matched = members.find((m) => String(m.id) === key)
-        const existing = rosterMap.get(key)
-        rosterMap.set(key, {
-          id: numId,
-          name:
-            name ||
-            existing?.name ||
-            matched?.name ||
-            `Học viên #${numId}`,
-          code: formatMemberCode(
-            numId,
-            code || existing?.code || matched?.code,
-          ),
-        })
-      }
-
-      const activeList = apiEnrollments.filter((enr) =>
-        isActiveNormalEnrollment(enr),
-      )
-      activeList.forEach((enr) =>
-        upsertMember(enr.memberId, enr.memberName, enr.memberCode),
-      )
-
-      if (activeSession?.bookedMemberId) {
-        upsertMember(
-          activeSession.bookedMemberId,
-          activeSession.bookedMemberName,
-          null,
-        )
-      }
-
-      sessionTrainingResults.forEach((res) =>
-        upsertMember(res.memberId, res.memberName, null),
-      )
-
-      // Include members who have attendance records in this class so roster is complete even if /enrollments returns 403
-      apiAttendances
-        .filter(
-          (a) =>
-            (selectedSessionId &&
-              String(a.sessionId) === String(selectedSessionId)) ||
-            (selectedClass?.id &&
-              String(a.classId) === String(selectedClass.id)) ||
-            classSessions.some((cs) => String(cs.id) === String(a.sessionId)),
-        )
-        .forEach((att) =>
-          upsertMember(att.memberId, att.memberName, att.memberCode),
-        )
-
-      classTrainingPlans.forEach((plan) =>
-        upsertMember(plan.memberId, plan.memberName, null),
-      )
-
-      sessionAbsenceNotices.forEach((notice) =>
-        upsertMember(notice.memberId, notice.memberName, null),
-      )
-
-      return Array.from(rosterMap.values())
+    const rosterMap = new Map()
+    const upsertMember = (id, name, code) => {
+      const numId = Number(id)
+      if (!Number.isInteger(numId) || numId <= 0) return
+      const key = String(numId)
+      const matched = members.find((m) => String(m.id) === key)
+      const existing = rosterMap.get(key)
+      rosterMap.set(key, {
+        id: numId,
+        name:
+          name ||
+          existing?.name ||
+          matched?.name ||
+          `Học viên #${numId}`,
+        code: formatMemberCode(
+          numId,
+          code || existing?.code || matched?.code,
+        ),
+      })
     }
-    return members.slice(0, 5).map((m) => ({
-      ...m,
-      code: formatMemberCode(m.id, m.code),
-    }))
+
+    const activeList = apiEnrollments.filter((enr) =>
+      isActiveNormalEnrollment(enr),
+    )
+    activeList.forEach((enr) =>
+      upsertMember(enr.memberId, enr.memberName, enr.memberCode),
+    )
+
+    if (activeSession?.bookedMemberId) {
+      upsertMember(
+        activeSession.bookedMemberId,
+        activeSession.bookedMemberName,
+        null,
+      )
+    }
+
+    sessionTrainingResults.forEach((res) =>
+      upsertMember(res.memberId, res.memberName, null),
+    )
+
+    apiAttendances
+      .filter(
+        (a) =>
+          (selectedSessionId &&
+            String(a.sessionId) === String(selectedSessionId)) ||
+          (selectedClass?.id &&
+            String(a.classId) === String(selectedClass.id)) ||
+          classSessions.some((cs) => String(cs.id) === String(a.sessionId)),
+      )
+      .forEach((att) =>
+        upsertMember(att.memberId, att.memberName, att.memberCode),
+      )
+
+    classTrainingPlans.forEach((plan) =>
+      upsertMember(plan.memberId, plan.memberName, null),
+    )
+
+    sessionAbsenceNotices.forEach((notice) =>
+      upsertMember(notice.memberId, notice.memberName, null),
+    )
+
+    return Array.from(rosterMap.values())
   }, [
-    apiEnabled,
     apiEnrollments,
     activeSession,
     sessionTrainingResults,

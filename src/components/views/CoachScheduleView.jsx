@@ -40,15 +40,6 @@ import {
   ChevronUp,
 } from "lucide-react"
 
-const DEFAULT_WEEKLY_SLOTS = [
-  "MONDAY:1",
-  "MONDAY:6",
-  "WEDNESDAY:1",
-  "WEDNESDAY:6",
-  "FRIDAY:1",
-  "FRIDAY:6",
-]
-
 function formatSessionDayLabel(dateStr, lang = "vi") {
   if (!dateStr) return "Chưa xếp ngày"
   return formatWeekday(dateStr, lang)
@@ -117,19 +108,22 @@ export function CoachScheduleView() {
   }, [currentUser?.coachId, currentUser?.id])
 
   const myClasses = useMemo(() => {
-    const matched = classes.filter(
+    const coachNameLower = String(currentUser.name || "").trim().toLowerCase()
+    return classes.filter(
       (c) =>
-        String(c.coachId) === String(resolvedCoachId || currentUser.id) ||
-        String(c.coachId) === String(currentUser.id) ||
-        String(c.coachName || "")
-          .toLowerCase()
-          .includes(String(currentUser.name || "").toLowerCase()) ||
-        (!apiEnabled && String(c.coachName || "").includes("Mai")),
+        (resolvedCoachId &&
+          String(c.coachId) === String(resolvedCoachId)) ||
+        (currentUser.id && String(c.coachId) === String(currentUser.id)) ||
+        (coachNameLower &&
+          String(c.coachName || "")
+            .trim()
+            .toLowerCase()
+            .includes(coachNameLower)),
     )
-    return matched.length > 0 ? matched : classes
-  }, [classes, resolvedCoachId, currentUser.id, currentUser.name, apiEnabled])
+  }, [classes, resolvedCoachId, currentUser.id, currentUser.name])
 
   const [apiSessions, setApiSessions] = useState([])
+  const [apiTimeSlots, setApiTimeSlots] = useState(DEFAULT_TIME_SLOTS)
   const [loadingSessions, setLoadingSessions] = useState(false)
   const [absenceNoticesBySession, setAbsenceNoticesBySession] = useState({})
   const [expandedNoticeSessionIds, setExpandedNoticeSessionIds] = useState({})
@@ -139,7 +133,7 @@ export function CoachScheduleView() {
 
   // Work schedule state (/api/coaches/{id}/work-schedule)
   const [acceptingNew, setAcceptingNew] = useState(true)
-  const [weeklySlots, setWeeklySlots] = useState(DEFAULT_WEEKLY_SLOTS)
+  const [weeklySlots, setWeeklySlots] = useState([])
   const [daysOff, setDaysOff] = useState([])
   const [isWorkScheduleDirty, setIsWorkScheduleDirty] = useState(false)
   const [savingWorkSchedule, setSavingWorkSchedule] = useState(false)
@@ -189,6 +183,7 @@ export function CoachScheduleView() {
         classDirectArrays,
         workData,
         resultsList,
+        slotsList,
       ] = await Promise.all([
         memberPortalApi.getClassSessions().catch(() => []),
         Promise.all(catalogPromises),
@@ -203,7 +198,15 @@ export function CoachScheduleView() {
             resolvedCoachId ? { coachId: resolvedCoachId } : {},
           )
           .catch(() => []),
+        memberPortalApi.getTimeSlots().catch(() => []),
       ])
+
+      if (Array.isArray(slotsList) && slotsList.length > 0) {
+        const sortedSlots = [...slotsList].sort(
+          (a, b) => Number(a.slotNumber || 0) - Number(b.slotNumber || 0),
+        )
+        setApiTimeSlots(sortedSlots)
+      }
 
       if (Array.isArray(resultsList)) {
         setLoggedResultSessionIds(
@@ -303,10 +306,7 @@ export function CoachScheduleView() {
         if (typeof workData.acceptingNew === "boolean") {
           setAcceptingNew(workData.acceptingNew)
         }
-        if (
-          Array.isArray(workData.weeklySlots) &&
-          workData.weeklySlots.length > 0
-        ) {
+        if (Array.isArray(workData.weeklySlots)) {
           setWeeklySlots(normalizeWeeklySlotsArray(workData.weeklySlots))
         }
         if (Array.isArray(workData.daysOff)) {
@@ -362,7 +362,7 @@ export function CoachScheduleView() {
       const cleanSlots = normalizeWeeklySlotsArray(weeklySlots)
       await memberPortalApi.updateCoachWorkSchedule(resolvedCoachId, {
         acceptingNew: Boolean(acceptingNew),
-        weeklySlots: cleanSlots.length > 0 ? cleanSlots : DEFAULT_WEEKLY_SLOTS,
+        weeklySlots: cleanSlots,
         daysOff,
       })
       setIsWorkScheduleDirty(false)
@@ -870,7 +870,7 @@ export function CoachScheduleView() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {DEFAULT_TIME_SLOTS.map((slot) => (
+                    {apiTimeSlots.map((slot) => (
                       <tr key={slot.slotNumber}>
                         <td className="p-2 border-r border-slate-200 bg-slate-50/60 font-semibold text-slate-800">
                           <div>{slot.name}</div>

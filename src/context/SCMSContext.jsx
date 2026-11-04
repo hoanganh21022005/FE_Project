@@ -1242,19 +1242,27 @@ export const SCMSProvider = ({ children }) => {
   const [dashboard, setDashboard] = useState(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState(null)
-  const [bookings, setBookings] = useState(INITIAL_BOOKINGS)
-  const [attendance, setAttendance] = useState(INITIAL_ATTENDANCE)
+  const [bookings, setBookings] = useState(
+    API_ENABLED ? [] : INITIAL_BOOKINGS,
+  )
+  const [attendance, setAttendance] = useState(
+    API_ENABLED ? [] : INITIAL_ATTENDANCE,
+  )
   const [feedbacks, setFeedbacks] = useState(
     API_ENABLED ? [] : INITIAL_FEEDBACKS,
   )
   const [leaveRequests, setLeaveRequests] = useState([])
   const [attendanceDisputes, setAttendanceDisputes] = useState([])
   const [checkedInCourseSessions, setCheckedInCourseSessions] = useState({})
-  const [payments, setPayments] = useState(INITIAL_PAYMENTS)
+  const [payments, setPayments] = useState(
+    API_ENABLED ? [] : INITIAL_PAYMENTS,
+  )
   const [auditLogs, setAuditLogs] = useState(
     API_ENABLED ? [] : INITIAL_AUDIT_LOGS,
   )
-  const [trainingPlans, setTrainingPlans] = useState(INITIAL_TRAINING_PLANS)
+  const [trainingPlans, setTrainingPlans] = useState(
+    API_ENABLED ? [] : INITIAL_TRAINING_PLANS,
+  )
 
   const fallbackUser = {
     id:
