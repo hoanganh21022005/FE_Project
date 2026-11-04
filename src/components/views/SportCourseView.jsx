@@ -20,7 +20,7 @@ export function SportCourseView() {
 
   if (!course) return (
     <div className="coaches-page min-h-screen bg-mlc-ink font-mlc text-white">
-      <CoachesHeader />
+      <CoachesHeader showRegister={false} />
       <main className="mx-auto max-w-3xl px-5 py-24 text-center">
         <p className="coaches-eyebrow">VIBE SPORT</p>
         <h1 className="mt-6 font-display text-5xl font-bold">{isVi ? "Không tìm thấy môn học" : "Course not found"}</h1>
@@ -33,7 +33,7 @@ export function SportCourseView() {
   return (
     <div className="sport-course-page coaches-page min-h-screen bg-mlc-ink font-mlc text-white" style={{ "--course-accent": course.accent }}>
       <Link to="#course-overview" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:bg-white focus:p-4 focus:text-mlc-ink">{isVi ? "Đến thông tin khóa học" : "Skip to course information"}</Link>
-      <CoachesHeader />
+      <CoachesHeader showRegister={false} />
       <main>
         <section className="sport-course-hero" aria-labelledby="course-title">
           <img className="sport-course-hero-image" src={course.image} alt="" width="1600" height="900" fetchPriority="high" />

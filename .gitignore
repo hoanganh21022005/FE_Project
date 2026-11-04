@@ -15,6 +15,7 @@ build/
 # Personal task tracking (kept locally, not published)
 docs/SCMS_FE_TASK_CHECKLIST.md
 docs/AGENT_TASK_REPORT.md
+docs/audits/SCMS_ACCESS_DENIED_RBAC_AUDIT.md
 
 # Logs
 logs/

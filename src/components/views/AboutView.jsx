@@ -18,7 +18,7 @@ export function AboutView() {
   const isVi = language === "vi"
   return (
     <div className="coaches-page min-h-screen bg-mlc-ink font-mlc text-white">
-      <CoachesHeader />
+      <CoachesHeader showRegister={false} />
       <main id="main-content">
         <section className="coaches-hero" aria-labelledby="about-title">
           <div className="coaches-hero-photo coaches-hero-photo-left" aria-hidden="true" />

@@ -14,7 +14,7 @@ export function FacilitiesView() {
       <Link to="#facilities" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:bg-white focus:p-4 focus:text-mlc-ink">
         {isVi ? "Bỏ qua điều hướng" : "Skip to facilities"}
       </Link>
-      <CoachesHeader />
+      <CoachesHeader showRegister={false} />
       <main id="main-content">
         <FacilitiesExperience />
       </main>
