@@ -6,6 +6,7 @@ import { attendanceApi } from "../../api/attendanceApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import { canLogResult } from "../../utils/permissions"
 import { formatDate, formatTime } from "../../utils/datetime"
+import { formatMemberCode } from "../../utils/formatMember"
 import {
   normalizeScore,
   formatScore,
@@ -32,6 +33,7 @@ import {
   CheckCircle2,
   RefreshCw,
   TrendingUp,
+  Info,
 } from "lucide-react"
 
 export function CoachTrainingProgress() {
@@ -55,7 +57,16 @@ export function CoachTrainingProgress() {
     return !Number.isNaN(parsed) && parsed > 0 ? parsed : 1
   }, [currentUser?.coachId, currentUser?.id, plan?.coachId])
 
-  const [activeTab, setActiveTab] = useState("overview") // 'overview' | 'plans' | 'logs' | 'evaluations'
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== "undefined") {
+      const savedTab = sessionStorage.getItem("scms_selected_progress_tab")
+      if (savedTab) {
+        sessionStorage.removeItem("scms_selected_progress_tab")
+        return savedTab
+      }
+    }
+    return "overview"
+  })
   const [selectedMemberId, setSelectedMemberId] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = sessionStorage.getItem("scms_selected_progress_member_id")
@@ -64,12 +75,11 @@ export function CoachTrainingProgress() {
     return ""
   })
 
-  // Create forms start EMPTY per P2.4 (use placeholder instead of sample text)
   const [comment, setComment] = useState("")
   const [progressScore, setProgressScore] = useState(
     apiEnabled
-      ? Number(((plan?.progressPercent || 80) / 10).toFixed(1))
-      : plan?.progressPercent || 80,
+      ? Number(((plan?.progressPercent || 70) / 10).toFixed(1))
+      : plan?.progressPercent || 70,
   )
   const [evaluations, setEvaluations] = useState([])
   const [apiPlans, setApiPlans] = useState([])
@@ -94,8 +104,17 @@ export function CoachTrainingProgress() {
   })
   const [savingPlan, setSavingPlan] = useState(false)
 
-  // New Training Result form state (empty by default, placeholder only per P2.4)
-  const [selectedSessionId, setSelectedSessionId] = useState("")
+  // New Training Result form state
+  const [selectedSessionId, setSelectedSessionId] = useState(() => {
+    if (typeof window !== "undefined") {
+      const savedSes = sessionStorage.getItem("scms_selected_progress_session_id")
+      if (savedSes) {
+        sessionStorage.removeItem("scms_selected_progress_session_id")
+        return savedSes
+      }
+    }
+    return ""
+  })
   const [resultContent, setResultContent] = useState("")
   const [savingResult, setSavingResult] = useState(false)
 
@@ -142,50 +161,59 @@ export function CoachTrainingProgress() {
     loadAllProgressData()
   }, [loadAllProgressData])
 
+  // R2.3: Prioritize real API students when apiEnabled is true so we don't default to mock member #1
   const availableStudents = useMemo(() => {
     const map = new Map()
-    ;(members || []).forEach((m) => {
-      if (m?.id != null) {
-        map.set(String(m.id), {
-          id: m.id,
-          name: m.name || `Học viên #${m.id}`,
-          code: m.code || `MB-${m.id}`,
-        })
-      }
-    })
-    advancedRegs.forEach((r) => {
-      if (r?.memberId != null && !map.has(String(r.memberId))) {
-        map.set(String(r.memberId), {
-          id: r.memberId,
-          name: r.memberName || `Học viên #${r.memberId}`,
-          code: `PT-${r.memberId}`,
-        })
-      }
-    })
-    apiPlans.forEach((p) => {
-      if (p?.memberId != null && !map.has(String(p.memberId))) {
-        map.set(String(p.memberId), {
-          id: p.memberId,
-          name: p.memberName || `Học viên #${p.memberId}`,
-          code: `MB-${p.memberId}`,
-        })
-      }
-    })
-    evaluations.forEach((ev) => {
-      if (ev?.memberId != null && !map.has(String(ev.memberId))) {
-        map.set(String(ev.memberId), {
-          id: ev.memberId,
-          name: ev.memberName || `Học viên #${ev.memberId}`,
-          code: ev.memberCode || `MB-${ev.memberId}`,
-        })
-      }
-    })
+    const addStudent = (id, name, code) => {
+      if (id == null || String(id) === "" || String(id) === "null") return
+      const key = String(id)
+      const existing = map.get(key)
+      map.set(key, {
+        id,
+        name:
+          name ||
+          existing?.name ||
+          members?.find((m) => String(m.id) === key)?.name ||
+          `Học viên ${formatMemberCode(id, code)}`,
+        code: formatMemberCode(id, code || existing?.code),
+      })
+    }
+
+    advancedRegs.forEach((r) => addStudent(r?.memberId, r?.memberName, null))
+    apiPlans.forEach((p) => addStudent(p?.memberId, p?.memberName, null))
+    evaluations.forEach((ev) =>
+      addStudent(ev?.memberId, ev?.memberName, ev?.memberCode),
+    )
+    apiResults.forEach((res) =>
+      addStudent(res?.memberId, res?.memberName, null),
+    )
+    apiAttendances.forEach((att) =>
+      addStudent(att?.memberId, att?.memberName, att?.memberCode),
+    )
+
+    if (!apiEnabled || map.size === 0) {
+      ;(members || []).forEach((m) => addStudent(m?.id, m?.name, m?.code))
+    }
+
     return Array.from(map.values())
-  }, [members, advancedRegs, apiPlans, evaluations])
+  }, [
+    apiEnabled,
+    advancedRegs,
+    apiPlans,
+    evaluations,
+    apiResults,
+    apiAttendances,
+    members,
+  ])
 
   useEffect(() => {
-    if (!selectedMemberId && availableStudents.length > 0) {
-      setSelectedMemberId(String(availableStudents[0].id))
+    if (availableStudents.length > 0) {
+      const exists = availableStudents.some(
+        (s) => String(s.id) === String(selectedMemberId),
+      )
+      if (!selectedMemberId || !exists) {
+        setSelectedMemberId(String(availableStudents[0].id))
+      }
     }
   }, [availableStudents, selectedMemberId])
 
@@ -236,6 +264,38 @@ export function CoachTrainingProgress() {
     apiAttendances,
   ])
 
+  const getPlanSourceBadge = useCallback(
+    (p) => {
+      if (!p) return t("coachPlanTargetGeneral")
+      const hasMember =
+        p.memberId != null &&
+        String(p.memberId) !== "" &&
+        String(p.memberId) !== "null"
+      const hasClass =
+        p.classId != null &&
+        String(p.classId) !== "" &&
+        String(p.classId) !== "null"
+      const matchedClass = hasClass
+        ? classes.find((c) => String(c.id) === String(p.classId))
+        : null
+      const className = hasClass
+        ? p.className ||
+          matchedClass?.nameVi ||
+          matchedClass?.name ||
+          `Lớp #${p.classId}`
+        : ""
+
+      if (hasMember) {
+        return t("coachPlanSourcePersonal")
+      }
+      if (hasClass) {
+        return t("coachPlanSourceClass").replace("{className}", className)
+      }
+      return t("coachPlanTargetGeneral")
+    },
+    [classes, t],
+  )
+
   const formatPlanTargetLabel = useCallback(
     (p) => {
       if (!p) return t("coachPlanTargetGeneral")
@@ -251,7 +311,7 @@ export function CoachTrainingProgress() {
         ? p.memberName ||
           availableStudents.find((s) => String(s.id) === String(p.memberId))
             ?.name ||
-          `Học viên #${p.memberId}`
+          `Học viên ${formatMemberCode(p.memberId)}`
         : ""
       const matchedClass = hasClass
         ? classes.find((c) => String(c.id) === String(p.classId))
@@ -279,33 +339,54 @@ export function CoachTrainingProgress() {
     [availableStudents, classes, t],
   )
 
-  const activeStudentApiPlan = useMemo(() => {
-    if (!apiEnabled || apiPlans.length === 0) return null
+  // R2.3: Prioritize personal plans (memberId matches selected student), then class plans
+  const studentApplicablePlans = useMemo(() => {
+    if (!apiEnabled || apiPlans.length === 0) return []
     const memberIdStr = String(selectedMemberId || selectedStudent?.id || "")
-    return (
-      apiPlans.find((p) => memberIdStr && String(p.memberId) === memberIdStr) ||
-      apiPlans[0] ||
-      null
+    const personalPlans = apiPlans
+      .filter((p) => memberIdStr && String(p.memberId) === memberIdStr)
+      .sort((a, b) => Number(b.planId || b.id || 0) - Number(a.planId || a.id || 0))
+    const classLevelPlans = apiPlans.filter(
+      (p) =>
+        (p.memberId == null || String(p.memberId) === "" || String(p.memberId) === "null") &&
+        p.classId != null,
     )
+    return [...personalPlans, ...classLevelPlans]
   }, [apiEnabled, apiPlans, selectedMemberId, selectedStudent?.id])
 
-  // P3.2: Score trend chart data for the selected student (or all evaluations if none matched)
-  const scoreChartData = useMemo(() => {
+  const primaryStudentPlan = studentApplicablePlans[0] || null
+
+  // Student's evaluations & latest score (R2.4)
+  const studentEvaluations = useMemo(() => {
     const memberIdStr = String(selectedMemberId || selectedStudent?.id || "")
-    const studentEvals = evaluations.filter(
+    const filtered = evaluations.filter(
       (ev) => !memberIdStr || String(ev.memberId) === memberIdStr,
     )
-    const source = studentEvals.length > 0 ? studentEvals : evaluations
-    return [...source]
+    return filtered.length > 0 ? filtered : evaluations
+  }, [evaluations, selectedMemberId, selectedStudent?.id])
+
+  const latestEvaluationScore10 = useMemo(() => {
+    if (apiEnabled && studentEvaluations.length > 0) {
+      const latest = studentEvaluations[0]
+      const norm = normalizeScore(latest.progressScore)
+      if (norm != null) return norm
+    }
+    const norm = normalizeScore(progressScore)
+    return norm != null ? norm : 7.0
+  }, [apiEnabled, studentEvaluations, progressScore])
+
+  // P3.2 & R4.7: Score trend chart data
+  const scoreChartData = useMemo(() => {
+    return [...studentEvaluations]
       .reverse()
       .slice(-10)
       .map((ev, idx) => ({
         label: formatDate(ev.evaluationDate) || `Lần ${idx + 1}`,
         score: normalizeScore(ev.progressScore) ?? 0,
       }))
-  }, [evaluations, selectedMemberId, selectedStudent?.id])
+  }, [studentEvaluations])
 
-  // P3.2: Student attendance rate summary
+  // R2.4: Student attendance rate summary (Completed sessions Present/Late vs total recorded)
   const studentAttendanceSummary = useMemo(() => {
     const memberIdStr = String(selectedMemberId || selectedStudent?.id || "")
     const studentAtt = apiAttendances.filter(
@@ -313,7 +394,7 @@ export function CoachTrainingProgress() {
     )
     const total = studentAtt.length
     if (total === 0) {
-      return { total: 0, attended: 0, ratePercent: 100 }
+      return { total: 0, attended: 0, ratePercent: null }
     }
     const attended = studentAtt.filter((a) => {
       const s = String(a.state || "").toLowerCase()
@@ -479,16 +560,16 @@ export function CoachTrainingProgress() {
     }
   }
 
-  const normalizedScore10 = useMemo(() => {
+  const normalizedInputScore10 = useMemo(() => {
     const norm = normalizeScore(progressScore)
-    return norm != null ? norm : 8.0
+    return norm != null ? norm : 7.0
   }, [progressScore])
 
-  const displayPercent = scoreToBarWidthPercent(normalizedScore10)
+  const displayPercent = scoreToBarWidthPercent(latestEvaluationScore10)
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      {/* Sticky Student Selector + 4 Horizontal Tabs (P2.4) */}
+      {/* Sticky Student Selector + 4 Horizontal Tabs */}
       <div className="sticky top-0 z-10 bg-white border border-slate-200 p-4 rounded-lg shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -496,7 +577,7 @@ export function CoachTrainingProgress() {
               <Activity className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-900 tracking-tight">
+              <h2 className="text-base font-bold text-slate-900 tracking-tight">
                 {t("trainingProgress")}
               </h2>
               <p className="text-xs text-slate-500">
@@ -539,7 +620,7 @@ export function CoachTrainingProgress() {
                 >
                   {availableStudents.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.name}
+                      {m.name} ({m.code})
                     </option>
                   ))}
                 </select>
@@ -555,14 +636,17 @@ export function CoachTrainingProgress() {
         >
           {[
             { id: "overview", label: t("coachTabOverview") },
-            { id: "plans", label: `${t("coachTabPlans")} (${apiPlans.length})` },
+            {
+              id: "plans",
+              label: `${t("coachTabPlans")} (${studentApplicablePlans.length || apiPlans.length})`,
+            },
             {
               id: "logs",
               label: `${t("coachTabSessionLogs")} (${apiResults.length})`,
             },
             {
               id: "evaluations",
-              label: `${t("coachTabEvaluations")} (${evaluations.length})`,
+              label: `${t("coachTabEvaluations")} (${studentEvaluations.length})`,
             },
           ].map((tab) => (
             <button
@@ -586,140 +670,149 @@ export function CoachTrainingProgress() {
       {/* TAB 1: OVERVIEW */}
       {activeTab === "overview" && (
         <div className="space-y-6">
-          {(plan || activeStudentApiPlan) && (
-            <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-6 shadow-xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
-                <div>
-                  <span className="text-[10px] text-blue-800 font-mono font-bold uppercase">
-                    {t("coachAssignedStudentTag")}
-                  </span>
-                  <h3 className="text-base font-bold text-slate-900 mt-0.5">
+          <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-6 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+              <div>
+                <span className="text-[10px] text-blue-800 font-mono font-bold uppercase">
+                  {t("coachAssignedStudentTag")}
+                </span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <h3 className="text-base font-bold text-slate-900">
                     {selectedStudent?.name ||
-                      activeStudentApiPlan?.memberName ||
+                      primaryStudentPlan?.memberName ||
                       plan?.memberName ||
                       t("coachStudentLabel")}
                   </h3>
-                  <p className="text-xs text-slate-500">
-                    {t("coachMainCoachLabel")}:{" "}
-                    {currentUser?.name ||
-                      plan?.coachName ||
-                      t("coachDefaultCoachName")}
-                  </p>
+                  {selectedStudent?.code && (
+                    <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-xs font-mono font-semibold text-slate-700">
+                      {selectedStudent.code}
+                    </span>
+                  )}
                 </div>
-
-                <div className="flex flex-wrap items-center gap-6">
-                  {/* Attendance rate summary (P3.2) */}
-                  <div className="text-right">
-                    <div className="text-xs text-slate-600 font-bold mb-1 font-mono tabular-nums">
-                      {t("coachAttendanceRateTitle")}:{" "}
-                      {studentAttendanceSummary.ratePercent}% (
-                      {studentAttendanceSummary.attended}/
-                      {studentAttendanceSummary.total} buổi)
-                    </div>
-                    <div className="w-40 bg-slate-100 h-2 rounded overflow-hidden border border-slate-200 ml-auto">
-                      <div
-                        style={{
-                          width: `${studentAttendanceSummary.ratePercent}%`,
-                        }}
-                        className="bg-emerald-600 h-full rounded"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Progress Score 0-10 */}
-                  <div className="text-right">
-                    <div className="text-xs text-slate-600 font-bold mb-1 font-mono tabular-nums">
-                      {t("coachProgressScoreDisplay")}:{" "}
-                      {formatScore(normalizedScore10)}
-                    </div>
-                    <div className="w-44 bg-slate-100 h-2 rounded overflow-hidden border border-slate-200 ml-auto">
-                      <div
-                        style={{ width: `${displayPercent}%` }}
-                        className="bg-slate-900 h-full rounded"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded">
-                <div className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-1 whitespace-nowrap">
-                  {language === "vi" ? "Mục tiêu tập luyện" : "Training Goal"}
-                </div>
-                <p className="text-xs text-slate-800 font-medium">
-                  {apiEnabled
-                    ? activeStudentApiPlan?.goal ||
-                      "Chưa thiết lập mục tiêu tập luyện cho học viên này."
-                    : language === "vi"
-                      ? plan?.goalVi
-                      : plan?.goal}
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {t("coachMainCoachLabel")}:{" "}
+                  {currentUser?.name ||
+                    plan?.coachName ||
+                    t("coachDefaultCoachName")}
                 </p>
               </div>
 
-              {/* Structured or Plain-text Exercise Content (P3.1) */}
-              {apiEnabled ? (
-                activeStudentApiPlan?.content ? (
-                  <div className="p-4 bg-white border border-slate-200 rounded space-y-2">
-                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      {activeStudentApiPlan.title ||
-                        "Nội dung giáo án hiện tại"}
-                    </h4>
-                    <PlanContentView content={activeStudentApiPlan.content} />
+              <div className="flex flex-wrap items-center gap-6">
+                {/* R2.4: Attendance rate summary with formula tooltip */}
+                <div
+                  className="text-right"
+                  title={t("coachAttendanceRateTooltip")}
+                >
+                  <div className="text-xs text-slate-600 font-bold mb-1 font-mono tabular-nums inline-flex items-center gap-1">
+                    <span>
+                      {t("coachAttendanceRateTitle")}:{" "}
+                      {studentAttendanceSummary.ratePercent !== null
+                        ? `${studentAttendanceSummary.ratePercent}% (${studentAttendanceSummary.attended}/${studentAttendanceSummary.total} buổi)`
+                        : "Chưa có buổi"}
+                    </span>
+                    <Info className="w-3.5 h-3.5 text-slate-400" />
                   </div>
-                ) : null
-              ) : (
-                plan?.exercises && (
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 whitespace-nowrap">
-                      {language === "vi"
-                        ? "Danh sách bài tập thiết kế"
-                        : "Assigned Exercise Routine"}
-                    </h4>
-                    <div className="overflow-x-auto border border-slate-200 rounded">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-50 text-slate-600 uppercase tracking-wider font-bold border-b border-slate-200 whitespace-nowrap">
-                          <tr>
-                            <th className="py-2.5 px-3">
-                              {t("coachPlanBuilderExName")}
-                            </th>
-                            <th className="py-2.5 px-3">
-                              {t("coachPlanBuilderSets")}
-                            </th>
-                            <th className="py-2.5 px-3">
-                              {t("coachPlanBuilderReps")}
-                            </th>
-                            <th className="py-2.5 px-3">
-                              {t("coachLoadOrNoteLabel")}
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200 text-slate-800">
-                          {plan.exercises.map((ex, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50 h-[36px]">
-                              <td className="py-2 px-3 font-bold text-slate-900">
-                                {ex.name}
-                              </td>
-                              <td className="py-2 px-3 font-mono tabular-nums">
-                                {ex.sets}
-                              </td>
-                              <td className="py-2 px-3 font-mono tabular-nums">
-                                {ex.reps}
-                              </td>
-                              <td className="py-2 px-3 font-mono tabular-nums text-slate-700 font-semibold">
-                                {ex.weight || "Trọng lượng cơ thể"}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                  <div className="w-44 bg-slate-100 h-2 rounded overflow-hidden border border-slate-200 ml-auto">
+                    <div
+                      style={{
+                        width: `${studentAttendanceSummary.ratePercent ?? 0}%`,
+                      }}
+                      className="bg-emerald-600 h-full rounded"
+                    />
                   </div>
-                )
-              )}
-            </div>
-          )}
+                </div>
 
-          {/* P3.2: Progress Score Trend Chart (Recharts) */}
+                {/* R2.4: Progress Score 0-10 */}
+                <div className="text-right">
+                  <div className="text-xs text-slate-600 font-bold mb-1 font-mono tabular-nums">
+                    {t("coachProgressScoreDisplay")}:{" "}
+                    {formatScore(latestEvaluationScore10)}
+                  </div>
+                  <div className="w-44 bg-slate-100 h-2 rounded overflow-hidden border border-slate-200 ml-auto">
+                    <div
+                      style={{ width: `${displayPercent}%` }}
+                      className="bg-slate-900 h-full rounded"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* R2.3: Display all applicable plans for this student (personal first, then class fallback) with explicit source badge */}
+            {apiEnabled ? (
+              studentApplicablePlans.length === 0 ? (
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600">
+                  Chưa có giáo án nào cho học viên này. Bạn có thể tạo mới ở tab{" "}
+                  <strong>{t("coachTabPlans")}</strong>.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {studentApplicablePlans.map((p) => {
+                    const isPersonal =
+                      p.memberId != null &&
+                      String(p.memberId) !== "" &&
+                      String(p.memberId) !== "null"
+                    return (
+                      <div
+                        key={p.planId || p.id}
+                        className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2.5"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded text-xs font-bold border ${
+                                isPersonal
+                                  ? "bg-blue-100 text-blue-900 border-blue-200"
+                                  : "bg-slate-200 text-slate-800 border-slate-300"
+                              }`}
+                            >
+                              {getPlanSourceBadge(p)}
+                            </span>
+                            <h4 className="text-sm font-bold text-slate-900">
+                              {p.title || "Giáo án tập luyện"}
+                            </h4>
+                          </div>
+                          {(p.startDate || p.endDate) && (
+                            <span className="text-xs font-mono text-slate-500">
+                              {formatDate(p.startDate)} – {formatDate(p.endDate)}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-xs text-slate-800">
+                          <span className="font-bold text-slate-700">
+                            {language === "vi" ? "Mục tiêu: " : "Goal: "}
+                          </span>
+                          <span>{p.goal || "—"}</span>
+                        </div>
+
+                        {p.content && (
+                          <div className="pt-2 border-t border-slate-200">
+                            <PlanContentView content={p.content} />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            ) : (
+              plan && (
+                <div className="space-y-4">
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded">
+                    <div className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-1">
+                      {language === "vi" ? "Mục tiêu tập luyện" : "Training Goal"}
+                    </div>
+                    <p className="text-xs text-slate-800 font-medium">
+                      {language === "vi" ? plan.goalVi : plan.goal}
+                    </p>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+
+          {/* P3.2 & R4.7: Progress Score Trend Chart (Y-axis step 2: 0, 2, 4, 6, 8, 10 + hint when < 2 evaluations) */}
           {scoreChartData.length > 0 && (
             <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
@@ -731,6 +824,11 @@ export function CoachTrainingProgress() {
                   {scoreChartData.length} kỳ đánh giá
                 </span>
               </div>
+              {scoreChartData.length < 2 && (
+                <p className="text-xs text-slate-500 italic">
+                  {t("coachMinTwoEvalsHint")}
+                </p>
+              )}
               <div className="h-56 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
@@ -740,21 +838,25 @@ export function CoachTrainingProgress() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                     <XAxis
                       dataKey="label"
-                      tick={{ fontSize: 11, fill: "#475569" }}
+                      tick={{ fontSize: 12, fill: "#475569" }}
                     />
                     <YAxis
                       domain={[0, 10]}
-                      tick={{ fontSize: 11, fill: "#475569" }}
+                      ticks={[0, 2, 4, 6, 8, 10]}
+                      tick={{ fontSize: 12, fill: "#475569" }}
                     />
                     <Tooltip
-                      formatter={(val) => [`${Number(val).toFixed(1)}/10`, "Điểm"]}
+                      formatter={(val) => [
+                        `${Number(val).toFixed(1)}/10`,
+                        t("coachProgressScoreDisplay"),
+                      ]}
                     />
                     <Line
                       type="monotone"
                       dataKey="score"
                       stroke="#1D4ED8"
                       strokeWidth={2.5}
-                      dot={{ r: 4, fill: "#1D4ED8" }}
+                      dot={{ r: 5, fill: "#1D4ED8" }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -764,13 +866,13 @@ export function CoachTrainingProgress() {
         </div>
       )}
 
-      {/* TAB 2: TRAINING PLANS (P3.1 Structured PlanBuilder) */}
+      {/* TAB 2: TRAINING PLANS */}
       {activeTab === "plans" && (
         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <ClipboardList className="w-4 h-4 text-blue-700" />
-              <span>Thiết Kế Giáo Án Mới</span>
+              <span>Thiết kế giáo án mới</span>
             </h3>
             <span className="text-xs font-mono text-slate-500">
               {apiPlans.length} giáo án đã lưu
@@ -838,7 +940,6 @@ export function CoachTrainingProgress() {
               </div>
             </div>
 
-            {/* P3.1: Structured Exercise Builder + General Notes */}
             <PlanBuilder
               exercises={planExercises}
               onExercisesChange={setPlanExercises}
@@ -854,7 +955,7 @@ export function CoachTrainingProgress() {
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>
-                  {savingPlan ? "Đang lưu..." : "Lưu Giáo Án Tập Luyện"}
+                  {savingPlan ? "Đang lưu..." : "Lưu giáo án tập luyện"}
                 </span>
               </button>
             </div>
@@ -867,9 +968,14 @@ export function CoachTrainingProgress() {
                   key={p.planId || p.id}
                   className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-2"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-bold text-slate-900">
-                      {p.title} &bull; {formatPlanTargetLabel(p)}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-white border border-slate-300 text-slate-700 font-semibold">
+                        {getPlanSourceBadge(p)}
+                      </span>
+                      <span className="font-bold text-slate-900">
+                        {p.title} &bull; {formatPlanTargetLabel(p)}
+                      </span>
                     </div>
                     {(p.startDate || p.endDate) && (
                       <span className="text-[11px] font-mono text-slate-500">
@@ -903,7 +1009,7 @@ export function CoachTrainingProgress() {
           <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-              <span>Ghi Nhận Kết Quả Buổi Tập</span>
+              <span>Ghi nhận kết quả buổi tập</span>
             </h3>
             <span className="text-xs font-mono text-slate-500">
               {apiResults.length} bản ghi
@@ -976,7 +1082,7 @@ export function CoachTrainingProgress() {
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>
-                  {savingResult ? "Đang lưu..." : "Ghi Nhận Kết Quả Buổi Tập"}
+                  {savingResult ? "Đang lưu..." : "Ghi nhận kết quả buổi tập"}
                 </span>
               </button>
             </div>
@@ -991,7 +1097,7 @@ export function CoachTrainingProgress() {
                     (s) => String(s.id) === String(r.memberId),
                   )?.name ||
                   (r.memberId
-                    ? `Học viên #${r.memberId}`
+                    ? `Học viên ${formatMemberCode(r.memberId)}`
                     : t("coachStudentLabel"))
                 const sessionLabel =
                   r.className ||
@@ -1041,14 +1147,14 @@ export function CoachTrainingProgress() {
               </label>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-600">
-                  Điểm tiến độ (Thang 0 – 10):
+                  Điểm tiến độ (thang 0 – 10):
                 </span>
                 <input
                   type="number"
                   min={0}
                   max={10}
                   step="0.5"
-                  value={normalizedScore10}
+                  value={normalizedInputScore10}
                   onChange={(e) => setProgressScore(Number(e.target.value))}
                   className="w-20 bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold text-slate-900"
                 />
@@ -1069,7 +1175,7 @@ export function CoachTrainingProgress() {
                 className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
                 <Save className="w-3.5 h-3.5" />
-                <span>{saving ? "Đang lưu..." : "Lưu Đánh Giá Tiến Độ"}</span>
+                <span>{saving ? "Đang lưu..." : "Lưu đánh giá tiến độ"}</span>
               </button>
             </div>
           </div>
@@ -1079,7 +1185,7 @@ export function CoachTrainingProgress() {
               <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                   <Award className="w-4 h-4 text-emerald-700" />
-                  <span>Lịch Sử Đánh Giá Học Viên ({evaluations.length})</span>
+                  <span>Lịch sử đánh giá học viên ({evaluations.length})</span>
                 </h3>
               </div>
               <div className="space-y-2">
@@ -1091,7 +1197,7 @@ export function CoachTrainingProgress() {
                         (s) => String(s.id) === String(ev.memberId),
                       )?.name ||
                       (ev.memberId
-                        ? `Học viên #${ev.memberId}`
+                        ? `Học viên ${formatMemberCode(ev.memberId)}`
                         : t("coachStudentLabel"))
                     return (
                       <div

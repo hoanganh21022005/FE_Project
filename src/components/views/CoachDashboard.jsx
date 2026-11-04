@@ -3,6 +3,7 @@ import { useSCMS } from "../../context/SCMSContext"
 import { formatDate } from "../../locales/translations"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { memberApi } from "../../api/memberApi"
+import { attendanceApi } from "../../api/attendanceApi"
 import { getCatalogClassSessions } from "../../api/managerApi"
 import { isSessionCancelled } from "../../utils/permissions"
 import {
@@ -15,6 +16,7 @@ import {
   Star,
   AlertTriangle,
   MessageSquare,
+  HelpCircle,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -44,8 +46,10 @@ export function CoachDashboard() {
     feedback: [],
   })
   const [atRiskMembers, setAtRiskMembers] = useState([])
-  const [ptRegistrationsCount, setPtRegistrationsCount] = useState(null)
+  const [advRegistrations, setAdvRegistrations] = useState([])
   const [sessionsByClassId, setSessionsByClassId] = useState({})
+  const [coachSessions, setCoachSessions] = useState([])
+  const [attendanceRecords, setAttendanceRecords] = useState([])
 
   const myClasses = useMemo(() => {
     const resolvedCoachId = currentUser.coachId || currentUser.id
@@ -64,6 +68,7 @@ export function CoachDashboard() {
   useEffect(() => {
     if (!apiEnabled) return
     let active = true
+    const resolvedCoachId = currentUser.coachId || currentUser.id
     Promise.all([
       memberPortalApi.getCoachFeedback().catch(() => ({
         totalFeedback: 0,
@@ -74,30 +79,186 @@ export function CoachDashboard() {
       memberPortalApi.getAdvancedRegistrations().catch(() => []),
       Promise.all(
         myClasses.map((cls) =>
-          getCatalogClassSessions(cls.id, { notifyForbidden: false })
-            .then((list) => [String(cls.id), Array.isArray(list) ? list : []])
-            .catch(() => [String(cls.id), []]),
+          Promise.all([
+            attendanceApi.getSessions({ classId: cls.id }).catch(() => []),
+            getCatalogClassSessions(cls.id, { notifyForbidden: false }).catch(
+              () => [],
+            ),
+          ]).then(([directList, catalogList]) => {
+            const byId = new Map()
+            ;(Array.isArray(directList) ? directList : []).forEach((s) => {
+              if (s?.id != null) byId.set(String(s.id), s)
+            })
+            ;(Array.isArray(catalogList) ? catalogList : []).forEach((s) => {
+              if (s?.id != null && !byId.has(String(s.id))) {
+                byId.set(String(s.id), s)
+              }
+            })
+            return [String(cls.id), Array.from(byId.values())]
+          }),
         ),
       ),
-    ]).then(([fbData, riskList, advList, sessionEntries]) => {
-      if (!active) return
-      if (fbData) setCoachFeedbackSummary(fbData)
-      if (Array.isArray(riskList)) setAtRiskMembers(riskList)
-      if (Array.isArray(advList)) {
-        const activeOrAccepted = advList.filter((r) => {
-          const st = String(r.status || "").toLowerCase()
-          return r.subscriptionId || (st !== "rejected" && st !== "cancelled")
-        })
-        setPtRegistrationsCount(activeOrAccepted.length)
-      }
-      if (Array.isArray(sessionEntries)) {
-        setSessionsByClassId(Object.fromEntries(sessionEntries))
-      }
-    })
+      attendanceApi
+        .getSessions(resolvedCoachId ? { coachId: resolvedCoachId } : {})
+        .catch(() => []),
+      attendanceApi.searchAttendances().catch(() => []),
+    ]).then(
+      ([
+        fbData,
+        riskList,
+        advList,
+        sessionEntries,
+        allCoachSessions,
+        attList,
+      ]) => {
+        if (!active) return
+        if (fbData) setCoachFeedbackSummary(fbData)
+        if (Array.isArray(riskList)) setAtRiskMembers(riskList)
+        if (Array.isArray(advList)) setAdvRegistrations(advList)
+        if (Array.isArray(sessionEntries)) {
+          setSessionsByClassId(Object.fromEntries(sessionEntries))
+        }
+        if (Array.isArray(allCoachSessions)) {
+          setCoachSessions(allCoachSessions)
+        }
+        if (Array.isArray(attList)) {
+          setAttendanceRecords(attList)
+        }
+      },
+    )
     return () => {
       active = false
     }
-  }, [apiEnabled, myClasses])
+  }, [apiEnabled, myClasses, currentUser.coachId, currentUser.id])
+
+  // R2.1: Count unique PT students by memberId (and total active/accepted PT packages separately)
+  const ptStats = useMemo(() => {
+    const activeOrAccepted = advRegistrations.filter((r) => {
+      const st = String(r.status || "").toLowerCase()
+      return (
+        r.subscriptionId ||
+        (st !== "rejected" &&
+          st !== "declined" &&
+          st !== "cancelled" &&
+          st !== "requested" &&
+          st !== "pending")
+      )
+    })
+    const uniqueMemberIds = new Set(
+      activeOrAccepted
+        .map((r) => (r.memberId != null ? String(r.memberId) : null))
+        .filter(Boolean),
+    )
+    return {
+      uniqueStudentCount: uniqueMemberIds.size,
+      packageCount: activeOrAccepted.length,
+    }
+  }, [advRegistrations])
+
+  // Merge all real sessions belonging to this coach (class sessions + PT sessions)
+  const allKnownSessions = useMemo(() => {
+    const byId = new Map()
+    Object.values(sessionsByClassId).forEach((list) => {
+      ;(Array.isArray(list) ? list : []).forEach((s) => {
+        if (s?.id != null) byId.set(String(s.id), s)
+      })
+    })
+    coachSessions.forEach((s) => {
+      if (s?.id != null && !byId.has(String(s.id))) {
+        byId.set(String(s.id), s)
+      }
+    })
+    return Array.from(byId.values())
+  }, [sessionsByClassId, coachSessions])
+
+  // R2.1: Real attendance rate & weekly breakdown ONLY for days with real sessions/records
+  const realAttendanceMetrics = useMemo(() => {
+    const mySessionIds = new Set(allKnownSessions.map((s) => String(s.id)))
+    const sessionById = new Map(allKnownSessions.map((s) => [String(s.id), s]))
+
+    const validRecords = attendanceRecords.filter((rec) => {
+      if (mySessionIds.size > 0 && rec.sessionId != null) {
+        return mySessionIds.has(String(rec.sessionId))
+      }
+      return true
+    })
+
+    let attendedCount = 0
+    let totalRecorded = 0
+
+    // Group by weekday (1=Mon .. 6=Sat, 0=Sun)
+    const dayBuckets = new Map()
+
+    validRecords.forEach((rec) => {
+      const st = String(rec.status || "").toLowerCase()
+      if (!st || st === "unmarked") return
+      totalRecorded += 1
+      const isAttended = st === "present" || st === "late"
+      if (isAttended) attendedCount += 1
+
+      const ses = sessionById.get(String(rec.sessionId))
+      const rawDate = ses?.sessionDate || ses?.date || rec.checkInTime
+      if (rawDate) {
+        const d = new Date(
+          String(rawDate).length === 10
+            ? `${rawDate}T00:00:00`
+            : String(rawDate),
+        )
+        if (!Number.isNaN(d.getTime())) {
+          const dayIdx = d.getDay() // 0..6
+          const cur = dayBuckets.get(dayIdx) || { attended: 0, total: 0 }
+          cur.total += 1
+          if (isAttended) cur.attended += 1
+          dayBuckets.set(dayIdx, cur)
+        }
+      }
+    })
+
+    const overallRate =
+      totalRecorded > 0 ? Math.round((attendedCount / totalRecorded) * 100) : null
+
+    const dayOrder = [1, 2, 3, 4, 5, 6, 0]
+    const dayLabelsVi = {
+      1: "Thứ 2",
+      2: "Thứ 3",
+      3: "Thứ 4",
+      4: "Thứ 5",
+      5: "Thứ 6",
+      6: "Thứ 7",
+      0: "CN",
+    }
+    const dayLabelsEn = {
+      1: "Mon",
+      2: "Tue",
+      3: "Wed",
+      4: "Thu",
+      5: "Fri",
+      6: "Sat",
+      0: "Sun",
+    }
+
+    const weeklyBars = dayOrder
+      .filter((dayIdx) => {
+        const b = dayBuckets.get(dayIdx)
+        return b && b.total > 0
+      })
+      .map((dayIdx) => {
+        const b = dayBuckets.get(dayIdx)
+        return {
+          day: language === "vi" ? dayLabelsVi[dayIdx] : dayLabelsEn[dayIdx],
+          rate: Math.round((b.attended / b.total) * 100),
+          attended: b.attended,
+          total: b.total,
+        }
+      })
+
+    return {
+      overallRate,
+      attendedCount,
+      totalRecorded,
+      weeklyBars,
+    }
+  }, [allKnownSessions, attendanceRecords, language])
 
   const feedbackItems = useMemo(() => {
     if (apiEnabled && coachFeedbackSummary.feedback?.length > 0) {
@@ -137,16 +298,6 @@ export function CoachDashboard() {
     }
   })
 
-  const weeklyAttendanceData = [
-    { day: language === "vi" ? "Thứ 2" : "Mon", rate: 92 },
-    { day: language === "vi" ? "Thứ 3" : "Tue", rate: 96 },
-    { day: language === "vi" ? "Thứ 4" : "Wed", rate: 88 },
-    { day: language === "vi" ? "Thứ 5" : "Thu", rate: 95 },
-    { day: language === "vi" ? "Thứ 6" : "Fri", rate: 100 },
-    { day: language === "vi" ? "Thứ 7" : "Sat", rate: 98 },
-    { day: language === "vi" ? "CN" : "Sun", rate: 90 },
-  ]
-
   const handleGoToAttendance = (cls) => {
     if (typeof window !== "undefined" && cls?.id) {
       sessionStorage.setItem(
@@ -184,8 +335,8 @@ export function CoachDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase">
-              {language === "vi" ? "Lớp phụ trách" : "Assigned Classes"}
+            <span className="text-xs font-bold text-slate-500">
+              {language === "vi" ? "Lớp phụ trách" : "Assigned classes"}
             </span>
             <Calendar className="w-4 h-4 text-brand-accent-dark" />
           </div>
@@ -196,39 +347,64 @@ export function CoachDashboard() {
 
         <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase">
-              {language === "vi" ? "Học viên PT chính" : "PT Students"}
+            <span className="text-xs font-bold text-slate-500">
+              {language === "vi" ? "Học viên PT chính" : "PT students"}
             </span>
             <Users className="w-4 h-4 text-brand-purple" />
           </div>
-          <div className="text-2xl font-bold text-slate-900 tabular-nums mt-2">
-            {apiEnabled && ptRegistrationsCount !== null ? ptRegistrationsCount : 8}
+          <div className="text-2xl font-bold text-slate-900 tabular-nums mt-2 flex items-baseline gap-2">
+            <span>{apiEnabled ? ptStats.uniqueStudentCount : 1}</span>
+            {apiEnabled && ptStats.packageCount > 0 && (
+              <span className="text-xs font-normal text-slate-500">
+                ({ptStats.packageCount} {t("coachPkgLabel")})
+              </span>
+            )}
           </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase">
-              {language === "vi" ? "Tỷ lệ điểm danh" : "Attendance Rate"}
+            <span
+              className="text-xs font-bold text-slate-500 flex items-center gap-1 cursor-help"
+              title={t("coachAttendanceFormulaTooltip")}
+            >
+              <span>
+                {language === "vi" ? "Tỷ lệ điểm danh" : "Attendance rate"}
+              </span>
+              <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
             </span>
             <ClipboardCheck className="w-4 h-4 text-brand-teal" />
           </div>
-          <div className="text-2xl font-bold text-brand-teal-dark tabular-nums mt-2">
-            96.8%
-          </div>
+          {realAttendanceMetrics.overallRate !== null ? (
+            <div className="mt-2">
+              <div className="text-2xl font-bold text-brand-teal-dark tabular-nums">
+                {realAttendanceMetrics.overallRate}%
+              </div>
+              <div className="text-xs text-slate-500 mt-0.5">
+                {realAttendanceMetrics.attendedCount}/
+                {realAttendanceMetrics.totalRecorded}{" "}
+                {language === "vi" ? "lượt có mặt" : "attended"}
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm font-semibold text-slate-500 mt-3">
+              {t("coachInsufficientData")}
+            </div>
+          )}
         </div>
 
         <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase">
-              {language === "vi" ? "Đánh giá HLV" : "Coach Rating"}
+            <span className="text-xs font-bold text-slate-500">
+              {language === "vi" ? "Đánh giá HLV" : "Coach rating"}
             </span>
             <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
           </div>
           <div className="text-2xl font-bold text-amber-700 tabular-nums mt-2">
             {averageRating}{" "}
             <span className="text-xs font-normal text-slate-500">
-              / 5.0 ({feedbackItems.length} đánh giá)
+              / 5.0 ({feedbackItems.length}{" "}
+              {language === "vi" ? "đánh giá" : "reviews"})
             </span>
           </div>
         </div>
@@ -243,13 +419,10 @@ export function CoachDashboard() {
               <BarChart3 className="w-4 h-4 text-blue-700 shrink-0" />
               <h3 className="text-sm font-bold text-slate-900 whitespace-nowrap">
                 {language === "vi"
-                  ? "Thống Kê Sức Chứa & Đăng Ký Lớp"
-                  : "Class Enrollment vs Capacity"}
+                  ? "Thống kê sức chứa & đăng ký lớp"
+                  : "Class enrollment vs capacity"}
               </h3>
             </div>
-            <span className="text-[11px] text-slate-500 font-mono">
-              Tài khoản Coach
-            </span>
           </div>
 
           <div className="h-56 w-full">
@@ -265,9 +438,9 @@ export function CoachDashboard() {
                 />
                 <XAxis
                   dataKey="name"
-                  tick={{ fontSize: 11, fill: "#64748B" }}
+                  tick={{ fontSize: 12, fill: "#64748B" }}
                 />
-                <YAxis tick={{ fontSize: 11, fill: "#64748B" }} />
+                <YAxis tick={{ fontSize: 12, fill: "#64748B" }} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "#FFFFFF",
@@ -296,57 +469,81 @@ export function CoachDashboard() {
           </div>
         </div>
 
-        {/* Weekly Attendance Trend Chart */}
+        {/* Weekly Attendance Trend Chart (R2.1: only real data, no fake numbers) */}
         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs">
           <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-3">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-emerald-700 shrink-0" />
-              <h3 className="text-sm font-bold text-slate-900 whitespace-nowrap">
-                {language === "vi"
-                  ? "Thống Kê Tỷ Lệ Điểm Danh Trong Tuần (%)"
-                  : "Weekly Attendance Rate (%)"}
+              <h3
+                className="text-sm font-bold text-slate-900 flex items-center gap-1.5 cursor-help"
+                title={t("coachAttendanceFormulaTooltip")}
+              >
+                <span>
+                  {language === "vi"
+                    ? "Tỷ lệ điểm danh theo ngày có ca dạy (%)"
+                    : "Attendance rate by teaching day (%)"}
+                </span>
+                <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
               </h3>
             </div>
-            <span className="text-[11px] text-emerald-700 font-bold font-mono">
-              TB: 96.8%
-            </span>
+            {realAttendanceMetrics.overallRate !== null && (
+              <span className="text-xs text-emerald-700 font-bold font-mono">
+                TB: {realAttendanceMetrics.overallRate}%
+              </span>
+            )}
           </div>
 
-          <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={weeklyAttendanceData}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke="#E2E8F0"
-                />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#64748B" }} />
-                <YAxis
-                  domain={[0, 100]}
-                  tick={{ fontSize: 11, fill: "#64748B" }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#FFFFFF",
-                    borderRadius: "6px",
-                    border: "1px solid #CBD5E1",
-                    fontSize: "12px",
-                  }}
-                />
-                <Bar
-                  dataKey="rate"
-                  name={
-                    language === "vi" ? "Tỷ lệ điểm danh (%)" : "Attendance %"
-                  }
-                  fill="var(--brand-teal)"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {realAttendanceMetrics.weeklyBars.length === 0 ? (
+            <div className="h-56 w-full flex flex-col items-center justify-center bg-slate-50 border border-dashed border-slate-200 rounded-lg p-4 text-center">
+              <p className="text-sm font-semibold text-slate-700">
+                {t("coachInsufficientData")}
+              </p>
+              <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                {language === "vi"
+                  ? "Biểu đồ sẽ hiển thị tỷ lệ chuyên cần thực tế sau khi có dữ liệu điểm danh các buổi học."
+                  : "Chart will display actual attendance rates once session attendance is recorded."}
+              </p>
+            </div>
+          ) : (
+            <div className="h-56 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={realAttendanceMetrics.weeklyBars}
+                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#E2E8F0"
+                  />
+                  <XAxis
+                    dataKey="day"
+                    tick={{ fontSize: 12, fill: "#64748B" }}
+                  />
+                  <YAxis
+                    domain={[0, 100]}
+                    tick={{ fontSize: 12, fill: "#64748B" }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#FFFFFF",
+                      borderRadius: "6px",
+                      border: "1px solid #CBD5E1",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <Bar
+                    dataKey="rate"
+                    name={
+                      language === "vi" ? "Tỷ lệ điểm danh (%)" : "Attendance %"
+                    }
+                    fill="var(--brand-teal)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </div>
 

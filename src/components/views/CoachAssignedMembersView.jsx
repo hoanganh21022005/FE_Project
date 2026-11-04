@@ -6,6 +6,7 @@ import { formatDate } from "../../utils/datetime"
 import { formatScore, scoreToBarWidthPercent } from "../../utils/score"
 import { memberApi } from "../../api/memberApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
+import { attendanceApi } from "../../api/attendanceApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import { parseVietnamDateTime } from "../../utils/memberSafetyHelpers"
 import {
@@ -304,6 +305,8 @@ export function CoachAssignedMembersView() {
 
   const [atRiskIds, setAtRiskIds] = useState(new Set())
   const [advancedRequests, setAdvancedRequests] = useState([])
+  const [coachSessions, setCoachSessions] = useState([])
+  const [coachTrainingResults, setCoachTrainingResults] = useState([])
   const [loadingRequests, setLoadingRequests] = useState(false)
   const [requestsError, setRequestsError] = useState(null)
   const [decidingId, setDecidingId] = useState(null)
@@ -392,6 +395,7 @@ export function CoachAssignedMembersView() {
   useEffect(() => {
     if (!apiEnabled) return
     let active = true
+    const resolvedCoachId = currentUser?.coachId || currentUser?.id
     memberApi
       .getCoachAtRiskMembers()
       .then((list) => {
@@ -399,12 +403,26 @@ export function CoachAssignedMembersView() {
         setAtRiskIds(new Set(list.map((item) => String(item.memberId))))
       })
       .catch(() => {})
+    attendanceApi
+      .getSessions(resolvedCoachId ? { coachId: resolvedCoachId } : {})
+      .then((list) => {
+        if (!active || !Array.isArray(list)) return
+        setCoachSessions(list)
+      })
+      .catch(() => {})
+    memberApi
+      .getTrainingResults(resolvedCoachId ? { coachId: resolvedCoachId } : {})
+      .then((list) => {
+        if (!active || !Array.isArray(list)) return
+        setCoachTrainingResults(list)
+      })
+      .catch(() => {})
     loadAdvancedRequests().catch(() => {})
     loadRooms().catch(() => {})
     return () => {
       active = false
     }
-  }, [apiEnabled, loadAdvancedRequests, loadRooms])
+  }, [apiEnabled, loadAdvancedRequests, loadRooms, currentUser?.coachId, currentUser?.id])
 
   // Fetch slots for modal with strict token check
   const fetchAvailableSlots = useCallback(
@@ -1461,6 +1479,67 @@ export function CoachAssignedMembersView() {
                       </button>
                     </div>
 
+                    {/* R2.2: Check if student has any Completed PT session without a logged training result */}
+                    {(() => {
+                      const loggedSessionIds = new Set(
+                        coachTrainingResults
+                          .filter(
+                            (r) =>
+                              String(r.memberId) ===
+                              String(studentGroup.memberId),
+                          )
+                          .map((r) => String(r.sessionId)),
+                      )
+                      const unloggedCompletedPt = coachSessions.find(
+                        (s) =>
+                          s.isPrivate === true &&
+                          String(s.bookedMemberId) ===
+                            String(studentGroup.memberId) &&
+                          String(s.status || "").toLowerCase() ===
+                            "completed" &&
+                          !loggedSessionIds.has(String(s.id)),
+                      )
+                      if (!unloggedCompletedPt) return null
+                      return (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+                            <span>
+                              {t("coachPtCompletedNoResultHint")} (
+                              <strong>
+                                {formatDate(unloggedCompletedPt.sessionDate)}
+                              </strong>
+                              )
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (typeof window !== "undefined") {
+                                sessionStorage.setItem(
+                                  "scms_selected_progress_member_id",
+                                  String(studentGroup.memberId),
+                                )
+                                sessionStorage.setItem(
+                                  "scms_selected_progress_tab",
+                                  "logs",
+                                )
+                                sessionStorage.setItem(
+                                  "scms_selected_progress_session_id",
+                                  String(unloggedCompletedPt.id),
+                                )
+                              }
+                              setCurrentTab("trainingProgress")
+                              navigate("/coach/progress")
+                            }}
+                            className="px-2.5 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded font-bold cursor-pointer shrink-0 self-start sm:self-auto"
+                          >
+                            {t("coachBtnLogResult")}
+                          </button>
+                        </div>
+                      )
+                    })()}
+
                     {/* List of PT Packages belonging to this student (P2.4) */}
                     <div className="space-y-3">
                       {studentGroup.packages.map((item) => {
@@ -1471,15 +1550,24 @@ export function CoachAssignedMembersView() {
                           getPackageActionBlockReason(item, t) || entitlement.reason
 
                         const credit = Number(item.remainingCredit ?? 0)
-                        const totalCredit = Math.max(
-                          credit,
-                          Number(item.totalCredit || item.totalSessions || 10),
-                        )
-                        const usedCredit = Math.max(0, totalCredit - credit)
+                        const hasExplicitTotal =
+                          item.totalCredit != null || item.totalSessions != null
+                        const totalCredit = hasExplicitTotal
+                          ? Math.max(
+                              credit,
+                              Number(item.totalCredit || item.totalSessions),
+                            )
+                          : null
+                        const usedCredit =
+                          totalCredit != null
+                            ? Math.max(0, totalCredit - credit)
+                            : null
                         const progressPct =
-                          totalCredit > 0
+                          totalCredit != null && totalCredit > 0
                             ? Math.min(100, Math.round((credit / totalCredit) * 100))
-                            : 0
+                            : credit > 0
+                              ? 100
+                              : 0
 
                         const rawStatus = String(
                           item.subscriptionStatus || item.status || "",
@@ -1527,7 +1615,7 @@ export function CoachAssignedMembersView() {
                               />
                             </div>
 
-                            {/* Remaining sessions progress bar */}
+                            {/* Remaining sessions display (R2.2: only show real remainingCredit when totalCredit is omitted by BE) */}
                             <div className="space-y-1">
                               <div className="flex items-center justify-between text-slate-700">
                                 <span className="font-medium text-slate-600">
@@ -1538,17 +1626,24 @@ export function CoachAssignedMembersView() {
                                     credit > 0 ? "text-emerald-700" : "text-rose-600"
                                   }`}
                                 >
-                                  Còn {credit}/{totalCredit} buổi (Đã tập {usedCredit})
+                                  {totalCredit != null
+                                    ? `Còn ${credit}/${totalCredit} buổi (Đã tập ${usedCredit})`
+                                    : t("coachAvailableSessionsCount").replace(
+                                        "{count}",
+                                        String(credit),
+                                      )}
                                 </span>
                               </div>
-                              <div className="w-full h-1.5 bg-slate-200 rounded overflow-hidden">
-                                <div
-                                  style={{ width: `${progressPct}%` }}
-                                  className={`h-full rounded ${
-                                    credit > 0 ? "bg-emerald-600" : "bg-rose-500"
-                                  }`}
-                                />
-                              </div>
+                              {totalCredit != null && (
+                                <div className="w-full h-1.5 bg-slate-200 rounded overflow-hidden">
+                                  <div
+                                    style={{ width: `${progressPct}%` }}
+                                    className={`h-full rounded ${
+                                      credit > 0 ? "bg-emerald-600" : "bg-rose-500"
+                                    }`}
+                                  />
+                                </div>
+                              )}
                             </div>
 
                             <div className="flex items-center justify-between text-slate-600 pt-1">
