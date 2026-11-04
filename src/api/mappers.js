@@ -70,10 +70,14 @@ export function mapSession(item) {
     sessionDate: item.sessionDate ?? null,
     startTime: item.startTime ?? null,
     endTime: item.endTime ?? null,
-    status: item.status ?? null,
+    status: item.status ?? (item.centerInvalidated === true ? "Cancelled" : null),
+    centerInvalidated: item.centerInvalidated === true,
+    sessionNumber: asNumber(item.sessionNumber),
     enrolledCount: asNumber(item.enrolledCount),
     maxCapacity: asNumber(item.maxCapacity),
     isPrivate: item.isPrivate === true,
+    bookedMemberId: asNumber(item.bookedMemberId),
+    bookedMemberName: item.bookedMemberName ?? null,
   }
 }
 

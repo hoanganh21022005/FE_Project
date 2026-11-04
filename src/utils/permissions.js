@@ -21,6 +21,16 @@ export function normalizeSessionStatus(session) {
   if (raw === 'scheduled' || raw === 'upcoming') return 'Scheduled';
   if (raw === 'completed' || raw === 'done' || raw === 'finished') return 'Completed';
   if (raw === 'cancelled' || raw === 'canceled' || raw === 'invalidated') return 'Cancelled';
+  if (!raw && session.sessionDate) {
+    const dateStr = String(session.sessionDate).slice(0, 10);
+    const todayStr = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    return dateStr < todayStr ? 'Completed' : 'Scheduled';
+  }
   return String(session.status || '').trim();
 }
 
