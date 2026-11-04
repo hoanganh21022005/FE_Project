@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency, formatDate } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
+import { ManagerDashboardInsights } from './ManagerDashboardInsights';
 import {
   Users, Clock, Calendar, CreditCard,
   ArrowUpRight, AlertTriangle, Activity
@@ -59,6 +60,7 @@ export function ManagerDashboard({ onNavigate }) {
         </section>
         {dashboardLoading && <p className="text-xs text-stone-500">{language === 'vi' ? 'Đang tải số liệu tổng quan…' : 'Loading dashboard metrics…'}</p>}
         {dashboardError && <p role="alert" className="rounded border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">{dashboardError}</p>}
+        <ManagerDashboardInsights navigate={navigate} />
       </div>
     );
   }

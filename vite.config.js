@@ -44,14 +44,6 @@ export default defineConfig(({ mode }) => {
               proxyReq.removeHeader("origin")
               proxyReq.removeHeader("referer")
             })
-            proxy.on("proxyRes", (proxyRes) => {
-              const sc = proxyRes.headers["set-cookie"]
-              if (sc) {
-                proxyRes.headers["set-cookie"] = sc.map((c) =>
-                  c.replace(/;\s*Secure/gi, ""),
-                )
-              }
-            })
           },
         },
       },

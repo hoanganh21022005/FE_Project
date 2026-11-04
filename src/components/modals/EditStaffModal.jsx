@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { X, Edit2, AlertCircle } from 'lucide-react';
+import { publicSports } from '../../data/publicCoaches';
 
 export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
   const { updateStaff, language } = useSCMS();
@@ -21,6 +22,12 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
   const emailRef = useRef(null);
 
   if (!isOpen || !staffMember) return null;
+
+  const currentSpecialization = String(formData.specialization || '').trim();
+  const currentSpecializationKey = currentSpecialization.toLocaleLowerCase();
+  const hasKnownSpecialization = publicSports.some(sport =>
+    [sport.title, sport.titleEn].some(value => value.toLocaleLowerCase() === currentSpecializationKey)
+  );
 
   const handleChange = (field, value) => {
     setFormData(prev => ({
@@ -200,13 +207,25 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     {language === 'vi' ? 'Chuyên môn' : 'Specialization'}
                   </label>
-                  <input
-                    type="text"
-                    placeholder={language === 'vi' ? 'Yoga, Boxing, HIIT...' : 'Yoga, Boxing, HIIT...'}
-                    value={formData.specialization}
+                  <select
+                    value={currentSpecialization}
                     onChange={e => handleChange('specialization', e.target.value)}
                     className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white focus:border-brand-primary"
-                  />
+                  >
+                    <option value="">{language === 'vi' ? 'Chọn môn chuyên môn...' : 'Select a specialization...'}</option>
+                    {currentSpecialization && !hasKnownSpecialization && (
+                      <option value={currentSpecialization}>{currentSpecialization}</option>
+                    )}
+                    {publicSports.map(sport => {
+                      const matchesCurrentValue = [sport.title, sport.titleEn]
+                        .some(value => value.toLocaleLowerCase() === currentSpecializationKey);
+                      return (
+                        <option key={sport.id} value={matchesCurrentValue ? currentSpecialization : sport.title}>
+                          {language === 'vi' ? sport.title : sport.titleEn}
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
               )}
             </div>
