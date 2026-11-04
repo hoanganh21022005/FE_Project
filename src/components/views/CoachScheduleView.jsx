@@ -132,7 +132,10 @@ export function CoachScheduleView() {
   const [apiSessions, setApiSessions] = useState([])
   const [loadingSessions, setLoadingSessions] = useState(false)
   const [absenceNoticesBySession, setAbsenceNoticesBySession] = useState({})
-  const [loadingNoticesId, setLoadingNoticesId] = useState(null)
+  const [expandedNoticeSessionIds, setExpandedNoticeSessionIds] = useState({})
+  const [loggedResultSessionIds, setLoggedResultSessionIds] = useState(
+    () => new Set(),
+  )
 
   // Work schedule state (/api/coaches/{id}/work-schedule)
   const [acceptingNew, setAcceptingNew] = useState(true)
@@ -162,15 +165,55 @@ export function CoachScheduleView() {
           .catch(() => []),
       )
 
-      const [generalSessions, catalogArrays, workData] = await Promise.all([
+      const classSessionPromises = myClasses.map((cls) =>
+        memberPortalApi
+          .getClassSessions({ classId: cls.id })
+          .then((list) =>
+            Array.isArray(list)
+              ? list.map((s) => ({
+                  ...s,
+                  classId: s.classId ?? cls.id,
+                  className: s.className || cls.nameVi || cls.name,
+                  subjectName: s.subjectName || cls.category || "Thể thao",
+                  enrolledCount: s.enrolledCount ?? cls.enrolledCount ?? 0,
+                  maxCapacity: s.maxCapacity ?? cls.capacity ?? 12,
+                }))
+              : [],
+          )
+          .catch(() => []),
+      )
+
+      const [
+        generalSessions,
+        catalogArrays,
+        classDirectArrays,
+        workData,
+        resultsList,
+      ] = await Promise.all([
         memberPortalApi.getClassSessions().catch(() => []),
         Promise.all(catalogPromises),
+        Promise.all(classSessionPromises),
         resolvedCoachId
           ? memberPortalApi
               .getCoachWorkSchedule(resolvedCoachId)
               .catch(() => null)
           : Promise.resolve(null),
+        memberPortalApi
+          .getTrainingResults(
+            resolvedCoachId ? { coachId: resolvedCoachId } : {},
+          )
+          .catch(() => []),
       ])
+
+      if (Array.isArray(resultsList)) {
+        setLoggedResultSessionIds(
+          new Set(
+            resultsList
+              .map((r) => (r.sessionId != null ? String(r.sessionId) : null))
+              .filter(Boolean),
+          ),
+        )
+      }
 
       const myClassMap = new Map(myClasses.map((c) => [String(c.id), c]))
       const nameLower = String(currentUser?.name || "")
@@ -180,30 +223,42 @@ export function CoachScheduleView() {
       const sessionMap = new Map()
       const addSession = (s) => {
         if (!s || !s.id) return
+        const prev = sessionMap.get(String(s.id)) || {}
         const matchedClass = s.classId ? myClassMap.get(String(s.classId)) : null
         const matchedRoom = s.roomId
           ? rooms?.find((r) => String(r.id) === String(s.roomId))
           : null
         sessionMap.set(String(s.id), {
+          ...prev,
           ...s,
+          status: s.status || prev.status || null,
           className:
-            s.className || matchedClass?.nameVi || matchedClass?.name || "",
+            s.className ||
+            prev.className ||
+            matchedClass?.nameVi ||
+            matchedClass?.name ||
+            "",
           subjectName:
-            s.subjectName || matchedClass?.category || "Thể thao",
+            s.subjectName ||
+            prev.subjectName ||
+            matchedClass?.category ||
+            "Thể thao",
           roomName:
             s.roomName ||
+            prev.roomName ||
             matchedRoom?.name ||
             matchedClass?.roomVi ||
             matchedClass?.room ||
             (s.roomId ? `Sân/Phòng #${s.roomId}` : "Sân tập trung tâm"),
           enrolledCount:
-            s.enrolledCount ?? matchedClass?.enrolledCount ?? 0,
+            s.enrolledCount ?? prev.enrolledCount ?? matchedClass?.enrolledCount ?? 0,
           maxCapacity:
-            s.maxCapacity ?? matchedClass?.capacity ?? 12,
+            s.maxCapacity ?? prev.maxCapacity ?? matchedClass?.capacity ?? 12,
         })
       }
 
       catalogArrays.flat().forEach(addSession)
+      classDirectArrays.flat().forEach(addSession)
 
       if (Array.isArray(generalSessions)) {
         generalSessions.forEach((s) => {
@@ -229,6 +284,20 @@ export function CoachScheduleView() {
         return dA.localeCompare(dB)
       })
       setApiSessions(mergedSessions)
+
+      // R3.3: Silently prefetch absence notices so we only show "Báo vắng (N)" on sessions that actually have notices
+      Promise.all(
+        mergedSessions
+          .filter((s) => !isSessionCancelled(s))
+          .map((s) =>
+            memberPortalApi
+              .getSessionAbsenceNotices(s.id)
+              .then((list) => [String(s.id), Array.isArray(list) ? list : []])
+              .catch(() => [String(s.id), []]),
+          ),
+      ).then((entries) => {
+        setAbsenceNoticesBySession(Object.fromEntries(entries))
+      })
 
       if (workData && typeof workData === "object") {
         if (typeof workData.acceptingNew === "boolean") {
@@ -270,23 +339,11 @@ export function CoachScheduleView() {
     [apiSessions],
   )
 
-  const handleLoadAbsenceNotices = async (sessionId) => {
-    if (!apiEnabled || !sessionId) return
-    setLoadingNoticesId(sessionId)
-    try {
-      const list = await memberPortalApi.getSessionAbsenceNotices(sessionId)
-      setAbsenceNoticesBySession((prev) => ({
-        ...prev,
-        [sessionId]: Array.isArray(list) ? list : [],
-      }))
-    } catch (err) {
-      showToast?.(
-        getErrorMessage(err, "Không thể tải danh sách báo vắng của buổi học."),
-        "error",
-      )
-    } finally {
-      setLoadingNoticesId(null)
-    }
+  const toggleNoticeExpand = (sessionId) => {
+    setExpandedNoticeSessionIds((prev) => ({
+      ...prev,
+      [String(sessionId)]: !prev[String(sessionId)],
+    }))
   }
 
   const handleSaveWorkSchedule = async (e) => {
@@ -397,12 +454,16 @@ export function CoachScheduleView() {
 
   const handleGoToAttendance = (clsOrSession) => {
     if (typeof window !== "undefined") {
-      const classId = clsOrSession?.classId ?? clsOrSession?.id
-      if (classId) {
-        sessionStorage.setItem(
-          "scms_selected_attendance_class_id",
-          String(classId),
-        )
+      if (clsOrSession?.isPrivate === true) {
+        sessionStorage.setItem("scms_selected_attendance_class_id", "PT_1ON1")
+      } else {
+        const classId = clsOrSession?.classId ?? clsOrSession?.id
+        if (classId) {
+          sessionStorage.setItem(
+            "scms_selected_attendance_class_id",
+            String(classId),
+          )
+        }
       }
       if (clsOrSession?.sessionDate && clsOrSession?.id) {
         sessionStorage.setItem(
@@ -415,11 +476,35 @@ export function CoachScheduleView() {
     navigate("/coach/attendance")
   }
 
-  const renderSessionCard = (ses, index) => {
+  const handleGoToPtResult = (ses) => {
+    if (typeof window !== "undefined") {
+      if (ses?.bookedMemberId) {
+        sessionStorage.setItem(
+          "scms_selected_progress_member_id",
+          String(ses.bookedMemberId),
+        )
+      }
+      sessionStorage.setItem("scms_selected_progress_tab", "logs")
+      if (ses?.id) {
+        sessionStorage.setItem(
+          "scms_selected_progress_session_id",
+          String(ses.id),
+        )
+      }
+    }
+    setCurrentTab("trainingProgress")
+    navigate("/coach/progress")
+  }
+
+  const renderSessionCard = (ses, index, groupType = "") => {
     const notices = absenceNoticesBySession[ses.id]
+    const hasNotices = Array.isArray(notices) && notices.length > 0
+    const isNoticeExpanded = Boolean(expandedNoticeSessionIds[String(ses.id)])
     const isToday = String(ses.sessionDate || "") === todayIso
     const sessionCancelled = isSessionCancelled(ses)
     const sessionCanCheckIn = canCheckIn(ses)
+    const hasLoggedResult = loggedResultSessionIds.has(String(ses.id))
+
     return (
       <div
         key={ses.id || index}
@@ -441,7 +526,7 @@ export function CoachScheduleView() {
                     : "bg-blue-100 text-blue-900 border-blue-200"
                 }`}
               >
-                {ses.isPrivate ? "PT 1-kèm-1" : ses.subjectName || "Lớp nhóm"}
+                {ses.isPrivate ? "PT 1:1" : ses.subjectName || "Lớp nhóm"}
               </span>
               <span className="text-sm font-bold text-slate-900">
                 {ses.isPrivate
@@ -450,7 +535,8 @@ export function CoachScheduleView() {
                     }`
                   : ses.className || "Buổi học lớp nhóm"}
               </span>
-              {isToday && (
+              {/* R4.3: Do not repeat "Hôm nay" badge inside the "Hôm nay" group header */}
+              {isToday && groupType !== "today" && (
                 <span className="px-2.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded text-xs font-bold">
                   {t("coachTodayGroup")}
                 </span>
@@ -487,7 +573,7 @@ export function CoachScheduleView() {
                 <div className="flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5 text-slate-500" />
                   <span className="font-mono font-bold text-slate-900">
-                    {ses.enrolledCount ?? 0}/{ses.maxCapacity ?? 12} Học viên
+                    {ses.enrolledCount ?? 0}/{ses.maxCapacity ?? 12} học viên
                   </span>
                 </div>
               )}
@@ -503,62 +589,86 @@ export function CoachScheduleView() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {apiEnabled && (
+            {/* R3.3: Only show absence notice button/badge when the session actually has absence notices */}
+            {hasNotices && (
               <button
                 type="button"
-                onClick={() => handleLoadAbsenceNotices(ses.id)}
-                disabled={loadingNoticesId === ses.id}
-                className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded text-xs font-semibold text-slate-700 flex items-center gap-1 cursor-pointer"
+                onClick={() => toggleNoticeExpand(ses.id)}
+                className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded text-xs font-bold text-amber-900 flex items-center gap-1.5 cursor-pointer"
               >
                 <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
                 <span>
-                  {loadingNoticesId === ses.id
-                    ? "Đang tải..."
-                    : t("coachBtnViewAbsenceNotices")}
+                  {t("coachAbsenceNoticeCountBadge").replace(
+                    "{count}",
+                    String(notices.length),
+                  )}
                 </span>
               </button>
             )}
-            {!ses.isPrivate && !sessionCancelled && (
-              <button
-                type="button"
-                onClick={() => handleGoToAttendance(ses)}
-                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>
-                  {sessionCanCheckIn
-                    ? t("coachBtnCheckInThisSession")
-                    : t("coachBtnViewOrCorrectAttendance")}
-                </span>
-              </button>
-            )}
+
+            {/* R3.3: Primary action for Group Classes vs PT 1:1 Sessions */}
+            {!sessionCancelled &&
+              (ses.isPrivate ? (
+                sessionCanCheckIn ? (
+                  <button
+                    type="button"
+                    onClick={() => handleGoToAttendance(ses)}
+                    className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{t("coachBtnCheckInThisSession")}</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleGoToPtResult(ses)}
+                    className={`px-3.5 py-1.5 rounded text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer ${
+                      hasLoggedResult
+                        ? "bg-white hover:bg-slate-100 text-slate-800 border border-slate-300"
+                        : "bg-emerald-700 hover:bg-emerald-800 text-white"
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>
+                      {hasLoggedResult
+                        ? t("coachBtnViewResult")
+                        : t("coachBtnLogResult")}
+                    </span>
+                  </button>
+                )
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleGoToAttendance(ses)}
+                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>
+                    {sessionCanCheckIn
+                      ? t("coachBtnCheckInThisSession")
+                      : t("coachBtnViewOrCorrectAttendance")}
+                  </span>
+                </button>
+              ))}
           </div>
         </div>
 
-        {Array.isArray(notices) && (
-          <div className="pt-2 border-t border-slate-200 text-xs">
-            {notices.length === 0 ? (
-              <span className="text-slate-500">
-                Không có đơn xin nghỉ/báo vắng nào cho buổi này.
-              </span>
-            ) : (
-              <div className="space-y-1">
-                {notices.map((n, idx) => (
-                  <div
-                    key={n.id || idx}
-                    className="p-2.5 bg-amber-50 border border-amber-200 rounded text-amber-900 flex items-center justify-between"
-                  >
-                    <span>
-                      <strong>{n.memberName || "Học viên"}</strong>:{" "}
-                      {n.reason || "Xin phép vắng buổi học"}
-                    </span>
-                    <span className="font-mono text-xs text-amber-700">
-                      {formatDateTime(n.reportedAt || n.createdAt)}
-                    </span>
-                  </div>
-                ))}
+        {hasNotices && isNoticeExpanded && (
+          <div className="pt-2 border-t border-slate-200 text-xs space-y-1">
+            {notices.map((n, idx) => (
+              <div
+                key={n.id || idx}
+                className="p-2.5 bg-amber-50 border border-amber-200 rounded text-amber-900 flex items-center justify-between"
+              >
+                <span>
+                  <strong>{n.memberName || "Học viên"}</strong>:{" "}
+                  {n.reason || "Xin phép vắng buổi học"}
+                </span>
+                <span className="font-mono text-xs text-amber-700">
+                  {formatDateTime(n.reportedAt || n.createdAt)}
+                </span>
               </div>
-            )}
+            ))}
           </div>
         )}
       </div>
@@ -663,10 +773,10 @@ export function CoachScheduleView() {
               <div>
                 <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
                   <Clock className="w-4 h-4 text-blue-700" />
-                  <span>Thời Khóa Biểu Các Buổi Giảng Dạy Chi Tiết</span>
+                  <span>Thời khóa biểu các buổi giảng dạy chi tiết</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Hiển thị chính xác ngày học (dd/MM/yyyy), khung giờ bắt đầu – kết thúc, sân tập và trạng thái từng buổi
+                  {t("coachScheduleSubtitleShort")}
                 </p>
               </div>
 
@@ -838,7 +948,9 @@ export function CoachScheduleView() {
                       </span>
                     </div>
                     <div className="space-y-3">
-                      {groupedSessions.today.map(renderSessionCard)}
+                      {groupedSessions.today.map((s, idx) =>
+                        renderSessionCard(s, idx, "today"),
+                      )}
                     </div>
                   </div>
                 )}
@@ -851,7 +963,9 @@ export function CoachScheduleView() {
                       </span>
                     </div>
                     <div className="space-y-3">
-                      {groupedSessions.upcoming.map(renderSessionCard)}
+                      {groupedSessions.upcoming.map((s, idx) =>
+                        renderSessionCard(s, idx, "upcoming"),
+                      )}
                     </div>
                   </div>
                 )}
@@ -882,7 +996,9 @@ export function CoachScheduleView() {
                     </button>
                     {showPastSessions && (
                       <div className="space-y-3">
-                        {groupedSessions.past.map(renderSessionCard)}
+                        {groupedSessions.past.map((s, idx) =>
+                          renderSessionCard(s, idx, "past"),
+                        )}
                       </div>
                     )}
                   </div>
@@ -896,7 +1012,7 @@ export function CoachScheduleView() {
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-slate-700" />
-                <span>Danh Sách Khóa / Lớp Học Đang Phụ Trách</span>
+                <span>Danh sách khóa / lớp học đang phụ trách</span>
               </h3>
               <span className="text-xs text-slate-500 font-mono">
                 Tổng số: {filteredClasses.length} lớp
@@ -945,7 +1061,7 @@ export function CoachScheduleView() {
                         <Users className="w-3.5 h-3.5 text-slate-400" />
                         <span className="font-mono tabular-nums font-bold text-slate-900">
                           {cls.enrolledCount ?? 0}/{cls.capacity ?? 12}{" "}
-                          {language === "vi" ? "Học viên" : "Members"}
+                          {language === "vi" ? "học viên" : "members"}
                         </span>
                       </div>
                     </div>
@@ -957,7 +1073,7 @@ export function CoachScheduleView() {
                       className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Mở Sổ Điểm Danh Lớp</span>
+                      <span>Mở sổ điểm danh lớp</span>
                     </button>
                   </div>
                 </div>

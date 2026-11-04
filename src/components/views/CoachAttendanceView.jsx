@@ -59,7 +59,18 @@ export function CoachAttendanceView() {
           .includes(String(currentUser?.name || "").toLowerCase()) ||
         (!apiEnabled && String(c.coachName || "").includes("Mai")),
     )
-    return matched.length > 0 ? matched : classes
+    const baseList = matched.length > 0 ? matched : classes
+    const ptVirtual = {
+      id: "PT_1ON1",
+      name: "PT 1:1 Sessions",
+      nameVi: "Ca kèm PT 1:1",
+      isPrivateVirtualClass: true,
+      capacity: 1,
+      enrolledCount: 1,
+      room: "Sân tập PT",
+      roomVi: "Sân tập PT",
+    }
+    return [...baseList, ptVirtual]
   }, [classes, resolvedCoachId, currentUser?.id, currentUser?.name, apiEnabled])
 
   const [selectedClassId, setSelectedClassId] = useState(() => {
@@ -77,6 +88,7 @@ export function CoachAttendanceView() {
   }, [coachClasses, selectedClassId])
 
   const selectedClass =
+    coachClasses.find((c) => String(c.id) === String(selectedClassId)) ||
     classes.find((c) => String(c.id) === String(selectedClassId)) ||
     coachClasses[0] ||
     classes[0] ||
@@ -119,6 +131,7 @@ export function CoachAttendanceView() {
     if (!apiEnabled || !selectedClass?.id) return
     setLoadingRoster(true)
     try {
+      const isPtMode = String(selectedClass.id) === "PT_1ON1"
       const [
         enrollments,
         attendances,
@@ -126,19 +139,36 @@ export function CoachAttendanceView() {
         allClassSessions,
         plans,
       ] = await Promise.all([
-        classEnrollmentApi
-          .getEnrollmentsByClass(selectedClass.id, { notifyForbidden: false })
-          .catch(() => []),
+        isPtMode
+          ? Promise.resolve([])
+          : classEnrollmentApi
+              .getEnrollmentsByClass(selectedClass.id, { notifyForbidden: false })
+              .catch(() => []),
         attendanceApi.searchAttendances().catch(() => []),
-        getCatalogClassSessions(selectedClass.id, {
-          notifyForbidden: false,
-        }).catch(() => []),
-        memberPortalApi
-          .getClassSessions({ classId: selectedClass.id })
-          .catch(() => []),
-        memberPortalApi
-          .getTrainingPlans({ classId: selectedClass.id })
-          .catch(() => []),
+        isPtMode
+          ? Promise.resolve([])
+          : getCatalogClassSessions(selectedClass.id, {
+              notifyForbidden: false,
+            }).catch(() => []),
+        isPtMode
+          ? memberPortalApi
+              .getClassSessions(
+                resolvedCoachId ? { coachId: resolvedCoachId } : {},
+              )
+              .then((list) =>
+                (Array.isArray(list) ? list : []).filter(
+                  (s) => s.isPrivate === true,
+                ),
+              )
+              .catch(() => [])
+          : memberPortalApi
+              .getClassSessions({ classId: selectedClass.id })
+              .catch(() => []),
+        isPtMode
+          ? Promise.resolve([])
+          : memberPortalApi
+              .getTrainingPlans({ classId: selectedClass.id })
+              .catch(() => []),
       ])
 
       setApiEnrollments(Array.isArray(enrollments) ? enrollments : [])
