@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
-import { StatusBadge } from "../common/Badge"
+import { CoachStatusBadge } from "../coach/StatusBadge"
+import { formatDate } from "../../utils/datetime"
+import { formatScore, scoreToBarWidthPercent } from "../../utils/score"
 import { memberApi } from "../../api/memberApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getErrorMessage } from "../../api/apiErrors"
@@ -1102,7 +1104,7 @@ export function CoachAssignedMembersView() {
   }, [members])
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -1530,10 +1532,10 @@ export function CoachAssignedMembersView() {
                       )}
                     </div>
                     <div className="text-xs text-slate-500 font-mono tabular-nums">
-                      {m.code} &bull; {m.phone || m.email || "—"}
+                      {m.phone || m.email || "—"}
                     </div>
                   </div>
-                  <StatusBadge type="membership" status={m.membershipStatus} />
+                  <CoachStatusBadge type="package" value={m.membershipStatus || "Active"} />
                 </div>
 
                 <div className="p-3 bg-slate-50 rounded border border-slate-200 space-y-2 text-xs">
@@ -1565,12 +1567,12 @@ export function CoachAssignedMembersView() {
                     <div className="flex items-center justify-between text-xs text-slate-600 font-medium">
                       <span>Điểm tiến độ:</span>
                       <span className="font-mono font-bold text-slate-900 tabular-nums">
-                        {((Number(plan.progressPercent || 0) / 10)).toFixed(1)}/10
+                        {formatScore(plan.progressPercent)}
                       </span>
                     </div>
                     <div className="w-full bg-slate-100 h-1.5 rounded overflow-hidden border border-slate-200">
                       <div
-                        style={{ width: `${plan.progressPercent}%` }}
+                        style={{ width: `${scoreToBarWidthPercent(plan.progressPercent)}%` }}
                         className="bg-slate-900 h-full rounded"
                       />
                     </div>
@@ -1578,8 +1580,8 @@ export function CoachAssignedMembersView() {
                 )}
 
                 <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-[11px] text-slate-500 font-mono">
-                    Tham gia: {m.joinDate}
+                  <span className="text-xs text-slate-500 font-mono">
+                    Tham gia: {formatDate(m.joinDate)}
                   </span>
                   <div className="flex items-center gap-2">
                     <button
@@ -1827,6 +1829,9 @@ export function CoachAssignedMembersView() {
                     onChange={(e) => handleDateChange(e.target.value)}
                     className="w-full border border-slate-300 rounded px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
                   />
+                  <div className="text-xs text-slate-500 font-mono mt-1">
+                    {formatDate(bookingDate)}
+                  </div>
                 </div>
 
                 <div>

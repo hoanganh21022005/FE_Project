@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react"
 import { useSCMS } from "../../context/SCMSContext"
-import { StatusBadge } from "../common/Badge"
+import { CoachStatusBadge } from "../coach/StatusBadge"
+import { formatDate, formatTime, formatTimeRange } from "../../utils/datetime"
 import { AttendanceCorrectionModal } from "../modals/AttendanceCorrectionModal"
 import { classEnrollmentApi } from "../../api/classEnrollmentApi"
 import { attendanceApi } from "../../api/attendanceApi"
@@ -356,12 +357,12 @@ export function CoachAttendanceView() {
   const allowCorrection = canCorrectAttendance(activeSession)
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       {/* Class Banner & Selector */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-mono font-bold uppercase text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+            <span className="text-xs font-mono font-bold uppercase text-blue-800 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200">
               BUỔI HỌC HIỆN TẠI
             </span>
             {classes.length > 1 && (
@@ -381,7 +382,7 @@ export function CoachAttendanceView() {
               >
                 {classes.map((cls) => (
                   <option key={cls.id} value={cls.id}>
-                    {cls.nameVi || cls.name} ({cls.startTime || "Lịch học"})
+                    {cls.nameVi || cls.name} ({cls.startTime ? formatTime(cls.startTime) : "Lịch học"})
                   </option>
                 ))}
               </select>
@@ -402,8 +403,8 @@ export function CoachAttendanceView() {
                         isCancel && String(ses.id) !== String(selectedSessionId)
                       }
                     >
-                      Buổi {idx + 1}: {ses.sessionDate || "—"} (
-                      {String(ses.startTime || "").slice(0, 5)})
+                      Buổi {idx + 1}: {formatDate(ses.sessionDate)} (
+                      {formatTime(ses.startTime)})
                       {isCancel ? ` — [${t("coachStatusCancelled")}]` : ""}
                     </option>
                   )
@@ -415,15 +416,16 @@ export function CoachAttendanceView() {
             {selectedClass?.nameVi || selectedClass?.name || "Lớp học"}
           </h2>
           {(() => {
-            const sesDate =
-              activeSession?.sessionDate || selectedClass?.date || "Hôm nay"
+            const sesDate = activeSession?.sessionDate
+              ? formatDate(activeSession.sessionDate)
+              : selectedClass?.date
+                ? formatDate(selectedClass.date)
+                : "Hôm nay"
             const sesTime = activeSession?.startTime
-              ? `${String(activeSession.startTime).slice(0, 5)}${
-                  activeSession.endTime
-                    ? ` – ${String(activeSession.endTime).slice(0, 5)}`
-                    : ""
-                }`
-              : selectedClass?.startTime || "Theo ca học"
+              ? formatTimeRange(activeSession.startTime, activeSession.endTime)
+              : selectedClass?.startTime
+                ? formatTime(selectedClass.startTime)
+                : "Theo ca học"
             const sesRoom =
               activeSession?.roomName ||
               selectedClass?.room ||
@@ -465,7 +467,7 @@ export function CoachAttendanceView() {
             </button>
           )}
           <div className="p-3 bg-slate-50 rounded border border-slate-200 text-right">
-            <div className="text-[10px] text-slate-500 uppercase font-bold whitespace-nowrap">
+            <div className="text-xs text-slate-500 uppercase font-bold whitespace-nowrap">
               {language === "vi" ? "Sức chứa" : "Enrolled Capacity"}
             </div>
             <div className="text-lg font-bold text-slate-900 tabular-nums whitespace-nowrap">
@@ -515,8 +517,8 @@ export function CoachAttendanceView() {
             </h3>
             <span className="text-xs text-amber-800 font-semibold">
               {language === "vi"
-                ? "Thao tác sửa sẽ bắt buộc nhập lý do & ghi Audit Log"
-                : "Edits require mandatory reason input & Audit Log recording"}
+                ? "Thao tác sửa sẽ bắt buộc nhập lý do & ghi nhật ký kiểm toán"
+                : "Edits require mandatory reason input & audit log recording"}
             </span>
           </div>
           {allowCheckIn && !sessionCancelled && (
@@ -528,7 +530,7 @@ export function CoachAttendanceView() {
                 type="text"
                 value={quickMemberInput}
                 onChange={(e) => setQuickMemberInput(e.target.value)}
-                placeholder="Nhập ID (VD: 1, MB-1001) hoặc Mã Check-in..."
+                placeholder="Nhập mã học viên hoặc mã điểm danh..."
                 className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded focus:outline-none focus:border-blue-600 w-64"
               />
               <button
@@ -544,10 +546,10 @@ export function CoachAttendanceView() {
 
         <div className="space-y-3">
           {enrolledMembers.length === 0 ? (
-            <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded">
+            <div className="p-6 text-center text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded">
               {Number(selectedClass?.enrolledCount || 0) > 0
-                ? `Lớp đã có ${selectedClass.enrolledCount} học viên đăng ký. Bạn có thể nhập ID học viên (VD: 1 hoặc MB-1001) hoặc Mã Check-in ở ô "Điểm danh nhanh" phía trên để ghi nhận buổi học.`
-                : "Lớp học này hiện chưa có học viên nào đăng ký chính thức (Active)."}
+                ? `Lớp đã có ${selectedClass.enrolledCount} học viên đăng ký. Bạn có thể nhập mã học viên hoặc mã điểm danh ở ô "Điểm danh nhanh" phía trên để ghi nhận buổi học.`
+                : "Lớp học này hiện chưa có học viên nào đăng ký chính thức."}
             </div>
           ) : (
             enrolledMembers.map((m) => {
@@ -594,12 +596,12 @@ export function CoachAttendanceView() {
                       {m.name}
                     </div>
                     <div className="text-xs text-slate-500 font-mono tabular-nums">
-                      {m.code} &bull; {t("coachPkgLabel")}: {m.currentPackageName}
+                      {t("coachPkgLabel")}: {m.currentPackageName}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <StatusBadge type="attendance" status={currentStatus} />
+                    <CoachStatusBadge type="attendance" value={currentStatus} />
 
                     {/* Rapid Attendance Buttons (only when session is Scheduled) */}
                     {allowCheckIn && !sessionCancelled && (

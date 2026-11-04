@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
-import { formatDate } from "../../locales/translations"
+import {
+  formatDate,
+  formatTimeRange,
+  formatWeekday,
+  formatDateTime,
+} from "../../utils/datetime"
+import { CoachStatusBadge } from "../coach/StatusBadge"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getCatalogClassSessions } from "../../api/managerApi"
 import { getErrorMessage } from "../../api/apiErrors"
@@ -25,41 +31,17 @@ import {
 } from "lucide-react"
 
 const DEFAULT_WEEKLY_SLOTS = [
-  "MON_SLOT_1",
-  "MON_SLOT_6",
-  "WED_SLOT_1",
-  "WED_SLOT_6",
-  "FRI_SLOT_1",
-  "FRI_SLOT_6",
+  "MONDAY:1",
+  "MONDAY:6",
+  "WEDNESDAY:1",
+  "WEDNESDAY:6",
+  "FRIDAY:1",
+  "FRIDAY:6",
 ]
 
-const WEEKDAY_VI = [
-  "Chủ Nhật",
-  "Thứ Hai",
-  "Thứ Ba",
-  "Thứ Tư",
-  "Thứ Năm",
-  "Thứ Sáu",
-  "Thứ Bảy",
-]
-
-function formatSessionDayLabel(dateStr) {
+function formatSessionDayLabel(dateStr, lang = "vi") {
   if (!dateStr) return "Chưa xếp ngày"
-  const parsed = new Date(`${String(dateStr).slice(0, 10)}T00:00:00`)
-  if (Number.isNaN(parsed.getTime())) return String(dateStr)
-  const dayName = WEEKDAY_VI[parsed.getDay()] || ""
-  const dd = String(parsed.getDate()).padStart(2, "0")
-  const mm = String(parsed.getMonth() + 1).padStart(2, "0")
-  const yyyy = parsed.getFullYear()
-  return `${dayName}, ${dd}/${mm}/${yyyy}`
-}
-
-function formatTimeRange(startTime, endTime) {
-  const start = String(startTime || "").slice(0, 5)
-  const end = String(endTime || "").slice(0, 5)
-  if (start && end) return `${start} – ${end}`
-  if (start) return start
-  return "Chưa xếp giờ"
+  return formatWeekday(dateStr, lang)
 }
 
 export function CoachScheduleView() {
@@ -76,6 +58,7 @@ export function CoachScheduleView() {
   const navigate = useNavigate()
   const [selectedRoom, setSelectedRoom] = useState("all")
   const [scheduleFilter, setScheduleFilter] = useState("all") // all | upcoming | group | pt
+  const [showAllSessions, setShowAllSessions] = useState(false)
 
   const resolvedCoachId = useMemo(() => {
     const raw = currentUser?.coachId ?? currentUser?.id
@@ -365,8 +348,12 @@ export function CoachScheduleView() {
     navigate("/coach/attendance")
   }
 
+  const visibleSessions = showAllSessions
+    ? filteredSessions
+    : filteredSessions.slice(0, 5)
+
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -392,12 +379,12 @@ export function CoachScheduleView() {
               type="button"
               onClick={loadCoachScheduleData}
               disabled={loadingSessions}
-              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-xs font-bold text-slate-700 flex items-center gap-1 cursor-pointer"
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-xs font-bold text-slate-700 flex items-center gap-1 cursor-pointer"
             >
               <RefreshCw
                 className={`w-3.5 h-3.5 ${loadingSessions ? "animate-spin" : ""}`}
               />
-              <span>Đồng bộ</span>
+              <span>{t("coachBtnRefresh")}</span>
             </button>
           )}
           <Filter className="w-4 h-4 text-slate-500" />
@@ -421,7 +408,7 @@ export function CoachScheduleView() {
         </div>
       </div>
 
-      {/* Section 1: Detailed Sessions Schedule (Day, Time, Room, Attendance) */}
+      {/* Section 1: Detailed Sessions Schedule */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
           <div>
@@ -450,7 +437,7 @@ export function CoachScheduleView() {
                 key={tab.id}
                 type="button"
                 onClick={() => setScheduleFilter(tab.id)}
-                className={`px-2.5 py-1 rounded text-xs font-bold border cursor-pointer ${
+                className={`px-3 py-1.5 rounded text-xs font-bold border cursor-pointer ${
                   scheduleFilter === tab.id
                     ? "bg-slate-900 text-white border-slate-900"
                     : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
@@ -463,21 +450,20 @@ export function CoachScheduleView() {
         </div>
 
         {loadingSessions ? (
-          <div className="p-6 text-center text-xs text-slate-500">
+          <div className="p-6 text-center text-sm text-slate-500">
             Đang tải thời khóa biểu các buổi dạy...
           </div>
         ) : filteredSessions.length === 0 ? (
-          <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded">
+          <div className="p-6 text-center text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded">
             Không có buổi dạy nào khớp với bộ lọc hiện tại.
           </div>
         ) : (
-          <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
-            {filteredSessions.map((ses, index) => {
+          <div className="space-y-3">
+            {visibleSessions.map((ses, index) => {
               const notices = absenceNoticesBySession[ses.id]
               const isToday = String(ses.sessionDate || "") === todayIso
               const sessionCancelled = isSessionCancelled(ses)
               const sessionCanCheckIn = canCheckIn(ses)
-              const sessionCanCorrect = canCorrectAttendance(ses)
               return (
                 <div
                   key={ses.id || index}
@@ -493,7 +479,7 @@ export function CoachScheduleView() {
                     <div className="space-y-1.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                          className={`px-2.5 py-0.5 rounded text-xs font-bold border ${
                             ses.isPrivate
                               ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                               : "bg-blue-100 text-blue-900 border-blue-200"
@@ -504,42 +490,32 @@ export function CoachScheduleView() {
                         <span className="text-sm font-bold text-slate-900">
                           {ses.isPrivate
                             ? `${ses.subjectName || "Kèm PT 1:1"} — Học viên: ${
-                                ses.bookedMemberName ||
-                                (ses.bookedMemberId ? `#${ses.bookedMemberId}` : "Hội viên PT")
+                                ses.bookedMemberName || "Hội viên PT"
                               }`
                             : ses.className || "Buổi học lớp nhóm"}
                         </span>
                         {isToday && (
-                          <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded text-[10px] font-bold">
+                          <span className="px-2.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded text-xs font-bold">
                             {t("coachTodayGroup")}
                           </span>
                         )}
-                        <span
-                          className={`px-2 py-0.5 border rounded text-[10px] font-bold ${
-                            sessionCancelled
-                              ? "bg-rose-50 text-rose-800 border-rose-200"
-                              : sessionCanCorrect
-                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                : "bg-blue-50 text-blue-800 border-blue-200"
-                          }`}
-                        >
-                          {sessionCancelled
-                            ? ses.centerInvalidated
-                              ? t("coachStatusCenterInvalidated")
-                              : t("coachStatusCancelled")
-                            : sessionCanCorrect
-                              ? t("coachStatusCompleted")
-                              : t("coachStatusScheduled")}
-                        </span>
+                        <CoachStatusBadge
+                          type="session"
+                          value={
+                            sessionCancelled && ses.centerInvalidated
+                              ? "centerInvalidated"
+                              : ses.status || "Scheduled"
+                          }
+                        />
                       </div>
 
                       <div className="flex flex-wrap items-center gap-4 text-xs text-slate-700">
                         <div className="flex items-center gap-1.5 font-semibold text-slate-900">
                           <Calendar className="w-3.5 h-3.5 text-blue-700" />
-                          <span>{formatSessionDayLabel(ses.sessionDate)}</span>
+                          <span>{formatSessionDayLabel(ses.sessionDate, language)}</span>
                         </div>
 
-                        <div className="flex items-center gap-1.5 font-mono font-bold text-blue-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                        <div className="flex items-center gap-1.5 font-mono font-bold text-blue-900 bg-white px-2.5 py-0.5 rounded border border-slate-200">
                           <Clock className="w-3.5 h-3.5 text-blue-700" />
                           <span>
                             {formatTimeRange(ses.startTime, ses.endTime)}
@@ -564,7 +540,7 @@ export function CoachScheduleView() {
                       </div>
 
                       {sessionCancelled && (
-                        <div className="text-xs text-rose-800 bg-rose-50 border border-rose-200 rounded px-2.5 py-1.5">
+                        <div className="text-xs text-rose-800 bg-rose-50 border border-rose-200 rounded px-3 py-1.5">
                           {ses.centerInvalidated
                             ? t("coachBannerCenterInvalidatedDesc")
                             : t("coachBannerCancelledDesc")}
@@ -578,7 +554,7 @@ export function CoachScheduleView() {
                           type="button"
                           onClick={() => handleLoadAbsenceNotices(ses.id)}
                           disabled={loadingNoticesId === ses.id}
-                          className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded text-xs font-semibold text-slate-700 flex items-center gap-1 cursor-pointer"
+                          className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded text-xs font-semibold text-slate-700 flex items-center gap-1 cursor-pointer"
                         >
                           <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
                           <span>
@@ -592,7 +568,7 @@ export function CoachScheduleView() {
                         <button
                           type="button"
                           onClick={() => handleGoToAttendance(ses)}
-                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+                          className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span>
@@ -616,19 +592,14 @@ export function CoachScheduleView() {
                           {notices.map((n, idx) => (
                             <div
                               key={n.id || idx}
-                              className="p-2 bg-amber-50 border border-amber-200 rounded text-amber-900 flex items-center justify-between"
+                              className="p-2.5 bg-amber-50 border border-amber-200 rounded text-amber-900 flex items-center justify-between"
                             >
                               <span>
-                                <strong>
-                                  {n.memberName ||
-                                    (n.memberId ? `Học viên #${n.memberId}` : "Học viên")}
-                                </strong>
-                                : {n.reason || "Xin phép vắng buổi học"}
+                                <strong>{n.memberName || "Học viên"}</strong>:{" "}
+                                {n.reason || "Xin phép vắng buổi học"}
                               </span>
-                              <span className="font-mono text-[10px] text-amber-700">
-                                {String(n.reportedAt || n.createdAt || "")
-                                  .slice(0, 16)
-                                  .replace("T", " ")}
+                              <span className="font-mono text-xs text-amber-700">
+                                {formatDateTime(n.reportedAt || n.createdAt)}
                               </span>
                             </div>
                           ))}
@@ -639,6 +610,20 @@ export function CoachScheduleView() {
                 </div>
               )
             })}
+
+            {filteredSessions.length > 5 && (
+              <div className="pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowAllSessions((prev) => !prev)}
+                  className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded border border-slate-300 cursor-pointer"
+                >
+                  {showAllSessions
+                    ? t("coachCollapse")
+                    : `${t("coachShowMore")} (${filteredSessions.length - 5})`}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -663,13 +648,13 @@ export function CoachScheduleView() {
             >
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 bg-blue-100 text-blue-900 border border-blue-200 text-[10px] font-mono font-bold rounded">
+                  <span className="px-2.5 py-0.5 bg-blue-100 text-blue-900 border border-blue-200 text-xs font-bold rounded">
                     {cls.category || "Thể thao"}
                   </span>
                   <span className="text-sm font-bold text-slate-900">
                     {language === "vi" ? cls.nameVi || cls.name : cls.name}
                   </span>
-                  <span className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono text-slate-600">
+                  <span className="px-2.5 py-0.5 bg-white border border-slate-200 rounded text-xs font-mono text-slate-600">
                     {cls.sessionCount} buổi học
                   </span>
                 </div>
@@ -678,9 +663,9 @@ export function CoachScheduleView() {
                   <div className="flex items-center gap-1 font-mono tabular-nums">
                     <Calendar className="w-3.5 h-3.5 text-slate-400" />
                     <span>
-                      Khóa học: {formatDate(cls.date || cls.startDate, language)}
+                      Khóa học: {formatDate(cls.date || cls.startDate)}
                       {cls.endDate
-                        ? ` – ${formatDate(cls.endDate, language)}`
+                        ? ` – ${formatDate(cls.endDate)}`
                         : ""}{" "}
                       &bull; Ca dạy: {cls.resolvedTime}
                     </span>
@@ -717,7 +702,7 @@ export function CoachScheduleView() {
         </div>
       </div>
 
-      {/* Coach Work Schedule Configuration (/api/coaches/{id}/work-schedule) */}
+      {/* Coach Work Schedule Configuration */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-slate-200 pb-3">
           <div>
@@ -725,7 +710,7 @@ export function CoachScheduleView() {
               Cấu Hình Lịch Làm Việc &amp; Tiếp Nhận Học Viên PT 1:1
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Cập nhật khung giờ làm việc cố định trong tuần và các ngày nghỉ phép của HLV (/api/coaches/work-schedule)
+              Cập nhật khung giờ làm việc cố định trong tuần và các ngày nghỉ phép của huấn luyện viên
             </p>
           </div>
           <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer">
@@ -749,13 +734,13 @@ export function CoachScheduleView() {
                 type="text"
                 value={weeklySlotsText}
                 onChange={(e) => setWeeklySlotsText(e.target.value)}
-                placeholder="MON_SLOT_1, WED_SLOT_1, FRI_SLOT_1..."
+                placeholder="MONDAY:1, WEDNESDAY:1, FRIDAY:1..."
                 className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-xs font-mono text-slate-900 focus:outline-none focus:border-blue-600"
               />
             </div>
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
-                Ngày nghỉ phép cố định (YYYY-MM-DD, cách nhau dấu phẩy)
+                Ngày nghỉ phép cố định (cách nhau dấu phẩy)
               </label>
               <input
                 type="text"

@@ -5,6 +5,9 @@ import { memberPortalApi } from "../../api/memberPortalApi"
 import { attendanceApi } from "../../api/attendanceApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import { canLogResult } from "../../utils/permissions"
+import { formatDate, formatTime } from "../../utils/datetime"
+import { normalizeScore, formatScore, scoreToBarWidthPercent } from "../../utils/score"
+import { CoachStatusBadge } from "../coach/StatusBadge"
 import {
   Activity,
   Save,
@@ -84,6 +87,9 @@ export function CoachTrainingProgress() {
     "Học viên hoàn thành đầy đủ khối lượng bài tập trong buổi, kỹ thuật động tác đúng chuẩn.",
   )
   const [savingResult, setSavingResult] = useState(false)
+  const [showAllPlans, setShowAllPlans] = useState(false)
+  const [showAllResults, setShowAllResults] = useState(false)
+  const [showAllEvaluations, setShowAllEvaluations] = useState(false)
 
   const parseNumericId = (rawId, fallback = 1) => {
     const match = String(rawId || "").match(/(\d+)$/)
@@ -384,16 +390,14 @@ export function CoachTrainingProgress() {
   }
 
   const normalizedScore10 = useMemo(() => {
-    const raw = Number(progressScore)
-    if (Number.isNaN(raw)) return 8.0
-    const val = raw > 10 ? raw / 10 : raw
-    return Math.max(0, Math.min(10, Number(val.toFixed(1))))
+    const norm = normalizeScore(progressScore)
+    return norm != null ? norm : 8.0
   }, [progressScore])
 
-  const displayPercent = Math.min(100, normalizedScore10 * 10)
+  const displayPercent = scoreToBarWidthPercent(normalizedScore10)
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-white border border-slate-200 p-4 rounded-lg shadow-xs">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-slate-100 text-slate-800 rounded border border-slate-200">
@@ -404,7 +408,7 @@ export function CoachTrainingProgress() {
               {t("trainingProgress")}
             </h2>
             <p className="text-xs text-slate-500">
-              Lập giáo án huấn luyện, ghi nhận kết quả buổi tập &amp; đánh giá định kỳ học viên
+              {t("coachProgressSubtitle")}
             </p>
           </div>
         </div>
@@ -426,7 +430,7 @@ export function CoachTrainingProgress() {
           {availableStudents.length > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-600">
-                Học viên đánh giá:
+                {t("coachEvaluatedStudentLabel")}
               </span>
               <select
                 value={selectedMemberId}
@@ -449,22 +453,22 @@ export function CoachTrainingProgress() {
           <div className="flex items-center justify-between border-b border-slate-200 pb-4">
             <div>
               <span className="text-[10px] text-blue-800 font-mono font-bold uppercase">
-                HỌC VIÊN PHÂN CÔNG
+                {t("coachAssignedStudentTag")}
               </span>
               <h3 className="text-base font-bold text-slate-900 mt-0.5">
                 {selectedStudent?.name ||
                   activeStudentApiPlan?.memberName ||
                   plan?.memberName ||
-                  "Học viên"}
+                  t("coachStudentLabel")}
               </h3>
               <p className="text-xs text-slate-500">
-                Coach chính: {currentUser?.name || plan?.coachName || "HLV"}
+                {t("coachMainCoachLabel")}: {currentUser?.name || plan?.coachName || t("coachDefaultCoachName")}
               </p>
             </div>
 
             <div className="text-right">
               <div className="text-xs text-slate-600 font-bold mb-1 font-mono tabular-nums">
-                Điểm tiến độ: {normalizedScore10.toFixed(1)}/10
+                {t("coachProgressScoreDisplay")}: {formatScore(normalizedScore10)}
               </div>
               <div className="w-48 bg-slate-100 h-2 rounded overflow-hidden border border-slate-200">
                 <div
@@ -644,6 +648,9 @@ export function CoachTrainingProgress() {
                   onChange={(e) => setPlanStartDate(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 font-mono"
                 />
+                <div className="text-[11px] font-mono text-slate-500 mt-0.5">
+                  {formatDate(planStartDate)}
+                </div>
               </div>
               <div>
                 <label className="font-bold text-slate-700 block mb-1">
@@ -655,6 +662,9 @@ export function CoachTrainingProgress() {
                   onChange={(e) => setPlanEndDate(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 font-mono"
                 />
+                <div className="text-[11px] font-mono text-slate-500 mt-0.5">
+                  {formatDate(planEndDate)}
+                </div>
               </div>
             </div>
             <div>
@@ -682,7 +692,7 @@ export function CoachTrainingProgress() {
 
           {apiPlans.length > 0 && (
             <div className="pt-3 border-t border-slate-200 space-y-2">
-              {apiPlans.slice(0, 5).map((p) => (
+              {(showAllPlans ? apiPlans : apiPlans.slice(0, 5)).map((p) => (
                 <div
                   key={p.planId || p.id}
                   className="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs"
@@ -691,8 +701,24 @@ export function CoachTrainingProgress() {
                     {p.title} &bull; {formatPlanTargetLabel(p)}
                   </div>
                   <div className="text-slate-600 mt-0.5">{p.goal}</div>
+                  {(p.startDate || p.endDate) && (
+                    <div className="text-[11px] font-mono text-slate-500 mt-1">
+                      {formatDate(p.startDate)} – {formatDate(p.endDate)}
+                    </div>
+                  )}
                 </div>
               ))}
+              {apiPlans.length > 5 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllPlans((v) => !v)}
+                  className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+                >
+                  {showAllPlans
+                    ? t("coachShowLess")
+                    : `${t("coachShowMore")} (${apiPlans.length - 5})`}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -725,7 +751,7 @@ export function CoachTrainingProgress() {
                   ) : (
                     completedSessions.slice(0, 40).map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.sessionDate} ({String(s.startTime || "").slice(0, 5)}) —{" "}
+                        {formatDate(s.sessionDate)} ({formatTime(s.startTime)}) —{" "}
                         {s.className || s.subjectName || "PT 1:1"}
                       </option>
                     ))
@@ -740,17 +766,9 @@ export function CoachTrainingProgress() {
                   {t("coachAttendanceReadOnlyLabel")}
                 </label>
                 <div className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-2 text-slate-800 font-bold flex items-center justify-between">
-                  <span>
-                    {readOnlyAttendanceStatus === "Late"
-                      ? t("coachStatusLate")
-                      : readOnlyAttendanceStatus === "Excused"
-                        ? t("coachStatusExcused")
-                        : readOnlyAttendanceStatus === "Absent"
-                          ? t("coachStatusAbsent")
-                          : t("coachStatusPresent")}
-                  </span>
+                  <CoachStatusBadge domain="attendance" value={readOnlyAttendanceStatus} />
                   <span className="text-[10px] font-mono text-slate-500 uppercase">
-                    Chỉ đọc
+                    {t("coachReadOnlyTag")}
                   </span>
                 </div>
               </div>
@@ -785,19 +803,19 @@ export function CoachTrainingProgress() {
 
           {apiResults.length > 0 && (
             <div className="pt-3 border-t border-slate-200 space-y-2">
-              {apiResults.slice(0, 5).map((r) => {
+              {(showAllResults ? apiResults : apiResults.slice(0, 5)).map((r) => {
                 const memberLabel =
                   r.memberName ||
                   availableStudents.find((s) => String(s.id) === String(r.memberId))
                     ?.name ||
-                  (r.memberId ? `Học viên #${r.memberId}` : "Học viên")
+                  (r.memberId ? `Học viên #${r.memberId}` : t("coachStudentLabel"))
                 const sessionLabel =
                   r.className ||
                   (r.sessionId ? `Buổi #${r.sessionId}` : "Buổi tập")
                 return (
                   <div
                     key={r.resultId || r.id}
-                    className="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs flex items-center justify-between"
+                    className="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs flex items-center justify-between gap-2"
                   >
                     <div>
                       <div className="font-bold text-slate-900">
@@ -805,16 +823,21 @@ export function CoachTrainingProgress() {
                       </div>
                       <div className="text-slate-600 mt-0.5">{r.content}</div>
                     </div>
-                    <span className="font-mono text-[10px] text-emerald-800 font-bold">
-                      {r.attendanceStatus === "Late"
-                        ? t("coachStatusLate")
-                        : r.attendanceStatus === "Absent"
-                          ? t("coachStatusAbsent")
-                          : t("coachStatusPresent")}
-                    </span>
+                    <CoachStatusBadge domain="attendance" value={r.attendanceStatus || "Present"} />
                   </div>
                 )
               })}
+              {apiResults.length > 5 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllResults((v) => !v)}
+                  className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+                >
+                  {showAllResults
+                    ? t("coachShowLess")
+                    : `${t("coachShowMore")} (${apiResults.length - 5})`}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -829,14 +852,12 @@ export function CoachTrainingProgress() {
             </h3>
           </div>
           <div className="space-y-2">
-            {evaluations.slice(0, 6).map((ev) => {
-              const rawEvScore = Number(ev.progressScore ?? 0)
-              const normEvScore = rawEvScore > 10 ? rawEvScore / 10 : rawEvScore
+            {(showAllEvaluations ? evaluations : evaluations.slice(0, 6)).map((ev) => {
               const evMemberLabel =
                 ev.memberName ||
                 availableStudents.find((s) => String(s.id) === String(ev.memberId))
                   ?.name ||
-                (ev.memberId ? `Học viên #${ev.memberId}` : "Học viên")
+                (ev.memberId ? `Học viên #${ev.memberId}` : t("coachStudentLabel"))
               return (
                 <div
                   key={ev.id || `${ev.memberId}-${ev.evaluationDate}`}
@@ -851,15 +872,26 @@ export function CoachTrainingProgress() {
                   </div>
                   <div className="text-right font-mono">
                     <div className="font-bold text-emerald-800">
-                      Điểm: {Number(normEvScore).toFixed(1)}/10
+                      {t("coachScorePrefix")}: {formatScore(ev.progressScore)}
                     </div>
                     <div className="text-[11px] text-slate-400">
-                      {ev.evaluationDate}
+                      {formatDate(ev.evaluationDate)}
                     </div>
                   </div>
                 </div>
               )
             })}
+            {evaluations.length > 6 && (
+              <button
+                type="button"
+                onClick={() => setShowAllEvaluations((v) => !v)}
+                className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+              >
+                {showAllEvaluations
+                  ? t("coachShowLess")
+                  : `${t("coachShowMore")} (${evaluations.length - 6})`}
+              </button>
+            )}
           </div>
         </div>
       )}
