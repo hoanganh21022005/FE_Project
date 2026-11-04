@@ -32,6 +32,7 @@ import {
 } from "recharts"
 import { useSCMS } from "../../context/SCMSContext"
 import { memberPortalApi } from "../../api/memberPortalApi"
+import { getErrorMessage } from "../../api/apiErrors"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 
 const API_ENABLED = import.meta.env.VITE_API_ENABLED
@@ -39,7 +40,7 @@ const API_ENABLED = import.meta.env.VITE_API_ENABLED
   : import.meta.env.MODE !== "mock"
 
 export function MemberBodyMetricsView() {
-  const { language, currentUser } = useSCMS()
+  const { language, currentUser, showToast } = useSCMS()
   const location = useLocation()
   const isVi = language === "vi"
 
@@ -48,32 +49,12 @@ export function MemberBodyMetricsView() {
     currentUser?.memberId ||
     currentUser?.id
 
-  const metricsStorageKey = `scms_inbody_metrics_${memberId || "guest"}`
-  const heightStorageKey = `scms_inbody_height_${memberId || "guest"}`
-
-  const readStoredSelfMetrics = useCallback(() => {
-    try {
-      const raw = window.localStorage.getItem(metricsStorageKey)
-      if (!raw) return []
-      const parsed = JSON.parse(raw)
-      return Array.isArray(parsed) ? parsed : []
-    } catch {
-      return []
-    }
-  }, [metricsStorageKey])
-
   const [activeTab, setActiveTab] = useState(
     location.pathname.includes("/progress") ? "plans" : "inbody",
   ) // "inbody" | "plans" | "results"
-  const [metrics, setMetrics] = useState(() => readStoredSelfMetrics())
+  const [metrics, setMetrics] = useState([])
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [formHeight, setFormHeight] = useState(() => {
-    try {
-      return window.localStorage.getItem(heightStorageKey) || "170"
-    } catch {
-      return "170"
-    }
-  })
+  const [formHeight, setFormHeight] = useState("170")
   const [formWeight, setFormWeight] = useState("")
   const [formFat, setFormFat] = useState("")
   const [formMuscle, setFormMuscle] = useState("")
@@ -105,13 +86,13 @@ export function MemberBodyMetricsView() {
               : Promise.resolve([]),
           ])
 
-        const selfLogged = readStoredSelfMetrics()
         if (
           metricsRes.status === "fulfilled" &&
           Array.isArray(metricsRes.value) &&
           metricsRes.value.length > 0
         ) {
           const mappedMetrics = metricsRes.value.map((m) => ({
+            id: m.id || m.metricId,
             date: String(
               m.measuredAt || m.recordedAt || m.date || m.createdAt || "",
             ).slice(0, 10),
@@ -125,9 +106,9 @@ export function MemberBodyMetricsView() {
                   : 0),
             ),
           }))
-          setMetrics([...mappedMetrics, ...selfLogged])
+          setMetrics(mappedMetrics)
         } else {
-          setMetrics(selfLogged)
+          setMetrics([])
         }
 
         const loadedPlans =
@@ -182,7 +163,7 @@ export function MemberBodyMetricsView() {
     } finally {
       setLoadingTraining(false)
     }
-  }, [memberId, readStoredSelfMetrics])
+  }, [memberId])
 
   useEffect(() => {
     fetchTrainingData()
@@ -240,7 +221,7 @@ export function MemberBodyMetricsView() {
     }
   })()
 
-  const handleAddMetric = (e) => {
+  const handleAddMetric = async (e) => {
     e.preventDefault()
     if (!formWeight) return
     const w = parseFloat(formWeight)
@@ -249,46 +230,53 @@ export function MemberBodyMetricsView() {
     const m = formMuscle
       ? parseFloat(formMuscle)
       : latest.muscleMass || +(w * 0.45).toFixed(1)
-    const newEntry = {
-      id: `self-${Date.now()}`,
-      isSelfLogged: true,
-      date: new Date().toISOString().slice(0, 10),
+    const payload = {
+      measuredAt: new Date().toISOString().slice(0, 10),
       heightCm: hCm,
-      weight: w,
-      fatPercent: f,
-      muscleMass: m,
+      weightKg: w,
+      bodyFatPercentage: f,
+      muscleMassKg: m,
       bmi: +(w / Math.pow(hCm / 100, 2)).toFixed(1),
     }
     try {
-      window.localStorage.setItem(heightStorageKey, String(hCm))
-      const currentSelf = readStoredSelfMetrics()
-      window.localStorage.setItem(
-        metricsStorageKey,
-        JSON.stringify([...currentSelf, newEntry]),
+      await memberPortalApi.createMemberBodyMetric(memberId, payload)
+      await fetchTrainingData()
+      setIsModalOpen(false)
+      setFormWeight("")
+      setFormFat("")
+      setFormMuscle("")
+      if (typeof showToast === "function") {
+        showToast(
+          isVi
+            ? "Đã lưu chỉ số cơ thể thành công."
+            : "Body metric recorded successfully.",
+          "success",
+        )
+      }
+    } catch (err) {
+      const msg = getErrorMessage(
+        err,
+        isVi
+          ? "Không thể lưu chỉ số cơ thể (Backend chưa hỗ trợ API /body-metrics)."
+          : "Could not save body metric (Backend API not available).",
       )
-    } catch {
-      // ignore storage quota errors
+      if (typeof showToast === "function") showToast(msg, "error")
     }
-    setMetrics((prev) => [...prev, newEntry])
-    setIsModalOpen(false)
-    setFormWeight("")
-    setFormFat("")
-    setFormMuscle("")
   }
 
-  const handleDeleteSelfMetric = (entryId) => {
+  const handleDeleteSelfMetric = async (entryId) => {
     try {
-      const currentSelf = readStoredSelfMetrics().filter(
-        (item) => item.id !== entryId,
+      await memberPortalApi.deleteMemberBodyMetric(memberId, entryId)
+      await fetchTrainingData()
+    } catch (err) {
+      const msg = getErrorMessage(
+        err,
+        isVi
+          ? "Không thể xóa chỉ số cơ thể."
+          : "Could not delete body metric.",
       )
-      window.localStorage.setItem(
-        metricsStorageKey,
-        JSON.stringify(currentSelf),
-      )
-    } catch {
-      // ignore
+      if (typeof showToast === "function") showToast(msg, "error")
     }
-    setMetrics((prev) => prev.filter((item) => item.id !== entryId))
   }
 
   return (

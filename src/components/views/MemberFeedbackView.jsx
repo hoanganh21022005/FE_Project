@@ -176,31 +176,9 @@ const findSessionAttendanceRecord = (session, records = []) => {
 
 // Lưu trữ bổ sung phía client cho các trường UI mà hợp đồng POST /api/classes/{classId}/feedback chưa có
 // (như tags, điểm từng tiêu chí thành phần, cờ ẩn danh/đối thoại, sessionId) để không nhét vào comment và không làm mất khi tải lại/chỉnh sửa
-const FEEDBACK_META_STORAGE_KEY = "scms_member_feedback_meta_v1"
+const readStoredFeedbackMeta = () => ({})
 
-const readStoredFeedbackMeta = () => {
-  if (typeof window === "undefined") return {}
-  try {
-    const raw = window.localStorage.getItem(FEEDBACK_META_STORAGE_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw)
-    return parsed && typeof parsed === "object" ? parsed : {}
-  } catch {
-    return {}
-  }
-}
-
-const writeStoredFeedbackMeta = (metaMap) => {
-  if (typeof window === "undefined") return
-  try {
-    window.localStorage.setItem(
-      FEEDBACK_META_STORAGE_KEY,
-      JSON.stringify(metaMap || {}),
-    )
-  } catch {
-    // ignore storage quota errors
-  }
-}
+const writeStoredFeedbackMeta = () => {}
 
 // Trích xuất hạn đánh giá cấp KHÓA/LỚP từ dữ liệu API (nếu API có trả về).
 // Nếu API không trả hạn theo khóa/lớp thì trả về null để ẩn đếm ngược, KHÔNG tự tính theo buổi.

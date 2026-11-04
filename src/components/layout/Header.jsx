@@ -21,19 +21,11 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
   const navigate = useNavigate()
   const [isNotifOpen, setIsNotifOpen] = useState(false)
   const [headerAvatar, setHeaderAvatar] = useState(
-    () =>
-      currentUser?.avatarUrl ||
-      (typeof window !== "undefined"
-        ? localStorage.getItem(
-            `scms_avatar_${currentUser?.id || currentUser?.email || "me"}`,
-          )
-        : null),
+    () => currentUser?.avatarUrl || null,
   )
 
   useEffect(() => {
-    if (currentUser?.avatarUrl) {
-      setHeaderAvatar(currentUser.avatarUrl)
-    }
+    setHeaderAvatar(currentUser?.avatarUrl || null)
   }, [currentUser?.avatarUrl])
 
   useEffect(() => {
@@ -45,64 +37,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
       window.removeEventListener("scms:avatar-updated", handleAvatarUpdate)
     }
   }, [])
-  const [notifications, setNotifications] = useState(() =>
-    apiEnabled
-      ? []
-      : [
-          {
-            id: "n1",
-            titleVi: "Cảnh báo thời gian gia hạn 72 giờ",
-            titleEn: "72h Grace Period Warning",
-            descVi:
-              "Gói của thành viên Trần Quốc Huy (MB-1002) đã hết hạn và chuyển sang thời gian chờ gia hạn.",
-            descEn:
-              "Tran Quoc Huy's package (MB-1002) expired and entered the grace period.",
-            timeVi: "10 phút trước",
-            timeEn: "10 minutes ago",
-            type: "warning",
-            unread: true,
-          },
-          {
-            id: "n2",
-            titleVi: "Thanh toán mới thành công",
-            titleEn: "Successful Payment Recorded",
-            descVi:
-              "Giao dịch TX-9021 (Gói Premium 12 Tháng - 1.500.000 VND) đã hoàn tất.",
-            descEn:
-              "Transaction TX-9021 (Premium 12M Package - 1,500,000 VND) completed.",
-            timeVi: "35 phút trước",
-            timeEn: "35 minutes ago",
-            type: "payment",
-            unread: true,
-          },
-          {
-            id: "n3",
-            titleVi: "Lớp học đã đủ sức chứa",
-            titleEn: "Class Full Capacity Reached",
-            descVi:
-              "Lớp Yoga Foundation (Studio A) đã đủ 15/15 thành viên đăng ký.",
-            descEn:
-              "Yoga Foundation class (Studio A) has reached 15/15 enrolled capacity.",
-            timeVi: "2 giờ trước",
-            timeEn: "2 hours ago",
-            type: "info",
-            unread: true,
-          },
-          {
-            id: "n4",
-            titleVi: "Điều chỉnh điểm danh",
-            titleEn: "Attendance Record Corrected",
-            descVi:
-              "Coach Lê Thị Mai đã điều chỉnh điểm danh cho lớp Pilates Intermediate (Audit Log #A-108).",
-            descEn:
-              "Coach Le Thi Mai updated attendance record for Pilates Intermediate.",
-            timeVi: "5 giờ trước",
-            timeEn: "5 hours ago",
-            type: "success",
-            unread: false,
-          },
-        ],
-  )
+  const [notifications, setNotifications] = useState([])
 
   const popoverRef = useRef(null)
 
