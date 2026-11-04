@@ -21,6 +21,11 @@ import { invoiceApi } from "../../api/invoiceApi"
 import { formatInvoiceCode } from "../../api/invoiceMappers"
 import { getErrorMessage } from "../../api/apiErrors"
 import { applyMockPaymentSettlements } from "../../utils/mockFixtureSettlement"
+import {
+  canOfferPaymentRetry,
+  canRequestInvoiceReceipt,
+  getPaymentReturnState,
+} from "../../utils/paymentReturnState"
 
 const STATUS_LABELS = {
   successful: {
@@ -78,6 +83,11 @@ export function MemberInvoicesView() {
   const [keyword, setKeyword] = useState("")
   const [payingId, setPayingId] = useState(null)
   const [cancellingId, setCancellingId] = useState(null)
+  const [returnInvoiceLookup, setReturnInvoiceLookup] = useState({
+    status: "idle",
+    invoice: null,
+    error: "",
+  })
 
   const returnStatus =
     searchParams.get("status") ||
@@ -191,6 +201,102 @@ export function MemberInvoicesView() {
     )
   }, [hasReturnParams, invoices, returnInvoiceCode, returnInvoiceId])
 
+  const numericReturnInvoiceId = /^\d+$/.test(returnInvoiceId.trim())
+    ? String(Number(returnInvoiceId.trim()))
+    : ""
+  const targetReturnInvoiceId =
+    numericReturnInvoiceId || matchedReturnInvoice?.id || ""
+  const returnLookupKey = [
+    returnStatus,
+    returnInvoiceCode,
+    returnInvoiceId,
+    targetReturnInvoiceId,
+  ].join("|")
+
+  useEffect(() => {
+    let active = true
+
+    if (!hasReturnParams) {
+      setReturnInvoiceLookup({ status: "idle", invoice: null, error: "" })
+      return () => {
+        active = false
+      }
+    }
+
+    if (!apiEnabled) {
+      setReturnInvoiceLookup({
+        status: "error",
+        invoice: null,
+        error: isVi
+          ? "Không thể xác minh trạng thái thanh toán khi chưa kết nối Backend."
+          : "Payment status cannot be verified without the Backend.",
+      })
+      return () => {
+        active = false
+      }
+    }
+
+    if (!targetReturnInvoiceId) {
+      return () => {
+        active = false
+      }
+    }
+
+    setReturnInvoiceLookup({ status: "loading", invoice: null, error: "" })
+    invoiceApi
+      .getMemberOwnInvoiceById(targetReturnInvoiceId)
+      .then((invoice) => {
+        if (!active) return
+        if (!invoice) throw new Error("Invoice detail was empty.")
+        setReturnInvoiceLookup({ status: "loaded", invoice, error: "" })
+        setInvoices((current) =>
+          current.map((item) =>
+            String(item.id) === String(invoice.id) ? { ...item, ...invoice } : item,
+          ),
+        )
+      })
+      .catch((err) => {
+        if (!active) return
+        setReturnInvoiceLookup({
+          status: "error",
+          invoice: null,
+          error: getErrorMessage(
+            err,
+            isVi
+              ? "Không thể xác minh trạng thái hóa đơn từ Backend. Vui lòng tải lại hoặc liên hệ trung tâm; đừng thanh toán lại lúc này."
+              : "The invoice status could not be verified with the Backend. Refresh or contact the center; do not pay again yet.",
+          ),
+        })
+      })
+
+    return () => {
+      active = false
+    }
+  }, [
+    apiEnabled,
+    hasReturnParams,
+    isVi,
+    returnLookupKey,
+    targetReturnInvoiceId,
+  ])
+
+  useEffect(() => {
+    if (!hasReturnParams || !apiEnabled || targetReturnInvoiceId || loading) return
+    setReturnInvoiceLookup({
+      status: "error",
+      invoice: null,
+      error: isVi
+        ? "Không tìm thấy hóa đơn để kiểm tra trạng thái giao dịch. Vui lòng tải lại hóa đơn hoặc liên hệ trung tâm; đừng thanh toán lại lúc này."
+        : "The invoice could not be identified for status verification. Refresh invoices or contact the center; do not pay again yet.",
+    })
+  }, [apiEnabled, hasReturnParams, isVi, loading, targetReturnInvoiceId])
+
+  const authoritativeReturnInvoice =
+    returnInvoiceLookup.status === "loaded" &&
+    String(returnInvoiceLookup.invoice?.id) === String(targetReturnInvoiceId)
+      ? returnInvoiceLookup.invoice
+      : null
+
   const clearReturnBanner = () => {
     setSearchParams({}, { replace: true })
   }
@@ -222,6 +328,7 @@ export function MemberInvoicesView() {
 
   const payOnline = async (invoice) => {
     if (!invoice?.id) return
+    if (isReturnInvoice(invoice)) return
     if (invoice.paymentMethod === "cash") {
       setError(
         isVi
@@ -266,15 +373,38 @@ export function MemberInvoicesView() {
     if (!apiEnabled || !invoice?.id) return
     setLoadingReceipt(true)
     try {
-      const detail = await invoiceApi
-        .getInvoiceReceipt(invoice.id)
-        .catch(() => invoiceApi.getMemberOwnInvoiceById(invoice.id))
+      const requiresReturnRefresh = isReturnInvoice(invoice)
+      const currentInvoice = requiresReturnRefresh
+        ? await invoiceApi.getMemberOwnInvoiceById(invoice.id)
+        : invoice
+      const detail = canRequestInvoiceReceipt(currentInvoice)
+        ? await invoiceApi.getInvoiceReceipt(currentInvoice.id)
+        : currentInvoice
       if (detail) setSelectedInvoice(detail)
-    } catch {
-      // keep existing invoice preview
+    } catch (err) {
+      setError(
+        getErrorMessage(
+          err,
+          isVi
+            ? "Không thể tải chi tiết hóa đơn từ Backend."
+            : "Could not load invoice details from the Backend.",
+        ),
+      )
     } finally {
       setLoadingReceipt(false)
     }
+  }
+
+  const isReturnInvoice = (invoice) => {
+    if (!hasReturnParams || !invoice) return false
+    if (/^\d+$/.test(returnInvoiceId) && Number(invoice.id) === Number(returnInvoiceId)) return true
+    if (!returnInvoiceCode) return false
+    return [
+      invoice.invoiceCode,
+      invoice.code,
+      formatInvoiceCode(invoice.id),
+      String(invoice.id),
+    ].some((value) => String(value || "").toLowerCase() === returnInvoiceCode.trim().toLowerCase())
   }
 
   const handleCancelInvoice = async (invoice) => {
@@ -393,12 +523,11 @@ export function MemberInvoicesView() {
       {hasReturnParams && (
         <PaymentReturnBanner
           isVi={isVi}
-          returnStatus={returnStatus}
           returnInvoiceCode={returnInvoiceCode || returnInvoiceId}
-          matchedInvoice={matchedReturnInvoice}
-          payingId={payingId}
+          invoice={authoritativeReturnInvoice}
+          lookupStatus={returnInvoiceLookup.status}
+          lookupError={returnInvoiceLookup.error}
           onViewReceipt={handleViewReceipt}
-          onRetryPay={payOnline}
           onDismiss={clearReturnBanner}
         />
       )}
@@ -474,8 +603,16 @@ export function MemberInvoicesView() {
               const effectiveStatusKey =
                 expired && invoice.paymentStatus === "pending"
                   ? "expired"
+                  : invoice.paymentStatus === "successful" && invoice.reconciliationRequired
+                    ? "reconciliation"
                   : invoice.paymentStatus
-              const status = STATUS_LABELS[effectiveStatusKey] || {
+              const status = effectiveStatusKey === "reconciliation"
+                ? {
+                    vi: "Cần đối soát",
+                    en: "Reconciliation required",
+                    style: "bg-amber-50 text-amber-800",
+                  }
+                : STATUS_LABELS[effectiveStatusKey] || {
                 vi:
                   invoice.rawPaymentStatus ||
                   invoice.paymentStatus ||
@@ -554,7 +691,9 @@ export function MemberInvoicesView() {
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
                     >
                       <Receipt className="h-3.5 w-3.5 text-slate-500" />
-                      {isVi ? "Biên lai / Chi tiết" : "Receipt"}
+                      {canRequestInvoiceReceipt(invoice)
+                        ? isVi ? "Biên lai / Chi tiết" : "Receipt / Details"
+                        : isVi ? "Chi tiết hóa đơn" : "Invoice details"}
                     </button>
                     {apiEnabled && invoice.paymentStatus === "pending" && (
                       <>
@@ -565,7 +704,9 @@ export function MemberInvoicesView() {
                               ? "Thanh toán tại quầy lễ tân"
                               : "Pay at reception counter"}
                           </span>
-                        ) : !expired ? (
+                        ) : canOfferPaymentRetry(invoice, {
+                            isReturnInvoice: isReturnInvoice(invoice),
+                          }) ? (
                           <button
                             type="button"
                             onClick={() => payOnline(invoice)}
@@ -582,7 +723,7 @@ export function MemberInvoicesView() {
                             <ArrowUpRight className="h-3.5 w-3.5" />
                           </button>
                         ) : null}
-                        <button
+                        {!isReturnInvoice(invoice) && <button
                           type="button"
                           onClick={() => handleCancelInvoice(invoice)}
                           disabled={cancellingId === invoice.id}
@@ -596,7 +737,7 @@ export function MemberInvoicesView() {
                             : isVi
                               ? "Hủy đơn"
                               : "Cancel"}
-                        </button>
+                        </button>}
                       </>
                     )}
                     {apiEnabled && (
@@ -908,124 +1049,87 @@ export function MemberInvoicesView() {
 
 function PaymentReturnBanner({
   isVi,
-  returnStatus,
   returnInvoiceCode,
-  matchedInvoice,
-  payingId,
+  invoice,
+  lookupStatus,
+  lookupError,
   onViewReceipt,
-  onRetryPay,
   onDismiss,
 }) {
-  const normalizedCode = String(returnStatus || "").trim().toLowerCase()
-  const isSuccess =
-    normalizedCode === "00" ||
-    normalizedCode === "paid" ||
-    normalizedCode === "success" ||
-    normalizedCode === "successful" ||
-    matchedInvoice?.paymentStatus === "successful"
-  const isCancelled =
-    normalizedCode === "24" ||
-    normalizedCode === "cancelled" ||
-    normalizedCode === "canceled"
-  const isSignatureError = normalizedCode === "97"
-
-  const toneClass = isSuccess
+  const state = getPaymentReturnState({
+    invoice,
+    loading: lookupStatus === "loading" || lookupStatus === "idle",
+    error: lookupStatus === "error" ? lookupError : "",
+  })
+  const isPaid = state === "paid"
+  const isReconciliation = state === "reconciliation"
+  const toneClass = isPaid
     ? "border-emerald-200 bg-emerald-50 text-emerald-950"
-    : isCancelled
+    : isReconciliation
       ? "border-amber-200 bg-amber-50 text-amber-950"
-      : "border-rose-200 bg-rose-50 text-rose-950"
+      : "border-slate-200 bg-slate-50 text-slate-900"
 
-  const title = isSuccess
-    ? isVi
-      ? "Thanh toán VNPay thành công"
-      : "VNPay payment succeeded"
-    : isCancelled
-      ? isVi
-        ? "Đã hủy giao dịch thanh toán VNPay"
-        : "VNPay payment was cancelled"
-      : isSignatureError
-        ? isVi
-          ? "Không xác thực được chữ ký phản hồi VNPay (Mã 97)"
-          : "VNPay signature verification failed (Code 97)"
-        : isVi
-          ? `Giao dịch VNPay chưa hoàn tất${returnStatus ? ` (Mã: ${returnStatus})` : ""}`
-          : `VNPay payment was not completed${returnStatus ? ` (Code: ${returnStatus})` : ""}`
-
-  const description = isSuccess
-    ? isVi
-      ? "Hệ thống đã ghi nhận kết quả thanh toán từ cổng VNPay. Bạn có thể xem biên lai chi tiết bên dưới."
-      : "Your VNPay payment result has been recorded. You can inspect the receipt below."
-    : isCancelled
-      ? isVi
-        ? "Bạn đã hủy giao dịch trên cổng thanh toán VNPay. Hóa đơn vẫn ở trạng thái chờ thanh toán nếu chưa hết hạn."
-        : "You cancelled the payment on VNPay. Your invoice remains pending if it has not expired."
-      : isSignatureError
-        ? isVi
-          ? "Phản hồi từ VNPay không khớp chữ ký bảo mật trên máy chủ. Nếu tài khoản ngân hàng đã bị trừ tiền, vui lòng bấm 'Đối soát' trên hóa đơn."
-          : "The VNPay callback signature could not be verified. If you were charged, please open a reconciliation request."
-        : isVi
-          ? "Giao dịch chưa được xác nhận thành công. Bạn có thể kiểm tra lại trạng thái hóa đơn hoặc bấm 'Thanh toán VNPay' để thử lại."
-          : "The transaction was not confirmed. Check your invoice status below or retry online payment."
+  const copy = {
+    checking: {
+      title: isVi ? "Đang kiểm tra trạng thái thanh toán" : "Checking payment status",
+      description: isVi ? "Đang lấy trạng thái hóa đơn từ Backend. Vui lòng chờ và không thanh toán lại trong lúc kiểm tra." : "The invoice status is being retrieved from the Backend. Please wait and do not pay again while it is being checked.",
+    },
+    unverified: {
+      title: isVi ? "Chưa xác minh được thanh toán" : "Payment not yet verified",
+      description: lookupError || (isVi ? "Chưa có trạng thái hóa đơn xác nhận từ Backend. Vui lòng tải lại hóa đơn hoặc liên hệ trung tâm; đừng thanh toán lại lúc này." : "There is no confirmed invoice status from the Backend yet. Refresh invoices or contact the center; do not pay again yet."),
+    },
+    paid: {
+      title: isVi ? "Hóa đơn đã thanh toán" : "Invoice paid",
+      description: isVi ? "Backend xác nhận hóa đơn đã thanh toán." : "The Backend confirms that the invoice is paid.",
+    },
+    reconciliation: {
+      title: isVi ? "Thanh toán đang cần đối soát" : "Payment requires reconciliation",
+      description: isVi ? "Backend xác nhận hóa đơn đã thanh toán nhưng đang cần đối soát. Chưa thể xác nhận quyền học đã được kích hoạt." : "The Backend reports the invoice as paid but requires reconciliation. Course access activation is not confirmed.",
+    },
+    pending: {
+      title: isVi ? "Thanh toán chưa được xác minh" : "Payment has not been verified",
+      description: isVi ? "Hóa đơn hiện vẫn Pending theo Backend. Có thể giao dịch đang được cập nhật; vui lòng tải lại sau hoặc liên hệ trung tâm. Đừng thanh toán lại lúc này." : "The Backend currently reports the invoice as pending. The transaction may still be updating; refresh later or contact the center. Do not pay again yet.",
+    },
+    expired: {
+      title: isVi ? "Hóa đơn đã hết hạn" : "Invoice expired",
+      description: isVi ? "Backend xác nhận hóa đơn đã hết hạn. Nếu bạn đã bị trừ tiền, vui lòng liên hệ trung tâm để được kiểm tra." : "The Backend confirms that the invoice has expired. If you were charged, contact the center for a review.",
+    },
+    failed: {
+      title: isVi ? "Backend ghi nhận thanh toán thất bại" : "Backend reports payment failed",
+      description: isVi ? "Đây là trạng thái hiện được Backend xác nhận. Nếu bạn đã bị trừ tiền, vui lòng liên hệ trung tâm." : "This is the status currently confirmed by the Backend. If you were charged, contact the center.",
+    },
+    cancelled: {
+      title: isVi ? "Hóa đơn đã hủy" : "Invoice cancelled",
+      description: isVi ? "Backend xác nhận hóa đơn đã hủy. Nếu bạn đã bị trừ tiền, vui lòng liên hệ trung tâm." : "The Backend confirms that the invoice was cancelled. If you were charged, contact the center.",
+    },
+    refunded: {
+      title: isVi ? "Khoản thanh toán đã hoàn" : "Payment reversed",
+      description: isVi ? "Backend ghi nhận khoản thanh toán đã được hoàn." : "The Backend reports that the payment was reversed.",
+    },
+  }[state]
 
   return (
-    <section
-      role="status"
-      className={`rounded-xl border p-4 shadow-xs ${toneClass}`}
-    >
+    <section role="status" className={`rounded-xl border p-4 shadow-xs ${toneClass}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          {isSuccess ? (
-            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-          ) : (
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-          )}
+          {isPaid ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" /> : <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />}
           <div>
-            <h2 className="text-sm font-extrabold">{title}</h2>
-            {returnInvoiceCode && (
-              <p className="mt-0.5 text-xs font-semibold opacity-85">
-                {isVi ? "Mã hóa đơn / tham chiếu:" : "Invoice / Ref:"}{" "}
-                <span className="font-mono">{returnInvoiceCode}</span>
-              </p>
-            )}
-            <p className="mt-1 text-xs leading-5 opacity-90">{description}</p>
-            {matchedInvoice && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => onViewReceipt(matchedInvoice)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
-                >
-                  <Receipt className="h-3.5 w-3.5" />
-                  {isVi ? "Xem biên lai" : "View receipt"}
-                </button>
-                {matchedInvoice.paymentStatus === "pending" &&
-                  matchedInvoice.paymentMethod !== "cash" && (
-                    <button
-                      type="button"
-                      onClick={() => onRetryPay(matchedInvoice)}
-                      disabled={payingId === matchedInvoice.id}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-primary-hover disabled:opacity-60 cursor-pointer"
-                    >
-                      {payingId === matchedInvoice.id
-                        ? isVi
-                          ? "Đang chuyển VNPay..."
-                          : "Redirecting..."
-                        : isVi
-                          ? "Thanh toán lại qua VNPay"
-                          : "Retry VNPay payment"}
-                      <ArrowUpRight className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-              </div>
+            <h2 className="text-sm font-extrabold">{copy.title}</h2>
+            {returnInvoiceCode && <p className="mt-0.5 text-xs font-semibold opacity-85">{isVi ? "Mã hóa đơn / tham chiếu:" : "Invoice / Ref:"} <span className="font-mono">{returnInvoiceCode}</span></p>}
+            <p className="mt-1 text-xs leading-5 opacity-90">{copy.description}</p>
+            {isPaid && invoice && (
+              <button
+                type="button"
+                onClick={() => onViewReceipt(invoice)}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+              >
+                <Receipt className="h-3.5 w-3.5" />
+                {isVi ? "Xem biên lai" : "View receipt"}
+              </button>
             )}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="rounded-lg p-1 opacity-70 hover:bg-black/5 hover:opacity-100 cursor-pointer"
-          aria-label={isVi ? "Đóng thông báo" : "Dismiss"}
-        >
+        <button type="button" onClick={onDismiss} className="rounded-lg p-1 opacity-70 hover:bg-black/5 hover:opacity-100 cursor-pointer" aria-label={isVi ? "Đóng thông báo" : "Dismiss"}>
           <X className="h-4 w-4" />
         </button>
       </div>
