@@ -17,26 +17,6 @@ import {
   CartesianGrid,
 } from 'recharts';
 
-const MOCK_REVENUE_BY_MONTH = [
-  { month: 'Thg 3', revenue: 4500000 },
-  { month: 'Thg 4', revenue: 6800000 },
-  { month: 'Thg 5', revenue: 8200000 },
-  { month: 'Thg 6', revenue: 10500000 },
-  { month: 'Thg 7', revenue: 11800000 },
-  { month: 'Thg 8', revenue: 13200000 },
-  { month: 'Thg 9', revenue: 14700000 },
-];
-
-const MOCK_MEMBER_GROWTH = [
-  { month: 'Thg 3', count: 2 },
-  { month: 'Thg 4', count: 3 },
-  { month: 'Thg 5', count: 4 },
-  { month: 'Thg 6', count: 3 },
-  { month: 'Thg 7', count: 5 },
-  { month: 'Thg 8', count: 6 },
-  { month: 'Thg 9', count: 0 },
-];
-
 function EmptyChart({ children }) {
   return <div className="h-64 flex items-center justify-center text-xs text-slate-500">{children}</div>;
 }
@@ -116,16 +96,10 @@ export function ReportsView() {
 
   const mockRevenue = payments.filter((payment) => payment.status === 'successful').reduce((sum, payment) => sum + payment.amount, 0);
   const revenueValue = apiEnabled ? revenueReport?.totalRevenue : mockRevenue;
-  const mockMonthlyRevenue = MOCK_REVENUE_BY_MONTH.map((entry, index) => (
-    index === MOCK_REVENUE_BY_MONTH.length - 1 ? { ...entry, revenue: mockRevenue || entry.revenue } : entry
-  ));
-  const mockGrowth = MOCK_MEMBER_GROWTH.map((entry, index) => (
-    index === MOCK_MEMBER_GROWTH.length - 1 ? { ...entry, count: members.length } : entry
-  ));
-  const timeline = apiEnabled ? revenueTimelineForDisplay(revenueReport) : mockMonthlyRevenue;
+  const timeline = revenueTimelineForDisplay(revenueReport);
   const packageRevenue = revenueReport?.revenueByPackage || [];
   const methodRevenue = revenueReport?.revenueByMethod || [];
-  const monthlyGrowth = apiEnabled ? memberReport?.monthlyGrowth || [] : mockGrowth;
+  const monthlyGrowth = memberReport?.monthlyGrowth || [];
   const noPaidTransactions = apiEnabled && revenueReport?.totalTransactions === 0;
 
   const moneyTooltip = (value) => [value == null ? '—' : formatCurrency(value, language), vi ? 'Doanh thu' : 'Revenue'];

@@ -29,12 +29,7 @@ import { membershipApi } from "../../api/membershipApi"
 import { invoiceApi } from "../../api/invoiceApi"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { getErrorMessage } from "../../api/apiErrors"
-import {
-  publicCoaches,
-  findPublicCoachMatch,
-  resolveCoachAvatar,
-  filterOfficialPublicCoaches,
-} from "../../data/publicCoaches"
+import { resolveCoachAvatar } from "../../data/publicCoaches"
 
 export function MemberMyCoachView() {
   const { language, currentUser, subjects, apiEnabled, showToast } = useSCMS()
@@ -109,21 +104,9 @@ export function MemberMyCoachView() {
           keyword: keyword.trim() || undefined,
         })
         const rawList = Array.isArray(list) ? list : []
-        setCoaches(filterOfficialPublicCoaches(rawList))
+        setCoaches(rawList)
       } else {
-        // Mock fallback synced with publicCoaches roster (/images/coaches/*.jpg)
-        setCoaches(
-          publicCoaches.map((pc, idx) => ({
-            id: idx + 1,
-            name: pc.name,
-            email: `${pc.sportId.replace("-", "")}.coach@vibesport.vn`,
-            phone: `090${idx + 1} 234 56${idx}`,
-            bio: `Huấn luyện viên trưởng bộ môn ${pc.specialtyVi} tại VIBE Sport Center.`,
-            specializations: [pc.specialtyVi],
-            status: "ACTIVE",
-            avatarUrl: pc.image,
-          })),
-        )
+        setCoaches([])
       }
     } catch (err) {
       setCoachesError(
@@ -146,14 +129,8 @@ export function MemberMyCoachView() {
   // 2. Fetch Rooms & Subscriptions (for private booking)
   useEffect(() => {
     if (!apiEnabled) {
-      setRooms([
-        { id: 1, name: "Phòng PT 1 - Boxing & Kickfit" },
-        { id: 2, name: "Phòng PT 2 - Functional Gym" },
-        { id: 3, name: "Phòng Yoga Studio 1" },
-      ])
-      setSubscriptions([
-        { id: 101, packageName: "Gói Hội Viên VIBE VIP (Active)" },
-      ])
+      setRooms([])
+      setSubscriptions([])
       return
     }
 
@@ -196,25 +173,14 @@ export function MemberMyCoachView() {
         )
         setPrivateSessions(privates)
       } else {
-        setPrivateSessions([
-          {
-            id: 901,
-            coachId: 1,
-            coachName: "Nguyễn Văn Hùng",
-            sessionDate: "2026-10-26",
-            startTime: "08:00",
-            endTime: "09:00",
-            roomName: "Phòng PT 1 - Boxing",
-            status: "scheduled",
-          },
-        ])
+        setPrivateSessions([])
       }
     } catch (err) {
       console.warn("Could not fetch private sessions:", err)
     } finally {
       setLoadingSessions(false)
     }
-  }, [apiEnabled])
+  }, [apiEnabled, memberProfileId])
 
   useEffect(() => {
     if (activeTab === "my_sessions") {
@@ -435,60 +401,7 @@ export function MemberMyCoachView() {
           )
           setAvailableSlots(Array.isArray(slots) ? slots : [])
         } else {
-          // 7 standard 90-minute slots per D12
-          setAvailableSlots([
-            {
-              slotNumber: 1,
-              slotName: "Ca 1",
-              startTime: "06:00:00",
-              endTime: "07:30:00",
-              isAvailable: true,
-            },
-            {
-              slotNumber: 2,
-              slotName: "Ca 2",
-              startTime: "07:45:00",
-              endTime: "09:15:00",
-              isAvailable: false,
-              reason: "HLV bận ca lớp nhóm",
-            },
-            {
-              slotNumber: 3,
-              slotName: "Ca 3",
-              startTime: "09:30:00",
-              endTime: "11:00:00",
-              isAvailable: true,
-            },
-            {
-              slotNumber: 4,
-              slotName: "Ca 4",
-              startTime: "13:00:00",
-              endTime: "14:30:00",
-              isAvailable: true,
-            },
-            {
-              slotNumber: 5,
-              slotName: "Ca 5",
-              startTime: "14:45:00",
-              endTime: "16:15:00",
-              isAvailable: true,
-            },
-            {
-              slotNumber: 6,
-              slotName: "Ca 6",
-              startTime: "16:30:00",
-              endTime: "18:00:00",
-              isAvailable: false,
-              reason: "Đã có hội viên đặt",
-            },
-            {
-              slotNumber: 7,
-              slotName: "Ca 7",
-              startTime: "18:15:00",
-              endTime: "19:45:00",
-              isAvailable: true,
-            },
-          ])
+          setAvailableSlots([])
         }
       } catch (err) {
         console.warn("Could not load slots:", err)
@@ -831,13 +744,7 @@ export function MemberMyCoachView() {
                         ? c.specializations
                         : c.specialization
                           ? [c.specialization]
-                          : findPublicCoachMatch(c)?.specialtyVi
-                            ? [
-                                isVi
-                                  ? findPublicCoachMatch(c).specialtyVi
-                                  : findPublicCoachMatch(c).specialty,
-                              ]
-                            : ["VIBE Sport Coach"]
+                          : ["VIBE Sport Coach"]
                       ).map((spec, sIdx) => (
                         <span
                           key={sIdx}
