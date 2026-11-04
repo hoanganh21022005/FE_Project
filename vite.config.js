@@ -48,7 +48,10 @@ export default defineConfig(({ mode }) => {
               const sc = proxyRes.headers["set-cookie"]
               if (sc) {
                 proxyRes.headers["set-cookie"] = sc.map((c) =>
-                  c.replace(/;\s*Secure/gi, ""),
+                  c
+                    .replace(/;\s*Secure/gi, "")
+                    .replace(/;\s*SameSite=None/gi, "; SameSite=Lax")
+                    .replace(/;\s*Partitioned/gi, ""),
                 )
               }
             })

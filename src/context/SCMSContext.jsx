@@ -1218,6 +1218,7 @@ export const SCMSProvider = ({ children }) => {
   const [managerDataError, setManagerDataError] = useState(null)
 
   const prevRoleRef = React.useRef(role)
+  const authRequestEpochRef = React.useRef(0)
   useEffect(() => {
     if (prevRoleRef.current !== role) {
       prevRoleRef.current = role
@@ -1326,9 +1327,10 @@ export const SCMSProvider = ({ children }) => {
     }
 
     let active = true
+    const requestEpoch = authRequestEpochRef.current
     setAuthError(null)
     const authTimeoutId = setTimeout(() => {
-      if (active) {
+      if (active && authRequestEpochRef.current === requestEpoch) {
         setAuthLoading(false)
       }
     }, 5000)
@@ -1336,7 +1338,7 @@ export const SCMSProvider = ({ children }) => {
     authApi
       .getCurrentUser()
       .then((user) => {
-        if (!active) return
+        if (!active || authRequestEpochRef.current !== requestEpoch) return
         const normalizedRole = normalizeRole(user?.role, { isApiMode: true })
         if (!normalizedRole) {
           setAuthUser(null)
@@ -1351,13 +1353,19 @@ export const SCMSProvider = ({ children }) => {
         setRole(normalizedRole)
       })
       .catch((error) => {
-        if (active && !(error instanceof UnauthorizedError)) {
+        if (
+          active &&
+          authRequestEpochRef.current === requestEpoch &&
+          !(error instanceof UnauthorizedError)
+        ) {
           setAuthError(getErrorMessage(error))
         }
       })
       .finally(() => {
         clearTimeout(authTimeoutId)
-        if (active) setAuthLoading(false)
+        if (active && authRequestEpochRef.current === requestEpoch) {
+          setAuthLoading(false)
+        }
       })
 
     return () => {
@@ -1665,6 +1673,7 @@ export const SCMSProvider = ({ children }) => {
   }, [authUser])
 
   const login = async (email, password) => {
+    authRequestEpochRef.current += 1
     setAuthError(null)
     if (!API_ENABLED) {
       setLocalAuthenticated(true)
@@ -1685,10 +1694,12 @@ export const SCMSProvider = ({ children }) => {
     }
     setAuthUser(normalizedUser)
     setRole(normalizedRole)
+    setAuthLoading(false)
     return normalizedUser
   }
 
   const logout = async () => {
+    authRequestEpochRef.current += 1
     if (API_ENABLED) {
       try {
         await authApi.logout()
