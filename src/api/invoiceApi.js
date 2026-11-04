@@ -126,14 +126,17 @@ export const getMemberOwnInvoiceById = async (id) => {
   return mapInvoice(data);
 };
 
-export const verifyVnpay = async (invoiceId, { timeoutMs = VNPAY_VERIFY_TIMEOUT_MS } = {}) => {
+export const verifyVnpay = async (invoiceId, {
+  timeoutMs = VNPAY_VERIFY_TIMEOUT_MS,
+  signal,
+} = {}) => {
   if (!isValidNumericId(invoiceId)) {
     throw new Error('Invalid invoice ID.');
   }
   return httpClient.post(
     `/api/members/me/invoices/${invoiceId}/verify-vnpay`,
     {},
-    { timeoutMs },
+    { timeoutMs, signal },
   );
 };
 

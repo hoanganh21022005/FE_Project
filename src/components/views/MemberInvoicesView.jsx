@@ -29,12 +29,19 @@ import {
 import {
   canStartVnpayVerification,
   acquireInvoiceVerificationLock,
-  getVerificationRetryAt,
   getVerificationSecondsRemaining,
+  abortPendingVnpayVerification,
+  clearAutomaticVnpayAttempt,
+  clearVnpayCooldown,
+  executeVnpayVerification,
+  hasAutomaticVnpayAttempt,
   isCurrentPaymentReturnRequest,
   markAutomaticVerificationAttempt,
   normalizeVerificationStatus,
+  restoreVnpayCooldown,
   releaseInvoiceVerificationLock,
+  storeVnpayCooldown,
+  storeAutomaticVnpayAttempt,
 } from "../../utils/paymentVerification"
 
 const STATUS_LABELS = {
@@ -105,6 +112,7 @@ export function MemberInvoicesView() {
   const activeReturnKeyRef = useRef("")
   const verifyInFlightRef = useRef(new Set())
   const autoVerifyAttemptedRef = useRef(new Set())
+  const verifyControllerRef = useRef(null)
 
   const returnStatus =
     searchParams.get("status") ||
@@ -118,6 +126,7 @@ export function MemberInvoicesView() {
     returnStatus || returnInvoiceCode || returnInvoiceId,
   )
   const normalizedRole = String(currentUser?.role || "").trim().toLowerCase()
+  const normalizedUserId = String(currentUser?.id ?? "").trim()
 
   // Receipt / Detail modal state
   const [selectedInvoice, setSelectedInvoice] = useState(null)
@@ -168,7 +177,10 @@ export function MemberInvoicesView() {
 
   useEffect(() => {
     mountedRef.current = true
-    return () => { mountedRef.current = false }
+    return () => {
+      mountedRef.current = false
+      abortPendingVnpayVerification(verifyControllerRef)
+    }
   }, [])
 
   useEffect(() => {
@@ -234,7 +246,12 @@ export function MemberInvoicesView() {
     : ""
   const targetReturnInvoiceId =
     numericReturnInvoiceId || matchedReturnInvoice?.id || ""
-  const returnLookupKey = [returnInvoiceCode, returnInvoiceId].join("|")
+  const returnLookupKey = [
+    normalizedUserId,
+    returnInvoiceCode,
+    returnInvoiceId,
+    targetReturnInvoiceId,
+  ].join("|")
   activeReturnKeyRef.current = hasReturnParams ? returnLookupKey : ""
 
   const refreshTrackedInvoice = useCallback(async (invoiceId, requestKey) => {
@@ -252,33 +269,59 @@ export function MemberInvoicesView() {
   const runVerification = useCallback(async (invoice, requestKey, automatic = false) => {
     const invoiceId = String(invoice?.id || "")
     if (!isCurrentPaymentReturnRequest(requestKey, activeReturnKeyRef.current)) return false
-    if (automatic && autoVerifyAttemptedRef.current.has(requestKey)) return false
+    if (automatic && (
+      autoVerifyAttemptedRef.current.has(requestKey) ||
+      hasAutomaticVnpayAttempt({ userId: normalizedUserId, invoiceId })
+    )) return false
+    const storedRetryAt = restoreVnpayCooldown({ userId: normalizedUserId, invoiceId })
+    const memoryRetryAt = verification.invoiceId === invoiceId ? verification.retryAt : 0
+    const retryAt = Math.max(storedRetryAt, memoryRetryAt)
     if (!canStartVnpayVerification({
       invoice,
       role: normalizedRole,
       apiEnabled,
       inFlight: verifyInFlightRef.current.has(invoiceId),
-      retryAt: verification.invoiceId === invoiceId ? verification.retryAt : 0,
+      retryAt,
       verificationStatus: verification.invoiceId === invoiceId ? verification.status : "",
     })) return false
 
-    if (automatic && !markAutomaticVerificationAttempt(autoVerifyAttemptedRef.current, requestKey)) return false
+    if (automatic) {
+      if (!markAutomaticVerificationAttempt(autoVerifyAttemptedRef.current, requestKey)) return false
+      storeAutomaticVnpayAttempt({ userId: normalizedUserId, invoiceId })
+    }
     if (!acquireInvoiceVerificationLock(verifyInFlightRef.current, invoiceId)) return false
+    const controller = new AbortController()
+    verifyControllerRef.current = { controller, requestKey, invoiceId }
     setVerification({ invoiceId, status: "VERIFYING", retryAt: 0, running: true, error: "" })
     try {
-      const response = await invoiceApi.verifyVnpay(invoiceId)
+      const result = await executeVnpayVerification(
+        invoiceId,
+        (id, options) => invoiceApi.verifyVnpay(id, options),
+        controller.signal,
+      )
+      if (result.aborted) return false
       if (!mountedRef.current || !isCurrentPaymentReturnRequest(requestKey, activeReturnKeyRef.current)) return false
+      const response = result.response
       const status = normalizeVerificationStatus(response?.verificationStatus)
+      const nextRetryAt = status === "RETRY_LATER"
+        ? storeVnpayCooldown({
+            userId: normalizedUserId,
+            invoiceId,
+            retryAfterSeconds: response?.retryAfterSeconds,
+          })
+        : 0
+      if (status !== "RETRY_LATER") clearVnpayCooldown({ userId: normalizedUserId, invoiceId })
       setVerification({
         invoiceId,
         status,
-        retryAt: status === "RETRY_LATER" ? getVerificationRetryAt(response?.retryAfterSeconds) : 0,
+        retryAt: nextRetryAt,
         running: false,
         error: "",
       })
       await refreshTrackedInvoice(invoiceId, requestKey)
       return true
     } catch (err) {
+      if (controller.signal.aborted || err?.name === "AbortError") return false
       if (mountedRef.current && isCurrentPaymentReturnRequest(requestKey, activeReturnKeyRef.current)) {
         setVerification({
           invoiceId,
@@ -292,21 +335,29 @@ export function MemberInvoicesView() {
       return false
     } finally {
       releaseInvoiceVerificationLock(verifyInFlightRef.current, invoiceId)
-      if (mountedRef.current && isCurrentPaymentReturnRequest(requestKey, activeReturnKeyRef.current)) {
-        setVerification((current) => current.invoiceId === invoiceId ? { ...current, running: false } : current)
+      if (verifyControllerRef.current?.controller === controller) {
+        verifyControllerRef.current = null
+      }
+      if (mountedRef.current) {
+        setVerification((current) => current.invoiceId === invoiceId && current.running
+          ? { ...current, status: current.status === "VERIFYING" ? "" : current.status, running: false }
+          : current)
       }
     }
-  }, [apiEnabled, normalizedRole, refreshTrackedInvoice, verification.invoiceId, verification.retryAt, verification.status])
+  }, [apiEnabled, normalizedRole, normalizedUserId, refreshTrackedInvoice, verification.invoiceId, verification.retryAt, verification.status])
   runVerificationRef.current = runVerification
 
   useEffect(() => {
     if (!verification.retryAt || getVerificationSecondsRemaining(verification.retryAt) <= 0) return undefined
     const timer = window.setInterval(() => {
       setRetryClock(Date.now())
-      if (getVerificationSecondsRemaining(verification.retryAt) <= 1) window.clearInterval(timer)
+      if (getVerificationSecondsRemaining(verification.retryAt) <= 1) {
+        clearVnpayCooldown({ userId: normalizedUserId, invoiceId: verification.invoiceId })
+        window.clearInterval(timer)
+      }
     }, 1000)
     return () => window.clearInterval(timer)
-  }, [verification.retryAt])
+  }, [normalizedUserId, verification.invoiceId, verification.retryAt])
 
   useEffect(() => {
     let active = true
@@ -347,6 +398,20 @@ export function MemberInvoicesView() {
         setInvoices((current) => current.map((item) =>
           String(item.id) === String(invoice.id) ? { ...item, ...invoice } : item,
         ))
+        const persistedRetryAt = restoreVnpayCooldown({
+          userId: normalizedUserId,
+          invoiceId: invoice.id,
+        })
+        if (persistedRetryAt > Date.now()) {
+          setVerification({
+            invoiceId: String(invoice.id),
+            status: "RETRY_LATER",
+            retryAt: persistedRetryAt,
+            running: false,
+            error: "",
+          })
+          return
+        }
         if (normalizedRole === "member" && apiEnabled) {
           runVerificationRef.current?.(invoice, returnLookupKey, true)
         }
@@ -367,12 +432,14 @@ export function MemberInvoicesView() {
 
     return () => {
       active = false
+      abortPendingVnpayVerification(verifyControllerRef, returnLookupKey)
     }
   }, [
     apiEnabled,
     hasReturnParams,
     isVi,
     normalizedRole,
+    normalizedUserId,
     returnLookupKey,
     targetReturnInvoiceId,
   ])
@@ -423,6 +490,10 @@ export function MemberInvoicesView() {
   }
 
   const clearReturnBanner = () => {
+    if (targetReturnInvoiceId) {
+      clearAutomaticVnpayAttempt({ userId: normalizedUserId, invoiceId: targetReturnInvoiceId })
+    }
+    autoVerifyAttemptedRef.current.delete(returnLookupKey)
     setSearchParams({}, { replace: true })
   }
 
