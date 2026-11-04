@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import { StatusBadge } from "../common/Badge"
 import { memberApi } from "../../api/memberApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import { parseVietnamDateTime } from "../../utils/memberSafetyHelpers"
+import {
+  canCoachActOnPackage,
+  getPackageActionBlockReason,
+} from "../../utils/permissions"
 import {
   Users,
   Target,
@@ -292,12 +297,16 @@ export function CoachAssignedMembersView() {
     t,
     language,
   } = useSCMS()
+  const navigate = useNavigate()
 
   const [atRiskIds, setAtRiskIds] = useState(new Set())
   const [advancedRequests, setAdvancedRequests] = useState([])
   const [loadingRequests, setLoadingRequests] = useState(false)
   const [requestsError, setRequestsError] = useState(null)
   const [decidingId, setDecidingId] = useState(null)
+  const [rejectModalTarget, setRejectModalTarget] = useState(null)
+  const [rejectReason, setRejectReason] = useState("")
+  const [rejectReasonError, setRejectReasonError] = useState("")
   const isProcessingRef = useRef(false)
 
   // Booking Modal State (Mục 6 / D04)
@@ -452,14 +461,39 @@ export function CoachAssignedMembersView() {
     [apiEnabled, currentUser],
   )
 
-  // Handle Coach Decision (APPROVE / REJECT) - Bảo toàn 100%
-  const handleCoachDecision = async (reqItem, decision) => {
+  const openRejectModal = (reqItem) => {
+    setRejectModalTarget(reqItem)
+    setRejectReason("")
+    setRejectReasonError("")
+  }
+
+  const handleConfirmReject = async (e) => {
+    if (e) e.preventDefault()
+    if (!rejectModalTarget) return
+    const trimmed = rejectReason.trim()
+    if (trimmed.length < 5) {
+      setRejectReasonError(t("coachPtRejectReasonMinError"))
+      return
+    }
+    setRejectReasonError("")
+    const target = rejectModalTarget
+    setRejectModalTarget(null)
+    await handleCoachDecision(target, "REJECT", trimmed)
+  }
+
+  // Handle Coach Decision (APPROVE / REJECT)
+  const handleCoachDecision = async (reqItem, decision, customReason) => {
     if (!reqItem?.id) return
     if (decision !== "APPROVE" && decision !== "REJECT") return
 
     const st = String(reqItem.status || "").toLowerCase()
     if (!st.includes("pending") && !st.includes("request")) {
       showToast?.("Yêu cầu này không ở trạng thái chờ duyệt.", "info")
+      return
+    }
+
+    if (decision === "REJECT" && (!customReason || String(customReason).trim().length < 5)) {
+      openRejectModal(reqItem)
       return
     }
 
@@ -470,7 +504,7 @@ export function CoachAssignedMembersView() {
     const accepted = decision === "APPROVE"
     const reason = accepted
       ? "Coach đồng ý nhận học viên PT 1-kèm-1"
-      : "Coach hiện đã kín lịch khung giờ này"
+      : String(customReason).trim()
 
     try {
       const response = await memberPortalApi.decideAdvancedRegistration(
@@ -483,8 +517,8 @@ export function CoachAssignedMembersView() {
 
       const respStatus = String(response?.status || "").toUpperCase()
       if (accepted) {
-        if (respStatus === "ACCEPTED") {
-          showToast?.("Đã duyệt nhận học viên PT 1-kèm-1!", "success")
+        if (respStatus === "ACCEPTED" || !response?.status) {
+          showToast?.(t("coachPtDecisionAcceptedToast"), "success")
         } else {
           showToast?.(
             `Phản hồi từ máy chủ không khớp (Trạng thái: ${response?.status || "Không xác định"}).`,
@@ -492,8 +526,8 @@ export function CoachAssignedMembersView() {
           )
         }
       } else {
-        if (respStatus === "REJECTED") {
-          showToast?.("Đã từ chối yêu cầu đăng ký PT.", "info")
+        if (respStatus === "REJECTED" || respStatus === "DECLINED" || !response?.status) {
+          showToast?.(t("coachPtDecisionRejectedToast"), "info")
         } else {
           showToast?.(
             `Phản hồi từ máy chủ không khớp (Trạng thái: ${response?.status || "Không xác định"}).`,
@@ -1035,12 +1069,27 @@ export function CoachAssignedMembersView() {
     }
   }
 
-  // API mode booking candidates from registrations
+  // Pending PT requests (ONLY REQUESTED / PENDING per rule 3.5 & P0.3)
+  const pendingAdvancedRequests = useMemo(() => {
+    if (!Array.isArray(advancedRequests)) return []
+    return advancedRequests.filter((r) => {
+      const st = String(r.status || "").toLowerCase()
+      return st.includes("pending") || st.includes("request")
+    })
+  }, [advancedRequests])
+
+  // API mode booking candidates from registrations (ACCEPTED / INVOICED / ACTIVE)
   const apiBookingCandidates = useMemo(() => {
     if (!apiEnabled || !Array.isArray(advancedRequests)) return []
     return advancedRequests.filter((r) => {
       const st = String(r.status || "").toLowerCase()
-      return r.subscriptionId || (st !== "requested" && st !== "pending" && st !== "rejected")
+      return (
+        r.subscriptionId ||
+        (st !== "requested" &&
+          st !== "pending" &&
+          st !== "rejected" &&
+          st !== "declined")
+      )
     })
   }, [apiEnabled, advancedRequests])
 
@@ -1078,16 +1127,16 @@ export function CoachAssignedMembersView() {
               type="button"
               disabled={loadingRequests}
               onClick={() => loadAdvancedRequests().catch(() => {})}
-              title="Làm mới danh sách"
+              title={t("coachBtnRefresh")}
               className="px-2.5 py-1.5 text-xs font-semibold bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded flex items-center gap-1 cursor-pointer transition-all"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loadingRequests ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Làm mới</span>
+              <span className="hidden sm:inline">{t("coachBtnRefresh")}</span>
             </button>
           )}
           <div className="text-xs font-mono font-bold bg-slate-100 border border-slate-200 px-3 py-1.5 rounded text-slate-900">
             Tổng số: {apiEnabled ? apiBookingCandidates.length : mockAssignedMembers.length}{" "}
-            {apiEnabled ? "Gói PT" : "Học viên"}
+            {apiEnabled ? t("coachPkgLabel") : "Học viên"}
           </div>
         </div>
       </div>
@@ -1100,9 +1149,8 @@ export function CoachAssignedMembersView() {
             <div>
               <span className="font-bold">Đang có giao dịch đặt lịch chưa hoàn tất kết quả: </span>
               <span>
-                Học viên <strong>{unresolvedAttempt.memberName}</strong> &bull; Gói{" "}
-                <strong>#{unresolvedAttempt.subscriptionId}</strong> ({unresolvedAttempt.sessionDate} &bull;{" "}
-                {unresolvedAttempt.startTime.slice(0, 5)})
+                Học viên <strong>{unresolvedAttempt.memberName}</strong> &bull; {t("coachPkgLabel")} (
+                {unresolvedAttempt.sessionDate} &bull; {unresolvedAttempt.startTime.slice(0, 5)})
               </span>
             </div>
           </div>
@@ -1114,7 +1162,7 @@ export function CoachAssignedMembersView() {
             }}
             className="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded font-bold cursor-pointer transition-all self-start sm:self-auto shrink-0"
           >
-            Mở xem lại & Thử lại
+            Mở xem lại &amp; Thử lại
           </button>
         </div>
       )}
@@ -1124,7 +1172,7 @@ export function CoachAssignedMembersView() {
         <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between text-xs text-amber-900">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
-            <span>Buổi tập đã được tạo thành công nhưng chưa thể cập nhật credit mới từ máy chủ.</span>
+            <span>Buổi tập đã được tạo thành công nhưng chưa thể cập nhật số buổi còn lại từ máy chủ.</span>
           </div>
           <button
             type="button"
@@ -1138,21 +1186,26 @@ export function CoachAssignedMembersView() {
         </div>
       )}
 
-      {/* Pending Advanced PT Coach Requests (Mục 5B) - Chốt từ task trước */}
-      {advancedRequests.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
+      {/* Pending Advanced PT Coach Requests (ONLY REQUESTED / PENDING) */}
+      {pendingAdvancedRequests.length > 0 && (
+        <div className="bg-white border border-amber-200 rounded-lg p-5 shadow-xs space-y-3">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Clock className="w-4 h-4 text-amber-600" />
-              <span>
-                Yêu cầu đăng ký HLV 1-kèm-1 (Advanced PT · {advancedRequests.length})
+              <span>Yêu cầu đăng ký PT 1:1 chờ duyệt</span>
+              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold">
+                {pendingAdvancedRequests.length}
               </span>
             </h3>
           </div>
           <div className="divide-y divide-slate-100">
-            {advancedRequests.map((req) => {
-              const st = String(req.status || "").toLowerCase()
-              const isPending = st.includes("pending") || st.includes("request")
+            {pendingAdvancedRequests.map((req) => {
+              const memberDisplayName =
+                req.memberName ||
+                (req.memberId ? `Học viên #${req.memberId}` : "Hội viên")
+              const subjectDisplayName =
+                req.subjectName ||
+                (req.subjectId ? `Môn #${req.subjectId}` : "Huấn luyện cá nhân")
               return (
                 <div
                   key={req.id}
@@ -1160,46 +1213,46 @@ export function CoachAssignedMembersView() {
                 >
                   <div>
                     <div className="font-bold text-slate-900">
-                      {req.memberName
-                        ? `${req.memberName} (#${req.memberId})`
-                        : `Học viên #${req.memberId}`}{" "}
-                      &bull; {req.subjectName || `Môn #${req.subjectId}`}
+                      {memberDisplayName} &bull; {subjectDisplayName}
                     </div>
                     <div className="text-slate-500 mt-0.5">
-                      Trạng thái: <strong className="text-slate-800">{req.status}</strong>
+                      Trạng thái:{" "}
+                      <strong className="text-amber-800">
+                        {t("coachStatusPending")}
+                      </strong>
                       {req.note ? ` · Ghi chú: ${req.note}` : ""}
                     </div>
                   </div>
-                  {isPending && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        disabled={decidingId !== null}
-                        onClick={() => handleCoachDecision(req, "APPROVE")}
-                        aria-label={`Duyệt nhận yêu cầu học viên #${req.memberId}`}
-                        className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded font-bold flex items-center gap-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all"
-                      >
-                        {decidingId === req.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                        )}
-                        <span>
-                          {decidingId === req.id ? "Đang xử lý..." : "Duyệt nhận"}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        disabled={decidingId !== null}
-                        onClick={() => handleCoachDecision(req, "REJECT")}
-                        aria-label={`Từ chối yêu cầu học viên #${req.memberId}`}
-                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed text-rose-700 border border-rose-200 rounded font-bold flex items-center gap-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-1 transition-all"
-                      >
-                        <XCircle className="w-3.5 h-3.5" />
-                        <span>Từ chối</span>
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      disabled={decidingId !== null}
+                      onClick={() => handleCoachDecision(req, "APPROVE")}
+                      aria-label={`${t("coachPtAcceptBtn")} ${memberDisplayName}`}
+                      className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded font-bold flex items-center gap-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all"
+                    >
+                      {decidingId === req.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      )}
+                      <span>
+                        {decidingId === req.id
+                          ? "Đang xử lý..."
+                          : t("coachPtAcceptBtn")}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={decidingId !== null}
+                      onClick={() => openRejectModal(req)}
+                      aria-label={`${t("coachPtRejectBtn")} ${memberDisplayName}`}
+                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed text-rose-700 border border-rose-200 rounded font-bold flex items-center gap-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-1 transition-all"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>{t("coachPtRejectBtn")}</span>
+                    </button>
+                  </div>
                 </div>
               )
             })}
@@ -1213,16 +1266,16 @@ export function CoachAssignedMembersView() {
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Award className="w-4 h-4 text-emerald-700" />
-              <span>Gói Học Viên 1-Kèm-1 Được Phân Công (API Mode)</span>
+              <span>Học Viên &amp; Gói PT 1:1 Được Phân Công</span>
             </h3>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 disabled={loadingRequests}
                 onClick={() => loadAdvancedRequests().catch(() => {})}
-                aria-label="Làm mới danh sách gói"
+                aria-label={t("coachBtnRefresh")}
                 className="p-1 text-slate-500 hover:text-slate-800 rounded transition-all cursor-pointer"
-                title="Làm mới danh sách gói"
+                title={t("coachBtnRefresh")}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loadingRequests ? "animate-spin" : ""}`} />
               </button>
@@ -1256,16 +1309,31 @@ export function CoachAssignedMembersView() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {apiBookingCandidates.map((item) => {
                 const entitlement = checkRegistrationEntitlement(item, currentUser)
-                const canBook = entitlement.canBook
-                const unbookableReason = entitlement.reason
+                const pkgAllowed = canCoachActOnPackage(item)
+                const canBook = entitlement.canBook && pkgAllowed
+                const unbookableReason =
+                  getPackageActionBlockReason(item, t) || entitlement.reason
 
                 const credit = Number(item.remainingCredit ?? 0)
-                const isSubActive = String(item.subscriptionStatus || "").toLowerCase() === "active"
+                const rawStatus = String(
+                  item.subscriptionStatus || item.status || "",
+                ).toLowerCase()
+                const isSubActive = rawStatus === "active"
+                const isAwaitingPayment =
+                  !isSubActive &&
+                  (rawStatus === "accepted" || rawStatus === "invoiced")
 
                 const hasUnresolvedConflict =
                   unresolvedAttempt && unresolvedAttempt.subscriptionId === Number(item.subscriptionId)
                 const isOtherUnresolved =
                   unresolvedAttempt && unresolvedAttempt.subscriptionId !== Number(item.subscriptionId)
+
+                const memberDisplayName =
+                  item.memberName ||
+                  (item.memberId ? `Học viên #${item.memberId}` : "Hội viên PT")
+                const subjectDisplayName =
+                  item.subjectName ||
+                  (item.subjectId ? `Môn #${item.subjectId}` : "PT 1:1")
 
                 return (
                   <div
@@ -1276,21 +1344,27 @@ export function CoachAssignedMembersView() {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-slate-900">
-                            {item.memberName || `Học viên #${item.memberId}`}
+                            {memberDisplayName}
                           </span>
                         </div>
                         <div className="text-xs text-slate-500 font-mono tabular-nums mt-0.5">
-                          Học viên #{item.memberId} &bull; Môn: {item.subjectName || `Môn #${item.subjectId}`}
+                          Môn: {subjectDisplayName}
                         </div>
                       </div>
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
                           isSubActive
                             ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                            : "bg-slate-100 text-slate-700 border-slate-200"
+                            : isAwaitingPayment
+                              ? "bg-amber-50 text-amber-800 border-amber-200"
+                              : "bg-slate-100 text-slate-700 border-slate-200"
                         }`}
                       >
-                        {item.subscriptionStatus || item.status || "Chưa kích hoạt"}
+                        {isSubActive
+                          ? t("coachStatusActive")
+                          : isAwaitingPayment
+                            ? t("coachPtAwaitingPackagePayment")
+                            : item.subscriptionStatus || item.status || "Chưa kích hoạt"}
                       </span>
                     </div>
 
@@ -1298,17 +1372,20 @@ export function CoachAssignedMembersView() {
                       <div className="flex items-center justify-between text-slate-700">
                         <span className="flex items-center gap-1 font-bold">
                           <Award className="w-3.5 h-3.5 text-amber-600" />
-                          <span>Mã gói tập (Subscription):</span>
+                          <span>{t("coachPkgLabel")}:</span>
                         </span>
-                        <span className="font-mono font-bold text-slate-900">
-                          {item.subscriptionId ? `#${item.subscriptionId}` : "Chưa cấp"}
+                        <span className="font-semibold text-slate-900">
+                          {item.packageName ||
+                            (item.subscriptionId
+                              ? `${subjectDisplayName} PT`
+                              : t("coachPtAwaitingPackagePayment"))}
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between text-slate-700">
                         <span className="flex items-center gap-1 font-bold">
                           <Target className="w-3.5 h-3.5 text-blue-600" />
-                          <span>Số buổi khả dụng (Credit):</span>
+                          <span>{t("coachRemainingSessionsLabel")}:</span>
                         </span>
                         <span
                           className={`font-mono font-bold tabular-nums ${
@@ -1322,10 +1399,10 @@ export function CoachAssignedMembersView() {
                       <div className="flex items-center justify-between text-slate-700">
                         <span className="flex items-center gap-1 font-medium text-slate-600">
                           <Clock className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Thời hạn gói (Giờ VN):</span>
+                          <span>{t("coachExpiryDateLabel")}:</span>
                         </span>
                         <span className="font-mono text-slate-800">
-                          {formatVietnamDateTime(item.expiresAt)}
+                          {formatVietnamDateOnly(item.expiresAt)}
                         </span>
                       </div>
                     </div>
@@ -1340,7 +1417,7 @@ export function CoachAssignedMembersView() {
                           <button
                             type="button"
                             onClick={() => openBookPrivateModal(item)}
-                            aria-label={`Xem lại đối soát cho học viên ${item.memberName || item.memberId} gói ${item.subscriptionId}`}
+                            aria-label={`Xem lại đối soát cho học viên ${memberDisplayName}`}
                             className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer transition-all animate-pulse"
                           >
                             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -1356,6 +1433,7 @@ export function CoachAssignedMembersView() {
                               type="button"
                               disabled
                               aria-disabled="true"
+                              title="Khóa do đang có giao dịch khác chờ đối soát"
                               className="px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200 rounded text-xs font-bold flex items-center gap-1 cursor-not-allowed opacity-60"
                             >
                               <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
@@ -1366,14 +1444,14 @@ export function CoachAssignedMembersView() {
                           <button
                             type="button"
                             onClick={() => openBookPrivateModal(item)}
-                            aria-label={`Đặt lịch PT 1:1 cho học viên ${item.memberName || item.memberId} gói ${item.subscriptionId}`}
+                            aria-label={`Đặt lịch PT 1:1 cho học viên ${memberDisplayName}`}
                             className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer transition-all"
                           >
                             <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
                             <span>Đặt lịch PT 1:1</span>
                           </button>
                         ) : (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2" title={unbookableReason || ""}>
                             <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-medium">
                               {unbookableReason}
                             </span>
@@ -1381,6 +1459,7 @@ export function CoachAssignedMembersView() {
                               type="button"
                               disabled
                               aria-disabled="true"
+                              title={unbookableReason || ""}
                               className="px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200 rounded text-xs font-bold flex items-center gap-1 cursor-not-allowed opacity-60"
                             >
                               <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
@@ -1398,6 +1477,7 @@ export function CoachAssignedMembersView() {
                               )
                             }
                             setCurrentTab("trainingProgress")
+                            navigate("/coach/progress")
                           }}
                           className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer transition-all"
                         >
@@ -1445,7 +1525,7 @@ export function CoachAssignedMembersView() {
                       {isAtRisk && (
                         <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold flex items-center gap-1">
                           <AlertTriangle className="w-3 h-3" />
-                          At-Risk
+                          Cần lưu ý
                         </span>
                       )}
                     </div>
@@ -1460,7 +1540,7 @@ export function CoachAssignedMembersView() {
                   <div className="flex items-center justify-between text-slate-700">
                     <span className="flex items-center gap-1 font-bold">
                       <Award className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Gói Membership:</span>
+                      <span>{t("coachPkgLabel")}:</span>
                     </span>
                     <span className="font-semibold text-slate-900">{m.currentPackageName}</span>
                   </div>
@@ -1483,9 +1563,9 @@ export function CoachAssignedMembersView() {
                 {plan && (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs text-slate-600 font-medium">
-                      <span>Tiến độ kế hoạch:</span>
+                      <span>Điểm tiến độ:</span>
                       <span className="font-mono font-bold text-slate-900 tabular-nums">
-                        {plan.progressPercent}%
+                        {((Number(plan.progressPercent || 0) / 10)).toFixed(1)}/10
                       </span>
                     </div>
                     <div className="w-full bg-slate-100 h-1.5 rounded overflow-hidden border border-slate-200">
@@ -1512,7 +1592,16 @@ export function CoachAssignedMembersView() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setCurrentTab("trainingProgress")}
+                      onClick={() => {
+                        if (typeof window !== "undefined" && m.id) {
+                          sessionStorage.setItem(
+                            "scms_selected_progress_member_id",
+                            String(m.id),
+                          )
+                        }
+                        setCurrentTab("trainingProgress")
+                        navigate("/coach/progress")
+                      }}
                       className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer"
                     >
                       <Dumbbell className="w-3.5 h-3.5 shrink-0" />
@@ -1523,6 +1612,99 @@ export function CoachAssignedMembersView() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Mandatory Rejection Reason Modal (P0.3) */}
+      {rejectModalTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-2xs"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reject-pt-modal-title"
+        >
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <h3
+                id="reject-pt-modal-title"
+                className="text-sm font-bold text-slate-900 flex items-center gap-2"
+              >
+                <XCircle className="w-4 h-4 text-rose-600" />
+                <span>{t("coachPtRejectModalTitle")}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setRejectModalTarget(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleConfirmReject} className="p-5 space-y-4">
+              <p className="text-xs text-slate-600">
+                {t("coachPtRejectModalDesc")}
+              </p>
+              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-800">
+                <strong>
+                  {rejectModalTarget.memberName ||
+                    (rejectModalTarget.memberId
+                      ? `Học viên #${rejectModalTarget.memberId}`
+                      : "Hội viên")}
+                </strong>{" "}
+                &bull;{" "}
+                {rejectModalTarget.subjectName ||
+                  (rejectModalTarget.subjectId
+                    ? `Môn #${rejectModalTarget.subjectId}`
+                    : "PT 1:1")}
+              </div>
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="reject-pt-reason"
+                  className="block text-xs font-bold text-slate-700"
+                >
+                  {t("coachPtRejectReasonLabel")}
+                </label>
+                <textarea
+                  id="reject-pt-reason"
+                  rows={3}
+                  value={rejectReason}
+                  onChange={(e) => {
+                    setRejectReason(e.target.value)
+                    if (rejectReasonError && e.target.value.trim().length >= 5) {
+                      setRejectReasonError("")
+                    }
+                  }}
+                  placeholder={t("coachPtRejectReasonPlaceholder")}
+                  className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded focus:outline-none focus:border-rose-600"
+                  autoFocus
+                />
+                {rejectReasonError && (
+                  <p className="text-xs text-rose-600 font-semibold">
+                    {rejectReasonError}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setRejectModalTarget(null)}
+                  className="px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded cursor-pointer"
+                >
+                  {t("coachCancelBtn")}
+                </button>
+                <button
+                  type="submit"
+                  disabled={decidingId !== null}
+                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 rounded cursor-pointer flex items-center gap-1.5"
+                >
+                  {decidingId !== null && (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  )}
+                  <span>{t("coachPtRejectConfirmBtn")}</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

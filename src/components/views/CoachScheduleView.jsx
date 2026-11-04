@@ -6,6 +6,11 @@ import { memberPortalApi } from "../../api/memberPortalApi"
 import { getCatalogClassSessions } from "../../api/managerApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import {
+  canCheckIn,
+  canCorrectAttendance,
+  isSessionCancelled,
+} from "../../utils/permissions"
+import {
   Calendar,
   Clock,
   MapPin,
@@ -470,13 +475,18 @@ export function CoachScheduleView() {
             {filteredSessions.map((ses, index) => {
               const notices = absenceNoticesBySession[ses.id]
               const isToday = String(ses.sessionDate || "") === todayIso
+              const sessionCancelled = isSessionCancelled(ses)
+              const sessionCanCheckIn = canCheckIn(ses)
+              const sessionCanCorrect = canCorrectAttendance(ses)
               return (
                 <div
                   key={ses.id || index}
                   className={`p-4 rounded-lg border transition-all space-y-2 ${
-                    isToday
-                      ? "bg-blue-50/50 border-blue-300"
-                      : "bg-slate-50 border-slate-200 hover:border-slate-300"
+                    sessionCancelled
+                      ? "bg-slate-100/80 border-slate-300 opacity-85"
+                      : isToday
+                        ? "bg-blue-50/50 border-blue-300"
+                        : "bg-slate-50 border-slate-200 hover:border-slate-300"
                   }`}
                 >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -494,17 +504,32 @@ export function CoachScheduleView() {
                         <span className="text-sm font-bold text-slate-900">
                           {ses.isPrivate
                             ? `${ses.subjectName || "Kèm PT 1:1"} — Học viên: ${
-                                ses.bookedMemberName || `#${ses.bookedMemberId}`
+                                ses.bookedMemberName ||
+                                (ses.bookedMemberId ? `#${ses.bookedMemberId}` : "Hội viên PT")
                               }`
-                            : ses.className || `Buổi học #${ses.id}`}
+                            : ses.className || "Buổi học lớp nhóm"}
                         </span>
                         {isToday && (
                           <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded text-[10px] font-bold">
-                            Hôm nay
+                            {t("coachTodayGroup")}
                           </span>
                         )}
-                        <span className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono text-slate-600">
-                          {ses.status || "Scheduled"}
+                        <span
+                          className={`px-2 py-0.5 border rounded text-[10px] font-bold ${
+                            sessionCancelled
+                              ? "bg-rose-50 text-rose-800 border-rose-200"
+                              : sessionCanCorrect
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                : "bg-blue-50 text-blue-800 border-blue-200"
+                          }`}
+                        >
+                          {sessionCancelled
+                            ? ses.centerInvalidated
+                              ? t("coachStatusCenterInvalidated")
+                              : t("coachStatusCancelled")
+                            : sessionCanCorrect
+                              ? t("coachStatusCompleted")
+                              : t("coachStatusScheduled")}
                         </span>
                       </div>
 
@@ -537,6 +562,14 @@ export function CoachScheduleView() {
                           </div>
                         )}
                       </div>
+
+                      {sessionCancelled && (
+                        <div className="text-xs text-rose-800 bg-rose-50 border border-rose-200 rounded px-2.5 py-1.5">
+                          {ses.centerInvalidated
+                            ? t("coachBannerCenterInvalidatedDesc")
+                            : t("coachBannerCancelledDesc")}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
@@ -551,18 +584,22 @@ export function CoachScheduleView() {
                           <span>
                             {loadingNoticesId === ses.id
                               ? "Đang tải..."
-                              : "Xem báo vắng"}
+                              : t("coachBtnViewAbsenceNotices")}
                           </span>
                         </button>
                       )}
-                      {!ses.isPrivate && (
+                      {!ses.isPrivate && !sessionCancelled && (
                         <button
                           type="button"
                           onClick={() => handleGoToAttendance(ses)}
                           className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Điểm danh buổi này</span>
+                          <span>
+                            {sessionCanCheckIn
+                              ? t("coachBtnCheckInThisSession")
+                              : t("coachBtnViewOrCorrectAttendance")}
+                          </span>
                         </button>
                       )}
                     </div>
@@ -583,7 +620,8 @@ export function CoachScheduleView() {
                             >
                               <span>
                                 <strong>
-                                  {n.memberName || `Học viên #${n.memberId}`}
+                                  {n.memberName ||
+                                    (n.memberId ? `Học viên #${n.memberId}` : "Học viên")}
                                 </strong>
                                 : {n.reason || "Xin phép vắng buổi học"}
                               </span>

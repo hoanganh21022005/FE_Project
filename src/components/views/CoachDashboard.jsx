@@ -3,6 +3,8 @@ import { useSCMS } from "../../context/SCMSContext"
 import { formatDate } from "../../locales/translations"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { memberApi } from "../../api/memberApi"
+import { getCatalogClassSessions } from "../../api/managerApi"
+import { isSessionCancelled } from "../../utils/permissions"
 import {
   Calendar,
   Users,
@@ -43,34 +45,7 @@ export function CoachDashboard() {
   })
   const [atRiskMembers, setAtRiskMembers] = useState([])
   const [ptRegistrationsCount, setPtRegistrationsCount] = useState(null)
-
-  useEffect(() => {
-    if (!apiEnabled) return
-    let active = true
-    Promise.all([
-      memberPortalApi.getCoachFeedback().catch(() => ({
-        totalFeedback: 0,
-        averageCoachRating: 0,
-        feedback: [],
-      })),
-      memberApi.getCoachAtRiskMembers().catch(() => []),
-      memberPortalApi.getAdvancedRegistrations().catch(() => []),
-    ]).then(([fbData, riskList, advList]) => {
-      if (!active) return
-      if (fbData) setCoachFeedbackSummary(fbData)
-      if (Array.isArray(riskList)) setAtRiskMembers(riskList)
-      if (Array.isArray(advList)) {
-        const activeOrAccepted = advList.filter((r) => {
-          const st = String(r.status || "").toLowerCase()
-          return r.subscriptionId || (st !== "rejected" && st !== "cancelled")
-        })
-        setPtRegistrationsCount(activeOrAccepted.length)
-      }
-    })
-    return () => {
-      active = false
-    }
-  }, [apiEnabled])
+  const [sessionsByClassId, setSessionsByClassId] = useState({})
 
   const myClasses = useMemo(() => {
     const resolvedCoachId = currentUser.coachId || currentUser.id
@@ -85,6 +60,44 @@ export function CoachDashboard() {
     )
     return matched.length > 0 ? matched : classes
   }, [classes, currentUser.coachId, currentUser.id, currentUser.name, apiEnabled])
+
+  useEffect(() => {
+    if (!apiEnabled) return
+    let active = true
+    Promise.all([
+      memberPortalApi.getCoachFeedback().catch(() => ({
+        totalFeedback: 0,
+        averageCoachRating: 0,
+        feedback: [],
+      })),
+      memberApi.getCoachAtRiskMembers().catch(() => []),
+      memberPortalApi.getAdvancedRegistrations().catch(() => []),
+      Promise.all(
+        myClasses.map((cls) =>
+          getCatalogClassSessions(cls.id, { notifyForbidden: false })
+            .then((list) => [String(cls.id), Array.isArray(list) ? list : []])
+            .catch(() => [String(cls.id), []]),
+        ),
+      ),
+    ]).then(([fbData, riskList, advList, sessionEntries]) => {
+      if (!active) return
+      if (fbData) setCoachFeedbackSummary(fbData)
+      if (Array.isArray(riskList)) setAtRiskMembers(riskList)
+      if (Array.isArray(advList)) {
+        const activeOrAccepted = advList.filter((r) => {
+          const st = String(r.status || "").toLowerCase()
+          return r.subscriptionId || (st !== "rejected" && st !== "cancelled")
+        })
+        setPtRegistrationsCount(activeOrAccepted.length)
+      }
+      if (Array.isArray(sessionEntries)) {
+        setSessionsByClassId(Object.fromEntries(sessionEntries))
+      }
+    })
+    return () => {
+      active = false
+    }
+  }, [apiEnabled, myClasses])
 
   const feedbackItems = useMemo(() => {
     if (apiEnabled && coachFeedbackSummary.feedback?.length > 0) {
@@ -367,7 +380,7 @@ export function CoachDashboard() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-900">
-                      {fb.className || `Lớp #${fb.classId}`}
+                      {fb.className || (fb.classId ? `Lớp #${fb.classId}` : "Lớp học")}
                     </span>
                     <span className="text-xs font-bold text-amber-700 flex items-center gap-1">
                       <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
@@ -395,7 +408,7 @@ export function CoachDashboard() {
               <AlertTriangle className="w-4 h-4 text-amber-600" />
               <span>
                 {language === "vi"
-                  ? "Học Viên Cần Quan Tâm / Vắng Tập (At-Risk)"
+                  ? "Học Viên Cần Quan Tâm / Vắng Tập"
                   : "At-Risk Assigned Students"}
               </span>
             </h3>
@@ -437,42 +450,60 @@ export function CoachDashboard() {
           {language === "vi" ? "Các Lớp Dạy Sắp Tới" : "Teaching Schedule"}
         </h3>
         <div className="space-y-3">
-          {myClasses.map((cls) => (
-            <div
-              key={cls.id}
-              className="p-3.5 bg-slate-50 border border-slate-200 rounded flex items-center justify-between"
-            >
-              <div>
-                <div className="text-sm font-bold text-slate-900">
-                  {language === "vi" ? cls.nameVi || cls.name : cls.name}
-                </div>
-                <div className="text-xs text-slate-500 flex items-center gap-2 mt-1">
-                  <Clock className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="tabular-nums font-mono">
-                    {formatDate(cls.date || cls.startDate, language)} &bull;{" "}
-                    {cls.startTime || "07:00"} ({cls.durationMinutes || 90}m)
-                  </span>
-                  <span>
-                    &bull;{" "}
-                    {language === "vi" ? cls.roomVi || cls.room : cls.room}
-                  </span>
-                </div>
-              </div>
+          {myClasses.map((cls) => {
+            const clsSessions = sessionsByClassId[String(cls.id)] || []
+            const activeSession =
+              clsSessions.find((s) => !isSessionCancelled(s)) ||
+              clsSessions[0] ||
+              null
+            const displayDate = activeSession?.sessionDate
+              ? formatDate(activeSession.sessionDate, language)
+              : formatDate(cls.date || cls.startDate, language)
+            const displayTime = activeSession?.startTime
+              ? `${String(activeSession.startTime).slice(0, 5)}${
+                  activeSession.endTime
+                    ? ` – ${String(activeSession.endTime).slice(0, 5)}`
+                    : ""
+                }`
+              : cls.startTime || "Theo ca học"
+            const displayRoom =
+              activeSession?.roomName ||
+              (language === "vi" ? cls.roomVi || cls.room : cls.room) ||
+              "Sân tập trung tâm"
 
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-mono font-bold text-slate-900 tabular-nums">
-                  {cls.enrolledCount ?? 0}/{cls.capacity ?? 12}{" "}
-                  {language === "vi" ? "Học viên" : "Students"}
-                </span>
-                <button
-                  onClick={() => handleGoToAttendance(cls)}
-                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs cursor-pointer"
-                >
-                  {t("attendance")}
-                </button>
+            return (
+              <div
+                key={cls.id}
+                className="p-3.5 bg-slate-50 border border-slate-200 rounded flex items-center justify-between"
+              >
+                <div>
+                  <div className="text-sm font-bold text-slate-900">
+                    {language === "vi" ? cls.nameVi || cls.name : cls.name}
+                  </div>
+                  <div className="text-xs text-slate-500 flex items-center gap-2 mt-1">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="tabular-nums font-mono">
+                      {displayDate} &bull; {displayTime}
+                    </span>
+                    <span>&bull; {displayRoom}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-mono font-bold text-slate-900 tabular-nums">
+                    {cls.enrolledCount ?? 0}/{cls.capacity ?? 12}{" "}
+                    {language === "vi" ? "Học viên" : "Students"}
+                  </span>
+                  <button
+                    onClick={() => handleGoToAttendance(cls)}
+                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs cursor-pointer"
+                  >
+                    {t("attendance")}
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>

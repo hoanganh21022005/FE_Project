@@ -7,7 +7,12 @@ import { attendanceApi } from "../../api/attendanceApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getCatalogClassSessions } from "../../api/managerApi"
 import { isActiveNormalEnrollment } from "../../utils/memberScheduleUtils"
-import { ClipboardCheck, Edit2, RefreshCw, CheckCheck } from "lucide-react"
+import {
+  canCheckIn,
+  canCorrectAttendance,
+  isSessionCancelled,
+} from "../../utils/permissions"
+import { ClipboardCheck, Edit2, RefreshCw, CheckCheck, AlertCircle } from "lucide-react"
 
 export function CoachAttendanceView() {
   const {
@@ -19,6 +24,7 @@ export function CoachAttendanceView() {
     apiEnabled,
     showToast,
     language,
+    t,
   } = useSCMS()
 
   const resolvedCoachId = useMemo(() => {
@@ -99,11 +105,12 @@ export function CoachAttendanceView() {
       setClassTrainingPlans(Array.isArray(plans) ? plans : [])
       const sessionList = Array.isArray(sessions) ? sessions : []
       setClassSessions(sessionList)
+      const firstActiveSession =
+        sessionList.find((s) => !isSessionCancelled(s)) || sessionList[0] || null
       const effectiveSessionId =
-        selectedSessionId ||
-        (sessionList.length > 0 ? String(sessionList[0].id) : "")
-      if (sessionList.length > 0 && !selectedSessionId) {
-        setSelectedSessionId(String(sessionList[0].id))
+        selectedSessionId || (firstActiveSession ? String(firstActiveSession.id) : "")
+      if (firstActiveSession && !selectedSessionId) {
+        setSelectedSessionId(String(firstActiveSession.id))
       }
       if (effectiveSessionId) {
         const [results, notices] = await Promise.all([
@@ -335,12 +342,25 @@ export function CoachAttendanceView() {
     }
   }
 
+  const activeSession = useMemo(() => {
+    if (classSessions.length === 0) return { status: "Scheduled" }
+    return (
+      classSessions.find((s) => String(s.id) === String(selectedSessionId)) ||
+      classSessions[0] ||
+      { status: "Scheduled" }
+    )
+  }, [classSessions, selectedSessionId])
+
+  const sessionCancelled = isSessionCancelled(activeSession)
+  const allowCheckIn = canCheckIn(activeSession)
+  const allowCorrection = canCorrectAttendance(activeSession)
+
   return (
     <div className="space-y-6">
       {/* Class Banner & Selector */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-[10px] font-mono font-bold uppercase text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
               BUỔI HỌC HIỆN TẠI
             </span>
@@ -372,12 +392,22 @@ export function CoachAttendanceView() {
                 onChange={(e) => setSelectedSessionId(e.target.value)}
                 className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
               >
-                {classSessions.map((ses, idx) => (
-                  <option key={ses.id || idx} value={ses.id}>
-                    Buổi {idx + 1}: {ses.sessionDate || "—"} (
-                    {String(ses.startTime || "").slice(0, 5)})
-                  </option>
-                ))}
+                {classSessions.map((ses, idx) => {
+                  const isCancel = isSessionCancelled(ses)
+                  return (
+                    <option
+                      key={ses.id || idx}
+                      value={ses.id}
+                      disabled={
+                        isCancel && String(ses.id) !== String(selectedSessionId)
+                      }
+                    >
+                      Buổi {idx + 1}: {ses.sessionDate || "—"} (
+                      {String(ses.startTime || "").slice(0, 5)})
+                      {isCancel ? ` — [${t("coachStatusCancelled")}]` : ""}
+                    </option>
+                  )
+                })}
               </select>
             )}
           </div>
@@ -385,20 +415,19 @@ export function CoachAttendanceView() {
             {selectedClass?.nameVi || selectedClass?.name || "Lớp học"}
           </h2>
           {(() => {
-            const activeSes = classSessions.find(
-              (s) => String(s.id) === String(selectedSessionId),
-            )
             const sesDate =
-              activeSes?.sessionDate || selectedClass?.date || "Hôm nay"
-            const sesTime = activeSes?.startTime
-              ? `${String(activeSes.startTime).slice(0, 5)}${
-                  activeSes.endTime
-                    ? ` – ${String(activeSes.endTime).slice(0, 5)}`
+              activeSession?.sessionDate || selectedClass?.date || "Hôm nay"
+            const sesTime = activeSession?.startTime
+              ? `${String(activeSession.startTime).slice(0, 5)}${
+                  activeSession.endTime
+                    ? ` – ${String(activeSession.endTime).slice(0, 5)}`
                     : ""
                 }`
               : selectedClass?.startTime || "Theo ca học"
             const sesRoom =
-              activeSes?.roomName || selectedClass?.room || "Sân tập trung tâm"
+              activeSession?.roomName ||
+              selectedClass?.room ||
+              "Sân tập trung tâm"
             return (
               <p className="text-xs text-slate-500 mt-0.5 font-mono tabular-nums">
                 Ngày buổi học: {sesDate} &bull; Ca: {sesTime} &bull; Phòng/Sân:{" "}
@@ -409,7 +438,7 @@ export function CoachAttendanceView() {
         </div>
 
         <div className="flex items-center gap-3">
-          {enrolledMembers.length > 0 && (
+          {enrolledMembers.length > 0 && allowCheckIn && !sessionCancelled && (
             <button
               type="button"
               onClick={handleBulkMarkPresent}
@@ -432,7 +461,7 @@ export function CoachAttendanceView() {
               <RefreshCw
                 className={`w-3.5 h-3.5 ${loadingRoster ? "animate-spin" : ""}`}
               />
-              <span>Đồng bộ</span>
+              <span>{t("coachBtnRefresh")}</span>
             </button>
           )}
           <div className="p-3 bg-slate-50 rounded border border-slate-200 text-right">
@@ -447,6 +476,30 @@ export function CoachAttendanceView() {
           </div>
         </div>
       </div>
+
+      {/* Session Status Permission Banner */}
+      {sessionCancelled && (
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg flex items-start gap-3 text-rose-900">
+          <AlertCircle className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
+          <div className="space-y-1 text-xs">
+            <div className="font-bold text-sm">
+              {t("coachBannerCancelledTitle")}
+            </div>
+            <p>
+              {activeSession?.centerInvalidated
+                ? t("coachBannerCenterInvalidatedDesc")
+                : t("coachBannerCancelledDesc")}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {allowCorrection && !sessionCancelled && (
+        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2.5 text-amber-900 text-xs font-medium">
+          <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+          <span>{t("coachBannerCompletedReadOnlyDesc")}</span>
+        </div>
+      )}
 
       {/* Attendance Roster */}
       <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-5 space-y-4">
@@ -466,25 +519,27 @@ export function CoachAttendanceView() {
                 : "Edits require mandatory reason input & Audit Log recording"}
             </span>
           </div>
-          <form
-            onSubmit={handleQuickCheckin}
-            className="flex items-center gap-2"
-          >
-            <input
-              type="text"
-              value={quickMemberInput}
-              onChange={(e) => setQuickMemberInput(e.target.value)}
-              placeholder="Nhập ID (VD: 1, MB-1001) hoặc Mã Check-in..."
-              className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded focus:outline-none focus:border-blue-600 w-64"
-            />
-            <button
-              type="submit"
-              disabled={quickSaving || !quickMemberInput.trim()}
-              className="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded text-xs font-bold whitespace-nowrap cursor-pointer"
+          {allowCheckIn && !sessionCancelled && (
+            <form
+              onSubmit={handleQuickCheckin}
+              className="flex items-center gap-2"
             >
-              {quickSaving ? "Đang xử lý..." : "Điểm danh nhanh"}
-            </button>
-          </form>
+              <input
+                type="text"
+                value={quickMemberInput}
+                onChange={(e) => setQuickMemberInput(e.target.value)}
+                placeholder="Nhập ID (VD: 1, MB-1001) hoặc Mã Check-in..."
+                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded focus:outline-none focus:border-blue-600 w-64"
+              />
+              <button
+                type="submit"
+                disabled={quickSaving || !quickMemberInput.trim()}
+                className="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded text-xs font-bold whitespace-nowrap cursor-pointer"
+              >
+                {quickSaving ? "Đang xử lý..." : "Điểm danh nhanh"}
+              </button>
+            </form>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -539,131 +594,136 @@ export function CoachAttendanceView() {
                       {m.name}
                     </div>
                     <div className="text-xs text-slate-500 font-mono tabular-nums">
-                      {m.code} &bull; Gói: {m.currentPackageName}
+                      {m.code} &bull; {t("coachPkgLabel")}: {m.currentPackageName}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
                     <StatusBadge type="attendance" status={currentStatus} />
 
-                    {/* Rapid Attendance Buttons */}
-                    <div className="flex items-center gap-1 bg-white p-0.5 rounded border border-slate-300">
-                      <button
-                        onClick={async () => {
-                          if (apiEnabled && selectedSessionId) {
-                            await attendanceApi
-                              .recordSessionAttendance({
-                                memberId: m.id,
-                                sessionId: Number(selectedSessionId),
-                                coachId: resolvedCoachId,
-                                status: "Present",
-                                notes: "Điểm danh có mặt đúng giờ",
-                              })
-                              .catch(() => {})
-                          }
-                          await recordAttendance(
-                            selectedClass?.id,
-                            m.id,
-                            "present",
-                            undefined,
-                            {
-                              attendanceId,
-                              memberName: m.name,
-                            },
-                          )
-                          loadClassRosterAndAttendance()
-                        }}
-                        className={`px-2.5 py-1 text-xs font-bold rounded cursor-pointer ${
-                          currentStatus === "present"
-                            ? "bg-[#DCFCE7] text-[#166534] border border-[#BBF7D0]"
-                            : "text-slate-600 hover:bg-slate-100"
-                        }`}
-                      >
-                        Có mặt
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (apiEnabled && selectedSessionId) {
-                            await attendanceApi
-                              .recordSessionAttendance({
-                                memberId: m.id,
-                                sessionId: Number(selectedSessionId),
-                                coachId: resolvedCoachId,
-                                status: "Late",
-                                notes: "Có phép / Đến trễ đã báo trước",
-                              })
-                              .catch(() => {})
-                          }
-                          await recordAttendance(
-                            selectedClass?.id,
-                            m.id,
-                            "late",
-                            undefined,
-                            {
-                              attendanceId,
-                              memberName: m.name,
-                            },
-                          )
-                          loadClassRosterAndAttendance()
-                        }}
-                        className={`px-2.5 py-1 text-xs font-bold rounded cursor-pointer ${
-                          currentStatus === "late"
-                            ? "bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]"
-                            : "text-slate-600 hover:bg-slate-100"
-                        }`}
-                      >
-                        Trễ / Phép
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (apiEnabled && selectedSessionId) {
-                            await attendanceApi
-                              .recordSessionAttendance({
-                                memberId: m.id,
-                                sessionId: Number(selectedSessionId),
-                                coachId: resolvedCoachId,
-                                status: "Absent",
-                                notes: "Vắng mặt không phép",
-                              })
-                              .catch(() => {})
-                          }
-                          await recordAttendance(
-                            selectedClass?.id,
-                            m.id,
-                            "absent",
-                            undefined,
-                            {
-                              attendanceId,
-                              memberName: m.name,
-                            },
-                          )
-                          loadClassRosterAndAttendance()
-                        }}
-                        className={`px-2.5 py-1 text-xs font-bold rounded cursor-pointer ${
-                          currentStatus === "absent"
-                            ? "bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA]"
-                            : "text-slate-600 hover:bg-slate-100"
-                        }`}
-                      >
-                        Vắng
-                      </button>
-                    </div>
+                    {/* Rapid Attendance Buttons (only when session is Scheduled) */}
+                    {allowCheckIn && !sessionCancelled && (
+                      <div className="flex items-center gap-1 bg-white p-0.5 rounded border border-slate-300">
+                        <button
+                          onClick={async () => {
+                            if (apiEnabled && selectedSessionId) {
+                              await attendanceApi
+                                .recordSessionAttendance({
+                                  memberId: m.id,
+                                  sessionId: Number(selectedSessionId),
+                                  coachId: resolvedCoachId,
+                                  status: "Present",
+                                  notes: "Điểm danh có mặt đúng giờ",
+                                })
+                                .catch(() => {})
+                            }
+                            await recordAttendance(
+                              selectedClass?.id,
+                              m.id,
+                              "present",
+                              undefined,
+                              {
+                                attendanceId,
+                                memberName: m.name,
+                              },
+                            )
+                            loadClassRosterAndAttendance()
+                          }}
+                          className={`px-2.5 py-1 text-xs font-bold rounded cursor-pointer ${
+                            currentStatus === "present"
+                              ? "bg-[#DCFCE7] text-[#166534] border border-[#BBF7D0]"
+                              : "text-slate-600 hover:bg-slate-100"
+                          }`}
+                        >
+                          {t("coachStatusPresent")}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (apiEnabled && selectedSessionId) {
+                              await attendanceApi
+                                .recordSessionAttendance({
+                                  memberId: m.id,
+                                  sessionId: Number(selectedSessionId),
+                                  coachId: resolvedCoachId,
+                                  status: "Late",
+                                  notes: "Có phép / Đến trễ đã báo trước",
+                                })
+                                .catch(() => {})
+                            }
+                            await recordAttendance(
+                              selectedClass?.id,
+                              m.id,
+                              "late",
+                              undefined,
+                              {
+                                attendanceId,
+                                memberName: m.name,
+                              },
+                            )
+                            loadClassRosterAndAttendance()
+                          }}
+                          className={`px-2.5 py-1 text-xs font-bold rounded cursor-pointer ${
+                            currentStatus === "late"
+                              ? "bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]"
+                              : "text-slate-600 hover:bg-slate-100"
+                          }`}
+                        >
+                          {t("coachStatusLate")} / Phép
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (apiEnabled && selectedSessionId) {
+                              await attendanceApi
+                                .recordSessionAttendance({
+                                  memberId: m.id,
+                                  sessionId: Number(selectedSessionId),
+                                  coachId: resolvedCoachId,
+                                  status: "Absent",
+                                  notes: "Vắng mặt không phép",
+                                })
+                                .catch(() => {})
+                            }
+                            await recordAttendance(
+                              selectedClass?.id,
+                              m.id,
+                              "absent",
+                              undefined,
+                              {
+                                attendanceId,
+                                memberName: m.name,
+                              },
+                            )
+                            loadClassRosterAndAttendance()
+                          }}
+                          className={`px-2.5 py-1 text-xs font-bold rounded cursor-pointer ${
+                            currentStatus === "absent"
+                              ? "bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA]"
+                              : "text-slate-600 hover:bg-slate-100"
+                          }`}
+                        >
+                          {t("coachStatusAbsent")}
+                        </button>
+                      </div>
+                    )}
 
-                    {/* Edit with reason modal */}
-                    <button
-                      onClick={() =>
-                        setSelectedMemberModal({
-                          memberId: m.id,
-                          memberName: m.name,
-                          status: currentStatus,
-                          attendanceId,
-                        })
-                      }
-                      className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded border border-slate-300 text-xs shadow-2xs cursor-pointer"
-                      title="Chỉnh sửa &amp; nhập lý do"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
+                    {/* Edit with reason modal (only when session is Completed) */}
+                    {allowCorrection && !sessionCancelled && (
+                      <button
+                        onClick={() =>
+                          setSelectedMemberModal({
+                            memberId: m.id,
+                            memberName: m.name,
+                            status: currentStatus,
+                            attendanceId,
+                          })
+                        }
+                        className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded border border-slate-300 text-xs font-bold shadow-2xs flex items-center gap-1 cursor-pointer"
+                        title="Chỉnh sửa &amp; nhập lý do"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>{t("coachBtnViewOrCorrectAttendance")}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               )
