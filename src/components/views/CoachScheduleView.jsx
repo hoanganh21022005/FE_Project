@@ -1093,7 +1093,7 @@ export function CoachScheduleView() {
                 {t("coachTabWorkSchedule")}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Cập nhật lưới ca làm việc trong tuần (MONDAY:1..SUNDAY:8) và ngày nghỉ phép của huấn luyện viên
+                {t("coachWorkScheduleSubtitleShort")}
               </p>
             </div>
             <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer bg-slate-50 px-3 py-2 rounded border border-slate-200">

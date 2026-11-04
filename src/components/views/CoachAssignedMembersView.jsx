@@ -1375,7 +1375,7 @@ export function CoachAssignedMembersView() {
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Award className="w-4 h-4 text-emerald-700" />
               <span>
-                Học Viên &amp; Gói PT 1:1 Được Phân Công ({groupedStudentCards.length} HV)
+                Học viên &amp; gói PT 1:1 được phân công ({groupedStudentCards.length} học viên)
               </span>
             </h3>
 
@@ -2066,13 +2066,13 @@ export function CoachAssignedMembersView() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Đặt Buổi Tập Riêng 1-kèm-1 (Advanced PT)
+                  Đặt buổi tập PT 1:1
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Học viên: <strong>{bookingReg.memberName || `Học viên #${bookingReg.memberId}`}</strong> &bull; Gói:{" "}
                   <strong>#{bookingReg.subscriptionId}</strong> ({bookingReg.subjectName || `Môn #${bookingReg.subjectId}`})
                 </p>
-                <div className="text-[11px] text-emerald-800 font-medium mt-0.5">
+                <div className="text-xs text-emerald-800 font-medium mt-0.5">
                   Số buổi khả dụng: <strong>{bookingReg.remainingCredit ?? 0} buổi</strong> &bull; Hạn dùng:{" "}
                   <strong>{formatVietnamDateTime(bookingReg.expiresAt)}</strong>
                 </div>
@@ -2378,9 +2378,9 @@ export function CoachAssignedMembersView() {
                     </>
                   ) : currentAttempt?.status === "uncertain" ||
                     currentAttempt?.status === "pending" ? (
-                    <span>Thử lại cùng giao dịch (Retry)</span>
+                    <span>Thử lại cùng giao dịch</span>
                   ) : (
-                    <span>Xác Nhận Đặt Lịch 1:1</span>
+                    <span>Xác nhận đặt lịch PT 1:1</span>
                   )}
                 </button>
               </div>

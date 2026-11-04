@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react"
 import { useSCMS } from "../../context/SCMSContext"
-import { formatDate } from "../../locales/translations"
+import { formatDate, formatDateTime, formatTimeRange } from "../../utils/datetime"
+import { formatMemberCode } from "../../utils/formatMember"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { memberApi } from "../../api/memberApi"
 import { attendanceApi } from "../../api/attendanceApi"
@@ -555,8 +556,8 @@ export function CoachDashboard() {
               <MessageSquare className="w-4 h-4 text-blue-700" />
               <span>
                 {language === "vi"
-                  ? "Phản Hồi Học Viên Về Lớp Học"
-                  : "Student Feedback"}
+                  ? "Phản hồi học viên về lớp học"
+                  : "Student feedback"}
               </span>
             </h3>
             <span className="text-xs font-mono text-slate-500">
@@ -589,8 +590,8 @@ export function CoachDashboard() {
                     {fb.comment || "Học viên hài lòng với buổi tập."}
                   </p>
                   {fb.createdAt && (
-                    <div className="text-[10px] text-slate-400 font-mono">
-                      {String(fb.createdAt).slice(0, 16).replace("T", " ")}
+                    <div className="text-xs text-slate-500 font-mono">
+                      {formatDateTime(fb.createdAt)}
                     </div>
                   )}
                 </div>
@@ -605,8 +606,8 @@ export function CoachDashboard() {
               <AlertTriangle className="w-4 h-4 text-amber-600" />
               <span>
                 {language === "vi"
-                  ? "Học Viên Cần Quan Tâm / Vắng Tập"
-                  : "At-Risk Assigned Students"}
+                  ? "Học viên cần quan tâm"
+                  : "At-risk assigned students"}
               </span>
             </h3>
             <span className="text-xs font-mono text-amber-800 font-bold">
