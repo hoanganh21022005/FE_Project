@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   AlertCircle,
   ArrowUpRight,
@@ -13,6 +14,7 @@ import {
   X,
   CheckCircle2,
   Loader2,
+  Clock,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { invoiceApi } from "../../api/invoiceApi"
@@ -65,8 +67,9 @@ const formatDate = (value, isVi) =>
     : "—"
 
 export function MemberInvoicesView() {
-  const { language, apiEnabled, payments: mockPayments, showToast } = useSCMS()
+  const { currentUser, language, apiEnabled, payments: mockPayments, showToast } = useSCMS()
   const isVi = language === "vi"
+  const [searchParams, setSearchParams] = useSearchParams()
   const [invoices, setInvoices] = useState([])
   const [resolutions, setResolutions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -75,6 +78,18 @@ export function MemberInvoicesView() {
   const [keyword, setKeyword] = useState("")
   const [payingId, setPayingId] = useState(null)
   const [cancellingId, setCancellingId] = useState(null)
+
+  const returnStatus =
+    searchParams.get("status") ||
+    searchParams.get("vnp_ResponseCode") ||
+    searchParams.get("vnp_TransactionStatus") ||
+    ""
+  const returnInvoiceCode =
+    searchParams.get("invoiceCode") || searchParams.get("vnp_TxnRef") || ""
+  const returnInvoiceId = searchParams.get("invoiceId") || ""
+  const hasReturnParams = Boolean(
+    returnStatus || returnInvoiceCode || returnInvoiceId,
+  )
 
   // Receipt / Detail modal state
   const [selectedInvoice, setSelectedInvoice] = useState(null)
@@ -91,9 +106,14 @@ export function MemberInvoicesView() {
     setError("")
     try {
       if (apiEnabled) {
+        const isStaffOrManager = ["manager", "receptionist", "admin"].includes(
+          String(currentUser?.role || "").toLowerCase(),
+        )
         const [invList, resList] = await Promise.all([
           invoiceApi.getMemberOwnInvoices(),
-          invoiceApi.getPaymentResolutions().catch(() => []),
+          isStaffOrManager
+            ? invoiceApi.getPaymentResolutions({ notifyForbidden: false }).catch(() => [])
+            : Promise.resolve([]),
         ])
         setInvoices(invList)
         setResolutions(Array.isArray(resList) ? resList : [])
@@ -111,7 +131,7 @@ export function MemberInvoicesView() {
     } finally {
       setLoading(false)
     }
-  }, [apiEnabled, isVi, mockPayments])
+  }, [apiEnabled, currentUser?.role, isVi, mockPayments])
 
   useEffect(() => {
     refresh()
@@ -153,17 +173,82 @@ export function MemberInvoicesView() {
     [invoices],
   )
 
+  const matchedReturnInvoice = useMemo(() => {
+    if (!hasReturnParams || !invoices.length) return null
+    const codeLower = returnInvoiceCode.trim().toLowerCase()
+    const idStr = returnInvoiceId.trim()
+    return (
+      invoices.find((inv) => {
+        if (idStr && String(inv.id) === idStr) return true
+        if (!codeLower) return false
+        return [
+          inv.invoiceCode,
+          inv.code,
+          formatInvoiceCode(inv.id),
+          String(inv.id),
+        ].some((val) => String(val || "").toLowerCase() === codeLower)
+      }) || null
+    )
+  }, [hasReturnParams, invoices, returnInvoiceCode, returnInvoiceId])
+
+  const clearReturnBanner = () => {
+    setSearchParams({}, { replace: true })
+  }
+
+  const isInvoiceExpired = (invoice) => {
+    if (!invoice) return false
+    if (invoice.paymentStatus === "expired") return true
+    if (invoice.paymentStatus !== "pending" || !invoice.expiresAt) return false
+    const expTime = new Date(invoice.expiresAt).getTime()
+    return Number.isFinite(expTime) && expTime <= Date.now()
+  }
+
+  const isValidRedirectUrl = (value) => {
+    if (!value || typeof value !== "string") return false
+    try {
+      const parsed = new URL(value)
+      if (parsed.protocol === "https:") return true
+      if (
+        parsed.protocol === "http:" &&
+        (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1")
+      ) {
+        return true
+      }
+      return false
+    } catch {
+      return false
+    }
+  }
+
   const payOnline = async (invoice) => {
+    if (!invoice?.id) return
+    if (invoice.paymentMethod === "cash") {
+      setError(
+        isVi
+          ? "Hóa đơn tiền mặt cần được lễ tân xác nhận tại quầy, không thanh toán qua cổng trực tuyến."
+          : "Cash invoices must be confirmed at the reception counter.",
+      )
+      return
+    }
+    if (isInvoiceExpired(invoice)) {
+      setError(
+        isVi
+          ? "Hóa đơn này đã quá hạn thanh toán. Vui lòng hủy đơn hoặc tạo đăng ký mới."
+          : "This invoice has expired. Please cancel it or create a new order.",
+      )
+      return
+    }
     setPayingId(invoice.id)
     setError("")
     try {
       const result = await invoiceApi.payInvoiceOnline(invoice.id)
-      if (!result.paymentUrl)
+      if (!isValidRedirectUrl(result?.paymentUrl)) {
         throw new Error(
           isVi
-            ? "Máy chủ chưa trả về liên kết thanh toán."
-            : "The server did not return a payment link.",
+            ? "Máy chủ chưa trả về liên kết thanh toán VNPay hợp lệ."
+            : "The server did not return a valid VNPay payment link.",
         )
+      }
       window.location.assign(result.paymentUrl)
     } catch (err) {
       setError(
@@ -305,6 +390,18 @@ export function MemberInvoicesView() {
           value={totals.pending}
         />
       </section>
+      {hasReturnParams && (
+        <PaymentReturnBanner
+          isVi={isVi}
+          returnStatus={returnStatus}
+          returnInvoiceCode={returnInvoiceCode || returnInvoiceId}
+          matchedInvoice={matchedReturnInvoice}
+          payingId={payingId}
+          onViewReceipt={handleViewReceipt}
+          onRetryPay={payOnline}
+          onDismiss={clearReturnBanner}
+        />
+      )}
       {error && (
         <div
           role="alert"
@@ -373,7 +470,12 @@ export function MemberInvoicesView() {
         ) : (
           <div className="divide-y divide-slate-100">
             {filtered.map((invoice) => {
-              const status = STATUS_LABELS[invoice.paymentStatus] || {
+              const expired = isInvoiceExpired(invoice)
+              const effectiveStatusKey =
+                expired && invoice.paymentStatus === "pending"
+                  ? "expired"
+                  : invoice.paymentStatus
+              const status = STATUS_LABELS[effectiveStatusKey] || {
                 vi:
                   invoice.rawPaymentStatus ||
                   invoice.paymentStatus ||
@@ -384,6 +486,14 @@ export function MemberInvoicesView() {
                   "Unknown",
                 style: "bg-slate-100 text-slate-700",
               }
+              const isCash = invoice.paymentMethod === "cash"
+              const methodBadge = isCash
+                ? isVi
+                  ? "Tiền mặt tại quầy"
+                  : "Cash at counter"
+                : invoice.paymentMethod === "online"
+                  ? "VNPay / Online"
+                  : invoice.rawPaymentMethod || null
               return (
                 <article
                   key={invoice.id}
@@ -401,6 +511,11 @@ export function MemberInvoicesView() {
                       >
                         {isVi ? status.vi : status.en}
                       </span>
+                      {methodBadge && (
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                          {methodBadge}
+                        </span>
+                      )}
                     </div>
                     <p className="mt-1 truncate text-sm text-slate-700">
                       {invoice.packageName ||
@@ -414,8 +529,20 @@ export function MemberInvoicesView() {
                         ? ` · ${
                             isVi ? "Thanh toán" : "Paid"
                           }: ${formatDate(invoice.paymentDate, isVi)}`
-                        : ""}
+                        : invoice.paymentStatus === "pending" &&
+                            invoice.expiresAt
+                          ? ` · ${
+                              isVi ? "Hạn thanh toán" : "Expires"
+                            }: ${formatDate(invoice.expiresAt, isVi)}`
+                          : ""}
                     </p>
+                    {invoice.reconciliationRequired && (
+                      <p className="mt-1 text-xs font-semibold text-amber-700">
+                        {isVi
+                          ? "Đang chờ hệ thống đối soát giao dịch"
+                          : "Awaiting payment reconciliation"}
+                      </p>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
                     <strong className="whitespace-nowrap text-base font-extrabold text-slate-900 mr-2">
@@ -431,21 +558,30 @@ export function MemberInvoicesView() {
                     </button>
                     {apiEnabled && invoice.paymentStatus === "pending" && (
                       <>
-                        <button
-                          type="button"
-                          onClick={() => payOnline(invoice)}
-                          disabled={payingId === invoice.id}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-primary-hover disabled:opacity-60 cursor-pointer"
-                        >
-                          {payingId === invoice.id
-                            ? isVi
-                              ? "Đang xử lý..."
-                              : "Processing..."
-                            : isVi
-                              ? "Thanh toán"
-                              : "Pay online"}
-                          <ArrowUpRight className="h-3.5 w-3.5" />
-                        </button>
+                        {isCash ? (
+                          <span className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800">
+                            <Clock className="h-3.5 w-3.5" />
+                            {isVi
+                              ? "Thanh toán tại quầy lễ tân"
+                              : "Pay at reception counter"}
+                          </span>
+                        ) : !expired ? (
+                          <button
+                            type="button"
+                            onClick={() => payOnline(invoice)}
+                            disabled={payingId === invoice.id}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-primary-hover disabled:opacity-60 cursor-pointer"
+                          >
+                            {payingId === invoice.id
+                              ? isVi
+                                ? "Đang chuyển VNPay..."
+                                : "Redirecting..."
+                              : isVi
+                                ? "Thanh toán VNPay"
+                                : "Pay online"}
+                            <ArrowUpRight className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => handleCancelInvoice(invoice)}
@@ -516,9 +652,15 @@ export function MemberInvoicesView() {
                     </span>
                   </div>
                   <p className="mt-1 text-slate-600">{res.reason || "—"}</p>
-                  {res.note && (
+                  {(res.outcomeNote || res.note) && (
                     <p className="mt-0.5 text-slate-500 italic">
-                      {isVi ? "Phản hồi:" : "Note:"} {res.note}
+                      {isVi ? "Phản hồi:" : "Note:"}{" "}
+                      {res.outcomeNote || res.note}
+                    </p>
+                  )}
+                  {res.evidence && (
+                    <p className="mt-0.5 text-slate-500">
+                      {isVi ? "Chứng từ:" : "Evidence:"} {res.evidence}
                     </p>
                   )}
                 </div>
@@ -605,14 +747,24 @@ export function MemberInvoicesView() {
                       "—"}
                   </span>
                 </div>
-                {selectedInvoice.transactionCode && (
+                {(selectedInvoice.gatewayTransactionRef ||
+                  selectedInvoice.transactionCode) && (
                   <div className="flex justify-between">
                     <span className="text-slate-500">
                       {isVi ? "Mã giao dịch:" : "Transaction ID:"}
                     </span>
                     <span className="font-mono">
-                      {selectedInvoice.transactionCode}
+                      {selectedInvoice.gatewayTransactionRef ||
+                        selectedInvoice.transactionCode}
                     </span>
+                  </div>
+                )}
+                {selectedInvoice.cashNote && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">
+                      {isVi ? "Ghi chú thu ngân:" : "Cashier note:"}
+                    </span>
+                    <span className="text-right">{selectedInvoice.cashNote}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
@@ -621,12 +773,28 @@ export function MemberInvoicesView() {
                   </span>
                   <span>{formatDate(selectedInvoice.createdAt, isVi)}</span>
                 </div>
+                {selectedInvoice.expiresAt &&
+                  selectedInvoice.paymentStatus === "pending" && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">
+                        {isVi ? "Hạn thanh toán:" : "Expires at:"}
+                      </span>
+                      <span>{formatDate(selectedInvoice.expiresAt, isVi)}</span>
+                    </div>
+                  )}
                 {selectedInvoice.paymentDate && (
                   <div className="flex justify-between">
                     <span className="text-slate-500">
                       {isVi ? "Thanh toán lúc:" : "Paid at:"}
                     </span>
                     <span>{formatDate(selectedInvoice.paymentDate, isVi)}</span>
+                  </div>
+                )}
+                {selectedInvoice.reconciliationRequired && (
+                  <div className="rounded-lg bg-amber-50 p-2 text-amber-800 font-semibold">
+                    {isVi
+                      ? "Giao dịch đang chờ đối soát từ hệ thống."
+                      : "Payment requires backend reconciliation."}
                   </div>
                 )}
               </div>
@@ -735,6 +903,133 @@ export function MemberInvoicesView() {
         </div>
       )}
     </main>
+  )
+}
+
+function PaymentReturnBanner({
+  isVi,
+  returnStatus,
+  returnInvoiceCode,
+  matchedInvoice,
+  payingId,
+  onViewReceipt,
+  onRetryPay,
+  onDismiss,
+}) {
+  const normalizedCode = String(returnStatus || "").trim().toLowerCase()
+  const isSuccess =
+    normalizedCode === "00" ||
+    normalizedCode === "paid" ||
+    normalizedCode === "success" ||
+    normalizedCode === "successful" ||
+    matchedInvoice?.paymentStatus === "successful"
+  const isCancelled =
+    normalizedCode === "24" ||
+    normalizedCode === "cancelled" ||
+    normalizedCode === "canceled"
+  const isSignatureError = normalizedCode === "97"
+
+  const toneClass = isSuccess
+    ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+    : isCancelled
+      ? "border-amber-200 bg-amber-50 text-amber-950"
+      : "border-rose-200 bg-rose-50 text-rose-950"
+
+  const title = isSuccess
+    ? isVi
+      ? "Thanh toán VNPay thành công"
+      : "VNPay payment succeeded"
+    : isCancelled
+      ? isVi
+        ? "Đã hủy giao dịch thanh toán VNPay"
+        : "VNPay payment was cancelled"
+      : isSignatureError
+        ? isVi
+          ? "Không xác thực được chữ ký phản hồi VNPay (Mã 97)"
+          : "VNPay signature verification failed (Code 97)"
+        : isVi
+          ? `Giao dịch VNPay chưa hoàn tất${returnStatus ? ` (Mã: ${returnStatus})` : ""}`
+          : `VNPay payment was not completed${returnStatus ? ` (Code: ${returnStatus})` : ""}`
+
+  const description = isSuccess
+    ? isVi
+      ? "Hệ thống đã ghi nhận kết quả thanh toán từ cổng VNPay. Bạn có thể xem biên lai chi tiết bên dưới."
+      : "Your VNPay payment result has been recorded. You can inspect the receipt below."
+    : isCancelled
+      ? isVi
+        ? "Bạn đã hủy giao dịch trên cổng thanh toán VNPay. Hóa đơn vẫn ở trạng thái chờ thanh toán nếu chưa hết hạn."
+        : "You cancelled the payment on VNPay. Your invoice remains pending if it has not expired."
+      : isSignatureError
+        ? isVi
+          ? "Phản hồi từ VNPay không khớp chữ ký bảo mật trên máy chủ. Nếu tài khoản ngân hàng đã bị trừ tiền, vui lòng bấm 'Đối soát' trên hóa đơn."
+          : "The VNPay callback signature could not be verified. If you were charged, please open a reconciliation request."
+        : isVi
+          ? "Giao dịch chưa được xác nhận thành công. Bạn có thể kiểm tra lại trạng thái hóa đơn hoặc bấm 'Thanh toán VNPay' để thử lại."
+          : "The transaction was not confirmed. Check your invoice status below or retry online payment."
+
+  return (
+    <section
+      role="status"
+      className={`rounded-xl border p-4 shadow-xs ${toneClass}`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          {isSuccess ? (
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+          ) : (
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+          )}
+          <div>
+            <h2 className="text-sm font-extrabold">{title}</h2>
+            {returnInvoiceCode && (
+              <p className="mt-0.5 text-xs font-semibold opacity-85">
+                {isVi ? "Mã hóa đơn / tham chiếu:" : "Invoice / Ref:"}{" "}
+                <span className="font-mono">{returnInvoiceCode}</span>
+              </p>
+            )}
+            <p className="mt-1 text-xs leading-5 opacity-90">{description}</p>
+            {matchedInvoice && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onViewReceipt(matchedInvoice)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                >
+                  <Receipt className="h-3.5 w-3.5" />
+                  {isVi ? "Xem biên lai" : "View receipt"}
+                </button>
+                {matchedInvoice.paymentStatus === "pending" &&
+                  matchedInvoice.paymentMethod !== "cash" && (
+                    <button
+                      type="button"
+                      onClick={() => onRetryPay(matchedInvoice)}
+                      disabled={payingId === matchedInvoice.id}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-primary-hover disabled:opacity-60 cursor-pointer"
+                    >
+                      {payingId === matchedInvoice.id
+                        ? isVi
+                          ? "Đang chuyển VNPay..."
+                          : "Redirecting..."
+                        : isVi
+                          ? "Thanh toán lại qua VNPay"
+                          : "Retry VNPay payment"}
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+              </div>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="rounded-lg p-1 opacity-70 hover:bg-black/5 hover:opacity-100 cursor-pointer"
+          aria-label={isVi ? "Đóng thông báo" : "Dismiss"}
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </section>
   )
 }
 

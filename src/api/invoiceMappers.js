@@ -85,6 +85,9 @@ export function mapInvoice(item) {
     expiresAt: item.expiresAt || null,
     serverTime: item.serverTime || null,
     reconciliationRequired: item.reconciliationRequired === true,
+    cashNote: item.cashNote || null,
+    resolutionStatus: item.resolutionStatus || null,
+    cashConfirmationReversed: item.cashConfirmationReversed === true,
     classId: asNumber(item.classId),
     className: item.className || null,
   }

@@ -4,6 +4,7 @@ import { formatDate, formatCurrency } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
 import { memberApi } from '../../api/memberApi';
 import { membershipApi } from '../../api/membershipApi';
+import { invoiceApi } from '../../api/invoiceApi';
 import { getErrorMessage } from '../../api/apiErrors';
 import {
   applyMockPaymentSettlements,
@@ -872,12 +873,46 @@ function AssignPackageModal({ isOpen, onClose, member, onAssigned }) {
     setError(null);
 
     if (apiEnabled) {
-      setError(
-        language === 'vi'
-          ? 'Thao tác đăng ký gói tạm thời bị khóa. Vui lòng thử lại sau.'
-          : 'Package subscription mutation is temporarily unavailable.'
-      );
-      setIsSubmitting(false);
+      try {
+        const order = await membershipApi.subscribePackage(Number(member.id), {
+          packageId: Number(selectedPkgId),
+          startDate: startDate || undefined,
+          isRenewal: Boolean(isRenewal),
+          paymentMethod: paymentMethod === 'cash' ? 'CASH' : 'VNPAY',
+          notes: notes.trim() || undefined,
+        });
+        if (paymentMethod === 'cash' && order?.invoiceId) {
+          try {
+            await invoiceApi.confirmCashPayment(order.invoiceId);
+            showToast?.(
+              language === 'vi'
+                ? `Đã đăng ký gói và xác nhận thu tiền mặt thành công (${order.invoiceCode || `#${order.invoiceId}`})!`
+                : `Package registered and cash payment confirmed (${order.invoiceCode || `#${order.invoiceId}`})!`,
+              'success'
+            );
+          } catch {
+            showToast?.(
+              language === 'vi'
+                ? `Đã tạo đơn đăng ký gói (${order.invoiceCode || `#${order.invoiceId}`}) ở trạng thái chờ thu tiền mặt.`
+                : `Package order created (${order.invoiceCode || `#${order.invoiceId}`}) pending cash collection.`,
+              'info'
+            );
+          }
+        } else {
+          showToast?.(
+            language === 'vi'
+              ? `Đã tạo yêu cầu đăng ký gói (${order?.invoiceCode || `#${order?.invoiceId || ''}`}).`
+              : 'Membership package order created.',
+            'success'
+          );
+        }
+        onAssigned?.();
+        onClose();
+      } catch (err) {
+        setError(getErrorMessage(err, language === 'vi' ? 'Không thể đăng ký gói hội viên.' : 'Failed to assign membership package.'));
+      } finally {
+        setIsSubmitting(false);
+      }
       return;
     } else {
       try {
@@ -933,17 +968,6 @@ function AssignPackageModal({ isOpen, onClose, member, onAssigned }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          {apiEnabled && (
-            <div className="p-3 bg-amber-50 border border-amber-300 rounded text-amber-900 text-xs flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <span>
-                {language === 'vi'
-                  ? 'Thao tác đăng ký gói tạm thời bị khóa.'
-                  : 'Package assignment is temporarily unavailable.'}
-              </span>
-            </div>
-          )}
-
           {error && (
             <div role="alert" className="p-3 bg-rose-50 border border-rose-200 rounded text-rose-800 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -1065,20 +1089,13 @@ function AssignPackageModal({ isOpen, onClose, member, onAssigned }) {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || apiEnabled}
-              title={apiEnabled ? (language === 'vi' ? 'Thao tác tạm thời bị khóa' : 'Temporarily unavailable') : undefined}
-              className={`min-h-[44px] px-5 py-2 font-bold rounded flex items-center gap-2 cursor-pointer transition-colors ${
-                apiEnabled
-                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-75'
-                  : 'bg-brand-primary hover:bg-brand-primary-hover text-white disabled:opacity-50'
-              }`}
+              disabled={isSubmitting || (currentPkg && currentPkg.price == null)}
+              className="min-h-[44px] px-5 py-2 font-bold rounded flex items-center gap-2 cursor-pointer transition-colors bg-brand-primary hover:bg-brand-primary-hover text-white disabled:opacity-50"
             >
               {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>
                 {isSubmitting
                   ? (language === 'vi' ? 'Đang lưu...' : 'Saving...')
-                  : apiEnabled
-                  ? (language === 'vi' ? 'Tạm khóa' : 'Temporarily locked')
                   : (language === 'vi' ? 'Xác nhận gán gói' : 'Confirm')}
               </span>
             </button>

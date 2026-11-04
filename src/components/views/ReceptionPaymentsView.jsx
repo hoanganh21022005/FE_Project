@@ -91,9 +91,14 @@ export function ReceptionPaymentsView() {
   const statusSelectId = useId();
 
   const canConfirmCash = !apiEnabled || (
-    String(currentUser?.role || '').toLowerCase() === 'receptionist'
-    && Array.isArray(currentUser?.authorities)
-    && currentUser.authorities.includes('MANAGE_INVOICES')
+    ['receptionist', 'manager'].includes(String(currentUser?.role || '').toLowerCase())
+    && (
+      !Array.isArray(currentUser?.authorities)
+      || currentUser.authorities.length === 0
+      || currentUser.authorities.includes('MANAGE_INVOICES')
+      || currentUser.authorities.includes('RECORD_PAYMENT')
+      || currentUser.authorities.some((a) => String(a).toUpperCase().includes('RECEPTIONIST') || String(a).toUpperCase().includes('MANAGER'))
+    )
   );
 
   const fetchInvoices = useCallback(async () => {
@@ -351,7 +356,10 @@ export function ReceptionPaymentsView() {
 
     if (apiEnabled) {
       try {
-        const updatedInvoice = await invoiceApi.confirmCashPayment(confirmingInvoice.invoiceId, { notifyForbidden: false });
+        const updatedInvoice = await invoiceApi.confirmCashPayment(confirmingInvoice.invoiceId, {
+          note: cashNotes.trim() || undefined,
+          notifyForbidden: false,
+        });
         if (updatedInvoice) {
           setInvoices((previous) => previous.map((invoice) => (
             String(invoice.invoiceId) === String(updatedInvoice.invoiceId) ? updatedInvoice : invoice
@@ -429,13 +437,13 @@ export function ReceptionPaymentsView() {
             </button>
           )}
 
-          {!apiEnabled && <button
+          <button
             onClick={() => setIsPayOpen(true)}
             className="min-h-[44px] px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-2 cursor-pointer transition-colors"
           >
             <PlusCircle className="w-4 h-4" />
             <span>{language === 'vi' ? 'Ghi Nhận Giao Dịch Mới' : 'New Desk Payment'}</span>
-          </button>}
+          </button>
         </div>
       </div>
 
@@ -731,7 +739,7 @@ export function ReceptionPaymentsView() {
                 </div>
               </div>
 
-              {!apiEnabled && <div>
+              <div>
                 <label className="block font-bold text-slate-700 mb-1">
                   {language === 'vi' ? 'Ghi chú biên lai / Mã phiếu thu' : 'Receipt Note'}
                 </label>
@@ -743,7 +751,7 @@ export function ReceptionPaymentsView() {
                   placeholder={language === 'vi' ? 'Ví dụ: Đã nhận đủ tiền mặt từ hội viên...' : 'Receipt notes...'}
                   className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
                 />
-              </div>}
+              </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
                 <button
@@ -773,7 +781,7 @@ export function ReceptionPaymentsView() {
       )}
 
       {/* Record Payment Modal */}
-      {!apiEnabled && <PaymentModal
+      <PaymentModal
         isOpen={isPayOpen}
         onClose={() => setIsPayOpen(false)}
         onSuccess={() => {
@@ -781,7 +789,7 @@ export function ReceptionPaymentsView() {
             fetchInvoices();
           }
         }}
-      />}
+      />
     </div>
   );
 }

@@ -1,10 +1,18 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
-import { StatusBadge } from "../common/Badge"
+import { CoachStatusBadge } from "../coach/StatusBadge"
+import { formatDate } from "../../utils/datetime"
+import { formatMemberCode } from "../../utils/formatMember"
+import { formatScore, scoreToBarWidthPercent } from "../../utils/score"
 import { memberApi } from "../../api/memberApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import { parseVietnamDateTime } from "../../utils/memberSafetyHelpers"
+import {
+  canCoachActOnPackage,
+  getPackageActionBlockReason,
+} from "../../utils/permissions"
 import {
   Users,
   Target,
@@ -20,6 +28,7 @@ import {
   RefreshCw,
   AlertCircle,
   Lock,
+  Search,
 } from "lucide-react"
 
 const STANDARD_SLOTS = [
@@ -117,7 +126,17 @@ function checkRegistrationEntitlement(item, currentUser) {
   }
 
   const currentCoachId = currentUser?.coachId ?? currentUser?.userId ?? currentUser?.id
-  if (!isPositiveInteger(currentCoachId) || Number(item.primaryCoachId) !== Number(currentCoachId)) {
+  const coachNameMatches =
+    !isPositiveInteger(currentUser?.coachId) &&
+    item.primaryCoachName &&
+    currentUser?.name &&
+    String(item.primaryCoachName).trim().toLowerCase() ===
+      String(currentUser.name).trim().toLowerCase()
+  if (
+    !coachNameMatches &&
+    (!isPositiveInteger(currentCoachId) ||
+      Number(item.primaryCoachId) !== Number(currentCoachId))
+  ) {
     return { canBook: false, reason: "Không phải HLV phụ trách gói này" }
   }
 
@@ -282,12 +301,18 @@ export function CoachAssignedMembersView() {
     t,
     language,
   } = useSCMS()
+  const navigate = useNavigate()
 
   const [atRiskIds, setAtRiskIds] = useState(new Set())
   const [advancedRequests, setAdvancedRequests] = useState([])
+  const [coachSessions, setCoachSessions] = useState([])
+  const [coachTrainingResults, setCoachTrainingResults] = useState([])
   const [loadingRequests, setLoadingRequests] = useState(false)
   const [requestsError, setRequestsError] = useState(null)
   const [decidingId, setDecidingId] = useState(null)
+  const [rejectModalTarget, setRejectModalTarget] = useState(null)
+  const [rejectReason, setRejectReason] = useState("")
+  const [rejectReasonError, setRejectReasonError] = useState("")
   const isProcessingRef = useRef(false)
 
   // Booking Modal State (Mục 6 / D04)
@@ -370,6 +395,7 @@ export function CoachAssignedMembersView() {
   useEffect(() => {
     if (!apiEnabled) return
     let active = true
+    const resolvedCoachId = currentUser?.coachId || currentUser?.id
     memberApi
       .getCoachAtRiskMembers()
       .then((list) => {
@@ -377,12 +403,26 @@ export function CoachAssignedMembersView() {
         setAtRiskIds(new Set(list.map((item) => String(item.memberId))))
       })
       .catch(() => {})
+    memberPortalApi
+      .getClassSessions(resolvedCoachId ? { coachId: resolvedCoachId } : {})
+      .then((list) => {
+        if (!active || !Array.isArray(list)) return
+        setCoachSessions(list)
+      })
+      .catch(() => {})
+    memberPortalApi
+      .getTrainingResults(resolvedCoachId ? { coachId: resolvedCoachId } : {})
+      .then((list) => {
+        if (!active || !Array.isArray(list)) return
+        setCoachTrainingResults(list)
+      })
+      .catch(() => {})
     loadAdvancedRequests().catch(() => {})
     loadRooms().catch(() => {})
     return () => {
       active = false
     }
-  }, [apiEnabled, loadAdvancedRequests, loadRooms])
+  }, [apiEnabled, loadAdvancedRequests, loadRooms, currentUser?.coachId, currentUser?.id])
 
   // Fetch slots for modal with strict token check
   const fetchAvailableSlots = useCallback(
@@ -442,14 +482,39 @@ export function CoachAssignedMembersView() {
     [apiEnabled, currentUser],
   )
 
-  // Handle Coach Decision (APPROVE / REJECT) - Bảo toàn 100%
-  const handleCoachDecision = async (reqItem, decision) => {
+  const openRejectModal = (reqItem) => {
+    setRejectModalTarget(reqItem)
+    setRejectReason("")
+    setRejectReasonError("")
+  }
+
+  const handleConfirmReject = async (e) => {
+    if (e) e.preventDefault()
+    if (!rejectModalTarget) return
+    const trimmed = rejectReason.trim()
+    if (trimmed.length < 5) {
+      setRejectReasonError(t("coachPtRejectReasonMinError"))
+      return
+    }
+    setRejectReasonError("")
+    const target = rejectModalTarget
+    setRejectModalTarget(null)
+    await handleCoachDecision(target, "REJECT", trimmed)
+  }
+
+  // Handle Coach Decision (APPROVE / REJECT)
+  const handleCoachDecision = async (reqItem, decision, customReason) => {
     if (!reqItem?.id) return
     if (decision !== "APPROVE" && decision !== "REJECT") return
 
     const st = String(reqItem.status || "").toLowerCase()
     if (!st.includes("pending") && !st.includes("request")) {
       showToast?.("Yêu cầu này không ở trạng thái chờ duyệt.", "info")
+      return
+    }
+
+    if (decision === "REJECT" && (!customReason || String(customReason).trim().length < 5)) {
+      openRejectModal(reqItem)
       return
     }
 
@@ -460,7 +525,7 @@ export function CoachAssignedMembersView() {
     const accepted = decision === "APPROVE"
     const reason = accepted
       ? "Coach đồng ý nhận học viên PT 1-kèm-1"
-      : "Coach hiện đã kín lịch khung giờ này"
+      : String(customReason).trim()
 
     try {
       const response = await memberPortalApi.decideAdvancedRegistration(
@@ -473,8 +538,8 @@ export function CoachAssignedMembersView() {
 
       const respStatus = String(response?.status || "").toUpperCase()
       if (accepted) {
-        if (respStatus === "ACCEPTED") {
-          showToast?.("Đã duyệt nhận học viên PT 1-kèm-1!", "success")
+        if (respStatus === "ACCEPTED" || !response?.status) {
+          showToast?.(t("coachPtDecisionAcceptedToast"), "success")
         } else {
           showToast?.(
             `Phản hồi từ máy chủ không khớp (Trạng thái: ${response?.status || "Không xác định"}).`,
@@ -482,8 +547,8 @@ export function CoachAssignedMembersView() {
           )
         }
       } else {
-        if (respStatus === "REJECTED") {
-          showToast?.("Đã từ chối yêu cầu đăng ký PT.", "info")
+        if (respStatus === "REJECTED" || respStatus === "DECLINED" || !response?.status) {
+          showToast?.(t("coachPtDecisionRejectedToast"), "info")
         } else {
           showToast?.(
             `Phản hồi từ máy chủ không khớp (Trạng thái: ${response?.status || "Không xác định"}).`,
@@ -1025,14 +1090,115 @@ export function CoachAssignedMembersView() {
     }
   }
 
-  // API mode booking candidates from registrations
+  const [memberSearchQuery, setMemberSearchQuery] = useState("")
+  const [subjectFilter, setSubjectFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
+
+  // Pending PT requests (ONLY REQUESTED / PENDING per rule 3.5 & P0.3)
+  const pendingAdvancedRequests = useMemo(() => {
+    if (!Array.isArray(advancedRequests)) return []
+    return advancedRequests.filter((r) => {
+      const st = String(r.status || "").toLowerCase()
+      return st.includes("pending") || st.includes("request")
+    })
+  }, [advancedRequests])
+
+  // API mode booking candidates from registrations (ACCEPTED / INVOICED / ACTIVE)
   const apiBookingCandidates = useMemo(() => {
     if (!apiEnabled || !Array.isArray(advancedRequests)) return []
     return advancedRequests.filter((r) => {
       const st = String(r.status || "").toLowerCase()
-      return r.subscriptionId || (st !== "requested" && st !== "pending" && st !== "rejected")
+      return (
+        r.subscriptionId ||
+        (st !== "requested" &&
+          st !== "pending" &&
+          st !== "rejected" &&
+          st !== "declined")
+      )
     })
   }, [apiEnabled, advancedRequests])
+
+  const availableSubjects = useMemo(() => {
+    const set = new Set()
+    apiBookingCandidates.forEach((c) => {
+      const sub = c.subjectName || (c.subjectId ? `Môn #${c.subjectId}` : "")
+      if (sub) set.add(sub)
+    })
+    return Array.from(set)
+  }, [apiBookingCandidates])
+
+  const filteredCandidates = useMemo(() => {
+    const q = memberSearchQuery.trim().toLowerCase()
+    return apiBookingCandidates.filter((item) => {
+      if (q) {
+        const mName = String(
+          item.memberName || (item.memberId ? `Học viên #${item.memberId}` : ""),
+        ).toLowerCase()
+        const mId = String(item.memberId || "").toLowerCase()
+        if (!mName.includes(q) && !mId.includes(q)) return false
+      }
+      if (subjectFilter !== "all") {
+        const sub = item.subjectName || (item.subjectId ? `Môn #${item.subjectId}` : "")
+        if (sub !== subjectFilter) return false
+      }
+      if (statusFilter !== "all") {
+        const st = String(item.subscriptionStatus || item.status || "").toLowerCase()
+        if (statusFilter === "active" && st !== "active") return false
+        if (
+          statusFilter === "awaiting" &&
+          st !== "accepted" &&
+          st !== "invoiced"
+        )
+          return false
+        if (
+          statusFilter === "expired" &&
+          st !== "expired" &&
+          st !== "cancelled" &&
+          st !== "frozen"
+        )
+          return false
+      }
+      return true
+    })
+  }, [apiBookingCandidates, memberSearchQuery, subjectFilter, statusFilter])
+
+  const [selectedPkgByMember, setSelectedPkgByMember] = useState({})
+
+  // Group filtered candidates by memberId (P2.4 & R3.1/R3.2: 1 card per student, sorting packages by nearest expiry date first)
+  const groupedStudentCards = useMemo(() => {
+    const map = new Map()
+    filteredCandidates.forEach((item) => {
+      const key = String(item.memberId || item.id)
+      const memberDisplayName =
+        item.memberName ||
+        (item.memberId ? `Học viên #${item.memberId}` : "Hội viên PT")
+      const existing = map.get(key)
+      if (!existing) {
+        map.set(key, {
+          memberKey: key,
+          memberId: item.memberId,
+          memberName: memberDisplayName,
+          packages: [item],
+        })
+      } else {
+        existing.packages.push(item)
+      }
+    })
+    return Array.from(map.values()).map((group) => {
+      const sortedPackages = [...group.packages].sort((a, b) => {
+        const expA = parseVietnamDateTime(a.expiresAt)
+        const expB = parseVietnamDateTime(b.expiresAt)
+        const validA = !Number.isNaN(expA) ? expA : Number.MAX_SAFE_INTEGER
+        const validB = !Number.isNaN(expB) ? expB : Number.MAX_SAFE_INTEGER
+        if (validA !== validB) return validA - validB
+        return Number(a.subscriptionId || a.id || 0) - Number(b.subscriptionId || b.id || 0)
+      })
+      return {
+        ...group,
+        packages: sortedPackages,
+      }
+    })
+  }, [filteredCandidates])
 
   // Mock mode fallback assigned members
   const mockAssignedMembers = useMemo(() => {
@@ -1043,7 +1209,7 @@ export function CoachAssignedMembersView() {
   }, [members])
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -1068,16 +1234,16 @@ export function CoachAssignedMembersView() {
               type="button"
               disabled={loadingRequests}
               onClick={() => loadAdvancedRequests().catch(() => {})}
-              title="Làm mới danh sách"
+              title={t("coachBtnRefresh")}
               className="px-2.5 py-1.5 text-xs font-semibold bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded flex items-center gap-1 cursor-pointer transition-all"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loadingRequests ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Làm mới</span>
+              <span className="hidden sm:inline">{t("coachBtnRefresh")}</span>
             </button>
           )}
           <div className="text-xs font-mono font-bold bg-slate-100 border border-slate-200 px-3 py-1.5 rounded text-slate-900">
             Tổng số: {apiEnabled ? apiBookingCandidates.length : mockAssignedMembers.length}{" "}
-            {apiEnabled ? "Gói PT" : "Học viên"}
+            {apiEnabled ? t("coachPkgLabel") : "Học viên"}
           </div>
         </div>
       </div>
@@ -1090,9 +1256,8 @@ export function CoachAssignedMembersView() {
             <div>
               <span className="font-bold">Đang có giao dịch đặt lịch chưa hoàn tất kết quả: </span>
               <span>
-                Học viên <strong>{unresolvedAttempt.memberName}</strong> &bull; Gói{" "}
-                <strong>#{unresolvedAttempt.subscriptionId}</strong> ({unresolvedAttempt.sessionDate} &bull;{" "}
-                {unresolvedAttempt.startTime.slice(0, 5)})
+                Học viên <strong>{unresolvedAttempt.memberName}</strong> &bull; {t("coachPkgLabel")} (
+                {unresolvedAttempt.sessionDate} &bull; {unresolvedAttempt.startTime.slice(0, 5)})
               </span>
             </div>
           </div>
@@ -1104,7 +1269,7 @@ export function CoachAssignedMembersView() {
             }}
             className="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded font-bold cursor-pointer transition-all self-start sm:self-auto shrink-0"
           >
-            Mở xem lại & Thử lại
+            Mở xem lại &amp; Thử lại
           </button>
         </div>
       )}
@@ -1114,7 +1279,7 @@ export function CoachAssignedMembersView() {
         <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between text-xs text-amber-900">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
-            <span>Buổi tập đã được tạo thành công nhưng chưa thể cập nhật credit mới từ máy chủ.</span>
+            <span>Buổi tập đã được tạo thành công nhưng chưa thể cập nhật số buổi còn lại từ máy chủ.</span>
           </div>
           <button
             type="button"
@@ -1128,21 +1293,26 @@ export function CoachAssignedMembersView() {
         </div>
       )}
 
-      {/* Pending Advanced PT Coach Requests (Mục 5B) - Chốt từ task trước */}
-      {advancedRequests.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
+      {/* Pending Advanced PT Coach Requests (ONLY REQUESTED / PENDING) */}
+      {pendingAdvancedRequests.length > 0 && (
+        <div className="bg-white border border-amber-200 rounded-lg p-5 shadow-xs space-y-3">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Clock className="w-4 h-4 text-amber-600" />
-              <span>
-                Yêu cầu đăng ký HLV 1-kèm-1 (Advanced PT · {advancedRequests.length})
+              <span>Yêu cầu đăng ký PT 1:1 chờ duyệt</span>
+              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold">
+                {pendingAdvancedRequests.length}
               </span>
             </h3>
           </div>
           <div className="divide-y divide-slate-100">
-            {advancedRequests.map((req) => {
-              const st = String(req.status || "").toLowerCase()
-              const isPending = st.includes("pending") || st.includes("request")
+            {pendingAdvancedRequests.map((req) => {
+              const memberDisplayName =
+                req.memberName ||
+                (req.memberId ? `Học viên #${req.memberId}` : "Hội viên")
+              const subjectDisplayName =
+                req.subjectName ||
+                (req.subjectId ? `Môn #${req.subjectId}` : "Huấn luyện cá nhân")
               return (
                 <div
                   key={req.id}
@@ -1150,43 +1320,46 @@ export function CoachAssignedMembersView() {
                 >
                   <div>
                     <div className="font-bold text-slate-900">
-                      Học viên #{req.memberId} &bull; {req.subjectName || `Môn #${req.subjectId}`}
+                      {memberDisplayName} &bull; {subjectDisplayName}
                     </div>
                     <div className="text-slate-500 mt-0.5">
-                      Trạng thái: <strong className="text-slate-800">{req.status}</strong>
+                      Trạng thái:{" "}
+                      <strong className="text-amber-800">
+                        {t("coachStatusPending")}
+                      </strong>
                       {req.note ? ` · Ghi chú: ${req.note}` : ""}
                     </div>
                   </div>
-                  {isPending && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        disabled={decidingId !== null}
-                        onClick={() => handleCoachDecision(req, "APPROVE")}
-                        aria-label={`Duyệt nhận yêu cầu học viên #${req.memberId}`}
-                        className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded font-bold flex items-center gap-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all"
-                      >
-                        {decidingId === req.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                        )}
-                        <span>
-                          {decidingId === req.id ? "Đang xử lý..." : "Duyệt nhận"}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        disabled={decidingId !== null}
-                        onClick={() => handleCoachDecision(req, "REJECT")}
-                        aria-label={`Từ chối yêu cầu học viên #${req.memberId}`}
-                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed text-rose-700 border border-rose-200 rounded font-bold flex items-center gap-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-1 transition-all"
-                      >
-                        <XCircle className="w-3.5 h-3.5" />
-                        <span>Từ chối</span>
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      disabled={decidingId !== null}
+                      onClick={() => handleCoachDecision(req, "APPROVE")}
+                      aria-label={`${t("coachPtAcceptBtn")} ${memberDisplayName}`}
+                      className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded font-bold flex items-center gap-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all"
+                    >
+                      {decidingId === req.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      )}
+                      <span>
+                        {decidingId === req.id
+                          ? "Đang xử lý..."
+                          : t("coachPtAcceptBtn")}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={decidingId !== null}
+                      onClick={() => openRejectModal(req)}
+                      aria-label={`${t("coachPtRejectBtn")} ${memberDisplayName}`}
+                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed text-rose-700 border border-rose-200 rounded font-bold flex items-center gap-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-1 transition-all"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>{t("coachPtRejectBtn")}</span>
+                    </button>
+                  </div>
                 </div>
               )
             })}
@@ -1197,28 +1370,61 @@ export function CoachAssignedMembersView() {
       {/* Main Content Area: API Mode Candidates OR Mock Mode Members */}
       {apiEnabled ? (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Award className="w-4 h-4 text-emerald-700" />
-              <span>Gói Học Viên 1-Kèm-1 Được Phân Công (API Mode)</span>
+              <span>
+                Học viên &amp; gói PT 1:1 được phân công ({groupedStudentCards.length} học viên)
+              </span>
             </h3>
-            <div className="flex items-center gap-2">
+
+            {/* Search & Filter Bar (P2.4) */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={memberSearchQuery}
+                  onChange={(e) => setMemberSearchQuery(e.target.value)}
+                  placeholder={t("coachSearchStudentPlaceholder")}
+                  className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded focus:outline-none focus:border-blue-600 w-52"
+                />
+              </div>
+
+              <select
+                value={subjectFilter}
+                onChange={(e) => setSubjectFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-semibold text-slate-900"
+              >
+                <option value="all">{t("coachFilterAllSubjects")}</option>
+                {availableSubjects.map((sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-semibold text-slate-900"
+              >
+                <option value="all">{t("coachFilterAllStatuses")}</option>
+                <option value="active">{t("coachStatusActive")}</option>
+                <option value="awaiting">{t("coachPtAwaitingPackagePayment")}</option>
+                <option value="expired">{t("coachStatusExpired")}</option>
+              </select>
+
               <button
                 type="button"
                 disabled={loadingRequests}
                 onClick={() => loadAdvancedRequests().catch(() => {})}
-                aria-label="Làm mới danh sách gói"
-                className="p-1 text-slate-500 hover:text-slate-800 rounded transition-all cursor-pointer"
-                title="Làm mới danh sách gói"
+                aria-label={t("coachBtnRefresh")}
+                className="p-1.5 text-slate-500 hover:text-slate-800 rounded border border-slate-200 transition-all cursor-pointer"
+                title={t("coachBtnRefresh")}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loadingRequests ? "animate-spin" : ""}`} />
               </button>
-              {loadingRequests && (
-                <span className="text-xs text-slate-500 flex items-center gap-1">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Đang tải...
-                </span>
-              )}
             </div>
           </div>
 
@@ -1235,147 +1441,400 @@ export function CoachAssignedMembersView() {
             </div>
           )}
 
-          {apiBookingCandidates.length === 0 && !loadingRequests && !requestsError ? (
+          {loadingRequests ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="h-48 bg-slate-100 animate-pulse rounded-lg border border-slate-200"
+                />
+              ))}
+            </div>
+          ) : groupedStudentCards.length === 0 && !requestsError ? (
             <div className="bg-white border border-slate-200 rounded-lg p-8 text-center text-xs text-slate-500">
-              Chưa có học viên hoặc gói 1-kèm-1 nào được phân công trực tiếp cho HLV.
+              {apiBookingCandidates.length > 0
+                ? "Không có học viên nào khớp với bộ lọc hiện tại."
+                : "Chưa có học viên hoặc gói 1-kèm-1 nào được phân công trực tiếp cho HLV."}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {apiBookingCandidates.map((item) => {
-                const entitlement = checkRegistrationEntitlement(item, currentUser)
-                const canBook = entitlement.canBook
-                const unbookableReason = entitlement.reason
+            <div
+              className={`grid grid-cols-1 ${
+                groupedStudentCards.length > 1 ? "md:grid-cols-2" : ""
+              } gap-4`}
+            >
+              {groupedStudentCards.map((studentGroup) => {
+                const memberDisplayName = studentGroup.memberName
+                const memberCodeLabel = formatMemberCode(studentGroup.memberId)
 
-                const credit = Number(item.remainingCredit ?? 0)
-                const isSubActive = String(item.subscriptionStatus || "").toLowerCase() === "active"
+                const bookablePackages = studentGroup.packages.filter((pkg) => {
+                  const ent = checkRegistrationEntitlement(pkg, currentUser)
+                  return ent.canBook && canCoachActOnPackage(pkg)
+                })
+                const recommendedPkg = bookablePackages[0] || null
+                const selectedPkgId =
+                  selectedPkgByMember[studentGroup.memberKey] ??
+                  (recommendedPkg ? String(recommendedPkg.id) : "")
+                const activeSelectedPkg =
+                  bookablePackages.find(
+                    (p) => String(p.id) === String(selectedPkgId),
+                  ) || recommendedPkg
 
-                const hasUnresolvedConflict =
-                  unresolvedAttempt && unresolvedAttempt.subscriptionId === Number(item.subscriptionId)
-                const isOtherUnresolved =
-                  unresolvedAttempt && unresolvedAttempt.subscriptionId !== Number(item.subscriptionId)
+                const formatPkgName = (pkg) => {
+                  const subName =
+                    pkg.subjectName ||
+                    (pkg.subjectId ? `Môn #${pkg.subjectId}` : "PT 1:1")
+                  const codeNum = pkg.subscriptionId || pkg.id
+                  const baseTitle =
+                    pkg.packageName ||
+                    (pkg.subscriptionId
+                      ? `${subName} PT`
+                      : `${subName} (${t("coachPtAwaitingPackagePayment")})`)
+                  return codeNum
+                    ? `Gói #${codeNum} · ${baseTitle}`
+                    : baseTitle
+                }
 
                 return (
                   <div
-                    key={item.id}
+                    key={studentGroup.memberKey}
                     className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4 hover:border-slate-300 transition-all"
                   >
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-slate-900">
-                            {item.memberName || `Học viên #${item.memberId}`}
+                            {memberDisplayName}
+                          </span>
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded font-mono text-xs font-semibold">
+                            {memberCodeLabel}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-500 font-mono tabular-nums mt-0.5">
-                          Học viên #{item.memberId} &bull; Môn: {item.subjectName || `Môn #${item.subjectId}`}
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          {studentGroup.packages.length} {t("coachPkgLabel")}
                         </div>
                       </div>
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                          isSubActive
-                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                            : "bg-slate-100 text-slate-700 border-slate-200"
-                        }`}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (typeof window !== "undefined" && studentGroup.memberId) {
+                            sessionStorage.setItem(
+                              "scms_selected_progress_member_id",
+                              String(studentGroup.memberId),
+                            )
+                          }
+                          setCurrentTab("trainingProgress")
+                          navigate("/coach/progress")
+                        }}
+                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer transition-all"
                       >
-                        {item.subscriptionStatus || item.status || "Chưa kích hoạt"}
-                      </span>
+                        <Dumbbell className="w-3.5 h-3.5 shrink-0" />
+                        <span>Giáo án &amp; đánh giá</span>
+                      </button>
                     </div>
 
-                    <div className="p-3 bg-slate-50 rounded border border-slate-200 space-y-2 text-xs">
-                      <div className="flex items-center justify-between text-slate-700">
-                        <span className="flex items-center gap-1 font-bold">
-                          <Award className="w-3.5 h-3.5 text-amber-600" />
-                          <span>Mã gói tập (Subscription):</span>
-                        </span>
-                        <span className="font-mono font-bold text-slate-900">
-                          {item.subscriptionId ? `#${item.subscriptionId}` : "Chưa cấp"}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-slate-700">
-                        <span className="flex items-center gap-1 font-bold">
-                          <Target className="w-3.5 h-3.5 text-blue-600" />
-                          <span>Số buổi khả dụng (Credit):</span>
-                        </span>
-                        <span
-                          className={`font-mono font-bold tabular-nums ${
-                            credit > 0 ? "text-emerald-700 font-bold" : "text-rose-600"
-                          }`}
-                        >
-                          {credit} buổi
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-slate-700">
-                        <span className="flex items-center gap-1 font-medium text-slate-600">
-                          <Clock className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Thời hạn gói (Giờ VN):</span>
-                        </span>
-                        <span className="font-mono text-slate-800">
-                          {formatVietnamDateTime(item.expiresAt)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                      <div className="text-[11px] text-slate-500 font-mono">
-                        Đăng ký: {formatVietnamDateOnly(item.createdAt)}
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {hasUnresolvedConflict ? (
-                          <button
-                            type="button"
-                            onClick={() => openBookPrivateModal(item)}
-                            aria-label={`Xem lại đối soát cho học viên ${item.memberName || item.memberId} gói ${item.subscriptionId}`}
-                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer transition-all animate-pulse"
-                          >
-                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                            <span>Đối soát giao dịch</span>
-                          </button>
-                        ) : isOtherUnresolved ? (
+                    {/* R2.2: Check if student has any Completed PT session without a logged training result */}
+                    {(() => {
+                      const loggedSessionIds = new Set(
+                        coachTrainingResults
+                          .filter(
+                            (r) =>
+                              String(r.memberId) ===
+                              String(studentGroup.memberId),
+                          )
+                          .map((r) => String(r.sessionId)),
+                      )
+                      const unloggedCompletedPt = coachSessions.find(
+                        (s) =>
+                          s.isPrivate === true &&
+                          String(s.bookedMemberId) ===
+                            String(studentGroup.memberId) &&
+                          String(s.status || "").toLowerCase() ===
+                            "completed" &&
+                          !loggedSessionIds.has(String(s.id)),
+                      )
+                      if (!unloggedCompletedPt) return null
+                      return (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900">
                           <div className="flex items-center gap-2">
-                            <span className="text-[11px] text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded font-medium flex items-center gap-1">
-                              <Lock className="w-3 h-3 text-slate-400" />
-                              Khóa (Đang có GD khác chờ đối soát)
+                            <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+                            <span>
+                              {t("coachPtCompletedNoResultHint")} (
+                              <strong>
+                                {formatDate(unloggedCompletedPt.sessionDate)}
+                              </strong>
+                              )
                             </span>
-                            <button
-                              type="button"
-                              disabled
-                              aria-disabled="true"
-                              className="px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200 rounded text-xs font-bold flex items-center gap-1 cursor-not-allowed opacity-60"
-                            >
-                              <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
-                              <span>Đặt lịch PT 1:1</span>
-                            </button>
                           </div>
-                        ) : canBook ? (
                           <button
                             type="button"
-                            onClick={() => openBookPrivateModal(item)}
-                            aria-label={`Đặt lịch PT 1:1 cho học viên ${item.memberName || item.memberId} gói ${item.subscriptionId}`}
-                            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer transition-all"
+                            onClick={() => {
+                              if (typeof window !== "undefined") {
+                                sessionStorage.setItem(
+                                  "scms_selected_progress_member_id",
+                                  String(studentGroup.memberId),
+                                )
+                                sessionStorage.setItem(
+                                  "scms_selected_progress_tab",
+                                  "logs",
+                                )
+                                sessionStorage.setItem(
+                                  "scms_selected_progress_session_id",
+                                  String(unloggedCompletedPt.id),
+                                )
+                              }
+                              setCurrentTab("trainingProgress")
+                              navigate("/coach/progress")
+                            }}
+                            className="px-2.5 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded font-bold cursor-pointer shrink-0 self-start sm:self-auto"
+                          >
+                            {t("coachBtnLogResult")}
+                          </button>
+                        </div>
+                      )
+                    })()}
+
+                    {/* List of PT Packages belonging to this student (R3.1: distinct package code, registration date, expiry date, remaining sessions) */}
+                    <div className="space-y-2.5">
+                      {studentGroup.packages.map((item) => {
+                        const entitlement = checkRegistrationEntitlement(item, currentUser)
+                        const pkgAllowed = canCoachActOnPackage(item)
+                        const canBook = entitlement.canBook && pkgAllowed
+                        const unbookableReason =
+                          getPackageActionBlockReason(item, t) || entitlement.reason
+
+                        const credit = Number(item.remainingCredit ?? 0)
+                        const hasExplicitTotal =
+                          item.totalCredit != null || item.totalSessions != null
+                        const totalCredit = hasExplicitTotal
+                          ? Math.max(
+                              credit,
+                              Number(item.totalCredit || item.totalSessions),
+                            )
+                          : null
+                        const usedCredit =
+                          totalCredit != null
+                            ? Math.max(0, totalCredit - credit)
+                            : null
+                        const progressPct =
+                          totalCredit != null && totalCredit > 0
+                            ? Math.min(100, Math.round((credit / totalCredit) * 100))
+                            : credit > 0
+                              ? 100
+                              : 0
+
+                        const rawStatus = String(
+                          item.subscriptionStatus || item.status || "",
+                        ).toLowerCase()
+                        const isSubActive = rawStatus === "active"
+                        const isAwaitingPayment =
+                          !isSubActive &&
+                          (rawStatus === "accepted" || rawStatus === "invoiced")
+
+                        const isSelectedForBooking =
+                          activeSelectedPkg &&
+                          String(activeSelectedPkg.id) === String(item.id)
+                        const isRecommended =
+                          recommendedPkg &&
+                          String(recommendedPkg.id) === String(item.id) &&
+                          bookablePackages.length > 1
+
+                        const regDateLabel = formatVietnamDateOnly(
+                          item.activatedAt || item.createdAt,
+                        )
+
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => {
+                              if (canBook) {
+                                setSelectedPkgByMember((prev) => ({
+                                  ...prev,
+                                  [studentGroup.memberKey]: String(item.id),
+                                }))
+                              }
+                            }}
+                            className={`p-3.5 rounded-lg border space-y-2 text-xs transition-all ${
+                              isSelectedForBooking
+                                ? "bg-emerald-50/40 border-emerald-300"
+                                : "bg-slate-50 border-slate-200"
+                            } ${canBook && bookablePackages.length > 1 ? "cursor-pointer" : ""}`}
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                                <Award className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>{formatPkgName(item)}</span>
+                                {isRecommended && (
+                                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300 text-[11px] font-semibold">
+                                    {language === "vi"
+                                      ? "Gần hết hạn nhất"
+                                      : "Nearest expiry"}
+                                  </span>
+                                )}
+                              </span>
+                              <CoachStatusBadge
+                                type="package"
+                                value={
+                                  isSubActive
+                                    ? "Active"
+                                    : isAwaitingPayment
+                                      ? "INVOICED"
+                                      : item.subscriptionStatus || item.status || "Pending"
+                                }
+                              />
+                            </div>
+
+                            {/* Remaining sessions display (R2.2) */}
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-slate-700">
+                                <span className="font-medium text-slate-600">
+                                  {t("coachRemainingSessionsLabel")}:
+                                </span>
+                                <span
+                                  className={`font-mono font-bold tabular-nums ${
+                                    credit > 0 ? "text-emerald-700" : "text-rose-600"
+                                  }`}
+                                >
+                                  {totalCredit != null
+                                    ? `Còn ${credit}/${totalCredit} buổi (Đã tập ${usedCredit})`
+                                    : t("coachAvailableSessionsCount").replace(
+                                        "{count}",
+                                        String(credit),
+                                      )}
+                                </span>
+                              </div>
+                              {totalCredit != null && (
+                                <div className="w-full h-1.5 bg-slate-200 rounded overflow-hidden">
+                                  <div
+                                    style={{ width: `${progressPct}%` }}
+                                    className={`h-full rounded ${
+                                      credit > 0 ? "bg-emerald-600" : "bg-rose-500"
+                                    }`}
+                                  />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-slate-600 pt-1">
+                              <div className="flex flex-wrap items-center gap-3 font-mono">
+                                <span>
+                                  {t("coachPkgRegDateLabel")}:{" "}
+                                  <strong>{regDateLabel}</strong>
+                                </span>
+                                <span>
+                                  {t("coachExpiryDateLabel")}:{" "}
+                                  <strong>{formatVietnamDateOnly(item.expiresAt)}</strong>
+                                </span>
+                              </div>
+
+                              {!canBook && unbookableReason && (
+                                <span className="text-xs text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-medium">
+                                  {unbookableReason}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* R3.2: Single Student-level PT Booking Control with package selector & explicit deduction label */}
+                    <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      {activeSelectedPkg ? (
+                        <>
+                          <div className="space-y-1 text-xs">
+                            <div className="text-slate-700 font-medium">
+                              {t("coachWillDeductFromPkg").replace(
+                                "{pkgName}",
+                                formatPkgName(activeSelectedPkg),
+                              )}
+                            </div>
+                            {bookablePackages.length > 1 && (
+                              <div className="flex items-center gap-2">
+                                <label
+                                  htmlFor={`pkg-select-${studentGroup.memberKey}`}
+                                  className="text-slate-500"
+                                >
+                                  {language === "vi" ? "Đổi gói trừ buổi:" : "Switch package:"}
+                                </label>
+                                <select
+                                  id={`pkg-select-${studentGroup.memberKey}`}
+                                  value={String(activeSelectedPkg.id)}
+                                  onChange={(e) =>
+                                    setSelectedPkgByMember((prev) => ({
+                                      ...prev,
+                                      [studentGroup.memberKey]: e.target.value,
+                                    }))
+                                  }
+                                  className="bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-semibold text-slate-900"
+                                >
+                                  {bookablePackages.map((pkg) => (
+                                    <option key={pkg.id} value={String(pkg.id)}>
+                                      {formatPkgName(pkg)} (Còn {pkg.remainingCredit ?? 0} buổi · HSD{" "}
+                                      {formatVietnamDateOnly(pkg.expiresAt)})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {unresolvedAttempt &&
+                            unresolvedAttempt.subscriptionId ===
+                              Number(activeSelectedPkg.subscriptionId) ? (
+                              <button
+                                type="button"
+                                onClick={() => openBookPrivateModal(activeSelectedPkg)}
+                                aria-label={`Xem lại đối soát cho học viên ${memberDisplayName}`}
+                                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-all"
+                              >
+                                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                <span>Đối soát giao dịch</span>
+                              </button>
+                            ) : unresolvedAttempt &&
+                              unresolvedAttempt.subscriptionId !==
+                                Number(activeSelectedPkg.subscriptionId) ? (
+                              <button
+                                type="button"
+                                disabled
+                                aria-disabled="true"
+                                title="Khóa do đang có giao dịch khác chờ đối soát"
+                                className="px-3.5 py-2 bg-slate-100 text-slate-400 border border-slate-200 rounded text-xs font-bold flex items-center gap-1.5 cursor-not-allowed opacity-60"
+                              >
+                                <Lock className="w-3.5 h-3.5 shrink-0" />
+                                <span>Đặt lịch PT 1:1</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => openBookPrivateModal(activeSelectedPkg)}
+                                aria-label={`Đặt lịch PT 1:1 cho học viên ${memberDisplayName}`}
+                                className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-all"
+                              >
+                                <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
+                                <span>Đặt lịch PT 1:1</span>
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex items-center justify-between w-full gap-2 text-xs text-slate-500">
+                          <span>
+                            {language === "vi"
+                              ? "Chưa có gói PT đủ điều kiện đặt lịch."
+                              : "No eligible PT package available for booking."}
+                          </span>
+                          <button
+                            type="button"
+                            disabled
+                            aria-disabled="true"
+                            className="px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200 rounded text-xs font-bold flex items-center gap-1 cursor-not-allowed opacity-60"
                           >
                             <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
                             <span>Đặt lịch PT 1:1</span>
                           </button>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-medium">
-                              {unbookableReason}
-                            </span>
-                            <button
-                              type="button"
-                              disabled
-                              aria-disabled="true"
-                              className="px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200 rounded text-xs font-bold flex items-center gap-1 cursor-not-allowed opacity-60"
-                            >
-                              <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
-                              <span>Đặt lịch PT 1:1</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )
@@ -1416,22 +1875,22 @@ export function CoachAssignedMembersView() {
                       {isAtRisk && (
                         <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold flex items-center gap-1">
                           <AlertTriangle className="w-3 h-3" />
-                          At-Risk
+                          Cần lưu ý
                         </span>
                       )}
                     </div>
                     <div className="text-xs text-slate-500 font-mono tabular-nums">
-                      {m.code} &bull; {m.phone || m.email || "—"}
+                      {m.phone || m.email || "—"}
                     </div>
                   </div>
-                  <StatusBadge type="membership" status={m.membershipStatus} />
+                  <CoachStatusBadge type="package" value={m.membershipStatus || "Active"} />
                 </div>
 
                 <div className="p-3 bg-slate-50 rounded border border-slate-200 space-y-2 text-xs">
                   <div className="flex items-center justify-between text-slate-700">
                     <span className="flex items-center gap-1 font-bold">
                       <Award className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Gói Membership:</span>
+                      <span>{t("coachPkgLabel")}:</span>
                     </span>
                     <span className="font-semibold text-slate-900">{m.currentPackageName}</span>
                   </div>
@@ -1454,14 +1913,14 @@ export function CoachAssignedMembersView() {
                 {plan && (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs text-slate-600 font-medium">
-                      <span>Tiến độ kế hoạch:</span>
+                      <span>Điểm tiến độ:</span>
                       <span className="font-mono font-bold text-slate-900 tabular-nums">
-                        {plan.progressPercent}%
+                        {formatScore(plan.progressPercent)}
                       </span>
                     </div>
                     <div className="w-full bg-slate-100 h-1.5 rounded overflow-hidden border border-slate-200">
                       <div
-                        style={{ width: `${plan.progressPercent}%` }}
+                        style={{ width: `${scoreToBarWidthPercent(plan.progressPercent)}%` }}
                         className="bg-slate-900 h-full rounded"
                       />
                     </div>
@@ -1469,8 +1928,8 @@ export function CoachAssignedMembersView() {
                 )}
 
                 <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-[11px] text-slate-500 font-mono">
-                    Tham gia: {m.joinDate}
+                  <span className="text-xs text-slate-500 font-mono">
+                    Tham gia: {formatDate(m.joinDate)}
                   </span>
                   <div className="flex items-center gap-2">
                     <button
@@ -1483,7 +1942,16 @@ export function CoachAssignedMembersView() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setCurrentTab("trainingProgress")}
+                      onClick={() => {
+                        if (typeof window !== "undefined" && m.id) {
+                          sessionStorage.setItem(
+                            "scms_selected_progress_member_id",
+                            String(m.id),
+                          )
+                        }
+                        setCurrentTab("trainingProgress")
+                        navigate("/coach/progress")
+                      }}
                       className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer"
                     >
                       <Dumbbell className="w-3.5 h-3.5 shrink-0" />
@@ -1497,6 +1965,99 @@ export function CoachAssignedMembersView() {
         </div>
       )}
 
+      {/* Mandatory Rejection Reason Modal (P0.3) */}
+      {rejectModalTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-2xs"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reject-pt-modal-title"
+        >
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <h3
+                id="reject-pt-modal-title"
+                className="text-sm font-bold text-slate-900 flex items-center gap-2"
+              >
+                <XCircle className="w-4 h-4 text-rose-600" />
+                <span>{t("coachPtRejectModalTitle")}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setRejectModalTarget(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleConfirmReject} className="p-5 space-y-4">
+              <p className="text-xs text-slate-600">
+                {t("coachPtRejectModalDesc")}
+              </p>
+              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-800">
+                <strong>
+                  {rejectModalTarget.memberName ||
+                    (rejectModalTarget.memberId
+                      ? `Học viên #${rejectModalTarget.memberId}`
+                      : "Hội viên")}
+                </strong>{" "}
+                &bull;{" "}
+                {rejectModalTarget.subjectName ||
+                  (rejectModalTarget.subjectId
+                    ? `Môn #${rejectModalTarget.subjectId}`
+                    : "PT 1:1")}
+              </div>
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="reject-pt-reason"
+                  className="block text-xs font-bold text-slate-700"
+                >
+                  {t("coachPtRejectReasonLabel")}
+                </label>
+                <textarea
+                  id="reject-pt-reason"
+                  rows={3}
+                  value={rejectReason}
+                  onChange={(e) => {
+                    setRejectReason(e.target.value)
+                    if (rejectReasonError && e.target.value.trim().length >= 5) {
+                      setRejectReasonError("")
+                    }
+                  }}
+                  placeholder={t("coachPtRejectReasonPlaceholder")}
+                  className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded focus:outline-none focus:border-rose-600"
+                  autoFocus
+                />
+                {rejectReasonError && (
+                  <p className="text-xs text-rose-600 font-semibold">
+                    {rejectReasonError}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setRejectModalTarget(null)}
+                  className="px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded cursor-pointer"
+                >
+                  {t("coachCancelBtn")}
+                </button>
+                <button
+                  type="submit"
+                  disabled={decidingId !== null}
+                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 rounded cursor-pointer flex items-center gap-1.5"
+                >
+                  {decidingId !== null && (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  )}
+                  <span>{t("coachPtRejectConfirmBtn")}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Private PT Session Booking Modal (Mục 6 / D04) */}
       {bookingReg && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
@@ -1504,13 +2065,13 @@ export function CoachAssignedMembersView() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Đặt Buổi Tập Riêng 1-kèm-1 (Advanced PT)
+                  Đặt buổi tập PT 1:1
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Học viên: <strong>{bookingReg.memberName || `Học viên #${bookingReg.memberId}`}</strong> &bull; Gói:{" "}
                   <strong>#{bookingReg.subscriptionId}</strong> ({bookingReg.subjectName || `Môn #${bookingReg.subjectId}`})
                 </p>
-                <div className="text-[11px] text-emerald-800 font-medium mt-0.5">
+                <div className="text-xs text-emerald-800 font-medium mt-0.5">
                   Số buổi khả dụng: <strong>{bookingReg.remainingCredit ?? 0} buổi</strong> &bull; Hạn dùng:{" "}
                   <strong>{formatVietnamDateTime(bookingReg.expiresAt)}</strong>
                 </div>
@@ -1616,6 +2177,9 @@ export function CoachAssignedMembersView() {
                     onChange={(e) => handleDateChange(e.target.value)}
                     className="w-full border border-slate-300 rounded px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
                   />
+                  <div className="text-xs text-slate-500 font-mono mt-1">
+                    {formatDate(bookingDate)}
+                  </div>
                 </div>
 
                 <div>
@@ -1813,9 +2377,9 @@ export function CoachAssignedMembersView() {
                     </>
                   ) : currentAttempt?.status === "uncertain" ||
                     currentAttempt?.status === "pending" ? (
-                    <span>Thử lại cùng giao dịch (Retry)</span>
+                    <span>Thử lại cùng giao dịch</span>
                   ) : (
-                    <span>Xác Nhận Đặt Lịch 1:1</span>
+                    <span>Xác nhận đặt lịch PT 1:1</span>
                   )}
                 </button>
               </div>

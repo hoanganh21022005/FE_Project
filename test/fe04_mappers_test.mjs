@@ -60,6 +60,10 @@ assert.equal(mapRoom({ id: 2, name: 'Court Alpha', capacity: null, status: 'Avai
 assert.equal(mapRoom({ id: 2, name: 'Studio', facilityType: 'STUDIO', outdoor: false }).outdoor, false)
 assert.equal(mapRoom({ id: 2, name: 'Studio', facilityType: 'STUDIO', outdoor: false }).facilityType, 'STUDIO')
 assert.equal(mapRoom({ id: 2, name: 'Unknown room' }).outdoor, null)
+assert.equal(mapRoom({ id: 2, name: 'Court Alpha', roomCode: 'C01-CRT-01' }).roomCode, 'C01-CRT-01')
+assert.equal(mapRoom({ id: 2, name: 'Court Alpha', room_code: ' C01-CRT-02 ' }).roomCode, 'C01-CRT-02')
+assert.equal(mapRoom({ id: 2, name: 'Court Alpha', roomCode: '   ' }).roomCode, null)
+assert.equal(mapRoom({ id: 2, name: 'Court Alpha' }).roomCode, null)
 
 const normalPackage = mapPackage({ id: 3, name: 'Normal', durationDays: 30, price: 0, packageType: 'Normal', totalCredit: 12, status: 'Active' })
 assert.equal(normalPackage.price, 0)
