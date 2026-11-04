@@ -67,7 +67,12 @@ export function CoachAttendanceView() {
   const [classTrainingPlans, setClassTrainingPlans] = useState([])
   const [sessionAbsenceNotices, setSessionAbsenceNotices] = useState([])
   const [classSessions, setClassSessions] = useState([])
-  const [selectedSessionId, setSelectedSessionId] = useState("")
+  const [selectedSessionId, setSelectedSessionId] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("scms_selected_attendance_session_id") || ""
+    }
+    return ""
+  })
   const [loadingRoster, setLoadingRoster] = useState(false)
   const [bulkSaving, setBulkSaving] = useState(false)
   const [quickMemberInput, setQuickMemberInput] = useState("")
@@ -379,12 +384,28 @@ export function CoachAttendanceView() {
           <h2 className="text-base font-bold text-slate-900 mt-1">
             {selectedClass?.nameVi || selectedClass?.name || "Lớp học"}
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5 font-mono tabular-nums">
-            {selectedClass?.date || "Hôm nay"} &bull;{" "}
-            {selectedClass?.startTime || "07:00"} &bull; Phòng:{" "}
-            {selectedClass?.room || "Sân tập"} &bull; Coach:{" "}
-            {selectedClass?.coachName || "HLV"}
-          </p>
+          {(() => {
+            const activeSes = classSessions.find(
+              (s) => String(s.id) === String(selectedSessionId),
+            )
+            const sesDate =
+              activeSes?.sessionDate || selectedClass?.date || "Hôm nay"
+            const sesTime = activeSes?.startTime
+              ? `${String(activeSes.startTime).slice(0, 5)}${
+                  activeSes.endTime
+                    ? ` – ${String(activeSes.endTime).slice(0, 5)}`
+                    : ""
+                }`
+              : selectedClass?.startTime || "Theo ca học"
+            const sesRoom =
+              activeSes?.roomName || selectedClass?.room || "Sân tập trung tâm"
+            return (
+              <p className="text-xs text-slate-500 mt-0.5 font-mono tabular-nums">
+                Ngày buổi học: {sesDate} &bull; Ca: {sesTime} &bull; Phòng/Sân:{" "}
+                {sesRoom} &bull; Coach: {selectedClass?.coachName || "HLV"}
+              </p>
+            )
+          })()}
         </div>
 
         <div className="flex items-center gap-3">
