@@ -6,6 +6,7 @@ import {
   toInvoiceStatusRequest,
 } from './invoiceMappers.js';
 import { extractList, isValidNumericId } from './schemaValidators.js';
+import { VNPAY_VERIFY_TIMEOUT_MS } from '../utils/paymentVerification.js';
 
 export const getInvoices = async (filters = {}, options = {}) => {
   const query = new URLSearchParams();
@@ -125,6 +126,20 @@ export const getMemberOwnInvoiceById = async (id) => {
   return mapInvoice(data);
 };
 
+export const verifyVnpay = async (invoiceId, {
+  timeoutMs = VNPAY_VERIFY_TIMEOUT_MS,
+  signal,
+} = {}) => {
+  if (!isValidNumericId(invoiceId)) {
+    throw new Error('Invalid invoice ID.');
+  }
+  return httpClient.post(
+    `/api/members/me/invoices/${invoiceId}/verify-vnpay`,
+    {},
+    { timeoutMs, signal },
+  );
+};
+
 export const payInvoiceOnline = async (id) => {
   if (!isValidNumericId(id)) {
     throw new Error('ID hóa đơn không hợp lệ.');
@@ -195,6 +210,7 @@ export const invoiceApi = {
   getMyInvoiceById,
   getMemberOwnInvoices,
   getMemberOwnInvoiceById,
+  verifyVnpay,
   getInvoiceReceipt,
   createInvoice,
   payInvoice,

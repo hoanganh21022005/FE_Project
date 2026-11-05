@@ -15,6 +15,7 @@ function resolveUrl(path) {
 }
 
 export async function httpRequest(path, options = {}) {
+  const { expectedStatus, timeoutMs, ...fetchOptions } = options
   const headers = new Headers(options.headers)
   const hasBody = options.body !== undefined && options.body !== null
   const isFormData =
@@ -28,9 +29,30 @@ export async function httpRequest(path, options = {}) {
   }
 
   let response
+  let timedOut = false
+  let timeoutId
+  let externalSignal
+  let externalAbortHandler
+  const timeoutController =
+    Number.isFinite(timeoutMs) && timeoutMs > 0 && typeof AbortController !== "undefined"
+      ? new AbortController()
+      : null
+  if (timeoutController) {
+    externalSignal = fetchOptions.signal
+    if (externalSignal?.aborted) timeoutController.abort(externalSignal.reason)
+    else if (externalSignal) {
+      externalAbortHandler = () => timeoutController.abort(externalSignal.reason)
+      externalSignal.addEventListener("abort", externalAbortHandler, { once: true })
+    }
+    timeoutId = setTimeout(() => {
+      timedOut = true
+      timeoutController.abort()
+    }, timeoutMs)
+    fetchOptions.signal = timeoutController.signal
+  }
   try {
     response = await fetch(resolveUrl(path), {
-      ...options,
+      ...fetchOptions,
       headers,
       credentials: "include",
       body:
@@ -39,11 +61,19 @@ export async function httpRequest(path, options = {}) {
           : options.body,
     })
   } catch (error) {
-    throw createApiError(
-      0,
-      null,
-      error?.message || "Không thể kết nối đến máy chủ.",
-    )
+    const apiError = createApiError(0, null)
+    if (timedOut) {
+      apiError.message =
+        "Yêu cầu đã quá thời gian chờ. Vui lòng kiểm tra trạng thái rồi thử lại sau."
+    } else if (error?.message) {
+      apiError.details = { message: error.message }
+    }
+    throw apiError
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId)
+    if (externalSignal && externalAbortHandler) {
+      externalSignal.removeEventListener("abort", externalAbortHandler)
+    }
   }
 
   const contentType = response.headers.get("content-type") || ""
@@ -79,6 +109,16 @@ export async function httpRequest(path, options = {}) {
       response.headers.get("x-request-id") ||
       response.headers.get("request-id") ||
       response.headers.get("traceparent")
+    throw apiError
+  }
+
+  if (expectedStatus !== undefined && response.status !== expectedStatus) {
+    const apiError = createApiError(
+      response.status,
+      body,
+      `Backend returned HTTP ${response.status}; expected HTTP ${expectedStatus}.`,
+    )
+    apiError.endpoint = path
     throw apiError
   }
 

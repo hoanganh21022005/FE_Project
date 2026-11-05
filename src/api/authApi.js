@@ -19,14 +19,18 @@ export const deleteMyAvatar = async () => {
   return httpClient.delete("/api/users/me/avatar")
 }
 
-export const register = (payload) =>
-  httpClient.post("/api/auth/register", payload)
+export const register = (payload, { timeoutMs } = {}) =>
+  httpClient.post("/api/auth/register", payload, { timeoutMs })
 
-export const verifyRegistration = ({ email, otp }) =>
-  httpClient.post("/api/auth/verify-registration", { email, otp })
+export const verifyRegistration = ({ email, otp }, { timeoutMs } = {}) =>
+  httpClient.post(
+    "/api/auth/verify-registration",
+    { email, otp },
+    { expectedStatus: 204, timeoutMs },
+  )
 
-export const resendOtp = ({ email, purpose = "REGISTER" }) =>
-  httpClient.post("/api/auth/resend-otp", { email, purpose })
+export const resendOtp = ({ email, purpose = "REGISTER" }, { timeoutMs } = {}) =>
+  httpClient.post("/api/auth/resend-otp", { email, purpose }, { timeoutMs })
 
 export const forgotPassword = (email) =>
   httpClient.post("/api/auth/forgot-password", { email })
