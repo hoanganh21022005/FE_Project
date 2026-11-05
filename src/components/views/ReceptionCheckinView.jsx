@@ -281,7 +281,7 @@ export function ReceptionCheckinView() {
             <div className="flex items-center gap-2">
               <QrCode className="w-4 h-4 text-blue-700" />
               <h3 className="text-sm font-bold text-slate-900">
-                Quét Mã QR Check-in Hội Viên (/api/attendances/qr-checkin)
+                Quét Mã QR Check-in Hội Viên
               </h3>
             </div>
             <span className="text-xs text-slate-500">
@@ -450,7 +450,6 @@ export function ReceptionCheckinView() {
             <div>
               <h3 className="text-sm font-bold text-slate-900">
                 Nhật Ký Điểm Danh &amp; Check-in Trên Hệ Thống
-                (/api/attendances)
               </h3>
               <p className="text-xs text-slate-500">
                 Danh sách toàn bộ lượt Check-in/Check-out và điểm danh lớp học
