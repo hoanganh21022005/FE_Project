@@ -152,7 +152,9 @@ export function CoachScheduleView() {
                   className: s.className || cls.nameVi || cls.name,
                   subjectName: s.subjectName || cls.category || "Thể thao",
                   enrolledCount: s.enrolledCount ?? cls.enrolledCount ?? 0,
-                  maxCapacity: s.maxCapacity ?? cls.capacity ?? 12,
+                  maxCapacity: apiEnabled
+                    ? s.maxCapacity ?? cls.capacity ?? null
+                    : s.maxCapacity ?? cls.capacity ?? 12,
                 }))
               : [],
           )
@@ -170,7 +172,9 @@ export function CoachScheduleView() {
                   className: s.className || cls.nameVi || cls.name,
                   subjectName: s.subjectName || cls.category || "Thể thao",
                   enrolledCount: s.enrolledCount ?? cls.enrolledCount ?? 0,
-                  maxCapacity: s.maxCapacity ?? cls.capacity ?? 12,
+                  maxCapacity: apiEnabled
+                    ? s.maxCapacity ?? cls.capacity ?? null
+                    : s.maxCapacity ?? cls.capacity ?? 12,
                 }))
               : [],
           )
@@ -255,8 +259,9 @@ export function CoachScheduleView() {
             (s.roomId ? `Sân/Phòng #${s.roomId}` : "Sân tập trung tâm"),
           enrolledCount:
             s.enrolledCount ?? prev.enrolledCount ?? matchedClass?.enrolledCount ?? 0,
-          maxCapacity:
-            s.maxCapacity ?? prev.maxCapacity ?? matchedClass?.capacity ?? 12,
+          maxCapacity: apiEnabled
+            ? s.maxCapacity ?? prev.maxCapacity ?? matchedClass?.capacity ?? null
+            : s.maxCapacity ?? prev.maxCapacity ?? matchedClass?.capacity ?? 12,
         })
       }
 
@@ -570,12 +575,31 @@ export function CoachScheduleView() {
               </div>
 
               {!ses.isPrivate && (
-                <div className="flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-slate-500" />
-                  <span className="font-mono font-bold text-slate-900">
-                    {ses.enrolledCount ?? 0}/{ses.maxCapacity ?? 12} học viên
-                  </span>
-                </div>
+                (() => {
+                  const hasReliableSessionCapacity =
+                    Number.isInteger(ses.maxCapacity) && ses.maxCapacity > 0
+                  const displaySessionCapacity = apiEnabled
+                    ? (hasReliableSessionCapacity ? ses.maxCapacity : "—")
+                    : (ses.maxCapacity ?? 12)
+                  return (
+                    <div className="flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-slate-500" />
+                      <span
+                        className="font-mono font-bold text-slate-900"
+                        title={
+                          apiEnabled && !hasReliableSessionCapacity
+                            ? language === "vi"
+                              ? "Chưa xác định sức chứa"
+                              : "Capacity unverified"
+                            : undefined
+                        }
+                      >
+                        {ses.enrolledCount ?? 0}/{displaySessionCapacity}{" "}
+                        {language === "vi" ? "học viên" : "members"}
+                      </span>
+                    </div>
+                  )
+                })()
               )}
             </div>
 
@@ -1059,10 +1083,28 @@ export function CoachScheduleView() {
 
                       <div className="flex items-center gap-1">
                         <Users className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="font-mono tabular-nums font-bold text-slate-900">
-                          {cls.enrolledCount ?? 0}/{cls.capacity ?? 12}{" "}
-                          {language === "vi" ? "học viên" : "members"}
-                        </span>
+                        {(() => {
+                          const hasReliableCapacity =
+                            Number.isInteger(cls.capacity) && cls.capacity > 0
+                          const displayCapacity = apiEnabled
+                            ? (hasReliableCapacity ? cls.capacity : "—")
+                            : (cls.capacity ?? 12)
+                          return (
+                            <span
+                              className="font-mono tabular-nums font-bold text-slate-900"
+                              title={
+                                apiEnabled && !hasReliableCapacity
+                                  ? language === "vi"
+                                    ? "Chưa xác định sức chứa"
+                                    : "Capacity unverified"
+                                  : undefined
+                              }
+                            >
+                              {cls.enrolledCount ?? 0}/{displayCapacity}{" "}
+                              {language === "vi" ? "học viên" : "members"}
+                            </span>
+                          )
+                        })()}
                       </div>
                     </div>
                   </div>

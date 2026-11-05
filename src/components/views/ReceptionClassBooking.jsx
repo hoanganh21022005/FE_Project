@@ -647,6 +647,12 @@ export function ReceptionClassBooking() {
 
         <div className="space-y-3">
           {filteredClasses.map((cls) => {
+            const hasReliableCapacity =
+              Number.isInteger(cls.capacity) && cls.capacity > 0
+            const displayCapacity = apiEnabled
+              ? (hasReliableCapacity ? cls.capacity : "—")
+              : (cls.capacity ?? 12)
+
             const isFull = (cls.enrolledCount ?? 0) >= (cls.capacity ?? 12)
 
             // Enrollment evaluation
@@ -729,8 +735,17 @@ export function ReceptionClassBooking() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono font-bold text-slate-900 tabular-nums">
-                    {cls.enrolledCount ?? 0}/{cls.capacity ?? 12}{" "}
+                  <span
+                    className="text-xs font-mono font-bold text-slate-900 tabular-nums"
+                    title={
+                      apiEnabled && !hasReliableCapacity
+                        ? language === "vi"
+                          ? "Chưa xác định sức chứa"
+                          : "Capacity unverified"
+                        : undefined
+                    }
+                  >
+                    {cls.enrolledCount ?? 0}/{displayCapacity}{" "}
                     {language === "vi" ? "chỗ" : "slots"}
                   </span>
 
