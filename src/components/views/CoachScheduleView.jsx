@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 
 export function CoachScheduleView() {
-  const { classes, currentUser, setCurrentTab, t, language } = useSCMS()
+  const { classes, currentUser, setCurrentTab, t, language, apiEnabled } = useSCMS()
   const [selectedRoom, setSelectedRoom] = useState("all")
 
   const myClasses = useMemo(() => {
@@ -104,59 +104,76 @@ export function CoachScheduleView() {
         </div>
 
         <div className="space-y-3">
-          {filteredClasses.map((cls) => (
-            <div
-              key={cls.id}
-              className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:border-slate-300 transition-all"
-            >
-              <div className="space-y-1.5">
+          {filteredClasses.map((cls) => {
+            const hasReliableCapacity =
+              Number.isInteger(cls.capacity) && cls.capacity > 0
+            const displayCapacity = apiEnabled
+              ? (hasReliableCapacity ? cls.capacity : "—")
+              : (cls.capacity ?? 12)
+
+            return (
+              <div
+                key={cls.id}
+                className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:border-slate-300 transition-all"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-900 border border-blue-200 text-[10px] font-mono font-bold rounded">
+                      {cls.category || "Thể thao"}
+                    </span>
+                    <span className="text-sm font-bold text-slate-900">
+                      {language === "vi" ? cls.nameVi || cls.name : cls.name}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
+                    <div className="flex items-center gap-1 font-mono tabular-nums">
+                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      <span>
+                        {formatDate(cls.date || cls.startDate, language)} &bull;{" "}
+                        {cls.startTime || "07:00"} ({cls.durationMinutes || 90}{" "}
+                        {language === "vi" ? "phút" : "min"})
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="font-semibold">
+                        {language === "vi" ? cls.roomVi || cls.room : cls.room}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <Users className="w-3.5 h-3.5 text-slate-400" />
+                      <span
+                        className="font-mono tabular-nums font-bold text-slate-900"
+                        title={
+                          apiEnabled && !hasReliableCapacity
+                            ? language === "vi"
+                              ? "Chưa xác định sức chứa"
+                              : "Capacity unverified"
+                            : undefined
+                        }
+                      >
+                        {cls.enrolledCount ?? 0}/{displayCapacity}{" "}
+                        {language === "vi" ? "Học viên" : "Members"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 bg-blue-100 text-blue-900 border border-blue-200 text-[10px] font-mono font-bold rounded">
-                    {cls.category || "Thể thao"}
-                  </span>
-                  <span className="text-sm font-bold text-slate-900">
-                    {language === "vi" ? cls.nameVi || cls.name : cls.name}
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
-                  <div className="flex items-center gap-1 font-mono tabular-nums">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    <span>
-                      {formatDate(cls.date || cls.startDate, language)} &bull;{" "}
-                      {cls.startTime || "07:00"} ({cls.durationMinutes || 90}{" "}
-                      {language === "vi" ? "phút" : "min"})
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-semibold">
-                      {language === "vi" ? cls.roomVi || cls.room : cls.room}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-mono tabular-nums font-bold text-slate-900">
-                      {cls.enrolledCount ?? 0}/{cls.capacity ?? 12}{" "}
-                      {language === "vi" ? "Học viên" : "Members"}
-                    </span>
-                  </div>
+                  <button
+                    onClick={() => handleGoToAttendance(cls)}
+                    className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Điểm Danh Buổi Học</span>
+                  </button>
                 </div>
               </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleGoToAttendance(cls)}
-                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Điểm Danh Buổi Học</span>
-                </button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>
