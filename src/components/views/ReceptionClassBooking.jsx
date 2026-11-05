@@ -324,7 +324,7 @@ export function ReceptionClassBooking() {
             </h2>
             <p className="text-xs text-slate-500 whitespace-nowrap">
               {language === "vi"
-                ? "Đăng ký hoặc hủy lịch lớp học trực tiếp tại quầy Lễ tân cho hội viên (/api/classes/{id}/enroll)"
+                ? "Đăng ký hoặc hủy lịch lớp học trực tiếp tại quầy Lễ tân cho hội viên"
                 : "Register or cancel class schedules directly at the front desk for members"}
             </p>
           </div>

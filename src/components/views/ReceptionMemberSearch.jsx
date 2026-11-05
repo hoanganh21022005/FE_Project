@@ -89,7 +89,7 @@ export function ReceptionMemberSearch() {
             </h2>
             <p className="text-xs text-slate-500">
               {language === "vi"
-                ? "Tra cứu chi tiết hồ sơ hội viên, kiểm tra hạn gói tập & gỡ chặn đặt lịch (/api/members/{id}/booking-block/lift)"
+                ? "Tra cứu chi tiết hồ sơ hội viên, kiểm tra hạn gói tập & gỡ chặn đặt lịch"
                 : "Look up member profiles, package status and lift booking blocks"}
             </p>
           </div>
