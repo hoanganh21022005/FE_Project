@@ -10,6 +10,242 @@ export function parseTimeToMinutes(t) {
   return hh * 60 + mm
 }
 
+/**
+ * Normalize date string to YYYY-MM-DD
+ */
+export function normalizeDateStr(d) {
+  if (!d) return null
+  if (typeof d === "string") {
+    const s = d.split("T")[0].trim()
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : s
+  }
+  if (d instanceof Date && !isNaN(d.getTime())) {
+    const yyyy = d.getFullYear()
+    const mm = String(d.getMonth() + 1).padStart(2, "0")
+    const dd = String(d.getDate()).padStart(2, "0")
+    return `${yyyy}-${mm}-${dd}`
+  }
+  return null
+}
+
+/**
+ * Format YYYY-MM-DD to DD/MM/YYYY for Vietnamese UI
+ */
+export function formatDateVi(dStr) {
+  if (!dStr) return ""
+  const clean = String(dStr).split("T")[0].trim()
+  if (clean.includes("-")) {
+    const parts = clean.split("-")
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`
+    }
+  }
+  return clean
+}
+
+/**
+ * Extract actual sessions array from a class object
+ */
+export function getClassSessions(cls) {
+  if (!cls) return []
+  if (Array.isArray(cls.sessions)) return cls.sessions
+  if (Array.isArray(cls.scheduleSessions)) return cls.scheduleSessions
+  if (Array.isArray(cls.sessionList)) return cls.sessionList
+  return []
+}
+
+/**
+ * Check if a class has sufficient and valid actual sessions data
+ */
+export function hasValidScheduleData(cls) {
+  if (!cls) return false
+  const sessions = getClassSessions(cls)
+  if (!sessions || sessions.length === 0) return false
+
+  return sessions.some((s) => {
+    if (!s || s.centerInvalidated === true) return false
+    if (s.status && String(s.status).toLowerCase() === "cancelled") return false
+    const d = normalizeDateStr(s.date || s.sessionDate)
+    const start = parseTimeToMinutes(s.startTime)
+    const end = parseTimeToMinutes(s.endTime)
+    const hasCoach = Boolean(
+      s.coachId || s.coachName || cls.coachId || cls.coachName,
+    )
+    const hasRoom = Boolean(
+      s.roomId ||
+        s.room ||
+        s.roomName ||
+        s.roomVi ||
+        s.court ||
+        cls.roomId ||
+        cls.room ||
+        cls.roomVi,
+    )
+    return Boolean(d && start !== null && end !== null && (hasCoach || hasRoom))
+  })
+}
+
+/**
+ * Check overlap between two actual sessions
+ * - Different dates -> no conflict
+ * - Touching boundaries (e.g. 09:00 - 09:00) -> no conflict
+ * - Overlapping times (startA < endB && startB < endA) AND shared Coach or Room -> CONFLICT
+ */
+export function checkActualSessionOverlap(sessionA, sessionB, classA, classB) {
+  if (!sessionA || !sessionB) return null
+  if (sessionA.centerInvalidated === true || sessionB.centerInvalidated === true)
+    return null
+  if (sessionA.status && String(sessionA.status).toLowerCase() === "cancelled")
+    return null
+  if (sessionB.status && String(sessionB.status).toLowerCase() === "cancelled")
+    return null
+
+  // 1. Date check: Different dates -> no conflict
+  const dateA = normalizeDateStr(sessionA.date || sessionA.sessionDate)
+  const dateB = normalizeDateStr(sessionB.date || sessionB.sessionDate)
+  if (!dateA || !dateB || dateA !== dateB) {
+    return null
+  }
+
+  // 2. Time check: Overlap requires startA < endB && startB < endA
+  // Touching boundaries (e.g. endA === startB or endB === startA) is NOT a conflict
+  const startA = parseTimeToMinutes(sessionA.startTime)
+  const endA = parseTimeToMinutes(sessionA.endTime)
+  const startB = parseTimeToMinutes(sessionB.startTime)
+  const endB = parseTimeToMinutes(sessionB.endTime)
+
+  if (startA === null || endA === null || startB === null || endB === null) {
+    return null
+  }
+
+  const timeOverlaps = startA < endB && startB < endA
+  if (!timeOverlaps) {
+    return null
+  }
+
+  // 3. Personnel / Facility match
+  const coachIdA = sessionA.coachId ?? classA?.coachId ?? null
+  const coachIdB = sessionB.coachId ?? classB?.coachId ?? null
+  const coachNameA = (
+    sessionA.coachName ??
+    classA?.coachName ??
+    ""
+  )
+    .trim()
+    .toLowerCase()
+  const coachNameB = (
+    sessionB.coachName ??
+    classB?.coachName ??
+    ""
+  )
+    .trim()
+    .toLowerCase()
+
+  const coachConflict = coachIdA != null && coachIdB != null
+    ? String(coachIdA) === String(coachIdB)
+    : Boolean(coachNameA && coachNameA === coachNameB)
+
+  const roomIdA = sessionA.roomId ?? classA?.roomId ?? null
+  const roomIdB = sessionB.roomId ?? classB?.roomId ?? null
+  const roomNameA = (
+    sessionA.roomName ||
+    sessionA.room ||
+    sessionA.court ||
+    sessionA.roomVi ||
+    classA?.roomVi ||
+    classA?.room ||
+    ""
+  )
+    .trim()
+    .toLowerCase()
+  const roomNameB = (
+    sessionB.roomName ||
+    sessionB.room ||
+    sessionB.court ||
+    sessionB.roomVi ||
+    classB?.roomVi ||
+    classB?.room ||
+    ""
+  )
+    .trim()
+    .toLowerCase()
+
+  const roomConflict = roomIdA != null && roomIdB != null
+    ? String(roomIdA) === String(roomIdB)
+    : Boolean(roomNameA && roomNameA === roomNameB)
+
+  if (!coachConflict && !roomConflict) {
+    return null
+  }
+
+  const rawCoachName =
+    sessionB.coachName ||
+    classB?.coachName ||
+    sessionA.coachName ||
+    classA?.coachName ||
+    "Huấn luyện viên"
+
+  const rawRoomName =
+    sessionB.roomName ||
+    sessionB.room ||
+    sessionB.court ||
+    sessionB.roomVi ||
+    classB?.roomVi ||
+    classB?.room ||
+    sessionA.roomName ||
+    sessionA.room ||
+    sessionA.court ||
+    sessionA.roomVi ||
+    classA?.roomVi ||
+    classA?.room ||
+    "Sân tập"
+
+  return {
+    date: dateA,
+    startA: sessionA.startTime,
+    endA: sessionA.endTime,
+    startB: sessionB.startTime,
+    endB: sessionB.endTime,
+    coachConflict,
+    roomConflict,
+    coachName: rawCoachName,
+    roomName: rawRoomName,
+    sessionA,
+    sessionB,
+  }
+}
+
+/**
+ * Build conflict notification stating the correct opposite class
+ */
+export function buildConflictNotification(targetClass, oppositeClass, overlap) {
+  const oppName =
+    oppositeClass.nameVi ||
+    oppositeClass.name ||
+    oppositeClass.code ||
+    `Lớp #${oppositeClass.id}`
+  const coach = overlap.coachName
+  const room = overlap.roomName
+  const dateStr = formatDateVi(overlap.date)
+  const oppTimeStr = `${overlap.startB || overlap.startA} - ${overlap.endB || overlap.endA}`
+
+  let message = ""
+  let tooltip = ""
+
+  if (overlap.coachConflict && overlap.roomConflict) {
+    message = `⚠️ Trùng lịch! HLV ${coach} và ${room} đã có lịch lớp "${oppName}" vào ngày ${dateStr} (${oppTimeStr}).`
+    tooltip = `Phát hiện trùng lịch Sân tập và Huấn luyện viên với lớp ${oppName} (${dateStr})`
+  } else if (overlap.coachConflict) {
+    message = `⚠️ Trùng lịch! HLV ${coach} đã có lịch dạy lớp "${oppName}" vào ngày ${dateStr} (${oppTimeStr}).`
+    tooltip = `Phát hiện trùng lịch Huấn luyện viên (${coach}) với lớp ${oppName} (${dateStr})`
+  } else {
+    message = `⚠️ Trùng sân! ${room} đã có lớp "${oppName}" sử dụng vào ngày ${dateStr} (${oppTimeStr}).`
+    tooltip = `Phát hiện trùng lịch Sân tập (${room}) với lớp ${oppName} (${dateStr})`
+  }
+
+  return { message, tooltip }
+}
+
 export function normalizeWeekdays(days, defaultDays = [1, 3, 5]) {
   if (!days || !Array.isArray(days) || days.length === 0) return defaultDays
   return days.map((d) => {
@@ -50,6 +286,39 @@ export function checkSingleClassConflict(candidate, existing) {
     return null
   if (existing.status === "cancelled" || candidate.status === "cancelled")
     return null
+
+  // Check using actual sessions when both candidate and existing have them
+  const candSessions = getClassSessions(candidate)
+  const existSessions = getClassSessions(existing)
+
+  if (candSessions.length > 0 && existSessions.length > 0) {
+    for (const sA of candSessions) {
+      for (const sB of existSessions) {
+        const overlap = checkActualSessionOverlap(sA, sB, candidate, existing)
+        if (overlap) {
+          const { message, tooltip } = buildConflictNotification(
+            candidate,
+            existing,
+            overlap,
+          )
+          return {
+            hasConflict: true,
+            hasMissingSchedule: false,
+            isMissingSchedule: false,
+            conflictCoach: overlap.coachConflict,
+            conflictRoom: overlap.roomConflict,
+            conflictingClass: existing,
+            conflictingClassName:
+              existing.nameVi || existing.name || existing.code,
+            conflictDate: overlap.date,
+            message,
+            tooltip,
+          }
+        }
+      }
+    }
+    return null
+  }
 
   // 1. Personnel / Facility match
   const candCoachId = candidate.coachId
@@ -161,45 +430,117 @@ export function checkSingleClassConflict(candidate, existing) {
  * Compute conflict map for all classes in a list.
  * Returns { [classId]: conflictInfo }
  */
-export function computeAllClassConflicts(classes = []) {
+export function computeAllClassConflicts(classes = [], sessions) {
   const result = {}
-  if (!Array.isArray(classes) || classes.length < 2) return result
+  if (!Array.isArray(classes)) return result
 
-  for (let i = 0; i < classes.length; i++) {
-    for (let j = i + 1; j < classes.length; j++) {
-      const a = classes[i]
-      const b = classes[j]
-      const conflict = checkSingleClassConflict(a, b)
-      if (conflict) {
-        if (!result[a.id]) {
-          result[a.id] = {
-            ...conflict,
-            conflictingClass: b,
-            tooltip:
-              conflict.conflictCoach && conflict.conflictRoom
-                ? `Phát hiện trùng lịch Sân tập và Huấn luyện viên với lớp ${b.nameVi || b.name}`
-                : conflict.conflictCoach
-                  ? `Phát hiện trùng lịch Huấn luyện viên (${b.coachName || a.coachName}) với lớp ${b.nameVi || b.name}`
-                  : `Phát hiện trùng lịch Sân tập (${b.roomVi || b.room || a.roomVi || a.room}) với lớp ${b.nameVi || b.name}`,
+  if (sessions) {
+    const sessionsByClass = new Map()
+    for (const session of sessions) {
+      if (session?.classId == null) continue
+      const key = String(session.classId)
+      if (!sessionsByClass.has(key)) sessionsByClass.set(key, [])
+      sessionsByClass.get(key).push(session)
+    }
+    classes = classes.map((cls) => cls && {
+      ...cls,
+      sessions: sessionsByClass.get(String(cls.id)) ?? [],
+    })
+  }
+
+  // 1. Kiểm tra thiếu lịch cho từng lớp: "Thiếu lịch thì báo chưa đủ dữ liệu"
+  for (const cls of classes) {
+    if (!cls || !cls.id) continue
+    if (cls.status === "cancelled") continue
+
+    if (!hasValidScheduleData(cls)) {
+      result[cls.id] = {
+        hasConflict: false,
+        hasMissingSchedule: true,
+        isMissingSchedule: true,
+        status: "insufficient_data",
+        message: "Chưa đủ dữ liệu lịch",
+        tooltip: "Lớp học chưa có lịch buổi học thực tế (chưa đủ dữ liệu)",
+      }
+    }
+  }
+
+  // 2. So sánh từng cặp lớp CÓ lịch thực tế hợp lệ
+  const classesWithSchedule = classes.filter(
+    (c) => c && c.id && c.status !== "cancelled" && hasValidScheduleData(c),
+  )
+
+  for (let i = 0; i < classesWithSchedule.length; i++) {
+    for (let j = i + 1; j < classesWithSchedule.length; j++) {
+      const a = classesWithSchedule[i]
+      const b = classesWithSchedule[j]
+
+      const sessionsA = getClassSessions(a)
+      const sessionsB = getClassSessions(b)
+
+      let overlapForA = null
+      let overlapForB = null
+
+      for (const sA of sessionsA) {
+        for (const sB of sessionsB) {
+          const overlap = checkActualSessionOverlap(sA, sB, a, b)
+          if (overlap) {
+            overlapForA = overlap
+            overlapForB = {
+              ...overlap,
+              startB: overlap.startA,
+              endB: overlap.endA,
+              startA: overlap.startB,
+              endA: overlap.endB,
+            }
+            break
           }
         }
-        if (!result[b.id]) {
+        if (overlapForA) break
+      }
+
+      if (overlapForA) {
+        // Cảnh báo cho lớp A (nêu đúng lớp B)
+        if (!result[a.id] || !result[a.id].hasConflict) {
+          const notifA = buildConflictNotification(a, b, overlapForA)
+          result[a.id] = {
+            hasConflict: true,
+            hasMissingSchedule: false,
+            isMissingSchedule: false,
+            conflictCoach: overlapForA.coachConflict,
+            conflictRoom: overlapForA.roomConflict,
+            conflictingClass: b,
+            conflictingClassName: b.nameVi || b.name || b.code,
+            conflictDate: overlapForA.date,
+            message: notifA.message,
+            tooltip: notifA.tooltip,
+          }
+        }
+
+        // Cảnh báo cho lớp B (nêu đúng lớp A)
+        if (!result[b.id] || !result[b.id].hasConflict) {
+          const notifB = buildConflictNotification(b, a, overlapForB)
           result[b.id] = {
-            ...conflict,
+            hasConflict: true,
+            hasMissingSchedule: false,
+            isMissingSchedule: false,
+            conflictCoach: overlapForB.coachConflict,
+            conflictRoom: overlapForB.roomConflict,
             conflictingClass: a,
-            tooltip:
-              conflict.conflictCoach && conflict.conflictRoom
-                ? `Phát hiện trùng lịch Sân tập và Huấn luyện viên với lớp ${a.nameVi || a.name}`
-                : conflict.conflictCoach
-                  ? `Phát hiện trùng lịch Huấn luyện viên (${a.coachName || b.coachName}) với lớp ${a.nameVi || a.name}`
-                  : `Phát hiện trùng lịch Sân tập (${a.roomVi || a.room || b.roomVi || b.room}) với lớp ${a.nameVi || a.name}`,
+            conflictingClassName: a.nameVi || a.name || a.code,
+            conflictDate: overlapForB.date,
+            message: notifB.message,
+            tooltip: notifB.tooltip,
           }
         }
       }
     }
   }
+
   return result
 }
+
+export const computeManagerClassConflicts = computeAllClassConflicts
 
 /**
  * Hook for checking conflict in NewClassModal and EditClassModal

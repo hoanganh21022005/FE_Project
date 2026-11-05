@@ -19,6 +19,7 @@ import {
   Copy,
   Ban,
   AlertTriangle,
+  AlertCircle,
   UserPlus,
   Trash2,
   Search,
@@ -340,6 +341,25 @@ export function ClassDetailDrawer({
                 <p className="text-[11px] text-rose-600 italic">
                   Vui lòng chỉnh sửa ngày/giờ học hoặc phân công lại HLV/sân tập
                   để giải quyết xung đột.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* MISSING SCHEDULE / INSUFFICIENT DATA BANNER (Nếu thiếu lịch) */}
+          {conflictInfo?.hasMissingSchedule && (
+            <div className="mx-6 mt-4 p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex items-start gap-2.5 shadow-2xs shrink-0">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-1 flex-1">
+                <p className="font-bold text-amber-800">
+                  Chưa đủ dữ liệu lịch học
+                </p>
+                <p className="text-xs text-amber-700 leading-relaxed font-medium">
+                  {conflictInfo.message ||
+                    "Lớp học chưa đủ dữ liệu lịch các buổi học thực tế để kiểm tra trùng lặp."}
+                </p>
+                <p className="text-[11px] text-amber-600 italic">
+                  Vui lòng cập nhật hoặc khởi tạo danh sách các buổi học cho lớp này.
                 </p>
               </div>
             </div>

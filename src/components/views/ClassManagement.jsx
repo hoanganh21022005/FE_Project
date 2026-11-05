@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from "react"
 import { useSCMS } from "../../context/SCMSContext"
+import { getSessions } from "../../api/managerApi.js"
 import { formatDate } from "../../locales/translations"
 import { NewClassModal } from "../modals/NewClassModal"
 import { ClassEnrollmentsModal } from "../modals/ClassEnrollmentsModal"
@@ -33,6 +34,7 @@ import {
   ChevronDown,
   CheckCircle2,
   AlertTriangle,
+  AlertCircle,
   RotateCcw,
   Eye,
   Check,
@@ -1363,13 +1365,36 @@ export function ClassManagement() {
     setCurrentPage(1)
   }, [activeTab, searchTerm, filterSport, filterCoach, filterDateRange])
 
-  // Calculate schedule conflict map across all classes
+  const [conflictSchedule, setConflictSchedule] = useState(null)
+
+  useEffect(() => {
+    if (!apiEnabled || !classes.length) return
+
+    const controller = new AbortController()
+    const updateSchedule = (sessions) => {
+      if (!controller.signal.aborted) setConflictSchedule({ classes, sessions })
+    }
+
+    getSessions({}, { signal: controller.signal, notifyForbidden: false })
+      .then(updateSchedule)
+      .catch(() => updateSchedule([]))
+
+    return () => controller.abort()
+  }, [apiEnabled, classes])
+
   const classConflictsMap = useMemo(() => {
-    return computeAllClassConflicts(classes)
-  }, [classes])
+    if (!apiEnabled) return computeAllClassConflicts(classes)
+
+    const sessions = conflictSchedule?.classes === classes
+      ? conflictSchedule.sessions
+      : []
+    return computeAllClassConflicts(classes, sessions)
+  }, [apiEnabled, classes, conflictSchedule])
 
   const totalConflictsCount = useMemo(() => {
-    return Object.keys(classConflictsMap).length
+    return Object.values(classConflictsMap).filter((c) =>
+      Boolean(c?.hasConflict),
+    ).length
   }, [classConflictsMap])
 
   // Calculate status counts
@@ -2394,6 +2419,9 @@ export function ClassManagement() {
                       const isSelected = selectedClassIds.includes(cls.id)
                       const classConflict = classConflictsMap[cls.id]
                       const hasConflict = Boolean(classConflict?.hasConflict)
+                      const hasMissingSchedule = Boolean(
+                        classConflict?.hasMissingSchedule,
+                      )
 
                       return (
                         <tr
@@ -2441,6 +2469,18 @@ export function ClassManagement() {
                                   >
                                     <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                                     <span>Trùng lịch</span>
+                                  </span>
+                                )}
+                                {hasMissingSchedule && (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10.5px] font-bold border border-amber-300 shadow-2xs shrink-0 cursor-help"
+                                    title={
+                                      classConflict?.tooltip ||
+                                      "Chưa đủ dữ liệu lịch"
+                                    }
+                                  >
+                                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                    <span>Chưa đủ dữ liệu</span>
                                   </span>
                                 )}
                               </div>
