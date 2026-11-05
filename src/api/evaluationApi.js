@@ -33,6 +33,14 @@ export const getEvaluationById = async (id) => {
   return mapEvaluation(data)
 }
 
+const normalizeEvaluationScore = (score) => {
+  if (score === undefined || score === null || score === "") return undefined
+  const num = Number(score)
+  if (Number.isNaN(num)) return undefined
+  const scaled = num > 10 ? Number((num / 10).toFixed(1)) : num
+  return Math.max(0, Math.min(10, scaled))
+}
+
 export const createEvaluation = async (data) => {
   const payload = {
     memberId: Number(data.memberId),
@@ -40,10 +48,7 @@ export const createEvaluation = async (data) => {
     evaluationDate:
       data.evaluationDate || new Date().toISOString().slice(0, 10),
     comment: String(data.comment || ""),
-    progressScore:
-      data.progressScore !== undefined && data.progressScore !== null
-        ? Number(data.progressScore)
-        : undefined,
+    progressScore: normalizeEvaluationScore(data.progressScore),
   }
   const res = await httpClient.post("/api/evaluations", payload)
   return mapEvaluation(res)
@@ -56,10 +61,7 @@ export const updateEvaluation = async (id, data) => {
     coachId: Number(data.coachId),
     evaluationDate: data.evaluationDate,
     comment: String(data.comment || ""),
-    progressScore:
-      data.progressScore !== undefined && data.progressScore !== null
-        ? Number(data.progressScore)
-        : undefined,
+    progressScore: normalizeEvaluationScore(data.progressScore),
   }
   const res = await httpClient.put(`/api/evaluations/${id}`, payload)
   return mapEvaluation(res)

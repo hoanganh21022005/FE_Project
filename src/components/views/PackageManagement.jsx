@@ -4,7 +4,7 @@ import { useSCMS } from '../../context/SCMSContext';
 import * as managerApi from '../../api/managerApi';
 import { getErrorMessage } from '../../api/apiErrors';
 import { formatCurrency } from '../../locales/translations';
-import { isVisibleManagerPackage, loadPackageManagementData, packagesForType, subjectPriceForType, subjectsWithNonzeroPrice, unclassifiedPackages } from '../../api/packagePricing';
+import { isVisibleManagerPackage, loadPackageManagementData, subjectPriceForType, subjectsWithNonzeroPrice, unclassifiedPackages } from '../../api/packagePricing';
 import {
   buildPackageFormPayload,
   packageFormFromItem,
@@ -130,11 +130,9 @@ export function PackageManagement() {
   const [apiSubjects, setApiSubjects] = useState([]);
   const [apiPackages, setApiPackages] = useState([]);
   const [subjectLoaded, setSubjectLoaded] = useState(false);
-  const [packageLoaded, setPackageLoaded] = useState(false);
   const [subjectLoading, setSubjectLoading] = useState(apiEnabled);
   const [packageLoading, setPackageLoading] = useState(apiEnabled);
   const [subjectError, setSubjectError] = useState('');
-  const [packageError, setPackageError] = useState('');
   const requestId = useRef(0);
   const vi = language === 'vi';
   const canManagePackages = !apiEnabled || currentUser?.authorities?.includes('MANAGE_PACKAGES') || currentUser?.authorities?.includes('*');
@@ -156,9 +154,7 @@ export function PackageManagement() {
       if (id !== requestId.current) return;
       if (result.status === 'fulfilled') {
         setApiPackages(result.value);
-        setPackageLoaded(true);
-        setPackageError('');
-      } else setPackageError(getErrorMessage(result.reason));
+      }
       setPackageLoading(false);
     });
   }, [apiEnabled]);
@@ -171,7 +167,6 @@ export function PackageManagement() {
   const visibleSubjects = apiEnabled ? apiSubjects : subjects;
   const pricedSubjects = subjectsWithNonzeroPrice(visibleSubjects, activeType);
   const visiblePackages = (apiEnabled ? apiPackages : packages).filter(isVisibleManagerPackage);
-  const filteredPackages = packagesForType(visiblePackages, activeType);
   const unclassified = unclassifiedPackages(visiblePackages);
 
   const save = async (data) => {
@@ -235,13 +230,6 @@ export function PackageManagement() {
           </div>
         </section>
 
-        <section className="space-y-4" aria-labelledby="package-list-title">
-          <div><h3 id="package-list-title" className="text-base font-bold text-stone-900">{vi ? 'Gói thành viên đang cấu hình' : 'Configured membership packages'} · {activeType}</h3></div>
-          {packageError && <p role="alert" className="rounded border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">{vi ? 'Không tải được gói: ' : 'Could not load packages: '}{packageError}{packageLoaded && (vi ? ' Dữ liệu đang hiển thị là lần tải trước.' : ' Showing previously loaded data.')}</p>}
-          {packageLoading && !packageLoaded ? <p role="status" className="rounded-lg border bg-white p-8 text-center text-sm text-stone-500">{vi ? 'Đang tải gói thành viên…' : 'Loading packages…'}</p>
-            : filteredPackages.length === 0 ? <p className="rounded-lg border border-stone-200 bg-white p-8 text-center text-sm text-stone-500">{packageError && !packageLoaded ? (vi ? 'Chưa có dữ liệu Package đã tải.' : 'No package data loaded yet.') : (vi ? 'Chưa có gói ' + activeType + '.' : 'No ' + activeType + ' packages.')}</p>
-              : renderCards(filteredPackages)}
-        </section>
       </div>
 
       {unclassified.length > 0 && <section className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4" aria-labelledby="unclassified-title">

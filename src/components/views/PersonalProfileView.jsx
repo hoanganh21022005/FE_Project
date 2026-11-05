@@ -47,8 +47,6 @@ export function PersonalProfileView() {
   const memberId = Number(currentUser?.memberId)
   const valid = Number.isInteger(memberId) && memberId > 0
 
-  const storageKey = `scms_avatar_${currentUser?.id || currentUser?.email || "me"}`
-
   const [profile, setProfile] = useState(() => ({
     ...EMPTY,
     name: currentUser?.name || "",
@@ -65,11 +63,9 @@ export function PersonalProfileView() {
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
 
-  // Avatar state
+  // Avatar state (strictly from Backend, no localStorage fallback)
   const [avatarUrl, setAvatarUrl] = useState(
-    () =>
-      currentUser?.avatarUrl ||
-      (typeof window !== "undefined" ? localStorage.getItem(storageKey) : null),
+    () => currentUser?.avatarUrl || null,
   )
   const [avatarLoading, setAvatarLoading] = useState(false)
   const [avatarNotice, setAvatarNotice] = useState("")
@@ -250,32 +246,24 @@ export function PersonalProfileView() {
     setAvatarNotice("")
 
     try {
-      let remoteUrl = null
-      try {
-        const res = await authApi.uploadMyAvatar(file)
-        remoteUrl = res?.avatarUrl || null
-      } catch (beErr) {
-        console.warn("Backend avatar upload warning:", beErr)
+      const res = await authApi.uploadMyAvatar(file)
+      const remoteUrl = res?.avatarUrl || res?.url || null
+      if (!remoteUrl) {
+        throw new Error(
+          isVi
+            ? "Backend chưa trả về đường dẫn ảnh đại diện (avatarUrl)."
+            : "Backend did not return an avatarUrl.",
+        )
       }
-
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const finalUrl =
-          remoteUrl || event.target?.result || URL.createObjectURL(file)
-        setAvatarUrl(finalUrl)
-        if (currentUser) {
-          currentUser.avatarUrl = finalUrl
-        }
-        try {
-          localStorage.setItem(storageKey, finalUrl)
-        } catch {}
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(
-            new CustomEvent("scms:avatar-updated", { detail: finalUrl }),
-          )
-        }
+      setAvatarUrl(remoteUrl)
+      if (currentUser) {
+        currentUser.avatarUrl = remoteUrl
       }
-      reader.readAsDataURL(file)
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("scms:avatar-updated", { detail: remoteUrl }),
+        )
+      }
 
       const msg = isVi
         ? "Đã cập nhật ảnh đại diện mới."
@@ -283,14 +271,14 @@ export function PersonalProfileView() {
       setAvatarNotice(msg)
       if (typeof showToast === "function") showToast(msg, "success")
     } catch (err) {
-      setAvatarError(
-        getErrorMessage(
-          err,
-          isVi
-            ? "Không thể tải lên ảnh đại diện."
-            : "Could not upload avatar image.",
-        ),
+      const errMsg = getErrorMessage(
+        err,
+        isVi
+          ? "Không thể tải lên ảnh đại diện (API chưa hỗ trợ hoặc lỗi kết nối)."
+          : "Could not upload avatar image.",
       )
+      setAvatarError(errMsg)
+      if (typeof showToast === "function") showToast(errMsg, "error")
     } finally {
       setAvatarLoading(false)
       if (fileInputRef.current) {
@@ -307,18 +295,11 @@ export function PersonalProfileView() {
     setAvatarNotice("")
 
     try {
-      try {
-        await authApi.deleteMyAvatar()
-      } catch (beErr) {
-        console.warn("Backend avatar delete warning:", beErr)
-      }
+      await authApi.deleteMyAvatar()
       setAvatarUrl(null)
       if (currentUser) {
         currentUser.avatarUrl = null
       }
-      try {
-        localStorage.removeItem(storageKey)
-      } catch {}
       if (typeof window !== "undefined") {
         window.dispatchEvent(
           new CustomEvent("scms:avatar-updated", { detail: null }),
@@ -328,12 +309,12 @@ export function PersonalProfileView() {
       setAvatarNotice(msg)
       if (typeof showToast === "function") showToast(msg, "success")
     } catch (err) {
-      setAvatarError(
-        getErrorMessage(
-          err,
-          isVi ? "Không thể xóa ảnh đại diện." : "Could not delete avatar.",
-        ),
+      const errMsg = getErrorMessage(
+        err,
+        isVi ? "Không thể xóa ảnh đại diện." : "Could not delete avatar.",
       )
+      setAvatarError(errMsg)
+      if (typeof showToast === "function") showToast(errMsg, "error")
     } finally {
       setAvatarLoading(false)
     }

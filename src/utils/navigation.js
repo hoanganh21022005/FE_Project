@@ -303,6 +303,7 @@ const ROUTE_TAB_MAP = {
   "/member/training-plan": { role: ROLE_MEMBER, tab: "member_training_plan" },
   "/member/progress": { role: ROLE_MEMBER, tab: "member_training_plan" },
   "/member/invoices": { role: ROLE_MEMBER, tab: "member_invoices" },
+  "/payment-result": { role: ROLE_MEMBER, tab: "member_invoices" },
   "/member/notifications": { role: ROLE_MEMBER, tab: "member_notifications" },
   "/member/my-coach": { role: ROLE_MEMBER, tab: "member_my_coach" },
   "/member/body-metrics": { role: ROLE_MEMBER, tab: "member_body_metrics" },
@@ -383,7 +384,9 @@ const TAB_ROUTE_MAP = {
  * Resolve a pathname to tab and role info.
  */
 export function resolveRoute(pathname) {
-  const normalizedPath = String(pathname || "/").replace(/\/+$/, "") || "/"
+  const raw = String(pathname || "/")
+  const [pathOnly] = raw.split("?")
+  const normalizedPath = pathOnly.replace(/\/+$/, "") || "/"
   if (
     normalizedPath === "/" ||
     normalizedPath === "/login" ||

@@ -1,11 +1,30 @@
 import { httpClient } from "./httpClient.js"
 import { extractList } from "./schemaValidators.js"
 
-export const getEnrollmentsByClass = async (classId) => {
+export const getEnrollmentsByClass = async (classId, options = {}) => {
   if (!classId) return []
-  const data = await httpClient.get(`/api/classes/${classId}/enrollments`)
-  const list = extractList(data)
-  return Array.isArray(list) ? list : []
+  try {
+    const data = await httpClient.get(`/api/classes/${classId}/enrollments`, {
+      notifyForbidden: false,
+      ...options,
+    })
+    const list = extractList(data)
+    return Array.isArray(list) ? list : []
+  } catch (err) {
+    if (err?.status === 403 || err?.status === 404) {
+      try {
+        const fallback = await httpClient.get(
+          `/api/enrollments?classId=${encodeURIComponent(classId)}`,
+          { notifyForbidden: false, ...options },
+        )
+        const fallbackList = extractList(fallback)
+        return Array.isArray(fallbackList) ? fallbackList : []
+      } catch {
+        return []
+      }
+    }
+    throw err
+  }
 }
 
 export const enrollMemberInClass = async (classId, memberId) => {

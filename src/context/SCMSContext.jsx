@@ -1218,6 +1218,7 @@ export const SCMSProvider = ({ children }) => {
   const [managerDataError, setManagerDataError] = useState(null)
 
   const prevRoleRef = React.useRef(role)
+  const authRequestEpochRef = React.useRef(0)
   useEffect(() => {
     if (prevRoleRef.current !== role) {
       prevRoleRef.current = role
@@ -1241,19 +1242,27 @@ export const SCMSProvider = ({ children }) => {
   const [dashboard, setDashboard] = useState(null)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState(null)
-  const [bookings, setBookings] = useState(INITIAL_BOOKINGS)
-  const [attendance, setAttendance] = useState(INITIAL_ATTENDANCE)
+  const [bookings, setBookings] = useState(
+    API_ENABLED ? [] : INITIAL_BOOKINGS,
+  )
+  const [attendance, setAttendance] = useState(
+    API_ENABLED ? [] : INITIAL_ATTENDANCE,
+  )
   const [feedbacks, setFeedbacks] = useState(
     API_ENABLED ? [] : INITIAL_FEEDBACKS,
   )
   const [leaveRequests, setLeaveRequests] = useState([])
   const [attendanceDisputes, setAttendanceDisputes] = useState([])
   const [checkedInCourseSessions, setCheckedInCourseSessions] = useState({})
-  const [payments, setPayments] = useState(INITIAL_PAYMENTS)
+  const [payments, setPayments] = useState(
+    API_ENABLED ? [] : INITIAL_PAYMENTS,
+  )
   const [auditLogs, setAuditLogs] = useState(
     API_ENABLED ? [] : INITIAL_AUDIT_LOGS,
   )
-  const [trainingPlans, setTrainingPlans] = useState(INITIAL_TRAINING_PLANS)
+  const [trainingPlans, setTrainingPlans] = useState(
+    API_ENABLED ? [] : INITIAL_TRAINING_PLANS,
+  )
 
   const fallbackUser = {
     id:
@@ -1326,9 +1335,10 @@ export const SCMSProvider = ({ children }) => {
     }
 
     let active = true
+    const requestEpoch = authRequestEpochRef.current
     setAuthError(null)
     const authTimeoutId = setTimeout(() => {
-      if (active) {
+      if (active && authRequestEpochRef.current === requestEpoch) {
         setAuthLoading(false)
       }
     }, 5000)
@@ -1336,7 +1346,7 @@ export const SCMSProvider = ({ children }) => {
     authApi
       .getCurrentUser()
       .then((user) => {
-        if (!active) return
+        if (!active || authRequestEpochRef.current !== requestEpoch) return
         const normalizedRole = normalizeRole(user?.role, { isApiMode: true })
         if (!normalizedRole) {
           setAuthUser(null)
@@ -1351,13 +1361,19 @@ export const SCMSProvider = ({ children }) => {
         setRole(normalizedRole)
       })
       .catch((error) => {
-        if (active && !(error instanceof UnauthorizedError)) {
+        if (
+          active &&
+          authRequestEpochRef.current === requestEpoch &&
+          !(error instanceof UnauthorizedError)
+        ) {
           setAuthError(getErrorMessage(error))
         }
       })
       .finally(() => {
         clearTimeout(authTimeoutId)
-        if (active) setAuthLoading(false)
+        if (active && authRequestEpochRef.current === requestEpoch) {
+          setAuthLoading(false)
+        }
       })
 
     return () => {
@@ -1369,7 +1385,7 @@ export const SCMSProvider = ({ children }) => {
   }, [])
 
   // Independent fetchers for Member and Staff resources
-  const fetchMembers = useCallback(async () => {
+  const fetchMembers = useCallback(async (options) => {
     if (!API_ENABLED) {
       setMembers(INITIAL_MEMBERS)
       return INITIAL_MEMBERS
@@ -1377,7 +1393,7 @@ export const SCMSProvider = ({ children }) => {
     setMembersLoading(true)
     setMembersError(null)
     try {
-      const data = await memberApi.getMembers()
+      const data = await memberApi.getMembers(options)
       setMembers(data)
       return data
     } catch (err) {
@@ -1404,6 +1420,30 @@ export const SCMSProvider = ({ children }) => {
       setStaff(data)
       return data
     } catch (err) {
+      try {
+        const publicCoachList = await memberPortalApi.getCoaches()
+        if (Array.isArray(publicCoachList) && publicCoachList.length > 0) {
+          const mappedCoaches = publicCoachList.map((c) => ({
+            id: c.id,
+            code: `COA-${String(c.id).padStart(3, "0")}`,
+            name: c.name,
+            email: c.email || "",
+            phone: c.phone || "",
+            role: "coach",
+            specialty: Array.isArray(c.specializations)
+              ? c.specializations.join(", ")
+              : "",
+            specialization: Array.isArray(c.specializations)
+              ? c.specializations.join(", ")
+              : "",
+            status: String(c.status || "active").toLowerCase(),
+          }))
+          setStaff(mappedCoaches)
+          return mappedCoaches
+        }
+      } catch {
+        // ignore fallback error
+      }
       const msg = getErrorMessage(
         err,
         "Không thể tải danh sách nhân viên từ máy chủ.",
@@ -1427,6 +1467,34 @@ export const SCMSProvider = ({ children }) => {
     })
   }, [staff])
 
+  // Enrich authUser with authoritative coachId when logged in as Coach
+  useEffect(() => {
+    if (!API_ENABLED || !authUser || authUser.role !== ROLE_COACH) return
+    if (authUser.coachId && Number.isInteger(Number(authUser.coachId)) && Number(authUser.coachId) > 0) {
+      return
+    }
+    const emailLower = String(authUser.email || "").trim().toLowerCase()
+    const nameLower = String(authUser.fullName || "").trim().toLowerCase()
+    const matchedCoach = staff.find((s) => {
+      const r = String(s.role || s.beRole || "").toLowerCase()
+      if (!r.includes("coach") && !r.includes("huấn luyện")) return false
+      if (emailLower && String(s.email || "").trim().toLowerCase() === emailLower) {
+        return true
+      }
+      if (nameLower && String(s.name || "").trim().toLowerCase() === nameLower) {
+        return true
+      }
+      return false
+    })
+    if (matchedCoach && Number.isInteger(Number(matchedCoach.id)) && Number(matchedCoach.id) > 0) {
+      setAuthUser((prev) =>
+        prev && !prev.coachId
+          ? { ...prev, coachId: Number(matchedCoach.id) }
+          : prev,
+      )
+    }
+  }, [authUser, staff])
+
   // Load Member and Staff independently for roles with access
   useEffect(() => {
     if (!API_ENABLED || !authUser) return undefined
@@ -1437,13 +1505,34 @@ export const SCMSProvider = ({ children }) => {
       ROLE_COACH,
     ]
     if (allowedRoles.includes(authUser.role)) {
-      fetchMembers().catch(() => {})
+      fetchMembers(
+        authUser.role === ROLE_COACH ? { notifyForbidden: false } : undefined,
+      ).catch(() => {})
       fetchStaff().catch(() => {})
     }
     if (authUser.role !== ROLE_MANAGER) {
       Promise.all([
         managerApi.getSubjects({ notifyForbidden: false }).catch(() => []),
-        staffApi.getStaff({ notifyForbidden: false }).catch(() => []),
+        authUser.role === ROLE_MEMBER
+          ? Promise.resolve([])
+          : staffApi
+              .getStaff({ notifyForbidden: false })
+              .catch(() =>
+                memberPortalApi
+                  .getCoaches()
+                  .then((list) =>
+                    Array.isArray(list)
+                      ? list.map((c) => ({
+                          id: c.id,
+                          name: c.name,
+                          email: c.email || "",
+                          role: "coach",
+                          status: String(c.status || "active").toLowerCase(),
+                        }))
+                      : [],
+                  )
+                  .catch(() => []),
+              ),
         managerApi.getRooms({ notifyForbidden: false }).catch(() => []),
         managerApi.getPackages({ notifyForbidden: false }).catch(() => []),
       ])
@@ -1455,6 +1544,7 @@ export const SCMSProvider = ({ children }) => {
             loadedPackages,
           ]) => {
             if (loadedSubjects?.length) setSubjects(loadedSubjects)
+            if (loadedStaff?.length) setStaff((prev) => (prev.length ? prev : loadedStaff))
             if (loadedRooms?.length) setRooms(loadedRooms)
             if (loadedPackages?.length) setPackages(loadedPackages)
             const loadedClasses = await managerApi
@@ -1591,6 +1681,7 @@ export const SCMSProvider = ({ children }) => {
   }, [authUser])
 
   const login = async (email, password) => {
+    authRequestEpochRef.current += 1
     setAuthError(null)
     if (!API_ENABLED) {
       setLocalAuthenticated(true)
@@ -1611,10 +1702,12 @@ export const SCMSProvider = ({ children }) => {
     }
     setAuthUser(normalizedUser)
     setRole(normalizedRole)
+    setAuthLoading(false)
     return normalizedUser
   }
 
   const logout = async () => {
+    authRequestEpochRef.current += 1
     if (API_ENABLED) {
       try {
         await authApi.logout()
@@ -1966,17 +2059,28 @@ export const SCMSProvider = ({ children }) => {
     // In API mode, let the backend validate current membership, capacity and schedule.
     // The member portal does not have manager-only class/member lists in context.
     if (API_ENABLED) {
-      const result = await classEnrollmentApi.enrollMemberInClass(
-        classId,
-        effectiveMemberId,
-      )
-      showToast(
-        language === "vi"
-          ? "Đã gửi đăng ký khóa học."
-          : "Course enrollment submitted.",
-        "success",
-      )
-      return { success: true, data: result }
+      try {
+        const result = await classEnrollmentApi.enrollMemberInClass(
+          classId,
+          effectiveMemberId,
+        )
+        showToast(
+          language === "vi"
+            ? "Đã gửi đăng ký khóa học."
+            : "Course enrollment submitted.",
+          "success",
+        )
+        return { success: true, data: result }
+      } catch (err) {
+        const errMsg = getErrorMessage(
+          err,
+          language === "vi"
+            ? "Không thể đăng ký lớp học."
+            : "Failed to enroll in class.",
+        )
+        showToast(errMsg, "error")
+        return { success: false, message: errMsg }
+      }
     }
     const cls = classes.find((c) => String(c.id) === String(classId))
     const member =

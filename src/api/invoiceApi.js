@@ -6,6 +6,7 @@ import {
   toInvoiceStatusRequest,
 } from './invoiceMappers.js';
 import { extractList, isValidNumericId } from './schemaValidators.js';
+import { VNPAY_VERIFY_TIMEOUT_MS } from '../utils/paymentVerification.js';
 
 export const getInvoices = async (filters = {}, options = {}) => {
   const query = new URLSearchParams();
@@ -69,7 +70,9 @@ export const confirmCashPayment = async (id, options = {}) => {
   if (!isValidNumericId(id)) {
     throw new Error('ID hóa đơn không hợp lệ.');
   }
-  const response = await httpClient.post(`/api/invoices/${id}/confirm-cash`, undefined, options);
+  const hasNote = options && typeof options === 'object' && typeof options.note === 'string' && options.note.trim();
+  const payload = hasNote ? { note: options.note.trim() } : undefined;
+  const response = await httpClient.post(`/api/invoices/${id}/confirm-cash`, payload, options);
   return mapInvoice(response);
 };
 
@@ -123,26 +126,45 @@ export const getMemberOwnInvoiceById = async (id) => {
   return mapInvoice(data);
 };
 
+export const verifyVnpay = async (invoiceId, {
+  timeoutMs = VNPAY_VERIFY_TIMEOUT_MS,
+  signal,
+} = {}) => {
+  if (!isValidNumericId(invoiceId)) {
+    throw new Error('Invalid invoice ID.');
+  }
+  return httpClient.post(
+    `/api/members/me/invoices/${invoiceId}/verify-vnpay`,
+    {},
+    { timeoutMs, signal },
+  );
+};
+
 export const payInvoiceOnline = async (id) => {
   if (!isValidNumericId(id)) {
     throw new Error('ID hóa đơn không hợp lệ.');
   }
   const response = await httpClient.post(`/api/invoices/${id}/pay-online`);
+  const paymentUrl =
+    response?.paymentUrl ||
+    response?.url ||
+    response?.vnpayUrl ||
+    (typeof response === 'string' ? response : null);
   return {
-    paymentUrl: response?.paymentUrl || null,
+    paymentUrl: paymentUrl || null,
   };
 };
 
-export const getInvoiceReceipt = async (id) => {
+export const getInvoiceReceipt = async (id, options = { notifyForbidden: false }) => {
   if (!isValidNumericId(id)) {
     throw new Error('ID hóa đơn không hợp lệ.');
   }
-  const data = await httpClient.get(`/api/invoices/${id}/receipt`);
+  const data = await httpClient.get(`/api/invoices/${id}/receipt`, options);
   return mapInvoice(data) || data;
 };
 
-export const getPaymentResolutions = async () => {
-  const data = await httpClient.get('/api/payment-resolutions');
+export const getPaymentResolutions = async (options = { notifyForbidden: false }) => {
+  const data = await httpClient.get('/api/payment-resolutions', options);
   const list = extractList(data);
   return Array.isArray(list) ? list : [];
 };
@@ -188,6 +210,7 @@ export const invoiceApi = {
   getMyInvoiceById,
   getMemberOwnInvoices,
   getMemberOwnInvoiceById,
+  verifyVnpay,
   getInvoiceReceipt,
   createInvoice,
   payInvoice,

@@ -35,7 +35,10 @@ const formatDate = (value, language) => {
 }
 const formatTime = (value) => typeof value === 'string' ? value.slice(0, 5) : ''
 const paymentUrlIsSafe = (value) => {
-  try { return new URL(value).protocol === 'https:' } catch { return false }
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === 'https:' || (parsed.protocol === 'http:' && (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1'))
+  } catch { return false }
 }
 const readMemberOrders = (memberId) => {
   if (!memberId || typeof sessionStorage === 'undefined') return []
@@ -146,7 +149,7 @@ export function MemberCourseCatalog() {
   const [confirmClass, setConfirmClass] = useState(null)
   const [normalUncertainClassIds, setNormalUncertainClassIds] = useState([])
   const [lockedOrderIds, setLockedOrderIds] = useState([])
-  const [paymentMethod, setPaymentMethod] = useState('VNPay')
+  const [paymentMethod, setPaymentMethod] = useState('Cash')
   const [submitting, setSubmitting] = useState(false)
   const [submittingError, setSubmittingError] = useState('')
   const [notice, setNotice] = useState('')
@@ -226,9 +229,22 @@ export function MemberCourseCatalog() {
         amount: item.amount ?? null,
         paymentUrl: item.paymentUrl ?? null,
         expiresAt: item.expiresAt ?? null,
-        paymentMethod: item.paymentMethod ?? 'VNPay',
+        paymentMethod: item.paymentMethod ?? null,
       }))
-      if (serverOrders.length) setOrders((current) => [...serverOrders, ...current.filter((entry) => !serverOrders.some((serverOrder) => String(serverOrder.invoiceId) === String(entry.invoiceId)))])
+      if (serverOrders.length) {
+        setOrders((current) => {
+          const mergedServer = serverOrders.map((srv) => {
+            const prev = current.find((entry) => String(entry.invoiceId) === String(srv.invoiceId))
+            return {
+              ...prev,
+              ...srv,
+              paymentUrl: srv.paymentUrl || prev?.paymentUrl || null,
+              paymentMethod: srv.paymentMethod || prev?.paymentMethod || 'VNPay',
+            }
+          })
+          return [...mergedServer, ...current.filter((entry) => !serverOrders.some((srv) => String(srv.invoiceId) === String(entry.invoiceId)))]
+        })
+      }
       setEnrollmentsState({ loading: false, error: '' })
       return result
     } catch (error) {
@@ -259,9 +275,22 @@ export function MemberCourseCatalog() {
         amount: item.amount ?? null,
         paymentUrl: item.paymentUrl ?? null,
         expiresAt: item.invoiceExpiresAt ?? item.expiresAt ?? null,
-        paymentMethod: item.paymentMethod ?? 'VNPay',
+        paymentMethod: item.paymentMethod ?? null,
       }))
-      if (serverOrders.length) setOrders((current) => [...serverOrders, ...current.filter((entry) => !serverOrders.some((serverOrder) => String(serverOrder.invoiceId) === String(entry.invoiceId)))])
+      if (serverOrders.length) {
+        setOrders((current) => {
+          const mergedServer = serverOrders.map((srv) => {
+            const prev = current.find((entry) => String(entry.invoiceId) === String(srv.invoiceId))
+            return {
+              ...prev,
+              ...srv,
+              paymentUrl: srv.paymentUrl || prev?.paymentUrl || null,
+              paymentMethod: srv.paymentMethod || prev?.paymentMethod || 'VNPay',
+            }
+          })
+          return [...mergedServer, ...current.filter((entry) => !serverOrders.some((srv) => String(srv.invoiceId) === String(entry.invoiceId)))]
+        })
+      }
       setRegistrationsState({ loading: false, error: '' })
       return rows
     } catch (error) {
@@ -388,6 +417,13 @@ export function MemberCourseCatalog() {
     try {
       const response = await classEnrollmentApi.enrollCurrentMemberInClass(item.id, paymentMethod)
       const status = response?.status ?? response?.enrollmentStatus ?? null
+      let redirectUrl = response?.paymentUrl ?? null
+      if (paymentMethod === 'VNPay' && !paymentUrlIsSafe(redirectUrl) && response?.invoiceId != null) {
+        const onlineRes = await invoiceApi.payInvoiceOnline(response.invoiceId).catch(() => null)
+        if (paymentUrlIsSafe(onlineRes?.paymentUrl)) {
+          redirectUrl = onlineRes.paymentUrl
+        }
+      }
       const order = {
         key: 'normal-' + String(response?.enrollmentId ?? response?.id ?? Date.now()),
         type: 'Normal',
@@ -399,16 +435,23 @@ export function MemberCourseCatalog() {
         invoiceId: response?.invoiceId ?? null,
         invoiceCode: response?.invoiceCode ?? null,
         amount: response?.amount ?? response?.tuitionFee ?? null,
-        paymentUrl: response?.paymentUrl ?? null,
+        paymentUrl: redirectUrl,
         expiresAt: response?.expiresAt ?? null,
         paymentMethod,
       }
-      setOrders((current) => [order, ...current.filter((entry) => entry.key !== order.key)])
+      setOrders((current) => {
+        const next = [order, ...current.filter((entry) => entry.key !== order.key && String(entry.invoiceId) !== String(order.invoiceId))]
+        saveMemberOrders(memberId, next)
+        return next
+      })
       setConfirmClass(null)
       setNotice(normalizeCatalogStatus(status) === 'registered'
         ? (isVi ? 'Backend đã xác nhận đăng ký lớp.' : 'Backend confirmed the class registration.')
         : isVi ? 'Đã nhận phản hồi từ Backend. Quyền đăng ký chỉ hiện Registered sau khi BE xác nhận Paid.' : 'Backend responded. Enrollment is not Registered until Backend confirms Paid.')
       await refreshEnrollments()
+      if (paymentMethod === 'VNPay' && paymentUrlIsSafe(redirectUrl) && !['registered', 'paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || status))) {
+        window.location.assign(redirectUrl)
+      }
     } catch (error) {
       setSubmittingError(getErrorMessage(error, isVi ? 'Không gửi được đăng ký.' : 'Enrollment request failed.'))
       if (!error?.status || error.status >= 500 || error.status === 409) {
@@ -504,6 +547,13 @@ export function MemberCourseCatalog() {
     setSubmittingError('')
     try {
       const response = await advancedRegistrationApi.createAdvancedOrder(registration.id, paymentMethod)
+      let redirectUrl = response?.paymentUrl ?? null
+      if (paymentMethod === 'VNPay' && !paymentUrlIsSafe(redirectUrl) && response?.invoiceId != null) {
+        const onlineRes = await invoiceApi.payInvoiceOnline(response.invoiceId).catch(() => null)
+        if (paymentUrlIsSafe(onlineRes?.paymentUrl)) {
+          redirectUrl = onlineRes.paymentUrl
+        }
+      }
       const order = {
         key: 'advanced-' + String(response?.invoiceId ?? response?.subscriptionId ?? Date.now()),
         type: 'Advanced',
@@ -516,13 +566,20 @@ export function MemberCourseCatalog() {
         invoiceId: response?.invoiceId ?? null,
         invoiceCode: response?.invoiceCode ?? null,
         amount: response?.amount ?? null,
-        paymentUrl: response?.paymentUrl ?? null,
+        paymentUrl: redirectUrl,
         expiresAt: response?.expiresAt ?? null,
         paymentMethod,
       }
-      setOrders((current) => [order, ...current.filter((item) => item.key !== order.key)])
+      setOrders((current) => {
+        const next = [order, ...current.filter((item) => item.key !== order.key && String(item.invoiceId) !== String(order.invoiceId))]
+        saveMemberOrders(memberId, next)
+        return next
+      })
       setNotice(isVi ? 'Đơn hàng do Backend tạo. Chưa có quyền sử dụng cho đến khi hóa đơn Paid được xác minh.' : 'Backend created the order. Entitlement remains inactive until its invoice is verified Paid.')
       await refreshRegistrations()
+      if (paymentMethod === 'VNPay' && paymentUrlIsSafe(redirectUrl) && !['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status))) {
+        window.location.assign(redirectUrl)
+      }
     } catch (error) {
       setSubmittingError(getErrorMessage(error, isVi ? 'Không tạo được đơn hàng.' : 'Could not create the order.'))
       if (!error?.status || error.status >= 500 || error.status === 409) {
@@ -586,10 +643,15 @@ export function MemberCourseCatalog() {
       return
     }
     try {
-      let url = order.paymentUrl
-      if (!paymentUrlIsSafe(url) && order.invoiceId) {
-        const result = await invoiceApi.payInvoiceOnline(order.invoiceId)
-        url = result?.paymentUrl
+      let url = null
+      if (order.invoiceId) {
+        const result = await invoiceApi.payInvoiceOnline(order.invoiceId).catch(() => null)
+        if (paymentUrlIsSafe(result?.paymentUrl)) {
+          url = result.paymentUrl
+        }
+      }
+      if (!paymentUrlIsSafe(url)) {
+        url = order.paymentUrl
       }
       if (!paymentUrlIsSafe(url)) throw new Error(isVi ? 'Backend chưa trả paymentUrl HTTPS hợp lệ.' : 'Backend did not return a valid HTTPS paymentUrl.')
       window.location.assign(url)
@@ -623,6 +685,37 @@ export function MemberCourseCatalog() {
       } else setNotice(isVi ? 'Backend chưa trả đăng ký cho lớp này; bạn có thể gửi lại sau khi đã đối soát.' : 'Backend returned no enrollment for this class; a retry is available after reconciliation.')
     } catch {
       setSubmittingError(isVi ? 'Chưa đối soát được. Không gửi đăng ký lại.' : 'Reconciliation failed. Do not submit again yet.')
+    }
+  }
+  const handleCancelPendingEnrollment = async (enrollmentOrOrder) => {
+    if (!enrollmentOrOrder || submitting) return
+    setSubmitting(true)
+    setSubmittingError('')
+    try {
+      const enrollmentId = enrollmentOrOrder.enrollmentId ?? (enrollmentOrOrder.type !== 'Advanced' ? enrollmentOrOrder.id : null)
+      const classId = enrollmentOrOrder.classId
+      const invoiceId = enrollmentOrOrder.invoiceId
+      let cancelled = false
+      if (enrollmentId) {
+        await classEnrollmentApi.cancelEnrollmentById(enrollmentId, 'Đổi phương thức thanh toán').then(() => { cancelled = true }).catch(() => {})
+      }
+      if (!cancelled && classId && memberId) {
+        await classEnrollmentApi.cancelMemberEnrollment(classId, memberId).then(() => { cancelled = true }).catch(() => {})
+      }
+      if (invoiceId) {
+        await invoiceApi.cancelInvoice(invoiceId).then(() => { cancelled = true }).catch(() => {})
+      }
+      setOrders((current) => {
+        const next = current.filter((o) => String(o.invoiceId) !== String(invoiceId) && String(o.classId) !== String(classId))
+        saveMemberOrders(memberId, next)
+        return next
+      })
+      await Promise.all([refreshEnrollments(), refreshClasses()])
+      setNotice(isVi ? 'Đã hủy đơn chờ thanh toán. Bạn có thể chọn Tiền mặt tại quầy (Cash) và đăng ký lại.' : 'Pending enrollment cancelled. You can now select Cash at counter and enroll again.')
+    } catch (error) {
+      setSubmittingError(getErrorMessage(error, isVi ? 'Không thể hủy đơn đang chờ.' : 'Could not cancel pending enrollment.'))
+    } finally {
+      setSubmitting(false)
     }
   }
   const reconcileAdvancedOrder = async (registrationId) => {
@@ -715,7 +808,7 @@ export function MemberCourseCatalog() {
                   {schedule.loading ? <p className="flex items-center gap-2 text-sm text-slate-600"><LoaderCircle size={16} className="animate-spin" />{isVi ? 'Đang xác minh lịch…' : 'Verifying schedule…'}</p> : schedule.error ? <div role="alert" className="text-sm text-rose-800"><p>{schedule.error}</p><button type="button" onClick={() => retrySchedule(item.id)} className="mt-2 inline-flex min-h-9 items-center gap-2 font-semibold underline"><RefreshCw size={14} />{isVi ? 'Thử lại' : 'Retry'}</button></div> : schedule.sessions.length ? <ol className="grid gap-2 sm:grid-cols-2">{schedule.sessions.map((session, index) => <li key={session.id || session.sessionId || (String(sessionDate(session)) + '-' + index)} className="flex items-start gap-2 rounded-lg bg-white p-2 text-sm text-slate-700"><CalendarDays size={15} className="mt-0.5 shrink-0 text-brand-accent-dark" /><span>{formatDate(sessionDate(session), language)} · {formatTime(session.startTime || session.startAt)}–{formatTime(session.endTime || session.endAt)}</span></li>)}</ol> : <p className="text-sm text-slate-600">{isVi ? 'Backend chưa trả lịch buổi cho lớp.' : 'Backend returned no class timetable.'}</p>}
                   {!schedule.loading && !schedule.error && <p className="mt-3 text-[13px] text-slate-600">{check.eligible ? (isVi ? 'Đã xác minh đủ 12 buổi và điều kiện lớp.' : 'All 12 sessions and class conditions are verified.') : check.reasons.join(' ')}</p>}
                 </div>}
-                {existing ? <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><span>{isVi ? 'Đăng ký hiện có:' : 'Existing enrollment:'} <strong>{statusText(existing.status, language)}</strong></span><button type="button" onClick={refreshEnrollments} className="font-semibold underline">{isVi ? 'Tải lại trạng thái' : 'Refresh status'}</button></div> : uncertain ? <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><p>{isVi ? 'Kết quả gửi trước chưa rõ; lớp đang khóa để tránh đăng ký trùng.' : 'Previous submission is unresolved; this class is locked to prevent a duplicate.'}</p><button type="button" onClick={() => reconcileNormalEnrollment(item.id)} className="mt-2 font-semibold underline">{isVi ? 'Đối soát trạng thái' : 'Reconcile status'}</button></div> : <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-600">{check.eligible ? (isVi ? 'Còn ' + (Number(item.maxCapacity) - Number(item.enrolledCount)) + ' chỗ' : (Number(item.maxCapacity) - Number(item.enrolledCount)) + ' seats left') : check.reasons[0] || (isVi ? 'Đang xác minh điều kiện lớp.' : 'Verifying class eligibility.')}</p><button type="button" disabled={!check.eligible || !hasSellablePrice(selectedSubject?.normalPrice) || !hasSellablePrice(item.tuitionFee)} onClick={() => { setConfirmClass(item); setSubmittingError('') }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-bold text-white hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300">{isVi ? 'Đăng ký lớp' : 'Enroll in class'}<ArrowUpRight size={16} /></button></div>}
+                {existing ? <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><span>{isVi ? 'Đăng ký hiện có:' : 'Existing enrollment:'} <strong>{statusText(existing.status, language)}</strong></span><div className="flex flex-wrap items-center gap-3">{['pending', 'pending_payment'].includes(normalizeCatalogStatus(existing.status)) && <button type="button" disabled={submitting} onClick={() => handleCancelPendingEnrollment(existing)} className="font-semibold text-rose-700 underline">{isVi ? 'Hủy đơn chờ & Chọn lại phương thức' : 'Cancel pending & re-enroll'}</button>}<button type="button" onClick={refreshEnrollments} className="font-semibold underline">{isVi ? 'Tải lại trạng thái' : 'Refresh status'}</button></div></div> : uncertain ? <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><p>{isVi ? 'Kết quả gửi trước chưa rõ; lớp đang khóa để tránh đăng ký trùng.' : 'Previous submission is unresolved; this class is locked to prevent a duplicate.'}</p><button type="button" onClick={() => reconcileNormalEnrollment(item.id)} className="mt-2 font-semibold underline">{isVi ? 'Đối soát trạng thái' : 'Reconcile status'}</button></div> : <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-600">{check.eligible ? (isVi ? 'Còn ' + (Number(item.maxCapacity) - Number(item.enrolledCount)) + ' chỗ' : (Number(item.maxCapacity) - Number(item.enrolledCount)) + ' seats left') : check.reasons[0] || (isVi ? 'Đang xác minh điều kiện lớp.' : 'Verifying class eligibility.')}</p><div className="flex flex-wrap items-center gap-2"><label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700"><span>{isVi ? 'Thanh toán:' : 'Payment:'}</span><select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} aria-label={isVi ? 'Phương thức thanh toán lớp học' : 'Class payment method'} className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 focus:border-brand-primary focus:outline-none"><option value="Cash">{isVi ? 'Tiền mặt tại quầy (Cash)' : 'Cash at counter'}</option><option value="VNPay">{isVi ? 'VNPay (Trực tuyến)' : 'VNPay (Online)'}</option></select></label><button type="button" disabled={!check.eligible || !hasSellablePrice(selectedSubject?.normalPrice) || !hasSellablePrice(item.tuitionFee)} onClick={() => { setConfirmClass(item); setSubmittingError('') }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-bold text-white hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300">{isVi ? 'Đăng ký lớp' : 'Enroll in class'}<ArrowUpRight size={16} /></button></div></div>}
               </article>
             })}</div>}
           </InlineState>
@@ -758,12 +851,12 @@ export function MemberCourseCatalog() {
         })}</div>}
       </InlineState>}
       {enrollmentsState.error && tier === 'Normal' && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900" role="alert"><p>{enrollmentsState.error}</p><button type="button" onClick={refreshEnrollments} className="mt-2 font-semibold underline">{isVi ? 'Thử lại' : 'Retry'}</button></div>}
-      {displayedOrders.length > 0 && <div className="space-y-3">{displayedOrders.map((order) => <article key={order.key} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[13px] font-bold uppercase tracking-wide text-slate-500">{order.type} · {order.invoiceCode || (order.invoiceId ? (isVi ? 'Hóa đơn #' : 'Invoice #') + order.invoiceId : isVi ? 'Đơn chờ xử lý' : 'Order pending')}</p><h3 className="mt-1 font-bold text-slate-900">{order.className || order.subjectName || (isVi ? 'Đăng ký khóa học' : 'Course enrollment')}</h3><p className="mt-1 text-sm text-slate-600">{order.amount == null ? (isVi ? 'Chưa có số tiền từ Backend' : 'Amount not provided by Backend') : formatMoney(order.amount, language)}{order.expiresAt ? ' · ' + (isVi ? 'Hạn thanh toán ' : 'Invoice deadline ') + formatDate(order.expiresAt, language) : ''}</p></div><StatusPill status={order.paymentStatus || order.status} language={language} /></div>{order.reconciliationRequired && <p className="mt-3 text-sm font-semibold text-amber-800">{isVi ? 'Đã ghi nhận Paid nhưng đang cần đối soát; chưa xác nhận quyền.' : 'Paid is recorded but reconciliation is required; entitlement is not confirmed.'}</p>}{['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus)) && !['registered', 'active'].includes(normalizeCatalogStatus(order.status)) && <p className="mt-3 text-sm text-slate-700">{isVi ? 'Đã đọc trạng thái hóa đơn Paid. Trạng thái Registered/Active vẫn phải được xác nhận từ API quyền sử dụng.' : 'Invoice is Paid. Registered/Active entitlement still requires confirmation from the entitlement API.'}</p>}<div className="mt-4 flex flex-wrap gap-2">{order.paymentMethod !== 'Cash' && normalizeCatalogStatus(order.paymentStatus || order.status) === 'pending' && <button type="button" onClick={() => beginPayment(order)} className="min-h-10 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white">{isVi ? 'Tiếp tục thanh toán' : 'Continue to payment'}</button>}<button type="button" onClick={() => checkOrderStatus(order)} className="min-h-10 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">{isVi ? 'Kiểm tra trạng thái' : 'Check status'}</button></div></article>)}</div>}
+      {displayedOrders.length > 0 && <div className="space-y-3">{displayedOrders.map((order) => <article key={order.key} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[13px] font-bold uppercase tracking-wide text-slate-500">{order.type} · {order.invoiceCode || (order.invoiceId ? (isVi ? 'Hóa đơn #' : 'Invoice #') + order.invoiceId : isVi ? 'Đơn chờ xử lý' : 'Order pending')} · {order.paymentMethod === 'Cash' ? (isVi ? 'Tiền mặt tại quầy' : 'Cash at counter') : 'VNPay'}</p><h3 className="mt-1 font-bold text-slate-900">{order.className || order.subjectName || (isVi ? 'Đăng ký khóa học' : 'Course enrollment')}</h3><p className="mt-1 text-sm text-slate-600">{order.amount == null ? (isVi ? 'Chưa có số tiền từ Backend' : 'Amount not provided by Backend') : formatMoney(order.amount, language)}{order.expiresAt ? ' · ' + (isVi ? 'Hạn thanh toán ' : 'Invoice deadline ') + formatDate(order.expiresAt, language) : ''}</p></div><StatusPill status={order.paymentStatus || order.status} language={language} /></div>{order.reconciliationRequired && <p className="mt-3 text-sm font-semibold text-amber-800">{isVi ? 'Đã ghi nhận Paid nhưng đang cần đối soát; chưa xác nhận quyền.' : 'Paid is recorded but reconciliation is required; entitlement is not confirmed.'}</p>}{['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus)) && !['registered', 'active'].includes(normalizeCatalogStatus(order.status)) && <p className="mt-3 text-sm text-slate-700">{isVi ? 'Đã đọc trạng thái hóa đơn Paid. Trạng thái Registered/Active vẫn phải được xác nhận từ API quyền sử dụng.' : 'Invoice is Paid. Registered/Active entitlement still requires confirmation from the entitlement API.'}</p>}<div className="mt-4 flex flex-wrap gap-2">{order.paymentMethod !== 'Cash' && normalizeCatalogStatus(order.paymentStatus || order.status) === 'pending' && <button type="button" onClick={() => beginPayment(order)} className="min-h-10 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white">{isVi ? 'Tiếp tục thanh toán VNPay' : 'Continue to VNPay'}</button>}{['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" disabled={submitting} onClick={() => handleCancelPendingEnrollment(order)} className="min-h-10 rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100">{isVi ? 'Hủy đơn chờ & Đăng ký lại' : 'Cancel pending & re-enroll'}</button>}<button type="button" onClick={() => checkOrderStatus(order)} className="min-h-10 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">{isVi ? 'Kiểm tra trạng thái' : 'Check status'}</button></div></article>)}</div>}
     </section>
 
     {confirmClass && <CatalogDialog title={isVi ? 'Xác nhận đăng ký lớp' : 'Confirm class enrollment'} onClose={() => !submitting && setConfirmClass(null)} language={language}>
       <div className="space-y-3 rounded-xl bg-slate-50 p-4 text-sm"><p className="text-lg font-bold text-slate-950">{confirmClass.name}</p><p className="text-slate-700">{selectedSubject?.name} · {confirmClass.coachName || (isVi ? 'Coach do trung tâm phân công' : 'Coach assigned by the center')}</p><p className="font-semibold text-slate-900">{formatMoney(confirmClass.tuitionFee, language)}</p><p className="text-slate-600">{isVi ? 'Đăng ký gửi danh tính theo phiên đăng nhập. Pending chỉ là chờ thanh toán; BE xác nhận Registered sau Paid.' : 'Enrollment uses your signed-in identity. Pending is not Registered; Backend confirms after Paid.'}</p></div>
-      <fieldset className="mt-4"><legend className="text-sm font-bold text-slate-900">{isVi ? 'Phương thức thanh toán' : 'Payment method'}</legend><div className="mt-2 grid gap-2 sm:grid-cols-2"><label className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm"><input type="radio" name="normal-payment-method" value="VNPay" checked={paymentMethod === 'VNPay'} onChange={() => setPaymentMethod('VNPay')} className="accent-brand-primary" />VNPay</label><label className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm"><input type="radio" name="normal-payment-method" value="Cash" checked={paymentMethod === 'Cash'} onChange={() => setPaymentMethod('Cash')} className="accent-brand-primary" />{isVi ? 'Tiền mặt tại quầy' : 'Cash at counter'}</label></div></fieldset>
+      <fieldset className="mt-4"><legend className="text-sm font-bold text-slate-900">{isVi ? 'Phương thức thanh toán' : 'Payment method'}</legend><div className="mt-2 grid gap-2 sm:grid-cols-2"><label className={'flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-semibold ' + (paymentMethod === 'Cash' ? 'border-brand-primary bg-brand-blue-soft text-brand-primary' : 'border-slate-200 text-slate-700')}><input type="radio" name="normal-payment-method" value="Cash" checked={paymentMethod === 'Cash'} onChange={() => setPaymentMethod('Cash')} className="accent-brand-primary" />{isVi ? 'Tiền mặt tại quầy (Cash)' : 'Cash at counter'}</label><label className={'flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-semibold ' + (paymentMethod === 'VNPay' ? 'border-brand-primary bg-brand-blue-soft text-brand-primary' : 'border-slate-200 text-slate-700')}><input type="radio" name="normal-payment-method" value="VNPay" checked={paymentMethod === 'VNPay'} onChange={() => setPaymentMethod('VNPay')} className="accent-brand-primary" />{isVi ? 'VNPay (Trực tuyến)' : 'VNPay (Online)'}</label></div></fieldset>
       {submittingError && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800" role="alert">{submittingError}</p>}
       <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" disabled={submitting} onClick={() => setConfirmClass(null)} className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700">{isVi ? 'Để sau' : 'Cancel'}</button><button type="button" disabled={submitting || !classVerification(confirmClass).eligible} onClick={handleNormalEnroll} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white disabled:bg-slate-300">{submitting && <LoaderCircle size={16} className="animate-spin" />}{isVi ? 'Gửi đăng ký' : 'Submit enrollment'}</button></div>
     </CatalogDialog>}

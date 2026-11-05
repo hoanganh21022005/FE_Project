@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { X, Eye, EyeOff, UserPlus, AlertCircle } from 'lucide-react';
+import { publicSports } from '../../data/publicCoaches';
 
 export function NewStaffModal({ isOpen, onClose }) {
   const { staff, addStaff, t, language, apiEnabled } = useSCMS();
@@ -279,13 +280,18 @@ export function NewStaffModal({ isOpen, onClose }) {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   {language === 'vi' ? 'Chuyên môn' : 'Specialization'}
                 </label>
-                <input
-                  type="text"
-                  placeholder={language === 'vi' ? 'Ví dụ: Yoga, Pilates, CrossFit, Boxing' : 'e.g. Yoga, Pilates, CrossFit'}
+                <select
                   value={formData.specialization}
                   onChange={e => handleChange('specialization', e.target.value)}
                   className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white focus:border-brand-primary"
-                />
+                >
+                  <option value="">{language === 'vi' ? 'Chọn môn chuyên môn...' : 'Select a specialization...'}</option>
+                  {publicSports.map(sport => (
+                    <option key={sport.id} value={sport.title}>
+                      {language === 'vi' ? sport.title : sport.titleEn}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
           </div>

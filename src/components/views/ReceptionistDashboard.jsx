@@ -4,6 +4,7 @@ import { useSCMS } from "../../context/SCMSContext"
 import { NewMemberModal } from "../modals/NewMemberModal"
 import { PaymentModal } from "../modals/PaymentModal"
 import { attendanceApi } from "../../api/attendanceApi"
+import { invoiceApi } from "../../api/invoiceApi"
 import {
   Search,
   UserPlus,
@@ -30,13 +31,18 @@ export function ReceptionistDashboard() {
   const [isPayOpen, setIsPayOpen] = useState(false)
   const [todayAttendances, setTodayAttendances] = useState([])
   const [loadingAttendances, setLoadingAttendances] = useState(false)
+  const [invoices, setInvoices] = useState([])
 
   const loadAttendances = useCallback(async () => {
     if (!apiEnabled) return
     setLoadingAttendances(true)
     try {
-      const list = await attendanceApi.searchAttendances()
+      const [list, invList] = await Promise.all([
+        attendanceApi.searchAttendances().catch(() => []),
+        invoiceApi.getInvoices({}, { notifyForbidden: false }).catch(() => []),
+      ])
       setTodayAttendances(Array.isArray(list) ? list : [])
+      setInvoices(Array.isArray(invList) ? invList : [])
     } catch {
       // ignore
     } finally {
@@ -48,16 +54,27 @@ export function ReceptionistDashboard() {
     loadAttendances()
   }, [loadAttendances])
 
-  const checkinData = [
-    { time: "06:00", count: 18 },
-    { time: "08:00", count: 32 },
-    { time: "10:00", count: 24 },
-    { time: "12:00", count: 15 },
-    { time: "14:00", count: 28 },
-    { time: "16:00", count: 45 },
-    { time: "18:00", count: 62 },
-    { time: "20:00", count: 38 },
-  ]
+  const checkinData = React.useMemo(() => {
+    const buckets = [
+      { time: "06:00", minHour: 5, maxHour: 7, count: 0 },
+      { time: "08:00", minHour: 8, maxHour: 9, count: 0 },
+      { time: "10:00", minHour: 10, maxHour: 11, count: 0 },
+      { time: "12:00", minHour: 12, maxHour: 13, count: 0 },
+      { time: "14:00", minHour: 14, maxHour: 15, count: 0 },
+      { time: "16:00", minHour: 16, maxHour: 17, count: 0 },
+      { time: "18:00", minHour: 18, maxHour: 19, count: 0 },
+      { time: "20:00", minHour: 20, maxHour: 23, count: 0 },
+    ]
+    todayAttendances.forEach((att) => {
+      if (!att?.checkInTime) return
+      const d = new Date(att.checkInTime)
+      if (Number.isNaN(d.getTime())) return
+      const hr = d.getHours()
+      const bucket = buckets.find((b) => hr >= b.minHour && hr <= b.maxHour)
+      if (bucket) bucket.count += 1
+    })
+    return buckets.map(({ time, count }) => ({ time, count }))
+  }, [todayAttendances])
 
   return (
     <div className="space-y-6">
@@ -238,7 +255,7 @@ export function ReceptionistDashboard() {
                   : "Recorded Check-ins:"}
               </span>
               <span className="text-base font-bold text-slate-900 tabular-nums">
-                {todayAttendances.length > 0 ? todayAttendances.length : 262}
+                {todayAttendances.length}
               </span>
             </div>
             <div className="p-3 bg-slate-50 rounded border border-slate-200 flex items-center justify-between">
@@ -246,7 +263,7 @@ export function ReceptionistDashboard() {
                 {language === "vi" ? "Giao dịch thu tiền:" : "Transactions:"}
               </span>
               <span className="text-base font-bold text-emerald-800 tabular-nums">
-                {payments?.length || 14}
+                {apiEnabled ? invoices.length : payments?.length || 0}
               </span>
             </div>
             <div className="p-3 bg-slate-50 rounded border border-slate-200 flex items-center justify-between">
@@ -254,7 +271,7 @@ export function ReceptionistDashboard() {
                 {language === "vi" ? "Tổng số hội viên:" : "Total Members:"}
               </span>
               <span className="text-base font-bold text-blue-800 tabular-nums">
-                {members.length || 5}
+                {members.length}
               </span>
             </div>
           </div>

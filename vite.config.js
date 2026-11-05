@@ -45,10 +45,12 @@ export default defineConfig(({ mode }) => {
               proxyReq.removeHeader("referer")
             })
             proxy.on("proxyRes", (proxyRes) => {
-              const sc = proxyRes.headers["set-cookie"]
-              if (sc) {
-                proxyRes.headers["set-cookie"] = sc.map((c) =>
-                  c.replace(/;\s*Secure/gi, ""),
+              const setCookies = proxyRes.headers["set-cookie"]
+              if (setCookies) {
+                proxyRes.headers["set-cookie"] = setCookies.map((cookie) =>
+                  cookie
+                    .replace(/;\s*SameSite=None/gi, "; SameSite=Lax")
+                    .replace(/;\s*Partitioned/gi, ""),
                 )
               }
             })

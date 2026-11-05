@@ -226,13 +226,13 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
 
       <aside
         className={`bg-bg-sidebar text-text-inverse border-r border-brand-dark-hover flex flex-col justify-between transition-all duration-200
-          fixed inset-y-0 left-0 z-50 md:static md:z-40
+          fixed inset-y-0 left-0 z-50 md:sticky md:top-0 md:bottom-auto md:h-screen md:self-start md:overflow-y-auto md:z-40
           ${
             mobileOpen
               ? "translate-x-0 shadow-2xl"
               : "-translate-x-full md:translate-x-0"
           }
-          w-[260px] ${collapsed ? "md:w-16" : "md:w-[240px]"}
+          w-[260px] ${collapsed ? "md:w-16" : "md:w-[256px]"}
         `}
       >
         {/* Brand Header & Navigation */}

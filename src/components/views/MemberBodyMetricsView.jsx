@@ -32,93 +32,15 @@ import {
 } from "recharts"
 import { useSCMS } from "../../context/SCMSContext"
 import { memberPortalApi } from "../../api/memberPortalApi"
+import { getErrorMessage } from "../../api/apiErrors"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 
 const API_ENABLED = import.meta.env.VITE_API_ENABLED
   ? import.meta.env.VITE_API_ENABLED === "true"
   : import.meta.env.MODE !== "mock"
 
-const INITIAL_METRICS = [
-  {
-    date: "2026-07-15",
-    weight: 74.5,
-    fatPercent: 22.8,
-    muscleMass: 33.2,
-    bmi: 24.6,
-  },
-  {
-    date: "2026-08-15",
-    weight: 73.0,
-    fatPercent: 21.4,
-    muscleMass: 33.8,
-    bmi: 24.1,
-  },
-  {
-    date: "2026-09-15",
-    weight: 71.8,
-    fatPercent: 19.8,
-    muscleMass: 34.5,
-    bmi: 23.7,
-  },
-  {
-    date: "2026-10-15",
-    weight: 70.2,
-    fatPercent: 18.2,
-    muscleMass: 35.1,
-    bmi: 23.2,
-  },
-]
-
-const DEMO_TRAINING_PLANS = [
-  {
-    planId: 101,
-    title: "Lộ trình phát triển thể lực & sức bền tim mạch",
-    goal: "Tăng dung tích phổi, duy trì nhịp tim mục tiêu Zone 2 - Zone 3 trong 45 phút, giảm 2% mỡ thừa",
-    content:
-      "Tuần 1-2: Cardio biến tốc kết hợp Squat/Lunge nhẹ 3 buổi/tuần.\nTuần 3-4: Nâng tạ tăng dần (Hypertrophy) 4 buổi/tuần kết hợp HIIT 15 phút cuối buổi.\nChế độ dinh dưỡng: 1.8g protein/kg cân nặng, ngủ đủ 7-8 tiếng.",
-    coachName: "HLV Đặng Đình Khôi",
-    className: "Cardio & Strength K04",
-    startDate: "2026-10-01",
-    endDate: "2026-11-15",
-  },
-  {
-    planId: 102,
-    title: "Hoàn thiện kỹ thuật đập cầu & Bộ chân di chuyển",
-    goal: "Tối ưu hóa bộ pháp 6 góc sân, cải thiện lực cổ tay và độ chuẩn xác điểm rơi cầu",
-    content:
-      "Khởi động chuyên sâu khớp cổ chân và vai.\nLuyện tập di chuyển ép góc không cầu 20 phút.\nĐánh cầu đa cầu 300 quả/buổi, tập trung quả đập chéo sân và bỏ nhỏ sát lưới.",
-    coachName: "HLV Lê Thị Mai",
-    className: "Cầu lông Nền tảng K01",
-    startDate: "2026-10-10",
-    endDate: "2026-12-10",
-  },
-]
-
-const DEMO_TRAINING_RESULTS = [
-  {
-    resultId: 201,
-    sessionDate: "2026-10-22",
-    className: "Cardio & Strength K04",
-    coachName: "HLV Đặng Đình Khôi",
-    attendanceStatus: "PRESENT",
-    content:
-      "Học viên hoàn thành trọn vẹn 5 hiệp Squat 60kg và 15 phút Cardio leo dốc. Kỹ thuật gồng core tốt, nhịp thở ổn định. Cần chú ý khởi động kỹ khớp gối trái.",
-    recordedAt: "2026-10-22T10:30:00",
-  },
-  {
-    resultId: 202,
-    sessionDate: "2026-10-18",
-    className: "Cầu lông Nền tảng K01",
-    coachName: "HLV Lê Thị Mai",
-    attendanceStatus: "PRESENT",
-    content:
-      "Bộ chân di chuyển ngang sân có tiến bộ rõ rệt. Cú đập cầu điểm rơi sâu và cắm hơn. Cần thả lỏng cổ tay hơn khi thực hiện quả kéo lưới.",
-    recordedAt: "2026-10-18T09:15:00",
-  },
-]
-
 export function MemberBodyMetricsView() {
-  const { language, currentUser } = useSCMS()
+  const { language, currentUser, showToast } = useSCMS()
   const location = useLocation()
   const isVi = language === "vi"
 
@@ -127,36 +49,12 @@ export function MemberBodyMetricsView() {
     currentUser?.memberId ||
     currentUser?.id
 
-  const metricsStorageKey = `scms_inbody_metrics_${memberId || "guest"}`
-  const heightStorageKey = `scms_inbody_height_${memberId || "guest"}`
-
-  const readStoredSelfMetrics = useCallback(() => {
-    try {
-      const raw = window.localStorage.getItem(metricsStorageKey)
-      if (!raw) return []
-      const parsed = JSON.parse(raw)
-      return Array.isArray(parsed) ? parsed : []
-    } catch {
-      return []
-    }
-  }, [metricsStorageKey])
-
   const [activeTab, setActiveTab] = useState(
     location.pathname.includes("/progress") ? "plans" : "inbody",
   ) // "inbody" | "plans" | "results"
-  const [metrics, setMetrics] = useState(() => {
-    const saved = readStoredSelfMetrics()
-    if (saved.length > 0) return saved
-    return API_ENABLED ? [] : INITIAL_METRICS
-  })
+  const [metrics, setMetrics] = useState([])
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [formHeight, setFormHeight] = useState(() => {
-    try {
-      return window.localStorage.getItem(heightStorageKey) || "170"
-    } catch {
-      return "170"
-    }
-  })
+  const [formHeight, setFormHeight] = useState("170")
   const [formWeight, setFormWeight] = useState("")
   const [formFat, setFormFat] = useState("")
   const [formMuscle, setFormMuscle] = useState("")
@@ -168,10 +66,8 @@ export function MemberBodyMetricsView() {
 
   const fetchTrainingData = useCallback(async () => {
     if (!memberId) {
-      if (!API_ENABLED) {
-        setTrainingPlans(DEMO_TRAINING_PLANS)
-        setTrainingResults(DEMO_TRAINING_RESULTS)
-      }
+      setTrainingPlans([])
+      setTrainingResults([])
       return
     }
 
@@ -190,13 +86,13 @@ export function MemberBodyMetricsView() {
               : Promise.resolve([]),
           ])
 
-        const selfLogged = readStoredSelfMetrics()
         if (
           metricsRes.status === "fulfilled" &&
           Array.isArray(metricsRes.value) &&
           metricsRes.value.length > 0
         ) {
           const mappedMetrics = metricsRes.value.map((m) => ({
+            id: m.id || m.metricId,
             date: String(
               m.measuredAt || m.recordedAt || m.date || m.createdAt || "",
             ).slice(0, 10),
@@ -210,9 +106,9 @@ export function MemberBodyMetricsView() {
                   : 0),
             ),
           }))
-          setMetrics([...mappedMetrics, ...selfLogged])
+          setMetrics(mappedMetrics)
         } else {
-          setMetrics(selfLogged)
+          setMetrics([])
         }
 
         const loadedPlans =
@@ -257,19 +153,17 @@ export function MemberBodyMetricsView() {
         setTrainingPlans(loadedPlans)
         setTrainingResults([...loadedResults, ...loadedEvals])
       } else {
-        setTrainingPlans(DEMO_TRAINING_PLANS)
-        setTrainingResults(DEMO_TRAINING_RESULTS)
+        setTrainingPlans([])
+        setTrainingResults([])
       }
     } catch (err) {
       console.warn("Could not load training plans/results from API:", err)
-      if (!API_ENABLED) {
-        setTrainingPlans(DEMO_TRAINING_PLANS)
-        setTrainingResults(DEMO_TRAINING_RESULTS)
-      }
+      setTrainingPlans([])
+      setTrainingResults([])
     } finally {
       setLoadingTraining(false)
     }
-  }, [memberId, readStoredSelfMetrics])
+  }, [memberId])
 
   useEffect(() => {
     fetchTrainingData()
@@ -327,7 +221,7 @@ export function MemberBodyMetricsView() {
     }
   })()
 
-  const handleAddMetric = (e) => {
+  const handleAddMetric = async (e) => {
     e.preventDefault()
     if (!formWeight) return
     const w = parseFloat(formWeight)
@@ -336,46 +230,53 @@ export function MemberBodyMetricsView() {
     const m = formMuscle
       ? parseFloat(formMuscle)
       : latest.muscleMass || +(w * 0.45).toFixed(1)
-    const newEntry = {
-      id: `self-${Date.now()}`,
-      isSelfLogged: true,
-      date: new Date().toISOString().slice(0, 10),
+    const payload = {
+      measuredAt: new Date().toISOString().slice(0, 10),
       heightCm: hCm,
-      weight: w,
-      fatPercent: f,
-      muscleMass: m,
+      weightKg: w,
+      bodyFatPercentage: f,
+      muscleMassKg: m,
       bmi: +(w / Math.pow(hCm / 100, 2)).toFixed(1),
     }
     try {
-      window.localStorage.setItem(heightStorageKey, String(hCm))
-      const currentSelf = readStoredSelfMetrics()
-      window.localStorage.setItem(
-        metricsStorageKey,
-        JSON.stringify([...currentSelf, newEntry]),
+      await memberPortalApi.createMemberBodyMetric(memberId, payload)
+      await fetchTrainingData()
+      setIsModalOpen(false)
+      setFormWeight("")
+      setFormFat("")
+      setFormMuscle("")
+      if (typeof showToast === "function") {
+        showToast(
+          isVi
+            ? "Đã lưu chỉ số cơ thể thành công."
+            : "Body metric recorded successfully.",
+          "success",
+        )
+      }
+    } catch (err) {
+      const msg = getErrorMessage(
+        err,
+        isVi
+          ? "Không thể lưu chỉ số cơ thể (Backend chưa hỗ trợ API /body-metrics)."
+          : "Could not save body metric (Backend API not available).",
       )
-    } catch {
-      // ignore storage quota errors
+      if (typeof showToast === "function") showToast(msg, "error")
     }
-    setMetrics((prev) => [...prev, newEntry])
-    setIsModalOpen(false)
-    setFormWeight("")
-    setFormFat("")
-    setFormMuscle("")
   }
 
-  const handleDeleteSelfMetric = (entryId) => {
+  const handleDeleteSelfMetric = async (entryId) => {
     try {
-      const currentSelf = readStoredSelfMetrics().filter(
-        (item) => item.id !== entryId,
+      await memberPortalApi.deleteMemberBodyMetric(memberId, entryId)
+      await fetchTrainingData()
+    } catch (err) {
+      const msg = getErrorMessage(
+        err,
+        isVi
+          ? "Không thể xóa chỉ số cơ thể."
+          : "Could not delete body metric.",
       )
-      window.localStorage.setItem(
-        metricsStorageKey,
-        JSON.stringify(currentSelf),
-      )
-    } catch {
-      // ignore
+      if (typeof showToast === "function") showToast(msg, "error")
     }
-    setMetrics((prev) => prev.filter((item) => item.id !== entryId))
   }
 
   return (

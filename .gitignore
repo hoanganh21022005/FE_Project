@@ -13,8 +13,6 @@ build/
 .env.*.local
 
 # Personal task tracking (kept locally, not published)
-docs/SCMS_FE_TASK_CHECKLIST.md
-docs/AGENT_TASK_REPORT.md
 
 # Logs
 logs/

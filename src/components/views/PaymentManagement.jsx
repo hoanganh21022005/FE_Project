@@ -163,32 +163,65 @@ export function PaymentManagement() {
 
   // Quick Action: Confirm Cash Payment for Pending Invoice
   const handleConfirmCashPayment = async (inv) => {
+    if (!inv) return;
     if (apiEnabled) {
-      showToast?.(
-        language === 'vi'
-          ? 'Thao tác thanh toán trực tiếp tạm thời bị khóa. Vui lòng thử lại sau.'
-          : 'Direct payment action is temporarily unavailable. Please try again later.',
-        'warning'
-      );
+      try {
+        const invId = inv.invoiceId || inv.id;
+        const updated = await invoiceApi.confirmCashPayment(invId, { notifyForbidden: false });
+        showToast?.(
+          language === 'vi'
+            ? `Đã xác nhận thu tiền hóa đơn #${updated?.code || inv.code || invId} thành công!`
+            : 'Invoice confirmed paid successfully!',
+          'success'
+        );
+        setSelectedInvoice(null);
+        await fetchInvoices();
+      } catch (err) {
+        const msg = err?.status === 403
+          ? (language === 'vi'
+              ? 'Theo phân quyền Backend, chỉ tài khoản Lễ tân (Receptionist) mới được xác nhận thu tiền mặt tại quầy (/receptionist/payments). Quản lý không được thu tiền trực tiếp.'
+              : 'By Backend role policy, only Receptionist accounts can confirm cash payments at the desk (/receptionist/payments).')
+          : getErrorMessage(err, language === 'vi' ? 'Không thể xác nhận thanh toán tiền mặt.' : 'Could not confirm cash payment.');
+        showToast?.(msg, 'warning');
+      }
       return;
     }
     // Mock mode: settle pending fixture in-place once (no duplicate transaction)
-    if (inv) {
-      const res = settleMockPaymentFixture(inv, {
-        notes: language === 'vi' ? 'Xác nhận thu tiền mặt tại quầy' : 'Cash desk collection confirmed',
-        receptionistName: currentUser?.name || (language === 'vi' ? 'Quản lý' : 'Manager'),
-      });
-      if (!res.ok) {
-        showToast?.(res.error, 'warning');
-        return;
-      }
+    const res = settleMockPaymentFixture(inv, {
+      notes: language === 'vi' ? 'Xác nhận thu tiền mặt tại quầy' : 'Cash desk collection confirmed',
+      receptionistName: currentUser?.name || (language === 'vi' ? 'Quản lý' : 'Manager'),
+    });
+    if (!res.ok) {
+      showToast?.(res.error, 'warning');
+      return;
+    }
+    showToast?.(
+      language === 'vi'
+        ? `Đã xác nhận thu tiền hóa đơn #${inv.code || inv.transactionNo || inv.invoiceId || inv.id} thành công!`
+        : `Invoice confirmed paid successfully!`,
+      'success'
+    );
+    setSelectedInvoice(null);
+  };
+
+  const handleCancelInvoice = async (inv) => {
+    if (!inv || !apiEnabled) return;
+    try {
+      const invId = inv.invoiceId || inv.id;
+      await invoiceApi.cancelInvoice(invId);
       showToast?.(
         language === 'vi'
-          ? `Đã xác nhận thu tiền hóa đơn #${inv.code || inv.transactionNo || inv.invoiceId || inv.id} thành công!`
-          : `Invoice confirmed paid successfully!`,
-        'success'
+          ? `Đã hủy hóa đơn #${inv.code || invId}.`
+          : 'Invoice cancelled successfully.',
+        'info'
       );
       setSelectedInvoice(null);
+      await fetchInvoices();
+    } catch (err) {
+      showToast?.(
+        getErrorMessage(err, language === 'vi' ? 'Không thể hủy hóa đơn.' : 'Could not cancel invoice.'),
+        'warning'
+      );
     }
   };
 
@@ -223,13 +256,13 @@ export function PaymentManagement() {
             </button>
           )}
 
-          {!apiEnabled && <button
+          <button
             onClick={() => setIsPayModalOpen(true)}
             className="min-h-[44px] px-4 py-2 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
             <PlusCircle className="w-4 h-4" />
             <span>{t('recordPayment')}</span>
-          </button>}
+          </button>
         </div>
       </div>
 
@@ -394,29 +427,41 @@ export function PaymentManagement() {
                           <StatusBadge type="payment" status={status} />
                         </td>
                         <td className="py-2.5 px-4 text-center">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              setSelectedInvoice(tx);
-                              setDetailError(null);
-                              if (apiEnabled && tx.invoiceId != null) {
-                                setDetailLoading(true);
-                                try {
-                                  const detail = await invoiceApi.getInvoiceById(tx.invoiceId, { notifyForbidden: false });
-                                  if (detail) setSelectedInvoice(detail);
-                                  else setDetailError(language === 'vi' ? 'Máy chủ trả về dữ liệu hóa đơn không hợp lệ.' : 'The server returned invalid invoice data.');
-                                } catch (err) {
-                                  setDetailError(getErrorMessage(err, language === 'vi' ? 'Không thể tải chi tiết hóa đơn.' : 'Could not load invoice details.'));
-                                } finally {
-                                  setDetailLoading(false);
+                          <div className="inline-flex items-center justify-center gap-1.5">
+                            {status === 'pending' && (
+                              <button
+                                type="button"
+                                onClick={() => handleConfirmCashPayment(tx)}
+                                className="min-h-[36px] px-2.5 py-1 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded inline-flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>{language === 'vi' ? 'Thu tiền mặt' : 'Confirm Cash'}</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setSelectedInvoice(tx);
+                                setDetailError(null);
+                                if (apiEnabled && tx.invoiceId != null) {
+                                  setDetailLoading(true);
+                                  try {
+                                    const detail = await invoiceApi.getInvoiceById(tx.invoiceId, { notifyForbidden: false });
+                                    if (detail) setSelectedInvoice(detail);
+                                    else setDetailError(language === 'vi' ? 'Máy chủ trả về dữ liệu hóa đơn không hợp lệ.' : 'The server returned invalid invoice data.');
+                                  } catch (err) {
+                                    setDetailError(getErrorMessage(err, language === 'vi' ? 'Không thể tải chi tiết hóa đơn.' : 'Could not load invoice details.'));
+                                  } finally {
+                                    setDetailLoading(false);
+                                  }
                                 }
-                              }
-                            }}
-                            className="min-h-[36px] px-2.5 py-1 text-xs font-bold text-slate-700 hover:text-brand-primary hover:bg-slate-100 rounded inline-flex items-center gap-1 cursor-pointer transition-colors"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>{language === 'vi' ? 'Xem' : 'View'}</span>
-                          </button>
+                              }}
+                              className="min-h-[36px] px-2.5 py-1 text-xs font-bold text-slate-700 hover:text-brand-primary hover:bg-slate-100 rounded inline-flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>{language === 'vi' ? 'Xem' : 'View'}</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -568,7 +613,7 @@ export function PaymentManagement() {
               {selectedInvoice.expiresAt && <p className="text-slate-500">{language === 'vi' ? 'Hạn thanh toán' : 'Expires'}: {formatDateTime(selectedInvoice.expiresAt, language)}</p>}
 
               {/* Action for Pending Invoices */}
-              {!apiEnabled && (selectedInvoice.status === 'pending' || selectedInvoice.paymentStatus === 'pending') && (
+              {(selectedInvoice.status === 'pending' || selectedInvoice.paymentStatus === 'pending') && (
                 <div className="p-3 rounded space-y-2 border bg-slate-50 border-slate-200">
                   <div className="flex items-center gap-2 font-bold text-slate-900">
                     <Info className="w-4 h-4 text-slate-600 shrink-0" />
@@ -578,19 +623,32 @@ export function PaymentManagement() {
                   </div>
                   <p className="text-slate-700 text-[11px]">
                     {language === 'vi'
-                      ? 'Xác nhận thu tiền mặt để hoàn tất thanh toán hóa đơn và cập nhật gói dịch vụ.'
-                      : 'Confirm cash collection to complete invoice and update membership package.'}
+                      ? 'Xác nhận thu tiền mặt để hoàn tất thanh toán hóa đơn và kích hoạt gói dịch vụ / lớp học.'
+                      : 'Confirm cash collection to complete invoice and activate membership package / class.'}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => handleConfirmCashPayment(selectedInvoice)}
-                    className="w-full min-h-[44px] px-4 py-2 font-bold rounded flex items-center justify-center gap-2 transition-colors bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-xs"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>
-                      {language === 'vi' ? 'Xác nhận thu tiền mặt' : 'Confirm Cash Received'}
-                    </span>
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmCashPayment(selectedInvoice)}
+                      className="flex-1 min-h-[44px] px-4 py-2 font-bold rounded flex items-center justify-center gap-2 transition-colors bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-xs"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>
+                        {language === 'vi' ? 'Xác nhận thu tiền mặt' : 'Confirm Cash Received'}
+                      </span>
+                    </button>
+                    {apiEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => handleCancelInvoice(selectedInvoice)}
+                        className="min-h-[44px] px-4 py-2 font-bold rounded flex items-center justify-center gap-2 transition-colors bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 cursor-pointer"
+                      >
+                        <span>
+                          {language === 'vi' ? 'Hủy hóa đơn' : 'Cancel Invoice'}
+                        </span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -609,7 +667,7 @@ export function PaymentManagement() {
       )}
 
       {/* Record Payment Modal */}
-      {!apiEnabled && <PaymentModal
+      <PaymentModal
         isOpen={isPayModalOpen}
         onClose={() => setIsPayModalOpen(false)}
         onSuccess={() => {
@@ -617,7 +675,7 @@ export function PaymentManagement() {
             fetchInvoices();
           }
         }}
-      />}
+      />
     </div>
   );
 }

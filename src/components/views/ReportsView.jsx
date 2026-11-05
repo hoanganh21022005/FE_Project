@@ -17,26 +17,6 @@ import {
   CartesianGrid,
 } from 'recharts';
 
-const MOCK_REVENUE_BY_MONTH = [
-  { month: 'Thg 3', revenue: 4500000 },
-  { month: 'Thg 4', revenue: 6800000 },
-  { month: 'Thg 5', revenue: 8200000 },
-  { month: 'Thg 6', revenue: 10500000 },
-  { month: 'Thg 7', revenue: 11800000 },
-  { month: 'Thg 8', revenue: 13200000 },
-  { month: 'Thg 9', revenue: 14700000 },
-];
-
-const MOCK_MEMBER_GROWTH = [
-  { month: 'Thg 3', count: 2 },
-  { month: 'Thg 4', count: 3 },
-  { month: 'Thg 5', count: 4 },
-  { month: 'Thg 6', count: 3 },
-  { month: 'Thg 7', count: 5 },
-  { month: 'Thg 8', count: 6 },
-  { month: 'Thg 9', count: 0 },
-];
-
 function EmptyChart({ children }) {
   return <div className="h-64 flex items-center justify-center text-xs text-slate-500">{children}</div>;
 }
@@ -116,16 +96,10 @@ export function ReportsView() {
 
   const mockRevenue = payments.filter((payment) => payment.status === 'successful').reduce((sum, payment) => sum + payment.amount, 0);
   const revenueValue = apiEnabled ? revenueReport?.totalRevenue : mockRevenue;
-  const mockMonthlyRevenue = MOCK_REVENUE_BY_MONTH.map((entry, index) => (
-    index === MOCK_REVENUE_BY_MONTH.length - 1 ? { ...entry, revenue: mockRevenue || entry.revenue } : entry
-  ));
-  const mockGrowth = MOCK_MEMBER_GROWTH.map((entry, index) => (
-    index === MOCK_MEMBER_GROWTH.length - 1 ? { ...entry, count: members.length } : entry
-  ));
-  const timeline = apiEnabled ? revenueTimelineForDisplay(revenueReport) : mockMonthlyRevenue;
+  const timeline = revenueTimelineForDisplay(revenueReport);
   const packageRevenue = revenueReport?.revenueByPackage || [];
   const methodRevenue = revenueReport?.revenueByMethod || [];
-  const monthlyGrowth = apiEnabled ? memberReport?.monthlyGrowth || [] : mockGrowth;
+  const monthlyGrowth = memberReport?.monthlyGrowth || [];
   const noPaidTransactions = apiEnabled && revenueReport?.totalTransactions === 0;
 
   const moneyTooltip = (value) => [value == null ? '—' : formatCurrency(value, language), vi ? 'Doanh thu' : 'Revenue'];
@@ -133,6 +107,31 @@ export function ReportsView() {
   const chartTitleClass = 'text-sm font-bold text-slate-900';
   const chartContainerClass = 'bg-white border border-slate-200 p-5 rounded-lg shadow-xs';
   const axisProps = { tick: { fontSize: 10, fill: '#64748B' }, axisLine: false, tickLine: false };
+
+  const handleExportReport = () => {
+    const rows = [
+      ['Metric', 'Value'],
+      ['Total Revenue', revenueValue ?? 0],
+      ['Total Paid Transactions', apiEnabled ? (revenueReport?.totalTransactions ?? 0) : payments.filter((p) => p.status === 'successful').length],
+      ['Average Transaction Value', apiEnabled ? (revenueReport?.averageTransactionValue ?? 0) : ''],
+      ['Total Members', apiEnabled ? (memberReport?.totalMembers ?? 0) : members.length],
+      ['Active Members', apiEnabled ? (memberReport?.activeMembers ?? 0) : members.filter((m) => m.status === 'active').length],
+      ['Expired Members', apiEnabled ? (memberReport?.expiredMembers ?? 0) : members.filter((m) => m.status === 'expired').length],
+      [],
+      ['Period', 'Revenue', 'Transactions'],
+      ...timeline.map((item) => [item.period || item.month || '', item.revenue ?? 0, item.count ?? '']),
+    ];
+    const csvContent = '\uFEFF' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `scms-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6">
@@ -144,7 +143,7 @@ export function ReportsView() {
             <p className="text-xs text-slate-500">{vi ? 'Báo cáo doanh thu và tăng trưởng hội viên' : 'Revenue and member growth reports'}</p>
           </div>
         </div>
-        <button className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 rounded text-xs font-bold flex items-center gap-1.5 border border-slate-300 shadow-xs">
+        <button type="button" onClick={handleExportReport} className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 rounded text-xs font-bold flex items-center gap-1.5 border border-slate-300 shadow-xs cursor-pointer">
           <Download className="w-3.5 h-3.5 text-slate-600" /><span>{t('exportReport')}</span>
         </button>
       </div>

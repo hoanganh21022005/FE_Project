@@ -390,6 +390,7 @@ function SCMSApp() {
         ? sessionStorage.getItem("scms_intended_path")
         : null
     const currentPath = location.pathname
+    const currentFullPath = `${location.pathname}${location.search || ""}`
     const isPublicPath =
       currentPath === "/" ||
       currentPath === "/about" ||
@@ -401,7 +402,7 @@ function SCMSApp() {
       currentPath === "/privacy-policy" ||
       currentPath.startsWith("/discipline")
     const effectiveIntended =
-      savedIntended || (!isPublicPath ? currentPath : null)
+      savedIntended || (!isPublicPath ? currentFullPath : null)
     const destination = getLoginDestination(userOrRole, effectiveIntended, {
       isApiMode: apiEnabled,
     })
@@ -417,8 +418,18 @@ function SCMSApp() {
         sessionStorage.setItem("scms_mock_role", targetRole)
         sessionStorage.setItem("scms_mock_authenticated", "true")
       }
+      const queryPart =
+        effectiveIntended && effectiveIntended.includes("?")
+          ? `?${effectiveIntended.split("?").slice(1).join("?")}`
+          : ""
+      const resolvedDestPath =
+        destination?.path === "/payment-result"
+          ? `/member/invoices${queryPart}`
+          : destination?.path
+            ? `${destination.path}${queryPart}`
+            : null
       const defaultPath =
-        destination?.path ||
+        resolvedDestPath ||
         (targetRole === "admin"
           ? "/admin/dashboard"
           : targetRole === "coach"
@@ -522,7 +533,8 @@ function SCMSApp() {
       return t("trainingProgress")
     if (path.includes("/search")) return t("memberSearch")
     if (path.includes("/booking")) return t("bookings")
-    if (path.includes("/invoices")) return t("memberInvoicesTitle")
+    if (path.includes("/invoices") || path.includes("/payment-result"))
+      return t("memberInvoicesTitle")
     if (path.includes("/payments")) return t("payments")
     if (path.includes("/reports")) return t("reports")
     if (path.includes("/audit-logs")) return t("auditLogs")
@@ -1191,6 +1203,15 @@ function SCMSApp() {
                       >
                         <MemberInvoicesView />
                       </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/payment-result"
+                    element={
+                      <Navigate
+                        to={`/member/invoices${location.search || ""}`}
+                        replace
+                      />
                     }
                   />
                   <Route

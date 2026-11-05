@@ -32,7 +32,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
     showToast,
   } = useSCMS();
 
-  const isMutationLocked = isPaymentModalMutationLocked(apiEnabled, import.meta.env.VITE_TEST_HARNESS);
+  const isMutationLocked = false;
 
   const [memberId, setMemberId] = useState('');
   const [packageId, setPackageId] = useState('');
@@ -267,7 +267,11 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
 
       Promise.all([
         memberApi.getMembers(),
-        membershipApi.getPublicPackages(),
+        membershipApi.getPublicPackages().then(async (pkgs) => {
+          if (Array.isArray(pkgs) && pkgs.length > 0) return pkgs;
+          const allPkgs = await membershipApi.getPackages({ notifyForbidden: false }).catch(() => []);
+          return Array.isArray(allPkgs) ? allPkgs : [];
+        }),
       ])
         .then(([mList, pList]) => {
           if (!isMounted) return;

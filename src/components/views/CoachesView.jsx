@@ -59,7 +59,7 @@ export function CoachesView() {
   return (
     <div className="coaches-page min-h-screen bg-mlc-ink font-mlc text-white selection:bg-mlc-red">
       <Link to="#team" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:bg-white focus:p-4 focus:text-mlc-ink">{isVi ? "Đến danh sách huấn luyện viên" : "Skip to the team"}</Link>
-      <CoachesHeader />
+      <CoachesHeader showRegister={false} />
       <main id="main-content">
         <section className="coaches-hero" aria-labelledby="coaches-page-title">
           <div className="coaches-hero-photo coaches-hero-photo-left" aria-hidden="true" />
