@@ -1,5 +1,5 @@
 import { httpClient } from "./httpClient.js"
-import { extractList } from "./schemaValidators.js"
+import { extractList, isValidNumericId } from "./schemaValidators.js"
 
 export const scanAttendance = async (payload) => {
   try {
@@ -11,6 +11,11 @@ export const scanAttendance = async (payload) => {
     throw error
   }
 }
+
+export const matchesSessionAttendance = (result, sessionId, memberId, status) =>
+  Number(result?.sessionId) === Number(sessionId) &&
+  Number(result?.memberId) === Number(memberId) &&
+  result?.attendanceStatus === status
 
 export const recordSessionAttendance = async ({
   memberId,
@@ -24,38 +29,25 @@ export const recordSessionAttendance = async ({
   const numericCoachId = Number(coachId)
   const normalizedStatus = String(status || "Present").trim()
 
-  if (
-    !Number.isNaN(numericSessionId) &&
-    numericSessionId > 0 &&
-    !Number.isNaN(numericCoachId) &&
-    numericCoachId > 0
-  ) {
-    try {
-      await httpClient.post(
-        "/api/training-results",
-        {
-          sessionId: numericSessionId,
-          memberId: numericMemberId,
-          coachId: numericCoachId,
-          attendanceStatus: normalizedStatus,
-          content: notes || `Điểm danh buổi tập: ${normalizedStatus}`,
-          reason: notes || undefined,
-        },
-        { notifyForbidden: false },
-      )
-    } catch {
-      // ignore if training-results fails or requires existing result update
-    }
+  if (![memberId, sessionId, coachId].every(isValidNumericId)) {
+    throw new Error("Không xác định được học viên, buổi học hoặc huấn luyện viên.")
+  }
+  if (!["Present", "Absent"].includes(normalizedStatus)) {
+    throw new Error("Điểm danh theo buổi chỉ hỗ trợ Có mặt hoặc Vắng mặt.")
   }
 
-  if (normalizedStatus.toLowerCase() === "absent") {
-    return { memberId: numericMemberId, sessionId: numericSessionId || null, state: "Absent" }
-  }
-
-  return httpClient.post("/api/attendances/check-in", {
+  const result = await httpClient.post("/api/training-results", {
+    sessionId: numericSessionId,
     memberId: numericMemberId,
-    notes: notes || `Điểm danh: ${normalizedStatus}`,
-  })
+    coachId: numericCoachId,
+    attendanceStatus: normalizedStatus,
+    content: notes || `Điểm danh buổi tập: ${normalizedStatus}`,
+    reason: notes || undefined,
+  }, { notifyForbidden: false })
+  if (!matchesSessionAttendance(result, numericSessionId, numericMemberId, normalizedStatus)) {
+    throw new Error("Chưa xác nhận được kết quả điểm danh. Hãy làm mới danh sách trước khi thử lại.")
+  }
+  return result
 }
 
 export const manualCheckIn = async (payload) => {
@@ -63,6 +55,7 @@ export const manualCheckIn = async (payload) => {
     return recordSessionAttendance({
       memberId: payload.memberId,
       sessionId: payload.sessionId,
+      coachId: payload.coachId,
       status: payload.status || "Present",
       notes: payload.notes || "",
     })

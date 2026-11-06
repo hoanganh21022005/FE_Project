@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useSCMS } from "../../context/SCMSContext"
 import { CoachStatusBadge } from "../coach/StatusBadge"
 import { formatDate, formatTime, formatTimeRange } from "../../utils/datetime"
 import { formatMemberCode } from "../../utils/formatMember"
 import { AttendanceCorrectionModal } from "../modals/AttendanceCorrectionModal"
 import { classEnrollmentApi } from "../../api/classEnrollmentApi"
-import { attendanceApi } from "../../api/attendanceApi"
+import { attendanceApi, matchesSessionAttendance } from "../../api/attendanceApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getCatalogClassSessions } from "../../api/managerApi"
 import { getErrorMessage } from "../../api/apiErrors"
@@ -44,56 +44,51 @@ export function CoachAttendanceView() {
   } = useSCMS()
 
   const resolvedCoachId = useMemo(() => {
-    const raw = currentUser?.coachId ?? currentUser?.id
+    const raw = currentUser?.coachId ?? (apiEnabled ? null : currentUser?.id)
     const num = Number(raw)
-    return Number.isInteger(num) && num > 0 ? num : 1
-  }, [currentUser?.coachId, currentUser?.id])
+    return Number.isInteger(num) && num > 0 ? num : apiEnabled ? null : 1
+  }, [apiEnabled, currentUser?.coachId, currentUser?.id])
 
   const coachClasses = useMemo(() => {
     const coachNameLower = String(currentUser?.name || "").trim().toLowerCase()
-    const matched = classes.filter(
-      (c) =>
+    const matched = classes.filter((c) => {
+      if (apiEnabled) {
+        return resolvedCoachId != null && String(c.coachId) === String(resolvedCoachId)
+      }
+      return (
         String(c.coachId) === String(resolvedCoachId) ||
         (currentUser?.id && String(c.coachId) === String(currentUser.id)) ||
         (coachNameLower &&
           String(c.coachName || "")
             .trim()
             .toLowerCase()
-            .includes(coachNameLower)),
-    )
+            .includes(coachNameLower))
+      )
+    })
     const ptVirtual = {
       id: "PT_1ON1",
       name: "PT 1:1 Sessions",
       nameVi: "Ca kèm PT 1:1",
       isPrivateVirtualClass: true,
       capacity: 1,
-      enrolledCount: 1,
+      enrolledCount: apiEnabled ? 0 : 1,
       room: "Sân tập PT",
       roomVi: "Sân tập PT",
     }
     return [...matched, ptVirtual]
-  }, [classes, resolvedCoachId, currentUser?.id, currentUser?.name])
+  }, [apiEnabled, classes, resolvedCoachId, currentUser?.id, currentUser?.name])
 
   const [selectedClassId, setSelectedClassId] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = sessionStorage.getItem("scms_selected_attendance_class_id")
       if (saved) return saved
     }
-    return coachClasses[0]?.id || classes[0]?.id || ""
+    return ""
   })
-
-  useEffect(() => {
-    if (!selectedClassId && coachClasses.length > 0) {
-      setSelectedClassId(String(coachClasses[0].id))
-    }
-  }, [coachClasses, selectedClassId])
 
   const selectedClass =
     coachClasses.find((c) => String(c.id) === String(selectedClassId)) ||
-    classes.find((c) => String(c.id) === String(selectedClassId)) ||
-    coachClasses[0] ||
-    classes[0] ||
-    null
+    coachClasses[0]
 
   const [selectedMemberModal, setSelectedMemberModal] = useState(null)
   const [apiEnrollments, setApiEnrollments] = useState([])
@@ -109,6 +104,8 @@ export function CoachAttendanceView() {
     return ""
   })
   const [loadingRoster, setLoadingRoster] = useState(false)
+  const [rosterError, setRosterError] = useState(null)
+  const rosterRequestId = useRef(0)
   const [bulkSaving, setBulkSaving] = useState(false)
   const [showBulkConfirmModal, setShowBulkConfirmModal] = useState(false)
   const [quickMemberInput, setQuickMemberInput] = useState("")
@@ -129,22 +126,27 @@ export function CoachAttendanceView() {
   )
 
   const loadClassRosterAndAttendance = useCallback(async () => {
-    if (!apiEnabled || !selectedClass?.id) return
+    if (!apiEnabled || !resolvedCoachId || !selectedClass?.id) return
+    const requestId = ++rosterRequestId.current
     setLoadingRoster(true)
+    setRosterError(null)
     try {
       const isPtMode = String(selectedClass.id) === "PT_1ON1"
       const [
-        enrollments,
+        roster,
         attendances,
         catalogSessions,
         allClassSessions,
         plans,
       ] = await Promise.all([
         isPtMode
-          ? Promise.resolve([])
+          ? Promise.resolve({ enrollments: [] })
           : classEnrollmentApi
-              .getEnrollmentsByClass(selectedClass.id, { notifyForbidden: false })
-              .catch(() => []),
+              .getEnrollmentsByClass(selectedClass.id, { strict: true })
+              .then(
+                (enrollments) => ({ enrollments }),
+                (error) => ({ enrollments: [], error }),
+              ),
         attendanceApi.searchAttendances().catch(() => []),
         isPtMode
           ? Promise.resolve([])
@@ -172,7 +174,9 @@ export function CoachAttendanceView() {
               .catch(() => []),
       ])
 
-      setApiEnrollments(Array.isArray(enrollments) ? enrollments : [])
+      if (requestId !== rosterRequestId.current) return
+      setApiEnrollments(roster.enrollments)
+      setRosterError(roster.error || null)
       setApiAttendances(Array.isArray(attendances) ? attendances : [])
       setClassTrainingPlans(Array.isArray(plans) ? plans : [])
 
@@ -246,6 +250,7 @@ export function CoachAttendanceView() {
             .getSessionAbsenceNotices(effectiveSessionId)
             .catch(() => []),
         ])
+        if (requestId !== rosterRequestId.current) return
         setSessionTrainingResults(Array.isArray(results) ? results : [])
         setSessionAbsenceNotices(Array.isArray(notices) ? notices : [])
       } else {
@@ -253,12 +258,13 @@ export function CoachAttendanceView() {
         setSessionAbsenceNotices([])
       }
     } finally {
-      setLoadingRoster(false)
+      if (requestId === rosterRequestId.current) setLoadingRoster(false)
     }
-  }, [apiEnabled, selectedClass?.id, selectedSessionId, todayIso])
+  }, [apiEnabled, resolvedCoachId, selectedClass?.id, selectedSessionId, todayIso])
 
   useEffect(() => {
     loadClassRosterAndAttendance()
+    return () => { rosterRequestId.current += 1 }
   }, [loadClassRosterAndAttendance])
 
   const activeSession = useMemo(() => {
@@ -376,7 +382,7 @@ export function CoachAttendanceView() {
       const optKey = `${selectedSessionId || selectedClass?.id || "cls"}_${m.id}`
       const optVal = optimisticStatusMap[optKey]
 
-      const localAtt = attendance.find(
+      const localAtt = !apiEnabled && attendance.find(
         (a) =>
           String(a.memberId) === String(m.id) &&
           (selectedSessionId
@@ -426,6 +432,7 @@ export function CoachAttendanceView() {
     [
       selectedSessionId,
       selectedClass?.id,
+      apiEnabled,
       optimisticStatusMap,
       attendance,
       sessionTrainingResults,
@@ -478,6 +485,8 @@ export function CoachAttendanceView() {
   }, [enrolledMembers, searchQuery])
 
   const handleOneTouchCheckIn = async (member, targetStatus, attendanceId) => {
+    if (!allowCheckIn || bulkSaving) return
+    const requestId = rosterRequestId.current
     const optKey = `${selectedSessionId || selectedClass?.id || "cls"}_${member.id}`
     const prevStatus = getMemberStatusAndMeta(member).currentStatus
 
@@ -498,43 +507,39 @@ export function CoachAttendanceView() {
     }
 
     try {
-      if (apiEnabled && selectedSessionId) {
+      if (apiEnabled) {
         await attendanceApi.recordSessionAttendance({
           memberId: member.id,
           sessionId: Number(selectedSessionId),
           coachId: resolvedCoachId,
           status: apiStatusMap[targetStatus] || "Present",
           notes:
-            targetStatus === "excused"
-              ? "Vắng có phép"
-              : targetStatus === "late"
-                ? "Đi trễ"
-                : targetStatus === "absent"
-                  ? "Vắng mặt"
-                  : "Có mặt đúng giờ",
+            targetStatus === "absent" ? "Vắng mặt" : "Có mặt đúng giờ",
         })
+        if (requestId === rosterRequestId.current) await loadClassRosterAndAttendance()
+        setOptimisticStatusMap(({ [optKey]: _, ...remaining }) => remaining)
+      } else {
+        await recordAttendance(
+          selectedClass?.id,
+          member.id,
+          targetStatus === "excused" ? "late" : targetStatus,
+          undefined,
+          {
+            attendanceId,
+            memberName: member.name,
+            sessionId: selectedSessionId,
+            coachId: resolvedCoachId,
+          },
+        )
       }
-      await recordAttendance(
-        selectedClass?.id,
-        member.id,
-        targetStatus === "excused" ? "late" : targetStatus,
-        undefined,
-        {
-          attendanceId,
-          memberName: member.name,
-          sessionId: selectedSessionId,
-          coachId: resolvedCoachId,
-        },
-      )
       setSavingStateByMember((prev) => ({
         ...prev,
         [optKey]: "saved",
       }))
     } catch (err) {
-      setOptimisticStatusMap((prev) => ({
-        ...prev,
-        [optKey]: prevStatus,
-      }))
+      setOptimisticStatusMap(({ [optKey]: _, ...remaining }) =>
+        apiEnabled ? remaining : { ...remaining, [optKey]: prevStatus },
+      )
       setSavingStateByMember((prev) => ({
         ...prev,
         [optKey]: "error",
@@ -551,46 +556,49 @@ export function CoachAttendanceView() {
 
   // R1.5: Bulk mark Present ONLY marks unmarked students (never overwrites students who already have a status)
   const handleConfirmBulkMarkPresent = async () => {
-    if (unmarkedMembers.length === 0 || bulkSaving) {
+    if (!allowCheckIn || unmarkedMembers.length === 0 || bulkSaving) {
       setShowBulkConfirmModal(false)
       return
     }
     const targets = unmarkedMembers
+    const requestId = rosterRequestId.current
     setBulkSaving(true)
     setShowBulkConfirmModal(false)
     try {
-      const nextOpt = {}
-      targets.forEach((m) => {
-        const optKey = `${selectedSessionId || selectedClass?.id || "cls"}_${m.id}`
-        nextOpt[optKey] = "present"
-      })
-      setOptimisticStatusMap((prev) => ({ ...prev, ...nextOpt }))
-
-      if (apiEnabled && selectedSessionId) {
-        await memberPortalApi
-          .recordBulkTrainingResults({
-            sessionId: Number(selectedSessionId),
-            coachId: Number(resolvedCoachId),
-            items: targets.map((m) => ({
-              memberId: Number(m.id),
-              attendanceStatus: "Present",
-              content: "Có mặt đầy đủ theo điểm danh lớp",
-            })),
-          })
-          .catch(() => {})
-      }
-      for (const m of targets) {
-        await recordAttendance(selectedClass?.id, m.id, "present", undefined, {
-          memberName: m.name,
-          sessionId: selectedSessionId,
-          coachId: resolvedCoachId,
+      if (apiEnabled) {
+        const results = await memberPortalApi.recordBulkTrainingResults({
+          sessionId: Number(selectedSessionId),
+          coachId: Number(resolvedCoachId),
+          items: targets.map((m) => ({
+            memberId: Number(m.id),
+            attendanceStatus: "Present",
+            content: "Có mặt đầy đủ theo điểm danh lớp",
+          })),
         })
+        if (!Array.isArray(results) || !targets.every((m) =>
+          results.some((result) =>
+            matchesSessionAttendance(result, selectedSessionId, m.id, "Present"),
+          ),
+        )) {
+          throw new Error("Chưa xác nhận đủ kết quả điểm danh. Hãy kiểm tra danh sách trước khi thử lại.")
+        }
+      } else {
+        for (const m of targets) {
+          await recordAttendance(selectedClass?.id, m.id, "present", undefined, {
+            memberName: m.name,
+            sessionId: selectedSessionId,
+            coachId: resolvedCoachId,
+          })
+        }
       }
-      await loadClassRosterAndAttendance()
+      if (requestId === rosterRequestId.current) await loadClassRosterAndAttendance()
       showToast?.(
         `Đã điểm danh Có mặt cho ${targets.length} học viên chưa điểm danh!`,
         "success",
       )
+    } catch (err) {
+      if (requestId === rosterRequestId.current) await loadClassRosterAndAttendance()
+      showToast?.(getErrorMessage(err, "Không thể lưu điểm danh hàng loạt."), "error")
     } finally {
       setBulkSaving(false)
     }
@@ -599,22 +607,45 @@ export function CoachAttendanceView() {
   const handleQuickCheckin = async (e) => {
     e.preventDefault()
     const raw = String(quickMemberInput || "").trim()
-    if (!raw || quickSaving) return
+    if (!raw || !allowCheckIn || quickSaving) return
+    const requestId = rosterRequestId.current
     setQuickSaving(true)
     try {
-      const mbMatch = raw.match(/^(?:MB-)?(\d+)$/i)
-      if (mbMatch) {
-        const rawNum = Number(mbMatch[1])
-        const resolvedMemberId = rawNum > 1000 ? rawNum - 1000 : rawNum
-        if (apiEnabled && selectedSessionId) {
-          await attendanceApi.recordSessionAttendance({
-            memberId: resolvedMemberId,
+      if (apiEnabled) {
+        const match = raw.match(/^(MB-\d+)(?:\s+(\d{6}))?$/i)
+        const member = match && enrolledMembers.find((m) => m.code.toUpperCase() === match[1].toUpperCase())
+        if (!member) {
+          throw new Error("Nhập mã MB của học viên trong danh sách. Nếu quét QR, nhập mã MB rồi đến mã QR 6 số.")
+        }
+        if (match[2]) {
+          const result = await attendanceApi.scanAttendance({
+            code: match[2],
+            memberId: Number(member.id),
             sessionId: Number(selectedSessionId),
+          })
+          if (Number(result?.sessionId) !== Number(selectedSessionId) ||
+              Number(result?.memberId) !== Number(member.id) ||
+              result?.state !== "Present") {
+            throw new Error("Chưa xác nhận được kết quả quét QR. Hãy làm mới danh sách trước khi thử lại.")
+          }
+        } else {
+          await attendanceApi.recordSessionAttendance({
+            memberId: member.id,
+            sessionId: selectedSessionId,
             coachId: resolvedCoachId,
             status: "Present",
             notes: "Điểm danh nhanh theo mã hội viên",
           })
         }
+        setQuickMemberInput("")
+        if (requestId === rosterRequestId.current) await loadClassRosterAndAttendance()
+        showToast?.(`Đã điểm danh Có mặt cho ${member.code}!`, "success")
+        return
+      }
+      const mbMatch = raw.match(/^(?:MB-)?(\d+)$/i)
+      if (mbMatch) {
+        const rawNum = Number(mbMatch[1])
+        const resolvedMemberId = rawNum > 1000 ? rawNum - 1000 : rawNum
         await recordAttendance(
           selectedClass?.id,
           resolvedMemberId,
@@ -653,8 +684,12 @@ export function CoachAttendanceView() {
   }
 
   const sessionCancelled = isSessionCancelled(activeSession)
-  const allowCheckIn = canCheckIn(activeSession)
-  const allowCorrection = canCorrectAttendance(activeSession)
+  const sessionReady = !apiEnabled || (
+    !loadingRoster && activeSession?.id != null &&
+    String(activeSession.id) === String(selectedSessionId)
+  )
+  const allowCheckIn = sessionReady && canCheckIn(activeSession)
+  const allowCorrection = sessionReady && canCorrectAttendance(activeSession)
   const resolvedSessionStatus = normalizeSessionStatus(activeSession) || "Scheduled"
 
   return (
@@ -671,7 +706,7 @@ export function CoachAttendanceView() {
                   : resolvedSessionStatus
               }
             />
-            {classes.length > 1 && (
+            {coachClasses.length > 1 && (
               <select
                 value={selectedClass?.id || ""}
                 onChange={(e) => {
@@ -686,7 +721,7 @@ export function CoachAttendanceView() {
                 }}
                 className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
               >
-                {classes.map((cls) => (
+                {coachClasses.map((cls) => (
                   <option key={cls.id} value={cls.id}>
                     {cls.nameVi || cls.name}
                   </option>
@@ -826,7 +861,11 @@ export function CoachAttendanceView() {
       {allowCorrection && !sessionCancelled && (
         <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2.5 text-amber-900 text-xs font-medium">
           <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
-          <span>{t("coachBannerCompletedReadOnlyDesc")}</span>
+          <span>{apiEnabled
+            ? language === "vi"
+              ? "Buổi học đã hoàn thành. Liên hệ quản lý trung tâm nếu cần sửa điểm danh."
+              : "This session has ended. Contact the center manager to correct attendance."
+            : t("coachBannerCompletedReadOnlyDesc")}</span>
         </div>
       )}
 
@@ -843,9 +882,13 @@ export function CoachAttendanceView() {
               </span>
             </h3>
             <span className="text-xs text-slate-500">
-              {language === "vi"
-                ? "Bấm một chạm để điểm danh trong buổi học hoặc sửa điểm danh kèm lý do khi buổi đã kết thúc"
-                : "One-tap check-in for scheduled sessions or edit with mandatory reason for completed sessions"}
+              {apiEnabled
+                ? language === "vi"
+                  ? "Chọn Có mặt hoặc Vắng mặt trong giờ học. Để quét QR, nhập mã hội viên rồi đến mã 6 số."
+                  : "Mark present or absent during the session. To scan, enter the member code followed by the six-digit QR code."
+                : language === "vi"
+                  ? "Bấm một chạm để điểm danh trong buổi học hoặc sửa điểm danh kèm lý do khi buổi đã kết thúc"
+                  : "One-tap check-in for scheduled sessions or edit with mandatory reason for completed sessions"}
             </span>
           </div>
 
@@ -869,9 +912,10 @@ export function CoachAttendanceView() {
               >
                 <input
                   type="text"
+                  aria-label={language === "vi" ? "Mã hội viên và mã QR điểm danh" : "Member code and attendance QR code"}
                   value={quickMemberInput}
                   onChange={(e) => setQuickMemberInput(e.target.value)}
-                  placeholder="Quét QR / nhập MB-xxxx..."
+                  placeholder={apiEnabled ? "MB-1002 hoặc MB-1002 123456" : "Quét QR / nhập MB-xxxx..."}
                   className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded focus:outline-none focus:border-blue-600 w-44"
                 />
                 <button
@@ -918,6 +962,17 @@ export function CoachAttendanceView() {
         )}
 
         <div className="space-y-3">
+          {!loadingRoster && rosterError && (
+            <p role="alert" className="p-3 text-sm text-red-800 bg-red-50 border border-red-200 rounded">
+              {rosterError.status === 403
+                ? language === "vi"
+                  ? "Bạn không có quyền xem danh sách học viên của lớp này."
+                  : "You do not have permission to view this class roster."
+                : language === "vi"
+                  ? "Không tải được danh sách học viên. Hãy thử làm mới."
+                  : "Could not load the class roster. Try refreshing."}
+            </p>
+          )}
           {loadingRoster ? (
             <div className="space-y-2.5">
               {[1, 2, 3].map((i) => (
@@ -927,7 +982,7 @@ export function CoachAttendanceView() {
                 />
               ))}
             </div>
-          ) : filteredMembers.length === 0 ? (
+          ) : filteredMembers.length === 0 && !rosterError ? (
             <div className="p-6 text-center text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded">
               {enrolledMembers.length > 0
                 ? "Không tìm thấy học viên khớp với từ khóa."
@@ -1034,7 +1089,7 @@ export function CoachAttendanceView() {
                             activeCls:
                               "bg-[#FEE2E2] text-[#991B1B] border-[#FECACA] ring-1 ring-[#991B1B]/20",
                           },
-                        ].map((btn) => {
+                          ].filter((btn) => !apiEnabled || ["present", "absent"].includes(btn.key)).map((btn) => {
                           const isSelected = currentStatus === btn.key
                           const IconComp = btn.Icon
                           return (
@@ -1043,6 +1098,7 @@ export function CoachAttendanceView() {
                               type="button"
                               aria-label={btn.label}
                               aria-pressed={isSelected}
+                              disabled={saveState === "saving" || bulkSaving}
                               onClick={() =>
                                 handleOneTouchCheckIn(m, btn.key, attendanceId)
                               }
@@ -1064,7 +1120,7 @@ export function CoachAttendanceView() {
                           type="attendance"
                           value={currentStatus}
                         />
-                        {allowCorrection && !sessionCancelled && (
+                        {!apiEnabled && allowCorrection && !sessionCancelled && (
                           <button
                             type="button"
                             onClick={() =>

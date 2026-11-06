@@ -1,7 +1,7 @@
 import { httpClient } from "./httpClient.js"
 import { extractList } from "./schemaValidators.js"
 
-export const getEnrollmentsByClass = async (classId, options = {}) => {
+export const getEnrollmentsByClass = async (classId, { strict = false, ...options } = {}) => {
   if (!classId) return []
   try {
     const data = await httpClient.get(`/api/classes/${classId}/enrollments`, {
@@ -19,7 +19,8 @@ export const getEnrollmentsByClass = async (classId, options = {}) => {
         )
         const fallbackList = extractList(fallback)
         return Array.isArray(fallbackList) ? fallbackList : []
-      } catch {
+      } catch (fallbackError) {
+        if (strict) throw fallbackError
         return []
       }
     }
