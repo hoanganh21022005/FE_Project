@@ -967,6 +967,15 @@ const INITIAL_BOOKINGS = [
     status: "confirmed",
   },
   {
+    id: "bk-1b",
+    classId: 5,
+    className: "Cầu lông Cơ bản K01",
+    memberId: "mem-2",
+    memberName: "Lê Hoàng Nam",
+    bookingDate: "2026-10-08 09:00",
+    status: "confirmed",
+  },
+  {
     id: "bk-2",
     classId: 7,
     className: "Pickleball Nâng cao K01",
@@ -1001,7 +1010,7 @@ const INITIAL_ATTENDANCE = [
     classId: 5,
     memberId: "mem-1",
     memberName: "Nguyễn Minh Anh",
-    status: "present",
+    status: "absent",
     markedAt: "2026-10-12 05:55",
     markedBy: "Trần Thị Hương",
   },
@@ -1237,6 +1246,7 @@ export const SCMSProvider = ({ children }) => {
   const [staffError, setStaffError] = useState(null)
   const [packages, setPackages] = useState(API_ENABLED ? [] : INITIAL_PACKAGES)
   const [classes, setClasses] = useState(API_ENABLED ? [] : INITIAL_CLASSES)
+  const [classesLoading, setClassesLoading] = useState(API_ENABLED)
   const [subjects, setSubjects] = useState(API_ENABLED ? [] : INITIAL_SUBJECTS)
   const [rooms, setRooms] = useState(API_ENABLED ? [] : INITIAL_ROOMS)
   const [dashboard, setDashboard] = useState(null)
@@ -1547,16 +1557,23 @@ export const SCMSProvider = ({ children }) => {
             if (loadedStaff?.length) setStaff((prev) => (prev.length ? prev : loadedStaff))
             if (loadedRooms?.length) setRooms(loadedRooms)
             if (loadedPackages?.length) setPackages(loadedPackages)
-            const loadedClasses = await managerApi
-              .getClasses(
-                { subjects: loadedSubjects || [], coaches: loadedStaff || [] },
-                { notifyForbidden: false },
-              )
-              .catch(() => [])
-            if (loadedClasses?.length) setClasses(loadedClasses)
+            try {
+              const loadedClasses = await managerApi
+                .getClasses(
+                  { subjects: loadedSubjects || [], coaches: loadedStaff || [] },
+                  { notifyForbidden: false },
+                )
+              setClasses(Array.isArray(loadedClasses) ? loadedClasses : [])
+            } catch {
+              setClasses([])
+            } finally {
+              setClassesLoading(false)
+            }
           },
         )
-        .catch(() => {})
+        .catch(() => {
+          setClassesLoading(false)
+        })
     }
   }, [authUser, fetchMembers, fetchStaff])
 
@@ -1643,7 +1660,10 @@ export const SCMSProvider = ({ children }) => {
                 },
                 { notifyForbidden: false },
               ),
-            (loadedClasses) => setClasses(loadedClasses || []),
+            (loadedClasses) => {
+              setClasses(loadedClasses || [])
+              setClassesLoading(false)
+            },
             classes,
           ),
       )
@@ -2985,6 +3005,7 @@ export const SCMSProvider = ({ children }) => {
       setClasses(fallback.length > 0 ? fallback : INITIAL_CLASSES)
       return
     }
+    setClassesLoading(true)
     try {
       const loaded = await managerApi.getClasses({ subjects, coaches: staff }, {
         notifyForbidden: false,
@@ -3012,6 +3033,8 @@ export const SCMSProvider = ({ children }) => {
       )
       showToast(message, "error")
       return classes
+    } finally {
+      setClassesLoading(false)
     }
   }
 
@@ -3142,6 +3165,7 @@ export const SCMSProvider = ({ children }) => {
         staff,
         packages,
         classes,
+        classesLoading,
         subjects,
         rooms,
         bookings,
@@ -3233,6 +3257,7 @@ const fallbackContext = {
   staff: [],
   packages: [],
   classes: [],
+  classesLoading: false,
   subjects: [],
   rooms: [],
   bookings: [],
