@@ -110,7 +110,7 @@ export function ClassDetailDrawer({
             memberCode: m.code || `MB-${1000 + idx}`,
             memberEmail: m.email,
             memberPhone: m.phone || "0988 123 456",
-            registeredAt: cls.startDate || cls.date || "2026-10-12",
+            registeredAt: cls.startDate || cls.date || null,
             paymentStatus: "paid",
           }))
         setEnrollments(mockList)

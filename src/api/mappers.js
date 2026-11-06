@@ -293,7 +293,7 @@ export function mapClass(
     apiStatus: item.status ?? null,
     startDate: item.startDate ?? null,
     endDate: item.endDate ?? null,
-    date: merged.date ?? item.startDate ?? "2026-10-12",
+    date: merged.date ?? item.startDate ?? null,
     startTime,
     endTime,
     durationMinutes: merged.durationMinutes ?? (isPickleball ? 105 : 90),
