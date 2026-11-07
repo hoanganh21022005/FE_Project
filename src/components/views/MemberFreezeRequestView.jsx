@@ -173,8 +173,8 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
       setSubmitting(false)
       setSubmitted(false)
       const explanation = isVi
-        ? "Tính năng gửi yêu cầu bảo lưu trực tuyến đang tạm khóa để chờ Backend hoàn thiện contract API chính thức. Quý hội viên vui lòng liên hệ trực tiếp quầy Lễ tân hoặc Quản lý trung tâm để được hỗ trợ bảo lưu thủ công."
-        : "Online freeze requests are temporarily locked awaiting official Backend contract. Please contact Reception or Management directly for manual assistance."
+        ? "Tính năng gửi yêu cầu bảo lưu trực tuyến đang tạm nâng cấp. Quý hội viên vui lòng liên hệ trực tiếp quầy Lễ tân hoặc Quản lý trung tâm để được tiếp nhận và xử lý thủ tục bảo lưu."
+        : "Online freeze requests are temporarily under upgrade. Please contact Reception or Management directly for assistance."
       setSubmitError(explanation)
       return
     }
@@ -331,8 +331,8 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
                 </p>
                 <p className="text-amber-900/90 leading-relaxed">
                   {isVi
-                    ? "Chức năng gửi yêu cầu bảo lưu trực tuyến đang chờ hoàn thiện contract API từ Backend. Các ngày Trung tâm nghỉ lễ và sự cố cơ sở vật chất ở trên đã được hệ thống tự động cộng bù thời hạn sử dụng mà không cần gửi đơn."
-                    : "Online freeze requests are temporarily locked awaiting official Backend contract. Center holidays and incidents above are compensated automatically without submitting a request."}
+                    ? "Chức năng gửi yêu cầu bảo lưu trực tuyến đang được nâng cấp. Các ngày Trung tâm nghỉ lễ và sự cố cơ sở vật chất ở trên đã được hệ thống tự động cộng bù thời hạn sử dụng mà không cần gửi đơn."
+                    : "Online freeze requests are currently under upgrade. Center holidays and incidents above are compensated automatically without submitting a request."}
                 </p>
               </div>
             </div>

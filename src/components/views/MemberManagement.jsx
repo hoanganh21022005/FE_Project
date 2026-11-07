@@ -189,8 +189,8 @@ export function MemberManagement({ onSelectMemberDetail }) {
             <h2 className="text-sm font-bold text-brand-dark tracking-tight">{t('members')}</h2>
             <p className="text-xs text-stone-500">
               {language === 'vi'
-                ? 'Danh sách hồ sơ thành viên từ hệ thống backend và kiểm soát thông tin hội viên'
-                : 'Member profiles from backend system and member account control'}
+                ? 'Danh sách hồ sơ thành viên và quản lý thông tin hội viên của trung tâm'
+                : 'Member profiles and membership account management'}
             </p>
           </div>
         </div>

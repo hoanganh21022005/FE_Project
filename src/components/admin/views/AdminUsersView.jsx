@@ -89,8 +89,7 @@ export function AdminUsersView() {
           Danh sách người dùng
         </h2>
         <p className="mt-1 text-sm text-stone-600">
-          Dữ liệu chỉ đọc từ `GET /api/users`; tìm kiếm và lọc được thực hiện
-          tại giao diện.
+          Danh sách tài khoản được đồng bộ trực tiếp từ hệ thống quản trị trung tâm; hỗ trợ tìm kiếm và phân loại nhanh.
         </p>
       </div>
 

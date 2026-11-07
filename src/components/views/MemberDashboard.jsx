@@ -528,8 +528,8 @@ export function MemberDashboard() {
       if (!payload || !Number.isFinite(ttl) || ttl < 1 || ttl > 30) {
         throw new Error(
           isVi
-            ? "API chưa trả mã QR hợp lệ hoặc thời hạn mã không hợp lệ."
-            : "The API did not return a valid QR payload and expiry time.",
+            ? "Hệ thống chưa thể cấp mã QR hoặc thời hạn mã không hợp lệ."
+            : "The system could not generate a valid QR code or expiry time.",
         )
       }
       setQrPayload(payload)

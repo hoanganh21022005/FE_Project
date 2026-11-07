@@ -35,12 +35,12 @@ function SubscriptionCard({ item, language, history = false }) {
   const subject = item.subjectName || (item.subjectId ? "Môn #" + item.subjectId : "Chưa có thông tin môn")
   const coach = item.primaryCoachName || (item.primaryCoachId ? "HLV #" + item.primaryCoachId : "Chưa có Primary Coach")
   const packageType = String(item.packageType || "").trim().toLowerCase()
-  const kindLabel = packageType === "advanced" ? "Advanced · theo môn" : packageType === "normal" ? "Normal · gói hội viên cũ" : "Chưa phân loại · cần xác nhận Backend"
+  const kindLabel = packageType === "advanced" ? "Advanced · theo môn" : packageType === "normal" ? "Normal · gói hội viên cũ" : "Chưa phân loại · đang cập nhật thông tin"
   return <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
     <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-start gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-lavender-soft text-brand-purple-dark"><Award size={21} /></div><div><p className="text-xs font-bold uppercase tracking-wide text-brand-purple-dark">{kindLabel}</p><h3 className="mt-1 text-lg font-bold text-slate-900">{item.packageName || (packageType === "advanced" ? "Quyền học Advanced" : "Khóa học")}</h3></div></div><span className={"rounded-full px-3 py-1 text-xs font-semibold " + (history ? "bg-slate-100 text-slate-600" : "bg-emerald-50 text-emerald-700")}>{statusLabel(item.rawStatus || item.status)}</span></div>
-    {packageType === "advanced" ? <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Info icon={Dumbbell} label="Môn học" value={subject} /><Info icon={UserRound} label="Primary Coach" value={coach} /><Info icon={CreditCard} label="Credit còn lại" value={item.remainingCredit == null ? "Chưa có thông tin" : item.remainingCredit + " credit"} highlight={item.remainingCredit === 0} /><Info icon={CalendarDays} label="Thời hạn" value={formatDate(item.activatedAt || item.startDate, language) + " – " + formatDate(item.expiresAt || item.endDate, language)} /></div> : <div className="mt-5 grid gap-4 sm:grid-cols-2"><Info icon={CalendarDays} label="Thời hạn theo Backend" value={formatDate(item.activatedAt || item.startDate, language) + " – " + formatDate(item.expiresAt || item.endDate, language)} /><Info icon={CreditCard} label="Quyền sử dụng" value={packageType === "normal" ? "Gói Normal cũ; xem lớp đã đăng ký ở mục riêng." : "Chưa thể xác định vì Backend thiếu packageType."} /></div>}
-    {packageType === "advanced" && item.remainingCredit === 0 && !history && <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Credit hiện còn 0. Quyền với các buổi đã đặt vẫn theo trạng thái lịch và xác nhận từ Backend.</p>}
-    {packageType === "advanced" && !item.subjectName && !item.primaryCoachName && <p className="mt-4 text-xs text-slate-500">Backend chỉ trả mã hoặc thiếu dữ liệu môn/HLV; trang không tự suy đoán tên.</p>}
+    {packageType === "advanced" ? <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Info icon={Dumbbell} label="Môn học" value={subject} /><Info icon={UserRound} label="Primary Coach" value={coach} /><Info icon={CreditCard} label="Credit còn lại" value={item.remainingCredit == null ? "Chưa có thông tin" : item.remainingCredit + " credit"} highlight={item.remainingCredit === 0} /><Info icon={CalendarDays} label="Thời hạn" value={formatDate(item.activatedAt || item.startDate, language) + " – " + formatDate(item.expiresAt || item.endDate, language)} /></div> : <div className="mt-5 grid gap-4 sm:grid-cols-2"><Info icon={CalendarDays} label="Thời hạn hợp lệ" value={formatDate(item.activatedAt || item.startDate, language) + " – " + formatDate(item.expiresAt || item.endDate, language)} /><Info icon={CreditCard} label="Quyền sử dụng" value={packageType === "normal" ? "Gói Normal cũ; xem lớp đã đăng ký ở mục riêng." : "Chưa thể xác định loại gói tập; vui lòng liên hệ quầy lễ tân."} /></div>}
+    {packageType === "advanced" && item.remainingCredit === 0 && !history && <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Credit hiện còn 0. Quyền với các buổi đã đặt vẫn theo trạng thái lịch và xác nhận từ hệ thống.</p>}
+    {packageType === "advanced" && !item.subjectName && !item.primaryCoachName && <p className="mt-4 text-xs text-slate-500">Thông tin chi tiết môn học/HLV đang được cập nhật; vui lòng liên hệ quầy lễ tân để được hỗ trợ.</p>}
   </article>
 }
 function EnrollmentCard({ item }) {
@@ -65,7 +65,7 @@ export function MyMembershipView() {
   const [reloadKey, setReloadKey] = useState(0)
   const load = useCallback(async () => {
     if (!apiEnabled || !memberId) {
-      const message = !apiEnabled ? "Trang này cần kết nối Backend để hiển thị quyền hội viên." : "Không tìm thấy memberId của phiên đăng nhập; dữ liệu hội viên chưa được tải."
+      const message = !apiEnabled ? "Trang này cần kết nối máy chủ để hiển thị quyền hội viên." : "Không tìm thấy memberId của phiên đăng nhập; dữ liệu hội viên chưa được tải."
       setLoading({ subscriptions: false, enrollments: false, invoices: false })
       setErrors({ subscriptions: message, enrollments: message, invoices: message })
       return
@@ -80,7 +80,7 @@ export function MyMembershipView() {
     await Promise.all(Object.entries(requests).map(async ([key, request]) => {
       try {
         const result = await request
-        if (!Array.isArray(result)) throw new Error("Backend trả về dữ liệu không đúng định dạng.")
+        if (!Array.isArray(result)) throw new Error("Dữ liệu từ máy chủ không đúng định dạng.")
         setData((previous) => ({ ...previous, [key]: result }))
       } catch (error) {
         setErrors((previous) => ({ ...previous, [key]: getErrorMessage(error, "Không thể tải dữ liệu.") }))
@@ -146,7 +146,7 @@ export function MyMembershipView() {
       <section className="space-y-4"><div><h2 className="text-xl font-bold text-slate-900">Các giao dịch đã thanh toán</h2><p className="mt-1 text-sm text-slate-500">Đối chiếu từ hóa đơn riêng của tài khoản hội viên.</p></div><ResourceState loading={loading.invoices} error={errors.invoices} onRetry={retry} empty={partition.paidInvoices.length === 0 ? "Chưa có hóa đơn đã thanh toán." : null}><div className="overflow-hidden rounded-2xl border border-slate-200 bg-white"><div className="hidden grid-cols-[1.2fr_1fr_1fr_auto] gap-3 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid"><span>Hóa đơn</span><span>Ngày</span><span>Số tiền</span><span>Trạng thái</span></div>{partition.paidInvoices.map((invoice) => <InvoiceRow key={invoice.invoiceId || invoice.id} invoice={invoice} language={language} />)}</div></ResourceState></section>
       <section className="space-y-4"><div><h2 className="text-xl font-bold text-slate-900">Quyền hội viên đã kết thúc</h2><p className="mt-1 text-sm text-slate-500">Các trạng thái hết hạn, hoàn thành hoặc đã hủy được giữ riêng với quyền đang dùng.</p></div><ResourceState loading={loading.subscriptions || loading.enrollments} error={[errors.subscriptions, errors.enrollments].filter(Boolean).join(" · ")} onRetry={retry} empty={partition.historySubscriptions.length + partition.historyEnrollments.length === 0 ? "Chưa có gói hoặc lớp trong lịch sử." : null}><div className="grid gap-4 xl:grid-cols-2">{partition.historySubscriptions.map((item) => <SubscriptionCard key={item.subscriptionId || item.id} item={item} language={language} history />)}{partition.historyEnrollments.map((item) => <EnrollmentCard key={item.enrollmentId || item.id || (item.classId + "-" + item.subjectId)} item={item} />)}</div></ResourceState></section>
     </div>}
-    <footer className="flex items-start gap-2 rounded-xl bg-slate-100 p-4 text-xs leading-5 text-slate-600"><FileText className="mt-0.5 shrink-0" size={15} />Dữ liệu gói, thời hạn, credit và hóa đơn được hiển thị theo phản hồi Backend. Các trạng thái Pending không cấp quyền sử dụng.</footer>
+    <footer className="flex items-start gap-2 rounded-xl bg-slate-100 p-4 text-xs leading-5 text-slate-600"><FileText className="mt-0.5 shrink-0" size={15} />Dữ liệu gói, thời hạn, credit và hóa đơn được đồng bộ theo hệ thống trung tâm. Các gói ở trạng thái Chờ xử lý chưa cấp quyền tập luyện.</footer>
   </main>
 }
 export default MyMembershipView

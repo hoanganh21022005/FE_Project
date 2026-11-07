@@ -20,6 +20,13 @@ import {
   resolveMockLoginUser,
   ROLE_ADMIN,
 } from "../../utils/navigation"
+import {
+  PASSWORD_MIN_LENGTH,
+  isPasswordValid,
+  validatePassword,
+  getPasswordRulesStatus,
+  getPasswordRuleHint,
+} from "../../utils/passwordPolicy"
 import { CoachesHeader } from "../layout/CoachesHeader"
 import { PublicFooter } from "../layout/PublicFooter"
 import "../../styles/coaches.css"
@@ -202,9 +209,10 @@ function checkIsClubOpenNow() {
 function computePasswordStrength(pwd, isVi) {
   const val = String(pwd || "")
   const checks = {
-    length: val.length >= 6,
+    length: val.length >= PASSWORD_MIN_LENGTH,
+    hasLetter: /[A-Za-z]/.test(val),
+    hasDigit: /\d/.test(val),
     mixedCase: /[A-Z]/.test(val) && /[a-z]/.test(val),
-    number: /\d/.test(val),
     special: /[^A-Za-z0-9]/.test(val),
   }
   if (!val) {
@@ -217,19 +225,23 @@ function computePasswordStrength(pwd, isVi) {
     }
   }
   let score = 0
-  if (checks.length) score += 1
-  if (val.length >= 8 && checks.mixedCase) score += 1
-  if (checks.number) score += 1
-  if (checks.special) score += 1
+  const isPolicyMet = checks.length && checks.hasLetter && checks.hasDigit
+  if (isPolicyMet) {
+    score = 2
+    if (checks.mixedCase) score += 1
+    if (checks.special) score += 1
+  } else {
+    score = 1
+  }
 
   const map = {
     1: {
-      label: isVi ? "Yếu" : "Weak",
+      label: isVi ? "Yếu (chưa đủ 8 ký tự, chữ và số)" : "Weak (needs 8+ chars, letter & number)",
       color: "bg-rose-500",
       textColor: "text-rose-600",
     },
     2: {
-      label: isVi ? "Trung bình" : "Fair",
+      label: isVi ? "Hợp lệ" : "Valid",
       color: "bg-amber-500",
       textColor: "text-amber-600",
     },
@@ -456,7 +468,7 @@ export function LoginView({
       regName.trim().length >= 2 &&
       (!regPhone.trim() || regPhone.trim().length >= 9) &&
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim()) &&
-      regPassword.length >= 6 &&
+      isPasswordValid(regPassword) &&
       !isRegCaptchaChecked &&
       !isRegCaptchaLoading
     ) {
@@ -488,7 +500,7 @@ export function LoginView({
     setLoginError("")
     setLoginNotice("")
 
-    if (!loginEmail.trim() || !loginPassword.trim()) {
+    if (!loginEmail.trim() || !loginPassword) {
       setLoginError(
         isVi
           ? "Vui lòng nhập đầy đủ email và mật khẩu."
@@ -507,12 +519,11 @@ export function LoginView({
     }
 
     const trimmedEmail = loginEmail.trim().toLowerCase()
-    const trimmedPassword = loginPassword.trim()
 
     if (apiEnabled) {
       setIsLoginLoading(true)
       try {
-        const user = await login(trimmedEmail, trimmedPassword)
+        const user = await login(trimmedEmail, loginPassword)
         if (
           adminEntry &&
           normalizeRole(user?.role, { isApiMode: true }) !== ROLE_ADMIN
@@ -542,7 +553,7 @@ export function LoginView({
 
     const mockUser = resolveMockLoginUser({
       email: trimmedEmail,
-      password: trimmedPassword,
+      password: loginPassword,
       members,
       managerEmail: DEMO_EMAIL,
       demoPassword: DEMO_PASSWORD,
@@ -758,12 +769,9 @@ export function LoginView({
       )
       return
     }
-    if (!forgotNewPassword || forgotNewPassword.length < 6) {
-      setForgotError(
-        isVi
-          ? "Mật khẩu mới phải có tối thiểu 6 ký tự."
-          : "New password must be at least 6 characters.",
-      )
+    const pwdValidation = validatePassword(forgotNewPassword, isVi)
+    if (!pwdValidation.isValid) {
+      setForgotError(pwdValidation.error)
       return
     }
     if (forgotNewPassword !== forgotConfirmPassword) {
@@ -841,14 +849,9 @@ export function LoginView({
         : "This email is already in use."
     }
 
-    if (!regPassword) {
-      errors.password = isVi
-        ? "Vui lòng nhập mật khẩu."
-        : "Password is required."
-    } else if (regPassword.length < 6) {
-      errors.password = isVi
-        ? "Mật khẩu tối thiểu 6 ký tự."
-        : "Password must be at least 6 characters."
+    const pwdValidation = validatePassword(regPassword, isVi)
+    if (!pwdValidation.isValid) {
+      errors.password = pwdValidation.error
     }
 
     if (regPassword !== regConfirmPassword) {
@@ -951,8 +954,8 @@ export function LoginView({
             ? getRegistrationOtpErrorMessage(error, { isVi })
             : isMailConfigErr
             ? isVi
-              ? `${rawMsg} (Máy chủ Backend trên Render hiện chưa bật cấu hình SMTP gửi mail hoặc dev-mode OTP).`
-              : `${rawMsg} (Backend SMTP mail service on Render is not configured yet).`
+              ? `${rawMsg} (Dịch vụ gửi email xác minh hiện chưa khả dụng. Quý khách vui lòng liên hệ quầy lễ tân để được hỗ trợ kích hoạt trực tiếp).`
+              : `${rawMsg} (Verification email service is currently unavailable. Please contact the front desk for activation assistance).`
             : rawMsg,
         })
       } finally {
@@ -966,8 +969,8 @@ export function LoginView({
       setIsRegLoading(false)
       enterOtpStep(
         isVi
-          ? "Yêu cầu đăng ký đã được tiếp nhận. Nhập mã OTP của fixture mô phỏng để tiếp tục."
-          : "Your registration request was accepted. Enter the mock fixture OTP to continue.",
+          ? "Yêu cầu đăng ký đã được tiếp nhận. Vui lòng kiểm tra mã OTP để tiếp tục."
+          : "Your registration request was accepted. Please enter your OTP to continue.",
       )
       releaseRequestLock(registerRequestLock)
     }, 450)
@@ -1125,14 +1128,14 @@ export function LoginView({
         }
         setOtpCode(getOtpDigitsAfterResend(otpCode, true))
         setOtpNotice(isVi
-          ? "Backend đã tiếp nhận yêu cầu gửi lại OTP. Hãy kiểm tra email và thư mục Spam; phản hồi này không xác nhận thư đã vào Inbox."
-          : "The Backend accepted the OTP resend request. Check your email and spam folder; this response does not confirm inbox delivery.")
+          ? "Hệ thống đã tiếp nhận yêu cầu gửi lại OTP. Hãy kiểm tra email và thư mục Spam; thông báo này không đảm bảo thư đã vào Hộp thư đến."
+          : "The system accepted the OTP resend request. Check your email and spam folder; this notice does not confirm inbox delivery.")
       } else {
         await new Promise((resolve) => setTimeout(resolve, 400))
         setOtpCode(getOtpDigitsAfterResend(otpCode, true))
         setOtpNotice(isVi
-          ? "Yêu cầu gửi lại OTP mô phỏng đã được tiếp nhận."
-          : "The mock OTP resend request was accepted.")
+          ? "Yêu cầu gửi lại mã OTP đã được tiếp nhận."
+          : "The OTP resend request was accepted.")
       }
       setOtpCountdown(60)
       setOtpResendLimitReached(false)
@@ -1408,10 +1411,10 @@ export function LoginView({
                   <p className="mt-2 text-sm text-mlc-muted">
                     {isVi
                       ? registeredSuccessData.verificationStatus
-                        ? "Email đã được Backend xác minh. Đăng nhập để tiếp tục vào cổng Hội viên."
+                        ? "Email đã được xác thực thành công. Đăng nhập để tiếp tục vào cổng Hội viên."
                         : "Chào mừng bạn đến với VIBE Sport."
                       : registeredSuccessData.verificationStatus
-                        ? "The Backend verified your email. Sign in to continue to the Member portal."
+                        ? "Your email has been verified. Sign in to continue to the Member portal."
                         : "Welcome to VIBE Sport."}
                   </p>
                 </div>
@@ -1699,9 +1702,7 @@ export function LoginView({
                           required
                           value={forgotNewPassword}
                           onChange={(e) => setForgotNewPassword(e.target.value)}
-                          placeholder={
-                            isVi ? "Tối thiểu 6 ký tự" : "At least 6 characters"
-                          }
+                          placeholder={getPasswordRuleHint(isVi)}
                           className="h-12 w-full rounded-xl border border-mlc-border bg-mlc-surface/60 pl-11 pr-11 text-sm text-mlc-ink placeholder:text-mlc-muted/60 transition-all focus:border-mlc-red focus:bg-white focus:outline-none focus:ring-4 focus:ring-mlc-red/10"
                         />
                         <button
@@ -1716,6 +1717,9 @@ export function LoginView({
                           )}
                         </button>
                       </div>
+                      <p className="mt-1 text-[11px] text-mlc-muted">
+                        {getPasswordRuleHint(isVi)}
+                      </p>
                     </div>
 
                     <div>
@@ -2405,7 +2409,7 @@ export function LoginView({
                           }}
                           onKeyUp={handleCapsLockCheck}
                           onKeyDown={handleCapsLockCheck}
-                          placeholder={isVi ? "Tối thiểu 6 ký tự" : "6+ chars"}
+                          placeholder={getPasswordRuleHint(isVi)}
                           className={`h-11 w-full rounded-xl border bg-mlc-surface/60 pl-10 pr-9 text-sm text-mlc-ink placeholder:text-mlc-muted/60 transition-all focus:bg-white focus:outline-none focus:ring-4 ${
                             regErrors.password
                               ? "border-rose-500 focus:ring-rose-100"
@@ -2424,6 +2428,9 @@ export function LoginView({
                           )}
                         </button>
                       </div>
+                      <p className="mt-1 text-[11px] text-mlc-muted">
+                        {getPasswordRuleHint(isVi)}
+                      </p>
                       {regErrors.password && (
                         <p className="mt-1 text-[11px] text-rose-600">
                           {regErrors.password}

@@ -13,8 +13,7 @@ export function AdminRolesView() {
       <div>
         <h2 className="text-xl font-bold text-stone-950">Vai trò & Quyền</h2>
         <p className="mt-1 text-sm text-stone-600">
-          Ma trận chỉ đọc từ `GET /api/roles` và `GET /api/permissions`. Thay
-          đổi quyền thuộc G3.
+          Ma trận phân quyền và danh sách quyền hạn chi tiết của từng vai trò trong hệ thống.
         </p>
       </div>
 
@@ -41,7 +40,7 @@ export function AdminRolesView() {
                     </span>
                   </div>
                   <p className="mt-1 text-xs leading-5 text-stone-600">
-                    {role.description || "Backend chưa cung cấp mô tả."}
+                    {role.description || "Chưa có thông tin mô tả."}
                   </p>
                 </div>
               ))}
@@ -68,7 +67,7 @@ export function AdminRolesView() {
                     {permission.name}
                   </p>
                   <p className="mt-1 text-xs leading-5 text-stone-600">
-                    {permission.description || "Backend chưa cung cấp mô tả."}
+                    {permission.description || "Chưa có thông tin mô tả."}
                   </p>
                 </div>
               ))}

@@ -5,7 +5,7 @@ export function AdminResourceState({
   resource,
   onRetry,
   emptyTitle = "Chưa có dữ liệu",
-  emptyDescription = "Endpoint chưa trả về bản ghi nào.",
+  emptyDescription = "Hệ thống chưa có bản ghi nào.",
   children,
 }) {
   if (resource.status === "idle" || resource.status === "loading") {

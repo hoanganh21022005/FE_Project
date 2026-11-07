@@ -338,7 +338,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
     const numericPackageId = Number(packageId);
 
     if (apiEnabled && !isTransactionResumed && (!selectedPkg || selectedPkg.price == null || !Number.isFinite(Number(selectedPkg.price)) || Number(selectedPkg.price) < 0)) {
-      setSubmitError(language === 'vi' ? 'Backend khĂ´ng tráº£ vá» giĂ¡ há»£p lá»‡ cho gĂ³i Ä‘Ă£ chá»n. Giao dá»‹ch chÆ°a Ä‘Æ°á»£c gá»­i.' : 'Backend did not provide a valid price for this package. No transaction was submitted.');
+      setSubmitError(language === 'vi' ? 'Hệ thống chưa cung cấp mức giá hợp lệ cho gói đã chọn. Giao dịch chưa được gửi đi.' : 'The system did not provide a valid price for this package. No transaction was submitted.');
       setSubmitting(false);
       return;
     }
@@ -766,7 +766,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
             </div>
             {apiEnabled && selectedPkg?.price == null && (
               <p role="alert" className="text-xs text-rose-700">
-                {language === 'vi' ? 'Backend chưa trả về giá gói; không thể bắt đầu giao dịch.' : 'Backend did not return this package price; payment is unavailable.'}
+                {language === 'vi' ? 'Chưa nhận được thông tin giá gói; không thể bắt đầu giao dịch.' : 'Package price is missing; payment is unavailable.'}
               </p>
             )}
 

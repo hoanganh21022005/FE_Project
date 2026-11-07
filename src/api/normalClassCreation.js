@@ -1,7 +1,7 @@
 import { toClassRequest } from './mappers.js'
 
 export const NORMAL_CLASS_API_BLOCKED_MESSAGE =
-  'Không thể lưu lớp Normal ở trạng thái Draft trong API mode: Backend không hỗ trợ lưu Draft (chỉ hỗ trợ tạo lớp Normal nguyên khối cùng 12 session trong một transaction qua POST /api/classes/normal-with-sessions).'
+  'Hệ thống hiện chưa hỗ trợ lưu lớp học ở trạng thái Nháp; lớp học cần được khởi tạo hoàn chỉnh cùng đầy đủ 12 buổi học.'
 
 export const isNormalClassApiCreationBlocked = (apiEnabled, targetStatus = 'Open') =>
   Boolean(apiEnabled) && String(targetStatus || 'Open').trim().toLowerCase() === 'draft'
