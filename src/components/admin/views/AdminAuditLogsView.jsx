@@ -57,8 +57,7 @@ export function AdminAuditLogsView() {
             Nhật ký hoạt động
           </h2>
           <p className="mt-1 text-sm text-stone-600">
-            Dữ liệu DTO thật từ `GET /api/audit-logs`; actor thiếu tên được hiển
-            thị bằng ID hoặc System.
+            Ghi nhận toàn bộ thao tác bảo mật và sự kiện hệ thống; tài khoản không định danh hiển thị theo ID hoặc Hệ thống.
           </p>
         </div>
         <label className="relative w-full md:w-80">
@@ -112,7 +111,7 @@ export function AdminAuditLogsView() {
                       {log.targetLabel}
                     </td>
                     <td className="px-4 py-3 text-stone-600 max-w-xl leading-5">
-                      {log.detail || "Backend không cung cấp chi tiết."}
+                      {log.detail || "Không có thông tin chi tiết."}
                     </td>
                   </tr>
                 ))}

@@ -366,8 +366,8 @@ export function MemberInvoicesView() {
         status: "error",
         invoice: null,
         error: isVi
-          ? "Không thể xác minh trạng thái thanh toán khi chưa kết nối Backend."
-          : "Payment status cannot be verified without the Backend.",
+          ? "Không thể xác minh trạng thái thanh toán khi chưa kết nối máy chủ."
+          : "Payment status cannot be verified without server connection.",
       })
       return () => {
         active = false
@@ -416,8 +416,8 @@ export function MemberInvoicesView() {
           error: getErrorMessage(
             err,
             isVi
-              ? "Không thể xác minh trạng thái hóa đơn từ Backend. Vui lòng tải lại hoặc liên hệ trung tâm; đừng thanh toán lại lúc này."
-              : "The invoice status could not be verified with the Backend. Refresh or contact the center; do not pay again yet.",
+              ? "Không thể xác minh trạng thái hóa đơn từ hệ thống. Vui lòng tải lại hoặc liên hệ trung tâm; đừng thanh toán lại lúc này."
+              : "The invoice status could not be verified with the system. Refresh or contact the center; do not pay again yet.",
           ),
         })
       })
@@ -574,8 +574,8 @@ export function MemberInvoicesView() {
         getErrorMessage(
           err,
           isVi
-            ? "Không thể tải chi tiết hóa đơn từ Backend."
-            : "Could not load invoice details from the Backend.",
+            ? "Không thể tải chi tiết hóa đơn từ hệ thống."
+            : "Could not load invoice details from the system.",
         ),
       )
     } finally {
@@ -1063,7 +1063,7 @@ export function MemberInvoicesView() {
                   <div className="rounded-lg bg-amber-50 p-2 text-amber-800 font-semibold">
                     {isVi
                       ? "Giao dịch đang chờ đối soát từ hệ thống."
-                      : "Payment requires backend reconciliation."}
+                      : "Payment requires system reconciliation."}
                   </div>
                 )}
               </div>
@@ -1113,65 +1113,65 @@ function PaymentReturnBanner({
   const copy = {
     checking: {
       title: isVi ? "Đang kiểm tra trạng thái thanh toán" : "Checking payment status",
-      description: isVi ? "Đang lấy trạng thái hóa đơn từ Backend. Vui lòng chờ và không thanh toán lại trong lúc kiểm tra." : "The invoice status is being retrieved from the Backend. Please wait and do not pay again while it is being checked.",
+      description: isVi ? "Đang lấy trạng thái hóa đơn từ hệ thống. Vui lòng chờ và không thanh toán lại trong lúc kiểm tra." : "The invoice status is being retrieved from the system. Please wait and do not pay again while it is being checked.",
     },
     unverified: {
       title: isVi ? "Chưa xác minh được thanh toán" : "Payment not yet verified",
-      description: lookupError || (isVi ? "Chưa có trạng thái hóa đơn xác nhận từ Backend. Vui lòng tải lại hóa đơn hoặc liên hệ trung tâm; đừng thanh toán lại lúc này." : "There is no confirmed invoice status from the Backend yet. Refresh invoices or contact the center; do not pay again yet."),
+      description: lookupError || (isVi ? "Chưa có trạng thái hóa đơn xác nhận từ hệ thống. Vui lòng tải lại hóa đơn hoặc liên hệ trung tâm; đừng thanh toán lại lúc này." : "There is no confirmed invoice status from the system yet. Refresh invoices or contact the center; do not pay again yet."),
     },
     paid: {
       title: isVi ? "Hóa đơn đã thanh toán" : "Invoice paid",
-      description: isVi ? "Backend xác nhận hóa đơn đã thanh toán." : "The Backend confirms that the invoice is paid.",
+      description: isVi ? "Hệ thống xác nhận hóa đơn đã thanh toán thành công." : "The system confirms that the invoice is paid.",
     },
     reconciliation: {
       title: isVi ? "Thanh toán đang cần đối soát" : "Payment requires reconciliation",
-      description: isVi ? "Backend xác nhận hóa đơn đã thanh toán nhưng đang cần đối soát. Chưa thể xác nhận quyền học đã được kích hoạt." : "The Backend reports the invoice as paid but requires reconciliation. Course access activation is not confirmed.",
+      description: isVi ? "Hệ thống xác nhận hóa đơn đã thanh toán nhưng đang cần đối soát. Chưa thể xác nhận quyền học đã được kích hoạt." : "The system reports the invoice as paid but requires reconciliation. Course access activation is not confirmed.",
     },
     pending: {
       title: isVi ? "Thanh toán chưa được xác minh" : "Payment has not been verified",
-      description: isVi ? "Hóa đơn hiện vẫn Pending theo Backend. Có thể giao dịch đang được cập nhật; vui lòng tải lại sau hoặc liên hệ trung tâm. Đừng thanh toán lại lúc này." : "The Backend currently reports the invoice as pending. The transaction may still be updating; refresh later or contact the center. Do not pay again yet.",
+      description: isVi ? "Hóa đơn hiện vẫn Chờ thanh toán. Có thể giao dịch đang được cập nhật; vui lòng tải lại sau hoặc liên hệ trung tâm. Đừng thanh toán lại lúc này." : "The invoice is currently pending. The transaction may still be updating; refresh later or contact the center. Do not pay again yet.",
     },
     expired: {
       title: isVi ? "Hóa đơn đã hết hạn" : "Invoice expired",
-      description: isVi ? "Backend xác nhận hóa đơn đã hết hạn. Nếu bạn đã bị trừ tiền, vui lòng liên hệ trung tâm để được kiểm tra." : "The Backend confirms that the invoice has expired. If you were charged, contact the center for a review.",
+      description: isVi ? "Hệ thống ghi nhận hóa đơn đã hết hạn. Nếu bạn đã bị trừ tiền, vui lòng liên hệ trung tâm để được kiểm tra." : "The system confirms that the invoice has expired. If you were charged, contact the center for a review.",
     },
     failed: {
-      title: isVi ? "Backend ghi nhận thanh toán thất bại" : "Backend reports payment failed",
-      description: isVi ? "Đây là trạng thái hiện được Backend xác nhận. Nếu bạn đã bị trừ tiền, vui lòng liên hệ trung tâm." : "This is the status currently confirmed by the Backend. If you were charged, contact the center.",
+      title: isVi ? "Ghi nhận thanh toán thất bại" : "Payment failed",
+      description: isVi ? "Đây là trạng thái hiện được hệ thống xác nhận. Nếu bạn đã bị trừ tiền, vui lòng liên hệ trung tâm." : "This is the status currently confirmed by the system. If you were charged, contact the center.",
     },
     cancelled: {
       title: isVi ? "Hóa đơn đã hủy" : "Invoice cancelled",
-      description: isVi ? "Backend xác nhận hóa đơn đã hủy. Nếu bạn đã bị trừ tiền, vui lòng liên hệ trung tâm." : "The Backend confirms that the invoice was cancelled. If you were charged, contact the center.",
+      description: isVi ? "Hệ thống xác nhận hóa đơn đã hủy. Nếu bạn đã bị trừ tiền, vui lòng liên hệ trung tâm." : "The system confirms that the invoice was cancelled. If you were charged, contact the center.",
     },
     refunded: {
       title: isVi ? "Khoản thanh toán đã hoàn" : "Payment reversed",
-      description: isVi ? "Backend ghi nhận khoản thanh toán đã được hoàn." : "The Backend reports that the payment was reversed.",
+      description: isVi ? "Hệ thống ghi nhận khoản thanh toán đã được hoàn." : "The system reports that the payment was reversed.",
     },
   }[state]
   const verificationNotice = (() => {
     if (verification?.running) {
       return isVi
-        ? "Đang yêu cầu Backend đối soát giao dịch. Trạng thái thanh toán vẫn lấy từ hóa đơn Backend."
-        : "The Backend is checking this transaction. Payment status still comes from the Backend invoice."
+        ? "Đang yêu cầu hệ thống đối soát giao dịch. Trạng thái thanh toán vẫn lấy từ hóa đơn hệ thống."
+        : "The system is checking this transaction. Payment status still comes from the system invoice."
     }
     if (verification?.error) return verification.error
     switch (verification?.status) {
       case "VERIFIED_PAID":
         return isVi
-          ? "Backend đã xác minh giao dịch; hóa đơn đang được tải lại để lấy trạng thái chính thức."
-          : "The Backend verified the transaction; the invoice is being refreshed for its current status."
+          ? "Hệ thống đã xác minh giao dịch; hóa đơn đang được tải lại để lấy trạng thái chính thức."
+          : "The system verified the transaction; the invoice is being refreshed for its current status."
       case "ALREADY_PAID":
         return isVi
-          ? "Backend cho biết giao dịch đã được ghi nhận trước đó; không cần thanh toán lần nữa."
-          : "The Backend reports this transaction was already recorded. Do not pay again."
+          ? "Hệ thống cho biết giao dịch đã được ghi nhận trước đó; không cần thanh toán lần nữa."
+          : "The system reports this transaction was already recorded. Do not pay again."
       case "RETRY_LATER":
         return retrySecondsRemaining > 0
           ? isVi ? `Chưa thể kiểm tra lại. Có thể thử lại sau ${retrySecondsRemaining} giây.` : `Verification is cooling down. Try again in ${retrySecondsRemaining} seconds.`
           : isVi ? "Đã hết thời gian chờ. Nhấn Tải lại để thử xác minh lại giao dịch." : "The cooldown has ended. Refresh to check the transaction again."
       case "NOT_CONFIRMED":
         return isVi
-          ? "Backend chưa xác nhận được giao dịch. Đây chưa phải kết luận thanh toán thất bại; vui lòng chờ hoặc liên hệ trung tâm, không thanh toán lại lúc này."
-          : "The Backend could not confirm the transaction. This does not mean payment failed; wait or contact the center and do not pay again yet."
+          ? "Hệ thống chưa xác nhận được giao dịch. Đây chưa phải kết luận thanh toán thất bại; vui lòng chờ hoặc liên hệ trung tâm, không thanh toán lại lúc này."
+          : "The system could not confirm the transaction. This does not mean payment failed; wait or contact the center and do not pay again yet."
       case "QUERY_UNAVAILABLE":
         return isVi
           ? "Kênh truy vấn VNPay hiện chưa khả dụng. Trạng thái hóa đơn được giữ nguyên; vui lòng thử lại sau hoặc liên hệ trung tâm."
@@ -1182,12 +1182,12 @@ function PaymentReturnBanner({
           : "The original payment attempt was not found. Contact the center for reconciliation."
       case "DISABLED":
         return isVi
-          ? "Backend chưa bật chức năng xác minh giao dịch. Hãy dùng trạng thái hóa đơn hiện tại hoặc liên hệ trung tâm."
-          : "The Backend has not enabled transaction verification. Use the current invoice status or contact the center."
+          ? "Chức năng tự động xác minh giao dịch hiện đang tạm đóng. Hãy dùng trạng thái hóa đơn hiện tại hoặc liên hệ trung tâm."
+          : "Automated transaction verification is currently paused. Use the current invoice status or contact the center."
       case "VERIFIED_ONLY":
         return isVi
-          ? "Có phản hồi xác minh nhưng hóa đơn chưa được Backend xác nhận Paid. Quyền học chưa được xác nhận."
-          : "A verification response was received, but the Backend has not marked the invoice Paid. Course access is not confirmed."
+          ? "Có phản hồi xác minh nhưng hóa đơn chưa được xác nhận Đã thanh toán. Quyền học chưa được xác nhận."
+          : "A verification response was received, but the invoice is not marked Paid. Course access is not confirmed."
       case "NOT_APPLICABLE":
         return isVi
           ? "Giao dịch không cần xác minh theo trạng thái hiện tại của hóa đơn."

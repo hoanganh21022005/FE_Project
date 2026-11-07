@@ -62,7 +62,11 @@ function Notice({ children, error = false }) {
 function formatRequestError(error, language) {
   const status = error?.status ?? error?.response?.status
   const message = getErrorMessage(error)
-  if (status === 404) return `BLOCKED BY BACKEND: ${message}`
+  if (status === 404) {
+    return language === 'vi'
+      ? `Dữ liệu chưa sẵn sàng: ${message}`
+      : `Data not available: ${message}`
+  }
   if (status === 403) {
     return language === 'vi'
       ? `Tài khoản không có quyền đọc dữ liệu này. ${message}`
@@ -221,7 +225,7 @@ export function ManagerDashboardInsights({ navigate }) {
         <Panel
           className="xl:col-span-3"
           title={vi ? 'Xu hướng doanh thu' : 'Revenue trend'}
-          subtitle={vi ? 'Dữ liệu tổng hợp từ báo cáo Backend.' : 'Aggregated backend report data.'}
+          subtitle={vi ? 'Dữ liệu tổng hợp từ hệ thống quản lý.' : 'Aggregated system report data.'}
           icon={TrendingUp}
           action={<div className="flex gap-1 rounded-md bg-slate-100 p-1">
             {[7, 30].map((days) => <button key={days} type="button" aria-pressed={revenueRange === days} onClick={() => setRevenueRange(days)} className={`rounded px-2.5 py-1.5 text-[10px] font-semibold ${revenueRange === days ? 'bg-white text-brand-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>{days} {vi ? 'ngày' : 'days'}</button>)}
@@ -230,7 +234,7 @@ export function ManagerDashboardInsights({ navigate }) {
           {revenueLoading ? <p role="status" className="py-8 text-center text-xs text-slate-500">{vi ? 'Đang tải báo cáo doanh thu…' : 'Loading revenue report…'}</p>
             : revenueError ? <Notice error>{formatRequestError(revenueError, language)}</Notice>
               : revenueReport?.totalTransactions === 0 ? <p className="py-8 text-center text-xs text-slate-500">{vi ? 'Không có giao dịch Paid trong khoảng thời gian này.' : 'No paid transactions in this period.'}</p>
-                : revenueTimeline.length === 0 ? <Notice>{vi ? 'BLOCKED BY BACKEND: Báo cáo chưa cung cấp chuỗi doanh thu theo ngày có thể xác minh.' : 'BLOCKED BY BACKEND: The report does not provide a verifiable daily revenue timeline.'}</Notice>
+                : revenueTimeline.length === 0 ? <Notice>{vi ? 'Dữ liệu chưa sẵn sàng: Báo cáo chưa cung cấp chuỗi doanh thu theo ngày.' : 'Data not available: The report does not provide a daily revenue timeline.'}</Notice>
                   : <>
                     <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                       <span className="text-[11px] text-slate-500">{revenueStartDate} – {today}</span>
@@ -258,12 +262,12 @@ export function ManagerDashboardInsights({ navigate }) {
         <Panel
           className="xl:col-span-2"
           title={vi ? 'Tình trạng lớp học' : 'Class status'}
-          subtitle={vi ? 'Theo trạng thái Backend đã xác nhận.' : 'Based on recognized backend statuses.'}
+          subtitle={vi ? 'Theo trạng thái lớp học đã xác nhận.' : 'Based on confirmed class statuses.'}
           icon={Activity}
           action={<button type="button" onClick={() => goTo('/manager/classes')} aria-label={vi ? 'Mở quản lý lớp' : 'Open class management'} className="rounded p-2 text-brand-primary hover:bg-brand-blue-soft"><ArrowRight className="h-4 w-4" /></button>}
         >
           {managerDataLoading ? <p role="status" className="py-8 text-center text-xs text-slate-500">{vi ? 'Đang tải danh sách lớp…' : 'Loading classes…'}</p>
-            : !classListComplete ? <Notice error>{vi ? `BLOCKED BY BACKEND: Chưa xác minh danh sách lớp đầy đủ (đã tải ${classes.length}, KPI Backend báo ${classTotal ?? '—'}). Không hiển thị phân bố có thể gây hiểu nhầm.` : `BLOCKED BY BACKEND: Class list completeness is unverified (${classes.length} loaded; backend KPI reports ${classTotal ?? '—'}). A distribution could be misleading.`}</Notice>
+            : !classListComplete ? <Notice error>{vi ? `Đang đồng bộ dữ liệu: Danh sách lớp học đang được cập nhật (đã tải ${classes.length}, tổng số theo chỉ số là ${classTotal ?? '—'}).` : `Synchronizing data: Class list is being updated (${classes.length} loaded; reported total is ${classTotal ?? '—'}).`}</Notice>
               : classTotal === 0 ? <p className="py-8 text-center text-xs text-slate-500">{vi ? 'Chưa có lớp học.' : 'No classes found.'}</p>
                 : <div className="space-y-3">
                   {classStatusCounts.map((status) => {

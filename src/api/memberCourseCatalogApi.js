@@ -4,9 +4,9 @@ import { extractList, isValidNumericId } from './schemaValidators.js'
 
 const readArray = (response, resourceName) => {
   const rows = extractList(response)
-  if (!Array.isArray(rows)) throw new Error(`Backend trả về danh sách ${resourceName} không đúng định dạng.`)
+  if (!Array.isArray(rows)) throw new Error(`Danh sách ${resourceName} trả về không đúng định dạng.`)
   if (rows.some((item) => !item || typeof item !== 'object' || Array.isArray(item))) {
-    throw new Error(`Backend trả về bản ghi ${resourceName} không hợp lệ.`)
+    throw new Error(`Bản ghi ${resourceName} trả về không hợp lệ.`)
   }
   return rows
 }

@@ -1027,10 +1027,10 @@ export function CoachAssignedMembersView() {
           [attemptSubId]: {
             ...newAttemptSnapshot,
             status: "conflict_unknown",
-            error: errMessage || "Xung đột không xác định từ máy chủ (HTTP 409).",
+            error: errMessage || "Xung đột lịch tập trên máy chủ. Vui lòng đối soát lại lịch.",
           },
         }))
-        showToast?.(`Xung đột không xác định (HTTP 409): ${errMessage}. Vui lòng đối soát lại lịch.`, "error")
+        showToast?.(`Xung đột lịch tập: ${errMessage}. Vui lòng đối soát lại lịch.`, "error")
       } else if (
         !status ||
         status >= 500 ||

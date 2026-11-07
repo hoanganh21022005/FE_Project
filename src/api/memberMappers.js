@@ -100,8 +100,8 @@ export function toMemberRequest(input = {}) {
   }
 
   // Only include password if a non-empty string is explicitly provided
-  if (typeof input.password === 'string' && input.password.trim().length > 0) {
-    payload.password = input.password.trim();
+  if (typeof input.password === 'string' && input.password.length > 0) {
+    payload.password = input.password;
   }
 
   return payload;

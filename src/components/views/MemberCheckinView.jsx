@@ -822,7 +822,7 @@ export function MemberCheckinView() {
         if (!mountedRef.current || !visibleRef.current) return
         try {
           const result = await getMemberCheckinCode()
-          if (!result?.payload) throw new Error("QR payload missing")
+          if (!result?.payload) throw new Error("Mã QR không khả dụng")
           if (!mountedRef.current || !visibleRef.current) return
 
           const receivedAt = Date.now()

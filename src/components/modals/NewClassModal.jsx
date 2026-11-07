@@ -917,7 +917,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
       const durationMinutes = (Number(endTime.split(":")[0]) - Number(startTime.split(":")[0])) * 60
         + Number(endTime.split(":")[1]) - Number(startTime.split(":")[1])
       if (durationMinutes !== 90) {
-        showToast("Theo API, mỗi buổi học phải kéo dài đúng 90 phút.", "error")
+        showToast("Theo quy định trung tâm, mỗi buổi học phải kéo dài đúng 90 phút.", "error")
         return
       }
       if (selectedSubject && selectedSubject.outdoor === null) {
@@ -938,7 +938,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
       }
     }
     if (apiEnabled && targetStatus !== "Draft" && (!targetSubjectId || !Number.isFinite(normalPrice) || !selectedRoomObj?.id)) {
-      showToast("Thiếu môn học, normalPrice hoặc sân/phòng từ API. Vui lòng tải lại danh mục.", "error")
+      showToast("Thiếu thông tin môn học, học phí hoặc sân/phòng. Vui lòng tải lại danh mục.", "error")
       return
     }
 
@@ -981,15 +981,15 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
       if (apiEnabled && targetStatus !== "Draft") {
         if (!Number.isInteger(payload.roomId) || payload.roomId <= 0) {
-          throw new Error("Mã sân/phòng từ API không hợp lệ.")
+          throw new Error("Thông tin sân/phòng đã chọn không hợp lệ.")
         }
         const createResult = await addClassSession(payload, {
           idempotencyStateRef: normalRequestIdStateRef,
         })
         if (!createResult?.success || !createResult.data?.id) {
-          throw new Error(createResult?.message || "API chưa trả về mã lớp học mới.")
+          throw new Error(createResult?.message || "Hệ thống chưa thể xác nhận mã lớp học mới.")
         }
-        showToast("Đã tạo lớp Normal và sinh đủ 12 buổi theo API.", "success")
+        showToast("Đã tạo lớp học và khởi tạo đủ lịch 12 buổi thành công.", "success")
         onClose()
         return
       }

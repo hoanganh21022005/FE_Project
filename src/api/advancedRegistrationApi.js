@@ -4,7 +4,7 @@ import { extractList, isValidNumericId } from './schemaValidators.js'
 const requireList = (response, name) => {
   const rows = extractList(response)
   if (!Array.isArray(rows) || rows.some((item) => !item || typeof item !== 'object' || Array.isArray(item))) {
-    throw new Error(`Backend trả về ${name} không đúng định dạng.`)
+    throw new Error(`Dữ liệu ${name} trả về không đúng định dạng.`)
   }
   return rows
 }
@@ -29,7 +29,7 @@ export const getCoachAdmissionCapacity = async (coachId, subjectId) => {
   const query = new URLSearchParams({ subjectId: String(subjectId) })
   const response = await httpClient.get(`/api/coaches/${coachId}/admission-capacity?${query.toString()}`)
   if (!response || typeof response !== 'object' || Array.isArray(response)) {
-    throw new Error('Backend trả về năng lực tiếp nhận không đúng định dạng.')
+    throw new Error('Dữ liệu năng lực tiếp nhận trả về không đúng định dạng.')
   }
   return response
 }

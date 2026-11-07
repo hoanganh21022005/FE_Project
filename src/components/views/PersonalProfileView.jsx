@@ -15,6 +15,7 @@ import { useSCMS } from "../../context/SCMSContext"
 import { memberApi } from "../../api/memberApi"
 import * as authApi from "../../api/authApi"
 import { getErrorMessage } from "../../api/apiErrors"
+import { validatePassword, getPasswordRuleHint } from "../../utils/passwordPolicy"
 
 const EMPTY = {
   name: "",
@@ -251,8 +252,8 @@ export function PersonalProfileView() {
       if (!remoteUrl) {
         throw new Error(
           isVi
-            ? "Backend chưa trả về đường dẫn ảnh đại diện (avatarUrl)."
-            : "Backend did not return an avatarUrl.",
+            ? "Không nhận được đường dẫn ảnh đại diện từ hệ thống."
+            : "System did not return an avatar image URL.",
         )
       }
       setAvatarUrl(remoteUrl)
@@ -274,8 +275,8 @@ export function PersonalProfileView() {
       const errMsg = getErrorMessage(
         err,
         isVi
-          ? "Không thể tải lên ảnh đại diện (API chưa hỗ trợ hoặc lỗi kết nối)."
-          : "Could not upload avatar image.",
+          ? "Không thể tải lên ảnh đại diện. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại sau."
+          : "Could not upload avatar image. Please check your connection and try again.",
       )
       setAvatarError(errMsg)
       if (typeof showToast === "function") showToast(errMsg, "error")
@@ -334,12 +335,9 @@ export function PersonalProfileView() {
       )
       return
     }
-    if (!newPassword || newPassword.length < 6) {
-      setPwdError(
-        isVi
-          ? "Mật khẩu mới phải có ít nhất 6 ký tự."
-          : "New password must be at least 6 characters.",
-      )
+    const pwdValidation = validatePassword(newPassword, isVi)
+    if (!pwdValidation.isValid) {
+      setPwdError(pwdValidation.error)
       return
     }
     if (newPassword !== confirmPassword) {
@@ -685,9 +683,12 @@ export function PersonalProfileView() {
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder={getPasswordRuleHint(isVi)}
                 className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary transition-colors"
               />
+              <span className="block text-[11px] text-slate-500">
+                {getPasswordRuleHint(isVi)}
+              </span>
             </label>
 
             <label className="space-y-1.5">

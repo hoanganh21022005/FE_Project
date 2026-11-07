@@ -116,7 +116,7 @@ export async function httpRequest(path, options = {}) {
     const apiError = createApiError(
       response.status,
       body,
-      `Backend returned HTTP ${response.status}; expected HTTP ${expectedStatus}.`,
+      `Máy chủ phản hồi trạng thái ${response.status}; kỳ vọng ${expectedStatus}.`,
     )
     apiError.endpoint = path
     throw apiError

@@ -9,23 +9,23 @@ import {
 import { useAdminData } from "../AdminDataContext.jsx"
 
 const metrics = [
-  { key: "users", label: "Người dùng", source: "GET /api/users", icon: Users },
+  { key: "users", label: "Người dùng", source: "Tài khoản người dùng & nhân sự", icon: Users },
   {
     key: "roles",
     label: "Vai trò",
-    source: "GET /api/roles",
+    source: "Danh mục vai trò phân quyền",
     icon: ShieldCheck,
   },
   {
     key: "permissions",
     label: "Quyền hệ thống",
-    source: "GET /api/permissions",
+    source: "Danh sách quyền chức năng",
     icon: FileKey2,
   },
   {
     key: "auditLogs",
     label: "Bản ghi nhật ký",
-    source: "GET /api/audit-logs",
+    source: "Nhật ký an toàn & thao tác",
     icon: ScrollText,
   },
 ]
@@ -99,8 +99,8 @@ export function AdminDashboard() {
             Tình trạng dữ liệu quản trị
           </h2>
           <p className="mt-1 text-sm text-stone-600 max-w-2xl">
-            Mỗi chỉ số được tính trực tiếp từ endpoint tương ứng. Một nguồn lỗi
-            không làm gián đoạn các nguồn còn lại.
+            Tổng hợp số liệu từ các dịch vụ quản trị trung tâm. Sự cố gián đoạn đơn lẻ
+            không ảnh hưởng tới các phân hệ dữ liệu khác.
           </p>
         </div>
         <span
@@ -110,7 +110,7 @@ export function AdminDashboard() {
               : "bg-amber-50 text-amber-900 border-amber-200"
           }`}
         >
-          {apiEnabled ? "Nguồn: Backend API" : "Nguồn: Mock UI mode"}
+          {apiEnabled ? "Nguồn: Hệ thống trực tuyến" : "Nguồn: Chế độ thử nghiệm"}
         </span>
       </div>
 
