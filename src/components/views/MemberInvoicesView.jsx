@@ -144,18 +144,10 @@ export function MemberInvoicesView() {
     setError("")
     try {
       if (apiEnabled) {
-        const isStaffOrManager = ["manager", "receptionist", "admin"].includes(
-          String(currentUser?.role || "").toLowerCase(),
-        )
-        const [invList, resList] = await Promise.all([
-          invoiceApi.getMemberOwnInvoices(),
-          isStaffOrManager
-            ? invoiceApi.getPaymentResolutions({ notifyForbidden: false }).catch(() => [])
-            : Promise.resolve([]),
-        ])
+        const invList = await invoiceApi.getMemberOwnInvoices()
         if (mountedRef.current && requestSeq === invoiceListRequestSeqRef.current) {
           setInvoices(invList)
-          setResolutions(Array.isArray(resList) ? resList : [])
+          setResolutions([])
         }
         return invList
       } else {
@@ -942,20 +934,6 @@ export function MemberInvoicesView() {
                         </button>}
                       </>
                     )}
-                    {apiEnabled && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setResolutionModalInvoice(invoice)
-                          setResolutionType("RECONCILIATION")
-                          setResolutionReason("")
-                        }}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
-                      >
-                        <Scale className="h-3.5 w-3.5" />
-                        {isVi ? "Đối soát" : "Resolve"}
-                      </button>
-                    )}
                   </div>
                 </article>
               )
@@ -963,58 +941,6 @@ export function MemberInvoicesView() {
           </div>
         )}
       </section>
-
-      {/* Payment Resolutions History (GET /api/payment-resolutions) */}
-      {resolutions.length > 0 && (
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 p-4">
-            <h2 className="font-bold text-slate-900 flex items-center gap-2">
-              <Scale className="h-4 w-4 text-brand-accent-dark" />
-              {isVi
-                ? "Yêu cầu đối soát & xử lý thanh toán"
-                : "Payment Resolutions"}
-            </h2>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {resolutions.map((res) => (
-              <div
-                key={res.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-4 text-xs"
-              >
-                <div>
-                  <div className="flex items-center gap-2 font-bold text-slate-900">
-                    <span>#{res.id}</span>
-                    <span>
-                      · {isVi ? "Hóa đơn" : "Invoice"} #{res.invoiceId}
-                    </span>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                      {res.type || "RECONCILIATION"}
-                    </span>
-                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800">
-                      {res.status || "OPEN"}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-slate-600">{res.reason || "—"}</p>
-                  {(res.outcomeNote || res.note) && (
-                    <p className="mt-0.5 text-slate-500 italic">
-                      {isVi ? "Phản hồi:" : "Note:"}{" "}
-                      {res.outcomeNote || res.note}
-                    </p>
-                  )}
-                  {res.evidence && (
-                    <p className="mt-0.5 text-slate-500">
-                      {isVi ? "Chứng từ:" : "Evidence:"} {res.evidence}
-                    </p>
-                  )}
-                </div>
-                <span className="text-slate-400">
-                  {formatDate(res.createdAt, isVi)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Receipt / Invoice Detail Modal (GET /api/invoices/{id}/receipt) */}
       {selectedInvoice && (
@@ -1155,96 +1081,7 @@ export function MemberInvoicesView() {
         </div>
       )}
 
-      {/* Open Payment Resolution Modal (POST /api/payment-resolutions) */}
-      {resolutionModalInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <form
-            onSubmit={handleSubmitResolution}
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl space-y-4"
-          >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-900">
-                {isVi
-                  ? "Yêu cầu đối soát thanh toán"
-                  : "Open Payment Resolution"}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setResolutionModalInvoice(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <p className="text-xs text-slate-600">
-              {isVi ? "Hóa đơn:" : "Invoice:"}{" "}
-              <strong>
-                {resolutionModalInvoice.invoiceCode ||
-                  formatInvoiceCode(resolutionModalInvoice.id)}
-              </strong>{" "}
-              ({formatMoney(resolutionModalInvoice.amount, isVi)})
-            </p>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                {isVi ? "Loại yêu cầu" : "Resolution Type"}
-              </label>
-              <select
-                value={resolutionType}
-                onChange={(e) => setResolutionType(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs outline-none focus:border-brand-primary"
-              >
-                <option value="RECONCILIATION">
-                  {isVi
-                    ? "Đối soát giao dịch chuyển khoản / VNPay"
-                    : "Payment Reconciliation"}
-                </option>
-                <option value="REFUND">
-                  {isVi ? "Yêu cầu hoàn tiền / hủy dịch vụ" : "Refund Request"}
-                </option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                {isVi ? "Lý do / Mã tham chiếu ngân hàng *" : "Reason / Note *"}
-              </label>
-              <textarea
-                rows={3}
-                required
-                value={resolutionReason}
-                onChange={(e) => setResolutionReason(e.target.value)}
-                placeholder={
-                  isVi
-                    ? "Nhập nội dung cần đối soát hoặc mã giao dịch ngân hàng..."
-                    : "Describe the issue or transaction reference..."
-                }
-                className="w-full rounded-lg border border-slate-300 p-2.5 text-xs outline-none focus:border-brand-primary"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setResolutionModalInvoice(null)}
-                className="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-              >
-                {isVi ? "Hủy" : "Cancel"}
-              </button>
-              <button
-                type="submit"
-                disabled={submittingResolution}
-                className="rounded-lg bg-brand-primary px-4 py-2 text-xs font-bold text-white hover:bg-brand-primary-hover disabled:opacity-50 cursor-pointer"
-              >
-                {submittingResolution
-                  ? isVi
-                    ? "Đang gửi..."
-                    : "Submitting..."
-                  : isVi
-                    ? "Gửi yêu cầu"
-                    : "Submit"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      {/* Open Payment Resolution Modal removed for Member */}
     </main>
   )
 }

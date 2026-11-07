@@ -75,7 +75,8 @@ try {
   assert.match(memberCourseCatalogSource, /normalizeCatalogStatus\(registration\.status\) !== 'accepted'/)
   assert.doesNotMatch(memberCourseCatalogSource, /bookClass|member-course-waitlist|localStorage/)
   assert.match(memberCourseCatalogSource, /paymentUrlIsSafe/)
-  assert.match(memberDetailSource, /currentPkg\.price == null/)
+  assert.doesNotMatch(memberDetailSource, /AssignPackageModal|Gán \/ Đăng ký gói mới/)
+  assert.match(memberDetailSource, /getMemberSubscriptions/)
 
   console.log('PASS: FE-11 mock API and view checks preserve missing values, explicit zero, and FE-10 Draft guard.')
 } finally {

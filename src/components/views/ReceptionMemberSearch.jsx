@@ -2,7 +2,6 @@ import React, { useState } from "react"
 import { useSCMS } from "../../context/SCMSContext"
 import { StatusBadge } from "../common/Badge"
 import { NewMemberModal } from "../modals/NewMemberModal"
-import { PaymentModal } from "../modals/PaymentModal"
 import { memberApi } from "../../api/memberApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import {
@@ -21,8 +20,6 @@ export function ReceptionMemberSearch() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [isNewMemberOpen, setIsNewMemberOpen] = useState(false)
-  const [isPayOpen, setIsPayOpen] = useState(false)
-  const [selectedMemPay, setSelectedMemPay] = useState("")
   const [actionBusyKey, setActionBusyKey] = useState("")
 
   const parseNumericId = (rawId) => {
@@ -197,18 +194,6 @@ export function ReceptionMemberSearch() {
                     <Unlock className="w-3.5 h-3.5" />
                     <span>Gỡ chặn đặt lịch</span>
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedMemPay(m.id)
-                      setIsPayOpen(true)
-                    }}
-                    className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    <CreditCard className="w-3.5 h-3.5" />
-                    <span>Gia hạn / Thu tiền</span>
-                  </button>
                 </div>
               </div>
             ))
@@ -219,11 +204,6 @@ export function ReceptionMemberSearch() {
       <NewMemberModal
         isOpen={isNewMemberOpen}
         onClose={() => setIsNewMemberOpen(false)}
-      />
-      <PaymentModal
-        isOpen={isPayOpen}
-        onClose={() => setIsPayOpen(false)}
-        preselectedMemberId={selectedMemPay}
       />
     </div>
   )
