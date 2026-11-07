@@ -1418,7 +1418,7 @@ export const SCMSProvider = ({ children }) => {
     }
   }, [])
 
-  const fetchStaff = useCallback(async () => {
+  const fetchStaff = useCallback(async ({ authoritative = false } = {}) => {
     if (!API_ENABLED) {
       setStaff(INITIAL_STAFF)
       return INITIAL_STAFF
@@ -1426,10 +1426,14 @@ export const SCMSProvider = ({ children }) => {
     setStaffLoading(true)
     setStaffError(null)
     try {
-      const data = await staffApi.getStaff({ notifyForbidden: false })
+      const data = await staffApi.getStaff({ notifyForbidden: false, strict: authoritative })
       setStaff(data)
       return data
     } catch (err) {
+      if (authoritative) {
+        setStaffError(getErrorMessage(err, "Không thể tải danh sách nhân viên từ máy chủ."))
+        throw err
+      }
       try {
         const publicCoachList = await memberPortalApi.getCoaches()
         if (Array.isArray(publicCoachList) && publicCoachList.length > 0) {
@@ -1642,12 +1646,6 @@ export const SCMSProvider = ({ children }) => {
         dashboard,
         setDashboardError,
       )
-      const auditLogsTask = loadResource(
-        language === "vi" ? "Nhật ký hoạt động" : "Audit logs",
-        () => managerApi.getAuditLogs({ notifyForbidden: false }),
-        setAuditLogs,
-        auditLogs,
-      )
       const classesTask = Promise.all([subjectsTask, staffTask]).then(
         ([loadedSubjects, loadedStaff]) =>
           loadResource(
@@ -1675,7 +1673,6 @@ export const SCMSProvider = ({ children }) => {
           roomsTask,
           packagesTask,
           dashboardTask,
-          auditLogsTask,
           classesTask,
         ])
         if (!active) return
@@ -2696,10 +2693,6 @@ export const SCMSProvider = ({ children }) => {
           created,
           ...prev.filter((item) => String(item.id) !== String(created.id)),
         ])
-        managerApi
-          .getAuditLogs({ notifyForbidden: false })
-          .then(setAuditLogs)
-          .catch((error) => showToast(getErrorMessage(error), "error"))
         showToast(
           language === "vi"
             ? "Đã tạo lớp học thành công!"

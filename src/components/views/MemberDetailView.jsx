@@ -6,6 +6,7 @@ import { memberApi } from '../../api/memberApi';
 import { membershipApi } from '../../api/membershipApi';
 import { invoiceApi } from '../../api/invoiceApi';
 import { getErrorMessage } from '../../api/apiErrors';
+import { isListAccessError, listLoadErrorMessage } from '../../api/listLoadState';
 import {
   applyMockPaymentSettlements,
   createMockPendingPayment,
@@ -49,8 +50,8 @@ export function MemberDetailView({ memberId, onBack }) {
   const [authoritativeMember, setAuthoritativeMember] = useState(null);
 
   // Subscriptions state
-  const [subscriptions, setSubscriptions] = useState([]);
-  const [subsLoading, setSubsLoading] = useState(false);
+  const [subscriptionState, setSubscriptionState] = useState({ memberId: null, data: [], loaded: false, loading: false, error: null });
+  const subscriptionRequestRef = useRef(0);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [, setMockTick] = useState(0);
 
@@ -126,22 +127,28 @@ export function MemberDetailView({ memberId, onBack }) {
     };
   }, [memberId, apiEnabled, fetchAuthoritativeDetail]);
 
-  const fetchSubscriptions = useCallback((targetId) => {
-    if (!apiEnabled || !targetId) {
-      setSubscriptions([]);
-      return;
+  const fetchSubscriptions = useCallback(async (targetId) => {
+    if (!apiEnabled || !targetId) return;
+    const requestId = ++subscriptionRequestRef.current;
+    const targetKey = String(targetId);
+    setSubscriptionState((previous) => previous.memberId === targetKey
+      ? { ...previous, loading: true }
+      : { memberId: targetKey, data: [], loaded: false, loading: true, error: null });
+    try {
+      const data = await membershipApi.getMemberSubscriptions(targetId, { strict: true });
+      if (requestId === subscriptionRequestRef.current) {
+        setSubscriptionState({ memberId: targetKey, data, loaded: true, loading: false, error: null });
+      }
+    } catch (error) {
+      if (requestId === subscriptionRequestRef.current) {
+        setSubscriptionState((previous) => previous.memberId === targetKey
+          ? { ...previous, loading: false, error }
+          : previous);
+      }
     }
-    setSubsLoading(true);
-    membershipApi.getMemberSubscriptions(targetId)
-      .then(subs => {
-        setSubscriptions(Array.isArray(subs) ? subs : []);
-      })
-      .catch(err => {
-        console.warn('Could not fetch subscriptions for member:', err);
-        setSubscriptions([]);
-      })
-      .finally(() => setSubsLoading(false));
   }, [apiEnabled]);
+
+  useEffect(() => () => { subscriptionRequestRef.current += 1; }, [memberId, apiEnabled]);
 
   useEffect(() => {
     if (apiEnabled && activeTab === 'membership' && memberId) {
@@ -162,7 +169,12 @@ export function MemberDetailView({ memberId, onBack }) {
       endDate: payment.endDate || null,
       status: payment.status === 'successful' ? 'active' : payment.status === 'pending' ? 'pending_payment' : payment.status,
     }));
-  const displayedSubscriptions = apiEnabled ? subscriptions : mockSubscriptions;
+  const currentSubscriptions = subscriptionState.memberId === String(memberId) ? subscriptionState : null;
+  const subsError = currentSubscriptions?.error || null;
+  const subsLoading = apiEnabled && (!currentSubscriptions || currentSubscriptions.loading);
+  const displayedSubscriptions = apiEnabled
+    ? (currentSubscriptions && !isListAccessError(subsError) ? currentSubscriptions.data : [])
+    : mockSubscriptions;
 
 
   if (apiEnabled && detailLoading) {
@@ -476,7 +488,7 @@ export function MemberDetailView({ memberId, onBack }) {
                 </p>
               </div>
             </div>
-          ) : (
+          ) : !apiEnabled ? (
             /* Empty State: No Membership Package */
             <div className="bg-white border border-slate-200 rounded-lg p-8 text-center space-y-3 shadow-2xs">
               <Package className="w-10 h-10 text-stone-400 mx-auto" />
@@ -489,7 +501,7 @@ export function MemberDetailView({ memberId, onBack }) {
                   : 'Choose a suitable package to start this member’s subscription.'}
               </p>
             </div>
-          )}
+          ) : null}
 
           {/* Action to Assign/Renew Package & Subscriptions Table */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
@@ -505,14 +517,17 @@ export function MemberDetailView({ memberId, onBack }) {
               <PlusCircle className="w-4 h-4" />
               <span>{language === 'vi' ? 'Gán / Đăng ký gói mới' : 'Assign / Renew Package'}</span>
             </button>
+            {apiEnabled && <button type="button" onClick={() => fetchSubscriptions(memberId)} disabled={subsLoading} className="min-h-[44px] px-4 py-2 border border-slate-300 rounded text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"><RefreshCw className="w-4 h-4" />{language === 'vi' ? 'Tải lại lịch sử' : 'Refresh history'}</button>}
           </div>
 
-          {subsLoading ? (
+          {subsError && <div role="alert" className="rounded border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">{listLoadErrorMessage(subsError, language, language === 'vi' ? 'lịch sử gói' : 'subscription history')}{currentSubscriptions?.loaded && !isListAccessError(subsError) && displayedSubscriptions.length > 0 && (language === 'vi' ? ' Dữ liệu hiển thị có thể đã cũ.' : ' Displayed data may be out of date.')}</div>}
+          {subsLoading && (
             <div className="py-6 text-center text-xs text-stone-500 flex items-center justify-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin text-brand-primary" />
               <span>{language === 'vi' ? 'Đang tải lịch sử gói...' : 'Loading subscriptions...'}</span>
             </div>
-          ) : displayedSubscriptions.length > 0 ? (
+          )}
+          {displayedSubscriptions.length > 0 ? (
             <div className="overflow-x-auto border border-slate-200 rounded bg-white">
               <table className="w-full text-left text-xs">
                 <thead className="bg-stone-50 text-stone-600 uppercase font-bold border-b border-slate-200">
@@ -549,11 +564,11 @@ export function MemberDetailView({ memberId, onBack }) {
                 </tbody>
               </table>
             </div>
-          ) : (
+          ) : !subsLoading && !subsError && (!apiEnabled || currentSubscriptions?.loaded) ? (
             <div className="p-4 bg-stone-50 border border-slate-200 rounded text-center text-xs text-stone-500">
               {language === 'vi' ? 'Chưa có bản ghi hợp đồng gói.' : 'No subscription records found.'}
             </div>
-          )}
+          ) : null}
         </div>
       )}
 

@@ -4,7 +4,7 @@ import { X, Eye, EyeOff, UserPlus, AlertCircle } from 'lucide-react';
 import { publicSports } from '../../data/publicCoaches';
 
 export function NewStaffModal({ isOpen, onClose }) {
-  const { staff, addStaff, t, language, apiEnabled } = useSCMS();
+  const { staff, addStaff, t, language, apiEnabled, currentUser } = useSCMS();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -63,7 +63,7 @@ export function NewStaffModal({ isOpen, onClose }) {
     }
 
     // Role validation (required by BE)
-    if (!formData.role) {
+    if (!['coach', 'receptionist', 'manager'].includes(formData.role)) {
       newErrors.role = language === 'vi' ? 'Vui lòng chọn vai trò' : 'Please select a role';
     }
 
@@ -89,6 +89,10 @@ export function NewStaffModal({ isOpen, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting || !validate()) return;
+    if (apiEnabled && !currentUser?.authorities?.includes('MANAGE_USERS')) {
+      setSubmitError(language === 'vi' ? 'Bạn không có quyền tạo nhân viên.' : 'You do not have permission to create staff.');
+      return;
+    }
 
     setIsSubmitting(true);
     setSubmitError(null);

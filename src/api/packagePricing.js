@@ -16,7 +16,7 @@ export function unclassifiedPackages(packages) {
 const HIDDEN_PACKAGE_IDS = new Set(['1', '2', '3', '4', '5', '9'])
 
 export function isVisibleManagerPackage(item) {
-  return item?.price !== 0 && !HIDDEN_PACKAGE_IDS.has(String(item?.id ?? ''))
+  return !HIDDEN_PACKAGE_IDS.has(String(item?.id ?? ''))
 }
 
 export function subjectPriceForType(subject, type) {

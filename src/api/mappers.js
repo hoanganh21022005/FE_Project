@@ -102,6 +102,7 @@ export function mapPackage(item) {
     rawStatus: item.status ?? null,
     packageType: item.packageType ?? null,
     totalCredit: asNumber(item.totalCredit),
+    subjectId: asNumber(item.subjectId),
   }
 }
 
@@ -319,10 +320,10 @@ export function mapAuditLog(item) {
     id: item.id,
     timestamp: item.createdAt ?? null,
     actorId: item.userId ?? null,
-    actorName: item.userId ? `User #${item.userId}` : "System",
+    actorName: item.userId != null ? `User #${item.userId}` : null,
     actorRole: null,
-    action: item.action ?? "UNKNOWN",
-    target: target || "N/A",
+    action: item.action ?? null,
+    target: target || null,
     previousValue: null,
     newValue: null,
     reason: item.detail ?? null,

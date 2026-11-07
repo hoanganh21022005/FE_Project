@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
-import { History, Search } from 'lucide-react';
-import { formatDateTime } from '../../locales/translations';
+import { History, RefreshCw, Search } from 'lucide-react';
+import { getAuditLogs } from '../../api/managerApi';
+import { getErrorMessage } from '../../api/apiErrors';
+import { UNAUTHORIZED_EVENT } from '../../api/httpClient';
+import { formatAdminDateTime } from '../admin/adminDateUtils';
 
 const ACTION_LABELS = {
   PAYMENT_RECORDED: { vi: 'Ghi nhận thanh toán', en: 'Record Payment' },
@@ -56,10 +59,60 @@ function cleanTargetText(targetStr, lang) {
 }
 
 export function AuditLogView() {
-  const { auditLogs, t, language } = useSCMS();
+  const { auditLogs, apiEnabled, currentUser, t, language, showToast } = useSCMS();
   const [searchTerm, setSearchTerm] = useState('');
+  const [resource, setResource] = useState({ scope: null, data: [], loaded: false, loading: false, error: null });
+  const requestRef = useRef(0);
+  const toastRef = useRef(showToast);
+  const languageRef = useRef(language);
+  toastRef.current = showToast;
+  languageRef.current = language;
+  const scope = String(currentUser?.id ?? currentUser?.email ?? '');
+  const canView = !apiEnabled || (Array.isArray(currentUser?.authorities) && currentUser.authorities.includes('VIEW_AUDIT_LOG'));
 
-  const filteredLogs = auditLogs.filter(log =>
+  const reload = useCallback(async () => {
+    if (!apiEnabled || !canView) return;
+    const request = ++requestRef.current;
+    setResource((previous) => previous.scope === scope
+      ? { ...previous, loading: true }
+      : { scope, data: [], loaded: false, loading: true, error: null });
+    try {
+      const data = await getAuditLogs({ notifyForbidden: false, notifyUnauthorized: false });
+      if (request === requestRef.current) setResource({ scope, data, loaded: true, loading: false, error: null });
+    } catch (error) {
+      if (request === requestRef.current) {
+        setResource((previous) => previous.scope === scope
+          ? { ...previous, loading: false, error }
+          : previous);
+        if (error?.status === 401 && typeof window !== 'undefined') {
+          toastRef.current?.(languageRef.current === 'vi' ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' : 'Your session has expired. Please sign in again.', 'error');
+          window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
+        }
+      }
+    }
+  }, [apiEnabled, canView, scope]);
+
+  useEffect(() => {
+    reload();
+    return () => { requestRef.current += 1; };
+  }, [reload]);
+
+  const current = resource.scope === scope ? resource : null;
+  const error = apiEnabled ? current?.error : null;
+  const accessError = [401, 403].includes(Number(error?.status));
+  const loading = apiEnabled && canView && (!current || current.loading);
+  const loaded = !apiEnabled || Boolean(current?.loaded);
+  const logs = apiEnabled ? (canView && !accessError && current ? current.data : []) : auditLogs;
+  const vi = language === 'vi';
+  const errorMessage = !canView || error?.status === 403
+    ? (vi ? 'Bạn không có quyền xem nhật ký hệ thống.' : 'You do not have permission to view audit logs.')
+    : error?.status === 401
+      ? (vi ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' : 'Your session has expired. Please sign in again.')
+      : error?.status === 0
+        ? (vi ? 'Không thể kết nối đến máy chủ. Vui lòng thử lại.' : 'Could not connect to the server. Please retry.')
+        : error ? (vi ? `Không tải được nhật ký: ${getErrorMessage(error)}` : `Could not load audit logs: ${getErrorMessage(error)}`) : '';
+
+  const filteredLogs = logs.filter(log =>
     (log.actorName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (log.action || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (log.target || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -84,6 +137,7 @@ export function AuditLogView() {
           </div>
         </div>
 
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
         <div className="relative w-full sm:w-64">
           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -94,9 +148,16 @@ export function AuditLogView() {
             className="w-full bg-slate-50 border border-slate-300 rounded pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:bg-white"
           />
         </div>
+        {apiEnabled && canView && <button type="button" onClick={reload} disabled={loading} className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded border border-slate-300 px-3 text-xs font-bold text-slate-700 disabled:opacity-50"><RefreshCw className="h-4 w-4" />{vi ? 'Tải lại' : 'Refresh'}</button>}
+        </div>
       </div>
 
+      {errorMessage && <div role="alert" className="rounded border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">{errorMessage}{loaded && logs.length > 0 && !accessError && (vi ? ' Dữ liệu hiển thị có thể đã cũ.' : ' Displayed data may be out of date.')}</div>}
+      {loading && <p role="status" className="rounded border border-slate-200 bg-white p-4 text-sm text-slate-500">{vi ? 'Đang tải nhật ký hệ thống…' : 'Loading audit logs…'}</p>}
+      {canView && !loading && !error && loaded && logs.length === 0 && <p className="rounded border border-slate-200 bg-white p-4 text-sm text-slate-500">{vi ? 'Chưa có nhật ký hệ thống.' : 'No system audit logs.'}</p>}
+      {canView && !loading && !error && loaded && logs.length > 0 && filteredLogs.length === 0 && <p className="rounded border border-slate-200 bg-white p-4 text-sm text-slate-500">{vi ? 'Không tìm thấy nhật ký phù hợp.' : 'No matching audit logs.'}</p>}
       {/* Audit Log Data Table */}
+      {filteredLogs.length > 0 && canView && !accessError && (
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px]">
@@ -106,7 +167,7 @@ export function AuditLogView() {
                 <th className="py-3 px-4">{t('actor')}</th>
                 <th className="py-3 px-4">{t('action')}</th>
                 <th className="py-3 px-4">{t('target')}</th>
-                <th className="py-3 px-4">{language === 'vi' ? 'Trước → Sau' : 'Before → After'}</th>
+                {!apiEnabled && <th className="py-3 px-4">{language === 'vi' ? 'Trước → Sau' : 'Before → After'}</th>}
                 <th className="py-3 px-4">{t('reason')}</th>
               </tr>
             </thead>
@@ -117,20 +178,20 @@ export function AuditLogView() {
                   : log.action;
 
                 const actorDisplay = language === 'en' && log.actorNameEn ? log.actorNameEn : log.actorName;
-                const targetDisplay = language === 'en' && log.targetEn ? log.targetEn : cleanTargetText(log.target, language);
+                const targetDisplay = apiEnabled ? log.target : language === 'en' && log.targetEn ? log.targetEn : cleanTargetText(log.target, language);
                 const reasonDisplay = language === 'en' && log.reasonEn ? log.reasonEn : log.reason;
 
                 return (
                   <tr key={log.id} className="hover:bg-slate-50 transition-colors h-[40px]">
-                    <td className="py-2 px-4 text-slate-500 tabular-nums whitespace-nowrap">{formatDateTime(log.timestamp, language)}</td>
-                    <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap">{actorDisplay}</td>
-                    <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap">{actionDisplay}</td>
-                    <td className="py-2 px-4 text-slate-800 font-medium whitespace-nowrap">{targetDisplay}</td>
-                    <td className="py-2 px-4 text-xs whitespace-nowrap">
+                    <td className="py-2 px-4 text-slate-500 tabular-nums whitespace-nowrap">{formatAdminDateTime(typeof log.timestamp === 'string' ? log.timestamp.replace(' ', 'T') : log.timestamp, '—', vi ? 'Ngày không hợp lệ' : 'Invalid date')}</td>
+                    <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap">{actorDisplay || '—'}</td>
+                    <td className="py-2 px-4 font-bold text-slate-900 whitespace-nowrap">{actionDisplay || '—'}</td>
+                    <td className="py-2 px-4 text-slate-800 font-medium whitespace-nowrap">{targetDisplay || '—'}</td>
+                    {!apiEnabled && <td className="py-2 px-4 text-xs whitespace-nowrap">
                       <span className="text-rose-800 font-semibold">{formatValue(log.previousValue, language)}</span>
                       <span className="text-slate-400 mx-1.5">&rarr;</span>
                       <span className="text-emerald-800 font-bold">{formatValue(log.newValue, language)}</span>
-                    </td>
+                    </td>}
                     <td className="py-2 px-4 text-slate-600 max-w-xs">{reasonDisplay || 'N/A'}</td>
                   </tr>
                 );
@@ -139,24 +200,15 @@ export function AuditLogView() {
           </table>
         </div>
 
-        {/* Table Pagination Footer */}
         <div className="flex items-center justify-between text-xs text-slate-500 p-3 border-t border-slate-200 bg-slate-50">
           <span>
             {language === 'vi'
               ? `Hiển thị 1-${filteredLogs.length} của ${filteredLogs.length} nhật ký`
               : `Showing 1-${filteredLogs.length} of ${filteredLogs.length} log entries`}
           </span>
-          <div className="flex items-center gap-1 text-[11px] tabular-nums">
-            <button disabled className="px-2 py-1 bg-white border border-slate-200 rounded opacity-50 cursor-not-allowed">
-              {language === 'vi' ? 'Trang trước' : 'Previous'}
-            </button>
-            <span className="px-2.5 py-1 bg-slate-900 text-white rounded font-bold">1</span>
-            <button disabled className="px-2 py-1 bg-white border border-slate-200 rounded opacity-50 cursor-not-allowed">
-              {language === 'vi' ? 'Trang sau' : 'Next'}
-            </button>
-          </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
