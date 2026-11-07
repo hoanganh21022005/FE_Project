@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency, formatDateTime } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
-import { PaymentModal } from '../modals/PaymentModal';
 import { invoiceApi } from '../../api/invoiceApi';
 import { getErrorMessage } from '../../api/apiErrors';
 import {
@@ -38,7 +37,6 @@ export function ReceptionPaymentsView() {
     showToast,
   } = useSCMS();
 
-  const [isPayOpen, setIsPayOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [, setSettlementTick] = useState(0);
@@ -90,16 +88,15 @@ export function ReceptionPaymentsView() {
   const searchInputId = useId();
   const statusSelectId = useId();
 
-  const canConfirmCash = !apiEnabled || (
-    ['receptionist', 'manager'].includes(String(currentUser?.role || '').toLowerCase())
-    && (
-      !Array.isArray(currentUser?.authorities)
-      || currentUser.authorities.length === 0
-      || currentUser.authorities.includes('MANAGE_INVOICES')
-      || currentUser.authorities.includes('RECORD_PAYMENT')
-      || currentUser.authorities.some((a) => String(a).toUpperCase().includes('RECEPTIONIST') || String(a).toUpperCase().includes('MANAGER'))
-    )
+  const isReceptionistWithManageInvoices = (
+    String(currentUser?.role || '').toLowerCase() === 'receptionist'
+    && Array.isArray(currentUser?.authorities)
+    && currentUser.authorities.includes('MANAGE_INVOICES')
   );
+
+  const canConfirmCash = !apiEnabled
+    ? ['receptionist', 'manager'].includes(String(currentUser?.role || '').toLowerCase())
+    : isReceptionistWithManageInvoices;
 
   const fetchInvoices = useCallback(async () => {
     if (!apiEnabled) return;
@@ -350,6 +347,33 @@ export function ReceptionPaymentsView() {
     e.preventDefault();
     if (!confirmingInvoice || confirmingRequestRef.current) return;
 
+    if (apiEnabled) {
+      // 1. Kiểm tra vai trò và quyền ngay trước khi gửi POST
+      const role = String(currentUser?.role || '').toLowerCase();
+      const hasManageInvoices = Array.isArray(currentUser?.authorities) && currentUser.authorities.includes('MANAGE_INVOICES');
+      if (role !== 'receptionist' || !hasManageInvoices) {
+        setConfirmError(
+          language === 'vi'
+            ? 'Chỉ nhân viên Lễ tân có quyền MANAGE_INVOICES mới được xác nhận thanh toán tiền mặt.'
+            : 'Only Receptionists with MANAGE_INVOICES authority can confirm cash payments.'
+        );
+        return;
+      }
+
+      // 2. Kiểm tra điều kiện hóa đơn ngay trước khi gửi POST: phải là Cash và Pending
+      const invStatus = String(confirmingInvoice.paymentStatus || confirmingInvoice.status || '').toLowerCase();
+      const isPending = invStatus === 'pending';
+      const isCash = isCashMethod(confirmingInvoice);
+      if (!isPending || !isCash) {
+        setConfirmError(
+          language === 'vi'
+            ? 'Chỉ có thể xác nhận thu tiền mặt cho hóa đơn Tiền mặt ở trạng thái Chờ thanh toán (Pending).'
+            : 'Only Cash invoices in Pending status can be confirmed.'
+        );
+        return;
+      }
+    }
+
     confirmingRequestRef.current = true;
     setIsConfirming(true);
     setConfirmError(null);
@@ -436,14 +460,6 @@ export function ReceptionPaymentsView() {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-700' : ''}`} />
             </button>
           )}
-
-          <button
-            onClick={() => setIsPayOpen(true)}
-            className="min-h-[44px] px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>{language === 'vi' ? 'Ghi Nhận Giao Dịch Mới' : 'New Desk Payment'}</span>
-          </button>
         </div>
       </div>
 
@@ -779,17 +795,6 @@ export function ReceptionPaymentsView() {
           </div>
         </div>
       )}
-
-      {/* Record Payment Modal */}
-      <PaymentModal
-        isOpen={isPayOpen}
-        onClose={() => setIsPayOpen(false)}
-        onSuccess={() => {
-          if (apiEnabled) {
-            fetchInvoices();
-          }
-        }}
-      />
     </div>
   );
 }

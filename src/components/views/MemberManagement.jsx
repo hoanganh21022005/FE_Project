@@ -3,7 +3,6 @@ import { useSCMS } from '../../context/SCMSContext';
 import { formatDate } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
 import { NewMemberModal } from '../modals/NewMemberModal';
-import { PaymentModal } from '../modals/PaymentModal';
 import {
   UserCheck,
   UserPlus,
@@ -34,8 +33,6 @@ export function MemberManagement({ onSelectMemberDetail }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isPayOpen, setIsPayOpen] = useState(false);
-  const [selectedMemberForPay, setSelectedMemberForPay] = useState('');
 
   // Quick stats: Count by membership package lifecycle only (account status is separate)
   const totalCount = members.length;
@@ -369,7 +366,6 @@ export function MemberManagement({ onSelectMemberDetail }) {
           }
         }}
       />
-      <PaymentModal isOpen={isPayOpen} onClose={() => setIsPayOpen(false)} preselectedMemberId={selectedMemberForPay} />
     </div>
   );
 }

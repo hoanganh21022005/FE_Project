@@ -108,10 +108,10 @@ try {
   assert.match(html, /Giá gói thành viên/)
   assert.match(html, /Chưa có dữ liệu/)
   assert.match(html, /0 ₫/)
-  assert.match(html, /Tạo gói mới/)
+  assert.doesNotMatch(html, /Tạo gói mới/)
   const noPermissionHtml = render({ ...mockValue, apiEnabled: true })
   assert.doesNotMatch(noPermissionHtml, /Tạo gói mới/)
-  assert.match(render({ ...mockValue, apiEnabled: true, currentUser: { authorities: ['MANAGE_PACKAGES'] } }), /Tạo gói mới/)
+  assert.doesNotMatch(render({ ...mockValue, apiEnabled: true, currentUser: { authorities: ['MANAGE_PACKAGES'] } }), /Tạo gói mới/)
 } finally {
   await server.close()
 }
