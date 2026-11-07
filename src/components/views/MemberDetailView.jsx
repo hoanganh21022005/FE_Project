@@ -7,6 +7,7 @@ import { membershipApi } from '../../api/membershipApi';
 import { invoiceApi } from '../../api/invoiceApi';
 import { getErrorMessage } from '../../api/apiErrors';
 import { isListAccessError, listLoadErrorMessage } from '../../api/listLoadState';
+import { canViewMemberSubscriptions } from '../../utils/paymentAccess.js';
 import {
   applyMockPaymentSettlements,
   createMockPendingPayment,
@@ -40,7 +41,8 @@ export function MemberDetailView({ memberId, onBack }) {
     payments,
     updateMemberProfile,
     apiEnabled,
-    language
+    language,
+    currentUser,
   } = useSCMS();
 
   const [activeTab, setActiveTab] = useState('personal'); // 'personal' or 'membership'
@@ -54,6 +56,7 @@ export function MemberDetailView({ memberId, onBack }) {
   const subscriptionRequestRef = useRef(0);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [, setMockTick] = useState(0);
+  const canViewSubscriptions = !apiEnabled || canViewMemberSubscriptions(currentUser);
 
   useEffect(() => subscribeMockSettlement(() => setMockTick((tick) => tick + 1)), []);
 
@@ -131,6 +134,16 @@ export function MemberDetailView({ memberId, onBack }) {
     if (!apiEnabled || !targetId) return;
     const requestId = ++subscriptionRequestRef.current;
     const targetKey = String(targetId);
+    if (!canViewSubscriptions) {
+      setSubscriptionState({
+        memberId: targetKey,
+        data: [],
+        loaded: false,
+        loading: false,
+        error: Object.assign(new Error('MANAGE_USERS or MANAGE_SUBSCRIPTIONS is required to view subscriptions.'), { status: 403 }),
+      });
+      return;
+    }
     setSubscriptionState((previous) => previous.memberId === targetKey
       ? { ...previous, loading: true }
       : { memberId: targetKey, data: [], loaded: false, loading: true, error: null });
@@ -146,7 +159,7 @@ export function MemberDetailView({ memberId, onBack }) {
           : previous);
       }
     }
-  }, [apiEnabled]);
+  }, [apiEnabled, canViewSubscriptions]);
 
   useEffect(() => () => { subscriptionRequestRef.current += 1; }, [memberId, apiEnabled]);
 
@@ -171,7 +184,7 @@ export function MemberDetailView({ memberId, onBack }) {
     }));
   const currentSubscriptions = subscriptionState.memberId === String(memberId) ? subscriptionState : null;
   const subsError = currentSubscriptions?.error || null;
-  const subsLoading = apiEnabled && (!currentSubscriptions || currentSubscriptions.loading);
+  const subsLoading = apiEnabled && canViewSubscriptions && (!currentSubscriptions || currentSubscriptions.loading);
   const displayedSubscriptions = apiEnabled
     ? (currentSubscriptions && !isListAccessError(subsError) ? currentSubscriptions.data : [])
     : mockSubscriptions;
@@ -509,18 +522,19 @@ export function MemberDetailView({ memberId, onBack }) {
               <Clock className="w-4 h-4 text-stone-600" />
               <span>{language === 'vi' ? 'Lịch sử gói hội viên' : 'Membership History'}</span>
             </h4>
-            <button
+            {!apiEnabled && <button
               type="button"
               onClick={() => setIsAssignModalOpen(true)}
               className="min-h-[44px] px-4 py-2 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
             >
               <PlusCircle className="w-4 h-4" />
               <span>{language === 'vi' ? 'Gán / Đăng ký gói mới' : 'Assign / Renew Package'}</span>
-            </button>
-            {apiEnabled && <button type="button" onClick={() => fetchSubscriptions(memberId)} disabled={subsLoading} className="min-h-[44px] px-4 py-2 border border-slate-300 rounded text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"><RefreshCw className="w-4 h-4" />{language === 'vi' ? 'Tải lại lịch sử' : 'Refresh history'}</button>}
+            </button>}
+            {apiEnabled && canViewSubscriptions && <button type="button" onClick={() => fetchSubscriptions(memberId)} disabled={subsLoading} className="min-h-[44px] px-4 py-2 border border-slate-300 rounded text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"><RefreshCw className="w-4 h-4" />{language === 'vi' ? 'Tải lại lịch sử' : 'Refresh history'}</button>}
           </div>
 
-          {subsError && <div role="alert" className="rounded border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">{listLoadErrorMessage(subsError, language, language === 'vi' ? 'lịch sử gói' : 'subscription history')}{currentSubscriptions?.loaded && !isListAccessError(subsError) && displayedSubscriptions.length > 0 && (language === 'vi' ? ' Dữ liệu hiển thị có thể đã cũ.' : ' Displayed data may be out of date.')}</div>}
+          {!canViewSubscriptions && <div role="alert" className="rounded border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">{language === 'vi' ? 'Bạn không có quyền xem lịch sử gói hội viên (MANAGE_USERS hoặc MANAGE_SUBSCRIPTIONS).' : 'You do not have permission to view subscription history (MANAGE_USERS or MANAGE_SUBSCRIPTIONS).'}</div>}
+          {subsError && canViewSubscriptions && <div role="alert" className="rounded border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">{listLoadErrorMessage(subsError, language, language === 'vi' ? 'lịch sử gói' : 'subscription history')}{currentSubscriptions?.loaded && !isListAccessError(subsError) && displayedSubscriptions.length > 0 && (language === 'vi' ? ' Dữ liệu hiển thị có thể đã cũ.' : ' Displayed data may be out of date.')}</div>}
           {subsLoading && (
             <div className="py-6 text-center text-xs text-stone-500 flex items-center justify-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin text-brand-primary" />
@@ -564,7 +578,7 @@ export function MemberDetailView({ memberId, onBack }) {
                 </tbody>
               </table>
             </div>
-          ) : !subsLoading && !subsError && (!apiEnabled || currentSubscriptions?.loaded) ? (
+          ) : canViewSubscriptions && !subsLoading && !subsError && (!apiEnabled || currentSubscriptions?.loaded) ? (
             <div className="p-4 bg-stone-50 border border-slate-200 rounded text-center text-xs text-stone-500">
               {language === 'vi' ? 'Chưa có bản ghi hợp đồng gói.' : 'No subscription records found.'}
             </div>
@@ -590,7 +604,7 @@ export function MemberDetailView({ memberId, onBack }) {
       )}
 
       {/* Assign Package Modal */}
-      {isAssignModalOpen && (
+      {isAssignModalOpen && !apiEnabled && (
         <AssignPackageModal
           isOpen={isAssignModalOpen}
           onClose={() => setIsAssignModalOpen(false)}

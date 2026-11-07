@@ -99,15 +99,15 @@ try {
     };
   ` })
   await send('Page.navigate', { url: `http://127.0.0.1:${vitePort}/manager/dashboard` })
-  await waitFor("document.body.textContent.includes('Tổng người dùng')")
+  await waitFor("document.body?.textContent.includes('Tổng người dùng')")
   assert.deepEqual(await evaluate('window.__auditCalls'), [])
   await send('Page.navigate', { url: `http://127.0.0.1:${vitePort}/manager/audit-logs` })
-  await waitFor("document.body.textContent.includes('Bạn không có quyền xem nhật ký hệ thống')")
+  await waitFor("document.body?.textContent.includes('Bạn không có quyền xem nhật ký hệ thống')")
   assert.deepEqual(await evaluate('window.__auditCalls'), [])
   assert.equal(await evaluate("document.body.textContent.includes('Chưa có nhật ký hệ thống')"), false)
   await evaluate("sessionStorage.setItem('audit_permission', 'yes')")
   await send('Page.reload')
-  await waitFor("document.body.textContent.includes('Chi tiết kiểm thử')")
+  await waitFor("document.body?.textContent.includes('Chi tiết kiểm thử')")
   const initialAuditCalls = (await evaluate('window.__auditCalls')).length
   assert.ok(initialAuditCalls >= 1 && initialAuditCalls <= 2)
   await pause(400)

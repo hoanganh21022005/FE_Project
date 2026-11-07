@@ -40,6 +40,9 @@ try {
   assert.match(requests[0].url, /keyword=member\+name/)
   assert.equal(requests[0].options.credentials, 'include')
 
+  replies.push({ status: 200, body: [] })
+  assert.deepEqual(await getInvoices({}, { notifyForbidden: false }), [], 'HTTP 200 with an empty list is a valid empty state.')
+
   for (const status of [400, 401, 403, 404, 409, 500]) {
     replies.push({ status, body: { code: `BE_${status}`, message: `Backend ${status}` } })
     await assert.rejects(

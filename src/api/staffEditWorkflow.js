@@ -24,7 +24,7 @@ export async function saveStaffChanges({ staff, form, roles, currentUserId, canE
   }
   if (!profileChanged && !roleChanged) return result
   if (profileChanged) {
-    const payload = { name: text(form.name), email: text(staff.email), role: staff.beRole || staff.role }
+    const payload = { name: nameChanged ? text(form.name) : text(staff.serverName ?? staff.name), email: text(staff.email), role: staff.beRole || staff.role }
     if (phoneChanged) payload.phone = text(form.phone)
     if (specializationChanged) payload.specialization = text(form.specialization)
     try {
@@ -59,7 +59,7 @@ export async function saveStaffChanges({ staff, form, roles, currentUserId, canE
       result.role = { state: 'unconfirmed', error: new Error('Vai trò trong danh sách vừa tải chưa khớp với yêu cầu.') }
     }
     if (result.profile.state === 'saved' && (
-      (nameChanged && text(result.latest.name) !== text(form.name)) ||
+      (nameChanged && text(result.latest.serverName ?? result.latest.name) !== text(form.name)) ||
       (phoneChanged && text(result.latest.phone) !== text(form.phone)) ||
       (specializationChanged && text(result.latest.specialization) !== text(form.specialization))
     )) {

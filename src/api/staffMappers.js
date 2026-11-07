@@ -92,6 +92,7 @@ export function mapStaff(dto) {
     userId: id,
     code: dto.code || (id ? `STF-${String(id).padStart(3, "0")}` : "STF-NEW"),
     name,
+    serverName: rawName,
     email: dto.email ? String(dto.email).trim() : "",
     phone: dto.phone ? String(dto.phone).trim() : "",
     role,

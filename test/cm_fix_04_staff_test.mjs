@@ -20,7 +20,7 @@ const dependencies = {
   updateProfile: async (id, data) => {
     calls.push({ method: 'PUT', id, data })
     if (failProfile) throw failProfile
-    state = { ...state, name: data.name, ...(data.phone !== undefined ? { phone: data.phone } : {}) }
+    state = { ...state, name: data.name, serverName: data.name, ...(data.phone !== undefined ? { phone: data.phone } : {}) }
     return { ...state, userId: id }
   },
   updateRole: async (id, roleId) => {
@@ -42,6 +42,30 @@ assert.equal(calls[0].id, 42)
 assert.equal(calls[0].data.role, 'Coach')
 assert.equal(result.profile.state, 'saved')
 assert.equal(result.role.state, 'unchanged')
+
+reset()
+const correctedName = mapStaff({ id: 42, name: 'Tran Thi Huong', email: 'lan@example.com', phone: '0123', role: 'Coach', specialization: 'Tennis' })
+state = { ...correctedName }
+result = await saveStaffChanges({ ...dependencies, staff: correctedName, form: { name: correctedName.name, phone: '9999', role: 'coach', specialization: 'Tennis' } })
+assert.equal(calls[0].data.name, 'Tran Thi Huong')
+assert.equal(result.profile.state, 'saved')
+
+reset()
+result = await saveStaffChanges({
+  ...dependencies,
+  form: { ...form, name: 'Tran Thi Huong' },
+  reloadStaff: async () => [mapStaff({ id: 42, name: 'Tran Thi Huong', email: 'lan@example.com', phone: '0123', role: 'Coach', specialization: 'Tennis' })],
+})
+assert.equal(result.profile.state, 'saved')
+assert.equal(result.latest.name, 'Trần Thị Hương')
+
+reset()
+result = await saveStaffChanges({ ...dependencies, form: { ...form, name: 'Lan mới', role: 'receptionist' } })
+assert.deepEqual(calls.map((call) => call.method), ['PUT', 'PATCH', 'GET'])
+assert.equal(result.profile.state, 'saved')
+assert.equal(result.role.state, 'saved')
+assert.equal(result.latest.name, 'Lan mới')
+assert.equal(result.latest.role, 'receptionist')
 
 reset()
 result = await saveStaffChanges({ ...dependencies, form: { ...form, role: 'receptionist' } })

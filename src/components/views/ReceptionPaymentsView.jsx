@@ -5,6 +5,7 @@ import { formatCurrency, formatDateTime } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
 import { PaymentModal } from '../modals/PaymentModal';
 import { invoiceApi } from '../../api/invoiceApi';
+import { canConfirmCash as hasCashConfirmationPermission, isCashInvoiceConfirmable } from '../../utils/paymentAccess.js';
 import { getErrorMessage } from '../../api/apiErrors';
 import {
   applyMockPaymentSettlements,
@@ -90,16 +91,7 @@ export function ReceptionPaymentsView() {
   const searchInputId = useId();
   const statusSelectId = useId();
 
-  const canConfirmCash = !apiEnabled || (
-    ['receptionist', 'manager'].includes(String(currentUser?.role || '').toLowerCase())
-    && (
-      !Array.isArray(currentUser?.authorities)
-      || currentUser.authorities.length === 0
-      || currentUser.authorities.includes('MANAGE_INVOICES')
-      || currentUser.authorities.includes('RECORD_PAYMENT')
-      || currentUser.authorities.some((a) => String(a).toUpperCase().includes('RECEPTIONIST') || String(a).toUpperCase().includes('MANAGER'))
-    )
-  );
+  const canConfirmCash = !apiEnabled || hasCashConfirmationPermission(currentUser);
 
   const fetchInvoices = useCallback(async () => {
     if (!apiEnabled) return;
@@ -163,7 +155,14 @@ export function ReceptionPaymentsView() {
 
     if (itemStatus === 'pending') {
       if (canPayCash) {
-        if (canConfirmCash) {
+        if (apiEnabled && !isCashInvoiceConfirmable(target)) {
+          setConfirmingInvoice(null);
+          setTargetNotice(
+            language === 'vi'
+              ? 'Hóa đơn Cash đã hết hạn, cần đối soát hoặc thiếu hạn thanh toán hợp lệ nên không thể xác nhận.'
+              : 'This Cash invoice is expired, requires reconciliation, or has no valid payment deadline and cannot be confirmed.'
+          );
+        } else if (canConfirmCash) {
           setConfirmingInvoice(target);
           setTargetNotice(null);
         } else {
@@ -349,6 +348,12 @@ export function ReceptionPaymentsView() {
   const handleExecuteCashPayment = async (e) => {
     e.preventDefault();
     if (!confirmingInvoice || confirmingRequestRef.current) return;
+    if (apiEnabled && (!canConfirmCash || !isCashInvoiceConfirmable(confirmingInvoice))) {
+      setConfirmError(language === 'vi'
+        ? 'Không thể xác nhận: cần quyền Lễ tân + MANAGE_INVOICES và hóa đơn Cash đang Pending, chưa hết hạn, không cần đối soát.'
+        : 'Cannot confirm: Receptionist + MANAGE_INVOICES and an unexpired, reconcilable Pending Cash invoice are required.');
+      return;
+    }
 
     confirmingRequestRef.current = true;
     setIsConfirming(true);
@@ -639,7 +644,7 @@ export function ReceptionPaymentsView() {
                           <StatusBadge type="payment" status={status} />
                         </td>
                         <td className="py-2 px-3 text-center">
-                          {isPending && canConfirmCash && isCashMethod(p) ? (
+                          {isPending && canConfirmCash && isCashMethod(p) && (!apiEnabled || isCashInvoiceConfirmable(p)) ? (
                             <button
                               type="button"
                               onClick={() => {

@@ -6,6 +6,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { createServer } from 'vite'
 
+assert.equal(globalThis.__scmsOfflineTestGuard, true, 'Run with --import ./test/offline_test_guard.mjs')
+
 const port = () => new Promise((resolve, reject) => {
   const listener = net.createServer().on('error', reject)
   listener.listen(0, '127.0.0.1', () => { const value = listener.address().port; listener.close(() => resolve(value)) })
@@ -33,6 +35,8 @@ try {
     `--remote-debugging-port=${debugPort}`, '--remote-debugging-address=127.0.0.1',
     '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', `--user-data-dir=${tempDir}`, 'about:blank',
   ], { stdio: 'ignore' })
+  assert.ok(chrome.spawnargs.some((arg) => arg.startsWith('--proxy-server=http://127.0.0.1:')))
+  assert.ok(chrome.spawnargs.some((arg) => arg.startsWith('--host-resolver-rules=MAP * ~NOTFOUND')))
   let target
   for (let i = 0; i < 50 && !target; i++) {
     await pause(100)
@@ -112,7 +116,8 @@ try {
         return response(staff);
       }
       if (method === 'PATCH' && url.endsWith('/api/users/42/role')) {
-        if (window.__mode.role !== 'success') return response({ message: 'Lỗi vai trò thử nghiệm' }, Number(window.__mode.role));
+        if (window.__mode.role === 'network') throw new TypeError('Mất kết nối thử nghiệm');
+        if (window.__mode.role !== 'success') return response({ message: 'Lỗi vai trò thử nghiệm ' + window.__mode.role }, Number(window.__mode.role));
         const staff = window.__staff.find((item) => item.id === 42);
         staff.role = ({ 7: 'Coach', 12: 'Receptionist', 88: 'CenterManager' })[body.roleId];
         return response({ id: 42, roleId: body.roleId, roleName: staff.role });
@@ -136,6 +141,17 @@ try {
   await waitFor("document.querySelector('form select') && !document.querySelector('form select').disabled")
   assert.equal(await evaluate("document.querySelector('form input[type=email]').readOnly"), true)
   assert.deepEqual(await evaluate("Array.from(document.querySelector('form select').options).map((option) => option.value).sort()"), ['coach', 'manager', 'receptionist'])
+  await setRole('coach')
+  for (const mode of ['400', '404', '500', 'network']) {
+    await evaluate(`window.__mode.role = ${JSON.stringify(mode)}`)
+    await save()
+    const message = mode === 'network' ? 'Mất kết nối thử nghiệm' : `Lỗi vai trò thử nghiệm ${mode}`
+    await waitFor(`document.querySelector('[role=alert]')?.textContent.includes(${JSON.stringify(message)})`)
+    assert.ok(await evaluate("document.body.textContent.includes('Chỉnh sửa nhân viên')"))
+    assert.equal(await evaluate("document.body.textContent.includes('Đã lưu thay đổi nhân viên và tải lại danh sách')"), false)
+  }
+  await evaluate("window.__mode.role = 'success'; window.__writes = []")
+  await setRole('receptionist')
   await setName('Nhân viên đã sửa')
   await save()
   await waitFor("!document.body.textContent.includes('Chỉnh sửa nhân viên') && document.body.textContent.includes('Nhân viên đã sửa')")
@@ -195,6 +211,10 @@ try {
   await evaluate(`${statusRow}.querySelectorAll('button')[1].click()`)
   await waitFor("window.__writes.some((item) => item.url.includes('/api/staff/42/status'))")
   assert.deepEqual((await evaluate('window.__writes')).at(-1).body, { status: 'LOCKED' })
+  await waitFor(`${statusRow}?.textContent.includes('Tạm khóa')`)
+  await evaluate(`${statusRow}.querySelectorAll('button')[1].click()`)
+  await waitFor("window.__writes.at(-1)?.body?.status === 'ACTIVE'")
+  await waitFor(`${statusRow}?.textContent.includes('Hoạt động')`)
   console.log('PASS: chỉnh sửa, vai trò, một phần thành công, tạo nhân viên và khóa tài khoản bằng dữ liệu cục bộ')
 } finally {
   socket?.close()
