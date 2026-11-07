@@ -155,7 +155,7 @@ async function runUnitSuite() {
     assert.equal(isNormalClassApiCreationBlocked(true, 'Open'), false, 'Open Normal creation is unlocked in API mode')
     assert.equal(isNormalClassApiCreationBlocked(true), false, 'Default targetStatus Open is unlocked in API mode')
     assert.equal(isNormalClassApiCreationBlocked(false, 'Draft'), false, 'Mock mode allows Draft')
-    assert.match(NORMAL_CLASS_API_BLOCKED_MESSAGE, /Backend.*Draft.*12 session/i)
+    assert.match(NORMAL_CLASS_API_BLOCKED_MESSAGE, /Nháp.*12 buổi/i)
 
     // 2. Weekday mapping to Java numbering (Monday=1 .. Sunday=7)
     assert.deepEqual(toBackendDaysOfWeek([1]), [1], 'Monday stays 1')

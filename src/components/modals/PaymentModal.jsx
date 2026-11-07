@@ -766,7 +766,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
             </div>
             {apiEnabled && selectedPkg?.price == null && (
               <p role="alert" className="text-xs text-rose-700">
-                {language === 'vi' ? 'Chưa nhận được thông tin giá gói; không thể bắt đầu giao dịch.' : 'Package price is unavailable; cannot start transaction.'}
+                {language === 'vi' ? 'Chưa nhận được thông tin giá gói; không thể bắt đầu giao dịch.' : 'Package price is missing; payment is unavailable.'}
               </p>
             )}
 
