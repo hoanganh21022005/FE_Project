@@ -443,7 +443,7 @@ export function PersonalProfileView() {
                 {avatarUrl ? (
                   <img
                     src={avatarUrl}
-                    alt="Avatar"
+                    alt={currentUser?.name || "Avatar"}
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -657,7 +657,7 @@ export function PersonalProfileView() {
         )}
 
         <form onSubmit={handleChangePassword} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3">
             <label className="space-y-1.5">
               <span className="text-xs font-bold text-slate-700 block">
                 {isVi ? "Mật khẩu hiện tại" : "Current password"}

@@ -260,6 +260,11 @@ export function ManagerDashboard({ onNavigate }) {
                   </button>
                 </div>
               ))}
+              {visibleMembers.filter(m => m.membershipStatus === 'grace_period' || m.membershipStatus === 'pending_payment').length === 0 && (
+                <p className="text-[13px] text-slate-500 py-4 text-center">
+                  {language === 'vi' ? 'Không có hội viên cần xử lý' : 'No members require action'}
+                </p>
+              )}
             </div>
           </div>
         </div>

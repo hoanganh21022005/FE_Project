@@ -744,6 +744,7 @@ export function MemberInvoicesView() {
             <label className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
+                aria-label={isVi ? "Tìm kiếm hóa đơn" : "Search invoices"}
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
                 placeholder={
@@ -753,6 +754,7 @@ export function MemberInvoicesView() {
               />
             </label>
             <select
+              aria-label={isVi ? "Lọc trạng thái" : "Filter by status"}
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-brand-primary"
@@ -1237,7 +1239,7 @@ function PaymentReturnBanner({
 
 function Summary({ icon: Icon, title, value }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
         <Icon className="h-4 w-4 text-brand-accent-dark" />
         {title}

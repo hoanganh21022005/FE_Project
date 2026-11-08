@@ -503,7 +503,7 @@ export function CoachDashboard() {
       {/* Welcome Header */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded bg-slate-900 flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-10 h-10 rounded bg-slate-900 flex items-center justify-center text-white font-bold text-sm shrink-0">
             PT
           </div>
           <div>
@@ -525,7 +525,7 @@ export function CoachDashboard() {
       {pendingPtRequests.length > 0 && (
         <div className="p-4 bg-amber-50 border border-amber-300 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-100 text-amber-800 rounded-lg border border-amber-300">
+            <div className="p-2 bg-amber-100 text-amber-800 rounded-lg border border-amber-300 shrink-0">
               <BellRing className="w-5 h-5" />
             </div>
             <div>
@@ -658,7 +658,7 @@ export function CoachDashboard() {
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500">
