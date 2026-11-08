@@ -300,6 +300,7 @@ export function SessionCell({ item, onSelect, language, t }) {
         </span>
         <span
           title={meta.label}
+          aria-label={meta.label}
           className="inline-flex items-center justify-center shrink-0"
         >
           <Icon
@@ -435,9 +436,9 @@ export function WeekGrid({
     <div className="space-y-2.5">
       <div className="overflow-x-auto md:overflow-x-visible rounded-xl border border-slate-200 bg-white shadow-2xs">
         <div className="min-w-[640px] md:min-w-0">
-          {/* Header Row: 64px + 7 cột đều nhau */}
-          <div className="grid grid-cols-[64px_repeat(7,minmax(0,1fr))] border-b border-slate-200 bg-slate-50/90">
-            <div className="border-r border-slate-200 p-2 text-left text-[12px] font-bold text-slate-700 flex items-center">
+          {/* Header Row: 88px + 7 cột đều nhau */}
+          <div className="grid grid-cols-[88px_repeat(7,minmax(0,1fr))] border-b border-slate-200 bg-slate-50/90">
+            <div className="border-r border-slate-200 p-2 text-left text-[12px] font-bold text-slate-700 flex items-center whitespace-nowrap">
               Ca / Giờ
             </div>
             {weekRange.days.map((day) => {
@@ -483,14 +484,21 @@ export function WeekGrid({
             {rows.map((row) => (
               <div
                 key={row.key}
-                className="grid grid-cols-[64px_repeat(7,minmax(0,1fr))]"
+                className="grid grid-cols-[88px_repeat(7,minmax(0,1fr))]"
               >
                 <div className="border-r border-slate-200 bg-slate-50/95 p-1.5 text-left">
-                  <div className="text-[12px] font-extrabold text-slate-900">
+                  <div className="text-[12px] font-extrabold text-slate-900 whitespace-nowrap">
                     {row.title}
                   </div>
                   <div className="text-[11px] font-semibold text-slate-700 mt-0.5 leading-tight tabular-nums">
-                    {row.subtitle}
+                    {row.subtitle.includes("–") ? (
+                      <>
+                        <span className="block">{row.subtitle.split("–")[0]}</span>
+                        <span className="block">/ {row.subtitle.split("–")[1]}</span>
+                      </>
+                    ) : (
+                      row.subtitle
+                    )}
                   </div>
                 </div>
                 {weekRange.days.map((day) => {
@@ -952,13 +960,15 @@ export function NextSessionCard({
 }
 
 /**
- * 4.7 PackageSummary ("Gói của tôi" — thay thế các thẻ lớp trống ở trang cũ)
+ * 4.7 PackageSummary ("Gói của tôi" — compact, scroll 280px, link nhỏ thay nút tím, bóng mờ mép)
  */
 export function PackageSummary({ packages = [], onNavigateBookPt, t, tr }) {
-  const [expanded, setExpanded] = useState(false)
-  const visiblePackages = expanded ? packages : packages.slice(0, 4)
-  const groupPackages = visiblePackages.filter((p) => p.kind === "group")
-  const ptPackages = visiblePackages.filter((p) => p.kind === "pt")
+  const scrollRef = useRef(null)
+
+  // Reset scroll về đầu khi danh sách thay đổi
+  React.useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0
+  }, [packages])
 
   const renderPackageCard = (pkg) => {
     const pct =
@@ -972,17 +982,17 @@ export function PackageSummary({ packages = [], onNavigateBookPt, t, tr }) {
     return (
       <div
         key={pkg.id}
-        className="rounded-lg border border-slate-200/90 bg-slate-50/60 p-3 space-y-2"
+        className="rounded-lg border border-slate-200/90 bg-slate-50/60 px-2.5 py-2 space-y-1.5"
       >
-        {/* Hàng 1: Tên gói (tối đa 2 dòng line-clamp-2 + tooltip) & X/Y buổi */}
+        {/* Hàng 1: Tên gói (line-clamp-2 + tooltip) & X/Y buổi */}
         <div className="flex items-start justify-between gap-2">
           <p
             title={pkg.title}
-            className="text-[13px] font-bold text-slate-900 leading-snug line-clamp-2 min-w-0 flex-1"
+            className="text-[12px] font-bold text-slate-900 leading-snug line-clamp-2 min-w-0 flex-1"
           >
             {pkg.title}
           </p>
-          <span className="text-[12px] font-extrabold text-slate-800 shrink-0 tabular-nums">
+          <span className="text-[11px] font-extrabold text-slate-700 shrink-0 tabular-nums whitespace-nowrap">
             {tr("memberSchedPkgSessionsUnit", {
               done: pkg.completedSessions,
               total: pkg.totalSessions,
@@ -990,32 +1000,32 @@ export function PackageSummary({ packages = [], onNavigateBookPt, t, tr }) {
           </span>
         </div>
 
-        {/* Hàng 2: Thanh tiến độ rõ ràng kể cả khi 0/12 */}
-        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 border border-slate-300/60">
+        {/* Hàng 2: Thanh tiến độ mỏng h-1.5 */}
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
           <div
             className={`h-full rounded-full transition-all ${
-              pkg.kind === "pt" ? "bg-indigo-600" : "bg-sky-600"
+              pkg.kind === "pt" ? "bg-indigo-500" : "bg-sky-500"
             }`}
             style={{ width: `${pct}%` }}
           />
         </div>
 
-        {/* Hàng 3: Trạng thái lịch nhất quán + Hạn gói + Nút Đặt lịch nếu chưa có lịch */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-          <div className="flex flex-wrap items-center gap-1.5">
+        {/* Hàng 3: Trạng thái + Hạn + link Đặt lịch nhỏ */}
+        <div className="flex flex-wrap items-center justify-between gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             {pkg.hasSchedule ? (
-              <span className="inline-flex items-center rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
+              <span className="text-[11px] font-semibold text-emerald-800">
                 {tr("memberSchedPkgScheduledCount", {
                   count: pkg.scheduledCount,
                 })}
               </span>
             ) : (
-              <span className="inline-flex items-center rounded-md bg-amber-50 border border-amber-300 px-2 py-0.5 text-[11px] font-bold text-amber-900">
+              <span className="text-[11px] font-semibold text-amber-800">
                 {t("memberSchedPkgNoScheduleYet")}
               </span>
             )}
             {pkg.expiryDate && (
-              <span className="text-[11px] font-medium text-slate-600 tabular-nums">
+              <span className="text-[11px] text-slate-500 tabular-nums">
                 · {t("memberSchedPkgExpiresPrefix")} {pkg.expiryDate}
               </span>
             )}
@@ -1025,7 +1035,7 @@ export function PackageSummary({ packages = [], onNavigateBookPt, t, tr }) {
             <button
               type="button"
               onClick={onNavigateBookPt}
-              className="min-h-[28px] inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-indigo-700 cursor-pointer"
+              className="inline-flex items-center gap-0.5 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 hover:underline cursor-pointer"
             >
               <span>{t("memberSchedPkgBookBtn")}</span>
               <ExternalLink className="h-3 w-3" />
@@ -1036,60 +1046,83 @@ export function PackageSummary({ packages = [], onNavigateBookPt, t, tr }) {
     )
   }
 
+  const groupPackages = packages.filter((p) => p.kind === "group")
+  const ptPackages = packages.filter((p) => p.kind === "pt")
+
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-[13px] font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-          <Package className="h-4 w-4 text-slate-500 shrink-0" />
+    <section className="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 px-3.5 pt-3 pb-2">
+        <h2 className="text-[12px] font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+          <Package className="h-3.5 w-3.5 text-slate-500 shrink-0" />
           <span>{t("memberSchedMyPackagesHeader")}</span>
         </h2>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-bold text-slate-700 tabular-nums">
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 tabular-nums">
           {packages.length}
         </span>
       </div>
 
       {packages.length === 0 ? (
-        <p className="text-[13px] text-slate-600">
+        <p className="px-3.5 pb-3 text-[12px] text-slate-600">
           {t("memberSchedMyPackagesEmpty")}
         </p>
       ) : (
-        <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-          {groupPackages.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-sky-900 flex items-center gap-1.5">
-                <span className="h-2.5 w-1 rounded-xs bg-sky-600" />
-                <span>{t("memberSchedPkgGroupSection")}</span>
-              </h3>
-              <div className="space-y-2">
-                {groupPackages.map(renderPackageCard)}
-              </div>
+        <>
+          {/* Vùng cuộn với bóng mờ trên/dưới */}
+          <div className="relative">
+            <div
+              ref={scrollRef}
+              className="space-y-2.5 max-h-[280px] overflow-y-auto px-3 pb-2"
+            >
+              {/* Lớp nhóm cố định */}
+              {groupPackages.length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  <h3 className="text-[10px] font-extrabold uppercase tracking-wider text-sky-900 flex items-center gap-1">
+                    <span className="h-2 w-0.5 rounded-xs bg-sky-600 shrink-0" />
+                    <span>{t("memberSchedPkgGroupSection")}</span>
+                  </h3>
+                  <div className="space-y-1.5">
+                    {groupPackages.map(renderPackageCard)}
+                  </div>
+                </div>
+              )}
+
+              {/* Gói PT 1:1 */}
+              {ptPackages.length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  <h3 className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-900 flex items-center gap-1">
+                    <span className="h-2 w-0.5 rounded-xs bg-indigo-600 shrink-0" />
+                    <span>{t("memberSchedPkgPtSection")}</span>
+                  </h3>
+                  <div className="space-y-1.5">
+                    {ptPackages.map(renderPackageCard)}
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Bóng mờ mép trên */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-5 bg-gradient-to-b from-white to-transparent" />
+            {/* Bóng mờ mép dưới */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-white to-transparent" />
+          </div>
+
+          {/* Nút "Xem tất cả (N)" cố định dưới vùng cuộn */}
+          {packages.length > 4 && (
+            <div className="border-t border-slate-100 px-3 py-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (scrollRef.current) {
+                    scrollRef.current.scrollTo({ top: 999, behavior: "smooth" })
+                  }
+                }}
+                className="w-full text-center text-[11px] font-bold text-slate-500 hover:text-slate-800 cursor-pointer py-0.5"
+              >
+                {tr("memberSchedPkgViewAll", { count: packages.length })}
+              </button>
             </div>
           )}
-
-          {ptPackages.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-900 flex items-center gap-1.5">
-                <span className="h-2.5 w-1 rounded-xs bg-indigo-600" />
-                <span>{t("memberSchedPkgPtSection")}</span>
-              </h3>
-              <div className="space-y-2">
-                {ptPackages.map(renderPackageCard)}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {packages.length > 4 && (
-        <button
-          type="button"
-          onClick={() => setExpanded((prev) => !prev)}
-          className="w-full min-h-[34px] rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 text-[12px] font-bold text-slate-800 cursor-pointer"
-        >
-          {expanded
-            ? t("memberSchedPkgCollapse")
-            : tr("memberSchedPkgViewAll", { count: packages.length })}
-        </button>
+        </>
       )}
     </section>
   )
@@ -1182,6 +1215,100 @@ export function UpcomingHolidays({
         </div>
       )}
     </section>
+  )
+}
+
+/**
+ * UpcomingHolidaysInline — compact, hiển thị ở cột trái dưới lịch
+ * Chỉ hiện 1–2 ngày lễ gần nhất kèm "Còn X ngày" và link "Xem tất cả" (giữ modal)
+ */
+export function UpcomingHolidaysInline({ next30Days = [], allUpcoming = [], t, tr }) {
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  // Lấy 1–2 ngày lễ gần nhất từ next30Days; nếu không có thì lấy 1 từ allUpcoming
+  const nearestHolidays = next30Days.length > 0
+    ? next30Days.slice(0, 2)
+    : allUpcoming.slice(0, 1)
+
+  // Nếu không có ngày lễ nào cả → ẩn card
+  if (nearestHolidays.length === 0) return null
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-2xs px-3.5 py-2.5">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <span className="text-[12px] font-extrabold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+          <CalendarDays className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+          {t("memberSchedHolidays30Header")}
+        </span>
+        {allUpcoming.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className="text-[12px] font-bold text-slate-500 hover:text-slate-800 underline cursor-pointer whitespace-nowrap"
+          >
+            {t("memberSchedHolidaysViewAll")}
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        {nearestHolidays.map((h) => (
+          <div
+            key={h.id}
+            className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-1.5 text-[12px]"
+          >
+            <span className="font-bold text-slate-900 truncate">{h.name}</span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="font-semibold text-amber-900 tabular-nums">{h.ddMmYyyy}</span>
+              {h.daysUntil != null && h.daysUntil >= 0 && (
+                <span className="rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-bold text-amber-900 tabular-nums whitespace-nowrap">
+                  {tr("memberSchedHolidayDaysLeft", { days: h.daysUntil })}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Modal xem tất cả */}
+      {isModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("memberSchedHolidaysModalTitle")}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
+        >
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-[16px] font-extrabold text-slate-900">
+                {t("memberSchedHolidaysModalTitle")}
+              </h3>
+              <button
+                type="button"
+                aria-label={t("scheduleAbsenceClose")}
+                onClick={() => setIsModalOpen(false)}
+                className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-80 overflow-y-auto space-y-2">
+              {allUpcoming.map((h) => (
+                <div
+                  key={h.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 text-[13px]"
+                >
+                  <span className="font-bold text-slate-900">{h.name}</span>
+                  <span className="font-semibold text-slate-700 tabular-nums">
+                    {h.ddMmYyyy}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
