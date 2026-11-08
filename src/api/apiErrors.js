@@ -186,3 +186,72 @@ export function getErrorMessage(error, fallback = STATUS_MESSAGES[0]) {
   }
   return sanitizeBackendMessage(fallback, status) || fallback;
 }
+
+/**
+ * Trả về thông báo lỗi thân thiện cho người dùng.
+ * Mã lỗi kỹ thuật (IDEMPOTENCY_CONFLICT, HTTP 409...) chỉ được ghi vào console, không hiển thị.
+ * @param {unknown} error - Lỗi từ API
+ * @param {{ language?: string }} options
+ * @returns {string}
+ */
+export function getFriendlyError(error, { language = 'vi' } = {}) {
+  const isVi = language === 'vi';
+  const status = Number(error?.status ?? error?.response?.status) || 0;
+  const rawMsg = String(
+    error?.message || error?.details?.message || error?.response?.data?.message || ''
+  ).toUpperCase();
+
+  // Ghi mã lỗi gốc vào console để debug
+  if (error) console.warn('[getFriendlyError]', error);
+
+  // 409 idempotency — lịch đã tồn tại
+  if (
+    (status === 409 && rawMsg.includes('IDEMPOTENCY_CONFLICT')) ||
+    rawMsg.includes('BOOKING KEY ALREADY')
+  ) {
+    return isVi
+      ? 'Lịch này đã được đặt trước đó. Vui lòng tải lại trang để xem lịch mới nhất.'
+      : 'This session was already booked. Please refresh to see the latest schedule.';
+  }
+
+  // 409 trùng lịch phòng / HLV
+  if (
+    status === 409 &&
+    (rawMsg.includes('ROOM_CONFLICT') ||
+      rawMsg.includes('COACH_CONFLICT') ||
+      rawMsg.includes('TRÙNG LỊCH'))
+  ) {
+    return isVi
+      ? 'Khung giờ này đã có lịch khác. Vui lòng chọn ca hoặc ngày khác.'
+      : 'This time slot is already taken. Please choose a different slot or date.';
+  }
+
+  // 409 khác
+  if (status === 409) {
+    return isVi
+      ? 'Có xung đột dữ liệu. Vui lòng tải lại trang rồi thử lại.'
+      : 'A data conflict occurred. Please refresh the page and try again.';
+  }
+
+  // Lỗi mạng / timeout
+  if (
+    !status ||
+    rawMsg.includes('NETWORK') ||
+    rawMsg.includes('TIMEOUT') ||
+    rawMsg.includes('FAILED TO FETCH')
+  ) {
+    return isVi
+      ? 'Không kết nối được. Kiểm tra mạng rồi thử lại.'
+      : 'Connection failed. Check your network and try again.';
+  }
+
+  // 5xx server error
+  if (status >= 500) {
+    return isVi
+      ? 'Có lỗi xảy ra. Vui lòng thử lại sau.'
+      : 'Something went wrong. Please try again later.';
+  }
+
+  // Fallback: dùng getErrorMessage để lọc jargon
+  return getErrorMessage(error, isVi ? 'Có lỗi xảy ra. Vui lòng thử lại sau.' : 'Something went wrong. Please try again later.');
+}
