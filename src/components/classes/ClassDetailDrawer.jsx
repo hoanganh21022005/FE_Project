@@ -239,7 +239,7 @@ export function ClassDetailDrawer({
   }
 
   const statusConfig = {
-    published: {
+    open: {
       label: "Mở đăng ký",
       bg: "bg-[#EBFBEE]",
       text: "text-[#2B8A3E]",
@@ -257,7 +257,7 @@ export function ClassDetailDrawer({
       text: "text-[#495057]",
       border: "border-[#E9ECEF]",
     },
-    completed: {
+    closed: {
       label: "Đã kết thúc",
       bg: "bg-[#FFF4E6]",
       text: "text-[#D9480F]",
@@ -271,9 +271,13 @@ export function ClassDetailDrawer({
     },
   }
 
-  const currentStatus = statusConfig[cls.status] || (apiEnabled
-    ? { label: "—", bg: "bg-stone-100", text: "text-stone-500", border: "border-stone-200" }
-    : statusConfig.published)
+  const statusKey = cls.status === "published" ? "open" : cls.status === "completed" ? "closed" : cls.status
+  const currentStatus = statusConfig[statusKey] || {
+    label: cls.apiStatus || cls.status || "Unknown status",
+    bg: "bg-stone-100",
+    text: "text-stone-500",
+    border: "border-stone-200",
+  }
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">

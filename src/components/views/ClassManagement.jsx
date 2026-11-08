@@ -242,7 +242,7 @@ function exportClassesToCsv(
       cls.enrolledCount ?? (apiMode ? "—" : 0),
       cls.capacity ?? (apiMode ? "—" : 8),
       resolvedPrice === null ? "—" : isFree ? "Miễn phí (0 đ)" : `${resolvedPrice.toLocaleString("vi-VN")} đ`,
-      STATUS_CONFIG[normalizeClassStatus(cls.status)]?.label || cls.status,
+      STATUS_CONFIG[normalizeClassStatus(cls.status)]?.label || cls.apiStatus || cls.status,
     ]
   })
 
@@ -309,7 +309,7 @@ function getCoachAvatarPalette(name) {
 
 // Normalized status configuration matching Semantic UI specification
 const STATUS_CONFIG = {
-  published: {
+  open: {
     label: "Mở đăng ký",
     bg: "bg-emerald-50 text-emerald-700 border-emerald-200/80",
     dot: "bg-emerald-500",
@@ -324,7 +324,7 @@ const STATUS_CONFIG = {
     bg: "bg-stone-100 text-stone-700 border-stone-200/90",
     dot: "bg-stone-400",
   },
-  completed: {
+  closed: {
     label: "Đã kết thúc",
     bg: "bg-stone-100 text-stone-500 border-stone-200",
     dot: "bg-stone-400",
@@ -337,19 +337,22 @@ const STATUS_CONFIG = {
 }
 
 function normalizeClassStatus(status) {
-  const s = String(status || "").toLowerCase()
-  if (["published", "open", "mở đăng ký"].includes(s)) return "published"
-  if (["ongoing", "active", "đang diễn ra"].includes(s)) return "ongoing"
-  if (["draft", "nháp", "bản nháp"].includes(s)) return "draft"
-  if (["completed", "closed", "đã kết thúc", "kết thúc"].includes(s))
-    return "completed"
-  if (["cancelled", "canceled", "đã hủy", "hủy"].includes(s)) return "cancelled"
-  return "published"
+  const s = String(status || "").trim().toLowerCase()
+  if (["published", "open"].includes(s)) return "open"
+  if (s === "ongoing") return "ongoing"
+  if (s === "draft") return "draft"
+  if (["completed", "closed"].includes(s)) return "closed"
+  if (["cancelled", "canceled"].includes(s)) return "cancelled"
+  return s || "unknown"
 }
 
 function StatusPill({ status }) {
   const norm = normalizeClassStatus(status)
-  const cfg = STATUS_CONFIG[norm] || STATUS_CONFIG.published
+  const cfg = STATUS_CONFIG[norm] || {
+    label: status || "Unknown status",
+    bg: "bg-stone-100 text-stone-700 border-stone-200",
+    dot: "bg-stone-400",
+  }
   return (
     <span
       className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${cfg.bg}`}
@@ -435,7 +438,9 @@ function EditClassModal({
     endDate: item.endDate || "",
     startTime: item.startTime || (apiMode ? "" : "06:00"),
     endTime: item.endTime || (apiMode ? "" : "07:30"),
-    status: item.status || (apiMode ? "" : "published"),
+    status: apiMode
+      ? normalizeClassStatus(item.status ?? item.apiStatus)
+      : item.status || "published",
   }))
 
   const currentCategory = form.category || item.category || ""
@@ -820,10 +825,10 @@ function EditClassModal({
                 onChange={(e) => setForm({ ...form, status: e.target.value })}
                 className="w-full h-11 px-3.5 bg-white border border-stone-300 rounded-xl text-sm cursor-pointer font-medium focus:border-stone-800"
               >
-                <option value="published">Mở đăng ký</option>
+                <option value="open">Mở đăng ký</option>
                 <option value="ongoing">Đang diễn ra</option>
                 <option value="draft">Bản nháp</option>
-                <option value="completed">Đã kết thúc</option>
+                <option value="closed">Đã kết thúc</option>
                 <option value="cancelled">Đã hủy</option>
               </select>
             </div>
@@ -1348,7 +1353,7 @@ export function ClassManagement() {
   const [selectedClassIds, setSelectedClassIds] = useState([])
 
   // Filters state
-  const [activeTab, setActiveTab] = useState("all") // 'all' | 'published' | 'ongoing' | 'draft' | 'completed' | 'cancelled'
+  const [activeTab, setActiveTab] = useState("all") // 'all' | 'open' | 'ongoing' | 'draft' | 'closed' | 'cancelled'
   const [searchTerm, setSearchTerm] = useState("")
   const [filterSport, setFilterSport] = useState("all")
   const [filterCoach, setFilterCoach] = useState("all")
@@ -1410,10 +1415,10 @@ export function ClassManagement() {
     const list = classes || []
     const res = {
       all: list.length,
-      published: 0,
+      open: 0,
       ongoing: 0,
       draft: 0,
-      completed: 0,
+      closed: 0,
       cancelled: 0,
     }
     list.forEach((c) => {
@@ -1640,13 +1645,17 @@ export function ClassManagement() {
     if (count === 0) return
 
     const apiStatusMap = {
-      published: "Open",
+      open: "Open",
       ongoing: "Ongoing",
       draft: "Draft",
-      completed: "Closed",
+      closed: "Closed",
       cancelled: "Cancelled",
     }
-    const apiStatus = apiStatusMap[newStatus] || "Open"
+    const apiStatus = apiStatusMap[newStatus]
+    if (!apiStatus) {
+      showToast("Invalid class status.", "error")
+      return
+    }
 
     try {
       for (const id of selectedClassIds) {
@@ -1927,13 +1936,13 @@ export function ClassManagement() {
         {[
           { id: "all", label: "Tất cả", count: counts.all },
           {
-            id: "published",
+            id: "open",
             label: "Đang mở đăng ký",
-            count: counts.published,
+            count: counts.open,
           },
           { id: "ongoing", label: "Đang diễn ra", count: counts.ongoing },
           { id: "draft", label: "Bản nháp", count: counts.draft },
-          { id: "completed", label: "Đã kết thúc", count: counts.completed },
+          { id: "closed", label: "Đã kết thúc", count: counts.closed },
           { id: "cancelled", label: "Đã hủy", count: counts.cancelled },
         ].map((tab) => {
           const isActive = activeTab === tab.id
@@ -2000,10 +2009,10 @@ export function ClassManagement() {
                   <option value="" disabled>
                     Đổi trạng thái...
                   </option>
-                  <option value="published">Mở đăng ký</option>
+                  <option value="open">Mở đăng ký</option>
                   <option value="ongoing">Đang diễn ra</option>
                   <option value="draft">Bản nháp</option>
-                  <option value="completed">Đã kết thúc</option>
+                  <option value="closed">Đã kết thúc</option>
                 </select>
               </div>
 

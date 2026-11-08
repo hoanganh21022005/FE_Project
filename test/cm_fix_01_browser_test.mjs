@@ -80,7 +80,7 @@ try {
   const fixture = {
     today,
     nextSession: `${nextMonth}-15`,
-    classInfo: { id: 71, name: 'Lớp kiểm thử lịch', subjectId: 1, coachId: 2, maxCapacity: 12, startDate: today, endDate: `${nextMonth}-20`, status: 'Open', classType: 'Normal', totalSessions: 12, tuitionFee: 650000 },
+    classInfo: { id: 71, name: 'Lớp kiểm thử lịch', subjectId: 1, coachId: 2, maxCapacity: 12, startDate: today, endDate: `${nextMonth}-20`, status: 'Ongoing', classType: 'Normal', totalSessions: 12, tuitionFee: 650000 },
   }
   await send('Page.enable')
   await send('Runtime.enable')
@@ -143,7 +143,7 @@ try {
   assert.equal(writes[0].body.name, 'Lớp kiểm thử đã sửa')
   assert.equal(writes[0].body.maxCapacity, 12)
   assert.equal(writes[0].body.coachId, 2)
-  assert.equal(writes[0].body.status, 'Open')
+  assert.equal(writes[0].body.status, 'Ongoing')
   console.log('PASS: Form sửa lớp gửi đúng dữ liệu cho API giả lập cục bộ')
 } finally {
   socket?.close()

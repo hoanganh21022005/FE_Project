@@ -34,6 +34,8 @@ const classDto = {
   totalSessions: 0,
 }
 const mappedClass = mapClass(classDto, { apiMode: true })
+assert.equal(mappedClass.status, 'open')
+assert.equal(mappedClass.apiStatus, 'Open')
 assert.equal(mappedClass.id, 17)
 assert.equal(mappedClass.subjectId, 4)
 assert.equal(mappedClass.subjectName, 'Badminton')
@@ -54,6 +56,23 @@ assert.equal(nullableClass.sessionCount, null)
 assert.equal(nullableClass.enrolledCount, null)
 assert.equal(nullableClass.category, null)
 assert.equal(nullableClass.coachName, null)
+
+for (const [apiStatus, expectedUiStatus] of [
+  ['Open', 'open'],
+  ['Ongoing', 'ongoing'],
+  ['Closed', 'closed'],
+  ['Cancelled', 'cancelled'],
+]) {
+  const mapped = mapClass({ ...classDto, status: apiStatus }, { apiMode: true })
+  assert.equal(mapped.status, expectedUiStatus, `${apiStatus} remains distinct in the UI`)
+  assert.equal(mapped.apiStatus, apiStatus, `${apiStatus} is preserved from the API`)
+  assert.equal(toClassRequest(mapped).status, apiStatus, `${apiStatus} round-trips in updates`)
+}
+
+const unknownStatus = mapClass({ ...classDto, status: 'PausedByBackend' }, { apiMode: true })
+assert.equal(unknownStatus.status, 'pausedbybackend')
+assert.equal(unknownStatus.apiStatus, 'PausedByBackend')
+assert.equal(toClassRequest(unknownStatus).status, 'PausedByBackend')
 
 assert.equal(mapRoom({ id: 2, name: 'Court Alpha', location: 'North', capacity: null, status: 'Available', facilityType: 'COURT', outdoor: true }).name, 'Court Alpha')
 assert.equal(mapRoom({ id: 2, name: 'Court Alpha', capacity: null, status: 'Available', facilityType: 'COURT', outdoor: true }).capacity, null)
@@ -91,5 +110,8 @@ assert.equal(subject.slug, 'tennis')
 assert.equal(toClassRequest({ ...mappedClass, status: 'draft' }).status, undefined)
 assert.equal(toClassRequest({ ...mappedClass, status: 'completed' }).status, 'Closed')
 assert.equal(toClassRequest({ ...mappedClass, apiStatus: 'Open' }).status, 'Open')
+assert.equal(toClassRequest({ ...mappedClass, status: 'ongoing', apiStatus: 'Open' }).status, 'Ongoing')
+assert.equal(toClassRequest({ ...mappedClass, status: 'invalid-status', apiStatus: 'invalid-status' }).status, 'invalid-status')
+assert.equal(toClassRequest({ ...mappedClass, status: 'invalid-status', apiStatus: 'Open' }).status, undefined)
 
 console.log('FE-04 mapper tests passed')

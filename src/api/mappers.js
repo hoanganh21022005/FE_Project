@@ -109,8 +109,9 @@ export function mapPackage(item) {
 const classStatus = (status, fallback = "draft") => {
   const normalized = normalizeStatus(status, fallback)
   if (normalized === null) return null
-  if (["open", "ongoing", "active"].includes(normalized)) return "published"
-  if (normalized === "closed") return "completed"
+  if (["open", "published"].includes(normalized)) return "open"
+  if (["closed", "completed"].includes(normalized)) return "closed"
+  if (["cancelled", "canceled"].includes(normalized)) return "cancelled"
   return normalized
 }
 
@@ -394,20 +395,37 @@ const API_CLASS_STATUSES = {
   closed: "Closed",
   completed: "Closed",
   cancelled: "Cancelled",
+  canceled: "Cancelled",
 }
 
-export const toClassRequest = (item) => ({
-  name: item.name || item.nameVi,
-  subjectId: idNumber(item.subjectId),
-  coachId: idNumber(item.coachId),
-  maxCapacity: asNumber(item.maxCapacity ?? item.capacity),
-  startDate: item.startDate ?? item.date ?? null,
-  endDate: item.endDate ?? null,
-  tuitionFee: asNumber(item.tuitionFee ?? item.price),
-  classType: item.classType ?? null,
-  totalSessions: asNumber(item.totalSessions ?? item.sessionCount),
-  status: API_CLASS_STATUSES[normalizeStatus(item.status ?? item.apiStatus)] ?? undefined,
-})
+export const toClassRequest = (item) => {
+  const statusValue = item.status ?? item.apiStatus
+  const rawStatus = item.apiStatus ?? item.status
+  const normalizedStatus = normalizeStatus(statusValue, null)
+  const normalizedRawStatus = normalizeStatus(rawStatus, null)
+  const mappedStatus = API_CLASS_STATUSES[normalizedStatus]
+  const preservedUnknownStatus =
+    item.status == null || item.apiStatus == null || normalizedStatus === normalizedRawStatus
+      ? rawStatus == null ? undefined : String(rawStatus)
+      : undefined
+
+  return {
+    name: item.name || item.nameVi,
+    subjectId: idNumber(item.subjectId),
+    coachId: idNumber(item.coachId),
+    maxCapacity: asNumber(item.maxCapacity ?? item.capacity),
+    startDate: item.startDate ?? item.date ?? null,
+    endDate: item.endDate ?? null,
+    tuitionFee: asNumber(item.tuitionFee ?? item.price),
+    classType: item.classType ?? null,
+    totalSessions: asNumber(item.totalSessions ?? item.sessionCount),
+    // Keep unrecognized Backend values intact; never silently turn them into Open.
+    status:
+      normalizedStatus === "draft"
+        ? undefined
+        : mappedStatus ?? preservedUnknownStatus,
+  }
+}
 
 export const toPackageRequest = (item) => {
   return {
