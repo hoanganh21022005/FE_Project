@@ -792,6 +792,9 @@ export function CoachDashboard() {
                 {realAttendanceMetrics.totalRecorded}{" "}
                 {language === "vi" ? "lượt có mặt" : "attended"}
               </div>
+              <div className="text-xs text-slate-400 mt-0.5">
+                {language === "vi" ? "Toàn bộ lịch sử" : "All-time"}
+              </div>
             </div>
           ) : (
             <div className="text-sm font-semibold text-slate-500 mt-3">

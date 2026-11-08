@@ -83,7 +83,8 @@ export function ManagerDashboard({ onNavigate }) {
               <ArrowUpRight className="w-3.5 h-3.5" /> +12%
             </span>}
           </div>
-          <div className="mt-2 text-[11px] text-stone-500 flex items-center gap-1.5 whitespace-nowrap">
+          <p className="text-xs text-stone-400 mt-0.5">{language === 'vi' ? 'Hiện tại' : 'Current count'}</p>
+          <div className="mt-2 text-xs text-stone-500 flex items-center gap-1.5 whitespace-nowrap">
             <span className="text-emerald-700 font-bold">{activeMembersCount ?? '—'} {language === 'vi' ? 'Hoạt động' : 'Active'}</span>
             <span>&bull;</span>
             <span className="text-amber-700 font-medium">{pendingPaymentCount ?? '—'} {language === 'vi' ? 'Chờ thanh toán' : 'Pending'}</span>
@@ -104,7 +105,7 @@ export function ManagerDashboard({ onNavigate }) {
             <span className="text-2xl font-bold text-status-warning tabular-nums">{gracePeriodCount ?? '—'}</span>
             <span className="text-xs text-stone-600 font-semibold whitespace-nowrap">{language === 'vi' ? 'Tài khoản chờ gia hạn' : 'Grace accounts'}</span>
           </div>
-          <p className="mt-2 text-[11px] text-stone-500 whitespace-nowrap">
+          <p className="mt-2 text-xs text-stone-500 whitespace-nowrap">
             {language === 'vi' ? 'Duy trì quyền lợi tối đa 72 giờ' : 'Benefits remain active for up to 72h'}
           </p>
         </div>
@@ -120,7 +121,8 @@ export function ManagerDashboard({ onNavigate }) {
           <div className="mt-2">
             <span className="text-2xl font-bold text-brand-teal tabular-nums">{totalRevenue === null ? '—' : formatCurrency(totalRevenue, language)}</span>
           </div>
-          <div className="mt-2 text-[11px] text-stone-500 flex items-center justify-between gap-1 whitespace-nowrap">
+          <p className="text-xs text-stone-400 mt-0.5">{language === 'vi' ? 'Tổng tích lũy *' : 'All-time total *'}</p>
+          <div className="mt-2 text-xs text-stone-500 flex items-center justify-between gap-1 whitespace-nowrap">
             <span>{apiEnabled ? dashboard?.totalInvoices ?? '—' : successfulPayments.length} {language === 'vi' ? 'Thành công' : 'Success'}</span>
             <span className="text-amber-700 font-medium">{pendingPaymentsCount ?? '—'} {language === 'vi' ? 'Đang xử lý' : 'Pending'}</span>
           </div>
@@ -138,12 +140,18 @@ export function ManagerDashboard({ onNavigate }) {
             <span className="text-2xl font-bold text-stone-900 tabular-nums">{apiEnabled ? dashboard?.todaySessions ?? '—' : classes.length}</span>
             <span className="text-xs text-brand-accent-dark font-medium whitespace-nowrap">{apiEnabled ? '—' : visibleBookings.length} {language === 'vi' ? 'đăng ký' : 'bookings'}</span>
           </div>
-          <div className="mt-2 text-[11px] text-stone-500 flex items-center gap-1.5 whitespace-nowrap">
+          <p className="text-xs text-stone-400 mt-0.5">{language === 'vi' ? 'Hôm nay' : 'Today'}</p>
+          <div className="mt-2 text-xs text-stone-500 flex items-center gap-1.5 whitespace-nowrap">
             <Activity className="w-3.5 h-3.5 text-brand-accent-dark shrink-0" />
             <span>{language === 'vi' ? 'Tỷ lệ điểm danh:' : 'Attendance:'} <strong className="text-stone-900">{apiEnabled ? '—' : '94.5%'}</strong></span>
           </div>
         </div>
       </div>
+      <p className="text-xs text-stone-400 -mt-1">
+        {language === 'vi'
+          ? '* Phạm vi doanh thu do API cung cấp; cần xác nhận kỳ tính.'
+          : '* Revenue scope is provided by the API; period needs confirmation.'}
+      </p>
 
       {/* Main Grid Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -154,7 +162,7 @@ export function ManagerDashboard({ onNavigate }) {
               <h3 className="text-sm font-bold text-stone-900 tracking-tight whitespace-nowrap">
                 {language === 'vi' ? 'Lịch lớp học sắp diễn ra' : 'Upcoming classes'}
               </h3>
-              <p className="text-[11px] text-stone-500 whitespace-nowrap">
+              <p className="text-xs text-stone-500 whitespace-nowrap">
                 {language === 'vi' ? 'Danh sách các lớp nhóm đang vận hành tại trung tâm' : 'Operational group classes at the center'}
               </p>
             </div>
@@ -171,7 +179,7 @@ export function ManagerDashboard({ onNavigate }) {
 
           <div className="overflow-x-auto border border-stone-200 rounded">
             <table className="w-full text-left text-[12px] sm:text-[13px] border-collapse">
-              <thead className="bg-stone-50 text-stone-600 uppercase tracking-wider border-b border-stone-200 font-bold text-[11px] whitespace-nowrap">
+              <thead className="bg-stone-50 text-stone-600 uppercase tracking-wider border-b border-stone-200 font-bold text-xs whitespace-nowrap">
                 <tr>
                   <th className="py-2.5 px-3 min-w-[200px] whitespace-nowrap">{language === 'vi' ? 'Mã và tên lớp' : 'Code and class'}</th>
                   <th className="py-2.5 px-2.5 min-w-[80px] whitespace-nowrap">{language === 'vi' ? 'Bộ môn' : 'Category'}</th>
@@ -186,10 +194,10 @@ export function ManagerDashboard({ onNavigate }) {
                   <tr key={cls.id} className="hover:bg-stone-50 transition-colors h-[48px]">
                     <td className="py-2 px-3 font-semibold text-stone-900 whitespace-nowrap">
                       <div>{language === 'vi' ? cls.nameVi : cls.name}</div>
-                      <div className="text-[11px] text-stone-500 tabular-nums">{apiEnabled ? '—' : `${cls.code} • ${cls.startTime} (${cls.durationMinutes} ${language === 'vi' ? 'phút' : 'min'})`}</div>
+                      <div className="text-xs text-stone-500 tabular-nums">{apiEnabled ? '—' : `${cls.code} • ${cls.startTime} (${cls.durationMinutes} ${language === 'vi' ? 'phút' : 'min'})`}</div>
                     </td>
                     <td className="py-2 px-2.5 whitespace-nowrap">
-                      <span className="px-2 py-0.5 rounded bg-stone-100 text-stone-700 font-mono text-[10px]">
+                      <span className="px-2 py-0.5 rounded bg-stone-100 text-stone-700 font-mono text-xs">
                         {cls.category || '—'}
                       </span>
                     </td>
@@ -216,7 +224,7 @@ export function ManagerDashboard({ onNavigate }) {
                 ? `Hiển thị 1-${classes.length} của ${classes.length} bản ghi`
                 : `Showing 1-${classes.length} of ${classes.length} records`}
             </span>
-            <div className="flex items-center gap-1 text-[11px] tabular-nums">
+            <div className="flex items-center gap-1 text-xs tabular-nums">
               <button disabled className="px-2 py-1 bg-stone-100 border border-stone-200 rounded opacity-50 cursor-not-allowed">
                 {language === 'vi' ? 'Trang trước' : 'Previous'}
               </button>
@@ -243,7 +251,7 @@ export function ManagerDashboard({ onNavigate }) {
                 <div key={m.id} className="p-3 bg-stone-50 border border-stone-200 rounded flex items-center justify-between">
                   <div>
                     <div className="text-xs font-bold text-stone-900">{m.name}</div>
-                    <div className="text-[11px] text-stone-500 tabular-nums">{m.code} &bull; {m.phone}</div>
+                    <div className="text-xs text-stone-500 tabular-nums">{m.code} &bull; {m.phone}</div>
                     <div className="mt-1">
                       <StatusBadge type="membership" status={m.membershipStatus} />
                     </div>
@@ -254,7 +262,7 @@ export function ManagerDashboard({ onNavigate }) {
                       if (onNavigate) onNavigate('members');
                       else if (navigate) navigate('/manager/members');
                     }}
-                    className="px-2.5 py-1 bg-white hover:bg-brand-accent-soft border border-stone-300 hover:border-brand-accent rounded text-[11px] font-semibold text-stone-800 hover:text-brand-primary shadow-2xs transition-all cursor-pointer"
+                    className="px-2.5 py-1 bg-white hover:bg-brand-accent-soft border border-stone-300 hover:border-brand-accent rounded text-xs font-semibold text-stone-800 hover:text-brand-primary shadow-2xs transition-all cursor-pointer"
                   >
                     {language === 'vi' ? 'Xử lý' : 'Process'}
                   </button>
