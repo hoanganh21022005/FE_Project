@@ -10,6 +10,8 @@ import { attendanceApi } from "../../api/attendanceApi"
 import { getCatalogClassSessions } from "../../api/managerApi"
 import { isSessionCancelled, canCheckIn } from "../../utils/permissions"
 import { SkeletonStatCard, SkeletonBlock, ErrorState } from "../ui/Skeleton"
+import { PageHeader } from "../ui/PageHeader"
+import { Card, StatCard, SectionTitle } from "../ui/DesignSystem"
 import {
   Calendar,
   Users,
@@ -582,25 +584,14 @@ export function CoachDashboard() {
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded bg-slate-900 flex items-center justify-center text-white font-bold text-sm shrink-0">
-            PT
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900">
-              {language === "vi"
-                ? `Xin chào Coach ${currentUser.name}!`
-                : `Welcome Coach ${currentUser.name}!`}
-            </h2>
-            <p className="text-xs text-slate-500">
-              {language === "vi"
-                ? "Lịch dạy hôm nay, quản lý học viên phân công, thống kê điểm danh & phản hồi học viên"
-                : "Today's sessions, assigned students, attendance statistics & student feedback"}
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title={language === "vi"
+          ? `Xin chào Coach ${currentUser.name}!`
+          : `Welcome Coach ${currentUser.name}!`}
+        description={language === "vi"
+          ? "Lịch dạy hôm nay, quản lý học viên phân công, thống kê điểm danh & phản hồi học viên"
+          : "Today's sessions, assigned students, attendance statistics & student feedback"}
+      />
 
       {/* R5.3: Prominent Banner when Pending PT 1:1 Registration Requests exist */}
       {pendingPtRequests.length > 0 && (
@@ -740,90 +731,85 @@ export function CoachDashboard() {
 
       {/* KPI Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500">
-              {language === "vi" ? "Lớp phụ trách" : "Assigned classes"}
-            </span>
-            <Calendar className="w-4 h-4 text-brand-accent-dark" />
-          </div>
-          <div className="text-2xl font-bold text-slate-900 tabular-nums mt-2">
-            {myClasses.length}
-          </div>
-        </div>
+        <StatCard
+          label={language === "vi" ? "Lớp phụ trách" : "Assigned classes"}
+          value={myClasses.length}
+          icon={<Calendar className="w-4 h-4" />}
+          iconBg="bg-brand-accent-soft"
+          iconColor="text-brand-accent-dark"
+        />
 
-        <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500">
-              {language === "vi" ? "Học viên PT chính" : "PT students"}
+        <StatCard
+          label={language === "vi" ? "Học viên PT chính" : "PT students"}
+          value={
+            <span className="flex items-baseline gap-1.5">
+              <span>{ptStats.uniqueStudentCount}</span>
+              {ptStats.packageCount > 0 && (
+                <span className="text-xs font-normal text-slate-500">
+                  ({ptStats.packageCount} {t("coachPkgLabel")})
+                </span>
+              )}
             </span>
-            <Users className="w-4 h-4 text-brand-purple" />
-          </div>
-          <div className="text-2xl font-bold text-slate-900 tabular-nums mt-2 flex items-baseline gap-2">
-            <span>{ptStats.uniqueStudentCount}</span>
-            {ptStats.packageCount > 0 && (
-              <span className="text-xs font-normal text-slate-500">
-                ({ptStats.packageCount} {t("coachPkgLabel")})
-              </span>
-            )}
-          </div>
-        </div>
+          }
+          icon={<Users className="w-4 h-4" />}
+          iconBg="bg-purple-50"
+          iconColor="text-brand-purple"
+        />
 
-        <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
-          <div className="flex items-center justify-between">
+        <Card className="flex flex-col gap-3 h-full">
+          <div className="flex items-start justify-between gap-2">
             <span
-              className="text-xs font-bold text-slate-500 flex items-center gap-1 cursor-help"
+              className="text-xs font-semibold text-slate-500 uppercase tracking-wide leading-tight flex items-center gap-1 cursor-help"
               title={t("coachAttendanceFormulaTooltip")}
             >
-              <span>
-                {language === "vi" ? "Tỷ lệ điểm danh" : "Attendance rate"}
-              </span>
-              <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+              <span>{language === "vi" ? "Tỷ lệ điểm danh" : "Attendance rate"}</span>
+              <HelpCircle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             </span>
-            <ClipboardCheck className="w-4 h-4 text-brand-teal" />
+            <div className="p-2 rounded-xl shrink-0 bg-teal-50 text-brand-teal">
+              <ClipboardCheck className="w-4 h-4" />
+            </div>
           </div>
           {realAttendanceMetrics.overallRate !== null ? (
-            <div className="mt-2">
-              <div className="text-2xl font-bold text-brand-teal-dark tabular-nums">
+            <div>
+              <div className="text-3xl font-semibold text-brand-teal-dark tabular-nums leading-none">
                 {realAttendanceMetrics.overallRate}%
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
-                {realAttendanceMetrics.attendedCount}/
-                {realAttendanceMetrics.totalRecorded}{" "}
-                {language === "vi" ? "lượt có mặt" : "attended"}
-              </div>
-              <div className="text-xs text-slate-400 mt-0.5">
+              <span className="mt-1.5 inline-block text-xs font-medium text-slate-400 bg-slate-50 border border-slate-100 rounded-full px-2 py-0.5">
                 {language === "vi" ? "Toàn bộ lịch sử" : "All-time"}
+              </span>
+              <div className="text-xs text-slate-500 mt-1">
+                {realAttendanceMetrics.attendedCount}/{realAttendanceMetrics.totalRecorded}{" "}
+                {language === "vi" ? "lượt có mặt" : "attended"}
               </div>
             </div>
           ) : (
-            <div className="text-sm font-semibold text-slate-500 mt-3">
+            <div className="text-sm font-semibold text-slate-500">
               {t("coachInsufficientData")}
             </div>
           )}
-        </div>
+        </Card>
 
-        <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500">
-              {language === "vi" ? "Đánh giá HLV" : "Coach rating"}
+        <StatCard
+          label={language === "vi" ? "Đánh giá HLV" : "Coach rating"}
+          value={
+            <span className="flex items-baseline gap-1">
+              <span className="text-amber-700">{averageRating}</span>
+              <span className="text-xs font-normal text-slate-500">
+                / 5.0 ({feedbackItems.length}{" "}
+                {language === "vi" ? "đánh giá" : "reviews"})
+              </span>
             </span>
-            <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
-          </div>
-          <div className="text-2xl font-bold text-amber-700 tabular-nums mt-2">
-            {averageRating}{" "}
-            <span className="text-xs font-normal text-slate-500">
-              / 5.0 ({feedbackItems.length}{" "}
-              {language === "vi" ? "đánh giá" : "reviews"})
-            </span>
-          </div>
-        </div>
+          }
+          icon={<Star className="w-4 h-4 fill-amber-400" />}
+          iconBg="bg-amber-50"
+          iconColor="text-amber-500"
+        />
       </div>
 
       {/* Statistical Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Class Enrollment vs Capacity (R5.1: clean stat card if < 2 classes, bar chart if >= 2 classes) */}
-        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs">
+        <Card className="!p-5">
           <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-3">
             <div className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-blue-700 shrink-0" />
@@ -928,10 +914,10 @@ export function CoachDashboard() {
               </ResponsiveContainer>
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Weekly Attendance Trend Chart (R2.1: only real data, no fake numbers) */}
-        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs">
+        <Card className="!p-5">
           <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-3">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-emerald-700 shrink-0" />
@@ -1005,21 +991,21 @@ export function CoachDashboard() {
               </ResponsiveContainer>
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* Student Feedback & At-Risk Alerts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
+        <Card className="!p-5 space-y-3">
           <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <SectionTitle className="flex items-center gap-2">
               <MessageSquare className="w-4 h-4 text-blue-700" />
               <span>
                 {language === "vi"
                   ? "Phản hồi học viên về lớp học"
                   : "Student feedback"}
               </span>
-            </h3>
+            </SectionTitle>
             <span className="text-xs font-mono text-slate-500">
               {feedbackItems.length} đánh giá
             </span>
@@ -1058,18 +1044,18 @@ export function CoachDashboard() {
               ))}
             </div>
           )}
-        </div>
+        </Card>
 
-        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
+        <Card className="!p-5 space-y-3">
           <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <SectionTitle className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600" />
               <span>
                 {language === "vi"
                   ? "Học viên cần quan tâm"
                   : "At-risk assigned students"}
               </span>
-            </h3>
+            </SectionTitle>
             <span className="text-xs font-mono text-amber-800 font-bold">
               {enrichedAtRiskMembers.length} học viên
             </span>
@@ -1129,17 +1115,17 @@ export function CoachDashboard() {
               ))}
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* R5.1: Upcoming Teaching Sessions (Both Group Classes & PT 1:1) */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs">
+      <Card className="!p-5">
         <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
-          <h3 className="text-sm font-bold text-slate-900 whitespace-nowrap">
+          <SectionTitle className="whitespace-nowrap">
             {language === "vi"
               ? "Các buổi dạy sắp tới (lớp nhóm & PT 1:1)"
               : "Upcoming teaching sessions (group & 1:1 PT)"}
-          </h3>
+          </SectionTitle>
           <button
             type="button"
             onClick={() => {
@@ -1263,7 +1249,7 @@ export function CoachDashboard() {
                 )
               })}
         </div>
-      </div>
+      </Card>
     </div>
   )
 }
