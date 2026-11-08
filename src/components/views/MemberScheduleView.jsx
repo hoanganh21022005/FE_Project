@@ -487,8 +487,8 @@ export function MemberScheduleView() {
           <h1 className="text-[24px] font-black tracking-tight text-slate-950 leading-tight">
             {t("memberSchedTitle")}
           </h1>
-          <p className="mt-1 text-[13px] text-slate-600">
-            {t("schedulePageSubtitle")}
+          <p className="mt-1 text-[13px] text-slate-700">
+            {t("memberSchedPageSubtitle")}
           </p>
         </div>
 
@@ -568,9 +568,9 @@ export function MemberScheduleView() {
         <div className="space-y-4 min-w-0">
           {/* Thanh điều khiển (Sticky trên mobile) */}
           <div className="sticky top-0 z-20 rounded-xl border border-slate-200 bg-white/95 backdrop-blur-xs p-3.5 shadow-2xs space-y-3">
-            {/* Hàng 1: Điều hướng tuần (khi ở chế độ Tuần) + Thống kê 1 dòng */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              {viewMode === "week" && (
+            {/* Chế độ Tuần: WeekNavigator + Thống kê có ghi rõ phạm vi & số Vắng */}
+            {viewMode === "week" && (
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <WeekNavigator
                   weekRange={selectedWeekRange}
                   isCurrentWeek={isCurrentWeek}
@@ -584,56 +584,71 @@ export function MemberScheduleView() {
                   onPickDate={(pickedIso) => setAnchorDateIso(pickedIso)}
                   t={t}
                 />
-              )}
 
-              {/* Thống kê 1 dòng (Đã học · Sắp tới · Đã hủy · Chuyên cần) */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-semibold text-slate-700">
-                <span>
-                  {t("memberSchedStatDone")}{" "}
-                  <strong className="font-extrabold text-emerald-800 tabular-nums">
-                    {globalCounts.done}
-                  </strong>
-                </span>
-                <span aria-hidden="true" className="text-slate-300">
-                  ·
-                </span>
-                <span>
-                  {t("memberSchedStatUpcoming")}{" "}
-                  <strong className="font-extrabold text-sky-900 tabular-nums">
-                    {globalCounts.upcoming}
-                  </strong>
-                </span>
-                <span aria-hidden="true" className="text-slate-300">
-                  ·
-                </span>
-                <span>
-                  {t("memberSchedStatCancelled")}{" "}
-                  <strong className="font-extrabold text-slate-800 tabular-nums">
-                    {globalCounts.cancelled}
-                  </strong>
-                </span>
-                <span aria-hidden="true" className="text-slate-300">
-                  ·
-                </span>
-                <span
-                  title={t("memberSchedAttendanceTooltip")}
-                  className="inline-flex items-center gap-1 cursor-help"
-                >
-                  <span>{t("memberSchedStatAttendance")}</span>
-                  <strong className="font-extrabold text-slate-950 tabular-nums">
-                    {globalCounts.attendanceRate === null
-                      ? "–"
-                      : `${globalCounts.attendanceRate}%`}
-                  </strong>
-                  <HelpCircle className="h-3.5 w-3.5 text-slate-400" />
-                </span>
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] font-semibold text-slate-700">
+                  <span className="font-bold text-slate-500">
+                    {t("memberSchedScopeAllPackages")}
+                  </span>
+                  <span>
+                    {t("memberSchedStatDone")}{" "}
+                    <strong className="font-extrabold text-emerald-800 tabular-nums">
+                      {globalCounts.done}
+                    </strong>
+                  </span>
+                  <span aria-hidden="true" className="text-slate-300">
+                    ·
+                  </span>
+                  <span>
+                    {t("memberSchedStatAbsent")}{" "}
+                    <strong className="font-extrabold text-rose-700 tabular-nums">
+                      {globalCounts.absent}
+                    </strong>
+                  </span>
+                  <span aria-hidden="true" className="text-slate-300">
+                    ·
+                  </span>
+                  <span>
+                    {t("memberSchedStatUpcoming")}{" "}
+                    <strong className="font-extrabold text-sky-900 tabular-nums">
+                      {globalCounts.upcoming}
+                    </strong>
+                  </span>
+                  <span aria-hidden="true" className="text-slate-300">
+                    ·
+                  </span>
+                  <span>
+                    {t("memberSchedStatCancelled")}{" "}
+                    <strong className="font-extrabold text-slate-800 tabular-nums">
+                      {globalCounts.cancelled}
+                    </strong>
+                  </span>
+                  <span aria-hidden="true" className="text-slate-300">
+                    ·
+                  </span>
+                  <span
+                    title={t("memberSchedAttendanceTooltip")}
+                    className="inline-flex items-center gap-1 cursor-help"
+                  >
+                    <span>{t("memberSchedStatAttendance")}</span>
+                    <strong className="font-extrabold text-slate-950 tabular-nums">
+                      {globalCounts.attendanceRate === null
+                        ? "–"
+                        : `${globalCounts.attendanceRate}%`}
+                    </strong>
+                    <HelpCircle className="h-3.5 w-3.5 text-slate-500" />
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Hàng 2: Chip lọc loại (Tất cả / Lớp nhóm / PT 1:1) + Tab trạng thái (nếu ở Danh sách) + Chú giải */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
+            {/* Hàng lọc loại buổi (Segmented control) + Chuyên cần (ở chế độ Danh sách) */}
+            <div
+              className={`flex flex-wrap items-center justify-between gap-2 ${
+                viewMode === "week" ? "pt-2 border-t border-slate-100" : ""
+              }`}
+            >
               <div className="flex flex-wrap items-center gap-2">
-                {/* Chip lọc loại */}
+                {/* Segmented control: Loại buổi (Tất cả / Lớp nhóm / PT 1:1) */}
                 <div className="inline-flex items-center rounded-lg bg-slate-100 p-1">
                   {[
                     { key: "all", label: t("memberSchedTypeAll") },
@@ -646,7 +661,7 @@ export function MemberScheduleView() {
                       onClick={() => setTypeFilter(chip.key)}
                       className={`min-h-[32px] rounded-md px-3 py-1 text-[13px] font-bold transition-colors cursor-pointer ${
                         typeFilter === chip.key
-                          ? "bg-slate-900 text-white shadow-2xs"
+                          ? "bg-white text-slate-950 shadow-2xs"
                           : "text-slate-700 hover:text-slate-950"
                       }`}
                     >
@@ -654,42 +669,6 @@ export function MemberScheduleView() {
                     </button>
                   ))}
                 </div>
-
-                {/* Tab trạng thái 1 hàng duy nhất (chỉ ở chế độ Danh sách, KHÔNG có tab Tất cả) */}
-                {viewMode === "list" && (
-                  <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-1">
-                    {[
-                      {
-                        key: "upcoming",
-                        label: t("memberSchedTabUpcoming"),
-                        count: globalCounts.upcoming,
-                      },
-                      {
-                        key: "done",
-                        label: t("memberSchedTabDone"),
-                        count: globalCounts.done,
-                      },
-                      {
-                        key: "cancelled",
-                        label: t("memberSchedTabCancelled"),
-                        count: globalCounts.cancelled,
-                      },
-                    ].map((tab) => (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => setStatusTab(tab.key)}
-                        className={`min-h-[32px] rounded-md px-3 py-1 text-[13px] font-bold transition-colors cursor-pointer ${
-                          statusTab === tab.key
-                            ? "bg-blue-700 text-white"
-                            : "text-slate-700 hover:bg-slate-100"
-                        }`}
-                      >
-                        {tab.label} ({tab.count})
-                      </button>
-                    ))}
-                  </div>
-                )}
 
                 {/* Chip đang lọc theo 1 lớp cụ thể (nếu URL có classId) */}
                 {selectedClassIdFilter !== "all" && filteredCourseLabel && (
@@ -708,12 +687,85 @@ export function MemberScheduleView() {
                 )}
               </div>
 
-              <ScheduleLegend
-                t={t}
-                isOpen={legendOpen}
-                onToggle={() => setLegendOpen((prev) => !prev)}
-              />
+              {viewMode === "week" ? (
+                <ScheduleLegend
+                  t={t}
+                  isOpen={legendOpen}
+                  onToggle={() => setLegendOpen((prev) => !prev)}
+                />
+              ) : (
+                <div
+                  title={t("memberSchedAttendanceTooltip")}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-[13px] font-semibold text-slate-800 cursor-help"
+                >
+                  <span>{t("memberSchedStatAttendance")}:</span>
+                  <strong className="font-extrabold text-slate-950 tabular-nums">
+                    {globalCounts.attendanceRate === null
+                      ? "–"
+                      : `${globalCounts.attendanceRate}%`}
+                  </strong>
+                  <HelpCircle className="h-3.5 w-3.5 text-slate-500" />
+                </div>
+              )}
             </div>
+
+            {/* P0 3.1: Ở chế độ Danh sách, gộp thống kê và tab trạng thái thành một hàng tab gạch chân có thêm tab Vắng mặt */}
+            {viewMode === "list" && (
+              <div
+                role="tablist"
+                className="flex flex-wrap items-center gap-1 border-b border-slate-200 pt-1 -mb-1"
+              >
+                {[
+                  {
+                    key: "upcoming",
+                    label: t("memberSchedTabUpcoming"),
+                    count: globalCounts.upcoming,
+                  },
+                  {
+                    key: "done",
+                    label: t("memberSchedTabDone"),
+                    count: globalCounts.done,
+                  },
+                  {
+                    key: "absent",
+                    label: t("memberSchedTabAbsent"),
+                    count: globalCounts.absent,
+                  },
+                  {
+                    key: "cancelled",
+                    label: t("memberSchedTabCancelled"),
+                    count: globalCounts.cancelled,
+                  },
+                ].map((tab) => {
+                  const isActive = statusTab === tab.key
+                  return (
+                    <button
+                      key={tab.key}
+                      role="tab"
+                      aria-selected={isActive}
+                      type="button"
+                      onClick={() => setStatusTab(tab.key)}
+                      className={`min-h-[38px] px-3.5 py-2 text-[13px] font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+                        isActive
+                          ? "border-blue-700 text-blue-800"
+                          : "border-transparent text-slate-600 hover:text-slate-950 hover:border-slate-300"
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold tabular-nums ${
+                          isActive
+                            ? "bg-blue-100 text-blue-900"
+                            : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
+                        {tab.count}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Nội dung chính: Skeleton khi đang tải lần đầu, hoặc WeekGrid / ScheduleList */}
@@ -860,6 +912,8 @@ export function MemberScheduleView() {
         onOpenAbsenceModal={handleOpenAbsenceModal}
         onRequestCancelPt={handleRequestCancelPt}
         onNavigateProgress={() => navigate("/member/progress")}
+        onNavigateCoach={() => navigate("/member/my-coach")}
+        onNavigateFacilities={() => navigate("/facilities")}
         language={language}
         t={t}
         tr={tr}

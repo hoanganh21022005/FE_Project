@@ -599,26 +599,28 @@ export function buildScheduleItems({
 
 /**
  * Bộ đếm duy nhất cho toàn trang (tab, thống kê tuần, huy hiệu).
- * - Sắp tới = Scheduled và chưa quá giờ (upcoming, upcoming_absence_reported, ongoing). KHÔNG gồm Cancelled.
- * - Đã học = Completed.
- * - Đã hủy = Cancelled.
- * - Chuyên cần = Completed có mặt (Present/Late/Excused) / tổng Completed. Nếu 0 Completed -> null (hiển thị '–').
+ * - Sắp tới (upcoming) = Scheduled và chưa quá giờ (upcoming, upcoming_absence_reported, ongoing). KHÔNG gồm Cancelled.
+ * - Đã học (done) = Completed và có mặt (Present/Late/Excused).
+ * - Vắng mặt (absent) = Completed nhưng vắng mặt (Absent).
+ * - Đã hủy (cancelled) = Cancelled.
+ * - Chuyên cần (attendanceRate) = Đã học / (Đã học + Vắng). Nếu (Đã học + Vắng) === 0 -> null (hiển thị '–').
  */
 export function getCounts(items = []) {
   let upcoming = 0
   let done = 0
+  let absent = 0
   let cancelled = 0
   let pendingUpdate = 0
-  let attendedDone = 0
 
   for (const item of Array.isArray(items) ? items : []) {
     if (!item) continue
     if (item.status === "Cancelled") {
       cancelled += 1
     } else if (item.status === "Completed") {
-      done += 1
-      if (item.attendance !== "Absent") {
-        attendedDone += 1
+      if (item.attendance === "Absent") {
+        absent += 1
+      } else {
+        done += 1
       }
     } else if (item.status === "Scheduled") {
       if (item.uiState === "pending_update") {
@@ -629,25 +631,28 @@ export function getCounts(items = []) {
     }
   }
 
+  const totalCompleted = done + absent
   const attendanceRate =
-    done > 0 ? Math.round((attendedDone / done) * 100) : null
+    totalCompleted > 0 ? Math.round((done / totalCompleted) * 100) : null
 
   return {
     upcoming,
     done,
+    absent,
     cancelled,
     pendingUpdate,
-    attendedDone,
+    attendedDone: done,
+    totalCompleted,
     attendanceRate,
   }
 }
 
 /**
- * Lọc danh sách buổi học theo loại (all | group | pt), tab trạng thái (upcoming | done | cancelled), và khoảng ngày.
+ * Lọc danh sách buổi học theo loại (all | group | pt), tab trạng thái (upcoming | done | absent | cancelled), và khoảng ngày.
  */
 export function filterItems(
   items = [],
-  { type = "all", statusTab = null, range = null, classId = "all" } = {},
+  { type = "all", statusTab = null, range = null, classId = "all", coachFilter = "all" } = {},
 ) {
   let filtered = Array.isArray(items) ? [...items] : []
 
@@ -658,6 +663,12 @@ export function filterItems(
   if (classId && classId !== "all") {
     filtered = filtered.filter(
       (item) => String(item.classId) === String(classId),
+    )
+  }
+
+  if (coachFilter && coachFilter !== "all") {
+    filtered = filtered.filter(
+      (item) => String(item.coachName || "") === String(coachFilter),
     )
   }
 
@@ -680,9 +691,19 @@ export function filterItems(
   } else if (statusTab === "done") {
     filtered = filtered.filter(
       (item) =>
-        item.status === "Completed" || item.uiState === "pending_update",
+        (item.status === "Completed" && item.attendance !== "Absent") ||
+        item.uiState === "pending_update",
     )
     // Đã học: mới nhất trước
+    filtered.sort((a, b) => {
+      if (a.date !== b.date) return b.date.localeCompare(a.date)
+      return String(b.startTime).localeCompare(String(a.startTime))
+    })
+  } else if (statusTab === "absent") {
+    filtered = filtered.filter(
+      (item) => item.status === "Completed" && item.attendance === "Absent",
+    )
+    // Vắng mặt: mới nhất trước
     filtered.sort((a, b) => {
       if (a.date !== b.date) return b.date.localeCompare(a.date)
       return String(b.startTime).localeCompare(String(a.startTime))
