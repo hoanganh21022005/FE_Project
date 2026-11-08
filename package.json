@@ -9,6 +9,7 @@
     "build": "vite build",
     "build:local": "vite build --mode mock",
     "preview": "vite preview",
+    "check:i18n": "node scripts/check-i18n.js",
     "format": "oxfmt",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",

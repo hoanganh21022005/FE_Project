@@ -37,6 +37,7 @@ export const translations = {
     assignedMembers: 'Học viên phân công',
     memberSearch: 'Tìm kiếm thành viên',
     personalProfile: 'Hồ sơ cá nhân',
+    profile: 'Hồ sơ cá nhân',
     settings: 'Cài đặt',
     support: 'Hỗ trợ',
     logout: 'Đăng xuất',
@@ -779,6 +780,10 @@ export const translations = {
     memberSchedPtBadge: 'PT 1:1',
     memberSchedGroupBadge: 'Lớp nhóm',
     memberSchedUpdatedAtBtn: 'Cập nhật lúc {time}',
+    memberSchedDrawerCourseSummaryLabel: 'Tổng quan khóa học',
+    memberSchedFilterClassAll: 'Tất cả lớp',
+    memberSchedFilterCoachAll: 'Tất cả HLV',
+    memberSchedJumpToToday: 'Về hôm nay',
   },
   en: {
     // App Brand
@@ -816,6 +821,7 @@ export const translations = {
     assignedMembers: 'Assigned Members',
     memberSearch: 'Member Search',
     personalProfile: 'Personal Profile',
+    profile: 'Personal Profile',
     settings: 'Settings',
     support: 'Support',
     logout: 'Log Out',
@@ -1558,6 +1564,10 @@ export const translations = {
     memberSchedPtBadge: 'PT 1:1',
     memberSchedGroupBadge: 'Group class',
     memberSchedUpdatedAtBtn: 'Updated at {time}',
+    memberSchedDrawerCourseSummaryLabel: 'Course summary',
+    memberSchedFilterClassAll: 'All classes',
+    memberSchedFilterCoachAll: 'All coaches',
+    memberSchedJumpToToday: 'Go to today',
   }
 };
 

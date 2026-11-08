@@ -1758,7 +1758,7 @@ export const SCMSProvider = ({ children }) => {
   }, [])
 
   const t = (key) => {
-    return translations[language][key] || translations["vi"][key] || key
+    return translations[language]?.[key] ?? translations["vi"]?.[key] ?? key
   }
 
   const addAuditLog = (action, target, previousValue, newValue, reason) => {
