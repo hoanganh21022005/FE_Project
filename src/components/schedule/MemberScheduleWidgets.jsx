@@ -52,15 +52,15 @@ export function getStatusVisualMeta(item, t) {
         Icon: CheckCircle2,
         label: t("memberSchedStatusDonePresent"),
         badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-300",
-        cellClass: "bg-emerald-50/60 border-emerald-200 text-slate-900",
+        cellClass: "bg-emerald-50/45 border-emerald-200 text-slate-900",
         titleStrike: false,
       }
     case "completed_absent":
       return {
         Icon: XCircle,
         label: t("memberSchedStatusDoneAbsent"),
-        badgeClass: "bg-rose-50 text-rose-800 border-rose-300",
-        cellClass: "bg-rose-50/60 border-rose-200 text-slate-900",
+        badgeClass: "bg-rose-50/80 text-rose-800 border-rose-200",
+        cellClass: "bg-slate-50 border-rose-200/70 text-slate-800",
         titleStrike: false,
       }
     case "upcoming_absence_reported":
@@ -68,7 +68,7 @@ export function getStatusVisualMeta(item, t) {
         Icon: Bell,
         label: t("memberSchedStatusAbsenceReported"),
         badgeClass: "bg-amber-50 text-amber-900 border-amber-300",
-        cellClass: "bg-amber-50/60 border-amber-300 text-slate-900",
+        cellClass: "bg-amber-50/50 border-amber-200 text-slate-900",
         titleStrike: false,
       }
     case "cancelled":
@@ -76,7 +76,7 @@ export function getStatusVisualMeta(item, t) {
         Icon: Ban,
         label: t("memberSchedStatusCancelled"),
         badgeClass: "bg-slate-100 text-slate-700 border-slate-300",
-        cellClass: "bg-slate-100/80 border-slate-200 text-slate-500",
+        cellClass: "bg-slate-100/70 border-slate-200 text-slate-500",
         titleStrike: true,
       }
     case "pending_update":
@@ -93,7 +93,7 @@ export function getStatusVisualMeta(item, t) {
         Icon: Clock,
         label: t("memberSchedStatusScheduled"),
         badgeClass: "bg-sky-50 text-sky-900 border-sky-200",
-        cellClass: "bg-sky-50/50 border-sky-200 text-slate-900",
+        cellClass: "bg-white border-slate-200 text-slate-900",
         titleStrike: false,
       }
   }
@@ -226,55 +226,36 @@ export function WeekNavigator({
   )
 }
 
-export function ScheduleLegend({ t, isOpen, onToggle }) {
+export function ScheduleLegend({ t }) {
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={isOpen}
-        className="min-h-[36px] inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-      >
-        <span>{t("memberSchedLegendToggle")}</span>
-        {isOpen ? (
-          <ChevronUp className="h-3.5 w-3.5 text-slate-500" />
-        ) : (
-          <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
-        )}
-      </button>
-
-      {isOpen && (
-        <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3.5 shadow-md text-[13px] flex flex-wrap items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 font-semibold text-sky-900">
-            <Clock className="h-3.5 w-3.5" />
-            {t("memberSchedStatusScheduled")}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500 bg-blue-100 px-2.5 py-0.5 font-bold text-blue-900">
-            <Radio className="h-3.5 w-3.5" />
-            {t("memberSchedStatusOngoing")}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 font-semibold text-emerald-800">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            {t("memberSchedStatusDonePresent")}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-300 bg-rose-50 px-2.5 py-0.5 font-semibold text-rose-800">
-            <XCircle className="h-3.5 w-3.5" />
-            {t("memberSchedStatusDoneAbsent")}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 font-semibold text-amber-900">
-            <Bell className="h-3.5 w-3.5" />
-            {t("memberSchedStatusAbsenceReported")}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-0.5 font-semibold text-slate-700">
-            <Ban className="h-3.5 w-3.5" />
-            {t("memberSchedStatusCancelled")}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-md border-l-4 border-l-indigo-600 border border-slate-200 bg-indigo-50/60 px-2.5 py-0.5 font-bold text-indigo-900">
-            <User className="h-3.5 w-3.5" />
-            {t("memberSchedPtBadge")}
-          </span>
-        </div>
-      )}
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-slate-700">
+      <span className="inline-flex items-center gap-1.5 font-semibold text-slate-800">
+        <span className="h-3.5 w-1.5 rounded-xs bg-sky-600 shrink-0" />
+        <span>{t("memberSchedGroupBadge")}</span>
+      </span>
+      <span className="inline-flex items-center gap-1.5 font-semibold text-slate-800">
+        <span className="h-3.5 w-1.5 rounded-xs bg-indigo-600 shrink-0" />
+        <span>{t("memberSchedPtBadge")}</span>
+      </span>
+      <span aria-hidden="true" className="text-slate-300">
+        |
+      </span>
+      <span className="inline-flex items-center gap-1 font-medium text-slate-700">
+        <Clock className="h-3.5 w-3.5 text-sky-700 shrink-0" />
+        <span>{t("memberSchedStatusScheduled")}</span>
+      </span>
+      <span className="inline-flex items-center gap-1 font-medium text-slate-700">
+        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
+        <span>{t("memberSchedStatusDonePresent")}</span>
+      </span>
+      <span className="inline-flex items-center gap-1 font-medium text-slate-700">
+        <XCircle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+        <span>{t("memberSchedStatusDoneAbsent")}</span>
+      </span>
+      <span className="inline-flex items-center gap-1 font-medium text-slate-700">
+        <Ban className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+        <span>{t("memberSchedStatusCancelled")}</span>
+      </span>
     </div>
   )
 }
@@ -578,15 +559,10 @@ export function SessionRow({
   todayIso,
   statusTab,
   onSelect,
-  language,
   t,
   tr,
 }) {
   const meta = getStatusVisualMeta(item, t)
-  const wk = getWeekdayMeta(item.date)
-  const wkShort = language === "vi" ? wk.shortVi : wk.shortEn
-  const dayNum = item.date.slice(8, 10)
-  const monthNum = item.date.slice(5, 7)
 
   const daysUntil = todayIso ? diffDaysVn(todayIso, item.date) : null
   const isRedundantPill =
@@ -610,7 +586,7 @@ export function SessionRow({
     <button
       type="button"
       onClick={() => onSelect(item)}
-      className={`group w-full min-h-[68px] text-left rounded-xl border px-3.5 py-2.5 transition-all hover:border-slate-300 hover:bg-slate-50/90 hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer flex items-center justify-between gap-3 ${
+      className={`group w-full min-h-[62px] text-left rounded-xl border px-3.5 py-2.5 transition-all hover:border-slate-300 hover:bg-slate-50/90 hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer flex items-center justify-between gap-3 ${
         item.status === "Cancelled"
           ? "bg-slate-50 border-slate-200 text-slate-500"
           : "bg-white border-slate-200 text-slate-900"
@@ -620,75 +596,70 @@ export function SessionRow({
           : "border-l-4 border-l-sky-600"
       }`}
     >
-      {/* Khối ngày bên trái */}
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200/80 flex flex-col items-center justify-center shrink-0">
-          <span className="text-[11px] font-bold uppercase text-slate-700 leading-none">
-            {wkShort}
+      {/* Nội dung chính (không lặp lại ô ngày vì đã có tiêu đề ngày phía trên) */}
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[13px] font-extrabold text-slate-900 tabular-nums">
+            {item.startTime}–{item.endTime}
           </span>
-          <span className="text-[15px] font-black text-slate-900 leading-tight mt-0.5 tabular-nums">
-            {dayNum}/{monthNum}
+          <span
+            className={`text-[15px] font-bold truncate ${
+              meta.titleStrike ? "line-through text-slate-500" : "text-slate-900"
+            }`}
+          >
+            {item.className}
+          </span>
+          <span
+            className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-bold border ${
+              item.kind === "pt"
+                ? "bg-indigo-50 text-indigo-900 border-indigo-200"
+                : "bg-sky-50 text-sky-900 border-sky-200"
+            }`}
+          >
+            {item.kind === "pt"
+              ? t("memberSchedPtBadge")
+              : t("memberSchedGroupBadge")}
           </span>
         </div>
 
-        {/* Nội dung chính (15-16px) & phụ (>= 13px) */}
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[15px] font-extrabold text-slate-900 tabular-nums">
-              {item.startTime}–{item.endTime}
-            </span>
-            <span
-              className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-bold border ${
-                item.kind === "pt"
-                  ? "bg-indigo-50 text-indigo-900 border-indigo-200"
-                  : "bg-sky-50 text-sky-900 border-sky-200"
-              }`}
-            >
-              {item.kind === "pt"
-                ? t("memberSchedPtBadge")
-                : t("memberSchedGroupBadge")}
-            </span>
-            <span
-              className={`text-[15px] font-bold truncate ${
-                meta.titleStrike ? "line-through text-slate-500" : "text-slate-900"
-              }`}
-            >
-              {item.className}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-slate-700">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-slate-700">
+          <span className="inline-flex items-center gap-1">
+            <MapPin className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+            {item.roomName || t("scheduleRoomTbd")}
+          </span>
+          {item.coachName && (
             <span className="inline-flex items-center gap-1">
-              <MapPin className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-              {item.roomName || t("scheduleRoomTbd")}
+              <UserRound className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+              {item.coachName}
             </span>
-            {item.coachName && (
-              <span className="inline-flex items-center gap-1">
-                <UserRound className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                {item.coachName}
-              </span>
-            )}
-            {item.sessionNumber && item.totalSessions && (
-              <span className="font-semibold text-slate-700">
-                ·{" "}
-                {tr("memberSchedDrawerSessionProgress", {
-                  current: item.sessionNumber,
-                  total: item.totalSessions,
-                })}
-              </span>
-            )}
-            {item.status === "Cancelled" && (
-              <span className="font-semibold text-slate-700">
-                ·{" "}
-                {item.centerInvalidated
-                  ? t("memberSchedCancelReasonCenter")
-                  : t("memberSchedCancelReasonDefault")}
-                {item.replacedByDate
-                  ? ` (${tr("scheduleReplacedByDate", { date: item.replacedByDate })})`
-                  : ""}
-              </span>
-            )}
-          </div>
+          )}
+          {item.sessionNumber && item.totalSessions ? (
+            <span className="font-semibold text-slate-700">
+              ·{" "}
+              {tr("memberSchedDrawerSessionProgress", {
+                current: item.sessionNumber,
+                total: item.totalSessions,
+              })}
+            </span>
+          ) : item.remainingSessions != null ? (
+            <span className="font-semibold text-slate-700">
+              ·{" "}
+              {tr("memberSchedDrawerSessionsRemaining", {
+                remaining: item.remainingSessions,
+              })}
+            </span>
+          ) : null}
+          {item.status === "Cancelled" && (
+            <span className="font-semibold text-slate-700">
+              ·{" "}
+              {item.centerInvalidated
+                ? t("memberSchedCancelReasonCenter")
+                : t("memberSchedCancelReasonDefault")}
+              {item.replacedByDate
+                ? ` (${tr("scheduleReplacedByDate", { date: item.replacedByDate })})`
+                : ""}
+            </span>
+          )}
         </div>
       </div>
 
@@ -718,7 +689,7 @@ export function SessionRow({
 }
 
 /**
- * 4.5 ScheduleList (Danh sách theo ngày & mốc thời gian, có phân trang Xem thêm)
+ * 4.5 ScheduleList (P1 3.3 & 3.4: Gộp các buổi cùng ngày dưới 1 tiêu đề ngày, nhóm tuần theo khoảng ngày cụ thể sticky)
  */
 export function ScheduleList({
   items,
@@ -732,24 +703,17 @@ export function ScheduleList({
 }) {
   const [visibleCount, setVisibleCount] = useState(12)
 
-  const formatBucketLabel = (bucket) => {
-    if (!bucket) return ""
-    switch (bucket.type) {
-      case "today":
-        return t("memberSchedMilestoneToday")
-      case "tomorrow":
-        return t("memberSchedMilestoneTomorrow")
-      case "this_week":
-        return t("memberSchedMilestoneThisWeek")
-      case "next_week":
-        return t("memberSchedMilestoneNextWeek")
-      case "month":
-      default:
-        return tr("memberSchedMilestoneMonth", {
-          month: String(bucket.month).padStart(2, "0"),
-          year: bucket.year,
-        })
-    }
+  const formatWeekGroupLabel = (weekRange) => {
+    if (!weekRange) return ""
+    const prefix = weekRange.isThisWeek
+      ? `${t("memberSchedMilestoneThisWeek")} · `
+      : weekRange.isNextWeek
+        ? `${t("memberSchedMilestoneNextWeek")} · `
+        : ""
+    return `${prefix}${tr("memberSchedWeekGroupRange", {
+      start: weekRange.ddMmStart,
+      end: weekRange.ddMmYyyyEnd,
+    })}`
   }
 
   const hasTodayGroup = dayGroups.some((g) => g.dateIso === todayIso)
@@ -780,7 +744,7 @@ export function ScheduleList({
     slicedGroups.push({ ...g, items: slice })
   }
 
-  let lastBucketKey = null
+  let lastWeekKey = null
 
   return (
     <div className="space-y-4">
@@ -791,16 +755,37 @@ export function ScheduleList({
       )}
 
       {slicedGroups.map((group) => {
-        const showBucketHeader = group.bucket.key !== lastBucketKey
-        lastBucketKey = group.bucket.key
+        const showWeekHeader = group.weekKey !== lastWeekKey
+        lastWeekKey = group.weekKey
+        const weekdayFull =
+          language === "vi" ? group.weekday?.fullVi : group.weekday?.fullEn
 
         return (
           <div key={group.dateIso} className="space-y-2">
-            {showBucketHeader && (
-              <h3 className="text-[13px] font-extrabold uppercase tracking-wider text-slate-600 pt-1">
-                {formatBucketLabel(group.bucket)}
-              </h3>
+            {showWeekHeader && group.weekRange && (
+              <div className="sticky top-0 z-10 rounded-lg bg-slate-100/95 backdrop-blur-xs px-3 py-1.5 border border-slate-200/80">
+                <h3 className="text-[12px] font-extrabold uppercase tracking-wider text-slate-700">
+                  {formatWeekGroupLabel(group.weekRange)}
+                </h3>
+              </div>
             )}
+
+            {/* Tiêu đề ngày (Thứ Hai, 09/11 + badge Hôm nay / Ngày mai) */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 px-1">
+              <h4 className="text-[14px] font-extrabold text-slate-900">
+                {weekdayFull}, {group.ddMm}
+              </h4>
+              {group.isToday && (
+                <span className="rounded-full bg-blue-700 px-2 py-0.5 text-[11px] font-bold text-white">
+                  {t("memberSchedMilestoneToday")}
+                </span>
+              )}
+              {group.isTomorrow && (
+                <span className="rounded-full bg-sky-100 border border-sky-300 px-2 py-0.5 text-[11px] font-bold text-sky-900">
+                  {t("memberSchedMilestoneTomorrow")}
+                </span>
+              )}
+            </div>
 
             {group.holidayName && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[13px] font-bold text-amber-900 flex items-center gap-2">
@@ -956,6 +941,87 @@ export function NextSessionCard({
  * 4.7 PackageSummary ("Gói của tôi" — thay thế các thẻ lớp trống ở trang cũ)
  */
 export function PackageSummary({ packages = [], onNavigateBookPt, t, tr }) {
+  const [expanded, setExpanded] = useState(false)
+  const visiblePackages = expanded ? packages : packages.slice(0, 4)
+  const groupPackages = visiblePackages.filter((p) => p.kind === "group")
+  const ptPackages = visiblePackages.filter((p) => p.kind === "pt")
+
+  const renderPackageCard = (pkg) => {
+    const pct =
+      pkg.totalSessions > 0
+        ? Math.min(
+            100,
+            Math.round((pkg.completedSessions / pkg.totalSessions) * 100),
+          )
+        : 0
+
+    return (
+      <div
+        key={pkg.id}
+        className="rounded-lg border border-slate-200/90 bg-slate-50/60 p-3 space-y-2"
+      >
+        {/* Hàng 1: Tên gói (tối đa 2 dòng line-clamp-2 + tooltip) & X/Y buổi */}
+        <div className="flex items-start justify-between gap-2">
+          <p
+            title={pkg.title}
+            className="text-[13px] font-bold text-slate-900 leading-snug line-clamp-2 min-w-0 flex-1"
+          >
+            {pkg.title}
+          </p>
+          <span className="text-[12px] font-extrabold text-slate-800 shrink-0 tabular-nums">
+            {tr("memberSchedPkgSessionsUnit", {
+              done: pkg.completedSessions,
+              total: pkg.totalSessions,
+            })}
+          </span>
+        </div>
+
+        {/* Hàng 2: Thanh tiến độ rõ ràng kể cả khi 0/12 */}
+        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 border border-slate-300/60">
+          <div
+            className={`h-full rounded-full transition-all ${
+              pkg.kind === "pt" ? "bg-indigo-600" : "bg-sky-600"
+            }`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+
+        {/* Hàng 3: Trạng thái lịch nhất quán + Hạn gói + Nút Đặt lịch nếu chưa có lịch */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {pkg.hasSchedule ? (
+              <span className="inline-flex items-center rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
+                {tr("memberSchedPkgScheduledCount", {
+                  count: pkg.scheduledCount,
+                })}
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-md bg-amber-50 border border-amber-300 px-2 py-0.5 text-[11px] font-bold text-amber-900">
+                {t("memberSchedPkgNoScheduleYet")}
+              </span>
+            )}
+            {pkg.expiryDate && (
+              <span className="text-[11px] font-medium text-slate-600 tabular-nums">
+                · {t("memberSchedPkgExpiresPrefix")} {pkg.expiryDate}
+              </span>
+            )}
+          </div>
+
+          {!pkg.hasSchedule && (
+            <button
+              type="button"
+              onClick={onNavigateBookPt}
+              className="min-h-[28px] inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-indigo-700 cursor-pointer"
+            >
+              <span>{t("memberSchedPkgBookBtn")}</span>
+              <ExternalLink className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -963,7 +1029,7 @@ export function PackageSummary({ packages = [], onNavigateBookPt, t, tr }) {
           <Package className="h-4 w-4 text-slate-500 shrink-0" />
           <span>{t("memberSchedMyPackagesHeader")}</span>
         </h2>
-        <span className="text-[12px] font-bold text-slate-500">
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-bold text-slate-700 tabular-nums">
           {packages.length}
         </span>
       </div>
@@ -973,81 +1039,43 @@ export function PackageSummary({ packages = [], onNavigateBookPt, t, tr }) {
           {t("memberSchedMyPackagesEmpty")}
         </p>
       ) : (
-        <div className="space-y-3 divide-y divide-slate-100">
-          {packages.map((pkg) => {
-            const pct =
-              pkg.totalSessions > 0
-                ? Math.min(
-                    100,
-                    Math.round((pkg.completedSessions / pkg.totalSessions) * 100),
-                  )
-                : 0
-            return (
-              <div key={pkg.id} className="pt-3 first:pt-0 space-y-1.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${
-                          pkg.kind === "pt"
-                            ? "bg-indigo-50 text-indigo-900 border border-indigo-200"
-                            : "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {pkg.kind === "pt"
-                          ? t("memberSchedPtBadge")
-                          : t("memberSchedGroupBadge")}
-                      </span>
-                      <p className="text-[14px] font-bold text-slate-900 truncate">
-                        {pkg.title}
-                      </p>
-                    </div>
-                    {pkg.expiryDate && (
-                      <p className="text-[12px] text-slate-500 mt-0.5">
-                        {t("memberSchedPkgExpiresPrefix")} {pkg.expiryDate}
-                      </p>
-                    )}
-                  </div>
-
-                  <span className="text-[13px] font-extrabold text-slate-800 shrink-0 tabular-nums">
-                    {tr("memberSchedPkgSessionsUnit", {
-                      done: pkg.completedSessions,
-                      total: pkg.totalSessions,
-                    })}
-                  </span>
-                </div>
-
-                {/* Progress bar */}
-                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      pkg.kind === "pt" ? "bg-indigo-600" : "bg-brand-primary"
-                    }`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-
-                {!pkg.hasSchedule && (
-                  <div className="flex items-center justify-between gap-2 pt-0.5">
-                    <span className="text-[12px] font-semibold text-amber-800">
-                      {t("memberSchedPkgNoScheduleYet")}
-                    </span>
-                    {pkg.kind === "pt" && (
-                      <button
-                        type="button"
-                        onClick={onNavigateBookPt}
-                        className="min-h-[32px] inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-1 text-[12px] font-bold text-indigo-900 hover:bg-indigo-100 cursor-pointer"
-                      >
-                        <span>{t("memberSchedPkgBookPtBtn")}</span>
-                        <ExternalLink className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                )}
+        <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+          {groupPackages.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-sky-900 flex items-center gap-1.5">
+                <span className="h-2.5 w-1 rounded-xs bg-sky-600" />
+                <span>{t("memberSchedPkgGroupSection")}</span>
+              </h3>
+              <div className="space-y-2">
+                {groupPackages.map(renderPackageCard)}
               </div>
-            )
-          })}
+            </div>
+          )}
+
+          {ptPackages.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-900 flex items-center gap-1.5">
+                <span className="h-2.5 w-1 rounded-xs bg-indigo-600" />
+                <span>{t("memberSchedPkgPtSection")}</span>
+              </h3>
+              <div className="space-y-2">
+                {ptPackages.map(renderPackageCard)}
+              </div>
+            </div>
+          )}
         </div>
+      )}
+
+      {packages.length > 4 && (
+        <button
+          type="button"
+          onClick={() => setExpanded((prev) => !prev)}
+          className="w-full min-h-[34px] rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 text-[12px] font-bold text-slate-800 cursor-pointer"
+        >
+          {expanded
+            ? t("memberSchedPkgCollapse")
+            : tr("memberSchedPkgViewAll", { count: packages.length })}
+        </button>
       )}
     </section>
   )
@@ -1269,16 +1297,67 @@ export function SessionDrawer({
               </dd>
             </div>
 
-            {item.sessionNumber && item.totalSessions && (
+            {item.packageName && (
               <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
                 <dt className="font-semibold text-slate-600">
-                  {t("trainingProgress")}
+                  {t("memberSchedDrawerPackageLabel")}
                 </dt>
-                <dd className="font-bold text-slate-900">
-                  {tr("memberSchedDrawerSessionProgress", {
-                    current: item.sessionNumber,
-                    total: item.totalSessions,
-                  })}
+                <dd className="font-semibold text-slate-900 text-right">
+                  {item.packageName}
+                </dd>
+              </div>
+            )}
+
+            {item.sessionNumber && item.totalSessions && (
+              <div className="py-1.5 border-b border-slate-100 space-y-1.5">
+                <div className="flex justify-between gap-3">
+                  <dt className="font-semibold text-slate-600">
+                    {t("trainingProgress")}
+                  </dt>
+                  <dd className="font-bold text-slate-900 text-right">
+                    {tr("memberSchedDrawerSessionProgress", {
+                      current: item.sessionNumber,
+                      total: item.totalSessions,
+                    })}
+                    {item.remainingSessions != null && (
+                      <span className="text-slate-600 font-semibold">
+                        {" · "}
+                        {tr("memberSchedDrawerSessionsRemaining", {
+                          remaining: item.remainingSessions,
+                        })}
+                      </span>
+                    )}
+                  </dd>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 border border-slate-300/60">
+                  <div
+                    className={`h-full rounded-full ${
+                      item.kind === "pt" ? "bg-indigo-600" : "bg-sky-600"
+                    }`}
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.round(
+                          (Number(item.sessionNumber) /
+                            Math.max(1, Number(item.totalSessions))) *
+                            100,
+                        ),
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {item.courseSummary && (
+              <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
+                <dt className="font-semibold text-slate-600">
+                  {t("memberSchedDrawerCourseSummaryLabel")}
+                </dt>
+                <dd className="font-semibold text-slate-800 text-right tabular-nums">
+                  {t("memberSchedStatDone")} {item.courseSummary.done} ·{" "}
+                  {t("memberSchedStatAbsent")} {item.courseSummary.absent} ·{" "}
+                  {t("memberSchedStatUpcoming")} {item.courseSummary.upcoming}
                 </dd>
               </div>
             )}

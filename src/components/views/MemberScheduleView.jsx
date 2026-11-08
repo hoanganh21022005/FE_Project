@@ -326,6 +326,8 @@ export function MemberScheduleView() {
     [itemsByType, selectedWeekRange],
   )
 
+  const weekCounts = useMemo(() => getCounts(weekItems), [weekItems])
+
   // Các buổi trong chế độ Danh sách theo tab trạng thái (upcoming | done | cancelled)
   const listItems = useMemo(
     () => filterItems(itemsByType, { statusTab }),
@@ -480,7 +482,7 @@ export function MemberScheduleView() {
   )
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6">
+    <main className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 sm:px-6">
       {/* Header: Tiêu đề 24px + ViewToggle + Làm mới */}
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
@@ -568,7 +570,7 @@ export function MemberScheduleView() {
         <div className="space-y-4 min-w-0">
           {/* Thanh điều khiển (Sticky trên mobile) */}
           <div className="sticky top-0 z-20 rounded-xl border border-slate-200 bg-white/95 backdrop-blur-xs p-3.5 shadow-2xs space-y-3">
-            {/* Chế độ Tuần: WeekNavigator + Thống kê có ghi rõ phạm vi & số Vắng */}
+            {/* Chế độ Tuần: WeekNavigator + Thống kê tách rõ Tuần này vs Toàn khóa */}
             {viewMode === "week" && (
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <WeekNavigator
@@ -586,7 +588,41 @@ export function MemberScheduleView() {
                 />
 
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] font-semibold text-slate-700">
-                  <span className="font-bold text-slate-500">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-0.5 text-[12px]">
+                    <span className="font-bold text-slate-600">
+                      {t("memberSchedScopeThisWeek")}
+                    </span>
+                    <span>
+                      {t("memberSchedStatDone")}{" "}
+                      <strong className="font-extrabold text-emerald-800 tabular-nums">
+                        {weekCounts.done}
+                      </strong>
+                    </span>
+                    <span aria-hidden="true" className="text-slate-300">
+                      ·
+                    </span>
+                    <span>
+                      {t("memberSchedStatAbsent")}{" "}
+                      <strong className="font-extrabold text-rose-700 tabular-nums">
+                        {weekCounts.absent}
+                      </strong>
+                    </span>
+                    <span aria-hidden="true" className="text-slate-300">
+                      ·
+                    </span>
+                    <span>
+                      {t("memberSchedStatUpcoming")}{" "}
+                      <strong className="font-extrabold text-sky-900 tabular-nums">
+                        {weekCounts.upcoming}
+                      </strong>
+                    </span>
+                  </span>
+
+                  <span aria-hidden="true" className="text-slate-300 hidden sm:inline">
+                    |
+                  </span>
+
+                  <span className="font-bold text-slate-600">
                     {t("memberSchedScopeAllPackages")}
                   </span>
                   <span>
@@ -641,7 +677,7 @@ export function MemberScheduleView() {
               </div>
             )}
 
-            {/* Hàng lọc loại buổi (Segmented control) + Chuyên cần (ở chế độ Danh sách) */}
+            {/* Hàng lọc loại buổi (Segmented control) + Chú giải gọn inline (Tuần) hoặc Chuyên cần (Danh sách) */}
             <div
               className={`flex flex-wrap items-center justify-between gap-2 ${
                 viewMode === "week" ? "pt-2 border-t border-slate-100" : ""
@@ -688,11 +724,7 @@ export function MemberScheduleView() {
               </div>
 
               {viewMode === "week" ? (
-                <ScheduleLegend
-                  t={t}
-                  isOpen={legendOpen}
-                  onToggle={() => setLegendOpen((prev) => !prev)}
-                />
+                <ScheduleLegend t={t} />
               ) : (
                 <div
                   title={t("memberSchedAttendanceTooltip")}
