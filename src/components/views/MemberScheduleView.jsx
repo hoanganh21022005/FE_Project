@@ -602,7 +602,7 @@ export function MemberScheduleView() {
 
 
       {/* Bố cục chính: Desktop 2 cột */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 lg:items-stretch">
+      <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 ${viewMode === "week" ? "lg:items-stretch" : "lg:items-start"}`}>
 
         {/* ══ CỘT TRÁI ══ */}
         <div className="space-y-4 min-w-0">
@@ -822,14 +822,16 @@ export function MemberScheduleView() {
         </div>
 
         {/* ══ CỘT PHẢI (320px) ══
-            Dùng position:sticky + max-height để cột phải không tự làm tăng grid.
-            items-stretch (trên grid) khiến aside nhận đúng chiều cao cột trái.
-            Inner div sticky + flex-col: NextSession tự nhiên, PackageSummary flex-1 cuộn trong.
+            - Hiển thị ở cả tab Tuần lẫn Danh sách (không ẩn khi list mode).
+            - items-stretch trên grid → aside nhận chiều cao cột trái (tab Tuần).
+            - Tab Danh sách: items-start nên aside tự co theo nội dung.
+            - Inner div sticky + flex-col: NextSession tự nhiên,
+              PackageSummary flex-1 cuộn trong (chỉ khi tab Tuần).
         */}
         <aside className="hidden lg:block self-stretch">
           <div
-            className="lg:sticky lg:top-4 flex flex-col gap-4"
-            style={{ maxHeight: "calc(100vh - 2rem)" }}
+            className="sticky top-4 flex flex-col gap-4"
+            style={viewMode === "week" ? { maxHeight: "calc(100vh - 2rem)" } : undefined}
           >
             {/* NextSessionCard: chiều cao tự nhiên */}
             <NextSessionCard
@@ -842,13 +844,13 @@ export function MemberScheduleView() {
               t={t}
               tr={tr}
             />
-            {/* PackageSummary: flex-1 lấp đầy phần còn lại, danh sách cuộn trong */}
+            {/* PackageSummary: fillHeight chỉ khi tab Tuần để lấp đầy cột */}
             <PackageSummary
               packages={packageSummaries}
               onNavigateBookPt={() => navigate("/member/my-coach")}
               t={t}
               tr={tr}
-              fillHeight
+              fillHeight={viewMode === "week"}
             />
           </div>
         </aside>

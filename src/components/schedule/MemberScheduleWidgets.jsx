@@ -320,11 +320,12 @@ export function SessionCell({ item, onSelect, language, t }) {
         </span>
       </div>
 
-      {/* Dòng 2: Tên lớp (tối đa 2 dòng line-clamp-2 thay vì cắt 1 dòng) */}
+      {/* Dòng 2: Tên lớp (tối đa 2 dòng, text-wrap:balance để cân đều 2 dòng) */}
       <p
         className={`text-[12px] font-bold leading-snug line-clamp-2 break-words ${
           meta.titleStrike ? "line-through text-slate-500" : "text-slate-900"
         }`}
+        style={{ textWrap: "balance" }}
       >
         {item.className}
       </p>
@@ -903,7 +904,7 @@ export function NextSessionCard({
   }
 
   return (
-    <section className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 shadow-2xs space-y-3">
+    <section className="rounded-xl border border-blue-200 bg-blue-50/60 px-3.5 py-3 shadow-2xs space-y-2.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[13px] font-extrabold uppercase tracking-wider text-blue-950">
           {t("memberSchedNextSessionHeader")}
