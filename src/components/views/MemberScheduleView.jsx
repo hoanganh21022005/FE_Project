@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import {
   AlertCircle,
@@ -602,7 +602,7 @@ export function MemberScheduleView() {
 
 
       {/* Bố cục chính: Desktop 2 cột */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 lg:items-stretch">
 
         {/* ══ CỘT TRÁI ══ */}
         <div className="space-y-4 min-w-0">
@@ -821,10 +821,17 @@ export function MemberScheduleView() {
           />
         </div>
 
-        {/* ══ CỘT PHẢI (320px): sticky ══ */}
-        <aside className="space-y-4 lg:sticky lg:top-4">
-          {/* Desktop: NextSessionCard + Gói của tôi */}
-          <div className="hidden lg:block">
+        {/* ══ CỘT PHẢI (320px) ══
+            Dùng position:sticky + max-height để cột phải không tự làm tăng grid.
+            items-stretch (trên grid) khiến aside nhận đúng chiều cao cột trái.
+            Inner div sticky + flex-col: NextSession tự nhiên, PackageSummary flex-1 cuộn trong.
+        */}
+        <aside className="hidden lg:block self-stretch">
+          <div
+            className="lg:sticky lg:top-4 flex flex-col gap-4"
+            style={{ maxHeight: "calc(100vh - 2rem)" }}
+          >
+            {/* NextSessionCard: chiều cao tự nhiên */}
             <NextSessionCard
               nextItem={nextUpcomingItem}
               todayIso={todayIso}
@@ -835,41 +842,41 @@ export function MemberScheduleView() {
               t={t}
               tr={tr}
             />
-          </div>
-          <div className="hidden lg:block">
+            {/* PackageSummary: flex-1 lấp đầy phần còn lại, danh sách cuộn trong */}
             <PackageSummary
               packages={packageSummaries}
               onNavigateBookPt={() => navigate("/member/my-coach")}
               t={t}
               tr={tr}
+              fillHeight
             />
           </div>
-
-          {/* Mobile: Gói của tôi (thu gọn) */}
-          <div className="lg:hidden">
-            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setMobilePackagesOpen((prev) => !prev)}
-                aria-expanded={mobilePackagesOpen}
-                className="w-full min-h-[44px] px-4 py-3 flex items-center justify-between text-[14px] font-extrabold text-slate-900 cursor-pointer"
-              >
-                <span>{t("memberSchedMyPackagesHeader")} ({packageSummaries.length})</span>
-                {mobilePackagesOpen ? <ChevronUp className="h-4 w-4 text-slate-500" /> : <ChevronDown className="h-4 w-4 text-slate-500" />}
-              </button>
-              {mobilePackagesOpen && (
-                <div className="border-t border-slate-100 p-3">
-                  <PackageSummary
-                    packages={packageSummaries}
-                    onNavigateBookPt={() => navigate("/member/my-coach")}
-                    t={t}
-                    tr={tr}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
         </aside>
+
+        {/* Mobile: Gói của tôi (thu gọn accordion) */}
+        <div className="lg:hidden">
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setMobilePackagesOpen((prev) => !prev)}
+              aria-expanded={mobilePackagesOpen}
+              className="w-full min-h-[44px] px-4 py-3 flex items-center justify-between text-[14px] font-extrabold text-slate-900 cursor-pointer"
+            >
+              <span>{t("memberSchedMyPackagesHeader")} ({packageSummaries.length})</span>
+              {mobilePackagesOpen ? <ChevronUp className="h-4 w-4 text-slate-500" /> : <ChevronDown className="h-4 w-4 text-slate-500" />}
+            </button>
+            {mobilePackagesOpen && (
+              <div className="border-t border-slate-100 p-3">
+                <PackageSummary
+                  packages={packageSummaries}
+                  onNavigateBookPt={() => navigate("/member/my-coach")}
+                  t={t}
+                  tr={tr}
+                />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* SessionDrawer */}

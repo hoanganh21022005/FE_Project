@@ -962,7 +962,7 @@ export function NextSessionCard({
 /**
  * 4.7 PackageSummary ("Gói của tôi" — compact, scroll 280px, link nhỏ thay nút tím, bóng mờ mép)
  */
-export function PackageSummary({ packages = [], onNavigateBookPt, t, tr }) {
+export function PackageSummary({ packages = [], onNavigateBookPt, t, tr, fillHeight = false }) {
   const scrollRef = useRef(null)
 
   // Reset scroll về đầu khi danh sách thay đổi
@@ -1050,7 +1050,7 @@ export function PackageSummary({ packages = [], onNavigateBookPt, t, tr }) {
   const ptPackages = packages.filter((p) => p.kind === "pt")
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
+    <section className={`rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden${fillHeight ? " flex flex-col" : ""}`}>
       {/* Header */}
       <div className="flex items-center justify-between gap-2 px-3.5 pt-3 pb-2">
         <h2 className="text-[12px] font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
@@ -1069,10 +1069,10 @@ export function PackageSummary({ packages = [], onNavigateBookPt, t, tr }) {
       ) : (
         <>
           {/* Vùng cuộn với bóng mờ trên/dưới */}
-          <div className="relative">
+          <div className={`relative${fillHeight ? " flex-1 min-h-0 flex flex-col" : ""}`}>
             <div
               ref={scrollRef}
-              className="space-y-2.5 max-h-[280px] overflow-y-auto px-3 pb-2"
+              className={`space-y-2.5 overflow-y-auto px-3 pb-2${fillHeight ? " flex-1 min-h-0" : " max-h-[280px]"}`}
             >
               {/* Lớp nhóm cố định */}
               {groupPackages.length > 0 && (
