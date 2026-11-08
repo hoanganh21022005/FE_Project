@@ -845,7 +845,7 @@ export function MemberInvoicesView() {
                         {isVi ? status.vi : status.en}
                       </span>
                       {methodBadge && (
-                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
                           {methodBadge}
                         </span>
                       )}

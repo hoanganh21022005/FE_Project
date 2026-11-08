@@ -828,7 +828,7 @@ function SCMSApp() {
                 ? "overflow-y-auto w-full bg-bg-main"
                 : location.pathname === "/manager/packages"
                   ? "min-w-0 p-3 sm:p-4 md:p-6 overflow-y-auto w-full"
-                  : "p-3 sm:p-4 md:p-6 overflow-y-auto max-w-7xl w-full mx-auto"
+                  : "p-3 sm:p-4 md:p-6 overflow-y-auto max-w-[1440px] w-full mx-auto"
             }`}
           >
             <ErrorBoundary inline>

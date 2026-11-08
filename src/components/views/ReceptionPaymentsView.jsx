@@ -637,7 +637,7 @@ export function ReceptionPaymentsView() {
                         </td>
                         <td className="py-2 px-3 font-bold text-slate-900">
                           <div>{p.memberName || `Hội viên #${p.memberId}`}</div>
-                          {p.memberPhone && <div className="text-[11px] font-normal text-slate-500">{p.memberPhone}</div>}
+                          {p.memberPhone && <div className="text-xs font-normal text-slate-500">{p.memberPhone}</div>}
                         </td>
                         <td className="py-2 px-3 font-semibold text-slate-700">
                           {p.packageName || 'Gói dịch vụ'}
@@ -645,7 +645,7 @@ export function ReceptionPaymentsView() {
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 tabular-nums">
                           {p.amount == null ? '—' : formatCurrency(p.amount, language)}
                         </td>
-                        <td className="py-2 px-3 uppercase text-[11px] font-mono text-slate-600">
+                        <td className="py-2 px-3 uppercase text-xs font-mono text-slate-600">
                           {p.paymentMethod || p.method || '—'}
                         </td>
                         <td className="py-2 px-3 font-mono text-slate-500 tabular-nums">
@@ -672,7 +672,7 @@ export function ReceptionPaymentsView() {
                             (() => {
                               const rawMethod = String(p.paymentMethod || p.rawPaymentMethod || p.method || '').trim();
                               return (
-                                <span className={`text-[11px] font-semibold px-2 py-1 rounded border ${
+                                <span className={`text-xs font-semibold px-2 py-1 rounded border ${
                                   !rawMethod
                                     ? 'text-amber-800 bg-amber-50 border-amber-200'
                                     : 'text-sky-700 bg-sky-50 border-sky-200'
@@ -686,7 +686,7 @@ export function ReceptionPaymentsView() {
                           ) : isPending ? (
                             <span aria-label={language === 'vi' ? 'Không có quyền thu tiền' : 'Not authorized'}>—</span>
                           ) : (
-                            <span className="text-[11px] text-slate-400 italic">
+                            <span className="text-xs text-slate-400 italic">
                               {language === 'vi' ? 'Đã hoàn tất' : 'Completed'}
                             </span>
                           )}

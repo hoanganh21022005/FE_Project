@@ -78,7 +78,7 @@ export function StaffManagement() {
             <Users className="w-4 h-4 text-stone-400" />
           </div>
           <div className="text-2xl font-bold text-brand-dark tabular-nums">{totalStaff}</div>
-          <p className="text-[11px] text-stone-500 mt-1">
+          <p className="text-xs text-stone-500 mt-1">
             {language === 'vi' ? 'Bao gồm toàn bộ nhân viên' : 'All staff members'}
           </p>
         </div>
@@ -95,7 +95,7 @@ export function StaffManagement() {
             <Dumbbell className="w-4 h-4 text-brand-primary" />
           </div>
           <div className="text-2xl font-bold text-brand-dark tabular-nums">{coachCount}</div>
-          <p className="text-[11px] text-stone-500 mt-1">
+          <p className="text-xs text-stone-500 mt-1">
             {language === 'vi' ? 'Phụ trách lớp & tập luyện' : 'Assigned to classes & training'}
           </p>
         </div>
@@ -112,7 +112,7 @@ export function StaffManagement() {
             <UserCheck className="w-4 h-4 text-stone-700" />
           </div>
           <div className="text-2xl font-bold text-brand-dark tabular-nums">{receptionistCount}</div>
-          <p className="text-[11px] text-stone-500 mt-1">
+          <p className="text-xs text-stone-500 mt-1">
             {language === 'vi' ? 'Tiếp đón & ghi nhận thanh toán' : 'Check-in & payment processing'}
           </p>
         </div>
@@ -126,7 +126,7 @@ export function StaffManagement() {
           <div className="text-2xl font-bold text-emerald-600 tabular-nums">
             {activeCount} / {totalStaff}
           </div>
-          <p className="text-[11px] text-stone-500 mt-1">
+          <p className="text-xs text-stone-500 mt-1">
             {language === 'vi' ? `${totalStaff - activeCount} tài khoản tạm khóa` : `${totalStaff - activeCount} inactive`}
           </p>
         </div>
@@ -229,10 +229,10 @@ export function StaffManagement() {
                   <tr key={s.id} className="hover:bg-brand-blue-soft/50 transition-colors h-[42px]">
                     <td className="py-2.5 px-4">
                       <div className="font-bold text-slate-900">{s.name}</div>
-                      <div className="text-[11px] text-slate-500 font-mono tabular-nums">{s.code}</div>
+                      <div className="text-xs text-slate-500 font-mono tabular-nums">{s.code}</div>
                     </td>
                     <td className="py-2.5 px-4">
-                      <span className={`inline-flex items-center justify-center w-[130px] px-2 py-0.5 rounded text-[11px] font-bold uppercase border text-center whitespace-nowrap shrink-0 ${
+                      <span className={`inline-flex items-center justify-center w-[130px] px-2 py-0.5 rounded text-xs font-bold uppercase border text-center whitespace-nowrap shrink-0 ${
                         s.role === 'manager' ? 'bg-brand-dark text-white border-brand-dark-hover' :
                         s.role === 'coach' ? 'bg-brand-blue-soft text-brand-primary border-brand-primary/30' :
                         'bg-stone-100 text-stone-800 border-stone-300'
@@ -245,7 +245,7 @@ export function StaffManagement() {
                         {s.specialization || s.specialty || (language === 'vi' ? 'Bộ phận vận hành' : 'Operations')}
                       </div>
                       {s.activeClassesCount ? (
-                        <div className="text-[11px] text-brand-primary font-medium">
+                        <div className="text-xs text-brand-primary font-medium">
                           {s.activeClassesCount} {language === 'vi' ? 'lớp đang dạy' : 'active classes'}
                         </div>
                       ) : null}
@@ -255,13 +255,13 @@ export function StaffManagement() {
                         <Mail className="w-3 h-3 text-stone-400" />
                         <span>{s.email}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 text-stone-500 text-[11px] tabular-nums mt-0.5">
+                      <div className="flex items-center gap-1.5 text-stone-500 text-xs tabular-nums mt-0.5">
                         <Phone className="w-3 h-3 text-stone-400" />
                         <span>{s.phone || '—'}</span>
                       </div>
                     </td>
                     <td className="py-2.5 px-4">
-                      <span className={`inline-flex items-center justify-center w-[110px] px-2 py-0.5 rounded text-[11px] font-bold border text-center whitespace-nowrap shrink-0 ${
+                      <span className={`inline-flex items-center justify-center w-[110px] px-2 py-0.5 rounded text-xs font-bold border text-center whitespace-nowrap shrink-0 ${
                         s.status === 'active' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-800 border-rose-200'
                       }`}>
                         {language === 'vi'
@@ -274,7 +274,7 @@ export function StaffManagement() {
                         {/* Edit Staff Button */}
                         <button
                           onClick={() => setEditingStaff(s)}
-                          className="px-2.5 py-1 bg-white hover:bg-stone-50 text-stone-700 hover:text-brand-primary border border-slate-300 hover:border-brand-accent rounded text-[11px] font-semibold transition-all inline-flex items-center gap-1 shadow-2xs cursor-pointer"
+                          className="px-2.5 py-1 bg-white hover:bg-stone-50 text-stone-700 hover:text-brand-primary border border-slate-300 hover:border-brand-accent rounded text-xs font-semibold transition-all inline-flex items-center gap-1 shadow-2xs cursor-pointer"
                         >
                           <Edit2 className="w-3 h-3" />
                           <span>{language === 'vi' ? 'Sửa' : 'Edit'}</span>
@@ -282,14 +282,14 @@ export function StaffManagement() {
 
                         {/* Status Toggle */}
                         {s.id === currentUser?.id ? (
-                          <span className="px-2 py-1 text-stone-400 text-[10px] font-medium inline-flex items-center gap-1">
+                          <span className="px-2 py-1 text-stone-400 text-xs font-medium inline-flex items-center gap-1">
                             <ShieldCheck className="w-3 h-3" />
                             <span>{language === 'vi' ? 'Tôi' : 'Self'}</span>
                           </span>
                         ) : s.status === 'active' ? (
                           <button
                             onClick={() => handleStatusChange(s)}
-                            className="px-2 py-1 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded text-[11px] font-semibold transition-all inline-flex items-center gap-1 shadow-2xs hover:border-rose-400 cursor-pointer"
+                            className="px-2 py-1 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded text-xs font-semibold transition-all inline-flex items-center gap-1 shadow-2xs hover:border-rose-400 cursor-pointer"
                           >
                             <Lock className="w-3 h-3" />
                             <span>{language === 'vi' ? 'Khóa' : 'Lock'}</span>
@@ -297,7 +297,7 @@ export function StaffManagement() {
                         ) : (
                           <button
                             onClick={() => handleStatusChange(s)}
-                            className="px-2 py-1 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[11px] font-semibold transition-all inline-flex items-center gap-1 shadow-2xs hover:border-emerald-400 cursor-pointer"
+                            className="px-2 py-1 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-xs font-semibold transition-all inline-flex items-center gap-1 shadow-2xs hover:border-emerald-400 cursor-pointer"
                           >
                             <Unlock className="w-3 h-3" />
                             <span>{language === 'vi' ? 'Mở' : 'Unlock'}</span>
@@ -340,7 +340,7 @@ export function StaffManagement() {
               ? `Hiển thị 1-${filteredStaff.length} của ${filteredStaff.length} nhân viên`
               : `Showing 1-${filteredStaff.length} of ${filteredStaff.length} staff`}
           </span>
-          <div className="flex items-center gap-1 text-[11px] tabular-nums">
+          <div className="flex items-center gap-1 text-xs tabular-nums">
             <button disabled className="px-2 py-1 bg-white border border-slate-200 rounded opacity-50 cursor-not-allowed">
               {language === 'vi' ? 'Trang trước' : 'Previous'}
             </button>

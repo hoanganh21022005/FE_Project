@@ -686,7 +686,7 @@ export function PersonalProfileView() {
                 placeholder={getPasswordRuleHint(isVi)}
                 className="w-full rounded-xl border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary transition-colors"
               />
-              <span className="block text-[11px] text-slate-500">
+              <span className="block text-xs text-slate-500">
                 {getPasswordRuleHint(isVi)}
               </span>
             </label>

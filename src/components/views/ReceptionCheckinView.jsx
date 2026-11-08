@@ -341,7 +341,7 @@ export function ReceptionCheckinView() {
               <button
                 type="submit"
                 disabled={scanning}
-                className="px-5 py-2.5 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer"
+                className="min-h-[44px] sm:min-h-[36px] px-5 py-2.5 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>
@@ -421,7 +421,7 @@ export function ReceptionCheckinView() {
                     type="button"
                     onClick={() => handleManualCheckIn(m)}
                     disabled={actionBusyKey === `in-${m.id}`}
-                    className="px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     <LogIn className="w-3.5 h-3.5" />
                     <span>Check-in Vào Cổng</span>
@@ -431,7 +431,7 @@ export function ReceptionCheckinView() {
                     type="button"
                     onClick={() => handleManualCheckOut(m)}
                     disabled={actionBusyKey === `out-${m.id}`}
-                    className="px-3.5 py-1.5 bg-white hover:bg-slate-100 disabled:opacity-50 text-slate-700 border border-slate-300 rounded text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    className="min-h-[44px] sm:min-h-[36px] px-3.5 py-1.5 bg-white hover:bg-slate-100 disabled:opacity-50 text-slate-700 border border-slate-300 rounded text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     <span>Check-out Ra Về</span>

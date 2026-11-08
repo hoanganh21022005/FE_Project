@@ -798,7 +798,7 @@ function EditClassModal({
                   )}
                 </div>
               ) : (
-                <p className="text-[11px] text-amber-700 mt-1.5 font-medium flex items-center gap-1">
+                <p className="text-xs text-amber-700 mt-1.5 font-medium flex items-center gap-1">
                   <span>ℹ️ Chưa phân công: Danh mục học viên sẽ hiển thị "HLV sẽ được thông báo trước khai giảng".</span>
                 </p>
               )}
@@ -925,7 +925,7 @@ function EditClassModal({
                 </span>
               )}
               {!isFreeClass && form.price > 0 && (
-                <span className="text-stone-400 text-[11px]">
+                <span className="text-stone-400 text-xs">
                   {pricingMode === "total"
                     ? "Làm tròn theo buổi"
                     : "Tự động tính trọn khóa"}
@@ -968,7 +968,7 @@ function EditClassModal({
             <div>
               <label className="block text-xs font-semibold text-stone-800 mb-1.5 flex items-center justify-between">
                 <span>Ngày kết thúc (Bế giảng)</span>
-                <span className="text-[10px] text-stone-500 font-normal">{apiMode ? "" : `Tự động (${sessionCount} buổi)`}</span>
+                <span className="text-xs text-stone-500 font-normal">{apiMode ? "" : `Tự động (${sessionCount} buổi)`}</span>
               </label>
               <input
                 type="date"
@@ -1042,7 +1042,7 @@ function EditClassModal({
                 )
               })}
             </div>
-            <p className="text-[11px] text-stone-500 mt-1.5">
+            <p className="text-xs text-stone-500 mt-1.5">
               Đang chọn: {formatWeekdaysList(selectedDays)}
             </p>
           </div>
@@ -1059,7 +1059,7 @@ function EditClassModal({
               <p className="text-xs text-rose-700 leading-relaxed font-medium">
                 {conflict.message}
               </p>
-              <p className="text-[11px] text-rose-600 italic">
+              <p className="text-xs text-rose-600 italic">
                 Vui lòng thay đổi khung giờ, ngày học hoặc phân công HLV/sân tập
                 khác để lưu thay đổi.
               </p>
@@ -1947,7 +1947,7 @@ export function ClassManagement() {
             onClick={() => {
               if (urgentCoachAlerts[0]) handleEdit(urgentCoachAlerts[0])
             }}
-            className="text-[11px] font-bold text-amber-800 underline shrink-0 cursor-pointer hover:text-amber-950"
+            className="text-xs font-bold text-amber-800 underline shrink-0 cursor-pointer hover:text-amber-950"
           >
             Phân công ngay &rarr;
           </button>
@@ -1982,7 +1982,7 @@ export function ClassManagement() {
             >
               <span>{tab.label}</span>
               <span
-                className={`px-1.5 py-0.5 rounded-full text-[11px] tabular-nums font-semibold transition-colors ${
+                className={`px-1.5 py-0.5 rounded-full text-xs tabular-nums font-semibold transition-colors ${
                   isActive
                     ? "bg-brand-primary text-white shadow-2xs"
                     : "bg-stone-100 text-stone-600"
@@ -2194,7 +2194,7 @@ export function ClassManagement() {
                         onClick={() =>
                           setColumnVisibility(DEFAULT_COLUMN_VISIBILITY)
                         }
-                        className="text-[11px] font-normal text-stone-500 hover:text-stone-800 cursor-pointer"
+                        className="text-xs font-normal text-stone-500 hover:text-stone-800 cursor-pointer"
                       >
                         Mặc định
                       </button>
@@ -2522,7 +2522,7 @@ export function ClassManagement() {
                                 )}
                               </div>
                               <div
-                                className="text-[11px] text-stone-500 flex items-center gap-1.5 flex-wrap"
+                                className="text-xs text-stone-500 flex items-center gap-1.5 flex-wrap"
                                 title={`${cls.category || (apiEnabled ? "—" : "Thể thao")} • ${sessionCount ?? "—"} buổi`}
                               >
                                 <span>{cls.category || (apiEnabled ? "—" : "Thể thao")}</span>
@@ -2557,7 +2557,7 @@ export function ClassManagement() {
                                   </span>
                                 </div>
                                 <div
-                                  className="text-[11px] text-stone-500"
+                                  className="text-xs text-stone-500"
                                   title={
                                     isOngoing
                                     ? apiEnabled
@@ -2596,7 +2596,7 @@ export function ClassManagement() {
                                   {cls.roomVi || cls.room || (apiEnabled ? "—" : "Sân tiêu chuẩn")}
                                 </div>
                                 <div
-                                  className="text-[11px] text-stone-500 line-clamp-1 truncate"
+                                  className="text-xs text-stone-500 line-clamp-1 truncate"
                                   title={`Sức chứa ${capacity ?? "—"} • ${cls.roomSpec || (apiEnabled ? "—" : "Thảm PVC tiêu chuẩn")}`}
                                 >
                                   Sức chứa {capacity ?? "—"} &bull;{" "}
@@ -2641,7 +2641,7 @@ export function ClassManagement() {
                                       const hoursToStart = (startDt.getTime() - Date.now()) / (1000 * 60 * 60)
                                       if (isUnassigned && hoursToStart > 0 && hoursToStart <= 48) {
                                         return (
-                                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[10px] bg-rose-50 text-rose-700 border border-rose-200 font-bold shrink-0">
+                                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-xs bg-rose-50 text-rose-700 border border-rose-200 font-bold shrink-0">
                                             ⚠️ Chưa có HLV (&lt; 48h)
                                           </span>
                                         )
@@ -2663,7 +2663,7 @@ export function ClassManagement() {
                                       )
                                     return (
                                       <div
-                                        className="text-[11px] text-stone-500 line-clamp-1 truncate flex items-center gap-1.5"
+                                        className="text-xs text-stone-500 line-clamp-1 truncate flex items-center gap-1.5"
                                         title={`Chuyên môn: ${cls.coachSpecialty || (apiEnabled ? "—" : cls.category || "HLV")}${
                                           isMismatch
                                             ? " (Khác với bộ môn của lớp)"
@@ -2675,7 +2675,7 @@ export function ClassManagement() {
                                           {cls.coachSpecialty || (apiEnabled ? "—" : cls.category || "HLV")}
                                         </span>
                                         {isMismatch && (
-                                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[10px] bg-amber-50 text-amber-700 border border-amber-200/80 font-medium shrink-0">
+                                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-xs bg-amber-50 text-amber-700 border border-amber-200/80 font-medium shrink-0">
                                             ⚠️ Khác môn
                                           </span>
                                         )}
@@ -2696,7 +2696,7 @@ export function ClassManagement() {
                                   <span className="font-semibold text-stone-900 tabular-nums">
                                     {enrolled}/{capacity}
                                   </span>
-                                  <span className="text-[11px] font-medium text-stone-500 tabular-nums">
+                                  <span className="text-xs font-medium text-stone-500 tabular-nums">
                                     {percent ?? "—"}{percent === null ? "" : "%"}
                                   </span>
                                 </div>
@@ -2718,7 +2718,7 @@ export function ClassManagement() {
                                 </div>
 
                                 {/* Dòng text trạng thái / cảnh báo màu xám nhạt #6C757D */}
-                                <div className="text-[11px] leading-tight text-[#6C757D]">
+                                <div className="text-xs leading-tight text-[#6C757D]">
                                   {enrolled === null || capacity === null || minCap === null ? (
                                     <span>—</span>
                                   ) : enrolled < minCap ? (
@@ -2795,7 +2795,7 @@ export function ClassManagement() {
                                         <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                           Miễn phí
                                         </div>
-                                        <div className="text-[11px] text-stone-500 tabular-nums">
+                                        <div className="text-xs text-stone-500 tabular-nums">
                                           0 đ / buổi
                                         </div>
                                       </>
@@ -2807,7 +2807,7 @@ export function ClassManagement() {
                                           )}{" "}
                                           đ
                                         </div>
-                                        <div className="text-[11px] text-stone-500 tabular-nums">
+                                        <div className="text-xs text-stone-500 tabular-nums">
                                           ~{perSession?.toLocaleString("vi-VN") ?? "—"}{" "}
                                           đ/buổi
                                         </div>
@@ -2982,7 +2982,7 @@ export function ClassManagement() {
                       day === 12 ? "ring-2 ring-stone-900 bg-stone-100/50" : ""
                     }`}
                   >
-                    <div className="text-[11px] font-semibold text-stone-500 mb-1 tabular-nums">
+                    <div className="text-xs font-semibold text-stone-500 mb-1 tabular-nums">
                       {day}
                     </div>
                     {dayClasses.map((c) => (
@@ -2990,7 +2990,7 @@ export function ClassManagement() {
                         key={c.id}
                         onClick={() => setQuickViewClass(c)}
                         title={`${c.startTime} — ${c.nameVi || c.name}`}
-                        className="p-1.5 bg-white border border-stone-200 rounded-lg text-[11px] text-stone-900 font-semibold line-clamp-2 mb-1 shadow-2xs hover:border-stone-400 cursor-pointer"
+                        className="p-1.5 bg-white border border-stone-200 rounded-lg text-xs text-stone-900 font-semibold line-clamp-2 mb-1 shadow-2xs hover:border-stone-400 cursor-pointer"
                       >
                         <span className="text-stone-900 font-bold tabular-nums">
                           {c.startTime}

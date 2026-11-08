@@ -646,7 +646,7 @@ export function MemberScheduleView() {
                   {/* Pill Chuyên cần riêng */}
                   <span
                     title={t("memberSchedAttendanceTooltip")}
-                    className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-2.5 py-0.5 text-[11px] font-bold text-white cursor-help"
+                    className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-2.5 py-0.5 text-xs font-bold text-white cursor-help"
                   >
                     <span>{t("memberSchedStatAttendance")}</span>
                     <span className="tabular-nums">
@@ -761,7 +761,7 @@ export function MemberScheduleView() {
                       className={`min-h-[38px] px-3.5 py-2 text-[13px] font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${isActive ? "border-blue-700 text-blue-800" : "border-transparent text-slate-600 hover:text-slate-950 hover:border-slate-300"}`}
                     >
                       <span>{tab.label}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold tabular-nums ${isActive ? "bg-blue-100 text-blue-900" : "bg-slate-100 text-slate-700"}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-extrabold tabular-nums ${isActive ? "bg-blue-100 text-blue-900" : "bg-slate-100 text-slate-700"}`}>
                         {tab.count}
                       </span>
                     </button>

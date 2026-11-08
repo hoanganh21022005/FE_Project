@@ -17,13 +17,13 @@ function PackageCard({ pkg, language, apiMode }) {
     <article className="flex min-w-0 flex-col rounded-lg border border-stone-200 bg-white p-5 shadow-xs">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-brand-primary">{pkg.packageType || (vi ? 'Chưa phân loại' : 'Unclassified')} · ID {pkg.id}</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-brand-primary">{pkg.packageType || (vi ? 'Chưa phân loại' : 'Unclassified')} · ID {pkg.id}</p>
           <h4 className="mt-1 break-words text-base font-bold text-brand-dark">{vi ? (pkg.nameVi || pkg.name) : pkg.name}</h4>
         </div>
-        <span className={active ? 'shrink-0 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold uppercase text-emerald-700' : 'shrink-0 rounded border border-stone-200 bg-stone-100 px-2 py-1 text-[10px] font-bold uppercase text-stone-600'}>{pkg.status || '—'}</span>
+        <span className={active ? 'shrink-0 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold uppercase text-emerald-700' : 'shrink-0 rounded border border-stone-200 bg-stone-100 px-2 py-1 text-xs font-bold uppercase text-stone-600'}>{pkg.status || '—'}</span>
       </div>
       <div className="mt-4 min-w-0 space-y-1 rounded border border-stone-200 bg-stone-50 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-stone-500">{vi ? 'Giá gói thành viên' : 'Membership package price'}</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-stone-500">{vi ? 'Giá gói thành viên' : 'Membership package price'}</p>
         <p className="break-words text-xl font-bold tabular-nums text-brand-dark">{money(pkg.price, language)}</p>
         <p className="text-xs text-stone-500">{vi ? 'Thời hạn:' : 'Duration:'} {pkg.durationDays != null ? String(pkg.durationDays) + (vi ? ' ngày' : ' days') : !apiMode && pkg.durationMonths != null ? String(pkg.durationMonths) + (vi ? ' tháng' : ' months') : '—'}</p>
         <p className="text-xs text-stone-500">{vi ? 'Tổng credit:' : 'Total credit:'} {pkg.totalCredit ?? '—'}</p>
@@ -106,8 +106,8 @@ export function PackageManagement() {
               : pricedSubjects.length === 0 ? <p className="py-8 text-center text-sm text-stone-500">{subjectError ? (vi ? 'Chưa có dữ liệu học phí đã tải.' : 'No tuition data loaded yet.') : (vi ? 'Chưa có môn học có học phí khác 0 ₫.' : 'No subjects with tuition above 0.')}</p>
                 : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
                   {pricedSubjects.map((subject) => <article key={subject.id} className="min-w-0 rounded-lg border border-stone-200 bg-stone-50 p-4">
-                    <div className="flex items-start justify-between gap-2"><div className="min-w-0"><h4 className="break-words text-sm font-bold text-stone-900">{subject.name || '—'}</h4>{subject.outdoor != null && <p className="mt-1 text-[11px] text-stone-500">{subject.outdoor ? 'Outdoor' : 'Indoor'}</p>}</div><span className={subject.status === 'active' ? 'shrink-0 rounded bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase text-emerald-700' : 'shrink-0 rounded bg-stone-200 px-2 py-1 text-[10px] font-bold uppercase text-stone-600'}>{subject.status || '—'}</span></div>
-                    <p className="mt-4 text-[10px] font-bold uppercase tracking-wide text-stone-500">{vi ? 'Học phí' : 'Tuition'} {activeType}</p>
+                    <div className="flex items-start justify-between gap-2"><div className="min-w-0"><h4 className="break-words text-sm font-bold text-stone-900">{subject.name || '—'}</h4>{subject.outdoor != null && <p className="mt-1 text-xs text-stone-500">{subject.outdoor ? 'Outdoor' : 'Indoor'}</p>}</div><span className={subject.status === 'active' ? 'shrink-0 rounded bg-emerald-100 px-2 py-1 text-xs font-bold uppercase text-emerald-700' : 'shrink-0 rounded bg-stone-200 px-2 py-1 text-xs font-bold uppercase text-stone-600'}>{subject.status || '—'}</span></div>
+                    <p className="mt-4 text-xs font-bold uppercase tracking-wide text-stone-500">{vi ? 'Học phí' : 'Tuition'} {activeType}</p>
                     <p className="mt-1 break-words text-lg font-bold tabular-nums text-brand-primary">{money(subjectPriceForType(subject, activeType), language)}</p>
                   </article>)}
                 </div>}

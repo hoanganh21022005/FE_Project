@@ -643,7 +643,7 @@ export function CoachTrainingProgress() {
           <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-6 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
               <div>
-                <span className="text-[10px] text-blue-800 font-mono font-bold uppercase">
+                <span className="text-xs text-blue-800 font-mono font-bold uppercase">
                   {t("coachAssignedStudentTag")}
                 </span>
                 <div className="flex items-center gap-2 mt-0.5">
@@ -872,7 +872,7 @@ export function CoachTrainingProgress() {
                   onChange={(e) => setPlanStartDate(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 font-mono"
                 />
-                <div className="text-[11px] font-mono text-slate-500 mt-0.5">
+                <div className="text-xs font-mono text-slate-500 mt-0.5">
                   {formatDate(planStartDate)}
                 </div>
               </div>
@@ -886,7 +886,7 @@ export function CoachTrainingProgress() {
                   onChange={(e) => setPlanEndDate(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 font-mono"
                 />
-                <div className="text-[11px] font-mono text-slate-500 mt-0.5">
+                <div className="text-xs font-mono text-slate-500 mt-0.5">
                   {formatDate(planEndDate)}
                 </div>
               </div>
@@ -930,7 +930,7 @@ export function CoachTrainingProgress() {
                       </span>
                     </div>
                     {(p.startDate || p.endDate) && (
-                      <span className="text-[11px] font-mono text-slate-500">
+                      <span className="text-xs font-mono text-slate-500">
                         {formatDate(p.startDate)} – {formatDate(p.endDate)}
                       </span>
                     )}
@@ -990,7 +990,7 @@ export function CoachTrainingProgress() {
                     ))
                   )}
                 </select>
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="text-xs text-slate-500 mt-1">
                   {t("coachOnlyCompletedSessionsHint")}
                 </p>
               </div>
@@ -1003,7 +1003,7 @@ export function CoachTrainingProgress() {
                     domain="attendance"
                     value={readOnlyAttendanceStatus}
                   />
-                  <span className="text-[10px] font-mono text-slate-500 uppercase">
+                  <span className="text-xs font-mono text-slate-500 uppercase">
                     {t("coachReadOnlyTag")}
                   </span>
                 </div>
@@ -1170,7 +1170,7 @@ export function CoachTrainingProgress() {
                             {t("coachScorePrefix")}:{" "}
                             {formatScore(ev.progressScore)}
                           </div>
-                          <div className="text-[11px] text-slate-400">
+                          <div className="text-xs text-slate-400">
                             {formatDate(ev.evaluationDate)}
                           </div>
                         </div>

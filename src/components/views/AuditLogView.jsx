@@ -146,7 +146,7 @@ export function AuditLogView() {
               ? `Hiển thị 1-${filteredLogs.length} của ${filteredLogs.length} nhật ký`
               : `Showing 1-${filteredLogs.length} of ${filteredLogs.length} log entries`}
           </span>
-          <div className="flex items-center gap-1 text-[11px] tabular-nums">
+          <div className="flex items-center gap-1 text-xs tabular-nums">
             <button disabled className="px-2 py-1 bg-white border border-slate-200 rounded opacity-50 cursor-not-allowed">
               {language === 'vi' ? 'Trang trước' : 'Previous'}
             </button>

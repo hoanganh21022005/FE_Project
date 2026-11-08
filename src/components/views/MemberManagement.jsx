@@ -126,7 +126,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
             <span className="text-2xl font-black text-amber-600 tabular-nums tracking-tight">
               {graceCount}
             </span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
               {language === 'vi' ? 'Cần nhắc' : 'Alert'}
             </span>
           </div>
@@ -151,7 +151,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
             <span className="text-2xl font-black text-slate-700 tabular-nums tracking-tight">
               {noPackageCount}
             </span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
               {language === 'vi' ? 'G4 Member' : 'Leads'}
             </span>
           </div>
@@ -267,11 +267,11 @@ export function MemberManagement({ onSelectMemberDetail }) {
                   <tr key={m.id} className="hover:bg-brand-blue-soft/50 transition-colors h-[42px]">
                     <td className="py-2 px-4 font-bold text-slate-900">
                       <div>{m.name}</div>
-                      <div className="text-[11px] text-slate-500 font-mono tabular-nums">{m.code}</div>
+                      <div className="text-xs text-slate-500 font-mono tabular-nums">{m.code}</div>
                     </td>
                     <td className="py-2 px-4">
                       <div>{m.email}</div>
-                      <div className="text-[11px] text-slate-500 tabular-nums">{m.phone || '—'}</div>
+                      <div className="text-xs text-slate-500 tabular-nums">{m.phone || '—'}</div>
                     </td>
                     <td className="py-2 px-4 text-slate-900 font-medium">
                       {m.membershipStatus === 'none' || !m.currentPackageId ? (
@@ -289,7 +289,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
                       <div className="flex flex-col gap-0.5">
                         <StatusBadge type="membership" status={m.membershipStatus || 'none'} />
                         {m.accountStatus && m.accountStatus !== 'active' && (
-                          <span className="text-[10px] font-semibold text-rose-700">
+                          <span className="text-xs font-semibold text-rose-700">
                             {m.accountStatus === 'locked' ? (language === 'vi' ? 'Khóa TK' : 'Locked') : m.accountStatus}
                           </span>
                         )}
@@ -303,7 +303,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
                         {/* Detail View Button */}
                         <button
                           onClick={() => onSelectMemberDetail && onSelectMemberDetail(m.id)}
-                          className="px-2.5 py-1 bg-white hover:bg-stone-50 hover:border-brand-accent hover:text-brand-primary text-brand-dark border border-slate-300 rounded text-[11px] font-semibold transition-all inline-flex items-center gap-1 shadow-xs cursor-pointer"
+                          className="px-2.5 py-1 bg-white hover:bg-stone-50 hover:border-brand-accent hover:text-brand-primary text-brand-dark border border-slate-300 rounded text-xs font-semibold transition-all inline-flex items-center gap-1 shadow-xs cursor-pointer"
                         >
                           <span>{language === 'vi' ? 'Chi tiết' : 'Details'}</span>
                           <ChevronRight className="w-3 h-3" />
@@ -345,7 +345,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
               ? `Hiển thị 1-${filteredMembers.length} của ${filteredMembers.length} hội viên`
               : `Showing 1-${filteredMembers.length} of ${filteredMembers.length} members`}
           </span>
-          <div className="flex items-center gap-1 text-[11px] tabular-nums">
+          <div className="flex items-center gap-1 text-xs tabular-nums">
             <button disabled className="px-2 py-1 bg-white border border-slate-200 rounded opacity-50 cursor-not-allowed">
               {language === 'vi' ? 'Trang trước' : 'Previous'}
             </button>
