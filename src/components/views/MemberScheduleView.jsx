@@ -99,9 +99,22 @@ export function MemberScheduleView() {
     setSearchParams(nextParams, { replace: true })
   }, [searchParams, setSearchParams])
 
-  // Tab trạng thái ở chế độ Danh sách (một hàng duy nhất: upcoming | done | cancelled, KHÔNG có tab Tất cả)
+  // Tab trạng thái ở chế độ Danh sách (một hàng duy nhất: upcoming | done | absent | cancelled)
   const [statusTab, setStatusTab] = useState("upcoming")
-  const [legendOpen, setLegendOpen] = useState(false)
+  const [coachFilter, setCoachFilter] = useState("all")
+
+  const handleChangeClassFilter = useCallback(
+    (nextClassId) => {
+      const nextParams = new URLSearchParams(searchParams)
+      if (!nextClassId || nextClassId === "all") {
+        nextParams.delete("classId")
+      } else {
+        nextParams.set("classId", String(nextClassId))
+      }
+      setSearchParams(nextParams, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
 
   // Tuần đang xem (bắt đầu Thứ Hai)
   const [anchorDateIso, setAnchorDateIso] = useState(() => getVnTodayIso())
@@ -301,14 +314,34 @@ export function MemberScheduleView() {
     ],
   )
 
-  // Lọc theo loại (Tất cả / Lớp nhóm / PT 1:1) & classId (nếu có trên URL)
+  // Danh sách lớp & HLV để lọc nhanh ở chế độ Danh sách (P2 3.7)
+  const classOptions = useMemo(() => {
+    const map = new Map()
+    for (const item of scheduleItems) {
+      if (item.classId && item.className && !map.has(String(item.classId))) {
+        map.set(String(item.classId), item.className)
+      }
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+  }, [scheduleItems])
+
+  const coachOptions = useMemo(() => {
+    const set = new Set()
+    for (const item of scheduleItems) {
+      if (item.coachName) set.add(item.coachName)
+    }
+    return Array.from(set)
+  }, [scheduleItems])
+
+  // Lọc theo loại (Tất cả / Lớp nhóm / PT 1:1), classId và coachFilter
   const itemsByType = useMemo(
     () =>
       filterItems(scheduleItems, {
         type: typeFilter,
         classId: selectedClassIdFilter,
+        coachFilter,
       }),
-    [scheduleItems, typeFilter, selectedClassIdFilter],
+    [scheduleItems, typeFilter, selectedClassIdFilter, coachFilter],
   )
 
   // Số đếm toàn cục (cho các tab ở chế độ Danh sách và thanh thống kê)
@@ -513,8 +546,10 @@ export function MemberScheduleView() {
               className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
             />
             {lastUpdatedAt && (
-              <span className="text-slate-600 font-semibold tabular-nums">
-                {TIME_FORMATTER_HHMM.format(lastUpdatedAt)}
+              <span className="text-slate-700 font-semibold tabular-nums">
+                {tr("memberSchedUpdatedAtPrefix", {
+                  time: TIME_FORMATTER_HHMM.format(lastUpdatedAt),
+                })}
               </span>
             )}
           </button>
@@ -706,21 +741,69 @@ export function MemberScheduleView() {
                   ))}
                 </div>
 
-                {/* Chip đang lọc theo 1 lớp cụ thể (nếu URL có classId) */}
-                {selectedClassIdFilter !== "all" && filteredCourseLabel && (
+                {/* Bộ lọc nhanh theo lớp/gói và HLV ở chế độ Danh sách (P2 3.7) */}
+                {viewMode === "list" && classOptions.length > 0 && (
+                  <select
+                    value={selectedClassIdFilter}
+                    onChange={(e) => handleChangeClassFilter(e.target.value)}
+                    aria-label={t("memberSchedFilterClassAll")}
+                    className="min-h-[34px] rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[13px] font-semibold text-slate-800 hover:border-slate-300 cursor-pointer"
+                  >
+                    <option value="all">{t("memberSchedFilterClassAll")}</option>
+                    {classOptions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {viewMode === "list" && coachOptions.length > 0 && (
+                  <select
+                    value={coachFilter}
+                    onChange={(e) => setCoachFilter(e.target.value)}
+                    aria-label={t("memberSchedFilterCoachAll")}
+                    className="min-h-[34px] rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[13px] font-semibold text-slate-800 hover:border-slate-300 cursor-pointer"
+                  >
+                    <option value="all">{t("memberSchedFilterCoachAll")}</option>
+                    {coachOptions.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {viewMode === "list" && statusTab !== "upcoming" && (
                   <button
                     type="button"
-                    onClick={clearClassFilter}
-                    className="min-h-[32px] inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[13px] font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                    onClick={() => {
+                      setStatusTab("upcoming")
+                      window.scrollTo({ top: 0, behavior: "smooth" })
+                    }}
+                    className="min-h-[34px] rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[12px] font-bold text-slate-900 hover:bg-slate-50 cursor-pointer"
                   >
-                    <span>
-                      {tr("scheduleCourseFilterChip", {
-                        name: filteredCourseLabel,
-                      })}
-                    </span>
-                    <span aria-hidden="true">×</span>
+                    {t("memberSchedJumpToToday")}
                   </button>
                 )}
+
+                {/* Chip đang lọc theo 1 lớp cụ thể (nếu ở chế độ Tuần và URL có classId) */}
+                {viewMode === "week" &&
+                  selectedClassIdFilter !== "all" &&
+                  filteredCourseLabel && (
+                    <button
+                      type="button"
+                      onClick={clearClassFilter}
+                      className="min-h-[32px] inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[13px] font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                    >
+                      <span>
+                        {tr("scheduleCourseFilterChip", {
+                          name: filteredCourseLabel,
+                        })}
+                      </span>
+                      <span aria-hidden="true">×</span>
+                    </button>
+                  )}
               </div>
 
               {viewMode === "week" ? (

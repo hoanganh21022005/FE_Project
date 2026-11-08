@@ -214,10 +214,10 @@ export function WeekNavigator({
         type="button"
         onClick={onThisWeek}
         disabled={isCurrentWeek}
-        className={`min-h-[40px] rounded-lg border px-3 py-1.5 text-[13px] font-bold transition-colors cursor-pointer ${
+        className={`min-h-[40px] rounded-lg border px-3.5 py-1.5 text-[13px] font-bold transition-colors ${
           isCurrentWeek
-            ? "border-slate-200 bg-slate-100 text-slate-400 cursor-default"
-            : "border-slate-200 bg-white text-slate-800 hover:bg-slate-50"
+            ? "border-slate-200 bg-slate-50 text-slate-500 cursor-default"
+            : "border-slate-300 bg-white text-slate-900 shadow-2xs hover:bg-slate-50 cursor-pointer"
         }`}
       >
         {t("memberSchedThisWeek")}
@@ -717,16 +717,24 @@ export function ScheduleList({
   }
 
   const hasTodayGroup = dayGroups.some((g) => g.dateIso === todayIso)
+  const firstUpcoming = items[0] || null
+  const firstUpcomingText = firstUpcoming
+    ? `${
+        language === "vi"
+          ? getWeekdayMeta(firstUpcoming.date).fullVi
+          : getWeekdayMeta(firstUpcoming.date).fullEn
+      }, ${toDdMm(firstUpcoming.date)} · ${firstUpcoming.startTime}`
+    : null
 
   if (items.length === 0) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {statusTab === "upcoming" && !hasTodayGroup && (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] font-medium text-slate-700">
+          <p className="text-[13px] font-medium text-slate-700 px-1">
             {t("memberSchedTodayNoSession")}
-          </div>
+          </p>
         )}
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-[14px] text-slate-600">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-[14px] text-slate-700">
           {t("scheduleEmptySessions")}
         </div>
       </div>
@@ -749,9 +757,15 @@ export function ScheduleList({
   return (
     <div className="space-y-4">
       {statusTab === "upcoming" && !hasTodayGroup && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] font-medium text-slate-700">
-          {t("memberSchedTodayNoSession")}
-        </div>
+        <p className="text-[13px] font-medium text-slate-700 px-1 flex flex-wrap items-center gap-1.5">
+          <span>
+            {firstUpcomingText
+              ? tr("memberSchedTodayNoSessionSubtle", {
+                  next: firstUpcomingText,
+                })
+              : t("memberSchedTodayNoSession")}
+          </span>
+        </p>
       )}
 
       {slicedGroups.map((group) => {
@@ -1225,23 +1239,28 @@ export function SessionDrawer({
         className="w-full sm:max-w-md max-h-[90vh] sm:h-full rounded-t-2xl sm:rounded-none bg-white p-6 shadow-2xl flex flex-col justify-between overflow-y-auto"
       >
         <div className="space-y-5">
-          {/* Header */}
+          {/* Header (P2 4.4: Gộp 2 nhãn PT 1:1 + TENNIS thành 1 chip "PT 1:1 · Tennis") */}
           <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-4">
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex items-center gap-2">
                 <span
-                  className={`rounded px-2 py-0.5 text-[12px] font-bold ${
+                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-0.5 text-[12px] font-bold border ${
                     item.kind === "pt"
-                      ? "bg-indigo-50 text-indigo-900 border border-indigo-200"
-                      : "bg-slate-100 text-slate-700"
+                      ? "bg-indigo-50 text-indigo-900 border-indigo-200"
+                      : "bg-sky-50 text-sky-900 border-sky-200"
                   }`}
                 >
-                  {item.kind === "pt"
-                    ? t("memberSchedPtBadge")
-                    : t("memberSchedGroupBadge")}
-                </span>
-                <span className="text-[12px] font-bold uppercase text-brand-accent-dark">
-                  {item.sportName}
+                  <span>
+                    {item.kind === "pt"
+                      ? t("memberSchedPtBadge")
+                      : t("memberSchedGroupBadge")}
+                  </span>
+                  {item.sportName && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span>{item.sportName}</span>
+                    </>
+                  )}
                 </span>
               </div>
               <h3 className="text-[18px] font-extrabold text-slate-950">
@@ -1253,16 +1272,16 @@ export function SessionDrawer({
               type="button"
               aria-label={t("scheduleAbsenceClose")}
               onClick={onClose}
-              className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 cursor-pointer"
+              className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          {/* Thông tin chi tiết */}
+          {/* Thông tin chi tiết (WCAG AA contrast >= 4.5:1) */}
           <dl className="space-y-3 text-[14px]">
             <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-              <dt className="font-semibold text-slate-600">
+              <dt className="font-semibold text-slate-700">
                 {t("scheduleDrawerDate")}
               </dt>
               <dd className="font-bold text-slate-900 text-right">
@@ -1271,7 +1290,7 @@ export function SessionDrawer({
             </div>
 
             <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-              <dt className="font-semibold text-slate-600">
+              <dt className="font-semibold text-slate-700">
                 {t("scheduleDrawerTime")}
               </dt>
               <dd className="font-bold text-slate-900 text-right">
@@ -1280,7 +1299,7 @@ export function SessionDrawer({
             </div>
 
             <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-              <dt className="font-semibold text-slate-600">
+              <dt className="font-semibold text-slate-700">
                 {t("scheduleDrawerRoom")}
               </dt>
               <dd className="font-semibold text-slate-900 text-right">
@@ -1289,7 +1308,7 @@ export function SessionDrawer({
             </div>
 
             <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-              <dt className="font-semibold text-slate-600">
+              <dt className="font-semibold text-slate-700">
                 {t("scheduleDrawerCoach")}
               </dt>
               <dd className="font-semibold text-slate-900 text-right">
@@ -1299,7 +1318,7 @@ export function SessionDrawer({
 
             {item.packageName && (
               <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-                <dt className="font-semibold text-slate-600">
+                <dt className="font-semibold text-slate-700">
                   {t("memberSchedDrawerPackageLabel")}
                 </dt>
                 <dd className="font-semibold text-slate-900 text-right">
@@ -1311,7 +1330,7 @@ export function SessionDrawer({
             {item.sessionNumber && item.totalSessions && (
               <div className="py-1.5 border-b border-slate-100 space-y-1.5">
                 <div className="flex justify-between gap-3">
-                  <dt className="font-semibold text-slate-600">
+                  <dt className="font-semibold text-slate-700">
                     {t("trainingProgress")}
                   </dt>
                   <dd className="font-bold text-slate-900 text-right">
@@ -1320,7 +1339,7 @@ export function SessionDrawer({
                       total: item.totalSessions,
                     })}
                     {item.remainingSessions != null && (
-                      <span className="text-slate-600 font-semibold">
+                      <span className="text-slate-700 font-semibold">
                         {" · "}
                         {tr("memberSchedDrawerSessionsRemaining", {
                           remaining: item.remainingSessions,
@@ -1351,7 +1370,7 @@ export function SessionDrawer({
 
             {item.courseSummary && (
               <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-                <dt className="font-semibold text-slate-600">
+                <dt className="font-semibold text-slate-700">
                   {t("memberSchedDrawerCourseSummaryLabel")}
                 </dt>
                 <dd className="font-semibold text-slate-800 text-right tabular-nums">
@@ -1363,7 +1382,7 @@ export function SessionDrawer({
             )}
 
             <div className="flex justify-between items-center gap-3 py-1.5 border-b border-slate-100">
-              <dt className="font-semibold text-slate-600">
+              <dt className="font-semibold text-slate-700">
                 {t("scheduleDrawerStatus")}
               </dt>
               <dd>
@@ -1373,7 +1392,7 @@ export function SessionDrawer({
 
             {item.status === "Completed" && item.attendance && (
               <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-                <dt className="font-semibold text-slate-600">
+                <dt className="font-semibold text-slate-700">
                   {t("memberSchedDrawerAttendanceLabel")}
                 </dt>
                 <dd className="font-bold text-slate-900">
@@ -1386,7 +1405,7 @@ export function SessionDrawer({
 
             {item.status === "Cancelled" && (
               <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-                <dt className="font-semibold text-slate-600">
+                <dt className="font-semibold text-slate-700">
                   {t("memberSchedDrawerCancelReasonLabel")}
                 </dt>
                 <dd className="font-bold text-slate-800 text-right">
