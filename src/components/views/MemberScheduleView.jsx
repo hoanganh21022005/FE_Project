@@ -548,7 +548,7 @@ export function MemberScheduleView() {
             />
             {lastUpdatedAt && (
               <span className="text-slate-700 font-semibold tabular-nums">
-                {tr("memberSchedUpdatedAtPrefix", {
+                {tr("memberSchedUpdatedAtBtn", {
                   time: TIME_FORMATTER_HHMM.format(lastUpdatedAt),
                 })}
               </span>
