@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from "react"
 import { useSCMS } from "../../context/SCMSContext"
+import { SkeletonBlock, SkeletonRow, ErrorState } from "../ui/Skeleton"
 import { getSessions } from "../../api/managerApi.js"
 import { formatDate } from "../../locales/translations"
 import { NewClassModal } from "../modals/NewClassModal"
@@ -1274,6 +1275,7 @@ export function ClassManagement() {
     setClasses,
     reloadClasses,
     apiEnabled,
+    classesLoading,
     subjects,
     staff,
     coaches,
@@ -1839,6 +1841,41 @@ export function ClassManagement() {
       return hours > 0 && hours <= 48
     })
   }, [classes])
+
+  // Loading skeleton — shown while context is fetching classes from API
+  if (classesLoading) {
+    return (
+      <div className="space-y-5" aria-busy="true" aria-label={language === "vi" ? "Đang tải..." : "Loading..."}>
+        {/* Header skeleton */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <SkeletonBlock className="h-7 w-32" />
+            <SkeletonBlock className="h-3 w-72" />
+          </div>
+          <SkeletonBlock className="h-9 w-28 rounded-xl" />
+        </div>
+        {/* Stats row skeleton */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[0, 1, 2, 3].map((i) => (
+            <SkeletonBlock key={i} className="h-14 rounded-xl" />
+          ))}
+        </div>
+        {/* Table skeleton */}
+        <div className="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-xs">
+          <div className="p-4 border-b border-stone-200">
+            <SkeletonBlock className="h-8 w-full" />
+          </div>
+          <table className="w-full">
+            <tbody className="divide-y divide-stone-100">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <SkeletonRow key={i} cols={6} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-5">
