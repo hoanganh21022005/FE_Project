@@ -4,6 +4,7 @@ import { StatusBadge } from "../common/Badge"
 import { NewMemberModal } from "../modals/NewMemberModal"
 import { memberApi } from "../../api/memberApi"
 import { getErrorMessage } from "../../api/apiErrors"
+import { SkeletonBlock } from "../ui/Skeleton"
 import {
   Search,
   Filter,
@@ -13,10 +14,11 @@ import {
   CreditCard,
   Award,
   Unlock,
+  Users,
 } from "lucide-react"
 
 export function ReceptionMemberSearch() {
-  const { members, apiEnabled, showToast, addAuditLog, t, language } = useSCMS()
+  const { members, membersLoading, apiEnabled, showToast, addAuditLog, t, language } = useSCMS()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [isNewMemberOpen, setIsNewMemberOpen] = useState(false)
@@ -133,9 +135,39 @@ export function ReceptionMemberSearch() {
 
         {/* Search Results List */}
         <div className="space-y-3 pt-2">
-          {filteredMembers.length === 0 ? (
-            <div className="text-center py-8 text-slate-500 text-xs">
-              {t("noData")}
+          {/* Loading state */}
+          {membersLoading ? (
+            <div aria-busy="true" aria-label={language === "vi" ? "Đang tải danh sách hội viên..." : "Loading members..."} className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                  <div className="flex items-center gap-3">
+                    <SkeletonBlock className="h-4 w-32" />
+                    <SkeletonBlock className="h-5 w-16 rounded-full" />
+                  </div>
+                  <div className="flex gap-4">
+                    <SkeletonBlock className="h-3 w-20" />
+                    <SkeletonBlock className="h-3 w-28" />
+                    <SkeletonBlock className="h-3 w-36" />
+                  </div>
+                  <SkeletonBlock className="h-3 w-48" />
+                </div>
+              ))}
+            </div>
+          ) : filteredMembers.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-10 text-center">
+              <div className="p-3 bg-slate-100 rounded-lg">
+                <Users className="w-5 h-5 text-slate-400" />
+              </div>
+              <p className="text-sm font-semibold text-slate-700">
+                {searchTerm || statusFilter !== "all"
+                  ? (language === "vi" ? "Không tìm thấy hội viên phù hợp" : "No matching members found")
+                  : (language === "vi" ? "Chưa có hội viên nào trong hệ thống" : "No members in the system yet")}
+              </p>
+              <p className="text-xs text-slate-500 max-w-xs">
+                {searchTerm || statusFilter !== "all"
+                  ? (language === "vi" ? "Thử thay đổi từ khóa hoặc bộ lọc trạng thái." : "Try different keywords or status filter.")
+                  : (language === "vi" ? "Nhấn \"Tạo Thành Viên Mới\" để thêm hội viên đầu tiên." : "Click \"Create New Member\" to add the first member.")}
+              </p>
             </div>
           ) : (
             filteredMembers.map((m) => (
