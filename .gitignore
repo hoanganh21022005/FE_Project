@@ -13,6 +13,7 @@ build/
 .env.*.local
 
 # Personal task tracking (kept locally, not published)
+/plans/
 
 # Logs
 logs/
