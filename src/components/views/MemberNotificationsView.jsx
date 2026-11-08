@@ -16,6 +16,7 @@ import {
 import { useSCMS } from "../../context/SCMSContext"
 import { notificationApi } from "../../api/notificationApi"
 import { getErrorMessage } from "../../api/apiErrors"
+import { PageHeader } from "../ui/PageHeader"
 
 const categorizeNotificationType = (rawType) => {
   const t = String(rawType || "").toUpperCase()
@@ -202,56 +203,50 @@ export function MemberNotificationsView() {
   return (
     <main className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-7 sm:py-8">
       {/* Header */}
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
-            VIBE SPORT · MEMBER
-          </p>
-          <div className="mt-2 flex items-center gap-3">
-            <h1 className="text-3xl font-black text-slate-950">
-              {isVi ? "Trung tâm thông báo" : "Notifications"}
-            </h1>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-3">
+            {isVi ? "Trung tâm thông báo" : "Notifications"}
             {unreadCount > 0 && (
               <span className="rounded-full bg-brand-primary px-2.5 py-0.5 text-xs font-extrabold text-white">
                 {unreadCount} {isVi ? "mới" : "new"}
               </span>
             )}
+          </span>
+        }
+        description={isVi
+          ? "Cập nhật thời gian thực về lịch tập, trạng thái thanh toán, nhắc buổi học và thông tin từ trung tâm."
+          : "Real-time updates on your training schedule, payments, session reminders, and center news."}
+        actions={
+          <div className="flex items-center gap-2">
+            {apiEnabled && (
+              <button
+                type="button"
+                onClick={loadNotifications}
+                disabled={loading}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
+                />
+                <span>{isVi ? "Tải lại" : "Refresh"}</span>
+              </button>
+            )}
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                onClick={handleMarkAllAsRead}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+              >
+                <CheckCheck className="w-4 h-4 text-emerald-600" />
+                <span>
+                  {isVi ? "Đánh dấu tất cả đã đọc" : "Mark all as read"}
+                </span>
+              </button>
+            )}
           </div>
-          <p className="mt-1 text-sm text-slate-500">
-            {isVi
-              ? "Cập nhật thời gian thực về lịch tập, trạng thái thanh toán, nhắc buổi học và thông tin từ trung tâm."
-              : "Real-time updates on your training schedule, payments, session reminders, and center news."}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {apiEnabled && (
-            <button
-              type="button"
-              onClick={loadNotifications}
-              disabled={loading}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
-            >
-              <RefreshCw
-                className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
-              />
-              <span>{isVi ? "Tải lại" : "Refresh"}</span>
-            </button>
-          )}
-          {unreadCount > 0 && (
-            <button
-              type="button"
-              onClick={handleMarkAllAsRead}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
-            >
-              <CheckCheck className="w-4 h-4 text-emerald-600" />
-              <span>
-                {isVi ? "Đánh dấu tất cả đã đọc" : "Mark all as read"}
-              </span>
-            </button>
-          )}
-        </div>
-      </header>
+        }
+      />
 
       {/* Filter Tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
