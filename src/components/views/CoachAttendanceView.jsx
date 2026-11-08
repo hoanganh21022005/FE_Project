@@ -1394,14 +1394,13 @@ export function CoachAttendanceView() {
         <div className="space-y-3">
           {!loadingRoster && rosterError && (
             <p role="alert" className="p-3 text-sm text-red-800 bg-red-50 border border-red-200 rounded">
-              {rosterError.message ||
-                (rosterError.status === 403
-                  ? language === "vi"
-                    ? "Bạn không có quyền xem danh sách học viên của lớp này."
-                    : "You do not have permission to view this class roster."
-                  : language === "vi"
-                    ? "Không tải được danh sách học viên. Hãy thử làm mới."
-                    : "Could not load the class roster. Try refreshing.")}
+              {rosterError.status === 403
+                ? language === "vi"
+                  ? "Bạn không có quyền xem danh sách học viên của lớp này."
+                  : "You do not have permission to view this class roster."
+                : language === "vi"
+                  ? "Không tải được danh sách học viên. Hãy thử làm mới."
+                  : "Could not load the class roster. Try refreshing."}
             </p>
           )}
           {!loadingRoster && (attendancesError || trainingResultsError) && (
@@ -1466,17 +1465,17 @@ export function CoachAttendanceView() {
                       )}
 
                       {saveState === "saving" && (
-                        <span className="text-[11px] font-mono text-blue-700">
+                        <span className="text-xs font-mono text-blue-700">
                           {t("coachSavingRow")}
                         </span>
                       )}
                       {saveState === "saved" && (
-                        <span className="text-[11px] font-mono text-emerald-700">
+                        <span className="text-xs font-mono text-emerald-700">
                           ✓ {t("coachSavedRow")}
                         </span>
                       )}
                       {saveState === "error" && (
-                        <span className="text-[11px] font-mono text-rose-700">
+                        <span className="text-xs font-mono text-rose-700">
                           {t("coachErrorRow")}
                         </span>
                       )}

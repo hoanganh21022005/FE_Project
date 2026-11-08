@@ -519,7 +519,7 @@ export function CoachAssignedMembersView() {
           showToast?.(t("coachPtDecisionAcceptedToast"), "success")
         } else {
           showToast?.(
-            `Trạng thái phản hồi không như mong đợi (${response?.status || "Không xác định"}). Vui lòng thử lại.`,
+            "Có lỗi xảy ra. Hãy tải lại trang rồi thử lại.",
             "error",
           )
         }
@@ -528,7 +528,7 @@ export function CoachAssignedMembersView() {
           showToast?.(t("coachPtDecisionRejectedToast"), "info")
         } else {
           showToast?.(
-            `Trạng thái phản hồi không như mong đợi (${response?.status || "Không xác định"}). Vui lòng thử lại.`,
+            "Có lỗi xảy ra. Hãy tải lại trang rồi thử lại.",
             "warning",
           )
         }
@@ -1437,6 +1437,13 @@ export function CoachAssignedMembersView() {
                   const ent = checkRegistrationEntitlement(pkg, currentUser)
                   return ent.canBook && canCoachActOnPackage(pkg)
                 })
+                // Derive a human-readable block reason for the student-level disabled button
+                const primaryBlockReason = (() => {
+                  if (studentGroup.packages.length === 0) return null
+                  const pkg = studentGroup.packages[0]
+                  const ent = checkRegistrationEntitlement(pkg, currentUser)
+                  return getPackageActionBlockReason(pkg, t) || ent.reason || null
+                })()
                 const recommendedPkg = bookablePackages[0] || null
                 const selectedPkgId =
                   selectedPkgByMember[studentGroup.memberKey] ??
@@ -1631,7 +1638,7 @@ export function CoachAssignedMembersView() {
                                 <Award className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                                 <span>{formatPkgName(item)}</span>
                                 {isRecommended && (
-                                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300 text-[11px] font-semibold">
+                                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-semibold">
                                     {language === "vi"
                                       ? "Gần hết hạn nhất"
                                       : "Nearest expiry"}
@@ -1787,14 +1794,17 @@ export function CoachAssignedMembersView() {
                       ) : (
                         <div className="flex items-center justify-between w-full gap-2 text-xs text-slate-500">
                           <span>
-                            {language === "vi"
-                              ? "Chưa có gói PT đủ điều kiện đặt lịch."
-                              : "No eligible PT package available for booking."}
+                            {primaryBlockReason
+                              ? primaryBlockReason
+                              : language === "vi"
+                                ? "Chưa có gói PT đủ điều kiện đặt lịch."
+                                : "No eligible PT package available for booking."}
                           </span>
                           <button
                             type="button"
                             disabled
                             aria-disabled="true"
+                            title={primaryBlockReason || (language === "vi" ? "Không có gói PT hợp lệ" : "No valid PT package")}
                             className="px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200 rounded text-xs font-bold flex items-center gap-1 cursor-not-allowed opacity-60"
                           >
                             <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
@@ -1938,16 +1948,16 @@ export function CoachAssignedMembersView() {
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Giao dịch chưa được xác nhận</span>
                 </div>
-                <p className="text-[11px]">
+                <p className="text-xs">
                   Yêu cầu trước đó gặp sự cố mạng hoặc timeout. Form đang hiển thị chính xác snapshot của giao dịch đang đối soát
-                  (ngày <strong>{currentAttempt.sessionDate}</strong>, ca{" "}
+                  (ngày <strong>{currentAttempt.sessionDate}</strong>, buổi{" "}
                   <strong>
                     {currentAttempt.startTime?.slice(0, 5)} - {currentAttempt.endTime?.slice(0, 5)}
                   </strong>
-                  ).
+                  ). Hãy tải lại trang để kiểm tra kết quả.
                 </p>
                 <div className="pt-1 border-t border-amber-200/60">
-                  <span className="text-[10px] text-amber-700">
+                  <span className="text-xs text-amber-700">
                     Mã giao dịch: {currentAttempt.key?.slice(0, 8)}...
                   </span>
                 </div>
@@ -1960,7 +1970,7 @@ export function CoachAssignedMembersView() {
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Lịch đã được đặt trước đó</span>
                 </div>
-                <p className="text-[11px]">
+                <p className="text-xs">
                   {currentAttempt.error ||
                     "Mã yêu cầu này đã được xử lý với nội dung lịch khác. Vui lòng đóng cửa sổ và kiểm tra lại lịch hiện tại."}
                 </p>
@@ -1973,7 +1983,7 @@ export function CoachAssignedMembersView() {
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Có xung đột dữ liệu, vui lòng tải lại trang</span>
                 </div>
-                <p className="text-[11px]">
+                <p className="text-xs">
                   {currentAttempt.error ||
                     "Phát hiện xung đột dữ liệu không xác định. Giao dịch được giữ nguyên để kiểm tra lại."}
                 </p>
@@ -1986,7 +1996,7 @@ export function CoachAssignedMembersView() {
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Xung đột lịch tập (Phòng hoặc HLV đã bận)</span>
                 </div>
-                <p className="text-[11px]">
+                <p className="text-xs">
                   {currentAttempt.error}. Bạn có thể chọn ngày, phòng, hoặc ca tập khác bên dưới để tiếp tục đặt lịch.
                 </p>
               </div>
@@ -1998,8 +2008,8 @@ export function CoachAssignedMembersView() {
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Phản hồi xác nhận không như mong đợi</span>
                 </div>
-                <p className="text-[11px]">
-                  {currentAttempt.error}. Giao dịch chưa được xác nhận hoàn tất thành công.
+                <p className="text-xs">
+                  {currentAttempt.error}. Có lỗi xảy ra. Hãy tải lại trang rồi thử lại.
                 </p>
               </div>
             )}
@@ -2037,7 +2047,7 @@ export function CoachAssignedMembersView() {
                       <span>Đang nạp danh sách sân...</span>
                     </div>
                   ) : roomsError ? (
-                    <div className="text-[11px] text-rose-600">
+                    <div className="text-xs text-rose-600">
                       <span>{roomsError}</span>
                       <button
                         type="button"
@@ -2102,7 +2112,7 @@ export function CoachAssignedMembersView() {
                     Khung giờ khả dụng (Chuẩn 90 phút) *
                   </label>
                   {availableSlots.length > 0 && !loadingSlots && (
-                    <span className="text-[11px] text-slate-500">
+                    <span className="text-xs text-slate-500">
                       {availableSlots.filter((s) => s.isAvailable === true).length} ca trống
                     </span>
                   )}
@@ -2159,10 +2169,10 @@ export function CoachAssignedMembersView() {
                           <div className="flex items-center justify-between">
                             <span className="font-semibold">{slot.slotName || slot.name || `Ca ${idx + 1}`}</span>
                             {slot.isAvailable !== true && (
-                              <span className="text-[10px] text-rose-600 font-medium">Kín</span>
+                              <span className="text-xs text-rose-600 font-medium">Kín</span>
                             )}
                           </div>
-                          <div className="font-mono text-[11px] opacity-85 mt-0.5">
+                          <div className="font-mono text-xs opacity-85 mt-0.5">
                             {startStr} – {endStr}
                           </div>
                         </button>
