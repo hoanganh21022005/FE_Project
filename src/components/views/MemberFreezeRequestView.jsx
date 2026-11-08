@@ -108,13 +108,14 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
   } catch {
     // Graceful fallback when rendered outside Router context
   }
-  const { language, apiEnabled, currentUser } = useSCMS()
+  const { language, apiEnabled, currentUser, t } = useSCMS()
   const isVi = language === "vi"
 
   const memberId =
     getAuthoritativeProfileId(currentUser) ?? currentUser?.memberId
 
   const [requests, setRequests] = useState(apiEnabled ? [] : INITIAL_REQUESTS)
+  const [requestsLoading, setRequestsLoading] = useState(!!apiEnabled)
   const [subscriptions, setSubscriptions] = useState(
     Array.isArray(initialSubscriptions) ? initialSubscriptions : []
   )
@@ -159,6 +160,17 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
           }
         })
         .catch(() => {})
+    }
+    // Fetch lịch sử yêu cầu bảo lưu
+    if (memberId) {
+      setRequestsLoading(true)
+      membershipApi
+        .getFreezeRequests?.(memberId)
+        .then((list) => setRequests(Array.isArray(list) ? list : []))
+        .catch(() => {})
+        .finally(() => setRequestsLoading(false))
+    } else {
+      setRequestsLoading(false)
     }
   }, [apiEnabled, memberId])
 
@@ -325,14 +337,10 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
               <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <p className="font-bold text-sm">
-                  {isVi
-                    ? "Form gửi yêu cầu bảo lưu trực tuyến hiện đang tạm khóa"
-                    : "Online Freeze Request Form is Temporarily Locked"}
+                  {t("memberFreezeUpgradeTitle")}
                 </p>
                 <p className="text-amber-900/90 leading-relaxed">
-                  {isVi
-                    ? "Chức năng gửi yêu cầu bảo lưu trực tuyến đang được nâng cấp. Các ngày Trung tâm nghỉ lễ và sự cố cơ sở vật chất ở trên đã được hệ thống tự động cộng bù thời hạn sử dụng mà không cần gửi đơn."
-                    : "Online freeze requests are currently under upgrade. Center holidays and incidents above are compensated automatically without submitting a request."}
+                  {t("memberFreezeUpgradeBody")}
                 </p>
               </div>
             </div>
@@ -585,9 +593,14 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
           </h2>
         </div>
 
-        {requests.length === 0 ? (
+        {requestsLoading ? (
+          <div className="p-8 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+            <Clock className="h-4 w-4 animate-spin text-slate-400" />
+            <span>{t("memberFreezeLoadingRequests")}</span>
+          </div>
+        ) : requests.length === 0 ? (
           <div className="p-8 text-center text-xs text-slate-500">
-            {isVi ? "Chưa có yêu cầu bảo lưu nào." : "No freeze requests yet."}
+            {t("memberFreezeNoRequests")}
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
