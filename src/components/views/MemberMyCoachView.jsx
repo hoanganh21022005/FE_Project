@@ -32,7 +32,7 @@ import { getErrorMessage } from "../../api/apiErrors"
 import { resolveCoachAvatar } from "../../data/publicCoaches"
 
 export function MemberMyCoachView() {
-  const { language, currentUser, subjects, apiEnabled, showToast } = useSCMS()
+  const { language, currentUser, subjects, apiEnabled, showToast, t } = useSCMS()
   const isVi = language === "vi"
 
   // Navigation tab: 'coaches' | 'my_sessions' | 'advanced_pt'
@@ -593,7 +593,7 @@ export function MemberMyCoachView() {
     <main className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-7 sm:py-8 font-sans antialiased">
       {/* Header */}
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
             VIBE SPORT · MEMBER
           </p>
@@ -610,7 +610,7 @@ export function MemberMyCoachView() {
         </div>
 
         {/* Tab switch */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
+        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
           <button
             type="button"
             onClick={() => setActiveTab("coaches")}
@@ -658,6 +658,7 @@ export function MemberMyCoachView() {
                 type="text"
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
+                aria-label={t("search")}
                 placeholder={
                   isVi
                     ? "Tìm theo tên HLV, chuyên môn..."
