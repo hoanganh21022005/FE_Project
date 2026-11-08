@@ -187,7 +187,7 @@ export function ManagerDashboardInsights({ navigate }) {
           subtitle={today}
           icon={CalendarClock}
           action={<div className="flex items-center gap-1">
-            <button type="button" onClick={() => goTo('/manager/session-incidents')} className="inline-flex items-center gap-1 rounded px-2 py-1.5 text-[10px] font-semibold text-brand-primary hover:bg-brand-blue-soft">{vi ? 'Xem tất cả' : 'View all'}<ArrowRight className="h-3 w-3" /></button>
+            <button type="button" onClick={() => goTo('/manager/session-incidents')} className="inline-flex items-center gap-1 rounded px-2 py-1.5 text-xs font-semibold text-brand-primary hover:bg-brand-blue-soft">{vi ? 'Xem tất cả' : 'View all'}<ArrowRight className="h-3 w-3" /></button>
             <button type="button" onClick={() => setSessionReload((value) => value + 1)} aria-label={vi ? 'Tải lại lịch học' : 'Refresh schedule'} className="rounded p-2 text-slate-500 hover:bg-slate-100"><RefreshCw className="h-4 w-4" /></button>
           </div>}
         >
@@ -204,15 +204,15 @@ export function ManagerDashboardInsights({ navigate }) {
                       <article key={session.id} className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-md border border-slate-100 bg-slate-50/70 p-3 sm:grid-cols-[88px_minmax(0,1fr)_auto] sm:items-center">
                         <div className="font-semibold tabular-nums text-brand-dark">
                           <div className="text-sm">{session.startTime ? String(session.startTime).slice(0, 5) : '—'}</div>
-                          <div className="text-[11px] text-slate-500">{session.endTime ? String(session.endTime).slice(0, 5) : '—'}</div>
+                          <div className="text-xs text-slate-500">{session.endTime ? String(session.endTime).slice(0, 5) : '—'}</div>
                         </div>
                         <div className="min-w-0">
                           <p className="truncate text-xs font-bold text-slate-900">{session.className || classInfo?.name || (vi ? 'Chưa có tên lớp' : 'Class name unavailable')}</p>
-                          <p className="mt-1 truncate text-[11px] text-slate-600">{session.subjectName || classInfo?.category || '—'}<span className="px-1.5">·</span>{session.coachName || (vi ? 'Chưa có Coach' : 'Coach unavailable')}<span className="px-1.5">·</span>{room || (vi ? 'Chưa có phòng' : 'Room unavailable')}</p>
+                          <p className="mt-1 truncate text-xs text-slate-600">{session.subjectName || classInfo?.category || '—'}<span className="px-1.5">·</span>{session.coachName || (vi ? 'Chưa có Coach' : 'Coach unavailable')}<span className="px-1.5">·</span>{room || (vi ? 'Chưa có phòng' : 'Room unavailable')}</p>
                         </div>
                         <div className="col-start-2 flex flex-wrap items-center gap-1.5 sm:col-start-auto sm:justify-end">
-                          <span className={`rounded px-2 py-1 text-[10px] font-semibold ${status === 'cancelled' || status === 'canceled' ? 'bg-slate-200 text-slate-700' : 'bg-brand-blue-soft text-brand-primary'}`}>{sessionStatusLabel(session.status)}</span>
-                          {sessionType && <span className="rounded border border-slate-200 bg-white px-2 py-1 text-[10px] text-slate-600">{sessionType}</span>}
+                          <span className={`rounded px-2 py-1 text-xs font-semibold ${status === 'cancelled' || status === 'canceled' ? 'bg-slate-200 text-slate-700' : 'bg-brand-blue-soft text-brand-primary'}`}>{sessionStatusLabel(session.status)}</span>
+                          {sessionType && <span className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600">{sessionType}</span>}
                         </div>
                       </article>
                     )
@@ -228,7 +228,7 @@ export function ManagerDashboardInsights({ navigate }) {
           subtitle={vi ? 'Dữ liệu tổng hợp từ hệ thống quản lý.' : 'Aggregated system report data.'}
           icon={TrendingUp}
           action={<div className="flex gap-1 rounded-md bg-slate-100 p-1">
-            {[7, 30].map((days) => <button key={days} type="button" aria-pressed={revenueRange === days} onClick={() => setRevenueRange(days)} className={`rounded px-2.5 py-1.5 text-[10px] font-semibold ${revenueRange === days ? 'bg-white text-brand-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>{days} {vi ? 'ngày' : 'days'}</button>)}
+            {[7, 30].map((days) => <button key={days} type="button" aria-pressed={revenueRange === days} onClick={() => setRevenueRange(days)} className={`rounded px-2.5 py-1.5 text-xs font-semibold ${revenueRange === days ? 'bg-white text-brand-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>{days} {vi ? 'ngày' : 'days'}</button>)}
           </div>}
         >
           {revenueLoading ? <p role="status" className="py-8 text-center text-xs text-slate-500">{vi ? 'Đang tải báo cáo doanh thu…' : 'Loading revenue report…'}</p>
@@ -237,7 +237,7 @@ export function ManagerDashboardInsights({ navigate }) {
                 : revenueTimeline.length === 0 ? <Notice>{vi ? 'Dữ liệu chưa sẵn sàng: Báo cáo chưa cung cấp chuỗi doanh thu theo ngày.' : 'Data not available: The report does not provide a daily revenue timeline.'}</Notice>
                   : <>
                     <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                      <span className="text-[11px] text-slate-500">{revenueStartDate} – {today}</span>
+                      <span className="text-xs text-slate-500">{revenueStartDate} – {today}</span>
                       <span className="text-sm font-bold tabular-nums text-brand-dark">{revenueReport.totalRevenue == null ? '—' : formatCurrency(revenueReport.totalRevenue, language)}</span>
                     </div>
                     <div className="h-56 w-full sm:h-64">
@@ -280,8 +280,8 @@ export function ManagerDashboardInsights({ navigate }) {
                       <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${status.color}`} style={{ width: `${percent}%` }} /></div>
                     </div>
                   })}
-                  {unknownClassStatusCount > 0 && <p className="text-[11px] text-amber-800">{vi ? `${unknownClassStatusCount} lớp có trạng thái chưa được xác định.` : `${unknownClassStatusCount} classes have an unrecognized status.`}</p>}
-                  <p className="border-t border-slate-100 pt-2 text-[11px] text-slate-500">{vi ? `Tổng ${classTotal} lớp · khớp với KPI tổng quan` : `${classTotal} classes · matches the overview KPI`}</p>
+                  {unknownClassStatusCount > 0 && <p className="text-xs text-amber-800">{vi ? `${unknownClassStatusCount} lớp có trạng thái chưa được xác định.` : `${unknownClassStatusCount} classes have an unrecognized status.`}</p>}
+                  <p className="border-t border-slate-100 pt-2 text-xs text-slate-500">{vi ? `Tổng ${classTotal} lớp · khớp với KPI tổng quan` : `${classTotal} classes · matches the overview KPI`}</p>
                 </div>}
         </Panel>
       </div>

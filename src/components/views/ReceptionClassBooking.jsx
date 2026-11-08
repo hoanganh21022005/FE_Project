@@ -499,7 +499,7 @@ export function ReceptionClassBooking() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-white/80 p-3.5 rounded border border-amber-200 text-xs">
                   <div>
-                    <span className="text-slate-500 block text-[11px]">
+                    <span className="text-slate-500 block text-xs">
                       Lớp học:
                     </span>
                     <strong className="text-slate-900 font-semibold truncate block">
@@ -507,7 +507,7 @@ export function ReceptionClassBooking() {
                     </strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 block text-[11px]">
+                    <span className="text-slate-500 block text-xs">
                       Mã hóa đơn:
                     </span>
                     <strong className="font-mono text-slate-900 font-bold">
@@ -518,7 +518,7 @@ export function ReceptionClassBooking() {
                     </strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 block text-[11px]">
+                    <span className="text-slate-500 block text-xs">
                       Học phí cần thu:
                     </span>
                     <strong className="font-mono text-emerald-700 font-extrabold text-sm">
@@ -528,7 +528,7 @@ export function ReceptionClassBooking() {
                     </strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 block text-[11px]">
+                    <span className="text-slate-500 block text-xs">
                       Hạn thanh toán:
                     </span>
                     <strong className="font-mono text-slate-800 font-semibold">
@@ -707,7 +707,7 @@ export function ReceptionClassBooking() {
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-900 border border-blue-200 text-[10px] font-mono font-bold rounded">
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-900 border border-blue-200 text-xs font-mono font-bold rounded">
                       {cls.category || "Thể thao"}
                     </span>
                     <span className="text-sm font-bold text-slate-900">

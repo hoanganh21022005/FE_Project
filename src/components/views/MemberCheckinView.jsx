@@ -1507,19 +1507,19 @@ export function MemberCheckinView() {
         } space-y-1.5 text-xs text-slate-600`}
       >
         <li className="flex items-start gap-2">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-[11px] font-bold text-slate-700">
+          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
             1
           </span>
           <span>{t("checkinHowToStep1")}</span>
         </li>
         <li className="flex items-start gap-2">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-[11px] font-bold text-slate-700">
+          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
             2
           </span>
           <span>{t("checkinHowToStep2")}</span>
         </li>
         <li className="flex items-start gap-2">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-[11px] font-bold text-slate-700">
+          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
             3
           </span>
           <span>{t("checkinHowToStep3")}</span>

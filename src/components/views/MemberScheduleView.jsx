@@ -50,6 +50,7 @@ import {
   ScheduleList,
   SessionDrawer,
   UpcomingHolidays,
+  UpcomingHolidaysInline,
   ViewToggle,
   WeekGrid,
   WeekNavigator,
@@ -99,9 +100,22 @@ export function MemberScheduleView() {
     setSearchParams(nextParams, { replace: true })
   }, [searchParams, setSearchParams])
 
-  // Tab trạng thái ở chế độ Danh sách (một hàng duy nhất: upcoming | done | cancelled, KHÔNG có tab Tất cả)
+  // Tab trạng thái ở chế độ Danh sách (một hàng duy nhất: upcoming | done | absent | cancelled)
   const [statusTab, setStatusTab] = useState("upcoming")
-  const [legendOpen, setLegendOpen] = useState(false)
+  const [coachFilter, setCoachFilter] = useState("all")
+
+  const handleChangeClassFilter = useCallback(
+    (nextClassId) => {
+      const nextParams = new URLSearchParams(searchParams)
+      if (!nextClassId || nextClassId === "all") {
+        nextParams.delete("classId")
+      } else {
+        nextParams.set("classId", String(nextClassId))
+      }
+      setSearchParams(nextParams, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
 
   // Tuần đang xem (bắt đầu Thứ Hai)
   const [anchorDateIso, setAnchorDateIso] = useState(() => getVnTodayIso())
@@ -301,14 +315,34 @@ export function MemberScheduleView() {
     ],
   )
 
-  // Lọc theo loại (Tất cả / Lớp nhóm / PT 1:1) & classId (nếu có trên URL)
+  // Danh sách lớp & HLV để lọc nhanh ở chế độ Danh sách (P2 3.7)
+  const classOptions = useMemo(() => {
+    const map = new Map()
+    for (const item of scheduleItems) {
+      if (item.classId && item.className && !map.has(String(item.classId))) {
+        map.set(String(item.classId), item.className)
+      }
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+  }, [scheduleItems])
+
+  const coachOptions = useMemo(() => {
+    const set = new Set()
+    for (const item of scheduleItems) {
+      if (item.coachName) set.add(item.coachName)
+    }
+    return Array.from(set)
+  }, [scheduleItems])
+
+  // Lọc theo loại (Tất cả / Lớp nhóm / PT 1:1), classId và coachFilter
   const itemsByType = useMemo(
     () =>
       filterItems(scheduleItems, {
         type: typeFilter,
         classId: selectedClassIdFilter,
+        coachFilter,
       }),
-    [scheduleItems, typeFilter, selectedClassIdFilter],
+    [scheduleItems, typeFilter, selectedClassIdFilter, coachFilter],
   )
 
   // Số đếm toàn cục (cho các tab ở chế độ Danh sách và thanh thống kê)
@@ -325,6 +359,8 @@ export function MemberScheduleView() {
       }),
     [itemsByType, selectedWeekRange],
   )
+
+  const weekCounts = useMemo(() => getCounts(weekItems), [weekItems])
 
   // Các buổi trong chế độ Danh sách theo tab trạng thái (upcoming | done | cancelled)
   const listItems = useMemo(
@@ -480,15 +516,15 @@ export function MemberScheduleView() {
   )
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6">
+    <main className="mx-auto max-w-[1400px] w-full space-y-6 px-6 py-6">
       {/* Header: Tiêu đề 24px + ViewToggle + Làm mới */}
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-[24px] font-black tracking-tight text-slate-950 leading-tight">
             {t("memberSchedTitle")}
           </h1>
-          <p className="mt-1 text-[13px] text-slate-600">
-            {t("schedulePageSubtitle")}
+          <p className="mt-1 text-[13px] text-slate-700">
+            {t("memberSchedPageSubtitle")}
           </p>
         </div>
 
@@ -511,8 +547,10 @@ export function MemberScheduleView() {
               className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
             />
             {lastUpdatedAt && (
-              <span className="text-slate-600 font-semibold tabular-nums">
-                {TIME_FORMATTER_HHMM.format(lastUpdatedAt)}
+              <span className="text-slate-700 font-semibold tabular-nums">
+                {tr("memberSchedUpdatedAtBtn", {
+                  time: TIME_FORMATTER_HHMM.format(lastUpdatedAt),
+                })}
               </span>
             )}
           </button>
@@ -562,78 +600,67 @@ export function MemberScheduleView() {
         />
       </div>
 
-      {/* Bố cục chính: Desktop 2 cột (Lịch bên trái + Sidebar 320px bên phải) */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
-        {/* CỘT TRÁI: Điều khiển + Lưới tuần hoặc Danh sách */}
+
+      {/* Bố cục chính: Desktop 2 cột */}
+      <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 ${viewMode === "week" ? "lg:items-stretch" : "lg:items-start"}`}>
+
+        {/* ══ CỘT TRÁI ══ */}
         <div className="space-y-4 min-w-0">
-          {/* Thanh điều khiển (Sticky trên mobile) */}
+          {/* Thanh điều khiển (Sticky) */}
           <div className="sticky top-0 z-20 rounded-xl border border-slate-200 bg-white/95 backdrop-blur-xs p-3.5 shadow-2xs space-y-3">
-            {/* Hàng 1: Điều hướng tuần (khi ở chế độ Tuần) + Thống kê 1 dòng */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              {viewMode === "week" && (
+            {viewMode === "week" && (
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <WeekNavigator
                   weekRange={selectedWeekRange}
                   isCurrentWeek={isCurrentWeek}
-                  onPrevWeek={() =>
-                    setAnchorDateIso((d) => addDaysIso(d, -7))
-                  }
-                  onNextWeek={() =>
-                    setAnchorDateIso((d) => addDaysIso(d, 7))
-                  }
+                  onPrevWeek={() => setAnchorDateIso((d) => addDaysIso(d, -7))}
+                  onNextWeek={() => setAnchorDateIso((d) => addDaysIso(d, 7))}
                   onThisWeek={() => setAnchorDateIso(todayIso)}
                   onPickDate={(pickedIso) => setAnchorDateIso(pickedIso)}
                   t={t}
                 />
-              )}
 
-              {/* Thống kê 1 dòng (Đã học · Sắp tới · Đã hủy · Chuyên cần) */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-semibold text-slate-700">
-                <span>
-                  {t("memberSchedStatDone")}{" "}
-                  <strong className="font-extrabold text-emerald-800 tabular-nums">
-                    {globalCounts.done}
-                  </strong>
-                </span>
-                <span aria-hidden="true" className="text-slate-300">
-                  ·
-                </span>
-                <span>
-                  {t("memberSchedStatUpcoming")}{" "}
-                  <strong className="font-extrabold text-sky-900 tabular-nums">
-                    {globalCounts.upcoming}
-                  </strong>
-                </span>
-                <span aria-hidden="true" className="text-slate-300">
-                  ·
-                </span>
-                <span>
-                  {t("memberSchedStatCancelled")}{" "}
-                  <strong className="font-extrabold text-slate-800 tabular-nums">
-                    {globalCounts.cancelled}
-                  </strong>
-                </span>
-                <span aria-hidden="true" className="text-slate-300">
-                  ·
-                </span>
-                <span
-                  title={t("memberSchedAttendanceTooltip")}
-                  className="inline-flex items-center gap-1 cursor-help"
-                >
-                  <span>{t("memberSchedStatAttendance")}</span>
-                  <strong className="font-extrabold text-slate-950 tabular-nums">
-                    {globalCounts.attendanceRate === null
-                      ? "–"
-                      : `${globalCounts.attendanceRate}%`}
-                  </strong>
-                  <HelpCircle className="h-3.5 w-3.5 text-slate-400" />
-                </span>
+                {/* Thống kê: 2 pill cùng bộ số + pill Chuyên cần riêng */}
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] font-semibold text-slate-700">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5">
+                    <span className="font-bold text-slate-600 mr-0.5">{t("memberSchedScopeThisWeek")}</span>
+                    <span>{t("memberSchedStatDone")} <strong className="font-extrabold text-emerald-800 tabular-nums">{weekCounts.done}</strong></span>
+                    <span aria-hidden="true" className="text-slate-300">·</span>
+                    <span>{t("memberSchedStatAbsent")} <strong className="font-extrabold text-rose-700 tabular-nums">{weekCounts.absent}</strong></span>
+                    <span aria-hidden="true" className="text-slate-300">·</span>
+                    <span>{t("memberSchedStatUpcoming")} <strong className="font-extrabold text-sky-900 tabular-nums">{weekCounts.upcoming}</strong></span>
+                    <span aria-hidden="true" className="text-slate-300">·</span>
+                    <span>{t("memberSchedStatCancelled")} <strong className="font-extrabold text-slate-700 tabular-nums">{weekCounts.cancelled}</strong></span>
+                  </span>
+                  <span aria-hidden="true" className="text-slate-300 hidden sm:inline">|</span>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 border border-slate-200 px-2 py-0.5">
+                    <span className="font-bold text-slate-600 mr-0.5">{t("memberSchedScopeAllPackages")}</span>
+                    <span>{t("memberSchedStatDone")} <strong className="font-extrabold text-emerald-800 tabular-nums">{globalCounts.done}</strong></span>
+                    <span aria-hidden="true" className="text-slate-300">·</span>
+                    <span>{t("memberSchedStatAbsent")} <strong className="font-extrabold text-rose-700 tabular-nums">{globalCounts.absent}</strong></span>
+                    <span aria-hidden="true" className="text-slate-300">·</span>
+                    <span>{t("memberSchedStatUpcoming")} <strong className="font-extrabold text-sky-900 tabular-nums">{globalCounts.upcoming}</strong></span>
+                    <span aria-hidden="true" className="text-slate-300">·</span>
+                    <span>{t("memberSchedStatCancelled")} <strong className="font-extrabold text-slate-700 tabular-nums">{globalCounts.cancelled}</strong></span>
+                  </span>
+                  {/* Pill Chuyên cần riêng */}
+                  <span
+                    title={t("memberSchedAttendanceTooltip")}
+                    className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-2.5 py-0.5 text-xs font-bold text-white cursor-help"
+                  >
+                    <span>{t("memberSchedStatAttendance")}</span>
+                    <span className="tabular-nums">
+                      {globalCounts.attendanceRate === null ? "–" : `${globalCounts.attendanceRate}%`}
+                    </span>
+                    <HelpCircle className="h-3 w-3 opacity-70" />
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Hàng 2: Chip lọc loại (Tất cả / Lớp nhóm / PT 1:1) + Tab trạng thái (nếu ở Danh sách) + Chú giải */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
+            {/* Hàng lọc */}
+            <div className={`flex flex-wrap items-center justify-between gap-2 ${viewMode === "week" ? "pt-2 border-t border-slate-100" : ""}`}>
               <div className="flex flex-wrap items-center gap-2">
-                {/* Chip lọc loại */}
                 <div className="inline-flex items-center rounded-lg bg-slate-100 p-1">
                   {[
                     { key: "all", label: t("memberSchedTypeAll") },
@@ -644,87 +671,112 @@ export function MemberScheduleView() {
                       key={chip.key}
                       type="button"
                       onClick={() => setTypeFilter(chip.key)}
-                      className={`min-h-[32px] rounded-md px-3 py-1 text-[13px] font-bold transition-colors cursor-pointer ${
-                        typeFilter === chip.key
-                          ? "bg-slate-900 text-white shadow-2xs"
-                          : "text-slate-700 hover:text-slate-950"
-                      }`}
+                      className={`min-h-[32px] rounded-md px-3 py-1 text-[13px] font-bold transition-colors cursor-pointer ${typeFilter === chip.key ? "bg-white text-slate-950 shadow-2xs" : "text-slate-700 hover:text-slate-950"}`}
                     >
                       {chip.label}
                     </button>
                   ))}
                 </div>
 
-                {/* Tab trạng thái 1 hàng duy nhất (chỉ ở chế độ Danh sách, KHÔNG có tab Tất cả) */}
-                {viewMode === "list" && (
-                  <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-1">
-                    {[
-                      {
-                        key: "upcoming",
-                        label: t("memberSchedTabUpcoming"),
-                        count: globalCounts.upcoming,
-                      },
-                      {
-                        key: "done",
-                        label: t("memberSchedTabDone"),
-                        count: globalCounts.done,
-                      },
-                      {
-                        key: "cancelled",
-                        label: t("memberSchedTabCancelled"),
-                        count: globalCounts.cancelled,
-                      },
-                    ].map((tab) => (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => setStatusTab(tab.key)}
-                        className={`min-h-[32px] rounded-md px-3 py-1 text-[13px] font-bold transition-colors cursor-pointer ${
-                          statusTab === tab.key
-                            ? "bg-blue-700 text-white"
-                            : "text-slate-700 hover:bg-slate-100"
-                        }`}
-                      >
-                        {tab.label} ({tab.count})
-                      </button>
+                {viewMode === "list" && classOptions.length > 0 && (
+                  <select
+                    value={selectedClassIdFilter}
+                    onChange={(e) => handleChangeClassFilter(e.target.value)}
+                    aria-label={t("memberSchedFilterClassAll")}
+                    className="min-h-[34px] rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[13px] font-semibold text-slate-800 hover:border-slate-300 cursor-pointer"
+                  >
+                    <option value="all">{t("memberSchedFilterClassAll")}</option>
+                    {classOptions.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
-                  </div>
+                  </select>
                 )}
 
-                {/* Chip đang lọc theo 1 lớp cụ thể (nếu URL có classId) */}
-                {selectedClassIdFilter !== "all" && filteredCourseLabel && (
+                {viewMode === "list" && coachOptions.length > 0 && (
+                  <select
+                    value={coachFilter}
+                    onChange={(e) => setCoachFilter(e.target.value)}
+                    aria-label={t("memberSchedFilterCoachAll")}
+                    className="min-h-[34px] rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[13px] font-semibold text-slate-800 hover:border-slate-300 cursor-pointer"
+                  >
+                    <option value="all">{t("memberSchedFilterCoachAll")}</option>
+                    {coachOptions.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                )}
+
+                {viewMode === "list" && statusTab !== "upcoming" && (
+                  <button
+                    type="button"
+                    onClick={() => { setStatusTab("upcoming"); window.scrollTo({ top: 0, behavior: "smooth" }) }}
+                    className="min-h-[34px] rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[12px] font-bold text-slate-900 hover:bg-slate-50 cursor-pointer"
+                  >
+                    {t("memberSchedJumpToToday")}
+                  </button>
+                )}
+
+                {viewMode === "week" && selectedClassIdFilter !== "all" && filteredCourseLabel && (
                   <button
                     type="button"
                     onClick={clearClassFilter}
                     className="min-h-[32px] inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[13px] font-bold text-slate-800 hover:bg-slate-50 cursor-pointer"
                   >
-                    <span>
-                      {tr("scheduleCourseFilterChip", {
-                        name: filteredCourseLabel,
-                      })}
-                    </span>
-                    <span aria-hidden="true">×</span>
+                    <span>{tr("scheduleCourseFilterChip", { name: filteredCourseLabel })}</span>
+                    <span aria-hidden="true">x</span>
                   </button>
                 )}
               </div>
 
-              <ScheduleLegend
-                t={t}
-                isOpen={legendOpen}
-                onToggle={() => setLegendOpen((prev) => !prev)}
-              />
+              {viewMode === "week" ? (
+                <ScheduleLegend t={t} />
+              ) : (
+                <div title={t("memberSchedAttendanceTooltip")} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-[13px] font-semibold text-slate-800 cursor-help">
+                  <span>{t("memberSchedStatAttendance")}:</span>
+                  <strong className="font-extrabold text-slate-950 tabular-nums">
+                    {globalCounts.attendanceRate === null ? "–" : `${globalCounts.attendanceRate}%`}
+                  </strong>
+                  <HelpCircle className="h-3.5 w-3.5 text-slate-500" />
+                </div>
+              )}
             </div>
+
+            {/* Tab trạng thái ở chế độ Danh sách */}
+            {viewMode === "list" && (
+              <div role="tablist" className="flex flex-wrap items-center gap-1 border-b border-slate-200 pt-1 -mb-1">
+                {[
+                  { key: "upcoming", label: t("memberSchedTabUpcoming"), count: globalCounts.upcoming },
+                  { key: "done", label: t("memberSchedTabDone"), count: globalCounts.done },
+                  { key: "absent", label: t("memberSchedTabAbsent"), count: globalCounts.absent },
+                  { key: "cancelled", label: t("memberSchedTabCancelled"), count: globalCounts.cancelled },
+                ].map((tab) => {
+                  const isActive = statusTab === tab.key
+                  return (
+                    <button
+                      key={tab.key}
+                      role="tab"
+                      aria-selected={isActive}
+                      type="button"
+                      onClick={() => setStatusTab(tab.key)}
+                      className={`min-h-[38px] px-3.5 py-2 text-[13px] font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${isActive ? "border-blue-700 text-blue-800" : "border-transparent text-slate-600 hover:text-slate-950 hover:border-slate-300"}`}
+                    >
+                      <span>{tab.label}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-extrabold tabular-nums ${isActive ? "bg-blue-100 text-blue-900" : "bg-slate-100 text-slate-700"}`}>
+                        {tab.count}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Nội dung chính: Skeleton khi đang tải lần đầu, hoặc WeekGrid / ScheduleList */}
+          {/* Nội dung chính */}
           {loading && scheduleItems.length === 0 ? (
             <div aria-busy="true" className="space-y-3">
               <div className="h-12 w-full rounded-xl bg-slate-200/70 animate-pulse" />
               {[1, 2, 3, 4].map((k) => (
-                <div
-                  key={k}
-                  className="h-20 w-full rounded-xl border border-slate-200 bg-white p-4 animate-pulse flex items-center justify-between"
-                >
+                <div key={k} className="h-20 w-full rounded-xl border border-slate-200 bg-white p-4 animate-pulse flex items-center justify-between">
                   <div className="space-y-2 w-2/3">
                     <div className="h-4 w-1/2 rounded bg-slate-200" />
                     <div className="h-3 w-1/3 rounded bg-slate-100" />
@@ -759,12 +811,29 @@ export function MemberScheduleView() {
               tr={tr}
             />
           )}
+
+          {/* Nghỉ lễ inline — dưới lịch, cột trái */}
+          <UpcomingHolidaysInline
+            next30Days={holidaysSummary.next30Days}
+            allUpcoming={holidaysSummary.allUpcoming}
+            t={t}
+            tr={tr}
+          />
         </div>
 
-        {/* CỘT PHẢI (320px trên Desktop): Buổi tiếp theo + Gói của tôi + Nghỉ lễ 30 ngày */}
-        <aside className="space-y-4">
-          {/* Desktop: NextSessionCard */}
-          <div className="hidden lg:block">
+        {/* ══ CỘT PHẢI (320px) ══
+            - Hiển thị ở cả tab Tuần lẫn Danh sách (không ẩn khi list mode).
+            - items-stretch trên grid → aside nhận chiều cao cột trái (tab Tuần).
+            - Tab Danh sách: items-start nên aside tự co theo nội dung.
+            - Inner div sticky + flex-col: NextSession tự nhiên,
+              PackageSummary flex-1 cuộn trong (chỉ khi tab Tuần).
+        */}
+        <aside className="hidden lg:block self-stretch">
+          <div
+            className="sticky top-4 flex flex-col gap-4"
+            style={viewMode === "week" ? { maxHeight: "calc(100vh - 2rem)" } : undefined}
+          >
+            {/* NextSessionCard: chiều cao tự nhiên */}
             <NextSessionCard
               nextItem={nextUpcomingItem}
               todayIso={todayIso}
@@ -775,97 +844,58 @@ export function MemberScheduleView() {
               t={t}
               tr={tr}
             />
-          </div>
-
-          {/* Desktop: Hiển thị đầy đủ Gói của tôi & Nghỉ lễ */}
-          <div className="hidden lg:block space-y-4">
+            {/* PackageSummary: fillHeight chỉ khi tab Tuần để lấp đầy cột */}
             <PackageSummary
               packages={packageSummaries}
               onNavigateBookPt={() => navigate("/member/my-coach")}
               t={t}
               tr={tr}
+              fillHeight={viewMode === "week"}
             />
-            <UpcomingHolidays
-              next30Days={holidaysSummary.next30Days}
-              allUpcoming={holidaysSummary.allUpcoming}
-              t={t}
-            />
-          </div>
-
-          {/* Mobile: Gói của tôi & Nghỉ lễ ở cuối trang dạng thu gọn / bấm mở rộng */}
-          <div className="lg:hidden space-y-3">
-            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setMobilePackagesOpen((prev) => !prev)}
-                aria-expanded={mobilePackagesOpen}
-                className="w-full min-h-[44px] px-4 py-3 flex items-center justify-between text-[14px] font-extrabold text-slate-900 cursor-pointer"
-              >
-                <span>
-                  {t("memberSchedMyPackagesHeader")} ({packageSummaries.length})
-                </span>
-                {mobilePackagesOpen ? (
-                  <ChevronUp className="h-4 w-4 text-slate-500" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-slate-500" />
-                )}
-              </button>
-              {mobilePackagesOpen && (
-                <div className="border-t border-slate-100 p-3">
-                  <PackageSummary
-                    packages={packageSummaries}
-                    onNavigateBookPt={() => navigate("/member/my-coach")}
-                    t={t}
-                    tr={tr}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setMobileHolidaysOpen((prev) => !prev)}
-                aria-expanded={mobileHolidaysOpen}
-                className="w-full min-h-[44px] px-4 py-3 flex items-center justify-between text-[14px] font-extrabold text-slate-900 cursor-pointer"
-              >
-                <span>
-                  {t("memberSchedHolidays30Header")} (
-                  {holidaysSummary.next30Days.length})
-                </span>
-                {mobileHolidaysOpen ? (
-                  <ChevronUp className="h-4 w-4 text-slate-500" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-slate-500" />
-                )}
-              </button>
-              {mobileHolidaysOpen && (
-                <div className="border-t border-slate-100 p-3">
-                  <UpcomingHolidays
-                    next30Days={holidaysSummary.next30Days}
-                    allUpcoming={holidaysSummary.allUpcoming}
-                    t={t}
-                  />
-                </div>
-              )}
-            </div>
           </div>
         </aside>
+
+        {/* Mobile: Gói của tôi (thu gọn accordion) */}
+        <div className="lg:hidden">
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setMobilePackagesOpen((prev) => !prev)}
+              aria-expanded={mobilePackagesOpen}
+              className="w-full min-h-[44px] px-4 py-3 flex items-center justify-between text-[14px] font-extrabold text-slate-900 cursor-pointer"
+            >
+              <span>{t("memberSchedMyPackagesHeader")} ({packageSummaries.length})</span>
+              {mobilePackagesOpen ? <ChevronUp className="h-4 w-4 text-slate-500" /> : <ChevronDown className="h-4 w-4 text-slate-500" />}
+            </button>
+            {mobilePackagesOpen && (
+              <div className="border-t border-slate-100 p-3">
+                <PackageSummary
+                  packages={packageSummaries}
+                  onNavigateBookPt={() => navigate("/member/my-coach")}
+                  t={t}
+                  tr={tr}
+                />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Ngăn chi tiết buổi học (SessionDrawer) */}
+      {/* SessionDrawer */}
       <SessionDrawer
         item={detailSession}
         onClose={() => setDetailSession(null)}
         onOpenAbsenceModal={handleOpenAbsenceModal}
         onRequestCancelPt={handleRequestCancelPt}
         onNavigateProgress={() => navigate("/member/progress")}
+        onNavigateCoach={() => navigate("/member/my-coach")}
+        onNavigateFacilities={() => navigate("/facilities")}
         language={language}
         t={t}
         tr={tr}
       />
 
-      {/* Modal Báo vắng (dành cho buổi PT 1:1) */}
+      {/* Modal Báo vắng */}
       <SessionAbsenceModal
         selectedSession={selectedSessionForAbsence}
         onClose={() => setSelectedSessionForAbsence(null)}
@@ -881,7 +911,7 @@ export function MemberScheduleView() {
         tr={tr}
       />
 
-      {/* Hộp xác nhận hủy lịch PT 1:1 */}
+      {/* Hộp xác nhận hủy PT 1:1 */}
       {ptCancelConfirmTarget && (
         <div
           role="dialog"
@@ -891,9 +921,7 @@ export function MemberScheduleView() {
         >
           <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="text-[16px] font-extrabold text-slate-900">
-                {t("schedulePtCancelConfirmTitle")}
-              </h3>
+              <h3 className="text-[16px] font-extrabold text-slate-900">{t("schedulePtCancelConfirmTitle")}</h3>
               <button
                 type="button"
                 aria-label={t("scheduleAbsenceClose")}
@@ -903,36 +931,18 @@ export function MemberScheduleView() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-
             <div className="space-y-2 text-[13px] text-slate-700">
               <p className="font-bold text-slate-900">
-                {ptCancelConfirmTarget.session.className ||
-                  t("schedulePtDefaultTitle")}{" "}
-                ·{" "}
-                {toDdMmYyyy(ptCancelConfirmTarget.session.sessionDate) || "—"} (
-                {ptCancelConfirmTarget.session.startTime}–
-                {ptCancelConfirmTarget.session.endTime})
+                {ptCancelConfirmTarget.session.className || t("schedulePtDefaultTitle")}{" "}
+                · {toDdMmYyyy(ptCancelConfirmTarget.session.sessionDate) || "—"} (
+                {ptCancelConfirmTarget.session.startTime}–{ptCancelConfirmTarget.session.endTime})
               </p>
-
-              <p
-                className={`rounded-lg border p-3 font-medium leading-relaxed ${
-                  ptCancelConfirmTarget.canCancelForRefund
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-950"
-                    : "border-amber-200 bg-amber-50 text-amber-950"
-                }`}
-              >
+              <p className={`rounded-lg border p-3 font-medium leading-relaxed ${ptCancelConfirmTarget.canCancelForRefund ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-amber-200 bg-amber-50 text-amber-950"}`}>
                 {ptCancelConfirmTarget.canCancelForRefund
-                  ? tr("schedulePtCancelConfirmRefundMsg", {
-                      hours: ptCancelConfirmTarget.cutoffHours,
-                      datetime:
-                        ptCancelConfirmTarget.refundDeadlineFormatted || "—",
-                    })
-                  : tr("schedulePtCancelConfirmNoRefundMsg", {
-                      hours: ptCancelConfirmTarget.cutoffHours,
-                    })}
+                  ? tr("schedulePtCancelConfirmRefundMsg", { hours: ptCancelConfirmTarget.cutoffHours, datetime: ptCancelConfirmTarget.refundDeadlineFormatted || "—" })
+                  : tr("schedulePtCancelConfirmNoRefundMsg", { hours: ptCancelConfirmTarget.cutoffHours })}
               </p>
             </div>
-
             <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
@@ -943,9 +953,7 @@ export function MemberScheduleView() {
               </button>
               <button
                 type="button"
-                disabled={
-                  cancellingSessionId === ptCancelConfirmTarget.session.id
-                }
+                disabled={cancellingSessionId === ptCancelConfirmTarget.session.id}
                 onClick={handleConfirmCancelPrivate}
                 className="min-h-[38px] rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-50 px-4 py-1.5 text-[13px] font-bold text-white cursor-pointer"
               >

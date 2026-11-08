@@ -697,7 +697,7 @@ export function MemberDashboard() {
 
   return (
     <main className="min-h-full w-full overflow-x-hidden bg-slate-50/70 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div className="w-full space-y-6 lg:space-y-7">
+      <div className="mx-auto max-w-[1400px] w-full space-y-6 px-6 lg:space-y-7">
         <header className="flex flex-col justify-between gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
           <div className="min-w-0">
             <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-brand-accent-dark">
@@ -726,7 +726,7 @@ export function MemberDashboard() {
                 </span>
               )}
               {currentUser?.email && (
-                <span className="break-all">{currentUser.email}</span>
+                <span className="break-words">{currentUser.email}</span>
               )}
             </div>
           </div>

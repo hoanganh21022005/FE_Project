@@ -538,6 +538,22 @@ export function buildScheduleItems({
       enr?.className ||
       (kind === "pt" ? `${sportName} · PT 1:1` : sportName)
 
+    if (/e2e[-_ ]?rehearsal/i.test(`${className} ${sportName}`)) return
+
+    const packageName =
+      enr?.className ||
+      raw.packageName ||
+      (kind === "pt" ? `${sportName} · Gói PT 1:1` : className)
+
+    const sessionNumber = raw.sessionNumber ?? meta?.sessionNumber ?? null
+    const totalSessions = raw.totalSessions ?? meta?.totalSessions ?? null
+    const remainingSessions =
+      totalSessions != null && sessionNumber != null
+        ? Math.max(0, Number(totalSessions) - Number(sessionNumber))
+        : raw.remainingCredits != null
+          ? Number(raw.remainingCredits)
+          : null
+
     result.push({
       id: rawId ?? dedupeKey,
       rawId: rawId ?? null,
@@ -551,6 +567,7 @@ export function buildScheduleItems({
       slotNumber,
       className,
       sportName,
+      packageName,
       roomName: raw.roomName || raw.roomLocation || enr?.roomName || null,
       coachName: raw.coachName || enr?.coachName || null,
       status, // 'Scheduled' | 'Completed' | 'Cancelled'
@@ -563,8 +580,9 @@ export function buildScheduleItems({
       replacedByDate: meta?.replacedByDate || null,
       absenceNotice,
       attendance, // 'Present' | 'Late' | 'Excused' | 'Absent' | null
-      sessionNumber: raw.sessionNumber ?? meta?.sessionNumber ?? null,
-      totalSessions: raw.totalSessions ?? meta?.totalSessions ?? null,
+      sessionNumber,
+      totalSessions,
+      remainingSessions,
       holidayName: holidayMap.get(date) || null,
       canReportAbsence,
       isPtReportAbsenceExpired,
@@ -589,6 +607,34 @@ export function buildScheduleItems({
     processRaw(s, "pt")
   }
 
+  // Gắn thống kê điểm danh theo từng khóa/lớp (courseSummary) cho Drawer chi tiết (4.3)
+  const summaryByCourseKey = new Map()
+  for (const item of result) {
+    const courseKey =
+      item.kind === "group" && item.classId
+        ? `group-${item.classId}`
+        : `pt-${item.sportName || "all"}`
+    if (!summaryByCourseKey.has(courseKey)) {
+      summaryByCourseKey.set(courseKey, [])
+    }
+    summaryByCourseKey.get(courseKey).push(item)
+  }
+  for (const item of result) {
+    const courseKey =
+      item.kind === "group" && item.classId
+        ? `group-${item.classId}`
+        : `pt-${item.sportName || "all"}`
+    const courseItems = summaryByCourseKey.get(courseKey) || []
+    const counts = getCounts(courseItems)
+    item.courseSummary = {
+      done: counts.done,
+      absent: counts.absent,
+      upcoming: counts.upcoming,
+      cancelled: counts.cancelled,
+      attendanceRate: counts.attendanceRate,
+    }
+  }
+
   result.sort((a, b) => {
     if (a.date !== b.date) return a.date.localeCompare(b.date)
     return String(a.startTime).localeCompare(String(b.startTime))
@@ -599,26 +645,28 @@ export function buildScheduleItems({
 
 /**
  * Bộ đếm duy nhất cho toàn trang (tab, thống kê tuần, huy hiệu).
- * - Sắp tới = Scheduled và chưa quá giờ (upcoming, upcoming_absence_reported, ongoing). KHÔNG gồm Cancelled.
- * - Đã học = Completed.
- * - Đã hủy = Cancelled.
- * - Chuyên cần = Completed có mặt (Present/Late/Excused) / tổng Completed. Nếu 0 Completed -> null (hiển thị '–').
+ * - Sắp tới (upcoming) = Scheduled và chưa quá giờ (upcoming, upcoming_absence_reported, ongoing). KHÔNG gồm Cancelled.
+ * - Đã học (done) = Completed và có mặt (Present/Late/Excused).
+ * - Vắng mặt (absent) = Completed nhưng vắng mặt (Absent).
+ * - Đã hủy (cancelled) = Cancelled.
+ * - Chuyên cần (attendanceRate) = Đã học / (Đã học + Vắng). Nếu (Đã học + Vắng) === 0 -> null (hiển thị '–').
  */
 export function getCounts(items = []) {
   let upcoming = 0
   let done = 0
+  let absent = 0
   let cancelled = 0
   let pendingUpdate = 0
-  let attendedDone = 0
 
   for (const item of Array.isArray(items) ? items : []) {
     if (!item) continue
     if (item.status === "Cancelled") {
       cancelled += 1
     } else if (item.status === "Completed") {
-      done += 1
-      if (item.attendance !== "Absent") {
-        attendedDone += 1
+      if (item.attendance === "Absent") {
+        absent += 1
+      } else {
+        done += 1
       }
     } else if (item.status === "Scheduled") {
       if (item.uiState === "pending_update") {
@@ -629,25 +677,28 @@ export function getCounts(items = []) {
     }
   }
 
+  const totalCompleted = done + absent
   const attendanceRate =
-    done > 0 ? Math.round((attendedDone / done) * 100) : null
+    totalCompleted > 0 ? Math.round((done / totalCompleted) * 100) : null
 
   return {
     upcoming,
     done,
+    absent,
     cancelled,
     pendingUpdate,
-    attendedDone,
+    attendedDone: done,
+    totalCompleted,
     attendanceRate,
   }
 }
 
 /**
- * Lọc danh sách buổi học theo loại (all | group | pt), tab trạng thái (upcoming | done | cancelled), và khoảng ngày.
+ * Lọc danh sách buổi học theo loại (all | group | pt), tab trạng thái (upcoming | done | absent | cancelled), và khoảng ngày.
  */
 export function filterItems(
   items = [],
-  { type = "all", statusTab = null, range = null, classId = "all" } = {},
+  { type = "all", statusTab = null, range = null, classId = "all", coachFilter = "all" } = {},
 ) {
   let filtered = Array.isArray(items) ? [...items] : []
 
@@ -658,6 +709,12 @@ export function filterItems(
   if (classId && classId !== "all") {
     filtered = filtered.filter(
       (item) => String(item.classId) === String(classId),
+    )
+  }
+
+  if (coachFilter && coachFilter !== "all") {
+    filtered = filtered.filter(
+      (item) => String(item.coachName || "") === String(coachFilter),
     )
   }
 
@@ -680,9 +737,19 @@ export function filterItems(
   } else if (statusTab === "done") {
     filtered = filtered.filter(
       (item) =>
-        item.status === "Completed" || item.uiState === "pending_update",
+        (item.status === "Completed" && item.attendance !== "Absent") ||
+        item.uiState === "pending_update",
     )
     // Đã học: mới nhất trước
+    filtered.sort((a, b) => {
+      if (a.date !== b.date) return b.date.localeCompare(a.date)
+      return String(b.startTime).localeCompare(String(a.startTime))
+    })
+  } else if (statusTab === "absent") {
+    filtered = filtered.filter(
+      (item) => item.status === "Completed" && item.attendance === "Absent",
+    )
+    // Vắng mặt: mới nhất trước
     filtered.sort((a, b) => {
       if (a.date !== b.date) return b.date.localeCompare(a.date)
       return String(b.startTime).localeCompare(String(a.startTime))
@@ -771,14 +838,28 @@ export function groupByDay(items = [], { now = Date.now() } = {}) {
   for (const [dateIso, dayItems] of dayMap.entries()) {
     const wk = getWeekdayMeta(dateIso)
     const bucket = getBucketMeta(dateIso)
+    const wkRange = getWeekRange(dateIso)
+    const daysDiff = diffDaysVn(todayIso, dateIso)
     dayGroups.push({
       dateIso,
       dayOfMonth: dateIso.slice(8, 10),
       ddMm: toDdMm(dateIso),
       ddMmYyyy: toDdMmYyyy(dateIso),
       isToday: dateIso === todayIso,
+      isTomorrow: dateIso === tomorrowIso,
+      daysDiff,
       weekday: wk,
       bucket,
+      weekKey: wkRange.mondayIso,
+      weekRange: {
+        mondayIso: wkRange.mondayIso,
+        sundayIso: wkRange.sundayIso,
+        ddMmStart: toDdMm(wkRange.mondayIso),
+        ddMmEnd: toDdMm(wkRange.sundayIso),
+        ddMmYyyyEnd: toDdMmYyyy(wkRange.sundayIso),
+        isThisWeek: wkRange.mondayIso === currentWeek.mondayIso,
+        isNextWeek: wkRange.mondayIso === nextWeek.mondayIso,
+      },
       holidayName: dayItems.find((x) => x.holidayName)?.holidayName || null,
       items: dayItems,
     })
@@ -806,6 +887,9 @@ export function buildPackageSummaries({
     if (["cancelled", "canceled", "dropped", "rejected"].includes(st)) continue
 
     const cid = enr.classId ?? enr.sportsClassId
+    const titleStr = enr.className || enr.subjectName || `#${cid}`
+    if (/e2e[-_ ]?rehearsal/i.test(titleStr)) continue
+
     const classItems = scheduleItems.filter(
       (item) => item.kind === "group" && String(item.classId) === String(cid),
     )
@@ -825,7 +909,7 @@ export function buildPackageSummaries({
       id: `course-${cid || enr.id}`,
       kind: "group",
       classId: cid,
-      title: enr.className || enr.subjectName || `#${cid}`,
+      title: titleStr,
       sportName: enr.subjectName || "Lớp nhóm",
       completedSessions: completedCount,
       totalSessions,
@@ -857,6 +941,11 @@ export function buildPackageSummaries({
     if (["REJECTED", "DECLINED", "CANCELLED", "CANCELED", "EXPIRED"].includes(st))
       continue
 
+    const titleStr =
+      reg.packageName ||
+      (reg.subjectName ? `${reg.subjectName} 1:1` : "Gói PT 1:1")
+    if (/e2e[-_ ]?rehearsal/i.test(titleStr)) continue
+
     const total = Number(reg.totalSessions || reg.totalCredits || 12)
     const remaining =
       reg.remainingCredits != null
@@ -869,9 +958,7 @@ export function buildPackageSummaries({
     packages.push({
       id: key,
       kind: "pt",
-      title:
-        reg.packageName ||
-        (reg.subjectName ? `${reg.subjectName} 1:1` : "Gói PT 1:1"),
+      title: titleStr,
       sportName: reg.subjectName || "PT 1:1",
       coachName: reg.primaryCoachName || reg.coachName || null,
       completedSessions: used,
@@ -893,6 +980,9 @@ export function buildPackageSummaries({
     if (!sub || typeof sub !== "object") continue
     const st = String(sub.status || "").trim().toLowerCase()
     if (!["active", "grace_period"].includes(st)) continue
+    const titleStr = sub.packageName || "Gói PT 1:1"
+    if (/e2e[-_ ]?rehearsal/i.test(titleStr)) continue
+
     const total = Number(sub.totalCredits ?? sub.totalSessions ?? 0)
     const remaining = sub.remainingCredits ?? sub.creditsRemaining
     if (total <= 0 && remaining == null && ptItems.length === 0) continue
@@ -907,7 +997,7 @@ export function buildPackageSummaries({
     packages.push({
       id: `sub-${sub.subscriptionId || sub.id}`,
       kind: "pt",
-      title: sub.packageName || "Gói PT 1:1",
+      title: titleStr,
       sportName: sub.subjectName || "PT 1:1",
       completedSessions: used,
       totalSessions: effectiveTotal,

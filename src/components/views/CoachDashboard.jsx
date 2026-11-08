@@ -9,6 +9,7 @@ import { memberApi } from "../../api/memberApi"
 import { attendanceApi } from "../../api/attendanceApi"
 import { getCatalogClassSessions } from "../../api/managerApi"
 import { isSessionCancelled, canCheckIn } from "../../utils/permissions"
+import { SkeletonStatCard, SkeletonBlock, ErrorState } from "../ui/Skeleton"
 import {
   Calendar,
   Users,
@@ -56,6 +57,8 @@ export function CoachDashboard() {
   const [sessionsByClassId, setSessionsByClassId] = useState({})
   const [coachSessions, setCoachSessions] = useState([])
   const [attendanceRecords, setAttendanceRecords] = useState([])
+  const [dashLoading, setDashLoading] = useState(!!apiEnabled)
+  const [dashError, setDashError] = useState(null)
 
   const myClasses = useMemo(() => {
     const resolvedCoachId = currentUser.coachId || currentUser.id
@@ -76,6 +79,8 @@ export function CoachDashboard() {
     if (!apiEnabled) return
     let active = true
     const resolvedCoachId = currentUser.coachId || currentUser.id
+    setDashLoading(true)
+    setDashError(null)
     Promise.all([
       memberPortalApi.getCoachFeedback().catch(() => ({
         totalFeedback: 0,
@@ -131,8 +136,18 @@ export function CoachDashboard() {
         if (Array.isArray(attList)) {
           setAttendanceRecords(attList)
         }
+        if (active) setDashLoading(false)
       },
-    )
+    ).catch(() => {
+      if (active) {
+        setDashLoading(false)
+        setDashError(
+          language === "vi"
+            ? "Không tải được dữ liệu dashboard. Kiểm tra kết nối rồi thử lại."
+            : "Failed to load dashboard data. Check your connection and retry.",
+        )
+      }
+    })
     return () => {
       active = false
     }
@@ -498,12 +513,78 @@ export function CoachDashboard() {
     navigate("/coach/attendance")
   }
 
+  // Loading skeleton — shown while Promise.all is pending
+  if (dashLoading) {
+    return (
+      <div className="space-y-6" aria-busy="true" aria-label={language === "vi" ? "Đang tải..." : "Loading..."}>
+        {/* Header skeleton */}
+        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex items-center gap-4">
+          <SkeletonBlock className="w-10 h-10 rounded shrink-0" />
+          <div className="space-y-2 flex-1">
+            <SkeletonBlock className="h-4 w-56" />
+            <SkeletonBlock className="h-3 w-80" />
+          </div>
+        </div>
+        {/* Today sessions skeleton */}
+        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
+          <SkeletonBlock className="h-4 w-40" />
+          <SkeletonBlock className="h-16 w-full rounded-lg" />
+          <SkeletonBlock className="h-16 w-full rounded-lg" />
+        </div>
+        {/* KPI row skeleton */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[0, 1, 2, 3].map((i) => (
+            <SkeletonStatCard key={i} />
+          ))}
+        </div>
+        {/* Two-col skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <SkeletonBlock className="h-48 rounded-lg" />
+          <SkeletonBlock className="h-48 rounded-lg" />
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (dashError) {
+    return (
+      <div className="space-y-6">
+        {/* Still show the welcome header */}
+        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded bg-slate-900 flex items-center justify-center text-white font-bold text-sm shrink-0">
+              PT
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900">
+                {language === "vi"
+                  ? `Xin chào Coach ${currentUser.name}!`
+                  : `Welcome Coach ${currentUser.name}!`}
+              </h2>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-xs">
+          <ErrorState
+            message={dashError}
+            language={language}
+            onRetry={() => {
+              setDashLoading(true)
+              setDashError(null)
+            }}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded bg-slate-900 flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-10 h-10 rounded bg-slate-900 flex items-center justify-center text-white font-bold text-sm shrink-0">
             PT
           </div>
           <div>
@@ -525,7 +606,7 @@ export function CoachDashboard() {
       {pendingPtRequests.length > 0 && (
         <div className="p-4 bg-amber-50 border border-amber-300 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-100 text-amber-800 rounded-lg border border-amber-300">
+            <div className="p-2 bg-amber-100 text-amber-800 rounded-lg border border-amber-300 shrink-0">
               <BellRing className="w-5 h-5" />
             </div>
             <div>
@@ -658,7 +739,7 @@ export function CoachDashboard() {
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500">
@@ -710,6 +791,9 @@ export function CoachDashboard() {
                 {realAttendanceMetrics.attendedCount}/
                 {realAttendanceMetrics.totalRecorded}{" "}
                 {language === "vi" ? "lượt có mặt" : "attended"}
+              </div>
+              <div className="text-xs text-slate-400 mt-0.5">
+                {language === "vi" ? "Toàn bộ lịch sử" : "All-time"}
               </div>
             </div>
           ) : (

@@ -441,7 +441,7 @@ export function SupportView() {
                       <span className="text-xs font-bold text-slate-900 truncate">
                         {item.memberName || `Hội viên #${item.memberUserId}`}
                       </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
                         {item.handlerType || "AI"}
                       </span>
                     </div>
@@ -553,7 +553,7 @@ export function SupportView() {
                   </h2>
                   {conversation && (
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                         isClosed
                           ? "bg-slate-200 text-slate-700"
                           : "bg-emerald-50 text-emerald-700 border border-emerald-200"
@@ -569,7 +569,7 @@ export function SupportView() {
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-xs text-slate-500">
                   {conversation
                     ? conversation.handlerType === "STAFF"
                       ? isVi
@@ -707,7 +707,7 @@ export function SupportView() {
                       key={msg.id || idx}
                       className="flex justify-center my-2"
                     >
-                      <span className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600">
+                      <span className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600">
                         {msg.content}
                       </span>
                     </div>
@@ -722,7 +722,7 @@ export function SupportView() {
                   >
                     <div className="flex items-center gap-1.5 mb-1 px-1">
                       {!isMine && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600">
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-600">
                           {msg.senderType === "AI" ? (
                             <Bot className="w-3 h-3 text-blue-600" />
                           ) : (
@@ -734,7 +734,7 @@ export function SupportView() {
                               : "Chuyên viên Hỗ trợ")}
                         </span>
                       )}
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-xs text-slate-400">
                         {formatChatTime(msg.createdAt, isVi)}
                       </span>
                     </div>

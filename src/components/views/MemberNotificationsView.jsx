@@ -348,11 +348,11 @@ export function MemberNotificationsView() {
                             (isVi ? "Thông báo hệ thống" : "Notification")}
                         </h2>
                         {!item.isRead && (
-                          <span className="inline-flex items-center rounded-full bg-brand-primary px-2 py-0.5 text-[10px] font-bold text-white">
+                          <span className="inline-flex items-center rounded-full bg-brand-primary px-2 py-0.5 text-xs font-bold text-white">
                             {isVi ? "Mới" : "New"}
                           </span>
                         )}
-                        <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-semibold text-slate-500">
+                        <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-500">
                           {item.type}
                         </span>
                       </div>

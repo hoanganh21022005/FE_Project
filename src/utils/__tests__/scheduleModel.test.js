@@ -114,9 +114,10 @@ test("buildScheduleItems & getCounts: cancelled sessions never count as upcoming
 
   const counts = getCounts(items)
   assert.equal(counts.upcoming, 2) // s3 + s100
-  assert.equal(counts.done, 2) // s1 + s2
+  assert.equal(counts.done, 1) // s1 (present)
+  assert.equal(counts.absent, 1) // s2 (absent)
   assert.equal(counts.cancelled, 1) // s4
-  assert.equal(counts.attendanceRate, 50) // 1 present out of 2 completed
+  assert.equal(counts.attendanceRate, 50) // 1 present out of (1 present + 1 absent)
 
   const upcomingList = filterItems(items, { statusTab: "upcoming" })
   assert.equal(upcomingList.length, 2)
@@ -124,6 +125,10 @@ test("buildScheduleItems & getCounts: cancelled sessions never count as upcoming
     upcomingList.some((x) => x.status === "Cancelled"),
     false,
   )
+
+  const absentList = filterItems(items, { statusTab: "absent" })
+  assert.equal(absentList.length, 1)
+  assert.equal(absentList[0].rawId, 2)
 })
 
 test("getCounts returns null attendanceRate when 0 completed sessions", () => {

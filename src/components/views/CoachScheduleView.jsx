@@ -898,7 +898,7 @@ export function CoachScheduleView() {
                       <tr key={slot.slotNumber}>
                         <td className="p-2 border-r border-slate-200 bg-slate-50/60 font-semibold text-slate-800">
                           <div>{slot.name}</div>
-                          <div className="text-[11px] font-mono text-slate-500">
+                          <div className="text-xs font-mono text-slate-500">
                             {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
                           </div>
                         </td>
@@ -924,7 +924,7 @@ export function CoachScheduleView() {
                                           handleGoToAttendance(ses)
                                         }
                                       }}
-                                      className={`p-2 rounded border text-[11px] space-y-1 ${
+                                      className={`p-2 rounded border text-xs space-y-1 ${
                                         cancelled
                                           ? "bg-rose-50 border-rose-200 text-rose-800 opacity-75"
                                           : ses.isPrivate
@@ -935,10 +935,10 @@ export function CoachScheduleView() {
                                       <div className="font-bold truncate">
                                         {ses.className || ses.subjectName || "PT 1:1"}
                                       </div>
-                                      <div className="font-mono text-[10px]">
+                                      <div className="font-mono text-xs">
                                         {formatDate(ses.sessionDate)}
                                       </div>
-                                      <div className="truncate text-[10px] text-slate-600">
+                                      <div className="truncate text-xs text-slate-600">
                                         {ses.roomName}
                                       </div>
                                       <CoachStatusBadge

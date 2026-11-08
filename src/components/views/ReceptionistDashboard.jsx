@@ -183,7 +183,7 @@ export function ReceptionistDashboard() {
                   : "Hourly Check-in Volume"}
               </h3>
             </div>
-            <span className="text-[11px] text-slate-500 font-mono">
+            <span className="text-xs text-slate-500 font-mono">
               Hôm nay
             </span>
           </div>
@@ -228,7 +228,7 @@ export function ReceptionistDashboard() {
             <h3 className="text-sm font-bold text-slate-900">
               {language === "vi" ? "Tổng Quan Ca Trực" : "Shift Overview"}
             </h3>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs text-slate-500">
               {language === "vi"
                 ? "Thống kê hoạt động quầy lễ tân"
                 : "Reception desk activity summary"}
@@ -313,14 +313,14 @@ export function ReceptionistDashboard() {
                   <div className="font-bold text-slate-900">
                     {att.memberName || `Hội viên #${att.memberId}`}
                   </div>
-                  <div className="text-[11px] text-slate-500 font-mono">
+                  <div className="text-xs text-slate-500 font-mono">
                     {att.className || "Check-in Cổng"} &bull;{" "}
                     {att.checkInTime
                       ? String(att.checkInTime).slice(0, 16).replace("T", " ")
                       : "Hôm nay"}
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                   {att.state || "Present"}
                 </span>
               </div>
