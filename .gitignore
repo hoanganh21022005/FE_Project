@@ -35,3 +35,6 @@ Thumbs.db
 test/artifacts/
 test-results/
 playwright-report/
+
+# Generated scripts output
+scripts/i18n-report.json
