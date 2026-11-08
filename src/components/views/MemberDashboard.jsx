@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
+import { PageHeader } from "../ui/PageHeader"
 import { httpClient } from "../../api/httpClient"
 import { extractList } from "../../api/schemaValidators"
 import { mapInvoice } from "../../api/invoiceMappers"
@@ -698,48 +699,25 @@ export function MemberDashboard() {
   return (
     <main className="min-h-full w-full overflow-x-hidden bg-slate-50/70 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="mx-auto max-w-[1400px] w-full space-y-6 px-6 lg:space-y-7">
-        <header className="flex flex-col justify-between gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
-          <div className="min-w-0">
-            <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-brand-accent-dark">
-              VIBE SPORT · MEMBER
-            </p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-[2rem]">
-              {isVi ? "Tổng quan" : "Overview"}
-            </h1>
-            <p className="mt-1 text-lg font-semibold text-slate-800">
-              {isVi
-                ? `Xin chào${memberName ? `, ${memberName}` : ""}!`
-                : `Welcome${memberName ? `, ${memberName}` : ""}!`}
-            </p>
-            <p className="mt-1 max-w-2xl text-[15px] leading-6 text-slate-600">
-              {isVi
-                ? "Theo dõi lớp học, lịch tập và các gói hội viên của bạn tại đây."
-                : "Keep track of your classes, schedule, and memberships here."}
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-slate-600">
-              {validMemberId && (
-                <span>
-                  {isVi ? "Mã hội viên" : "Member ID"}:{" "}
-                  <strong className="font-semibold text-slate-800">
-                    {memberId}
-                  </strong>
-                </span>
-              )}
-              {currentUser?.email && (
-                <span className="break-words">{currentUser.email}</span>
-              )}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleOpenQr}
-            disabled={!apiEnabled}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <QrCode className="h-4 w-4" aria-hidden="true" />
-            {isVi ? "Mã QR Check-in" : "Check-in QR"}
-          </button>
-        </header>
+        <PageHeader
+          title={isVi ? "Tổng quan" : "Overview"}
+          description={
+            isVi
+              ? `Xin chào${memberName ? `, ${memberName}` : ""}! · ${validMemberId ? (isVi ? "Mã hội viên: " : "Member ID: ") + memberId : ""} ${currentUser?.email ?? ""}`
+              : `Welcome${memberName ? `, ${memberName}` : ""}! · ${validMemberId ? "Member ID: " + memberId : ""} ${currentUser?.email ?? ""}`
+          }
+          actions={
+            <button
+              type="button"
+              onClick={handleOpenQr}
+              disabled={!apiEnabled}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-[15px] font-semibold text-white shadow-sm motion-safe:transition hover:bg-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <QrCode className="h-4 w-4" aria-hidden="true" />
+              {isVi ? "Mã QR Check-in" : "Check-in QR"}
+            </button>
+          }
+        />
 
         <section
           aria-label={isVi ? "Tóm tắt hội viên" : "Member summary"}

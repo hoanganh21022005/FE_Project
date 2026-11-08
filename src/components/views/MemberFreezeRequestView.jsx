@@ -19,6 +19,7 @@ import { membershipApi } from "../../api/membershipApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { getErrorMessage } from "../../api/apiErrors"
+import { PageHeader } from "../ui/PageHeader"
 
 const INITIAL_REQUESTS = [
   {
@@ -246,31 +247,24 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
     >
       {/* Header */}
       {!embedded && (
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
-              VIBE SPORT · MEMBER
-            </p>
-            <h1 className="mt-2 text-3xl font-black text-slate-950">
-              {isVi ? "Yêu cầu bảo lưu gói tập" : "Membership Freeze Request"}
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              {isVi
-                ? "Tạm dừng thời hạn gói khi bạn đi công tác, điều trị chấn thương hoặc có việc cá nhân."
-                : "Put your membership on hold during trips, medical treatments, or personal leave."}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate("/member/my-membership")}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>
-              {isVi ? "Quay lại Gói hội viên" : "Back to My Membership"}
-            </span>
-          </button>
-        </header>
+        <PageHeader
+          title={isVi ? "Yêu cầu bảo lưu gói tập" : "Membership Freeze Request"}
+          description={isVi
+            ? "Tạm dừng thời hạn gói khi bạn đi công tác, điều trị chấn thương hoặc có việc cá nhân."
+            : "Put your membership on hold during trips, medical treatments, or personal leave."}
+          actions={
+            <button
+              type="button"
+              onClick={() => navigate("/member/my-membership")}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>
+                {isVi ? "Quay lại Gói hội viên" : "Back to My Membership"}
+              </span>
+            </button>
+          }
+        />
       )}
 
       {/* Policy banner */}

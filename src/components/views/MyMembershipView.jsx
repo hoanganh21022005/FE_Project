@@ -9,6 +9,7 @@ import { getErrorMessage } from "../../api/apiErrors"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { partitionMemberMembershipData } from "../../utils/memberMembershipData"
 import { isActiveNormalEnrollment } from "../../utils/memberScheduleUtils"
+import { PageHeader } from "../ui/PageHeader"
 
 const formatDate = (value, language) => {
   if (!value) return "–"
@@ -104,7 +105,15 @@ export function MyMembershipView() {
   const retry = () => setReloadKey((value) => value + 1)
   const tabClass = (selected) => "inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition " + (selected ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100")
   return <main className="mx-auto w-full max-w-[1600px] space-y-6 px-4 py-5 sm:px-6 lg:px-8" aria-labelledby="membership-title">
-    <header className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:p-6"><div className="flex items-start gap-4"><div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-blue-soft text-brand-primary"><Award size={24} /></div><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">VIBE Athletic Club</p><h1 id="membership-title" className="mt-1 text-2xl font-bold tracking-tight text-slate-950">Quyền học & Đăng ký của tôi</h1><p className="mt-1 text-sm text-slate-600">Theo dõi lớp Normal, quyền học Advanced và lịch sử thanh toán của bạn.</p></div></div><button onClick={retry} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw size={16} />Làm mới</button></header>
+    <PageHeader
+      title="Quyền học & Đăng ký của tôi"
+      description="Theo dõi lớp Normal, quyền học Advanced và lịch sử thanh toán của bạn."
+      actions={
+        <button onClick={retry} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          <RefreshCw size={16} />Làm mới
+        </button>
+      }
+    />
     <nav className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2" aria-label="Mục gói hội viên"><button className={tabClass(!isHistory)} aria-current={!isHistory ? "page" : undefined} onClick={() => navigate("/member/my-membership")}><CheckCircle2 size={16} />Đang sử dụng</button><button className={tabClass(isHistory)} aria-current={isHistory ? "page" : undefined} onClick={() => navigate("/member/my-membership/history")}><Clock3 size={16} />Lịch sử</button></nav>
     {!isHistory ? <div className="space-y-8">
       {partition.pendingInvoices.length > 0 && <aside className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 sm:flex-row sm:items-center"><Clock3 className="shrink-0" size={19} /><p className="text-sm"><strong>Có {partition.pendingInvoices.length} hóa đơn đang chờ thanh toán.</strong> Hóa đơn chờ không được tính là quyền đang sử dụng.</p><button onClick={() => navigate("/member/invoices")} className="min-h-9 shrink-0 rounded-lg bg-white px-3 text-sm font-semibold ring-1 ring-amber-200 hover:bg-amber-100">Xem hóa đơn</button></aside>}

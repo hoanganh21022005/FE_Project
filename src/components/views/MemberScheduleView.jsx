@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
+import { PageHeader } from "../ui/PageHeader"
 import {
   cancelPrivateSession,
   getActiveHolidays,
@@ -517,45 +518,40 @@ export function MemberScheduleView() {
 
   return (
     <main className="mx-auto max-w-[1400px] w-full space-y-6 px-6 py-6">
-      {/* Header: Tiêu đề 24px + ViewToggle + Làm mới */}
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
-        <div>
-          <h1 className="text-[24px] font-black tracking-tight text-slate-950 leading-tight">
-            {t("memberSchedTitle")}
-          </h1>
-          <p className="mt-1 text-[13px] text-slate-700">
-            {t("memberSchedPageSubtitle")}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          <ViewToggle
-            viewMode={viewMode}
-            onChangeViewMode={setViewMode}
-            t={t}
-          />
-
-          <button
-            type="button"
-            onClick={refresh}
-            disabled={loading}
-            aria-label={t("scheduleBtnRefresh")}
-            title={t("scheduleBtnRefresh")}
-            className="min-h-[38px] inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[13px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+      {/* Header: Tiêu đề + ViewToggle + Làm mới */}
+      <PageHeader
+        title={t("memberSchedTitle")}
+        description={t("memberSchedPageSubtitle")}
+        actions={
+          <div className="flex flex-wrap items-center gap-2.5">
+            <ViewToggle
+              viewMode={viewMode}
+              onChangeViewMode={setViewMode}
+              t={t}
             />
-            {lastUpdatedAt && (
-              <span className="text-slate-700 font-semibold tabular-nums">
-                {tr("memberSchedUpdatedAtBtn", {
-                  time: TIME_FORMATTER_HHMM.format(lastUpdatedAt),
-                })}
-              </span>
-            )}
-          </button>
-        </div>
-      </header>
+
+            <button
+              type="button"
+              onClick={refresh}
+              disabled={loading}
+              aria-label={t("scheduleBtnRefresh")}
+              title={t("scheduleBtnRefresh")}
+              className="min-h-[38px] inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[13px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
+              {lastUpdatedAt && (
+                <span className="text-slate-700 font-semibold tabular-nums">
+                  {tr("memberSchedUpdatedAtBtn", {
+                    time: TIME_FORMATTER_HHMM.format(lastUpdatedAt),
+                  })}
+                </span>
+              )}
+            </button>
+          </div>
+        }
+      />
 
       {!validMember && (
         <div
