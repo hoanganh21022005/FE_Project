@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency, formatDateTime } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
-import { PaymentModal } from '../modals/PaymentModal';
 import { invoiceApi } from '../../api/invoiceApi';
 import { canConfirmCash as hasCashConfirmationPermission, isCashInvoiceConfirmable } from '../../utils/paymentAccess.js';
 import { getErrorMessage } from '../../api/apiErrors';
@@ -14,7 +13,6 @@ import {
 } from '../../utils/mockFixtureSettlement';
 import {
   CreditCard,
-  PlusCircle,
   CheckCircle2,
   Filter,
   Search,
@@ -39,7 +37,6 @@ export function ReceptionPaymentsView() {
     showToast,
   } = useSCMS();
 
-  const [isPayOpen, setIsPayOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [, setSettlementTick] = useState(0);
@@ -441,14 +438,6 @@ export function ReceptionPaymentsView() {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-700' : ''}`} />
             </button>
           )}
-
-          <button
-            onClick={() => setIsPayOpen(true)}
-            className="min-h-[44px] px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>{language === 'vi' ? 'Ghi Nhận Giao Dịch Mới' : 'New Desk Payment'}</span>
-          </button>
         </div>
       </div>
 
@@ -784,17 +773,6 @@ export function ReceptionPaymentsView() {
           </div>
         </div>
       )}
-
-      {/* Record Payment Modal */}
-      <PaymentModal
-        isOpen={isPayOpen}
-        onClose={() => setIsPayOpen(false)}
-        onSuccess={() => {
-          if (apiEnabled) {
-            fetchInvoices();
-          }
-        }}
-      />
     </div>
   );
 }

@@ -36,7 +36,7 @@ export function ForbiddenView({
           className:
             "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100/60 text-amber-800 mb-3",
         },
-        React.createElement("span", null, "HTTP 403"),
+        React.createElement("span", null, "Giới hạn quyền"),
         React.createElement("span", null, "•"),
         React.createElement("span", null, "Truy cập bị từ chối"),
       ),

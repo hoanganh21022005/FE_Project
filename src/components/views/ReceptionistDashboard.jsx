@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import { NewMemberModal } from "../modals/NewMemberModal"
-import { PaymentModal } from "../modals/PaymentModal"
 import { attendanceApi } from "../../api/attendanceApi"
 import { invoiceApi } from "../../api/invoiceApi"
 import {
@@ -28,7 +27,6 @@ export function ReceptionistDashboard() {
   const navigate = useNavigate()
   const { members, payments, apiEnabled, language } = useSCMS()
   const [isNewMemberOpen, setIsNewMemberOpen] = useState(false)
-  const [isPayOpen, setIsPayOpen] = useState(false)
   const [todayAttendances, setTodayAttendances] = useState([])
   const [loadingAttendances, setLoadingAttendances] = useState(false)
   const [invoices, setInvoices] = useState([])
@@ -110,16 +108,6 @@ export function ReceptionistDashboard() {
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span>{language === "vi" ? "Tạo Hội Viên Mới" : "New Member"}</span>
-          </button>
-
-          <button
-            onClick={() => setIsPayOpen(true)}
-            className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer"
-          >
-            <CreditCard className="w-3.5 h-3.5 shrink-0" />
-            <span>
-              {language === "vi" ? "Thu tiền & Ghi nhận" : "Record Payment"}
-            </span>
           </button>
         </div>
       </div>
@@ -345,7 +333,6 @@ export function ReceptionistDashboard() {
         isOpen={isNewMemberOpen}
         onClose={() => setIsNewMemberOpen(false)}
       />
-      <PaymentModal isOpen={isPayOpen} onClose={() => setIsPayOpen(false)} />
     </div>
   )
 }

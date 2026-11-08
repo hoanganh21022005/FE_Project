@@ -11,7 +11,7 @@ export async function getMemberSubjectCatalog({ strict = false } = {}) {
   try {
     const data = await httpClient.get('/api/subjects', { notifyForbidden: false, notifyUnauthorized: false });
     if (strict && !Array.isArray(extractList(data))) {
-      throw new Error('Backend trả về danh sách môn học không đúng định dạng.');
+      throw new Error('Danh sách môn học trả về không đúng định dạng.');
     }
     return readSubjectList(data);
   } catch (error) {

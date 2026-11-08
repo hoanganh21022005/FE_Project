@@ -43,8 +43,8 @@ export function MemberTrainingView() {
       if (planResult.status === 'rejected' || resultResult.status === 'rejected') {
         setError(
           isVi
-            ? 'Một số dữ liệu tập luyện không được backend cho phép tải. Các mục còn quyền truy cập vẫn được hiển thị.'
-            : 'The backend denied access to some training data. Available data is still shown.',
+            ? 'Một số dữ liệu tập luyện chưa được cấp quyền truy cập. Các mục khả dụng vẫn được hiển thị đầy đủ.'
+            : 'Access to some training data is restricted. Available data is displayed.',
         );
       }
     } catch (err) {

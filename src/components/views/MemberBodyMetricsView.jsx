@@ -257,8 +257,8 @@ export function MemberBodyMetricsView() {
       const msg = getErrorMessage(
         err,
         isVi
-          ? "Không thể lưu chỉ số cơ thể (Backend chưa hỗ trợ API /body-metrics)."
-          : "Could not save body metric (Backend API not available).",
+          ? "Tính năng lưu chỉ số cơ thể hiện đang được nâng cấp."
+          : "Body metrics saving feature is currently under upgrade.",
       )
       if (typeof showToast === "function") showToast(msg, "error")
     }

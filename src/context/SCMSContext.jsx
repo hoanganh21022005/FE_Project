@@ -14,7 +14,7 @@ import * as staffApi from "../api/staffApi.js"
 import * as classEnrollmentApi from "../api/classEnrollmentApi.js"
 import * as memberPortalApi from "../api/memberPortalApi.js"
 import * as attendanceApi from "../api/attendanceApi.js"
-import { getErrorMessage, UnauthorizedError } from "../api/apiErrors.js"
+import { getErrorMessage, sanitizeBackendMessage, UnauthorizedError } from "../api/apiErrors.js"
 import { UNAUTHORIZED_EVENT, FORBIDDEN_EVENT } from "../api/httpClient.js"
 import {
   normalizeRole,
@@ -119,21 +119,23 @@ const formatManagerLoadError = (resource, error, language = "vi") => {
   if (status === 401) {
     return `${prefix}${
       language === "vi"
-        ? "Phiên đăng nhập không hợp lệ hoặc đã hết hạn"
-        : "The login session is invalid or expired"
-    } (HTTP 401): ${detail}`
+        ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."
+        : "Your session has expired. Please sign in again."
+    }${detail ? `: ${detail}` : ""}`
   }
   if (status === 403) {
     return `${prefix}${
       language === "vi"
-        ? "Bạn không có quyền truy cập dữ liệu này"
-        : "You do not have permission to access this data"
-    } (HTTP 403): ${detail}`
+        ? "Tài khoản chưa được cấp quyền truy cập mục này."
+        : "You do not have permission to access this item."
+    }${detail ? `: ${detail}` : ""}`
   }
   if (status === 404) {
     return `${prefix}${
-      language === "vi" ? "Không tìm thấy tài nguyên" : "Resource not found"
-    } (HTTP 404): ${detail}`
+      language === "vi"
+        ? "Không tìm thấy dữ liệu yêu cầu hoặc mục này không còn tồn tại."
+        : "The requested data was not found or is no longer available."
+    }${detail ? `: ${detail}` : ""}`
   }
   if (status === 0) {
     return `${prefix}${
@@ -1324,15 +1326,15 @@ export const SCMSProvider = ({ children }) => {
     }
     const handleForbidden = (event) => {
       const detail = event?.detail
-      const message =
+      const rawMessage =
         detail?.body?.message ||
         detail?.body?.error ||
         detail?.body?.detail ||
-        "Bạn không có quyền thực hiện thao tác này (403 Forbidden)."
-      const request = detail?.path
-        ? ` (${detail?.method || "GET"} ${detail.path})`
-        : ""
-      showToast(`${message}${request}`, "error")
+        "Tài khoản của bạn chưa được cấp quyền thực hiện thao tác này."
+      const message =
+        sanitizeBackendMessage(rawMessage, 403) ||
+        "Tài khoản của bạn chưa được cấp quyền thực hiện thao tác này."
+      showToast(message, "error")
     }
     window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)
     window.addEventListener(FORBIDDEN_EVENT, handleForbidden)
@@ -2572,7 +2574,7 @@ export const SCMSProvider = ({ children }) => {
           await attendanceApi.correctAttendance({
             attendanceId: numericAttendanceId,
             newState: backendState,
-            reason: reason || `Cập nhật trạng thái điểm danh: ${backendState}`,
+            reason: reason || "Cập nhật trạng thái điểm danh",
           })
         } else if (status === "present" || status === "late") {
           const created = await attendanceApi.manualCheckIn({
@@ -3035,8 +3037,8 @@ export const SCMSProvider = ({ children }) => {
     if (API_ENABLED) {
       const message =
         language === "vi"
-          ? "Backend hiện chưa hỗ trợ xóa lớp. Không có dữ liệu nào bị thay đổi."
-          : "The backend does not support class deletion yet. No data was changed."
+          ? "Hệ thống hiện chưa hỗ trợ thao tác xóa lớp. Không có dữ liệu nào bị thay đổi."
+          : "Class deletion is currently not supported. No data was changed."
       showToast(message, "error")
       return { success: false, unsupported: true, message }
     }

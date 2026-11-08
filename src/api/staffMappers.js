@@ -146,6 +146,10 @@ export function toStaffRequest(input = {}) {
     payload.specialization = String(spec).trim()
   }
 
+  if (typeof input.password === 'string' && input.password.length > 0) {
+    payload.password = input.password
+  }
+
   return payload
 }
 

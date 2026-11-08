@@ -3,7 +3,6 @@ import { useSCMS } from '../../context/SCMSContext';
 import { formatDate } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
 import { NewMemberModal } from '../modals/NewMemberModal';
-import { PaymentModal } from '../modals/PaymentModal';
 import {
   UserCheck,
   UserPlus,
@@ -34,8 +33,6 @@ export function MemberManagement({ onSelectMemberDetail }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isPayOpen, setIsPayOpen] = useState(false);
-  const [selectedMemberForPay, setSelectedMemberForPay] = useState('');
 
   // Quick stats: Count by membership package lifecycle only (account status is separate)
   const totalCount = members.length;
@@ -192,8 +189,8 @@ export function MemberManagement({ onSelectMemberDetail }) {
             <h2 className="text-sm font-bold text-brand-dark tracking-tight">{t('members')}</h2>
             <p className="text-xs text-stone-500">
               {language === 'vi'
-                ? 'Danh sách hồ sơ thành viên từ hệ thống backend và kiểm soát thông tin hội viên'
-                : 'Member profiles from backend system and member account control'}
+                ? 'Danh sách hồ sơ thành viên và quản lý thông tin hội viên của trung tâm'
+                : 'Member profiles and membership account management'}
             </p>
           </div>
         </div>
@@ -369,7 +366,6 @@ export function MemberManagement({ onSelectMemberDetail }) {
           }
         }}
       />
-      <PaymentModal isOpen={isPayOpen} onClose={() => setIsPayOpen(false)} preselectedMemberId={selectedMemberForPay} />
     </div>
   );
 }

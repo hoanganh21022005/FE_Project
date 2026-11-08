@@ -12,6 +12,7 @@ import {
   FileText,
   ArrowLeft,
   CalendarCheck2,
+  Building2,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { membershipApi } from "../../api/membershipApi"
@@ -33,8 +34,80 @@ const INITIAL_REQUESTS = [
   },
 ]
 
-export function MemberFreezeRequestView({ embedded = false }) {
-  const navigate = useNavigate()
+export function isSubscriptionActive(sub) {
+  if (!sub) return false
+  const rawStatus = String(sub.status || sub.rawStatus || "").trim().toLowerCase()
+  // Tuyệt đối không suy ra Active khi thiếu trạng thái
+  if (!rawStatus) return false
+  if (!["active", "grace_period"].includes(rawStatus)) return false
+
+  const expiry = sub.expiresAt || sub.endDate
+  if (expiry) {
+    const expTime = new Date(expiry).getTime()
+    if (!Number.isNaN(expTime)) {
+      const effectiveExp = String(expiry).length === 10
+        ? new Date(`${expiry}T23:59:59`).getTime()
+        : expTime
+      if (effectiveExp < Date.now()) return false
+    }
+  }
+  return true
+}
+
+export function resolveSubscriptionBadge(sub, isVi) {
+  if (!sub) {
+    return {
+      label: "—",
+      className: "bg-stone-100 text-stone-600 border border-stone-200",
+    }
+  }
+  const rawStatus = String(sub.status || sub.rawStatus || "").trim().toLowerCase()
+  const expiry = sub.expiresAt || sub.endDate
+  let isPastExpiry = false
+  if (expiry) {
+    const expTime = new Date(expiry).getTime()
+    if (!Number.isNaN(expTime)) {
+      const effectiveExp = String(expiry).length === 10
+        ? new Date(`${expiry}T23:59:59`).getTime()
+        : expTime
+      isPastExpiry = effectiveExp < Date.now()
+    }
+  }
+
+  if (rawStatus === "expired" || isPastExpiry) {
+    return {
+      label: isVi ? "Hết hạn" : "Expired",
+      className: "bg-stone-100 text-stone-600 border border-stone-200",
+    }
+  }
+
+  if (["active", "grace_period"].includes(rawStatus)) {
+    return {
+      label: rawStatus === "grace_period" ? (isVi ? "Gia hạn" : "Grace Period") : (isVi ? "Đang kích hoạt" : "Active"),
+      className: "bg-emerald-50 text-emerald-800 border border-emerald-200",
+    }
+  }
+
+  if (!rawStatus) {
+    return {
+      label: isVi ? "Chưa xác định" : "Unspecified",
+      className: "bg-amber-50 text-amber-800 border border-amber-200",
+    }
+  }
+
+  return {
+    label: sub.status || rawStatus,
+    className: "bg-slate-100 text-slate-700 border border-slate-200",
+  }
+}
+
+export function MemberFreezeRequestView({ embedded = false, initialSubscriptions = null }) {
+  let navigate = () => {}
+  try {
+    navigate = useNavigate()
+  } catch {
+    // Graceful fallback when rendered outside Router context
+  }
   const { language, apiEnabled, currentUser } = useSCMS()
   const isVi = language === "vi"
 
@@ -42,7 +115,9 @@ export function MemberFreezeRequestView({ embedded = false }) {
     getAuthoritativeProfileId(currentUser) ?? currentUser?.memberId
 
   const [requests, setRequests] = useState(apiEnabled ? [] : INITIAL_REQUESTS)
-  const [subscriptions, setSubscriptions] = useState([])
+  const [subscriptions, setSubscriptions] = useState(
+    Array.isArray(initialSubscriptions) ? initialSubscriptions : []
+  )
   const [selectedSubId, setSelectedSubId] = useState("")
   const [activeHolidays, setActiveHolidays] = useState([])
   const [centerIncidents, setCenterIncidents] = useState([])
@@ -91,6 +166,18 @@ export function MemberFreezeRequestView({ embedded = false }) {
     e.preventDefault()
     if (!startDate || !days) return
     setSubmitError("")
+    setSubmitted(false)
+
+    // Khi bật API: chặn ngay trong handler để tuyệt đối không gọi POST /api/subscriptions/{id}/extend
+    if (apiEnabled) {
+      setSubmitting(false)
+      setSubmitted(false)
+      const explanation = isVi
+        ? "Tính năng gửi yêu cầu bảo lưu trực tuyến đang tạm nâng cấp. Quý hội viên vui lòng liên hệ trực tiếp quầy Lễ tân hoặc Quản lý trung tâm để được tiếp nhận và xử lý thủ tục bảo lưu."
+        : "Online freeze requests are temporarily under upgrade. Please contact Reception or Management directly for assistance."
+      setSubmitError(explanation)
+      return
+    }
 
     const reasonTextVi =
       reason === "business"
@@ -112,28 +199,7 @@ export function MemberFreezeRequestView({ embedded = false }) {
       (s) => String(s.subscriptionId || s.id) === String(selectedSubId),
     )
 
-    if (apiEnabled && selectedSubId) {
-      setSubmitting(true)
-      try {
-        await membershipApi.extendSubscription(selectedSubId, {
-          extendDays: parseInt(days, 10),
-          reason: fullReason,
-        })
-      } catch (err) {
-        // If backend denies direct extension for member role, still record request locally & inform user
-        setSubmitError(
-          getErrorMessage(
-            err,
-            isVi
-              ? "Đã ghi nhận phiếu đề xuất bảo lưu để Quản lý trung tâm phê duyệt."
-              : "Freeze request logged for Center Manager review.",
-          ),
-        )
-      } finally {
-        setSubmitting(false)
-      }
-    }
-
+    // Chế độ mock (!apiEnabled): tạo bản ghi mô phỏng giao diện
     const newReq = {
       id: `req-${Date.now().toString().slice(-4)}`,
       packageName:
@@ -154,6 +220,9 @@ export function MemberFreezeRequestView({ embedded = false }) {
     setNotes("")
     setTimeout(() => setSubmitted(false), 5000)
   }
+
+  const activeSubscriptions = subscriptions.filter(isSubscriptionActive)
+  const otherSubscriptions = subscriptions.filter((s) => !isSubscriptionActive(s))
 
   return (
     <main
@@ -247,28 +316,135 @@ export function MemberFreezeRequestView({ embedded = false }) {
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
           <PauseCircle className="w-5 h-5 text-brand-accent-dark" />
-          {isVi ? "Gửi đơn yêu cầu bảo lưu mới" : "Submit New Freeze Request"}
+          {isVi ? "Yêu cầu bảo lưu thời hạn gói" : "Membership Freeze Request"}
         </h2>
 
-        {submitted && (
-          <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs font-bold text-emerald-800">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>
-              {isVi
-                ? "Đơn bảo lưu của bạn đã được gửi thành công! Quản lý sẽ sớm phản hồi."
-                : "Your freeze request has been submitted and is awaiting approval."}
-            </span>
-          </div>
-        )}
+        {apiEnabled ? (
+          <div className="mt-5 space-y-4">
+            <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs text-amber-950 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-bold text-sm">
+                  {isVi
+                    ? "Form gửi yêu cầu bảo lưu trực tuyến hiện đang tạm khóa"
+                    : "Online Freeze Request Form is Temporarily Locked"}
+                </p>
+                <p className="text-amber-900/90 leading-relaxed">
+                  {isVi
+                    ? "Chức năng gửi yêu cầu bảo lưu trực tuyến đang được nâng cấp. Các ngày Trung tâm nghỉ lễ và sự cố cơ sở vật chất ở trên đã được hệ thống tự động cộng bù thời hạn sử dụng mà không cần gửi đơn."
+                    : "Online freeze requests are currently under upgrade. Center holidays and incidents above are compensated automatically without submitting a request."}
+                </p>
+              </div>
+            </div>
 
-        {submitError && (
-          <div className="mt-3 flex items-center gap-2 rounded-xl bg-blue-50 border border-blue-200 p-3 text-xs text-blue-900">
-            <Info className="w-4 h-4 text-blue-600 shrink-0" />
-            <span>{submitError}</span>
-          </div>
-        )}
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+              <div className="flex items-center gap-2 font-bold text-slate-900 text-xs">
+                <Building2 className="w-4 h-4 text-brand-primary" />
+                <span>
+                  {isVi
+                    ? "Hướng dẫn liên hệ Lễ tân để hỗ trợ bảo lưu thủ công"
+                    : "Contact Reception for Manual Freeze Support"}
+                </span>
+              </div>
+              <ul className="list-disc list-inside space-y-1.5 text-xs text-slate-600 leading-relaxed">
+                <li>
+                  {isVi
+                    ? "Quý hội viên có nhu cầu bảo lưu cá nhân (công tác, điều trị chấn thương, lý do sức khỏe) vui lòng liên hệ trực tiếp quầy Lễ tân tại cơ sở để được nhân viên lập phiếu đề xuất."
+                    : "Members with personal leave needs (business trips, medical treatment) please visit Reception directly to submit a physical request."}
+                </li>
+                <li>
+                  {isVi
+                    ? "Áp dụng theo quy chế bảo lưu cho các gói hội viên có thời hạn từ 3 tháng trở lên."
+                    : "Applicable under freeze policy for membership plans of 3+ months."}
+                </li>
+              </ul>
+            </div>
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+            {subscriptions.length > 0 && (
+              <div className="pt-2 space-y-3">
+                {activeSubscriptions.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold text-slate-700 mb-2">
+                      {isVi ? "Quyền học đang kích hoạt của bạn:" : "Your Active Subscriptions:"}
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {activeSubscriptions.map((sub) => {
+                        const sid = sub.subscriptionId || sub.id
+                        const badge = resolveSubscriptionBadge(sub, isVi)
+                        return (
+                          <div
+                            key={sid}
+                            className="p-3 bg-white border border-slate-200 rounded-lg text-xs flex justify-between items-center"
+                          >
+                            <div>
+                              <p className="font-bold text-slate-900">{sub.packageName || `Gói #${sid}`}</p>
+                              <p className="text-[11px] text-slate-500 font-mono">
+                                {isVi ? "Hết hạn:" : "Expires:"} {sub.endDate || sub.expiresAt || "—"}
+                              </p>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${badge.className}`}>
+                              {badge.label}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {otherSubscriptions.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold text-slate-500 mb-2">
+                      {isVi ? "Quyền học khác / Lịch sử:" : "Other / Expired Subscriptions:"}
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {otherSubscriptions.map((sub) => {
+                        const sid = sub.subscriptionId || sub.id
+                        const badge = resolveSubscriptionBadge(sub, isVi)
+                        return (
+                          <div
+                            key={sid}
+                            className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs flex justify-between items-center opacity-85"
+                          >
+                            <div>
+                              <p className="font-semibold text-slate-700">{sub.packageName || `Gói #${sid}`}</p>
+                              <p className="text-[11px] text-slate-400 font-mono">
+                                {isVi ? "Thời hạn:" : "Expires:"} {sub.endDate || sub.expiresAt || "—"}
+                              </p>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${badge.className}`}>
+                              {badge.label}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            {submitted && (
+              <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs font-bold text-emerald-800">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>
+                  {isVi
+                    ? "Đơn bảo lưu của bạn đã được gửi thành công! Quản lý sẽ sớm phản hồi."
+                    : "Your freeze request has been submitted and is awaiting approval."}
+                </span>
+              </div>
+            )}
+
+            {submitError && (
+              <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-900 leading-relaxed">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>{submitError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           {subscriptions.length > 0 && (
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -283,7 +459,7 @@ export function MemberFreezeRequestView({ embedded = false }) {
                   const sid = sub.subscriptionId || sub.id
                   return (
                     <option key={sid} value={sid}>
-                      {sub.packageName || `Gói #${sid}`} ({sub.status || "Active"})
+                      {sub.packageName || `Gói #${sid}`} ({sub.status || (isVi ? "Chưa xác định" : "Unspecified")})
                     </option>
                   )
                 })}
@@ -397,6 +573,8 @@ export function MemberFreezeRequestView({ embedded = false }) {
             </button>
           </div>
         </form>
+        </>
+        )}
       </section>
 
       {/* History table */}

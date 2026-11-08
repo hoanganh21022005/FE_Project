@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { X, Eye, EyeOff, UserPlus, AlertCircle } from 'lucide-react';
 import { publicSports } from '../../data/publicCoaches';
+import { validatePassword, getPasswordRuleHint } from '../../utils/passwordPolicy';
 
 export function NewStaffModal({ isOpen, onClose }) {
   const { staff, addStaff, t, language, apiEnabled, currentUser } = useSCMS();
@@ -68,8 +69,11 @@ export function NewStaffModal({ isOpen, onClose }) {
     }
 
     // Password validation (if provided)
-    if (formData.password && formData.password.length < 6) {
-      newErrors.password = language === 'vi' ? 'Mật khẩu tối thiểu 6 ký tự' : 'Password must be at least 6 characters';
+    if (formData.password) {
+      const pwdRes = validatePassword(formData.password, language === 'vi');
+      if (!pwdRes.isValid) {
+        newErrors.password = pwdRes.error;
+      }
     }
 
     if (formData.password && formData.password !== formData.confirmPassword) {
@@ -314,7 +318,7 @@ export function NewStaffModal({ isOpen, onClose }) {
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    placeholder={language === 'vi' ? 'Tối thiểu 6 ký tự' : 'Min 6 characters'}
+                    placeholder={getPasswordRuleHint(language === 'vi')}
                     value={formData.password}
                     onChange={e => handleChange('password', e.target.value)}
                     className="w-full bg-stone-50 border border-slate-300 rounded pl-3 pr-9 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white focus:border-brand-primary"
@@ -328,6 +332,9 @@ export function NewStaffModal({ isOpen, onClose }) {
                     {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
                 </div>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {getPasswordRuleHint(language === 'vi')}
+                </p>
                 {errors.password && (
                   <p className="mt-1 text-[11px] text-rose-600 flex items-center gap-1 font-medium">
                     <AlertCircle className="w-3 h-3 shrink-0" /> {errors.password}

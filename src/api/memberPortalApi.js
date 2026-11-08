@@ -63,7 +63,7 @@ export const getClassCatalogSessions = async (
     )
     const sessions = extractList(response)
     if (strict && !Array.isArray(sessions)) {
-      throw new Error("Backend trả về lịch lớp không đúng định dạng.")
+      throw new Error("Lịch học của lớp trả về không đúng định dạng.")
     }
     return Array.isArray(sessions) ? sessions : []
   } catch (error) {

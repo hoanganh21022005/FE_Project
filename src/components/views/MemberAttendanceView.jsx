@@ -1234,7 +1234,7 @@ export function MemberAttendanceView() {
         <div className="pb-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <span className="text-[10px] font-mono uppercase tracking-wider text-brand-accent-dark font-bold bg-brand-sky-soft border border-brand-accent/30 px-2 py-0.5 rounded-sm">
-              ĐIỂM DANH & CHUYÊN CẦN THỰC TẾ · BACKEND API
+              ĐIỂM DANH & CHUYÊN CẦN THỜI GIAN THỰC
             </span>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight mt-1.5">
               Lịch Sử Điểm Danh & Mã QR Vào Sân

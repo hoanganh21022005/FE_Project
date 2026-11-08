@@ -27,7 +27,6 @@ import {
   CheckCircle,
   AlertCircle,
   AlertTriangle,
-  PlusCircle,
   X,
   RefreshCw,
   Lock,
@@ -54,7 +53,6 @@ export function MemberDetailView({ memberId, onBack }) {
   // Subscriptions state
   const [subscriptionState, setSubscriptionState] = useState({ memberId: null, data: [], loaded: false, loading: false, error: null });
   const subscriptionRequestRef = useRef(0);
-  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [, setMockTick] = useState(0);
   const canViewSubscriptions = !apiEnabled || canViewMemberSubscriptions(currentUser);
 
@@ -516,20 +514,12 @@ export function MemberDetailView({ memberId, onBack }) {
             </div>
           ) : null}
 
-          {/* Action to Assign/Renew Package & Subscriptions Table */}
+          {/* Subscriptions Table */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
             <h4 className="text-sm font-bold text-brand-dark flex items-center gap-2">
               <Clock className="w-4 h-4 text-stone-600" />
               <span>{language === 'vi' ? 'Lịch sử gói hội viên' : 'Membership History'}</span>
             </h4>
-            {!apiEnabled && <button
-              type="button"
-              onClick={() => setIsAssignModalOpen(true)}
-              className="min-h-[44px] px-4 py-2 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>{language === 'vi' ? 'Gán / Đăng ký gói mới' : 'Assign / Renew Package'}</span>
-            </button>}
             {apiEnabled && canViewSubscriptions && <button type="button" onClick={() => fetchSubscriptions(memberId)} disabled={subsLoading} className="min-h-[44px] px-4 py-2 border border-slate-300 rounded text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"><RefreshCw className="w-4 h-4" />{language === 'vi' ? 'Tải lại lịch sử' : 'Refresh history'}</button>}
           </div>
 
@@ -598,19 +588,6 @@ export function MemberDetailView({ memberId, onBack }) {
             if (updated) {
               setAuthoritativeMember(updated);
             }
-            fetchAuthoritativeDetail(memberId);
-          }}
-        />
-      )}
-
-      {/* Assign Package Modal */}
-      {isAssignModalOpen && !apiEnabled && (
-        <AssignPackageModal
-          isOpen={isAssignModalOpen}
-          onClose={() => setIsAssignModalOpen(false)}
-          member={member}
-          onAssigned={() => {
-            fetchSubscriptions(memberId);
             fetchAuthoritativeDetail(memberId);
           }}
         />
@@ -854,283 +831,3 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
   );
 }
 
-function AssignPackageModal({ isOpen, onClose, member, onAssigned }) {
-  const { packages, payments, apiEnabled, language, showToast, addMemberPackage } = useSCMS();
-  const [availablePackages, setAvailablePackages] = useState(packages || []);
-  const [selectedPkgId, setSelectedPkgId] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('cash');
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [isRenewal, setIsRenewal] = useState(false);
-  const [notes, setNotes] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setError(null);
-
-    if (apiEnabled) {
-      membershipApi.getPackages()
-        .then((pkgs) => {
-          if (Array.isArray(pkgs) && pkgs.length > 0) {
-            setAvailablePackages(pkgs);
-            setSelectedPkgId(String(pkgs[0].id));
-          }
-        })
-        .catch((err) => console.warn('Could not load packages for assign modal:', err));
-    } else {
-      if (packages && packages.length > 0) {
-        setSelectedPkgId(String(packages[0].id));
-      }
-    }
-  }, [isOpen, apiEnabled, packages]);
-
-  if (!isOpen || !member) return null;
-
-  const currentPkg = availablePackages.find((p) => String(p.id) === String(selectedPkgId));
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (isSubmitting) return;
-
-    if (!selectedPkgId) {
-      setError('Vui lòng chọn một gói dịch vụ.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError(null);
-
-    if (apiEnabled) {
-      try {
-        const order = await membershipApi.subscribePackage(Number(member.id), {
-          packageId: Number(selectedPkgId),
-          startDate: startDate || undefined,
-          isRenewal: Boolean(isRenewal),
-          paymentMethod: paymentMethod === 'cash' ? 'CASH' : 'VNPAY',
-          notes: notes.trim() || undefined,
-        });
-        if (paymentMethod === 'cash' && order?.invoiceId) {
-          try {
-            await invoiceApi.confirmCashPayment(order.invoiceId);
-            showToast?.(
-              language === 'vi'
-                ? `Đã đăng ký gói và xác nhận thu tiền mặt thành công (${order.invoiceCode || `#${order.invoiceId}`})!`
-                : `Package registered and cash payment confirmed (${order.invoiceCode || `#${order.invoiceId}`})!`,
-              'success'
-            );
-          } catch {
-            showToast?.(
-              language === 'vi'
-                ? `Đã tạo đơn đăng ký gói (${order.invoiceCode || `#${order.invoiceId}`}) ở trạng thái chờ thu tiền mặt.`
-                : `Package order created (${order.invoiceCode || `#${order.invoiceId}`}) pending cash collection.`,
-              'info'
-            );
-          }
-        } else {
-          showToast?.(
-            language === 'vi'
-              ? `Đã tạo yêu cầu đăng ký gói (${order?.invoiceCode || `#${order?.invoiceId || ''}`}).`
-              : 'Membership package order created.',
-            'success'
-          );
-        }
-        onAssigned?.();
-        onClose();
-      } catch (err) {
-        setError(getErrorMessage(err, language === 'vi' ? 'Không thể đăng ký gói hội viên.' : 'Failed to assign membership package.'));
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    } else {
-      try {
-        const pending = createMockPendingPayment({
-          member,
-          pkg: currentPkg,
-          method: paymentMethod,
-          notes,
-          requestedStartDate: startDate,
-          isRenewal,
-        }, payments);
-        if (!pending.ok) {
-          setError(pending.error);
-          setIsSubmitting(false);
-          return;
-        }
-        addMemberPackage?.(member.id, selectedPkgId);
-        showToast?.(
-          language === 'vi'
-            ? 'Đã tạo yêu cầu đăng ký gói chờ thanh toán.'
-            : 'Membership request is pending payment.',
-          'info'
-        );
-        onAssigned?.();
-        onClose();
-      } catch (err) {
-        setError(getErrorMessage(err));
-        setIsSubmitting(false);
-      }
-    }
-  };
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 overflow-y-auto"
-    >
-      <div className="bg-white border border-slate-200 rounded-lg w-full max-w-md shadow-xl p-6 text-brand-dark">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
-          <div className="flex items-center gap-2 font-bold text-sm text-brand-dark">
-            <Package className="w-4 h-4 text-brand-primary" />
-            <span>{language === 'vi' ? 'Gán / Đăng ký gói cho hội viên' : 'Assign / Renew Package'}</span>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Đóng"
-            className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded hover:bg-slate-100 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          {error && (
-            <div role="alert" className="p-3 bg-rose-50 border border-rose-200 rounded text-rose-800 flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <div className="flex-1 font-semibold">{error}</div>
-            </div>
-          )}
-
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">
-              {language === 'vi' ? 'Hội viên' : 'Member'}
-            </label>
-            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded font-semibold text-slate-900">
-              {member.name} ({member.code || `#${member.id}`})
-            </div>
-          </div>
-
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">
-              {language === 'vi' ? 'Chọn gói thành viên' : 'Select Package'} <span className="text-rose-600">*</span>
-            </label>
-            <select
-              value={selectedPkgId}
-              onChange={(e) => setSelectedPkgId(e.target.value)}
-              disabled={isSubmitting}
-              className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
-            >
-              {availablePackages.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nameVi || p.name} — {p.price == null ? '—' : formatCurrency(p.price, language)} ({p.durationDays != null ? `${p.durationDays} ngày` : p.durationMonths != null ? `${p.durationMonths} tháng` : '—'})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {currentPkg && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded flex justify-between items-center text-xs">
-              <span className="font-semibold text-slate-700">Giá niêm yết:</span>
-              <span className="text-sm font-bold font-mono text-brand-primary tabular-nums">
-                {currentPkg.price == null ? '—' : formatCurrency(currentPkg.price, language)}
-              </span>
-            </div>
-          )}
-
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">
-              {language === 'vi' ? 'Ngày bắt đầu hiệu lực' : 'Effective Start Date'}
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              disabled={isSubmitting}
-              className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
-            />
-          </div>
-
-          <div>
-            <span className="block font-bold text-slate-700 mb-1">
-              {language === 'vi' ? 'Phương thức thanh toán' : 'Payment Method'}
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { key: 'cash', label: language === 'vi' ? 'Tiền mặt tại quầy' : 'Cash at Desk' },
-                { key: 'bank_transfer', label: language === 'vi' ? 'Chuyển khoản' : 'Bank Transfer' },
-              ].map((item) => (
-                <button
-                  type="button"
-                  key={item.key}
-                  onClick={() => setPaymentMethod(item.key)}
-                  disabled={isSubmitting}
-                  className={`min-h-[44px] py-2 px-2 text-center rounded font-bold border transition-colors cursor-pointer ${
-                    paymentMethod === item.key
-                      ? 'bg-brand-dark text-white border-brand-dark'
-                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 pt-1">
-            <input
-              type="checkbox"
-              id="renewal-check"
-              checked={isRenewal}
-              onChange={(e) => setIsRenewal(e.target.checked)}
-              disabled={isSubmitting}
-              className="w-4 h-4 text-brand-primary rounded border-slate-300 focus:ring-brand-primary"
-            />
-            <label htmlFor="renewal-check" className="font-semibold text-slate-700 cursor-pointer">
-              {language === 'vi' ? 'Gia hạn gói hiện tại' : 'Renew current membership'}
-            </label>
-          </div>
-
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">
-              {language === 'vi' ? 'Ghi chú' : 'Notes'}
-            </label>
-            <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              disabled={isSubmitting}
-              placeholder={language === 'vi' ? 'Ghi chú hợp đồng...' : 'Notes...'}
-              className="w-full min-h-[44px] bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
-            />
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="min-h-[44px] px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold rounded cursor-pointer"
-            >
-              {language === 'vi' ? 'Hủy' : 'Cancel'}
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || (currentPkg && currentPkg.price == null)}
-              className="min-h-[44px] px-5 py-2 font-bold rounded flex items-center gap-2 cursor-pointer transition-colors bg-brand-primary hover:bg-brand-primary-hover text-white disabled:opacity-50"
-            >
-              {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>
-                {isSubmitting
-                  ? (language === 'vi' ? 'Đang lưu...' : 'Saving...')
-                  : (language === 'vi' ? 'Xác nhận gán gói' : 'Confirm')}
-              </span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}

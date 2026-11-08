@@ -1221,7 +1221,7 @@ function RowActionMenu({
             disabled={hasEnrollments || apiMode}
             title={
               apiMode
-                ? "Backend hiện chưa hỗ trợ xóa lớp. Không có dữ liệu nào bị thay đổi."
+                ? "Hệ thống hiện chưa hỗ trợ thao tác xóa lớp. Không có dữ liệu nào bị thay đổi."
                 : hasEnrollments
                 ? "Không thể xóa lớp đã có học viên đăng ký. Vui lòng chọn Hủy lớp học."
                 : "Xóa vĩnh viễn lớp học này"
@@ -3003,7 +3003,7 @@ export function ClassManagement() {
             </div>
             {apiEnabled && (
               <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-900">
-                Backend hiện chưa hỗ trợ xóa lớp. Dữ liệu sẽ không bị thay đổi.
+                Hệ thống hiện chưa hỗ trợ thao tác xóa lớp. Dữ liệu sẽ không bị thay đổi.
               </p>
             )}
             <div className="pt-2 flex items-center justify-end gap-2.5">
@@ -3020,7 +3020,7 @@ export function ClassManagement() {
                 disabled={isDeleting || apiEnabled}
                 className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-xs cursor-pointer disabled:opacity-50"
               >
-                {isDeleting ? "Đang xóa..." : apiEnabled ? "Chưa hỗ trợ API" : "Xóa lớp học"}
+                {isDeleting ? "Đang xóa..." : apiEnabled ? "Chưa khả dụng" : "Xóa lớp học"}
               </button>
             </div>
           </div>

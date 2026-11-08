@@ -216,7 +216,7 @@ export function ReportsView() {
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <h3 className={chartTitleClass}>{vi ? 'Báo cáo hội viên' : 'Member report'}</h3>
-            <p className="text-xs text-slate-500 mt-1">{vi ? 'Số không có subscription hoạt động gồm mọi hội viên không được Backend tính là Active.' : 'The inactive count includes every member the backend does not count as Active.'}</p>
+            <p className="text-xs text-slate-500 mt-1">{vi ? 'Số không có gói hoạt động gồm mọi hội viên hiện không có gói tập kích hoạt.' : 'The inactive count includes members without an active membership package.'}</p>
           </div>
           {memberLoading && <span className="text-xs text-slate-500">{vi ? 'Đang tải…' : 'Loading…'}</span>}
         </div>

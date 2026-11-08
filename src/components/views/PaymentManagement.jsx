@@ -2,10 +2,9 @@ import React, { useState, useEffect, useCallback, useId, useRef } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency, formatDateTime } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
-import { PaymentModal } from '../modals/PaymentModal';
 import { invoiceApi } from '../../api/invoiceApi';
 import { getErrorMessage } from '../../api/apiErrors';
-import { canConfirmCash, canViewInvoices, isCashInvoiceConfirmable } from '../../utils/paymentAccess.js';
+import { canViewInvoices } from '../../utils/paymentAccess.js';
 import {
   applyMockPaymentSettlements,
   settleMockPaymentFixture,
@@ -13,7 +12,6 @@ import {
 } from '../../utils/mockFixtureSettlement';
 import {
   CreditCard,
-  PlusCircle,
   Search,
   Filter,
   RefreshCw,
@@ -21,7 +19,6 @@ import {
   Loader2,
   X,
   Eye,
-  CheckCircle2,
   Calendar,
   FileText,
   Info
@@ -39,7 +36,6 @@ export function PaymentManagement() {
     showToast,
   } = useSCMS();
 
-  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(null);
@@ -67,8 +63,6 @@ export function PaymentManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const hasInvoiceAccess = !apiEnabled || canViewInvoices(currentUser);
-  const canCollectCash = !apiEnabled || canConfirmCash(currentUser);
-
   const searchInputId = useId();
   const statusFilterId = useId();
   const methodFilterId = useId();
@@ -170,57 +164,6 @@ export function PaymentManagement() {
   const totalPages = Math.max(1, Math.ceil(filteredList.length / pageSize));
   const paginatedList = filteredList.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Quick Action: Confirm Cash Payment for Pending Invoice
-  const handleConfirmCashPayment = async (inv) => {
-    if (!inv) return;
-    if (apiEnabled) {
-      if (!canConfirmCash(currentUser)) {
-        showToast?.(language === 'vi' ? 'Chỉ Lễ tân có quyền MANAGE_INVOICES mới được xác nhận thu tiền mặt.' : 'Only a Receptionist with MANAGE_INVOICES can confirm cash payments.', 'warning');
-        return;
-      }
-      if (!isCashInvoiceConfirmable(inv)) {
-        showToast?.(language === 'vi' ? 'Chỉ hóa đơn Cash đang Pending, chưa hết hạn và không cần đối soát mới được xác nhận.' : 'Only unexpired Pending Cash invoices without reconciliation requirements can be confirmed.', 'warning');
-        return;
-      }
-      try {
-        const invId = inv.invoiceId || inv.id;
-        const updated = await invoiceApi.confirmCashPayment(invId, { notifyForbidden: false });
-        showToast?.(
-          language === 'vi'
-            ? `Đã xác nhận thu tiền hóa đơn #${updated?.code || inv.code || invId} thành công!`
-            : 'Invoice confirmed paid successfully!',
-          'success'
-        );
-        setSelectedInvoice(null);
-        await fetchInvoices();
-      } catch (err) {
-        const msg = err?.status === 403
-          ? (language === 'vi'
-              ? 'Theo phân quyền Backend, chỉ tài khoản Lễ tân (Receptionist) mới được xác nhận thu tiền mặt tại quầy (/receptionist/payments). Quản lý không được thu tiền trực tiếp.'
-              : 'By Backend role policy, only Receptionist accounts can confirm cash payments at the desk (/receptionist/payments).')
-          : getErrorMessage(err, language === 'vi' ? 'Không thể xác nhận thanh toán tiền mặt.' : 'Could not confirm cash payment.');
-        showToast?.(msg, 'warning');
-      }
-      return;
-    }
-    // Mock mode: settle pending fixture in-place once (no duplicate transaction)
-    const res = settleMockPaymentFixture(inv, {
-      notes: language === 'vi' ? 'Xác nhận thu tiền mặt tại quầy' : 'Cash desk collection confirmed',
-      receptionistName: currentUser?.name || (language === 'vi' ? 'Quản lý' : 'Manager'),
-    });
-    if (!res.ok) {
-      showToast?.(res.error, 'warning');
-      return;
-    }
-    showToast?.(
-      language === 'vi'
-        ? `Đã xác nhận thu tiền hóa đơn #${inv.code || inv.transactionNo || inv.invoiceId || inv.id} thành công!`
-        : `Invoice confirmed paid successfully!`,
-      'success'
-    );
-    setSelectedInvoice(null);
-  };
-
   const handleCancelInvoice = async (inv) => {
     if (!inv || !apiEnabled) return;
     try {
@@ -272,14 +215,6 @@ export function PaymentManagement() {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-brand-primary' : ''}`} />
             </button>
           )}
-
-          {(!apiEnabled) && <button
-            onClick={() => setIsPayModalOpen(true)}
-            className="min-h-[44px] px-4 py-2 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>{t('recordPayment')}</span>
-          </button>}
         </div>
       </div>
 
@@ -445,18 +380,6 @@ export function PaymentManagement() {
                         </td>
                         <td className="py-2.5 px-4 text-center">
                           <div className="inline-flex items-center justify-center gap-1.5">
-                            {status === 'pending' && (apiEnabled
-                              ? canCollectCash && isCashInvoiceConfirmable(tx)
-                              : true) && (
-                              <button
-                                type="button"
-                                onClick={() => handleConfirmCashPayment(tx)}
-                                className="min-h-[36px] px-2.5 py-1 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded inline-flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span>{language === 'vi' ? 'Thu tiền mặt' : 'Confirm Cash'}</span>
-                              </button>
-                            )}
                             <button
                               type="button"
                               onClick={async () => {
@@ -646,18 +569,6 @@ export function PaymentManagement() {
                       : 'This invoice is pending. Only Receptionists can confirm eligible Cash invoices; members must complete VNPay invoices through the payment gateway.'}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {canCollectCash && (apiEnabled
-                      ? isCashInvoiceConfirmable(selectedInvoice)
-                      : true) && <button
-                      type="button"
-                      onClick={() => handleConfirmCashPayment(selectedInvoice)}
-                      className="flex-1 min-h-[44px] px-4 py-2 font-bold rounded flex items-center justify-center gap-2 transition-colors bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-xs"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>
-                        {language === 'vi' ? 'Xác nhận thu tiền mặt' : 'Confirm Cash Received'}
-                      </span>
-                    </button>}
                     {apiEnabled && (
                       <button
                         type="button"
@@ -686,17 +597,6 @@ export function PaymentManagement() {
           </div>
         </div>
       )}
-
-      {/* Record Payment Modal */}
-      <PaymentModal
-        isOpen={isPayModalOpen}
-        onClose={() => setIsPayModalOpen(false)}
-        onSuccess={() => {
-          if (apiEnabled) {
-            fetchInvoices();
-          }
-        }}
-      />
     </div>
   );
 }

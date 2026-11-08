@@ -797,8 +797,8 @@ export const executeDirectSubscriptionSubmit = async ({
       if (submittingRef) submittingRef.current = false
       const lockMsg =
         language === "vi"
-          ? "Thao tác đăng ký trực tuyến từ phía hội viên tạm thời bị khóa: Backend chưa xác nhận tài khoản/hồ sơ test được phép phát sinh giao dịch và cấu hình sandbox. Vui lòng thanh toán tại quầy Tiếp tân."
-          : "Direct member subscription is locked: Waiting for Backend confirmation of test profile permissions and sandbox configuration. Please pay at the reception desk."
+          ? "Thao tác đăng ký trực tuyến từ phía hội viên tạm thời bảo trì. Quý hội viên vui lòng thanh toán trực tiếp tại quầy Lễ tân."
+          : "Online subscription for members is temporarily under maintenance. Please complete your payment at the reception desk."
       callbacks.setSubmitError?.(lockMsg)
       return { executed: false, error: lockMsg }
     }
@@ -975,8 +975,8 @@ export const executeDirectSubscriptionSubmit = async ({
         if (!paymentUrl) {
           throw new Error(
             language === "vi"
-              ? "Đơn đăng ký đã được tạo nhưng backend chưa trả về liên kết thanh toán VNPay."
-              : "The subscription was created, but the backend did not return a VNPay payment link.",
+              ? "Đơn đăng ký đã được tạo nhưng chưa nhận được liên kết thanh toán VNPay. Vui lòng thử lại hoặc thanh toán tại quầy lễ tân."
+              : "The subscription was created, but VNPay payment link could not be generated. Please try again or pay at reception.",
           )
         }
         setStoredPendingOrder(memberProfileId, {

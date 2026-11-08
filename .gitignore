@@ -13,6 +13,7 @@ build/
 .env.*.local
 
 # Personal task tracking (kept locally, not published)
+/plans/
 
 # Logs
 logs/
@@ -31,3 +32,5 @@ Thumbs.db
 
 # Test artifacts & generated visual audit images
 test/artifacts/
+test-results/
+playwright-report/

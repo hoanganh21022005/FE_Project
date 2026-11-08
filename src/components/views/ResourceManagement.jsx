@@ -24,8 +24,8 @@ function resourceErrorMessage(error, language) {
 
 function subjectPriceWarning(language) {
   return language === 'vi'
-    ? 'Bộ môn đang Active nhưng một hoặc cả hai mức giá bằng 0 hoặc để trống. Backend hiện mặc định giá thiếu thành 0 và chưa quy định giá phải lớn hơn 0. Bạn có muốn tiếp tục?'
-    : 'This subject is Active with a zero or blank price. The backend currently defaults missing prices to 0 and does not require prices above 0. Continue?';
+    ? 'Bộ môn đang kích hoạt nhưng một hoặc cả hai mức giá bằng 0 hoặc để trống. Giá để trống sẽ được lưu thành 0đ. Bạn có muốn tiếp tục?'
+    : 'This subject is active with a zero or blank price. Blank prices will default to 0. Continue?';
 }
 
 function ResourceModal({ type, item, language, onClose, onSave }) {
@@ -138,7 +138,7 @@ function ResourceModal({ type, item, language, onClose, onSave }) {
               </label>
               {isZeroOrMissingSubjectPrice(form) && form.status?.toLowerCase() === 'active' && (
                 <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
-                  {label('Một mức giá bằng 0 hoặc để trống. Backend hiện chưa yêu cầu giá lớn hơn 0; khi bỏ trống, giá có thể được lưu thành 0.', 'A price is zero or blank. The backend does not currently require a price above 0; a blank price may be stored as 0.')}
+                  {label('Một mức giá bằng 0 hoặc để trống; khi bỏ trống, giá sẽ được ghi nhận là 0đ.', 'A price is zero or blank; blank prices will be recorded as 0.')}
                 </p>
               )}
             </>
