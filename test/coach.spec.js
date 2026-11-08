@@ -6,7 +6,7 @@ test.describe('Kịch bản Huấn Luyện Viên Điểm Danh (COACH-01 -> COACH
   test.beforeEach(async ({ page }, testInfo) => {
     // 1. Mock mặc định tất cả các API phụ trợ của SCMS
     const auxiliary = ['/api/members', '/api/training-plans'];
-    if (testInfo.title.startsWith('COACH-01') || testInfo.title.startsWith('COACH-04')) auxiliary.push('/api/training-results');
+    if (['COACH-01', 'COACH-04', 'COACH-05'].some((id) => testInfo.title.startsWith(id))) auxiliary.push('/api/training-results');
     await setupDefaultApiMocks(page, auxiliary);
 
     // 2. Mock danh sách lớp và buổi học của coach
@@ -38,6 +38,30 @@ test.describe('Kịch bản Huấn Luyện Viên Điểm Danh (COACH-01 -> COACH
     await page.route((url) => isApiMatch(url, 'attendances'), async (route) => {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
     });
+  });
+
+  test('COACH-05: Không tải roster của lớp ngoài phân công', async ({ page }) => {
+    const otherClass = { ...mockClasses[0], id: 999, name: 'Lớp ngoài phân công', nameVi: 'Lớp ngoài phân công', coachId: 999 };
+    const otherSession = { ...mockCoachSessions[0], id: 9991, classId: 999, coachId: 999 };
+    let unauthorizedRosterRequests = 0;
+    page.on('request', (request) => {
+      const url = new URL(request.url());
+      if (url.pathname === '/api/classes/999/enrollments' || (url.pathname === '/api/enrollments' && url.searchParams.get('classId') === '999')) unauthorizedRosterRequests++;
+    });
+    await page.route((url) => url.pathname === '/api/classes', (route) => route.fulfill({ json: [...mockClasses, otherClass] }));
+    await page.route((url) => url.pathname.startsWith('/api/sessions'), (route) => {
+      const url = new URL(route.request().url());
+      const classId = url.searchParams.get('classId') || url.pathname.match(/\/catalog\/(\d+)$/)?.[1];
+      return route.fulfill({ json: classId === '999' ? [otherSession] : mockCoachSessions });
+    });
+    await loginAs(page, 'coach');
+    await navigateTo(page, '/coach/attendance');
+    await expect(page.getByText('Hội viên mẫu A').first()).toBeVisible();
+    await expect(page.locator('select option[value="999"]')).toHaveCount(0);
+    await page.goto('/coach/attendance?classId=999&sessionId=9991');
+    await expect(page.getByText(/không được phân công|không có quyền/i).first()).toBeVisible();
+    await expect(page.getByText('Hội viên mẫu A')).not.toBeVisible();
+    expect(unauthorizedRosterRequests).toBe(0);
   });
 
   test('COACH-04: Chuyển lớp và buổi không giữ roster của lớp trước', async ({ page }) => {
