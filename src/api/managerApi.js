@@ -245,7 +245,12 @@ export const assignCoach = async (id, coachId, lookups, options) => mapClass(
   { ...lookups, apiMode: true },
 );
 
-export const getPackages = async (options) => mapListResponse(await httpClient.get('/api/packages', options), mapPackage);
+export const getPackages = async (options) => {
+  const data = await httpClient.get('/api/packages', options);
+  const list = extractList(data);
+  if (!Array.isArray(list)) throw new Error('Phản hồi danh sách gói không đúng định dạng.');
+  return list.filter((item) => item && typeof item === 'object').map(mapPackage);
+};
 export const createPackage = async (data, options) => mapPackage(await httpClient.post('/api/packages', toPackageRequest(data), options));
 export const updatePackage = async (id, data, options) => mapPackage(await httpClient.put(`/api/packages/${id}`, toPackageRequest(data), options));
 export const updatePackageStatus = async (id, status, options) => mapPackage(await httpClient.patch(`/api/packages/${id}/status`, { status }, options));
@@ -261,7 +266,10 @@ export const getRevenueReport = async ({ startDate, endDate, groupBy = 'month' }
 };
 export const getMemberReport = async (options) =>
   mapMemberReport(await httpClient.get('/api/reports/members', options) || {});
-export const getAuditLogs = async (options = {}) => mapListResponse(
-  await httpClient.get('/api/audit-logs', options),
-  mapAuditLog,
-);
+export const getAuditLogs = async (options = {}) => {
+  const data = await httpClient.get('/api/audit-logs', options);
+  if (!Array.isArray(data) || data.some((item) => !item || typeof item !== 'object' || Array.isArray(item) || !Number.isInteger(item.id) || item.id <= 0)) {
+    throw new Error('Phản hồi nhật ký hệ thống không đúng định dạng.');
+  }
+  return data.map(mapAuditLog);
+};

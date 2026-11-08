@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { NewStaffModal } from '../modals/NewStaffModal';
 import { EditStaffModal } from '../modals/EditStaffModal';
+import { isValidNumericId } from '../../api/schemaValidators';
 import {
   Users,
   Lock,
@@ -27,6 +28,7 @@ export function StaffManagement() {
     fetchStaff,
     updateStaffStatus,
     currentUser,
+    apiEnabled,
     t,
     language,
   } = useSCMS();
@@ -190,6 +192,8 @@ export function StaffManagement() {
 
           <button
             onClick={() => setIsAddOpen(true)}
+            disabled={apiEnabled && !currentUser?.authorities?.includes('MANAGE_USERS')}
+            title={apiEnabled && !currentUser?.authorities?.includes('MANAGE_USERS') ? (language === 'vi' ? 'Cần quyền quản lý người dùng' : 'User management permission required') : undefined}
             className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs whitespace-nowrap transition-colors cursor-pointer w-full sm:w-auto"
           >
             <UserPlus className="w-3.5 h-3.5" />
@@ -274,6 +278,8 @@ export function StaffManagement() {
                         {/* Edit Staff Button */}
                         <button
                           onClick={() => setEditingStaff(s)}
+                          disabled={apiEnabled && !isValidNumericId(s.userId)}
+                          title={apiEnabled && !isValidNumericId(s.userId) ? (language === 'vi' ? 'Không xác minh được mã người dùng; hãy tải lại danh sách nhân viên.' : 'User ID is not verified; reload the staff list.') : undefined}
                           className="px-2.5 py-1 bg-white hover:bg-stone-50 text-stone-700 hover:text-brand-primary border border-slate-300 hover:border-brand-accent rounded text-xs font-semibold transition-all inline-flex items-center gap-1 shadow-2xs cursor-pointer"
                         >
                           <Edit2 className="w-3 h-3" />
@@ -358,6 +364,7 @@ export function StaffManagement() {
           isOpen={Boolean(editingStaff)}
           onClose={() => setEditingStaff(null)}
           staffMember={editingStaff}
+          onUpdated={(updated) => { if (updated) setEditingStaff(updated); }}
         />
       )}
     </div>

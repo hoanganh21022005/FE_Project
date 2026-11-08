@@ -62,17 +62,17 @@ try {
     headers: { 'Content-Type': 'application/json' },
   });
   assert.deepEqual(await managerApi.getRooms(), []);
-  assert.deepEqual(await managerApi.getPackages(), []);
+  await assert.rejects(managerApi.getPackages(), /không đúng định dạng/);
   assert.deepEqual(await managerApi.getClasses(), []);
-  assert.deepEqual(await managerApi.getAuditLogs(), []);
+  await assert.rejects(managerApi.getAuditLogs(), /không đúng định dạng/);
 
   globalThis.fetch = async () => new Response('{}', {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
   assert.deepEqual(await managerApi.getRooms(), []);
-  assert.deepEqual(await managerApi.getPackages(), []);
-  assert.deepEqual(await managerApi.getAuditLogs(), []);
+  await assert.rejects(managerApi.getPackages(), /không đúng định dạng/);
+  await assert.rejects(managerApi.getAuditLogs(), /không đúng định dạng/);
 
   globalThis.fetch = async () => new Response(JSON.stringify({ message: 'Audit access denied' }), {
     status: 403,

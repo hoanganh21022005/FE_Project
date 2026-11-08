@@ -826,7 +826,7 @@ function SCMSApp() {
             className={`flex-1 ${
               location.pathname.startsWith("/member")
                 ? "overflow-y-auto w-full bg-bg-main"
-                : location.pathname === "/manager/packages"
+                : location.pathname.startsWith("/manager")
                   ? "min-w-0 p-3 sm:p-4 md:p-6 overflow-y-auto w-full"
                   : "p-3 sm:p-4 md:p-6 overflow-y-auto max-w-[1440px] w-full mx-auto"
             }`}

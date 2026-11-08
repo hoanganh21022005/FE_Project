@@ -4,6 +4,7 @@ import { formatCurrency, formatDateTime } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
 import { invoiceApi } from '../../api/invoiceApi';
 import { getErrorMessage } from '../../api/apiErrors';
+import { canViewInvoices } from '../../utils/paymentAccess.js';
 import {
   applyMockPaymentSettlements,
   settleMockPaymentFixture,
@@ -11,7 +12,6 @@ import {
 } from '../../utils/mockFixtureSettlement';
 import {
   CreditCard,
-  PlusCircle,
   Search,
   Filter,
   RefreshCw,
@@ -19,7 +19,6 @@ import {
   Loader2,
   X,
   Eye,
-  CheckCircle2,
   Calendar,
   FileText,
   Info
@@ -63,7 +62,7 @@ export function PaymentManagement() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
-
+  const hasInvoiceAccess = !apiEnabled || canViewInvoices(currentUser);
   const searchInputId = useId();
   const statusFilterId = useId();
   const methodFilterId = useId();
@@ -79,6 +78,12 @@ export function PaymentManagement() {
 
   const fetchInvoices = useCallback(async () => {
     if (!apiEnabled) return;
+    if (!hasInvoiceAccess) {
+      setInvoices([]);
+      setError(language === 'vi' ? 'Tài khoản hiện tại không có quyền xem hóa đơn (MANAGE_INVOICES).' : 'This account does not have permission to view invoices (MANAGE_INVOICES).');
+      setLoading(false);
+      return;
+    }
     const requestId = ++invoicesRequestId.current;
     setLoading(true);
     setError(null);
@@ -112,7 +117,7 @@ export function PaymentManagement() {
     } finally {
       if (requestId === invoicesRequestId.current) setLoading(false);
     }
-  }, [apiEnabled, statusFilter, methodFilter, searchTerm, startDate, endDate]);
+  }, [apiEnabled, hasInvoiceAccess, language, statusFilter, methodFilter, searchTerm, startDate, endDate]);
 
   useEffect(() => {
     if (apiEnabled) {
@@ -316,7 +321,7 @@ export function PaymentManagement() {
       )}
 
       {/* Table Data */}
-      {(!apiEnabled || (!loading && (!error || invoices.length > 0))) && (
+      {(!apiEnabled || (hasInvoiceAccess && !loading && (!error || invoices.length > 0))) && (
         <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
           {filteredList.length === 0 ? (
             <div className="text-center py-12 text-slate-500 text-xs">
@@ -560,8 +565,8 @@ export function PaymentManagement() {
                   </div>
                   <p className="text-slate-700 text-[11px]">
                     {language === 'vi'
-                      ? 'Thu tiền mặt tại quầy do nhân viên Lễ tân thực hiện (/receptionist/payments). Quản lý không trực tiếp thu tiền mặt.'
-                      : 'Cash desk collection is performed by Receptionist (/receptionist/payments). Manager does not confirm cash directly.'}
+                      ? 'Hóa đơn đang chờ xử lý. Chỉ Lễ tân mới được xác nhận hóa đơn Cash hợp lệ; hóa đơn VNPay cần được hội viên hoàn tất qua cổng thanh toán.'
+                      : 'This invoice is pending. Only Receptionists can confirm eligible Cash invoices; members must complete VNPay invoices through the payment gateway.'}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {apiEnabled && (

@@ -8,6 +8,12 @@ import { extractList, validateMemberSchema, validateStaffSchema, validateMemberI
 import fs from 'node:fs';
 import path from 'node:path';
 
+// Fail closed before any adapter call. This legacy suite contains status writes
+// before its later mocks are installed; it must never reach a real backend.
+globalThis.fetch = async () => {
+  throw new Error('External network blocked by the G4 test safety guard.');
+};
+
 console.log('==============================================');
 console.log('RUNNING G4 MEMBER + STAFF + WEBZONE LOGIC TEST SUITE');
 console.log('==============================================');

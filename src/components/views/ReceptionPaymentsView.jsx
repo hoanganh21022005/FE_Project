@@ -4,6 +4,7 @@ import { useSCMS } from '../../context/SCMSContext';
 import { formatCurrency, formatDateTime } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
 import { invoiceApi } from '../../api/invoiceApi';
+import { canConfirmCash as hasCashConfirmationPermission, isCashInvoiceConfirmable } from '../../utils/paymentAccess.js';
 import { getErrorMessage } from '../../api/apiErrors';
 import {
   applyMockPaymentSettlements,
@@ -12,7 +13,6 @@ import {
 } from '../../utils/mockFixtureSettlement';
 import {
   CreditCard,
-  PlusCircle,
   CheckCircle2,
   Filter,
   Search,
@@ -88,15 +88,7 @@ export function ReceptionPaymentsView() {
   const searchInputId = useId();
   const statusSelectId = useId();
 
-  const isReceptionistWithManageInvoices = (
-    String(currentUser?.role || '').toLowerCase() === 'receptionist'
-    && Array.isArray(currentUser?.authorities)
-    && currentUser.authorities.includes('MANAGE_INVOICES')
-  );
-
-  const canConfirmCash = !apiEnabled
-    ? ['receptionist', 'manager'].includes(String(currentUser?.role || '').toLowerCase())
-    : isReceptionistWithManageInvoices;
+  const canConfirmCash = !apiEnabled || hasCashConfirmationPermission(currentUser);
 
   const fetchInvoices = useCallback(async () => {
     if (!apiEnabled) return;
@@ -160,7 +152,14 @@ export function ReceptionPaymentsView() {
 
     if (itemStatus === 'pending') {
       if (canPayCash) {
-        if (canConfirmCash) {
+        if (apiEnabled && !isCashInvoiceConfirmable(target)) {
+          setConfirmingInvoice(null);
+          setTargetNotice(
+            language === 'vi'
+              ? 'Hóa đơn Cash đã hết hạn, cần đối soát hoặc thiếu hạn thanh toán hợp lệ nên không thể xác nhận.'
+              : 'This Cash invoice is expired, requires reconciliation, or has no valid payment deadline and cannot be confirmed.'
+          );
+        } else if (canConfirmCash) {
           setConfirmingInvoice(target);
           setTargetNotice(null);
         } else {
@@ -346,32 +345,11 @@ export function ReceptionPaymentsView() {
   const handleExecuteCashPayment = async (e) => {
     e.preventDefault();
     if (!confirmingInvoice || confirmingRequestRef.current) return;
-
-    if (apiEnabled) {
-      // 1. Kiểm tra vai trò và quyền ngay trước khi gửi POST
-      const role = String(currentUser?.role || '').toLowerCase();
-      const hasManageInvoices = Array.isArray(currentUser?.authorities) && currentUser.authorities.includes('MANAGE_INVOICES');
-      if (role !== 'receptionist' || !hasManageInvoices) {
-        setConfirmError(
-          language === 'vi'
-            ? 'Chỉ nhân viên Lễ tân có quyền MANAGE_INVOICES mới được xác nhận thanh toán tiền mặt.'
-            : 'Only Receptionists with MANAGE_INVOICES authority can confirm cash payments.'
-        );
-        return;
-      }
-
-      // 2. Kiểm tra điều kiện hóa đơn ngay trước khi gửi POST: phải là Cash và Pending
-      const invStatus = String(confirmingInvoice.paymentStatus || confirmingInvoice.status || '').toLowerCase();
-      const isPending = invStatus === 'pending';
-      const isCash = isCashMethod(confirmingInvoice);
-      if (!isPending || !isCash) {
-        setConfirmError(
-          language === 'vi'
-            ? 'Chỉ có thể xác nhận thu tiền mặt cho hóa đơn Tiền mặt ở trạng thái Chờ thanh toán (Pending).'
-            : 'Only Cash invoices in Pending status can be confirmed.'
-        );
-        return;
-      }
+    if (apiEnabled && (!canConfirmCash || !isCashInvoiceConfirmable(confirmingInvoice))) {
+      setConfirmError(language === 'vi'
+        ? 'Không thể xác nhận: cần quyền Lễ tân + MANAGE_INVOICES và hóa đơn Cash đang Pending, chưa hết hạn, không cần đối soát.'
+        : 'Cannot confirm: Receptionist + MANAGE_INVOICES and an unexpired, reconcilable Pending Cash invoice are required.');
+      return;
     }
 
     confirmingRequestRef.current = true;
@@ -655,7 +633,7 @@ export function ReceptionPaymentsView() {
                           <StatusBadge type="payment" status={status} />
                         </td>
                         <td className="py-2 px-3 text-center">
-                          {isPending && canConfirmCash && isCashMethod(p) ? (
+                          {isPending && canConfirmCash && isCashMethod(p) && (!apiEnabled || isCashInvoiceConfirmable(p)) ? (
                             <button
                               type="button"
                               onClick={() => {

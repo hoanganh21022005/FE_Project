@@ -88,8 +88,11 @@ export function mapStaff(dto) {
 
   return {
     id,
+    // StaffResponse.id is User.id in the backend staff contract.
+    userId: id,
     code: dto.code || (id ? `STF-${String(id).padStart(3, "0")}` : "STF-NEW"),
     name,
+    serverName: rawName,
     email: dto.email ? String(dto.email).trim() : "",
     phone: dto.phone ? String(dto.phone).trim() : "",
     role,
@@ -147,5 +150,12 @@ export function toStaffRequest(input = {}) {
     payload.password = input.password
   }
 
+  return payload
+}
+
+export function toStaffUpdateRequest(input = {}) {
+  const payload = toStaffRequest(input)
+  if (input.phone !== undefined) payload.phone = String(input.phone ?? '').trim()
+  if (input.specialization !== undefined) payload.specialization = String(input.specialization ?? '').trim()
   return payload
 }

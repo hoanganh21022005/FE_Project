@@ -14,8 +14,18 @@ import {
 } from "../classes/sportDisciplines"
 import {
   computeAllClassConflicts,
+  getClassSessions,
   useScheduleConflict,
 } from "../classes/hooks/useScheduleConflict"
+import {
+  addCalendarDays,
+  buildClassCalendarEntries,
+  calendarMonthCells,
+  currentCalendarMonth,
+  matchesClassDateRange,
+  shiftCalendarMonth,
+  vietnamDateKey,
+} from "../classes/classCalendar.js"
 import { CurrencyInput } from "../common/CurrencyInput"
 import {
   Calendar,
@@ -158,38 +168,6 @@ function SortIcon({ sortKey, currentConfig }) {
   )
 }
 
-function matchDateRange(clsDateStr, rangeOption) {
-  if (!rangeOption || rangeOption === "all") return true
-  if (!clsDateStr) return false
-
-  const d = new Date(clsDateStr)
-  if (isNaN(d.getTime())) return true
-  const time = d.getTime()
-
-  if (rangeOption === "today") {
-    return (
-      clsDateStr.startsWith("2026-10-12") || clsDateStr.startsWith("2026-10-10")
-    )
-  }
-  if (rangeOption === "this_week") {
-    const s = new Date("2026-10-12T00:00:00").getTime()
-    const e = new Date("2026-10-18T23:59:59").getTime()
-    return time >= s && time <= e
-  }
-  if (rangeOption === "next_week") {
-    const s = new Date("2026-10-19T00:00:00").getTime()
-    const e = new Date("2026-10-25T23:59:59").getTime()
-    return time >= s && time <= e
-  }
-  if (rangeOption === "this_month") {
-    return d.getFullYear() === 2026 && d.getMonth() === 9 // October 2026
-  }
-  if (rangeOption === "next_month") {
-    return d.getFullYear() === 2026 && d.getMonth() === 10 // November 2026
-  }
-  return true
-}
-
 export function computeCourseEndDate(startDateStr, days, count = 12) {
   if (!startDateStr || !Array.isArray(days) || days.length === 0) return ""
   const current = new Date(startDateStr)
@@ -265,7 +243,7 @@ function exportClassesToCsv(
       cls.enrolledCount ?? (apiMode ? "—" : 0),
       cls.capacity ?? (apiMode ? "—" : 8),
       resolvedPrice === null ? "—" : isFree ? "Miễn phí (0 đ)" : `${resolvedPrice.toLocaleString("vi-VN")} đ`,
-      STATUS_CONFIG[normalizeClassStatus(cls.status)]?.label || cls.status,
+      STATUS_CONFIG[normalizeClassStatus(cls.status)]?.label || cls.apiStatus || cls.status,
     ]
   })
 
@@ -332,7 +310,7 @@ function getCoachAvatarPalette(name) {
 
 // Normalized status configuration matching Semantic UI specification
 const STATUS_CONFIG = {
-  published: {
+  open: {
     label: "Mở đăng ký",
     bg: "bg-emerald-50 text-emerald-700 border-emerald-200/80",
     dot: "bg-emerald-500",
@@ -347,7 +325,7 @@ const STATUS_CONFIG = {
     bg: "bg-stone-100 text-stone-700 border-stone-200/90",
     dot: "bg-stone-400",
   },
-  completed: {
+  closed: {
     label: "Đã kết thúc",
     bg: "bg-stone-100 text-stone-500 border-stone-200",
     dot: "bg-stone-400",
@@ -360,19 +338,22 @@ const STATUS_CONFIG = {
 }
 
 function normalizeClassStatus(status) {
-  const s = String(status || "").toLowerCase()
-  if (["published", "open", "mở đăng ký"].includes(s)) return "published"
-  if (["ongoing", "active", "đang diễn ra"].includes(s)) return "ongoing"
-  if (["draft", "nháp", "bản nháp"].includes(s)) return "draft"
-  if (["completed", "closed", "đã kết thúc", "kết thúc"].includes(s))
-    return "completed"
-  if (["cancelled", "canceled", "đã hủy", "hủy"].includes(s)) return "cancelled"
-  return "published"
+  const s = String(status || "").trim().toLowerCase()
+  if (["published", "open"].includes(s)) return "open"
+  if (s === "ongoing") return "ongoing"
+  if (s === "draft") return "draft"
+  if (["completed", "closed"].includes(s)) return "closed"
+  if (["cancelled", "canceled"].includes(s)) return "cancelled"
+  return s || "unknown"
 }
 
 function StatusPill({ status }) {
   const norm = normalizeClassStatus(status)
-  const cfg = STATUS_CONFIG[norm] || STATUS_CONFIG.published
+  const cfg = STATUS_CONFIG[norm] || {
+    label: status || "Unknown status",
+    bg: "bg-stone-100 text-stone-700 border-stone-200",
+    dot: "bg-stone-400",
+  }
   return (
     <span
       className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${cfg.bg}`}
@@ -398,6 +379,8 @@ function EditClassModal({
   onClose,
   onSave,
 }) {
+  const [error, setError] = useState("")
+  const [saving, setSaving] = useState(false)
   const activeCoaches = (
     coaches && coaches.length > 0 ? coaches : staff
   ).filter(
@@ -452,11 +435,13 @@ function EditClassModal({
     capacity: item.capacity ?? (apiMode ? "" : 8),
     minCapacity: item.minCapacity ?? (apiMode ? null : 4),
     price: resolvedInitialPrice,
-    startDate: item.startDate || item.date || (apiMode ? "" : "2026-10-12"),
-    endDate: item.endDate || (apiMode ? "" : "2026-11-06"),
+    startDate: item.startDate || item.date || "",
+    endDate: item.endDate || "",
     startTime: item.startTime || (apiMode ? "" : "06:00"),
     endTime: item.endTime || (apiMode ? "" : "07:30"),
-    status: item.status || (apiMode ? "" : "published"),
+    status: apiMode
+      ? normalizeClassStatus(item.status ?? item.apiStatus)
+      : item.status || "published",
   }))
 
   const currentCategory = form.category || item.category || ""
@@ -841,10 +826,10 @@ function EditClassModal({
                 onChange={(e) => setForm({ ...form, status: e.target.value })}
                 className="w-full h-11 px-3.5 bg-white border border-stone-300 rounded-xl text-sm cursor-pointer font-medium focus:border-stone-800"
               >
-                <option value="published">Mở đăng ký</option>
+                <option value="open">Mở đăng ký</option>
                 <option value="ongoing">Đang diễn ra</option>
                 <option value="draft">Bản nháp</option>
-                <option value="completed">Đã kết thúc</option>
+                <option value="closed">Đã kết thúc</option>
                 <option value="cancelled">Đã hủy</option>
               </select>
             </div>
@@ -1289,6 +1274,34 @@ export function ClassManagement() {
 
   // Mode: 'table' (Mặc định chuẩn) | 'calendar' (Lịch tháng)
   const [viewMode, setViewMode] = useState("table")
+  const [todayKey, setTodayKey] = useState(() => vietnamDateKey(new Date()))
+  const [calendarMonth, setCalendarMonth] = useState(() => currentCalendarMonth())
+  const previousTodayRef = useRef(todayKey)
+  useEffect(() => {
+    let timer
+    const refreshToday = () => {
+      const now = new Date()
+      const today = vietnamDateKey(now)
+      setTodayKey(today)
+      window.clearTimeout(timer)
+      const nextMidnight = Date.parse(`${addCalendarDays(today, 1)}T00:00:00+07:00`)
+      timer = window.setTimeout(refreshToday, Math.max(1000, nextMidnight - now.getTime()))
+    }
+    refreshToday()
+    window.addEventListener("focus", refreshToday)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener("focus", refreshToday)
+    }
+  }, [])
+  useEffect(() => {
+    const previousMonth = previousTodayRef.current.slice(0, 7)
+    const currentMonth = todayKey.slice(0, 7)
+    if (previousMonth !== currentMonth) {
+      setCalendarMonth((month) => month === previousMonth ? currentMonth : month)
+    }
+    previousTodayRef.current = todayKey
+  }, [todayKey])
   const [isNewClassOpen, setIsNewClassOpen] = useState(false)
   const [cloningClass, setCloningClass] = useState(null)
   const [enrollingClass, setEnrollingClass] = useState(null)
@@ -1342,7 +1355,7 @@ export function ClassManagement() {
   const [selectedClassIds, setSelectedClassIds] = useState([])
 
   // Filters state
-  const [activeTab, setActiveTab] = useState("all") // 'all' | 'published' | 'ongoing' | 'draft' | 'completed' | 'cancelled'
+  const [activeTab, setActiveTab] = useState("all") // 'all' | 'open' | 'ongoing' | 'draft' | 'closed' | 'cancelled'
   const [searchTerm, setSearchTerm] = useState("")
   const [filterSport, setFilterSport] = useState("all")
   const [filterCoach, setFilterCoach] = useState("all")
@@ -1373,13 +1386,13 @@ export function ClassManagement() {
     if (!apiEnabled || !classes.length) return
 
     const controller = new AbortController()
-    const updateSchedule = (sessions) => {
-      if (!controller.signal.aborted) setConflictSchedule({ classes, sessions })
+    const updateSchedule = (sessions, error = false) => {
+      if (!controller.signal.aborted) setConflictSchedule({ classes, sessions, error })
     }
 
     getSessions({}, { signal: controller.signal, notifyForbidden: false })
       .then(updateSchedule)
-      .catch(() => updateSchedule([]))
+      .catch(() => updateSchedule([], true))
 
     return () => controller.abort()
   }, [apiEnabled, classes])
@@ -1404,10 +1417,10 @@ export function ClassManagement() {
     const list = classes || []
     const res = {
       all: list.length,
-      published: 0,
+      open: 0,
       ongoing: 0,
       draft: 0,
-      completed: 0,
+      closed: 0,
       cancelled: 0,
     }
     list.forEach((c) => {
@@ -1466,7 +1479,7 @@ export function ClassManagement() {
 
       // Date Range filter
       if (filterDateRange !== "all") {
-        if (!matchDateRange(cls.startDate || cls.date, filterDateRange)) {
+        if (!matchesClassDateRange(cls.startDate || cls.date, filterDateRange, todayKey)) {
           return false
         }
       }
@@ -1547,6 +1560,7 @@ export function ClassManagement() {
     filterSport,
     filterCoach,
     filterDateRange,
+    todayKey,
     searchTerm,
     sortConfig,
   ])
@@ -1633,13 +1647,17 @@ export function ClassManagement() {
     if (count === 0) return
 
     const apiStatusMap = {
-      published: "Open",
+      open: "Open",
       ongoing: "Ongoing",
       draft: "Draft",
-      completed: "Closed",
+      closed: "Closed",
       cancelled: "Cancelled",
     }
-    const apiStatus = apiStatusMap[newStatus] || "Open"
+    const apiStatus = apiStatusMap[newStatus]
+    if (!apiStatus) {
+      showToast("Invalid class status.", "error")
+      return
+    }
 
     try {
       for (const id of selectedClassIds) {
@@ -1803,20 +1821,16 @@ export function ClassManagement() {
     }
   }
 
-  // Calendar cells generation for 2026-10 / 2026-09
-  const calendarYear = 2026
-  const calendarMonth = 9 // October 2026 (0-indexed: 9 = October)
-  const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate()
-  const firstDayOffset =
-    (new Date(calendarYear, calendarMonth, 1).getDay() + 6) % 7
-  const calendarCellCount = Math.ceil((firstDayOffset + daysInMonth) / 7) * 7
-  const calendarCells = Array.from(
-    { length: calendarCellCount },
-    (_, index) => {
-      const day = index - firstDayOffset + 1
-      return day >= 1 && day <= daysInMonth ? day : null
-    },
-  )
+  const calendarCells = useMemo(() => calendarMonthCells(calendarMonth), [calendarMonth])
+  const calendarSchedule = conflictSchedule?.classes === classes ? conflictSchedule : null
+  const calendarEntries = useMemo(() => {
+    const sessions = apiEnabled
+      ? calendarSchedule?.sessions || []
+      : classes.flatMap((cls) => getClassSessions(cls).map((session) => ({
+          ...session, classId: session.classId ?? cls.id,
+        })))
+    return buildClassCalendarEntries(classes, sessions)
+  }, [apiEnabled, calendarSchedule, classes])
   const weekdaysCalendar = [
     "Thứ 2",
     "Thứ 3",
@@ -1959,13 +1973,13 @@ export function ClassManagement() {
         {[
           { id: "all", label: "Tất cả", count: counts.all },
           {
-            id: "published",
+            id: "open",
             label: "Đang mở đăng ký",
-            count: counts.published,
+            count: counts.open,
           },
           { id: "ongoing", label: "Đang diễn ra", count: counts.ongoing },
           { id: "draft", label: "Bản nháp", count: counts.draft },
-          { id: "completed", label: "Đã kết thúc", count: counts.completed },
+          { id: "closed", label: "Đã kết thúc", count: counts.closed },
           { id: "cancelled", label: "Đã hủy", count: counts.cancelled },
         ].map((tab) => {
           const isActive = activeTab === tab.id
@@ -2032,10 +2046,10 @@ export function ClassManagement() {
                   <option value="" disabled>
                     Đổi trạng thái...
                   </option>
-                  <option value="published">Mở đăng ký</option>
+                  <option value="open">Mở đăng ký</option>
                   <option value="ongoing">Đang diễn ra</option>
                   <option value="draft">Bản nháp</option>
-                  <option value="completed">Đã kết thúc</option>
+                  <option value="closed">Đã kết thúc</option>
                 </select>
               </div>
 
@@ -2154,8 +2168,8 @@ export function ClassManagement() {
                   <option value="today">Hôm nay</option>
                   <option value="this_week">Tuần này</option>
                   <option value="next_week">Tuần tới</option>
-                  <option value="this_month">Tháng 10/2026</option>
-                  <option value="next_month">Tháng 11/2026</option>
+                  <option value="this_month">Tháng này</option>
+                  <option value="next_month">Tháng tới</option>
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 text-stone-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -2560,17 +2574,13 @@ export function ClassManagement() {
                                   className="text-xs text-stone-500"
                                   title={
                                     isOngoing
-                                    ? apiEnabled
                                       ? `Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`
-                                      : `Buổi tiếp theo: 14/10 • 3/${sessionCount ?? 12} buổi`
                                       : `Khai giảng: ${formatViDate(cls.startDate || cls.date)}`
                                   }
                                 >
                                   {isOngoing ? (
                                     <span className="text-emerald-700 font-medium">
-                                      {apiEnabled
-                                        ? `Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`
-                                        : <>Buổi tiếp theo: 14/10 &bull; 3/{sessionCount ?? 12} buổi</>}
+                                      {`Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`}
                                     </span>
                                   ) : (
                                     <span>
@@ -2944,14 +2954,17 @@ export function ClassManagement() {
         ) : (
           /* LỊCH THÁNG (CALENDAR MATRIX VIEW CHUẨN DESIGN) */
           <div className="p-5 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-sm font-bold text-stone-900">
-                Lịch lớp tháng 10/2026
+                Lịch lớp tháng {calendarMonth.slice(5, 7)}/{calendarMonth.slice(0, 4)}
               </h3>
-              <span className="text-xs text-stone-500">
-                Hiển thị {classes.length} lớp học đang mở
-              </span>
+              <div className="flex items-center gap-2">
+                <button type="button" aria-label="Tháng trước" onClick={() => setCalendarMonth((month) => shiftCalendarMonth(month, -1))} className="rounded-lg border border-stone-200 p-1.5 hover:bg-stone-50"><ChevronLeft className="h-4 w-4" /></button>
+                <button type="button" aria-label="Tháng sau" onClick={() => setCalendarMonth((month) => shiftCalendarMonth(month, 1))} className="rounded-lg border border-stone-200 p-1.5 hover:bg-stone-50"><ChevronRight className="h-4 w-4" /></button>
+              </div>
             </div>
+            {apiEnabled && classes.length > 0 && !calendarSchedule && <p role="status" className="text-xs text-stone-500">Đang tải lịch buổi học…</p>}
+            {apiEnabled && calendarSchedule?.error && <p role="alert" className="text-xs text-rose-700">Không tải được lịch buổi học. Lịch chỉ hiển thị ngày khai giảng của lớp.</p>}
 
             <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-stone-600 pb-2 border-b border-stone-200 bg-stone-50/70 p-2.5 rounded-xl">
               {weekdaysCalendar.map((day) => (
@@ -2960,8 +2973,8 @@ export function ClassManagement() {
             </div>
 
             <div className="grid grid-cols-7 gap-2 min-h-[340px]">
-              {calendarCells.map((day, i) => {
-                if (!day) {
+              {calendarCells.map((dateStr, i) => {
+                if (!dateStr) {
                   return (
                     <div
                       key={`empty-${i}`}
@@ -2970,33 +2983,32 @@ export function ClassManagement() {
                     />
                   )
                 }
-                const dateStr = `2026-10-${String(day).padStart(2, "0")}`
-                const dayClasses = (classes || []).filter(
-                  (c) => c.date === dateStr || c.startDate === dateStr,
-                )
+                const dayEntries = calendarEntries[dateStr] || []
 
                 return (
                   <div
                     key={dateStr}
                     className={`p-2 bg-stone-50/60 border border-stone-200 rounded-xl min-h-[88px] text-left transition-colors hover:bg-stone-50 ${
-                      day === 12 ? "ring-2 ring-stone-900 bg-stone-100/50" : ""
+                      dateStr === todayKey ? "ring-2 ring-stone-900 bg-stone-100/50" : ""
                     }`}
                   >
                     <div className="text-xs font-semibold text-stone-500 mb-1 tabular-nums">
-                      {day}
+                      {Number(dateStr.slice(8, 10))}
                     </div>
-                    {dayClasses.map((c) => (
-                      <div
-                        key={c.id}
-                        onClick={() => setQuickViewClass(c)}
-                        title={`${c.startTime} — ${c.nameVi || c.name}`}
-                        className="p-1.5 bg-white border border-stone-200 rounded-lg text-xs text-stone-900 font-semibold line-clamp-2 mb-1 shadow-2xs hover:border-stone-400 cursor-pointer"
+                    {dayEntries.map(({ class: cls, session, type }, entryIndex) => (
+                      <button
+                        type="button"
+                        key={`${type}-${cls.id}-${session?.id ?? entryIndex}`}
+                        onClick={() => setQuickViewClass(cls)}
+                        title={`${type === "session" ? "Buổi học" : "Khai giảng"}: ${cls.nameVi || cls.name}`}
+                        className="w-full text-left p-1.5 bg-white border border-stone-200 rounded-lg text-xs text-stone-900 font-semibold line-clamp-2 mb-1 shadow-2xs hover:border-stone-400 cursor-pointer"
                       >
                         <span className="text-stone-900 font-bold tabular-nums">
-                          {c.startTime}
+                          {type === "session" ? (session.startTime || "Buổi học") : "Khai giảng"}
                         </span>{" "}
-                        {c.nameVi || c.name}
-                      </div>
+                        {cls.nameVi || cls.name}
+                        {type === "session" && session.status ? ` (${session.status})` : ""}
+                      </button>
                     ))}
                   </div>
                 )

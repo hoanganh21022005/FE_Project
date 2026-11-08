@@ -102,14 +102,16 @@ export function mapPackage(item) {
     rawStatus: item.status ?? null,
     packageType: item.packageType ?? null,
     totalCredit: asNumber(item.totalCredit),
+    subjectId: asNumber(item.subjectId),
   }
 }
 
 const classStatus = (status, fallback = "draft") => {
   const normalized = normalizeStatus(status, fallback)
   if (normalized === null) return null
-  if (["open", "ongoing", "active"].includes(normalized)) return "published"
-  if (normalized === "closed") return "completed"
+  if (["open", "published"].includes(normalized)) return "open"
+  if (["closed", "completed"].includes(normalized)) return "closed"
+  if (["cancelled", "canceled"].includes(normalized)) return "cancelled"
   return normalized
 }
 
@@ -293,7 +295,7 @@ export function mapClass(
     apiStatus: item.status ?? null,
     startDate: item.startDate ?? null,
     endDate: item.endDate ?? null,
-    date: merged.date ?? item.startDate ?? "2026-10-12",
+    date: merged.date ?? item.startDate ?? null,
     startTime,
     endTime,
     durationMinutes: merged.durationMinutes ?? (isPickleball ? 105 : 90),
@@ -319,10 +321,10 @@ export function mapAuditLog(item) {
     id: item.id,
     timestamp: item.createdAt ?? null,
     actorId: item.userId ?? null,
-    actorName: item.userId ? `User #${item.userId}` : "System",
+    actorName: item.userId != null ? `User #${item.userId}` : null,
     actorRole: null,
-    action: item.action ?? "UNKNOWN",
-    target: target || "N/A",
+    action: item.action ?? null,
+    target: target || null,
     previousValue: null,
     newValue: null,
     reason: item.detail ?? null,
@@ -393,20 +395,37 @@ const API_CLASS_STATUSES = {
   closed: "Closed",
   completed: "Closed",
   cancelled: "Cancelled",
+  canceled: "Cancelled",
 }
 
-export const toClassRequest = (item) => ({
-  name: item.name || item.nameVi,
-  subjectId: idNumber(item.subjectId),
-  coachId: idNumber(item.coachId),
-  maxCapacity: asNumber(item.maxCapacity ?? item.capacity),
-  startDate: item.startDate ?? item.date ?? null,
-  endDate: item.endDate ?? null,
-  tuitionFee: asNumber(item.tuitionFee ?? item.price),
-  classType: item.classType ?? null,
-  totalSessions: asNumber(item.totalSessions ?? item.sessionCount),
-  status: API_CLASS_STATUSES[normalizeStatus(item.status ?? item.apiStatus)] ?? undefined,
-})
+export const toClassRequest = (item) => {
+  const statusValue = item.status ?? item.apiStatus
+  const rawStatus = item.apiStatus ?? item.status
+  const normalizedStatus = normalizeStatus(statusValue, null)
+  const normalizedRawStatus = normalizeStatus(rawStatus, null)
+  const mappedStatus = API_CLASS_STATUSES[normalizedStatus]
+  const preservedUnknownStatus =
+    item.status == null || item.apiStatus == null || normalizedStatus === normalizedRawStatus
+      ? rawStatus == null ? undefined : String(rawStatus)
+      : undefined
+
+  return {
+    name: item.name || item.nameVi,
+    subjectId: idNumber(item.subjectId),
+    coachId: idNumber(item.coachId),
+    maxCapacity: asNumber(item.maxCapacity ?? item.capacity),
+    startDate: item.startDate ?? item.date ?? null,
+    endDate: item.endDate ?? null,
+    tuitionFee: asNumber(item.tuitionFee ?? item.price),
+    classType: item.classType ?? null,
+    totalSessions: asNumber(item.totalSessions ?? item.sessionCount),
+    // Keep unrecognized Backend values intact; never silently turn them into Open.
+    status:
+      normalizedStatus === "draft"
+        ? undefined
+        : mappedStatus ?? preservedUnknownStatus,
+  }
+}
 
 export const toPackageRequest = (item) => {
   return {

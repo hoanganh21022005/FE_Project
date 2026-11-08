@@ -116,10 +116,6 @@ function ResourceModal({ type, item, language, onClose, onSave }) {
           ) : (
             <>
               <label className="block text-xs font-bold text-slate-700">
-                Slug
-                <input value={form.slug ?? ''} onChange={e => setForm({ ...form, slug: e.target.value })} className={fieldClass} />
-              </label>
-              <label className="block text-xs font-bold text-slate-700">
                 {label('Mô tả', 'Description')}
                 <textarea rows="3" value={form.description ?? ''} onChange={e => setForm({ ...form, description: e.target.value })} className={fieldClass} />
               </label>
@@ -238,7 +234,7 @@ export function ResourceManagement() {
           <table className="w-full min-w-[760px] text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 uppercase">
               <tr>
-                <th className="p-3">{label('Bộ môn', 'Subject')}</th><th className="p-3">Slug</th>
+                <th className="p-3">{label('Bộ môn', 'Subject')}</th>
                 <th className="p-3">Normal</th><th className="p-3">Advanced</th>
                 <th className="p-3">Indoor/Outdoor</th><th className="p-3">{label('Trạng thái', 'Status')}</th><th className="p-3">{label('Thao tác', 'Actions')}</th>
               </tr>
@@ -247,7 +243,6 @@ export function ResourceManagement() {
               {subjects.map(item => (
                 <tr key={item.id}>
                   <td className="p-3"><div className="font-bold text-slate-900">{item.name}</div><div className="text-slate-500 mt-1">{item.description || '—'}</div></td>
-                  <td className="p-3 font-mono">{item.slug || '—'}</td>
                   <td className="p-3 tabular-nums">{currency(item.normalPrice)}</td>
                   <td className="p-3 tabular-nums">{currency(item.advancedPrice)}</td>
                   <td className="p-3">{item.outdoor == null ? '—' : item.outdoor ? 'Outdoor' : 'Indoor'}</td>
