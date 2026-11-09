@@ -6,6 +6,7 @@ const sdk = `window.google = { accounts: { id: {
   initialize(options) { window.testGoogleOptions = options; },
   renderButton(element) { element.textContent = 'Google giả lập'; }
 } } };`;
+const isLocalApi = (url, path) => url.origin === 'http://127.0.0.1:5199' && url.pathname === path;
 
 test.beforeEach(async ({ page }) => {
   await setupDefaultApiMocks(page);
@@ -17,8 +18,10 @@ test.beforeEach(async ({ page }) => {
 test('Google callback gửi credential giả và tạo phiên Member', async ({ page }) => {
   let authenticated = false;
   let payload;
-  await page.route('**/api/auth/me', (route) => route.fulfill(authenticated ? { json: mockUsers.member } : { status: 401, json: {} }));
-  await page.route((url) => url.pathname === '/api/auth/google', (route) => {
+  await page.route((url) => isLocalApi(url, '/api/auth/me'), (route) => route.request().method() === 'GET'
+    ? route.fulfill(authenticated ? { json: mockUsers.member } : { status: 401, json: {} })
+    : route.fallback());
+  await page.route((url) => isLocalApi(url, '/api/auth/google'), (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     payload = route.request().postDataJSON();
     authenticated = true;
@@ -36,8 +39,10 @@ test('Google callback gửi credential giả và tạo phiên Member', async ({ 
 
 test('Google callback báo lỗi API và bỏ qua credential rỗng', async ({ page }) => {
   let calls = 0;
-  await page.route('**/api/auth/me', (route) => route.fulfill({ status: 401, json: {} }));
-  await page.route((url) => url.pathname === '/api/auth/google', (route) => {
+  await page.route((url) => isLocalApi(url, '/api/auth/me'), (route) => route.request().method() === 'GET'
+    ? route.fulfill({ status: 401, json: {} })
+    : route.fallback());
+  await page.route((url) => isLocalApi(url, '/api/auth/google'), (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     calls++;
     return route.fulfill({ status: 401, json: { message: 'Rejected' } });
