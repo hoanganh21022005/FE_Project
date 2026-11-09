@@ -35,7 +35,7 @@ export default defineConfig({
     command: 'npm run dev -- --host 127.0.0.1 --port 5199 --strictPort',
     url: 'http://127.0.0.1:5199',
     reuseExistingServer: false,
-    env: { VITE_API_ENABLED: 'true', VITE_API_BASE_URL: '', VITE_API_PROXY_TARGET: 'http://127.0.0.1:1' },
+    env: { VITE_API_ENABLED: 'true', VITE_API_BASE_URL: '', VITE_API_PROXY_TARGET: 'http://127.0.0.1:1', VITE_GOOGLE_CLIENT_ID: 'fake-client-id.apps.example.invalid' },
     timeout: 120000,
   },
 });
