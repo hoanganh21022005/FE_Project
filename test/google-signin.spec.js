@@ -1,12 +1,11 @@
 import { test, expect } from './helpers/guardedTest.js';
-import { setupDefaultApiMocks } from './helpers/mockAuth.js';
+import { setupDefaultApiMocks, isLocalApi } from './helpers/mockAuth.js';
 import { mockUsers } from './helpers/mockData.js';
 
 const sdk = `window.google = { accounts: { id: {
   initialize(options) { window.testGoogleOptions = options; },
   renderButton(element) { element.textContent = 'Google giả lập'; }
 } } };`;
-const isLocalApi = (url, path) => url.origin === 'http://127.0.0.1:5199' && url.pathname === path;
 
 test.beforeEach(async ({ page }) => {
   await setupDefaultApiMocks(page);
@@ -15,7 +14,7 @@ test.beforeEach(async ({ page }) => {
     : route.fallback());
 });
 
-test('Google callback gửi credential giả và tạo phiên Member', async ({ page }) => {
+test('Google callback gửi credential giả, chuyển dashboard và F5 với phiên API giả', async ({ page }) => {
   let authenticated = false;
   let payload;
   await page.route((url) => isLocalApi(url, '/api/auth/me'), (route) => route.request().method() === 'GET'
