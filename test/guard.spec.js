@@ -19,11 +19,15 @@ test('Guard mocks only the exact Google SDK and blocks other external requests',
   });
   await guardRequest(route('https://accounts.google.com/gsi/client'), unexpected);
   expect(actions[0]).toEqual(['fulfill', { status: 200, contentType: 'application/javascript', body: '' }]);
+  await guardRequest(route('https://fonts.googleapis.com/css2?family=Example'), unexpected);
+  expect(actions[1]).toEqual(['fulfill', { status: 200, contentType: 'text/css', body: '' }]);
   await guardRequest(route('https://accounts.google.com/other'), unexpected);
   await guardRequest(route('https://accounts.google.com/gsi/client', 'POST'), unexpected);
+  await guardRequest(route('https://fonts.googleapis.com/api/subjects'), unexpected);
+  await guardRequest(route('https://fonts.googleapis.com/css2', 'POST'), unexpected);
   await guardRequest(route('http://127.0.0.1:5199/api/unmocked'), unexpected);
-  expect(actions.slice(1)).toEqual([['abort', 'blockedbyclient'], ['abort', 'blockedbyclient'], ['abort', 'blockedbyclient']]);
-  expect(unexpected).toEqual(['GET https://accounts.google.com/other', 'POST https://accounts.google.com/gsi/client', 'GET http://127.0.0.1:5199/api/unmocked']);
+  expect(actions.slice(2)).toEqual(Array(5).fill(['abort', 'blockedbyclient']));
+  expect(unexpected).toEqual(['GET https://accounts.google.com/other', 'POST https://accounts.google.com/gsi/client', 'GET https://fonts.googleapis.com/api/subjects', 'POST https://fonts.googleapis.com/css2', 'GET http://127.0.0.1:5199/api/unmocked']);
 });
 
 test('Guard chặn request ngoài từ trình duyệt', async ({ page }) => {
@@ -62,6 +66,7 @@ test('probe', async ({ page }) => {
   for (const path of ['/api/subjects', '/api/classes', '/api/auth/me']) {
     await expect(page.goto('https://outside.example.invalid' + path)).rejects.toThrow();
   }
+  await expect(page.goto('https://fonts.googleapis.com/api/subjects')).rejects.toThrow();
   console.log('PROBE_BODY_COMPLETED');
 });`);
   const cli = createRequire(import.meta.url).resolve('@playwright/test/cli');
@@ -76,4 +81,5 @@ test('probe', async ({ page }) => {
   for (const path of ['/api/subjects', '/api/classes', '/api/auth/me']) {
     expect(output).toContain(`GET https://outside.example.invalid${path}`);
   }
+  expect(output).toContain('GET https://fonts.googleapis.com/api/subjects');
 });

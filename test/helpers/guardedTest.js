@@ -6,7 +6,9 @@ export async function guardRequest(route, unexpected) {
   if (request.method() === 'GET' && url.href === 'https://accounts.google.com/gsi/client') {
     return route.fulfill({ status: 200, contentType: 'application/javascript', body: '' });
   }
-  if (url.hostname === 'fonts.googleapis.com') return route.fulfill({ status: 200, contentType: 'text/css', body: '' });
+  if (request.method() === 'GET' && url.origin === 'https://fonts.googleapis.com' && url.pathname === '/css2') {
+    return route.fulfill({ status: 200, contentType: 'text/css', body: '' });
+  }
   if (url.pathname.startsWith('/api/') || !['127.0.0.1', 'localhost'].includes(url.hostname)) {
     unexpected.push(`${request.method()} ${url.origin}${url.pathname}`);
     return route.abort('blockedbyclient');
