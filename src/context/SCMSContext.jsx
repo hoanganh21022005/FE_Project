@@ -1725,6 +1725,25 @@ export const SCMSProvider = ({ children }) => {
     return normalizedUser
   }
 
+  const loginWithGoogle = async (credential) => {
+    authRequestEpochRef.current += 1
+    setAuthError(null)
+    const user = await authApi.loginWithGoogle(credential)
+    const normalizedRole = normalizeRole(user?.role, { isApiMode: true })
+    if (!normalizedRole) {
+      setAuthError(UNSUPPORTED_ROLE_MESSAGE)
+      throw new Error(UNSUPPORTED_ROLE_MESSAGE)
+    }
+    const normalizedUser = {
+      ...user,
+      role: normalizedRole,
+    }
+    setAuthUser(normalizedUser)
+    setRole(normalizedRole)
+    setAuthLoading(false)
+    return normalizedUser
+  }
+
   const logout = async () => {
     authRequestEpochRef.current += 1
     if (API_ENABLED) {
@@ -3149,6 +3168,7 @@ export const SCMSProvider = ({ children }) => {
         authError,
         clearAuthError: () => setAuthError(null),
         login,
+        loginWithGoogle,
         logout,
         apiEnabled: API_ENABLED,
         managerDataLoading,
@@ -3241,6 +3261,7 @@ const fallbackContext = {
   authError: null,
   clearAuthError: () => {},
   login: async () => {},
+  loginWithGoogle: async () => {},
   logout: async () => {},
   apiEnabled: false,
   managerDataLoading: false,

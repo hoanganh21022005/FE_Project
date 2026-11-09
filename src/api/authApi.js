@@ -44,8 +44,14 @@ export const changePassword = ({ oldPassword, newPassword }) =>
 export const reissuePassword = (userId) =>
   httpClient.post(`/api/users/${userId}/reissue-password`)
 
+export const loginWithGoogle = (credential) =>
+  httpClient.post("/api/auth/google", { credential }, {
+    notifyUnauthorized: false,
+  })
+
 export const authApi = {
   login,
+  loginWithGoogle,
   getCurrentUser,
   logout,
   uploadMyAvatar,

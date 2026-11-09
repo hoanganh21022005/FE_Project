@@ -281,6 +281,7 @@ export function LoginView({
     members,
     addMember,
     login,
+    loginWithGoogle,
     logout,
     apiEnabled,
   } = useSCMS()
@@ -298,6 +299,8 @@ export function LoginView({
   const [loginError, setLoginError] = useState(initialError)
   const [loginNotice, setLoginNotice] = useState("")
   const [isLoginLoading, setIsLoginLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [googleError, setGoogleError] = useState("")
   const [rememberEmail, setRememberEmail] = useState(true)
   const [recentEmails, setRecentEmails] = useState(() => {
     try {
@@ -596,6 +599,69 @@ export function LoginView({
     setLoginError("")
     setLoginNotice("")
   }
+
+  const handleGoogleLogin = async (credentialResponse) => {
+    const credential = credentialResponse?.credential
+    if (!credential) return
+    setGoogleError("")
+    setIsGoogleLoading(true)
+    try {
+      const user = await loginWithGoogle(credential)
+      onLoginSuccess(user)
+    } catch (error) {
+      setGoogleError(
+        isVi
+          ? "Đăng nhập Google thất bại. Vui lòng thử lại."
+          : "Google sign-in failed. Please try again.",
+      )
+    } finally {
+      setIsGoogleLoading(false)
+    }
+  }
+
+  const googleLoginBtnRef = useRef(null)
+  const googleRegisterBtnRef = useRef(null)
+
+  const renderGoogleButtons = () => {
+    if (!window.google?.accounts?.id || !import.meta.env.VITE_GOOGLE_CLIENT_ID) return
+    window.google.accounts.id.initialize({
+      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+      callback: handleGoogleLogin,
+      auto_select: false,
+    })
+    const opts = {
+      theme: "outline",
+      size: "large",
+      shape: "pill",
+      text: "signin_with",
+      logo_alignment: "left",
+    }
+    if (googleLoginBtnRef.current) {
+      opts.width = googleLoginBtnRef.current.offsetWidth || 360
+      window.google.accounts.id.renderButton(googleLoginBtnRef.current, opts)
+    }
+    if (googleRegisterBtnRef.current) {
+      opts.width = googleRegisterBtnRef.current.offsetWidth || 360
+      window.google.accounts.id.renderButton(googleRegisterBtnRef.current, {
+        ...opts,
+        text: "signup_with",
+      })
+    }
+  }
+
+  useEffect(() => {
+    if (!apiEnabled || !import.meta.env.VITE_GOOGLE_CLIENT_ID) return
+    if (window.google) {
+      renderGoogleButtons()
+      return
+    }
+    const script = document.querySelector('script[src*="accounts.google.com/gsi/client"]')
+    if (script) {
+      script.addEventListener("load", renderGoogleButtons)
+      return () => script.removeEventListener("load", renderGoogleButtons)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiEnabled])
 
   // --- FORGOT PASSWORD HANDLERS ---
   const handleOpenForgotPassword = () => {
@@ -2019,6 +2085,28 @@ export function LoginView({
                   </div>
                 </form>
 
+                {/* Google Sign-In (API mode only) */}
+                {apiEnabled && !adminEntry && import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+                  <div className="mt-4">
+                    <div className="flex items-center gap-3 my-3">
+                      <div className="flex-1 h-px bg-mlc-border" />
+                      <span className="text-xs text-mlc-muted font-medium">
+                        {isVi ? "hoặc" : "or"}
+                      </span>
+                      <div className="flex-1 h-px bg-mlc-border" />
+                    </div>
+                    {googleError && (
+                      <p className="mb-2 text-center text-xs text-red-500">{googleError}</p>
+                    )}
+                    {isGoogleLoading && (
+                      <div className="flex justify-center py-2">
+                        <span className="h-5 w-5 animate-spin rounded-full border-2 border-stone-400 border-t-transparent" />
+                      </div>
+                    )}
+                    <div ref={googleLoginBtnRef} className="flex justify-center" />
+                  </div>
+                )}
+
                 {/* Quick Demo Fill Helper (Mock mode only) */}
                 {!apiEnabled && (
                   <div className="mt-6 flex items-center justify-between gap-3 rounded-xl border border-mlc-border bg-mlc-surface p-3.5 text-xs">
@@ -2529,6 +2617,28 @@ export function LoginView({
                       )}
                     </button>
                   </div>
+
+                  {/* Google Sign-In for Register (API mode only) */}
+                  {apiEnabled && import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+                    <div className="pt-1">
+                      <div className="flex items-center gap-3 my-3">
+                        <div className="flex-1 h-px bg-mlc-border" />
+                        <span className="text-xs text-mlc-muted font-medium">
+                          {isVi ? "hoặc đăng ký nhanh" : "or sign up with"}
+                        </span>
+                        <div className="flex-1 h-px bg-mlc-border" />
+                      </div>
+                      {googleError && (
+                        <p className="mb-2 text-center text-xs text-red-500">{googleError}</p>
+                      )}
+                      {isGoogleLoading && (
+                        <div className="flex justify-center py-2">
+                          <span className="h-5 w-5 animate-spin rounded-full border-2 border-stone-400 border-t-transparent" />
+                        </div>
+                      )}
+                      <div ref={googleRegisterBtnRef} className="flex justify-center" />
+                    </div>
+                  )}
 
                   {/* Clean Privacy Link */}
                   <p className="pt-2 text-center text-[11px] leading-relaxed text-mlc-muted">
