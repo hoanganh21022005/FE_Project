@@ -44,7 +44,6 @@ test('Matcher API chỉ nhận origin của server test', () => {
 });
 
 test('Fixture thất bại khi request ngoài trùng đường dẫn mock', async ({}, testInfo) => {
-  test.setTimeout(90000);
   const dir = testInfo.outputPath('fixture-probe');
   mkdirSync(dir, { recursive: true });
   const guardUrl = pathToFileURL(path.resolve('test/helpers/guardedTest.js')).href;
@@ -67,7 +66,7 @@ test('probe', async ({ page }) => {
 });`);
   const cli = createRequire(import.meta.url).resolve('@playwright/test/cli');
   const child = spawnSync(process.execPath, [cli, 'test', '--config', path.join(dir, 'playwright.config.mjs')], {
-    cwd: process.cwd(), encoding: 'utf8', timeout: 80000, env: { ...process.env, CI: '' },
+    cwd: process.cwd(), encoding: 'utf8', timeout: 25000, env: { ...process.env, CI: '' },
   });
   const output = `${child.stdout || ''}\n${child.stderr || ''}`;
   expect(child.error).toBeUndefined();
