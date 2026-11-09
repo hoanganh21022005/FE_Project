@@ -9,7 +9,9 @@ const sdk = `window.google = { accounts: { id: {
 
 test.beforeEach(async ({ page }) => {
   await setupDefaultApiMocks(page);
-  await page.route('https://accounts.google.com/gsi/client', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: sdk }));
+  await page.route('https://accounts.google.com/gsi/client', (route) => route.request().method() === 'GET'
+    ? route.fulfill({ status: 200, contentType: 'application/javascript', body: sdk })
+    : route.fallback());
 });
 
 test('Google callback gửi credential giả và tạo phiên Member', async ({ page }) => {
