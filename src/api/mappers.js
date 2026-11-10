@@ -344,6 +344,10 @@ export const mapDashboard = (item) => ({
 
 export const mapRevenueReport = (item = {}) => ({
   totalRevenue: asNumber(item.totalRevenue),
+  moneyReceived: asNumber(item.moneyReceived),
+  moneyRefunded: asNumber(item.moneyRefunded),
+  netReceived: asNumber(item.netReceived),
+  cashCorrectionsRecorded: asNumber(item.cashCorrectionsRecorded),
   totalTransactions: asNumber(item.totalTransactions),
   averageTransactionValue: asNumber(item.averageTransactionValue),
   revenueByPackage: Array.isArray(item.revenueByPackage)
