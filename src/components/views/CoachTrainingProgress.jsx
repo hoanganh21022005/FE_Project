@@ -540,17 +540,17 @@ export function CoachTrainingProgress() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Sticky Student Selector + 4 Horizontal Tabs */}
-      <div className="sticky top-0 z-10 bg-white border border-slate-200 p-4 rounded-lg shadow-xs space-y-3">
+      <div className="sticky top-0 z-10 rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-slate-100 text-slate-800 rounded border border-slate-200">
+            <div className="p-2 bg-bg-secondary text-brand-primary rounded border border-border-color">
               <Activity className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 tracking-tight">
+              <h2 className="text-xl leading-7 font-semibold text-text-primary">
                 {t("trainingProgress")}
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-sm leading-5 text-text-secondary">
                 {t("coachProgressSubtitle")}
               </p>
             </div>
@@ -562,17 +562,18 @@ export function CoachTrainingProgress() {
                 type="button"
                 onClick={loadAllProgressData}
                 disabled={loadingData}
-                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-xs font-bold text-slate-700 flex items-center gap-1 cursor-pointer"
+                aria-label={t("coachBtnRefresh")}
+                title={t("coachBtnRefresh")}
+                className="inline-flex h-9 w-9 items-center justify-center rounded transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-secondary hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
               >
                 <RefreshCw
-                  className={`w-3.5 h-3.5 ${loadingData ? "animate-spin" : ""}`}
+                  className={`w-4 h-4 ${loadingData ? "animate-spin" : ""}`}
                 />
-                <span>{t("coachBtnRefresh")}</span>
               </button>
             )}
             {availableStudents.length > 0 && (
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-600">
+                <span className="text-xs leading-4 font-medium text-text-secondary">
                   {t("coachEvaluatedStudentLabel")}
                 </span>
                 <select
@@ -586,7 +587,7 @@ export function CoachTrainingProgress() {
                       )
                     }
                   }}
-                  className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
+                  className="h-9 w-full sm:w-56 rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
                 >
                   {availableStudents.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -602,7 +603,7 @@ export function CoachTrainingProgress() {
         {/* 4 Tabs: Tổng quan | Giáo án | Nhật ký buổi tập | Đánh giá */}
         <div
           role="tablist"
-          className="flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3"
+          className="flex flex-wrap items-center gap-2 border-t border-border-color pt-3"
         >
           {[
             { id: "overview", label: t("coachTabOverview") },
@@ -625,10 +626,10 @@ export function CoachTrainingProgress() {
               role="tab"
               aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-3.5 py-1.5 rounded text-xs font-bold border transition-colors cursor-pointer ${
+              className={`inline-flex h-8.5 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
                 activeTab === tab.id
-                  ? "bg-slate-900 text-white border-slate-900"
-                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                  ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
+                  : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
               }`}
             >
               {tab.label}
@@ -640,25 +641,25 @@ export function CoachTrainingProgress() {
       {/* TAB 1: OVERVIEW */}
       {activeTab === "overview" && (
         <div className="space-y-6">
-          <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-6 shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+          <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border-color pb-4">
               <div>
-                <span className="text-xs text-blue-800 font-mono font-bold uppercase">
+                <span className="text-xs leading-4 font-medium font-mono text-brand-primary uppercase">
                   {t("coachAssignedStudentTag")}
                 </span>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <h3 className="text-base font-bold text-slate-900">
+                  <h3 className="text-lg leading-7 font-semibold text-text-primary">
                     {selectedStudent?.name ||
                       primaryStudentPlan?.memberName ||
                       t("coachStudentLabel")}
                   </h3>
                   {selectedStudent?.code && (
-                    <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-xs font-mono font-semibold text-slate-700">
+                    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-bg-secondary text-text-secondary ring-1 ring-inset ring-border-color font-mono">
                       {selectedStudent.code}
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-sm leading-5 text-text-secondary mt-0.5">
                   {t("coachMainCoachLabel")}:{" "}
                   {currentUser?.name || t("coachDefaultCoachName")}
                 </p>
@@ -670,35 +671,35 @@ export function CoachTrainingProgress() {
                   className="text-right"
                   title={t("coachAttendanceRateTooltip")}
                 >
-                  <div className="text-xs text-slate-600 font-bold mb-1 font-mono tabular-nums inline-flex items-center gap-1">
+                  <div className="text-xs leading-4 font-medium text-text-secondary mb-1 font-mono tabular-nums inline-flex items-center gap-1">
                     <span>
                       {t("coachAttendanceRateTitle")}:{" "}
                       {studentAttendanceSummary.ratePercent !== null
                         ? `${studentAttendanceSummary.ratePercent}% (${studentAttendanceSummary.attended}/${studentAttendanceSummary.total} buổi)`
                         : "Chưa có buổi"}
                     </span>
-                    <Info className="w-3.5 h-3.5 text-slate-400" />
+                    <Info className="w-3.5 h-3.5 text-text-muted" />
                   </div>
-                  <div className="w-44 bg-slate-100 h-2 rounded overflow-hidden border border-slate-200 ml-auto">
+                  <div className="w-44 bg-bg-secondary h-2 rounded overflow-hidden border border-border-color ml-auto">
                     <div
                       style={{
                         width: `${studentAttendanceSummary.ratePercent ?? 0}%`,
                       }}
-                      className="bg-emerald-600 h-full rounded"
+                      className="bg-status-success h-full rounded"
                     />
                   </div>
                 </div>
 
                 {/* R2.4: Progress Score 0-10 */}
                 <div className="text-right">
-                  <div className="text-xs text-slate-600 font-bold mb-1 font-mono tabular-nums">
+                  <div className="text-xs leading-4 font-medium text-text-secondary mb-1 font-mono tabular-nums">
                     {t("coachProgressScoreDisplay")}:{" "}
                     {formatScore(latestEvaluationScore10)}
                   </div>
-                  <div className="w-44 bg-slate-100 h-2 rounded overflow-hidden border border-slate-200 ml-auto">
+                  <div className="w-44 bg-bg-secondary h-2 rounded overflow-hidden border border-border-color ml-auto">
                     <div
                       style={{ width: `${displayPercent}%` }}
-                      className="bg-slate-900 h-full rounded"
+                      className="bg-brand-primary h-full rounded"
                     />
                   </div>
                 </div>
@@ -707,7 +708,7 @@ export function CoachTrainingProgress() {
 
             {/* R2.3: Display all applicable plans for this student (personal first, then class fallback) with explicit source badge */}
             {studentApplicablePlans.length === 0 ? (
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600">
+              <div className="p-4 bg-bg-secondary border border-border-color rounded text-sm leading-5 text-text-secondary">
                 Chưa có giáo án nào cho học viên này. Bạn có thể tạo mới ở tab{" "}
                 <strong>{t("coachTabPlans")}</strong>.
               </div>
@@ -721,39 +722,39 @@ export function CoachTrainingProgress() {
                   return (
                     <div
                       key={p.planId || p.id}
-                      className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2.5"
+                      className="p-4 bg-bg-secondary border border-border-color rounded-lg space-y-2.5"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <span
-                            className={`px-2 py-0.5 rounded text-xs font-bold border ${
+                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
                               isPersonal
-                                ? "bg-blue-100 text-blue-900 border-blue-200"
-                                : "bg-slate-200 text-slate-800 border-slate-300"
+                                ? "bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200"
+                                : "bg-bg-card text-text-secondary ring-1 ring-inset ring-border-color"
                             }`}
                           >
                             {getPlanSourceBadge(p)}
                           </span>
-                          <h4 className="text-sm font-bold text-slate-900">
+                          <h4 className="text-sm leading-5 font-semibold text-text-primary">
                             {p.title || "Giáo án tập luyện"}
                           </h4>
                         </div>
                         {(p.startDate || p.endDate) && (
-                          <span className="text-xs font-mono text-slate-500">
+                          <span className="text-xs leading-4 font-medium font-mono text-text-secondary">
                             {formatDate(p.startDate)} – {formatDate(p.endDate)}
                           </span>
                         )}
                       </div>
 
-                      <div className="text-xs text-slate-800">
-                        <span className="font-bold text-slate-700">
+                      <div className="text-sm leading-5 font-normal text-text-primary">
+                        <span className="font-semibold text-text-secondary">
                           {language === "vi" ? "Mục tiêu: " : "Goal: "}
                         </span>
                         <span>{p.goal || "—"}</span>
                       </div>
 
                       {p.content && (
-                        <div className="pt-2 border-t border-slate-200">
+                        <div className="pt-2 border-t border-border-color">
                           <PlanContentView content={p.content} />
                         </div>
                       )}
@@ -766,18 +767,18 @@ export function CoachTrainingProgress() {
 
           {/* P3.2 & R4.7: Progress Score Trend Chart (Y-axis step 2: 0, 2, 4, 6, 8, 10 + hint when < 2 evaluations) */}
           {scoreChartData.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-blue-700" />
+            <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3">
+              <div className="flex items-center justify-between border-b border-border-color pb-2.5">
+                <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-brand-primary" />
                   <span>{t("coachChartScoreTrendTitle")}</span>
                 </h3>
-                <span className="text-xs font-mono text-slate-500">
+                <span className="text-xs leading-4 font-medium font-mono text-text-secondary">
                   {scoreChartData.length} kỳ đánh giá
                 </span>
               </div>
               {scoreChartData.length < 2 && (
-                <p className="text-xs text-slate-500 italic">
+                <p className="text-sm leading-5 text-text-secondary italic">
                   {t("coachMinTwoEvalsHint")}
                 </p>
               )}
@@ -787,15 +788,15 @@ export function CoachTrainingProgress() {
                     data={scoreChartData}
                     margin={{ top: 10, right: 20, left: 0, bottom: 5 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
                     <XAxis
                       dataKey="label"
-                      tick={{ fontSize: 12, fill: "#475569" }}
+                      tick={{ fontSize: 12, fill: "var(--text-secondary)" }}
                     />
                     <YAxis
                       domain={[0, 10]}
                       ticks={[0, 2, 4, 6, 8, 10]}
-                      tick={{ fontSize: 12, fill: "#475569" }}
+                      tick={{ fontSize: 12, fill: "var(--text-secondary)" }}
                     />
                     <Tooltip
                       formatter={(val) => [
@@ -806,9 +807,9 @@ export function CoachTrainingProgress() {
                     <Line
                       type="monotone"
                       dataKey="score"
-                      stroke="#1D4ED8"
+                      stroke="var(--brand-primary)"
                       strokeWidth={2.5}
-                      dot={{ r: 5, fill: "#1D4ED8" }}
+                      dot={{ r: 5, fill: "var(--brand-primary)" }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -820,21 +821,21 @@ export function CoachTrainingProgress() {
 
       {/* TAB 2: TRAINING PLANS */}
       {activeTab === "plans" && (
-        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <ClipboardList className="w-4 h-4 text-blue-700" />
+        <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
+          <div className="flex items-center justify-between border-b border-border-color pb-2.5">
+            <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
+              <ClipboardList className="w-4 h-4 text-brand-primary" />
               <span>Thiết kế giáo án mới</span>
             </h3>
-            <span className="text-xs font-mono text-slate-500">
+            <span className="text-xs leading-4 font-medium font-mono text-text-secondary">
               {apiPlans.length} giáo án đã lưu
             </span>
           </div>
 
-          <form onSubmit={handleSaveTrainingPlan} className="space-y-4 text-xs">
+          <form onSubmit={handleSaveTrainingPlan} className="space-y-4 text-sm leading-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">
+                <label className="text-xs leading-4 font-medium text-text-secondary block mb-1">
                   Tiêu đề giáo án *
                 </label>
                 <input
@@ -843,11 +844,11 @@ export function CoachTrainingProgress() {
                   value={planTitle}
                   onChange={(e) => setPlanTitle(e.target.value)}
                   placeholder="VD: Giáo án phát triển kỹ thuật & thể lực chuyên sâu"
-                  className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900 font-semibold"
+                  className="h-9 w-full rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 />
               </div>
               <div>
-                <label className="font-bold text-slate-700 block mb-1">
+                <label className="text-xs leading-4 font-medium text-text-secondary block mb-1">
                   Mục tiêu huấn luyện *
                 </label>
                 <input
@@ -856,37 +857,37 @@ export function CoachTrainingProgress() {
                   value={planGoal}
                   onChange={(e) => setPlanGoal(e.target.value)}
                   placeholder="VD: Tăng cường sức bền, tốc độ di chuyển và độ chuẩn xác kỹ thuật"
-                  className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-slate-900"
+                  className="h-9 w-full rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">
+                <label className="text-xs leading-4 font-medium text-text-secondary block mb-1">
                   Từ ngày
                 </label>
                 <input
                   type="date"
                   value={planStartDate}
                   onChange={(e) => setPlanStartDate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 font-mono"
+                  className="h-9 w-full rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
                 />
-                <div className="text-xs font-mono text-slate-500 mt-0.5">
+                <div className="text-xs leading-4 font-medium font-mono text-text-secondary mt-0.5">
                   {formatDate(planStartDate)}
                 </div>
               </div>
               <div>
-                <label className="font-bold text-slate-700 block mb-1">
+                <label className="text-xs leading-4 font-medium text-text-secondary block mb-1">
                   Đến ngày
                 </label>
                 <input
                   type="date"
                   value={planEndDate}
                   onChange={(e) => setPlanEndDate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 font-mono"
+                  className="h-9 w-full rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
                 />
-                <div className="text-xs font-mono text-slate-500 mt-0.5">
+                <div className="text-xs leading-4 font-medium font-mono text-text-secondary mt-0.5">
                   {formatDate(planEndDate)}
                 </div>
               </div>
@@ -903,9 +904,9 @@ export function CoachTrainingProgress() {
               <button
                 type="submit"
                 disabled={savingPlan}
-                className="px-3.5 py-2 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded font-bold flex items-center gap-1.5 cursor-pointer"
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-4 h-4" />
                 <span>
                   {savingPlan ? "Đang lưu..." : "Lưu giáo án tập luyện"}
                 </span>
@@ -914,28 +915,28 @@ export function CoachTrainingProgress() {
           </form>
 
           {apiPlans.length > 0 && (
-            <div className="pt-3 border-t border-slate-200 space-y-2.5">
+            <div className="pt-3 border-t border-border-color space-y-2.5">
               {(showAllPlans ? apiPlans : apiPlans.slice(0, 5)).map((p) => (
                 <div
                   key={p.planId || p.id}
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-2"
+                  className="p-3 bg-bg-secondary border border-border-color rounded-lg text-sm leading-5 space-y-2"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="px-2 py-0.5 rounded bg-white border border-slate-300 text-slate-700 font-semibold">
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-bg-card text-text-secondary ring-1 ring-inset ring-border-color">
                         {getPlanSourceBadge(p)}
                       </span>
-                      <span className="font-bold text-slate-900">
+                      <span className="font-semibold text-text-primary">
                         {p.title} &bull; {formatPlanTargetLabel(p)}
                       </span>
                     </div>
                     {(p.startDate || p.endDate) && (
-                      <span className="text-xs font-mono text-slate-500">
+                      <span className="text-xs leading-4 font-medium font-mono text-text-secondary">
                         {formatDate(p.startDate)} – {formatDate(p.endDate)}
                       </span>
                     )}
                   </div>
-                  <div className="text-slate-600">{p.goal}</div>
+                  <div className="text-text-secondary">{p.goal}</div>
                   {p.content && <PlanContentView content={p.content} />}
                 </div>
               ))}
@@ -943,7 +944,7 @@ export function CoachTrainingProgress() {
                 <button
                   type="button"
                   onClick={() => setShowAllPlans((v) => !v)}
-                  className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+                  className="inline-flex h-8 items-center justify-center gap-1 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
                 >
                   {showAllPlans
                     ? t("coachShowLess")
@@ -957,27 +958,27 @@ export function CoachTrainingProgress() {
 
       {/* TAB 3: SESSION LOGS */}
       {activeTab === "logs" && (
-        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+        <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
+          <div className="flex items-center justify-between border-b border-border-color pb-2.5">
+            <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-status-success" />
               <span>Ghi nhận kết quả buổi tập</span>
             </h3>
-            <span className="text-xs font-mono text-slate-500">
+            <span className="text-xs leading-4 font-medium font-mono text-text-secondary">
               {studentResults.length} bản ghi
             </span>
           </div>
 
-          <form onSubmit={handleSaveTrainingResult} className="space-y-3 text-xs">
+          <form onSubmit={handleSaveTrainingResult} className="space-y-3 text-sm leading-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">
+                <label className="text-xs leading-4 font-medium text-text-secondary block mb-1">
                   Chọn buổi học đã hoàn thành *
                 </label>
                 <select
                   value={selectedSessionId}
                   onChange={(e) => setSelectedSessionId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-2 text-slate-900 font-semibold"
+                  className="h-9 w-full rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 >
                   {completedSessions.length === 0 ? (
                     <option value="">{t("coachNoCompletedSessions")}</option>
@@ -990,20 +991,20 @@ export function CoachTrainingProgress() {
                     ))
                   )}
                 </select>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs leading-4 font-medium text-text-secondary mt-1">
                   {t("coachOnlyCompletedSessionsHint")}
                 </p>
               </div>
               <div>
-                <label className="font-bold text-slate-700 block mb-1">
+                <label className="text-xs leading-4 font-medium text-text-secondary block mb-1">
                   {t("coachAttendanceReadOnlyLabel")}
                 </label>
-                <div className="w-full bg-slate-100 border border-slate-200 rounded px-3 py-2 text-slate-800 font-bold flex items-center justify-between">
+                <div className="h-9 w-full bg-bg-secondary border border-border-color rounded px-3 py-1.5 text-text-primary text-sm font-semibold flex items-center justify-between">
                   <CoachStatusBadge
                     domain="attendance"
                     value={readOnlyAttendanceStatus}
                   />
-                  <span className="text-xs font-mono text-slate-500 uppercase">
+                  <span className="text-xs leading-4 font-mono text-text-secondary uppercase">
                     {t("coachReadOnlyTag")}
                   </span>
                 </div>
@@ -1011,7 +1012,7 @@ export function CoachTrainingProgress() {
             </div>
 
             <div>
-              <label className="font-bold text-slate-700 block mb-1">
+              <label className="text-xs leading-4 font-medium text-text-secondary block mb-1">
                 Nhận xét kỹ thuật &amp; kết quả thực hiện trong buổi *
               </label>
               <textarea
@@ -1020,7 +1021,7 @@ export function CoachTrainingProgress() {
                 value={resultContent}
                 onChange={(e) => setResultContent(e.target.value)}
                 placeholder="Nhập nhận xét thực tế về khối lượng bài tập, kỹ thuật động tác và thể lực của học viên trong buổi..."
-                className="w-full bg-slate-50 border border-slate-300 rounded p-2.5 text-slate-900"
+                className="w-full rounded border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
               />
             </div>
 
@@ -1030,9 +1031,9 @@ export function CoachTrainingProgress() {
                 disabled={
                   savingResult || (apiEnabled && completedSessions.length === 0)
                 }
-                className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white rounded font-bold flex items-center gap-1.5 cursor-pointer"
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
               >
-                <Save className="w-3.5 h-3.5" />
+                <Save className="w-4 h-4" />
                 <span>
                   {savingResult ? "Đang lưu..." : "Ghi nhận kết quả buổi tập"}
                 </span>
@@ -1041,7 +1042,7 @@ export function CoachTrainingProgress() {
           </form>
 
           {studentResults.length > 0 && (
-            <div className="pt-3 border-t border-slate-200 space-y-2">
+            <div className="pt-3 border-t border-border-color space-y-2">
               {(showAllResults ? studentResults : studentResults.slice(0, 5)).map((r) => {
                 const memberLabel =
                   r.memberName ||
@@ -1057,13 +1058,13 @@ export function CoachTrainingProgress() {
                 return (
                   <div
                     key={r.resultId || r.id}
-                    className="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs flex items-center justify-between gap-2"
+                    className="p-2.5 bg-bg-secondary border border-border-color rounded text-sm leading-5 flex items-center justify-between gap-2"
                   >
                     <div>
-                      <div className="font-bold text-slate-900">
+                      <div className="font-semibold text-text-primary">
                         {memberLabel} &bull; {sessionLabel}
                       </div>
-                      <div className="text-slate-600 mt-0.5">{r.content}</div>
+                      <div className="text-text-secondary mt-0.5">{r.content}</div>
                     </div>
                     <CoachStatusBadge
                       domain="attendance"
@@ -1076,7 +1077,7 @@ export function CoachTrainingProgress() {
                 <button
                   type="button"
                   onClick={() => setShowAllResults((v) => !v)}
-                  className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+                  className="inline-flex h-8 items-center justify-center gap-1 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
                 >
                   {showAllResults
                     ? t("coachShowLess")
@@ -1091,14 +1092,14 @@ export function CoachTrainingProgress() {
       {/* TAB 4: EVALUATIONS */}
       {activeTab === "evaluations" && (
         <div className="space-y-6">
-          <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-200 pb-3">
-              <label className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Award className="w-4 h-4 text-emerald-700" />
+          <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-border-color pb-3">
+              <label className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
+                <Award className="w-4 h-4 text-status-success" />
                 <span>Đánh giá định kỳ của Coach</span>
               </label>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-600">
+                <span className="text-xs leading-4 font-medium text-text-secondary">
                   Điểm tiến độ (thang 0 – 10):
                 </span>
                 <input
@@ -1108,7 +1109,7 @@ export function CoachTrainingProgress() {
                   step="0.5"
                   value={normalizedInputScore10}
                   onChange={(e) => setProgressScore(Number(e.target.value))}
-                  className="w-20 bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold text-slate-900"
+                  className="h-9 w-24 rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono font-semibold"
                 />
               </div>
             </div>
@@ -1117,26 +1118,26 @@ export function CoachTrainingProgress() {
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Nhập nhận xét đánh giá định kỳ cho học viên..."
-              className="w-full bg-slate-50 border border-slate-300 rounded p-3 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
+              className="w-full rounded border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
             />
             <div className="flex justify-end">
               <button
                 type="button"
                 onClick={handleSaveEvaluation}
                 disabled={saving}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
               >
-                <Save className="w-3.5 h-3.5" />
+                <Save className="w-4 h-4" />
                 <span>{saving ? "Đang lưu..." : "Lưu đánh giá tiến độ"}</span>
               </button>
             </div>
           </div>
 
           {studentEvaluations.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Award className="w-4 h-4 text-emerald-700" />
+            <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3">
+              <div className="flex items-center justify-between border-b border-border-color pb-2.5">
+                <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
+                  <Award className="w-4 h-4 text-status-success" />
                   <span>Lịch sử đánh giá học viên ({studentEvaluations.length})</span>
                 </h3>
               </div>
@@ -1154,23 +1155,23 @@ export function CoachTrainingProgress() {
                     return (
                       <div
                         key={ev.id || `${ev.memberId}-${ev.evaluationDate}`}
-                        className="p-3 bg-slate-50 border border-slate-200 rounded flex items-center justify-between text-xs"
+                        className="p-3 bg-bg-secondary border border-border-color rounded flex items-center justify-between text-sm leading-5"
                       >
                         <div>
-                          <div className="font-bold text-slate-900">
+                          <div className="font-semibold text-text-primary">
                             {evMemberLabel} &bull; HLV:{" "}
                             {ev.coachName || currentUser?.name}
                           </div>
-                          <div className="text-slate-600 mt-0.5">
+                          <div className="text-text-secondary mt-0.5">
                             {ev.comment}
                           </div>
                         </div>
                         <div className="text-right font-mono">
-                          <div className="font-bold text-emerald-800">
+                          <div className="font-semibold text-status-success">
                             {t("coachScorePrefix")}:{" "}
                             {formatScore(ev.progressScore)}
                           </div>
-                          <div className="text-xs text-slate-400">
+                          <div className="text-xs leading-4 text-text-secondary">
                             {formatDate(ev.evaluationDate)}
                           </div>
                         </div>
@@ -1182,7 +1183,7 @@ export function CoachTrainingProgress() {
                   <button
                     type="button"
                     onClick={() => setShowAllEvaluations((v) => !v)}
-                    className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+                    className="inline-flex h-8 items-center justify-center gap-1 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
                   >
                     {showAllEvaluations
                       ? t("coachShowLess")

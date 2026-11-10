@@ -44,15 +44,15 @@ export function PlanBuilder({
   }
 
   return (
-    <div className="space-y-3 text-xs">
+    <div className="space-y-3 text-sm leading-5 font-normal text-text-primary">
       <div className="flex items-center justify-between">
-        <span className="font-bold text-slate-700">
+        <span className="text-xs leading-4 font-medium text-text-secondary">
           Danh sách bài tập có cấu trúc ({exercises.length})
         </span>
         <button
           type="button"
           onClick={handleAddRow}
-          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded font-bold text-slate-800 flex items-center gap-1 cursor-pointer"
+          className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>{t("coachPlanBuilderAddRow")}</span>
@@ -60,21 +60,21 @@ export function PlanBuilder({
       </div>
 
       {exercises.length > 0 && (
-        <div className="overflow-x-auto border border-slate-200 rounded-lg">
-          <table className="w-full text-left text-xs min-w-[560px]">
-            <thead className="bg-slate-50 text-slate-600 uppercase font-bold border-b border-slate-200">
+        <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
+          <table className="w-full min-w-full text-left text-sm">
+            <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
               <tr>
-                <th className="p-2">{t("coachPlanBuilderExName")} *</th>
-                <th className="p-2 w-20">{t("coachPlanBuilderSets")}</th>
-                <th className="p-2 w-32">{t("coachPlanBuilderReps")}</th>
-                <th className="p-2 w-40">{t("coachPlanBuilderLoad")}</th>
-                <th className="p-2 w-24 text-right">Thao tác</th>
+                <th className="px-3 py-2 text-left align-middle">{t("coachPlanBuilderExName")} *</th>
+                <th className="px-3 py-2 text-left align-middle w-20">{t("coachPlanBuilderSets")}</th>
+                <th className="px-3 py-2 text-left align-middle w-32">{t("coachPlanBuilderReps")}</th>
+                <th className="px-3 py-2 text-left align-middle w-36">{t("coachPlanBuilderLoad")}</th>
+                <th className="px-3 py-2 text-right align-middle w-28">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-border-color">
               {exercises.map((ex, idx) => (
-                <tr key={idx} className="bg-white">
-                  <td className="p-1.5">
+                <tr key={idx} className="transition-colors hover:bg-bg-secondary/70">
+                  <td className="px-3 py-2 align-middle text-xs leading-5 text-text-primary">
                     <input
                       type="text"
                       value={ex.name}
@@ -82,10 +82,10 @@ export function PlanBuilder({
                         handleUpdateRow(idx, "name", e.target.value)
                       }
                       placeholder="VD: Footwork 4 góc sân / Back Squat"
-                      className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-slate-900 font-semibold"
+                      className="h-8 w-full rounded border border-border-color bg-bg-card px-2.5 py-1 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                     />
                   </td>
-                  <td className="p-1.5">
+                  <td className="px-3 py-2 align-middle text-xs leading-5 text-text-primary">
                     <input
                       type="number"
                       min={1}
@@ -94,10 +94,10 @@ export function PlanBuilder({
                       onChange={(e) =>
                         handleUpdateRow(idx, "sets", e.target.value)
                       }
-                      className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 font-mono text-slate-900"
+                      className="h-8 w-full rounded border border-border-color bg-bg-card px-2.5 py-1 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
                     />
                   </td>
-                  <td className="p-1.5">
+                  <td className="px-3 py-2 align-middle text-xs leading-5 text-text-primary">
                     <input
                       type="text"
                       value={ex.reps}
@@ -105,10 +105,10 @@ export function PlanBuilder({
                         handleUpdateRow(idx, "reps", e.target.value)
                       }
                       placeholder="12 reps / 15 phút"
-                      className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 font-mono text-slate-900"
+                      className="h-8 w-full rounded border border-border-color bg-bg-card px-2.5 py-1 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
                     />
                   </td>
-                  <td className="p-1.5">
+                  <td className="px-3 py-2 align-middle text-xs leading-5 text-text-primary">
                     <input
                       type="text"
                       value={ex.load}
@@ -116,17 +116,17 @@ export function PlanBuilder({
                         handleUpdateRow(idx, "load", e.target.value)
                       }
                       placeholder="Tốc độ cao / 40kg"
-                      className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-slate-900"
+                      className="h-8 w-full rounded border border-border-color bg-bg-card px-2.5 py-1 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                     />
                   </td>
-                  <td className="p-1.5 text-right">
+                  <td className="px-3 py-2 align-middle text-xs leading-5 text-text-primary text-right">
                     <div className="inline-flex items-center gap-1">
                       <button
                         type="button"
                         disabled={idx === 0}
                         aria-label={t("coachPlanBuilderMoveUp")}
                         onClick={() => handleMoveRow(idx, -1)}
-                        className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
                       >
                         <ChevronUp className="w-3.5 h-3.5" />
                       </button>
@@ -135,7 +135,7 @@ export function PlanBuilder({
                         disabled={idx === exercises.length - 1}
                         aria-label={t("coachPlanBuilderMoveDown")}
                         onClick={() => handleMoveRow(idx, 1)}
-                        className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
                       >
                         <ChevronDown className="w-3.5 h-3.5" />
                       </button>
@@ -143,7 +143,7 @@ export function PlanBuilder({
                         type="button"
                         aria-label={t("coachPlanBuilderRemove")}
                         onClick={() => handleRemoveRow(idx)}
-                        className="p-1 text-rose-600 hover:text-rose-800 cursor-pointer"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded text-status-danger transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -157,7 +157,7 @@ export function PlanBuilder({
       )}
 
       <div>
-        <label className="font-bold text-slate-700 block mb-1">
+        <label className="text-xs leading-4 font-medium text-text-secondary block mb-1">
           {t("coachPlanBuilderGeneralNotes")}
         </label>
         <textarea
@@ -165,7 +165,7 @@ export function PlanBuilder({
           value={notes}
           onChange={(e) => onNotesChange && onNotesChange(e.target.value)}
           placeholder="Nhập hướng dẫn chung, lưu ý khởi động hoặc lộ trình theo tuần..."
-          className="w-full bg-slate-50 border border-slate-300 rounded p-2.5 text-slate-900"
+          className="w-full rounded border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
         />
       </div>
     </div>
@@ -179,7 +179,7 @@ export function PlanContentView({ content }) {
   if (!parsed.structured) {
     if (!parsed.notes) return null
     return (
-      <p className="text-xs text-slate-700 whitespace-pre-line leading-relaxed">
+      <p className="text-sm leading-5 font-normal text-text-primary whitespace-pre-line">
         {parsed.notes}
       </p>
     )
@@ -188,25 +188,25 @@ export function PlanContentView({ content }) {
   return (
     <div className="space-y-2.5">
       {parsed.exercises.length > 0 && (
-        <div className="overflow-x-auto border border-slate-200 rounded">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-600 uppercase font-bold border-b border-slate-200">
+        <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
+          <table className="w-full min-w-full text-left text-sm">
+            <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
               <tr>
-                <th className="py-2 px-3">{t("coachPlanBuilderExName")}</th>
-                <th className="py-2 px-3">{t("coachPlanBuilderSets")}</th>
-                <th className="py-2 px-3">{t("coachPlanBuilderReps")}</th>
-                <th className="py-2 px-3">{t("coachPlanBuilderLoad")}</th>
+                <th className="px-3 py-2 text-left align-middle">{t("coachPlanBuilderExName")}</th>
+                <th className="px-3 py-2 text-left align-middle">{t("coachPlanBuilderSets")}</th>
+                <th className="px-3 py-2 text-left align-middle">{t("coachPlanBuilderReps")}</th>
+                <th className="px-3 py-2 text-left align-middle">{t("coachPlanBuilderLoad")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 text-slate-800">
+            <tbody className="divide-y divide-border-color">
               {parsed.exercises.map((ex, i) => (
-                <tr key={i} className="hover:bg-slate-50">
-                  <td className="py-2 px-3 font-bold text-slate-900">
+                <tr key={i} className="transition-colors hover:bg-bg-secondary/70">
+                  <td className="px-3 py-2 align-middle text-sm leading-5 text-text-primary font-semibold">
                     {ex.name}
                   </td>
-                  <td className="py-2 px-3 font-mono">{ex.sets}</td>
-                  <td className="py-2 px-3 font-mono">{ex.reps}</td>
-                  <td className="py-2 px-3 font-mono text-slate-700">
+                  <td className="px-3 py-2 align-middle text-sm leading-5 text-text-primary font-mono">{ex.sets}</td>
+                  <td className="px-3 py-2 align-middle text-sm leading-5 text-text-primary font-mono">{ex.reps}</td>
+                  <td className="px-3 py-2 align-middle text-sm leading-5 text-text-primary font-mono">
                     {ex.load || "—"}
                   </td>
                 </tr>
@@ -216,7 +216,7 @@ export function PlanContentView({ content }) {
         </div>
       )}
       {parsed.notes && (
-        <p className="text-xs text-slate-700 whitespace-pre-line leading-relaxed bg-slate-50 p-2.5 rounded border border-slate-200">
+        <p className="text-sm leading-5 text-text-secondary whitespace-pre-line bg-bg-secondary p-3 rounded border border-border-color">
           {parsed.notes}
         </p>
       )}

@@ -1180,16 +1180,16 @@ export function CoachAssignedMembersView() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex items-center justify-between">
+      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-emerald-50 text-emerald-800 rounded border border-emerald-200">
+          <div className="p-2.5 bg-bg-secondary text-brand-primary rounded border border-border-color">
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900 whitespace-nowrap">
+            <h2 className="text-xl leading-7 font-semibold text-text-primary whitespace-nowrap">
               {t("assignedMembers")}
             </h2>
-            <p className="text-xs text-slate-500 whitespace-nowrap">
+            <p className="text-sm leading-5 text-text-secondary whitespace-nowrap">
               {language === "vi"
                 ? "Danh sách học viên Personal Training (PT) được phân công trực tiếp"
                 : "Directly assigned Personal Training (PT) students"}
@@ -1204,13 +1204,13 @@ export function CoachAssignedMembersView() {
               disabled={loadingRequests}
               onClick={() => loadAdvancedRequests().catch(() => {})}
               title={t("coachBtnRefresh")}
-              className="px-2.5 py-1.5 text-xs font-semibold bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded flex items-center gap-1 cursor-pointer transition-all"
+              aria-label={t("coachBtnRefresh")}
+              className="inline-flex h-9 w-9 items-center justify-center rounded border border-border-color bg-bg-card text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loadingRequests ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">{t("coachBtnRefresh")}</span>
+              <RefreshCw className={`w-4 h-4 ${loadingRequests ? "animate-spin" : ""}`} />
             </button>
           )}
-          <div className="text-xs font-mono font-bold bg-slate-100 border border-slate-200 px-3 py-1.5 rounded text-slate-900">
+          <div className="text-xs leading-4 font-mono font-semibold bg-bg-secondary border border-border-color px-3 py-2 rounded text-text-primary">
             Tổng số: {apiBookingCandidates.length} {t("coachPkgLabel")}
           </div>
         </div>
@@ -1218,11 +1218,11 @@ export function CoachAssignedMembersView() {
 
       {/* Global Unresolved Attempt Banner */}
       {unresolvedAttempt && (!bookingReg || Number(bookingReg.subscriptionId) !== unresolvedAttempt.subscriptionId) && (
-        <div className="p-4 bg-amber-50 border border-amber-300 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 shadow-xs">
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm leading-5 text-status-warning">
           <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-5 h-5 text-amber-700 shrink-0" />
+            <AlertCircle className="w-5 h-5 text-status-warning shrink-0" />
             <div>
-              <span className="font-bold">Đang có giao dịch đặt lịch chưa hoàn tất kết quả: </span>
+              <span className="font-semibold">Đang có giao dịch đặt lịch chưa hoàn tất kết quả: </span>
               <span>
                 Học viên <strong>{unresolvedAttempt.memberName}</strong> &bull; {t("coachPkgLabel")} (
                 {unresolvedAttempt.sessionDate} &bull; {unresolvedAttempt.startTime.slice(0, 5)})
@@ -1235,7 +1235,7 @@ export function CoachAssignedMembersView() {
               const reg = advancedRequests.find((r) => Number(r.subscriptionId) === unresolvedAttempt.subscriptionId)
               if (reg) openBookPrivateModal(reg)
             }}
-            className="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded font-bold cursor-pointer transition-all self-start sm:self-auto shrink-0"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer self-start sm:self-auto shrink-0"
           >
             Mở xem lại &amp; Thử lại
           </button>
@@ -1244,18 +1244,18 @@ export function CoachAssignedMembersView() {
 
       {/* Readback Error Alert */}
       {readbackError && (
-        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between text-xs text-amber-900">
+        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between text-sm leading-5 text-status-warning">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+            <AlertCircle className="w-4 h-4 text-status-warning shrink-0" />
             <span>Buổi tập đã được tạo thành công nhưng chưa thể cập nhật số buổi còn lại. Vui lòng tải lại trang.</span>
           </div>
           <button
             type="button"
             disabled={loadingRequests}
             onClick={() => loadAdvancedRequests().catch(() => {})}
-            className="px-3 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded font-bold cursor-pointer transition-all flex items-center gap-1"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
           >
-            <RefreshCw className={`w-3 h-3 ${loadingRequests ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingRequests ? "animate-spin" : ""}`} />
             <span>Tải lại dữ liệu</span>
           </button>
         </div>
@@ -1263,17 +1263,17 @@ export function CoachAssignedMembersView() {
 
       {/* Pending Advanced PT Coach Requests (ONLY REQUESTED / PENDING) */}
       {pendingAdvancedRequests.length > 0 && (
-        <div className="bg-white border border-amber-200 rounded-lg p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-600" />
+        <div className="rounded-lg border border-amber-200 bg-bg-card p-4 text-text-primary space-y-3">
+          <div className="flex items-center justify-between border-b border-border-color pb-2.5">
+            <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
+              <Clock className="w-4 h-4 text-status-warning" />
               <span>Yêu cầu đăng ký PT 1:1 chờ duyệt</span>
-              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold">
+              <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200">
                 {pendingAdvancedRequests.length}
               </span>
             </h3>
           </div>
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-border-color">
             {pendingAdvancedRequests.map((req) => {
               const memberDisplayName =
                 req.memberName ||
@@ -1284,15 +1284,15 @@ export function CoachAssignedMembersView() {
               return (
                 <div
                   key={req.id}
-                  className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm leading-5"
                 >
                   <div>
-                    <div className="font-bold text-slate-900">
+                    <div className="font-semibold text-text-primary">
                       {memberDisplayName} &bull; {subjectDisplayName}
                     </div>
-                    <div className="text-slate-500 mt-0.5">
+                    <div className="text-text-secondary mt-0.5">
                       Trạng thái:{" "}
-                      <strong className="text-amber-800">
+                      <strong className="text-status-warning">
                         {t("coachStatusPending")}
                       </strong>
                       {req.note ? ` · Ghi chú: ${req.note}` : ""}
@@ -1304,7 +1304,7 @@ export function CoachAssignedMembersView() {
                       disabled={decidingId !== null}
                       onClick={() => handleCoachDecision(req, "APPROVE")}
                       aria-label={`${t("coachPtAcceptBtn")} ${memberDisplayName}`}
-                      className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded font-bold flex items-center gap-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 transition-all"
+                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                     >
                       {decidingId === req.id ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1322,7 +1322,7 @@ export function CoachAssignedMembersView() {
                       disabled={decidingId !== null}
                       onClick={() => openRejectModal(req)}
                       aria-label={`${t("coachPtRejectBtn")} ${memberDisplayName}`}
-                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed text-rose-700 border border-rose-200 rounded font-bold flex items-center gap-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-1 transition-all"
+                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-status-danger text-text-inverse hover:bg-status-danger/90 cursor-pointer"
                     >
                       <XCircle className="w-3.5 h-3.5" />
                       <span>{t("coachPtRejectBtn")}</span>
@@ -1337,9 +1337,9 @@ export function CoachAssignedMembersView() {
 
       {/* Main Content Area: API Candidates */}
       <div className="space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Award className="w-4 h-4 text-emerald-700" />
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 rounded-lg border border-border-color bg-bg-card p-4 text-text-primary">
+            <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
+              <Award className="w-4 h-4 text-brand-primary" />
               <span>
                 Học viên &amp; gói PT 1:1 được phân công ({groupedStudentCards.length} học viên)
               </span>
@@ -1348,20 +1348,20 @@ export function CoachAssignedMembersView() {
             {/* Search & Filter Bar (P2.4) */}
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={memberSearchQuery}
                   onChange={(e) => setMemberSearchQuery(e.target.value)}
                   placeholder={t("coachSearchStudentPlaceholder")}
-                  className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded focus:outline-none focus:border-blue-600 w-52"
+                  className="h-9 w-full sm:w-56 rounded border border-border-color bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 />
               </div>
 
               <select
                 value={subjectFilter}
                 onChange={(e) => setSubjectFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-semibold text-slate-900"
+                className="h-9 w-full sm:w-44 rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
               >
                 <option value="all">{t("coachFilterAllSubjects")}</option>
                 {availableSubjects.map((sub) => (
@@ -1374,7 +1374,7 @@ export function CoachAssignedMembersView() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-semibold text-slate-900"
+                className="h-9 w-full sm:w-48 rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
               >
                 <option value="all">{t("coachFilterAllStatuses")}</option>
                 <option value="active">{t("coachStatusActive")}</option>
@@ -1387,21 +1387,21 @@ export function CoachAssignedMembersView() {
                 disabled={loadingRequests}
                 onClick={() => loadAdvancedRequests().catch(() => {})}
                 aria-label={t("coachBtnRefresh")}
-                className="p-1.5 text-slate-500 hover:text-slate-800 rounded border border-slate-200 transition-all cursor-pointer"
+                className="inline-flex h-9 w-9 items-center justify-center rounded border border-border-color bg-bg-card text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
                 title={t("coachBtnRefresh")}
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${loadingRequests ? "animate-spin" : ""}`} />
+                <RefreshCw className={`w-4 h-4 ${loadingRequests ? "animate-spin" : ""}`} />
               </button>
             </div>
           </div>
 
           {requestsError && (
-            <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 flex items-center justify-between">
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg text-sm leading-5 text-status-danger flex items-center justify-between">
               <span>{requestsError}</span>
               <button
                 type="button"
                 onClick={() => loadAdvancedRequests().catch(() => {})}
-                className="px-3 py-1 bg-rose-700 hover:bg-rose-800 text-white rounded font-bold cursor-pointer"
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
               >
                 Thử lại
               </button>
@@ -1413,12 +1413,12 @@ export function CoachAssignedMembersView() {
               {[1, 2].map((i) => (
                 <div
                   key={i}
-                  className="h-48 bg-slate-100 animate-pulse rounded-lg border border-slate-200"
+                  className="h-48 bg-bg-secondary animate-pulse rounded-lg border border-border-color"
                 />
               ))}
             </div>
           ) : groupedStudentCards.length === 0 && !requestsError ? (
-            <div className="bg-white border border-slate-200 rounded-lg p-8 text-center text-xs text-slate-500">
+            <div className="rounded-lg border border-border-color bg-bg-card p-8 text-center text-sm leading-5 text-text-secondary">
               {apiBookingCandidates.length > 0
                 ? "Không có học viên nào khớp với bộ lọc hiện tại."
                 : "Chưa có học viên hoặc gói 1-kèm-1 nào được phân công trực tiếp cho HLV."}
@@ -1471,19 +1471,19 @@ export function CoachAssignedMembersView() {
                 return (
                   <div
                     key={studentGroup.memberKey}
-                    className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4 hover:border-slate-300 transition-all"
+                    className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4 hover:bg-bg-secondary/30 transition-colors"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-color pb-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-slate-900">
+                          <span className="text-sm leading-5 font-semibold text-text-primary">
                             {memberDisplayName}
                           </span>
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded font-mono text-xs font-semibold">
+                          <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-bg-secondary text-text-secondary ring-1 ring-inset ring-border-color font-mono">
                             {memberCodeLabel}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-500 mt-0.5">
+                        <div className="text-xs leading-4 font-medium text-text-secondary mt-0.5">
                           {studentGroup.packages.length} {t("coachPkgLabel")}
                         </div>
                       </div>
@@ -1499,7 +1499,7 @@ export function CoachAssignedMembersView() {
                           setCurrentTab("trainingProgress")
                           navigate("/coach/progress")
                         }}
-                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap cursor-pointer transition-all"
+                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary whitespace-nowrap cursor-pointer"
                       >
                         <Dumbbell className="w-3.5 h-3.5 shrink-0" />
                         <span>Giáo án &amp; đánh giá</span>
@@ -1528,9 +1528,9 @@ export function CoachAssignedMembersView() {
                       )
                       if (!unloggedCompletedPt) return null
                       return (
-                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900">
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm leading-5 text-status-warning">
                           <div className="flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+                            <AlertCircle className="w-4 h-4 text-status-warning shrink-0" />
                             <span>
                               {t("coachPtCompletedNoResultHint")} (
                               <strong>
@@ -1559,7 +1559,7 @@ export function CoachAssignedMembersView() {
                               setCurrentTab("trainingProgress")
                               navigate("/coach/progress")
                             }}
-                            className="px-2.5 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded font-bold cursor-pointer shrink-0 self-start sm:self-auto"
+                            className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer shrink-0 self-start sm:self-auto"
                           >
                             {t("coachBtnLogResult")}
                           </button>
@@ -1627,18 +1627,18 @@ export function CoachAssignedMembersView() {
                                 }))
                               }
                             }}
-                            className={`p-3.5 rounded-lg border space-y-2 text-xs transition-all ${
+                            className={`p-3.5 rounded-lg border space-y-2 text-sm leading-5 transition-colors ${
                               isSelectedForBooking
-                                ? "bg-emerald-50/40 border-emerald-300"
-                                : "bg-slate-50 border-slate-200"
+                                ? "bg-emerald-50/40 border-emerald-200"
+                                : "bg-bg-secondary border-border-color"
                             } ${canBook && bookablePackages.length > 1 ? "cursor-pointer" : ""}`}
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                                <Award className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span className="font-semibold text-text-primary flex items-center gap-1.5">
+                                <Award className="w-3.5 h-3.5 text-status-warning shrink-0" />
                                 <span>{formatPkgName(item)}</span>
                                 {isRecommended && (
-                                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-semibold">
+                                  <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200">
                                     {language === "vi"
                                       ? "Gần hết hạn nhất"
                                       : "Nearest expiry"}
@@ -1659,13 +1659,13 @@ export function CoachAssignedMembersView() {
 
                             {/* Remaining sessions display (R2.2) */}
                             <div className="space-y-1">
-                              <div className="flex items-center justify-between text-slate-700">
-                                <span className="font-medium text-slate-600">
+                              <div className="flex items-center justify-between text-text-primary text-xs leading-4">
+                                <span className="font-medium text-text-secondary">
                                   {t("coachRemainingSessionsLabel")}:
                                 </span>
                                 <span
-                                  className={`font-mono font-bold tabular-nums ${
-                                    credit > 0 ? "text-emerald-700" : "text-rose-600"
+                                  className={`font-mono font-semibold tabular-nums ${
+                                    credit > 0 ? "text-status-success" : "text-status-danger"
                                   }`}
                                 >
                                   {totalCredit != null
@@ -1677,31 +1677,31 @@ export function CoachAssignedMembersView() {
                                 </span>
                               </div>
                               {totalCredit != null && (
-                                <div className="w-full h-1.5 bg-slate-200 rounded overflow-hidden">
+                                <div className="w-full h-1.5 bg-border-color rounded overflow-hidden">
                                   <div
                                     style={{ width: `${progressPct}%` }}
                                     className={`h-full rounded ${
-                                      credit > 0 ? "bg-emerald-600" : "bg-rose-500"
+                                      credit > 0 ? "bg-status-success" : "bg-status-danger"
                                     }`}
                                   />
                                 </div>
                               )}
                             </div>
 
-                            <div className="flex flex-wrap items-center justify-between gap-2 text-slate-600 pt-1">
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs leading-4 text-text-secondary pt-1">
                               <div className="flex flex-wrap items-center gap-3 font-mono">
                                 <span>
                                   {t("coachPkgRegDateLabel")}:{" "}
-                                  <strong>{regDateLabel}</strong>
+                                  <strong className="text-text-primary">{regDateLabel}</strong>
                                 </span>
                                 <span>
                                   {t("coachExpiryDateLabel")}:{" "}
-                                  <strong>{formatVietnamDateOnly(item.expiresAt)}</strong>
+                                  <strong className="text-text-primary">{formatVietnamDateOnly(item.expiresAt)}</strong>
                                 </span>
                               </div>
 
                               {!canBook && unbookableReason && (
-                                <span className="text-xs text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-medium">
+                                <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200">
                                   {unbookableReason}
                                 </span>
                               )}
@@ -1712,11 +1712,11 @@ export function CoachAssignedMembersView() {
                     </div>
 
                     {/* R3.2: Single Student-level PT Booking Control with package selector & explicit deduction label */}
-                    <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="pt-3 border-t border-border-color flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       {activeSelectedPkg ? (
                         <>
-                          <div className="space-y-1 text-xs">
-                            <div className="text-slate-700 font-medium">
+                          <div className="space-y-1 text-sm leading-5">
+                            <div className="text-text-primary font-medium">
                               {t("coachWillDeductFromPkg").replace(
                                 "{pkgName}",
                                 formatPkgName(activeSelectedPkg),
@@ -1726,7 +1726,7 @@ export function CoachAssignedMembersView() {
                               <div className="flex items-center gap-2">
                                 <label
                                   htmlFor={`pkg-select-${studentGroup.memberKey}`}
-                                  className="text-slate-500"
+                                  className="text-xs leading-4 font-medium text-text-secondary"
                                 >
                                   {language === "vi" ? "Đổi gói trừ buổi:" : "Switch package:"}
                                 </label>
@@ -1739,7 +1739,7 @@ export function CoachAssignedMembersView() {
                                       [studentGroup.memberKey]: e.target.value,
                                     }))
                                   }
-                                  className="bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-semibold text-slate-900"
+                                  className="h-8 rounded border border-border-color bg-bg-card px-2.5 py-1 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
                                 >
                                   {bookablePackages.map((pkg) => (
                                     <option key={pkg.id} value={String(pkg.id)}>
@@ -1760,9 +1760,9 @@ export function CoachAssignedMembersView() {
                                 type="button"
                                 onClick={() => openBookPrivateModal(activeSelectedPkg)}
                                 aria-label={`Xem lại đối soát cho học viên ${memberDisplayName}`}
-                                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-all"
+                                className="inline-flex h-8 items-center justify-center gap-1.5 rounded border border-border-color bg-bg-card px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none text-text-primary hover:bg-bg-secondary whitespace-nowrap cursor-pointer"
                               >
-                                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                <AlertCircle className="w-3.5 h-3.5 text-status-warning shrink-0" />
                                 <span>Đối soát giao dịch</span>
                               </button>
                             ) : unresolvedAttempt &&
@@ -1773,7 +1773,7 @@ export function CoachAssignedMembersView() {
                                 disabled
                                 aria-disabled="true"
                                 title="Khóa do đang có giao dịch khác chờ đối soát"
-                                className="px-3.5 py-2 bg-slate-100 text-slate-400 border border-slate-200 rounded text-xs font-bold flex items-center gap-1.5 cursor-not-allowed opacity-60"
+                                className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 border border-border-color bg-bg-card text-text-secondary whitespace-nowrap"
                               >
                                 <Lock className="w-3.5 h-3.5 shrink-0" />
                                 <span>Đang chờ xác nhận</span>
@@ -1783,7 +1783,7 @@ export function CoachAssignedMembersView() {
                                 type="button"
                                 onClick={() => openBookPrivateModal(activeSelectedPkg)}
                                 aria-label={`Đặt lịch PT 1:1 cho học viên ${memberDisplayName}`}
-                                className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-all"
+                                className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active whitespace-nowrap cursor-pointer"
                               >
                                 <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
                                 <span>Đặt lịch PT 1:1</span>
@@ -1792,7 +1792,7 @@ export function CoachAssignedMembersView() {
                           </div>
                         </>
                       ) : (
-                        <div className="flex items-center justify-between w-full gap-2 text-xs text-slate-500">
+                        <div className="flex items-center justify-between w-full gap-2 text-sm leading-5 text-text-secondary">
                           <span>
                             {primaryBlockReason
                               ? primaryBlockReason
@@ -1805,7 +1805,7 @@ export function CoachAssignedMembersView() {
                             disabled
                             aria-disabled="true"
                             title={primaryBlockReason || (language === "vi" ? "Không có gói PT hợp lệ" : "No valid PT package")}
-                            className="px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200 rounded text-xs font-bold flex items-center gap-1 cursor-not-allowed opacity-60"
+                            className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 border border-border-color bg-bg-card text-text-secondary whitespace-nowrap"
                           >
                             <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
                             <span>Không đủ điều kiện</span>
@@ -1823,33 +1823,34 @@ export function CoachAssignedMembersView() {
       {/* Mandatory Rejection Reason Modal (P0.3) */}
       {rejectModalTarget && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-2xs"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-brand-dark/60 p-4 backdrop-blur-2xs"
           role="dialog"
           aria-modal="true"
           aria-labelledby="reject-pt-modal-title"
         >
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div className="rounded-lg border border-border-color bg-bg-card text-text-primary shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-5 py-4 border-b border-border-color flex items-center justify-between bg-bg-secondary">
               <h3
                 id="reject-pt-modal-title"
-                className="text-sm font-bold text-slate-900 flex items-center gap-2"
+                className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2"
               >
-                <XCircle className="w-4 h-4 text-rose-600" />
+                <XCircle className="w-4 h-4 text-status-danger" />
                 <span>{t("coachPtRejectModalTitle")}</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setRejectModalTarget(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+                aria-label={t("coachCancelBtn") || "Đóng"}
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-card hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
             <form onSubmit={handleConfirmReject} className="p-5 space-y-4">
-              <p className="text-xs text-slate-600">
+              <p className="text-sm leading-5 text-text-secondary">
                 {t("coachPtRejectModalDesc")}
               </p>
-              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-800">
+              <div className="p-2.5 bg-bg-secondary border border-border-color rounded text-sm leading-5 text-text-primary">
                 <strong>
                   {rejectModalTarget.memberName ||
                     (rejectModalTarget.memberId
@@ -1865,7 +1866,7 @@ export function CoachAssignedMembersView() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="reject-pt-reason"
-                  className="block text-xs font-bold text-slate-700"
+                  className="block text-xs leading-4 font-medium text-text-secondary"
                 >
                   {t("coachPtRejectReasonLabel")}
                 </label>
@@ -1880,30 +1881,30 @@ export function CoachAssignedMembersView() {
                     }
                   }}
                   placeholder={t("coachPtRejectReasonPlaceholder")}
-                  className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded focus:outline-none focus:border-rose-600"
+                  className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                   autoFocus
                 />
                 {rejectReasonError && (
-                  <p className="text-xs text-rose-600 font-semibold">
+                  <p className="text-xs leading-4 text-status-danger font-medium">
                     {rejectReasonError}
                   </p>
                 )}
               </div>
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-color">
                 <button
                   type="button"
                   onClick={() => setRejectModalTarget(null)}
-                  className="px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded cursor-pointer"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 py-2 text-sm font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
                 >
                   {t("coachCancelBtn")}
                 </button>
                 <button
                   type="submit"
                   disabled={decidingId !== null}
-                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 rounded cursor-pointer flex items-center gap-1.5"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 py-2 text-sm font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-status-danger text-text-inverse hover:bg-status-danger/90 cursor-pointer"
                 >
                   {decidingId !== null && (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   )}
                   <span>{t("coachPtRejectConfirmBtn")}</span>
                 </button>
@@ -1915,18 +1916,18 @@ export function CoachAssignedMembersView() {
 
       {/* Private PT Session Booking Modal (Mục 6 / D04) */}
       {bookingReg && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-xl w-full max-w-lg shadow-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 z-50 bg-brand-dark/60 flex items-center justify-center p-4">
+          <div className="rounded-lg border border-border-color bg-bg-card text-text-primary w-full max-w-lg shadow-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border-color pb-3">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">
+                <h3 className="text-lg leading-7 font-semibold text-text-primary">
                   Đặt buổi tập PT 1:1
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Học viên: <strong>{bookingReg.memberName || `Học viên #${bookingReg.memberId}`}</strong> &bull; Gói:{" "}
-                  <strong>#{bookingReg.subscriptionId}</strong> ({bookingReg.subjectName || `Môn #${bookingReg.subjectId}`})
+                <p className="text-sm leading-5 text-text-secondary mt-0.5">
+                  Học viên: <strong className="text-text-primary">{bookingReg.memberName || `Học viên #${bookingReg.memberId}`}</strong> &bull; Gói:{" "}
+                  <strong className="text-text-primary">#{bookingReg.subscriptionId}</strong> ({bookingReg.subjectName || `Môn #${bookingReg.subjectId}`})
                 </p>
-                <div className="text-xs text-emerald-800 font-medium mt-0.5">
+                <div className="text-xs leading-4 text-status-success font-medium mt-0.5">
                   Số buổi khả dụng: <strong>{bookingReg.remainingCredit ?? 0} buổi</strong> &bull; Hạn dùng:{" "}
                   <strong>{formatVietnamDateTime(bookingReg.expiresAt)}</strong>
                 </div>
@@ -1935,7 +1936,7 @@ export function CoachAssignedMembersView() {
                 type="button"
                 onClick={handleCloseModal}
                 aria-label="Đóng cửa sổ đặt lịch"
-                className="text-slate-400 hover:text-slate-700 cursor-pointer p-1"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1943,12 +1944,12 @@ export function CoachAssignedMembersView() {
 
             {/* Idempotency Alert / Notice */}
             {currentAttempt?.status === "uncertain" && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-900 space-y-2">
-                <div className="font-bold flex items-center gap-1.5 text-amber-800">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm leading-5 text-status-warning space-y-2">
+                <div className="font-semibold flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Giao dịch chưa được xác nhận</span>
                 </div>
-                <p className="text-xs">
+                <p className="text-xs leading-4">
                   Yêu cầu trước đó gặp sự cố mạng hoặc timeout. Form đang hiển thị chính xác snapshot của giao dịch đang đối soát
                   (ngày <strong>{currentAttempt.sessionDate}</strong>, buổi{" "}
                   <strong>
@@ -1957,7 +1958,7 @@ export function CoachAssignedMembersView() {
                   ). Hãy tải lại trang để kiểm tra kết quả.
                 </p>
                 <div className="pt-1 border-t border-amber-200/60">
-                  <span className="text-xs text-amber-700">
+                  <span className="text-xs leading-4">
                     Mã giao dịch: {currentAttempt.key?.slice(0, 8)}...
                   </span>
                 </div>
@@ -1965,12 +1966,12 @@ export function CoachAssignedMembersView() {
             )}
 
             {currentAttempt?.status === "idempotency_conflict" && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded text-xs text-rose-900 space-y-1">
-                <div className="font-bold flex items-center gap-1.5 text-rose-800">
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded text-sm leading-5 text-status-danger space-y-1">
+                <div className="font-semibold flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Lịch đã được đặt trước đó</span>
                 </div>
-                <p className="text-xs">
+                <p className="text-xs leading-4">
                   {currentAttempt.error ||
                     "Mã yêu cầu này đã được xử lý với nội dung lịch khác. Vui lòng đóng cửa sổ và kiểm tra lại lịch hiện tại."}
                 </p>
@@ -1978,12 +1979,12 @@ export function CoachAssignedMembersView() {
             )}
 
             {currentAttempt?.status === "conflict_unknown" && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded text-xs text-rose-900 space-y-1">
-                <div className="font-bold flex items-center gap-1.5 text-rose-800">
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded text-sm leading-5 text-status-danger space-y-1">
+                <div className="font-semibold flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Có xung đột dữ liệu, vui lòng tải lại trang</span>
                 </div>
-                <p className="text-xs">
+                <p className="text-xs leading-4">
                   {currentAttempt.error ||
                     "Phát hiện xung đột dữ liệu không xác định. Giao dịch được giữ nguyên để kiểm tra lại."}
                 </p>
@@ -1991,24 +1992,24 @@ export function CoachAssignedMembersView() {
             )}
 
             {currentAttempt?.status === "schedule_conflict" && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-900 space-y-1">
-                <div className="font-bold flex items-center gap-1.5 text-amber-800">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm leading-5 text-status-warning space-y-1">
+                <div className="font-semibold flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Xung đột lịch tập (Phòng hoặc HLV đã bận)</span>
                 </div>
-                <p className="text-xs">
+                <p className="text-xs leading-4">
                   {currentAttempt.error}. Bạn có thể chọn ngày, phòng, hoặc ca tập khác bên dưới để tiếp tục đặt lịch.
                 </p>
               </div>
             )}
 
             {currentAttempt?.status === "mismatch" && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded text-xs text-rose-900 space-y-1">
-                <div className="font-bold flex items-center gap-1.5 text-rose-800">
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded text-sm leading-5 text-status-danger space-y-1">
+                <div className="font-semibold flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Phản hồi xác nhận không như mong đợi</span>
                 </div>
-                <p className="text-xs">
+                <p className="text-xs leading-4">
                   {currentAttempt.error}. Có lỗi xảy ra. Hãy tải lại trang rồi thử lại.
                 </p>
               </div>
@@ -2017,7 +2018,7 @@ export function CoachAssignedMembersView() {
             <form onSubmit={handleBookPrivateSession} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="booking-date-input" className="text-xs font-bold text-slate-700 block mb-1">
+                  <label htmlFor="booking-date-input" className="text-xs leading-4 font-medium text-text-secondary block mb-1">
                     Ngày tập (Tối thiểu 12h trước buổi) *
                   </label>
                   <input
@@ -2030,29 +2031,29 @@ export function CoachAssignedMembersView() {
                     }
                     value={bookingDate}
                     onChange={(e) => handleDateChange(e.target.value)}
-                    className="w-full border border-slate-300 rounded px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                    className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                   />
-                  <div className="text-xs text-slate-500 font-mono mt-1">
+                  <div className="text-xs leading-4 font-medium text-text-secondary font-mono mt-1">
                     {formatDate(bookingDate)}
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="booking-room-select" className="text-xs font-bold text-slate-700 block mb-1">
+                  <label htmlFor="booking-room-select" className="text-xs leading-4 font-medium text-text-secondary block mb-1">
                     Phòng / Sân tập *
                   </label>
                   {loadingRooms ? (
-                    <div className="py-2 text-xs text-slate-500 flex items-center gap-1">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <div className="py-2 text-sm leading-5 text-text-secondary flex items-center gap-1">
+                      <Loader2 className="w-4 h-4 animate-spin" />
                       <span>Đang nạp danh sách sân...</span>
                     </div>
                   ) : roomsError ? (
-                    <div className="text-xs text-rose-600">
+                    <div className="text-xs leading-4 text-status-danger">
                       <span>{roomsError}</span>
                       <button
                         type="button"
                         onClick={handleRetryRooms}
-                        className="ml-2 underline font-bold cursor-pointer"
+                        className="ml-2 underline font-semibold cursor-pointer"
                       >
                         Thử lại
                       </button>
@@ -2066,7 +2067,7 @@ export function CoachAssignedMembersView() {
                       }
                       value={selectedRoomId}
                       onChange={(e) => handleRoomChange(e.target.value)}
-                      className="w-full border border-slate-300 rounded px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                      className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                     >
                       {(() => {
                         const isLocked =
@@ -2108,34 +2109,34 @@ export function CoachAssignedMembersView() {
               {/* Slots Section */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-bold text-slate-700">
+                  <label className="text-xs leading-4 font-medium text-text-secondary">
                     Khung giờ khả dụng (Chuẩn 90 phút) *
                   </label>
                   {availableSlots.length > 0 && !loadingSlots && (
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs leading-4 font-medium text-text-secondary">
                       {availableSlots.filter((s) => s.isAvailable === true).length} ca trống
                     </span>
                   )}
                 </div>
 
                 {loadingSlots ? (
-                  <div className="py-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2 border border-slate-100 rounded bg-slate-50">
-                    <Loader2 className="w-4 h-4 animate-spin text-emerald-700" />
+                  <div className="py-6 text-center text-sm leading-5 text-text-secondary flex items-center justify-center gap-2 border border-border-color rounded bg-bg-secondary">
+                    <Loader2 className="w-4 h-4 animate-spin text-brand-primary" />
                     <span>Đang kiểm tra ca trống thực tế...</span>
                   </div>
                 ) : slotsError ? (
-                  <div className="p-3 bg-rose-50 border border-rose-200 rounded text-xs text-rose-800 flex items-center justify-between">
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded text-sm leading-5 text-status-danger flex items-center justify-between">
                     <span>{slotsError}</span>
                     <button
                       type="button"
                       onClick={() => fetchAvailableSlots(bookingDate, selectedRoomId, bookingReg)}
-                      className="px-2.5 py-1 bg-rose-700 hover:bg-rose-800 text-white rounded font-bold cursor-pointer"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 py-2 text-sm font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
                     >
                       Thử lại tải ca
                     </button>
                   </div>
                 ) : availableSlots.length === 0 ? (
-                  <div className="py-5 text-center text-xs text-slate-500 border border-slate-200 rounded bg-slate-50">
+                  <div className="py-5 text-center text-sm leading-5 text-text-secondary border border-border-color rounded bg-bg-secondary">
                     Không có ca trống nào khả dụng trong ngày và sân tập đã chọn.
                   </div>
                 ) : (
@@ -2158,21 +2159,21 @@ export function CoachAssignedMembersView() {
                           aria-label={`${slot.slotName || `Ca ${idx + 1}`} từ ${startStr} đến ${endStr} ${
                             slot.isAvailable !== true ? "(Đã kín)" : "(Còn trống)"
                           }`}
-                          className={`p-2.5 rounded border text-left text-xs transition-all cursor-pointer ${
+                          className={`min-h-11 p-2.5 rounded border text-left text-xs leading-4 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 ${
                             disabled
-                              ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
+                              ? "bg-bg-secondary text-text-muted border-border-color cursor-not-allowed opacity-60"
                               : isSelected
-                                ? "bg-slate-900 text-white border-slate-900 font-bold shadow-xs"
-                                : "bg-white text-slate-800 border-slate-200 hover:border-slate-400"
+                                ? "bg-brand-primary text-text-inverse border-brand-primary font-semibold"
+                                : "bg-bg-card text-text-primary border-border-color hover:bg-bg-secondary"
                           }`}
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-semibold">{slot.slotName || slot.name || `Ca ${idx + 1}`}</span>
                             {slot.isAvailable !== true && (
-                              <span className="text-xs text-rose-600 font-medium">Kín</span>
+                              <span className="text-xs leading-4 text-status-danger font-medium">Kín</span>
                             )}
                           </div>
-                          <div className="font-mono text-xs opacity-85 mt-0.5">
+                          <div className="font-mono text-xs leading-4 opacity-85 mt-0.5">
                             {startStr} – {endStr}
                           </div>
                         </button>
@@ -2183,8 +2184,8 @@ export function CoachAssignedMembersView() {
               </div>
 
               {/* Agreement Confirmation Checkbox */}
-              <div className="pt-2 border-t border-slate-100">
-                <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-700 font-medium">
+              <div className="pt-2 border-t border-border-color">
+                <label className="flex items-start gap-2.5 cursor-pointer text-sm leading-5 text-text-primary font-medium">
                   <input
                     type="checkbox"
                     required
@@ -2194,7 +2195,7 @@ export function CoachAssignedMembersView() {
                     }
                     checked={agreementConfirmed}
                     onChange={(e) => setAgreementConfirmed(e.target.checked)}
-                    className="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:opacity-50"
+                    className="mt-0.5 rounded border-border-color text-brand-primary focus:ring-brand-primary cursor-pointer disabled:opacity-50"
                   />
                   <span>
                     HLV xác nhận đã thống nhất lịch tập trực tiếp với học viên theo quy định của trung tâm. *
@@ -2203,11 +2204,11 @@ export function CoachAssignedMembersView() {
               </div>
 
               {/* Form Buttons */}
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <div className="flex justify-end gap-2 pt-3 border-t border-border-color">
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-bold cursor-pointer transition-all"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 py-2 text-sm font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
                 >
                   Đóng
                 </button>
@@ -2223,11 +2224,11 @@ export function CoachAssignedMembersView() {
                     currentAttempt?.status === "mismatch" ||
                     (currentAttempt?.status === "pending" && isSubmittingRef.current)
                   }
-                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 py-2 text-sm font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                 >
                   {bookingBusy ? (
                     <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                       <span>Đang xử lý đặt lịch...</span>
                     </>
                   ) : currentAttempt?.status === "uncertain" ||
