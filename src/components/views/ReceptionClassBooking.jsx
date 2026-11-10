@@ -311,18 +311,18 @@ export function ReceptionClassBooking() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans">
       {/* Header */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-blue-50 text-blue-800 rounded border border-blue-200">
+          <div className="p-2.5 bg-bg-secondary text-brand-primary rounded border border-border-color">
             <Calendar className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900 whitespace-nowrap">
+            <h2 className="text-xl leading-7 font-semibold text-text-primary whitespace-nowrap">
               {t("bookings")}
             </h2>
-            <p className="text-xs text-slate-500 whitespace-nowrap">
+            <p className="text-sm leading-5 text-text-secondary">
               {language === "vi"
                 ? "Đăng ký hoặc hủy lịch lớp học trực tiếp tại quầy Lễ tân cho hội viên"
                 : "Register or cancel class schedules directly at the front desk for members"}
@@ -335,7 +335,7 @@ export function ReceptionClassBooking() {
             type="button"
             onClick={() => fetchMemberEnrollments(selectedMemberId)}
             disabled={enrollmentsLoading || isSubmitting}
-            className="min-h-[44px] px-3 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded text-xs font-bold flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 py-2 text-sm font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
             title={
               language === "vi"
                 ? "Kiểm tra lại đăng ký của học viên"
@@ -343,7 +343,7 @@ export function ReceptionClassBooking() {
             }
           >
             <RefreshCw
-              className={`w-3.5 h-3.5 ${enrollmentsLoading ? "animate-spin text-blue-700" : ""}`}
+              className={`w-4 h-4 ${enrollmentsLoading ? "animate-spin text-brand-primary" : ""}`}
             />
             <span>
               {language === "vi" ? "Kiểm tra lại trạng thái" : "Verify Status"}
@@ -353,10 +353,10 @@ export function ReceptionClassBooking() {
       </div>
 
       {/* Select Member Bar */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
+      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3">
         <label
           htmlFor="reception-member-select"
-          className="text-xs font-bold text-slate-700 uppercase tracking-wider block"
+          className="text-xs leading-4 font-medium text-text-secondary uppercase tracking-wider block"
         >
           1. Chọn Thành Viên Cần Đăng Ký Lớp:
         </label>
@@ -365,7 +365,7 @@ export function ReceptionClassBooking() {
           value={selectedMemberId}
           onChange={handleSelectMember}
           disabled={isSubmitting}
-          className="w-full bg-slate-50 border border-slate-300 rounded p-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white disabled:opacity-60"
+          className="h-9 w-full rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
         >
           {members.map((m) => (
             <option key={m.id} value={m.id}>
@@ -377,21 +377,21 @@ export function ReceptionClassBooking() {
         </select>
 
         {selectedMember && (
-          <div className="p-3 bg-slate-50 rounded border border-slate-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="p-3 bg-bg-secondary rounded border border-border-color text-sm leading-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div>
-              <span className="text-slate-500">Trạng thái tài khoản: </span>
+              <span className="text-text-secondary">Trạng thái tài khoản: </span>
               <span
-                className={`font-bold uppercase ${
+                className={`font-semibold uppercase ${
                   selectedMember.membershipStatus === "active"
-                    ? "text-emerald-700"
-                    : "text-amber-700"
+                    ? "text-status-success"
+                    : "text-status-warning"
                 }`}
               >
                 {selectedMember.membershipStatus}
               </span>
             </div>
             {selectedMember.membershipStatus !== "active" && (
-              <span className="text-amber-700 font-semibold flex items-center gap-1">
+              <span className="text-status-warning font-semibold flex items-center gap-1 text-xs leading-4">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 <span>
                   Lưu ý: Hội viên cần có gói tập hợp lệ để hệ thống chấp nhận
@@ -407,15 +407,15 @@ export function ReceptionClassBooking() {
       {bookingError && (
         <div
           role="alert"
-          className="p-4 bg-rose-50 border border-rose-300 rounded-lg text-rose-900 flex items-start justify-between gap-3 shadow-xs"
+          className="p-4 bg-rose-50 border border-rose-200 rounded-lg text-status-danger flex items-start justify-between gap-3"
         >
           <div className="flex items-start gap-2.5">
-            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-status-danger shrink-0 mt-0.5" />
             <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-rose-800">
+              <h4 className="text-xs leading-4 font-semibold uppercase tracking-wider text-status-danger">
                 {language === "vi" ? "Đăng ký không thành công" : "Enrollment Failed"}
               </h4>
-              <p className="text-xs mt-0.5 text-rose-700 font-medium">
+              <p className="text-sm leading-5 mt-0.5 text-text-primary">
                 {bookingError}
               </p>
             </div>
@@ -424,7 +424,7 @@ export function ReceptionClassBooking() {
             type="button"
             onClick={() => setBookingError(null)}
             aria-label={language === "vi" ? "Đóng thông báo" : "Close notice"}
-            className="text-rose-500 hover:text-rose-800 p-1 rounded hover:bg-rose-100 cursor-pointer"
+            className="inline-flex h-8 w-8 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -435,17 +435,17 @@ export function ReceptionClassBooking() {
       {apiEnabled && enrollmentsError && (
         <div
           role="alert"
-          className="p-4 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 flex items-start justify-between gap-3 shadow-xs"
+          className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-status-warning flex items-start justify-between gap-3"
         >
           <div className="flex items-start gap-2.5">
-            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-status-warning shrink-0 mt-0.5" />
             <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800">
+              <h4 className="text-xs leading-4 font-semibold uppercase tracking-wider text-status-warning">
                 {language === "vi"
                   ? "Chưa xác minh được danh sách lớp của học viên"
                   : "Member Enrollment Status Unverified"}
               </h4>
-              <p className="text-xs mt-0.5 text-amber-700 font-medium">
+              <p className="text-sm leading-5 mt-0.5 text-text-primary">
                 {enrollmentsError}
               </p>
             </div>
@@ -453,7 +453,7 @@ export function ReceptionClassBooking() {
           <button
             type="button"
             onClick={() => fetchMemberEnrollments(selectedMemberId)}
-            className="text-xs font-bold px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded shrink-0 cursor-pointer"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary shrink-0 cursor-pointer"
           >
             {language === "vi" ? "Thử lại" : "Retry"}
           </button>
@@ -463,22 +463,22 @@ export function ReceptionClassBooking() {
       {/* Latest Booking Summary / Receipt Banner */}
       {latestBookingResult &&
         String(latestBookingResult.memberId) === String(selectedMemberId) && (
-          <div className="shadow-xs border rounded-lg overflow-hidden transition-all">
+          <div className="border border-border-color rounded-lg overflow-hidden transition-all">
             {latestBookingResult.status === "Pending" &&
             (latestBookingResult.invoiceId || latestBookingResult.invoiceCode) ? (
-              <div className="bg-amber-50 border-amber-300 p-5 space-y-4">
+              <div className="bg-amber-50 border-amber-200 p-4 space-y-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2.5">
-                    <div className="p-2 bg-amber-100 text-amber-800 rounded">
-                      <Receipt className="w-5 h-5 text-amber-700" />
+                    <div className="p-2 bg-bg-card text-status-warning rounded border border-amber-200">
+                      <Receipt className="w-5 h-5 text-status-warning" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-amber-900">
+                      <h4 className="text-lg leading-7 font-semibold text-text-primary">
                         {language === "vi"
                           ? "Giữ chỗ lớp học thành công — Chờ thanh toán học phí"
                           : "Class Reserved — Awaiting Payment"}
                       </h4>
-                      <p className="text-xs text-amber-700">
+                      <p className="text-sm leading-5 text-text-secondary">
                         {language === "vi"
                           ? "Hệ thống đã tạo hóa đơn giữ chỗ. Lễ tân cần thu tiền mặt để hoàn tất ghi danh."
                           : "A reservation invoice has been created. Collect cash payment to complete enrollment."}
@@ -491,26 +491,26 @@ export function ReceptionClassBooking() {
                     aria-label={
                       language === "vi" ? "Đóng tóm tắt" : "Close summary"
                     }
-                    className="text-amber-500 hover:text-amber-800 p-1 rounded hover:bg-amber-100 cursor-pointer"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-white/80 p-3.5 rounded border border-amber-200 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-bg-card p-3.5 rounded border border-amber-200 text-sm leading-5">
                   <div>
-                    <span className="text-slate-500 block text-[11px]">
+                    <span className="text-text-secondary block text-xs leading-4 font-medium">
                       Lớp học:
                     </span>
-                    <strong className="text-slate-900 font-semibold truncate block">
+                    <strong className="text-text-primary font-semibold truncate block">
                       {latestBookingResult.className}
                     </strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 block text-[11px]">
+                    <span className="text-text-secondary block text-xs leading-4 font-medium">
                       Mã hóa đơn:
                     </span>
-                    <strong className="font-mono text-slate-900 font-bold">
+                    <strong className="font-mono text-text-primary font-semibold">
                       {latestBookingResult.invoiceCode ||
                         (latestBookingResult.invoiceId
                           ? `INV-${latestBookingResult.invoiceId}`
@@ -518,20 +518,20 @@ export function ReceptionClassBooking() {
                     </strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 block text-[11px]">
+                    <span className="text-text-secondary block text-xs leading-4 font-medium">
                       Học phí cần thu:
                     </span>
-                    <strong className="font-mono text-emerald-700 font-extrabold text-sm">
+                    <strong className="font-mono text-status-success font-semibold text-sm leading-5">
                       {latestBookingResult.amount != null
                         ? formatCurrency(latestBookingResult.amount, language)
                         : "—"}
                     </strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 block text-[11px]">
+                    <span className="text-text-secondary block text-xs leading-4 font-medium">
                       Hạn thanh toán:
                     </span>
-                    <strong className="font-mono text-slate-800 font-semibold">
+                    <strong className="font-mono text-text-primary font-semibold">
                       {latestBookingResult.expiresAt
                         ? formatDateTime(latestBookingResult.expiresAt, language)
                         : language === "vi"
@@ -550,7 +550,7 @@ export function ReceptionClassBooking() {
                         latestBookingResult.invoiceCode,
                       )
                     }
-                    className="min-h-[44px] px-5 py-2 bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs rounded shadow-xs flex items-center gap-2 cursor-pointer transition-colors"
+                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                   >
                     <span>
                       {language === "vi"
@@ -562,18 +562,18 @@ export function ReceptionClassBooking() {
                 </div>
               </div>
             ) : latestBookingResult.status === "Waitlisted" ? (
-              <div className="bg-orange-50 border-orange-300 p-5 flex items-start justify-between gap-3">
+              <div className="bg-amber-50 border-amber-200 p-4 flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-orange-100 text-orange-800 rounded">
-                    <Info className="w-5 h-5 text-orange-700" />
+                  <div className="p-2 bg-bg-card text-status-warning rounded border border-amber-200">
+                    <Info className="w-5 h-5 text-status-warning" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-orange-900">
+                    <h4 className="text-lg leading-7 font-semibold text-text-primary">
                       {language === "vi"
                         ? "Đã đưa học viên vào danh sách chờ (Waitlist)"
                         : "Member added to Waitlist"}
                     </h4>
-                    <p className="text-xs text-orange-700">
+                    <p className="text-sm leading-5 text-text-secondary">
                       {language === "vi"
                         ? `Lớp đã đủ sĩ số. Học viên sẽ được xét duyệt khi có chỗ trống${latestBookingResult.waitlistPosition ? ` (Thứ tự: #${latestBookingResult.waitlistPosition})` : ""}.`
                         : `Class is full. Member is queued on the waitlist${latestBookingResult.waitlistPosition ? ` (Position: #${latestBookingResult.waitlistPosition})` : ""}.`}
@@ -586,24 +586,24 @@ export function ReceptionClassBooking() {
                   aria-label={
                     language === "vi" ? "Đóng thông báo" : "Close notice"
                   }
-                  className="text-orange-500 hover:text-orange-800 p-1 rounded hover:bg-orange-100 cursor-pointer"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             ) : (
-              <div className="bg-emerald-50 border-emerald-300 p-5 flex items-start justify-between gap-3">
+              <div className="bg-emerald-50 border-emerald-200 p-4 flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-emerald-100 text-emerald-800 rounded">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-700" />
+                  <div className="p-2 bg-bg-card text-status-success rounded border border-emerald-200">
+                    <CheckCircle2 className="w-5 h-5 text-status-success" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-emerald-900">
+                    <h4 className="text-lg leading-7 font-semibold text-text-primary">
                       {language === "vi"
                         ? "Ghi danh lớp học thành công!"
                         : "Enrolled in class successfully!"}
                     </h4>
-                    <p className="text-xs text-emerald-700">
+                    <p className="text-sm leading-5 text-text-secondary">
                       {language === "vi"
                         ? `Học viên đã được ghi danh vào lớp "${latestBookingResult.className}".`
                         : `Member successfully enrolled in "${latestBookingResult.className}".`}
@@ -616,7 +616,7 @@ export function ReceptionClassBooking() {
                   aria-label={
                     language === "vi" ? "Đóng thông báo" : "Close notice"
                   }
-                  className="text-emerald-500 hover:text-emerald-800 p-1 rounded hover:bg-emerald-100 cursor-pointer"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -626,15 +626,15 @@ export function ReceptionClassBooking() {
         )}
 
       {/* Classes Available */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-color pb-3">
+          <h3 className="text-lg leading-7 font-semibold text-text-primary">
             2. Lớp Học Sắp Khai Giảng ({filteredClasses.length})
           </h3>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-slate-50 border border-slate-300 rounded px-3 py-1 text-xs text-slate-900 font-semibold"
+            className="h-9 w-full sm:w-auto rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
           >
             <option value="all">Tất cả bộ môn</option>
             {categories.map((cat) => (
@@ -703,31 +703,31 @@ export function ReceptionClassBooking() {
             return (
               <div
                 key={cls.id}
-                className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-900 border border-blue-200 text-[10px] font-mono font-bold rounded">
+                    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200">
                       {cls.category || "Thể thao"}
                     </span>
-                    <span className="text-sm font-bold text-slate-900">
+                    <span className="text-lg leading-7 font-semibold text-text-primary">
                       {language === "vi" ? cls.nameVi || cls.name : cls.name}
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
+                  <div className="flex flex-wrap items-center gap-4 text-sm leading-5 text-text-secondary">
                     <span className="flex items-center gap-1 font-mono tabular-nums">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      <Clock className="w-3.5 h-3.5 text-text-muted" />
                       {formatDate(cls.date || cls.startDate, language)} &bull;{" "}
                       {cls.startTime || "07:00"} ({cls.durationMinutes || 90}m)
                     </span>
                     <span>
                       {language === "vi" ? "HLV:" : "Coach:"}{" "}
-                      <strong>{cls.coachName}</strong>
+                      <strong className="text-text-primary">{cls.coachName}</strong>
                     </span>
                     <span>
                       {language === "vi" ? "Phòng:" : "Room:"}{" "}
-                      <strong>
+                      <strong className="text-text-primary">
                         {language === "vi" ? cls.roomVi || cls.room : cls.room}
                       </strong>
                     </span>
@@ -736,7 +736,7 @@ export function ReceptionClassBooking() {
 
                 <div className="flex items-center gap-3">
                   <span
-                    className="text-xs font-mono font-bold text-slate-900 tabular-nums"
+                    className="text-xs leading-4 font-medium text-text-secondary font-mono tabular-nums"
                     title={
                       apiEnabled && !hasReliableCapacity
                         ? language === "vi"
@@ -752,22 +752,22 @@ export function ReceptionClassBooking() {
                   {apiEnabled ? (
                     // API Mode State Rendering
                     enrollmentsLoading ? (
-                      <div className="min-h-[44px] px-3.5 py-1.5 rounded text-xs font-semibold bg-slate-100 text-slate-400 border border-slate-200 flex items-center gap-1.5">
+                      <div className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium border border-border-color bg-bg-secondary text-text-muted">
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         <span>
                           {language === "vi" ? "Đang tải..." : "Loading..."}
                         </span>
                       </div>
                     ) : enrollmentsError ? (
-                      <div className="min-h-[44px] px-3 py-1.5 rounded text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                      <div className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200 gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 text-status-warning" />
                         <span>
                           {language === "vi" ? "Chưa xác minh" : "Unverified"}
                         </span>
                       </div>
                     ) : isPendingPayment ? (
                       <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-1 rounded text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                        <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200">
                           {language === "vi" ? "Chờ thanh toán" : "Pending"}
                         </span>
                         <button
@@ -778,7 +778,7 @@ export function ReceptionClassBooking() {
                               enrollmentInvoiceCode,
                             )
                           }
-                          className="min-h-[44px] px-3 py-1.5 rounded text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs flex items-center gap-1 cursor-pointer"
+                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                         >
                           <span>
                             {language === "vi" ? "Thu tiền" : "Collect"}
@@ -787,15 +787,15 @@ export function ReceptionClassBooking() {
                         </button>
                       </div>
                     ) : isRegistered ? (
-                      <span className="px-3 py-1.5 rounded text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200 gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-status-success" />
                         <span>
                           {language === "vi" ? "Đã ghi danh" : "Enrolled"}
                         </span>
                       </span>
                     ) : isWaitlisted ? (
-                      <span className="px-3 py-1.5 rounded text-xs font-bold bg-orange-100 text-orange-900 border border-orange-300 flex items-center gap-1">
-                        <Info className="w-3.5 h-3.5 text-orange-700" />
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200 gap-1">
+                        <Info className="w-3.5 h-3.5 text-status-warning" />
                         <span>
                           {language === "vi" ? "Danh sách chờ" : "Waitlisted"}
                         </span>
@@ -805,11 +805,7 @@ export function ReceptionClassBooking() {
                         type="button"
                         disabled={!canBook}
                         onClick={() => handleDeskBooking(cls)}
-                        className={`min-h-[44px] px-3.5 py-1.5 rounded text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors ${
-                          canBook
-                            ? "bg-slate-900 hover:bg-slate-800 text-white cursor-pointer"
-                            : "bg-slate-200 text-slate-500 cursor-not-allowed border border-slate-300"
-                        }`}
+                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                       >
                         {isThisSubmitting ? (
                           <>
@@ -838,7 +834,7 @@ export function ReceptionClassBooking() {
                       <button
                         type="button"
                         onClick={() => handleDeskCancel(cls.id)}
-                        className="min-h-[44px] px-3.5 py-1.5 rounded text-xs font-bold shadow-xs flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 cursor-pointer"
+                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-status-danger text-text-inverse hover:bg-status-danger/90 cursor-pointer"
                       >
                         <XCircle className="w-3.5 h-3.5" />
                         <span>Hủy Đăng Ký</span>
@@ -848,11 +844,7 @@ export function ReceptionClassBooking() {
                         type="button"
                         disabled={!canBook}
                         onClick={() => handleDeskBooking(cls)}
-                        className={`min-h-[44px] px-3.5 py-1.5 rounded text-xs font-bold shadow-xs flex items-center gap-1.5 ${
-                          canBook
-                            ? "bg-slate-900 hover:bg-slate-800 text-white cursor-pointer"
-                            : "bg-slate-200 text-slate-500 cursor-not-allowed border border-slate-300"
-                        }`}
+                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                       >
                         {isThisSubmitting ? (
                           <>

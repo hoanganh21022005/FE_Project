@@ -31,6 +31,7 @@ import {
   SessionAbsenceModal,
   SessionDetailDrawer,
 } from "../schedule/MemberCourseScheduleComponents"
+import { PageHeader } from "../ui/PageHeader"
 
 export function MemberEnrollmentsView() {
   const navigate = useNavigate()
@@ -315,43 +316,34 @@ export function MemberEnrollmentsView() {
 
   return (
     <main className="mx-auto max-w-[1100px] space-y-6 px-4 py-6 sm:px-7 sm:py-8">
-      {/* Header: nhãn VIBE SPORT · MEMBER, tiêu đề Khóa học đã đăng ký, mô tả, nút Tải lại icon + Cập nhật lúc HH:mm */}
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
-            {t("scheduleBrand")}
-          </p>
-          <h1 className="mt-2 text-3xl font-black text-slate-950">
-            {t("enrollmentsPageTitle")}
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            {t("enrollmentsPageSubtitle")}
-          </p>
-        </div>
-
-        <div className="flex flex-col items-end gap-1.5">
-          <button
-            type="button"
-            onClick={refresh}
-            disabled={loading}
-            aria-label={t("enrollmentsBtnRefresh")}
-            title={t("enrollmentsBtnRefresh")}
-            className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 p-2 text-slate-700 disabled:opacity-60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-            />
-          </button>
-
-          {lastUpdatedAt && (
-            <span className="text-xs text-slate-500">
-              {tr("scheduleUpdatedAt", {
-                time: TIME_FORMATTER_HHMM.format(lastUpdatedAt),
-              })}
-            </span>
-          )}
-        </div>
-      </header>
+      {/* Header */}
+      <PageHeader
+        title={t("enrollmentsPageTitle")}
+        description={t("enrollmentsPageSubtitle")}
+        actions={
+          <div className="flex flex-col items-end gap-1.5">
+            <button
+              type="button"
+              onClick={refresh}
+              disabled={loading}
+              aria-label={t("enrollmentsBtnRefresh")}
+              title={t("enrollmentsBtnRefresh")}
+              className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 p-2 text-slate-700 disabled:opacity-60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
+            </button>
+            {lastUpdatedAt && (
+              <span className="text-xs text-slate-500">
+                {tr("scheduleUpdatedAt", {
+                  time: TIME_FORMATTER_HHMM.format(lastUpdatedAt),
+                })}
+              </span>
+            )}
+          </div>
+        }
+      />
 
       {renderHolidayBanner()}
 

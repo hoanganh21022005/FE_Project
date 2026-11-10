@@ -52,15 +52,15 @@ export function getStatusVisualMeta(item, t) {
         Icon: CheckCircle2,
         label: t("memberSchedStatusDonePresent"),
         badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-300",
-        cellClass: "bg-emerald-50/60 border-emerald-200 text-slate-900",
+        cellClass: "bg-emerald-50/45 border-emerald-200 text-slate-900",
         titleStrike: false,
       }
     case "completed_absent":
       return {
         Icon: XCircle,
         label: t("memberSchedStatusDoneAbsent"),
-        badgeClass: "bg-rose-50 text-rose-800 border-rose-300",
-        cellClass: "bg-rose-50/60 border-rose-200 text-slate-900",
+        badgeClass: "bg-rose-50/80 text-rose-800 border-rose-200",
+        cellClass: "bg-slate-50 border-rose-200/70 text-slate-800",
         titleStrike: false,
       }
     case "upcoming_absence_reported":
@@ -68,7 +68,7 @@ export function getStatusVisualMeta(item, t) {
         Icon: Bell,
         label: t("memberSchedStatusAbsenceReported"),
         badgeClass: "bg-amber-50 text-amber-900 border-amber-300",
-        cellClass: "bg-amber-50/60 border-amber-300 text-slate-900",
+        cellClass: "bg-amber-50/50 border-amber-200 text-slate-900",
         titleStrike: false,
       }
     case "cancelled":
@@ -76,7 +76,7 @@ export function getStatusVisualMeta(item, t) {
         Icon: Ban,
         label: t("memberSchedStatusCancelled"),
         badgeClass: "bg-slate-100 text-slate-700 border-slate-300",
-        cellClass: "bg-slate-100/80 border-slate-200 text-slate-500",
+        cellClass: "bg-slate-100/70 border-slate-200 text-slate-500",
         titleStrike: true,
       }
     case "pending_update":
@@ -93,7 +93,7 @@ export function getStatusVisualMeta(item, t) {
         Icon: Clock,
         label: t("memberSchedStatusScheduled"),
         badgeClass: "bg-sky-50 text-sky-900 border-sky-200",
-        cellClass: "bg-sky-50/50 border-sky-200 text-slate-900",
+        cellClass: "bg-white border-slate-200 text-slate-900",
         titleStrike: false,
       }
   }
@@ -214,10 +214,10 @@ export function WeekNavigator({
         type="button"
         onClick={onThisWeek}
         disabled={isCurrentWeek}
-        className={`min-h-[40px] rounded-lg border px-3 py-1.5 text-[13px] font-bold transition-colors cursor-pointer ${
+        className={`min-h-[40px] rounded-lg border px-3.5 py-1.5 text-[13px] font-bold transition-colors ${
           isCurrentWeek
-            ? "border-slate-200 bg-slate-100 text-slate-400 cursor-default"
-            : "border-slate-200 bg-white text-slate-800 hover:bg-slate-50"
+            ? "border-slate-200 bg-slate-50 text-slate-500 cursor-default"
+            : "border-slate-300 bg-white text-slate-900 shadow-2xs hover:bg-slate-50 cursor-pointer"
         }`}
       >
         {t("memberSchedThisWeek")}
@@ -226,120 +226,120 @@ export function WeekNavigator({
   )
 }
 
-export function ScheduleLegend({ t, isOpen, onToggle }) {
+export function ScheduleLegend({ t }) {
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={isOpen}
-        className="min-h-[36px] inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-      >
-        <span>{t("memberSchedLegendToggle")}</span>
-        {isOpen ? (
-          <ChevronUp className="h-3.5 w-3.5 text-slate-500" />
-        ) : (
-          <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
-        )}
-      </button>
-
-      {isOpen && (
-        <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3.5 shadow-md text-[13px] flex flex-wrap items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 font-semibold text-sky-900">
-            <Clock className="h-3.5 w-3.5" />
-            {t("memberSchedStatusScheduled")}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500 bg-blue-100 px-2.5 py-0.5 font-bold text-blue-900">
-            <Radio className="h-3.5 w-3.5" />
-            {t("memberSchedStatusOngoing")}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 font-semibold text-emerald-800">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            {t("memberSchedStatusDonePresent")}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-300 bg-rose-50 px-2.5 py-0.5 font-semibold text-rose-800">
-            <XCircle className="h-3.5 w-3.5" />
-            {t("memberSchedStatusDoneAbsent")}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 font-semibold text-amber-900">
-            <Bell className="h-3.5 w-3.5" />
-            {t("memberSchedStatusAbsenceReported")}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-0.5 font-semibold text-slate-700">
-            <Ban className="h-3.5 w-3.5" />
-            {t("memberSchedStatusCancelled")}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-md border-l-4 border-l-indigo-600 border border-slate-200 bg-indigo-50/60 px-2.5 py-0.5 font-bold text-indigo-900">
-            <User className="h-3.5 w-3.5" />
-            {t("memberSchedPtBadge")}
-          </span>
-        </div>
-      )}
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-slate-700">
+      <span className="inline-flex items-center gap-1.5 font-semibold text-slate-800">
+        <span className="h-3.5 w-1.5 rounded-xs bg-sky-600 shrink-0" />
+        <span>{t("memberSchedGroupBadge")}</span>
+      </span>
+      <span className="inline-flex items-center gap-1.5 font-semibold text-slate-800">
+        <span className="h-3.5 w-1.5 rounded-xs bg-indigo-600 shrink-0" />
+        <span>{t("memberSchedPtBadge")}</span>
+      </span>
+      <span aria-hidden="true" className="text-slate-300">
+        |
+      </span>
+      <span className="inline-flex items-center gap-1 font-medium text-slate-700">
+        <Clock className="h-3.5 w-3.5 text-sky-700 shrink-0" />
+        <span>{t("memberSchedStatusScheduled")}</span>
+      </span>
+      <span className="inline-flex items-center gap-1 font-medium text-slate-700">
+        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
+        <span>{t("memberSchedStatusDonePresent")}</span>
+      </span>
+      <span className="inline-flex items-center gap-1 font-medium text-slate-700">
+        <XCircle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+        <span>{t("memberSchedStatusDoneAbsent")}</span>
+      </span>
+      <span className="inline-flex items-center gap-1 font-medium text-slate-700">
+        <Ban className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+        <span>{t("memberSchedStatusCancelled")}</span>
+      </span>
     </div>
   )
 }
 
 /**
- * 4.4 SessionCell (thẻ gọn trong ô lưới tuần)
+ * 4.4 SessionCell (thẻ gọn trong ô lưới tuần — P0 1.1: tối đa 2 dòng tên lớp, icon góc phải, tooltip đầy đủ)
  */
 export function SessionCell({ item, onSelect, language, t }) {
   const meta = getStatusVisualMeta(item, t)
   const Icon = meta.Icon
   const wk = getWeekdayMeta(item.date)
   const weekdayLabel = language === "vi" ? wk.fullVi : wk.fullEn
+  const roomText = item.roomName || t("scheduleRoomTbd")
+  const coachText = item.coachName || t("scheduleCoachTbd")
   const ariaLabel = `${item.className}, ${weekdayLabel} ${toDdMm(item.date)}, ${item.startTime}–${item.endTime}, ${meta.label}`
+  const tooltipText = [
+    item.className,
+    `${t("scheduleDrawerTime")}: ${item.startTime}–${item.endTime}`,
+    `${t("scheduleDrawerRoom")}: ${roomText}`,
+    `${t("scheduleDrawerCoach")}: ${coachText}`,
+    `${t("scheduleDrawerStatus")}: ${meta.label}`,
+  ].join("\n")
 
   return (
     <button
       type="button"
       onClick={() => onSelect(item)}
       aria-label={ariaLabel}
-      title={`${item.className} (${item.startTime}–${item.endTime})`}
-      className={`w-full text-left rounded-lg border p-2 transition-all hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer space-y-1 ${
+      title={tooltipText}
+      className={`w-full text-left rounded-md border p-1.5 transition-all hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer space-y-0.5 ${
         meta.cellClass
-      } ${item.kind === "pt" ? "border-l-4 border-l-indigo-600" : ""}`}
+      } ${
+        item.kind === "pt"
+          ? "border-l-[3px] border-l-indigo-600"
+          : "border-l-[3px] border-l-sky-600"
+      }`}
     >
-      {/* Dòng 1: Giờ đậm + icon trạng thái */}
+      {/* Dòng 1: Giờ (cỡ nhỏ gọn) + Icon trạng thái ở góc phải */}
       <div className="flex items-center justify-between gap-1">
-        <span className="text-[13px] font-extrabold tracking-tight text-slate-900">
+        <span className="text-[11px] font-bold tracking-tight text-slate-700 tabular-nums">
           {item.startTime}–{item.endTime}
         </span>
         <span
-          className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] font-bold border ${meta.badgeClass}`}
+          title={meta.label}
+          aria-label={meta.label}
+          className="inline-flex items-center justify-center shrink-0"
         >
-          <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
-          <span className="truncate max-w-[68px]">{meta.label}</span>
+          <Icon
+            className={`h-3.5 w-3.5 ${
+              item.uiState === "completed_present"
+                ? "text-emerald-700"
+                : item.uiState === "completed_absent"
+                  ? "text-rose-600"
+                  : item.uiState === "upcoming_absence_reported"
+                    ? "text-amber-700"
+                    : item.uiState === "cancelled"
+                      ? "text-slate-500"
+                      : "text-sky-700"
+            }`}
+            aria-hidden="true"
+          />
         </span>
       </div>
 
-      {/* Dòng 2: Tên lớp + badge PT 1:1 nếu có */}
-      <div className="flex items-center gap-1 min-w-0">
-        {item.kind === "pt" && (
-          <span className="inline-flex items-center gap-0.5 rounded bg-indigo-100 px-1.5 py-0.2 text-[11px] font-bold text-indigo-900 shrink-0">
-            <User className="h-2.5 w-2.5" aria-hidden="true" />
-            PT 1:1
-          </span>
-        )}
-        <p
-          className={`text-[14px] font-bold truncate ${
-            meta.titleStrike ? "line-through text-slate-500" : "text-slate-900"
-          }`}
-        >
-          {item.className}
-        </p>
-      </div>
+      {/* Dòng 2: Tên lớp (tối đa 2 dòng, text-wrap:balance để cân đều 2 dòng) */}
+      <p
+        className={`text-[12px] font-bold leading-snug line-clamp-2 break-words ${
+          meta.titleStrike ? "line-through text-slate-500" : "text-slate-900"
+        }`}
+        style={{ textWrap: "balance" }}
+      >
+        {item.className}
+      </p>
 
-      {/* Dòng 3: Sân · (PT: tên HLV) */}
-      <p className="text-[12px] font-medium text-slate-600 truncate">
-        {item.roomName || t("scheduleRoomTbd")}
-        {item.kind === "pt" && item.coachName ? ` · ${item.coachName}` : ""}
+      {/* Dòng 3: Sân (1 dòng, cắt nếu dài) */}
+      <p className="text-[11px] font-medium text-slate-700 truncate">
+        {roomText}
       </p>
     </button>
   )
 }
 
 /**
- * 4.4 WeekGrid (Lưới Thứ × Ca cho desktop/tablet)
+ * 4.4 WeekGrid (Lưới Thứ × Ca: 7 cột đều nhau grid-cols-[64px_repeat(7,minmax(0,1fr))], bỏ cuộn ngang desktop)
  */
 export function WeekGrid({
   weekRange,
@@ -435,85 +435,91 @@ export function WeekGrid({
 
   return (
     <div className="space-y-2.5">
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs">
-        <table className="w-full border-collapse table-fixed min-w-[820px]">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50/80">
-              <th className="sticky left-0 z-10 w-24 border-r border-slate-200 bg-slate-50 p-2.5 text-left text-[13px] font-bold text-slate-600">
-                Ca / Giờ
-              </th>
-              {weekRange.days.map((day) => {
-                const isToday = day.dateIso === todayIso
-                const holidayName = holidayByDate.get(day.dateIso)
-                const wkShort = language === "vi" ? day.shortVi : day.shortEn
-                return (
-                  <th
-                    key={day.dateIso}
-                    className={`min-w-[120px] border-r last:border-r-0 border-slate-200 p-2.5 text-center align-top ${
-                      isToday
-                        ? "bg-blue-50/90 text-blue-950 ring-1 ring-inset ring-blue-300"
-                        : holidayName
-                          ? "bg-amber-50/60 text-slate-800"
-                          : "text-slate-800"
-                    }`}
-                  >
-                    <div className="flex items-center justify-center gap-1.5">
-                      <span className="text-[13px] font-extrabold">{wkShort}</span>
-                      <span
-                        className={`text-[13px] font-bold px-1.5 py-0.5 rounded ${
-                          isToday
-                            ? "bg-blue-700 text-white"
-                            : "text-slate-600"
-                        }`}
-                      >
-                        {day.ddMm}
-                      </span>
-                    </div>
-                    {holidayName && (
-                      <div
-                        title={holidayName}
-                        className="mt-1 truncate rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-bold text-amber-900"
-                      >
-                        {holidayName}
-                      </div>
-                    )}
-                  </th>
-                )
-              })}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {rows.map((row) => (
-              <tr key={row.key}>
-                <th
-                  scope="row"
-                  className="sticky left-0 z-10 border-r border-slate-200 bg-slate-50/95 p-2.5 text-left align-top"
+      <div className="overflow-x-auto md:overflow-x-visible rounded-xl border border-slate-200 bg-white shadow-2xs">
+        <div className="min-w-[640px] md:min-w-0">
+          {/* Header Row: 88px + 7 cột đều nhau */}
+          <div className="grid grid-cols-[88px_repeat(7,minmax(0,1fr))] border-b border-slate-200 bg-slate-50/90">
+            <div className="border-r border-slate-200 p-2 text-left text-[12px] font-bold text-slate-700 flex items-center whitespace-nowrap">
+              Ca / Giờ
+            </div>
+            {weekRange.days.map((day) => {
+              const isToday = day.dateIso === todayIso
+              const holidayName = holidayByDate.get(day.dateIso)
+              const wkShort = language === "vi" ? day.shortVi : day.shortEn
+              return (
+                <div
+                  key={day.dateIso}
+                  className={`border-r last:border-r-0 border-slate-200 px-1.5 py-2 text-center ${
+                    isToday
+                      ? "bg-blue-50 text-blue-950 border-t-2 border-t-blue-600"
+                      : holidayName
+                        ? "bg-amber-50/60 text-slate-800"
+                        : "text-slate-800"
+                  }`}
                 >
-                  <div className="text-[13px] font-extrabold text-slate-900">
+                  <div className="flex flex-wrap items-center justify-center gap-1">
+                    <span className="text-[12px] font-extrabold">{wkShort}</span>
+                    <span
+                      className={`text-[12px] font-bold px-1.5 py-0.5 rounded tabular-nums ${
+                        isToday ? "bg-blue-700 text-white" : "text-slate-700"
+                      }`}
+                    >
+                      {day.ddMm}
+                    </span>
+                  </div>
+                  {holidayName && (
+                    <div
+                      title={holidayName}
+                      className="mt-1 truncate rounded bg-amber-100 px-1 py-0.5 text-[10px] font-bold text-amber-900"
+                    >
+                      {holidayName}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Body Rows */}
+          <div className="divide-y divide-slate-200">
+            {rows.map((row) => (
+              <div
+                key={row.key}
+                className="grid grid-cols-[88px_repeat(7,minmax(0,1fr))]"
+              >
+                <div className="border-r border-slate-200 bg-slate-50/95 p-1.5 text-left">
+                  <div className="text-[12px] font-extrabold text-slate-900 whitespace-nowrap">
                     {row.title}
                   </div>
-                  <div className="text-[12px] font-medium text-slate-600 mt-0.5">
-                    {row.subtitle}
+                  <div className="text-[11px] font-semibold text-slate-700 mt-0.5 leading-tight tabular-nums">
+                    {row.subtitle.includes("–") ? (
+                      <>
+                        <span className="block">{row.subtitle.split("–")[0]}</span>
+                        <span className="block">/ {row.subtitle.split("–")[1]}</span>
+                      </>
+                    ) : (
+                      row.subtitle
+                    )}
                   </div>
-                </th>
+                </div>
                 {weekRange.days.map((day) => {
                   const isToday = day.dateIso === todayIso
                   const holidayName = holidayByDate.get(day.dateIso)
                   const cellItems =
                     cellMap.get(`${row.key}__${day.dateIso}`) || []
                   return (
-                    <td
+                    <div
                       key={day.dateIso}
-                      className={`border-r last:border-r-0 border-slate-200 p-1.5 align-top min-h-[76px] ${
+                      className={`border-r last:border-r-0 border-slate-200 p-1 min-h-[76px] min-w-0 ${
                         isToday
-                          ? "bg-blue-50/25"
+                          ? "bg-blue-50/30"
                           : holidayName
-                            ? "bg-[repeating-linear-gradient(135deg,#fffbeb,#fffbeb_8px,#fef3c7_8px,#fef3c7_16px)]/40"
+                            ? "bg-amber-50/20"
                             : "bg-white"
                       }`}
                     >
                       {cellItems.length > 0 && (
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           {cellItems.map((item) => (
                             <SessionCell
                               key={item.id}
@@ -525,13 +531,13 @@ export function WeekGrid({
                           ))}
                         </div>
                       )}
-                    </td>
+                    </div>
                   )
                 })}
-              </tr>
+              </div>
             ))}
-          </tbody>
-        </table>
+          </div>
+        </div>
       </div>
 
       {/* Nút Hiện tất cả ca / Ẩn các ca trống */}
@@ -555,99 +561,144 @@ export function WeekGrid({
 }
 
 /**
- * 4.5 SessionRow (Hàng buổi học 64–72px trong chế độ Danh sách)
+ * 4.5 SessionRow (P0 3.2: Ẩn pill trùng trạng thái đang lọc, hiện đếm ngược + chevron ›)
  */
-export function SessionRow({ item, onSelect, language, t, tr }) {
+export function SessionRow({
+  item,
+  todayIso,
+  statusTab,
+  onSelect,
+  t,
+  tr,
+}) {
   const meta = getStatusVisualMeta(item, t)
-  const wk = getWeekdayMeta(item.date)
-  const wkShort = language === "vi" ? wk.shortVi : wk.shortEn
-  const dayNum = item.date.slice(8, 10)
-  const monthNum = item.date.slice(5, 7)
+
+  const daysUntil = todayIso ? diffDaysVn(todayIso, item.date) : null
+  const isRedundantPill =
+    (statusTab === "upcoming" && item.uiState === "upcoming") ||
+    (statusTab === "done" && item.uiState === "completed_present") ||
+    (statusTab === "absent" && item.uiState === "completed_absent") ||
+    (statusTab === "cancelled" && item.uiState === "cancelled")
+
+  let rightHint = null
+  if (statusTab === "upcoming" && item.uiState === "upcoming" && daysUntil != null) {
+    if (daysUntil === 0) {
+      rightHint = t("memberSchedMilestoneToday")
+    } else if (daysUntil === 1) {
+      rightHint = t("memberSchedMilestoneTomorrow")
+    } else if (daysUntil > 1) {
+      rightHint = tr("memberSchedCountdownDays", { days: daysUntil })
+    }
+  }
 
   return (
     <button
       type="button"
       onClick={() => onSelect(item)}
-      className={`w-full min-h-[68px] text-left rounded-xl border px-3.5 py-2.5 transition-all hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer flex items-center justify-between gap-3 ${
+      className={`group w-full min-h-[62px] text-left rounded-xl border px-3.5 py-2.5 transition-all hover:border-slate-300 hover:bg-slate-50/90 hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer flex items-center justify-between gap-3 ${
         item.status === "Cancelled"
           ? "bg-slate-50 border-slate-200 text-slate-500"
-          : "bg-white hover:bg-slate-50/80 border-slate-200 text-slate-900"
-      } ${item.kind === "pt" ? "border-l-4 border-l-indigo-600" : ""}`}
+          : "bg-white border-slate-200 text-slate-900"
+      } ${
+        item.kind === "pt"
+          ? "border-l-4 border-l-indigo-600"
+          : "border-l-4 border-l-sky-600"
+      }`}
     >
-      {/* Khối ngày bên trái */}
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200/80 flex flex-col items-center justify-center shrink-0">
-          <span className="text-[11px] font-bold uppercase text-slate-600 leading-none">
-            {wkShort}
+      {/* Nội dung chính (không lặp lại ô ngày vì đã có tiêu đề ngày phía trên) */}
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[13px] font-extrabold text-slate-900 tabular-nums">
+            {item.startTime}–{item.endTime}
           </span>
-          <span className="text-[15px] font-black text-slate-900 leading-tight mt-0.5">
-            {dayNum}/{monthNum}
+          <span
+            className={`text-[15px] font-bold truncate ${
+              meta.titleStrike ? "line-through text-slate-500" : "text-slate-900"
+            }`}
+          >
+            {item.className}
+          </span>
+          <span
+            className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-bold border ${
+              item.kind === "pt"
+                ? "bg-indigo-50 text-indigo-900 border-indigo-200"
+                : "bg-sky-50 text-sky-900 border-sky-200"
+            }`}
+          >
+            {item.kind === "pt"
+              ? t("memberSchedPtBadge")
+              : t("memberSchedGroupBadge")}
           </span>
         </div>
 
-        {/* Nội dung chính (15-16px) & phụ (>= 13px) */}
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[15px] font-extrabold text-slate-900">
-              {item.startTime}–{item.endTime}
-            </span>
-            {item.kind === "pt" && (
-              <span className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-0.5 text-[12px] font-bold text-indigo-900 border border-indigo-200">
-                <User className="h-3 w-3" aria-hidden="true" />
-                {t("memberSchedPtBadge")}
-              </span>
-            )}
-            <span
-              className={`text-[15px] font-bold truncate ${
-                meta.titleStrike ? "line-through text-slate-500" : "text-slate-900"
-              }`}
-            >
-              {item.className}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-slate-600">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-slate-700">
+          <span className="inline-flex items-center gap-1">
+            <MapPin className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+            {item.roomName || t("scheduleRoomTbd")}
+          </span>
+          {item.coachName && (
             <span className="inline-flex items-center gap-1">
-              <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-              {item.roomName || t("scheduleRoomTbd")}
+              <UserRound className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+              {item.coachName}
             </span>
-            {item.coachName && (
-              <span className="inline-flex items-center gap-1">
-                <UserRound className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                {item.coachName}
-              </span>
-            )}
-            {item.sessionNumber && item.totalSessions && (
-              <span className="font-medium text-slate-500">
-                {tr("memberSchedDrawerSessionProgress", {
-                  current: item.sessionNumber,
-                  total: item.totalSessions,
-                })}
-              </span>
-            )}
-            {item.status === "Cancelled" && (
-              <span className="font-semibold text-slate-600">
-                ·{" "}
-                {item.centerInvalidated
-                  ? t("memberSchedCancelReasonCenter")
-                  : t("memberSchedCancelReasonDefault")}
-                {item.replacedByDate
-                  ? ` (${tr("scheduleReplacedByDate", { date: item.replacedByDate })})`
-                  : ""}
-              </span>
-            )}
-          </div>
+          )}
+          {item.sessionNumber && item.totalSessions ? (
+            <span className="font-semibold text-slate-700">
+              ·{" "}
+              {tr("memberSchedDrawerSessionProgress", {
+                current: item.sessionNumber,
+                total: item.totalSessions,
+              })}
+            </span>
+          ) : item.remainingSessions != null ? (
+            <span className="font-semibold text-slate-700">
+              ·{" "}
+              {tr("memberSchedDrawerSessionsRemaining", {
+                remaining: item.remainingSessions,
+              })}
+            </span>
+          ) : null}
+          {item.status === "Cancelled" && (
+            <span className="font-semibold text-slate-700">
+              ·{" "}
+              {item.centerInvalidated
+                ? t("memberSchedCancelReasonCenter")
+                : t("memberSchedCancelReasonDefault")}
+              {item.replacedByDate
+                ? ` (${tr("scheduleReplacedByDate", { date: item.replacedByDate })})`
+                : ""}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Badge trạng thái bên phải */}
-      <StatusBadge item={item} t={t} />
+      {/* Vùng bên phải: thông tin đếm ngược (hoặc badge đặc biệt) + chevron › */}
+      <div className="flex items-center gap-2 shrink-0">
+        {item.isMakeup && (
+          <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[12px] font-bold text-indigo-900">
+            {t("scheduleMakeupBadge")}
+          </span>
+        )}
+        {!isRedundantPill ? (
+          <StatusBadge item={item} t={t} />
+        ) : (
+          rightHint && (
+            <span className="rounded-md bg-slate-100 px-2.5 py-1 text-[12px] font-bold text-slate-700 tabular-nums">
+              {rightHint}
+            </span>
+          )
+        )}
+        <ChevronRight
+          className="h-4 w-4 text-slate-400 group-hover:text-slate-800 group-hover:translate-x-0.5 transition-all"
+          aria-hidden="true"
+        />
+      </div>
     </button>
   )
 }
 
 /**
- * 4.5 ScheduleList (Danh sách theo ngày & mốc thời gian, có phân trang Xem thêm)
+ * 4.5 ScheduleList (P1 3.3 & 3.4: Gộp các buổi cùng ngày dưới 1 tiêu đề ngày, nhóm tuần theo khoảng ngày cụ thể sticky)
  */
 export function ScheduleList({
   items,
@@ -661,37 +712,38 @@ export function ScheduleList({
 }) {
   const [visibleCount, setVisibleCount] = useState(12)
 
-  const formatBucketLabel = (bucket) => {
-    if (!bucket) return ""
-    switch (bucket.type) {
-      case "today":
-        return t("memberSchedMilestoneToday")
-      case "tomorrow":
-        return t("memberSchedMilestoneTomorrow")
-      case "this_week":
-        return t("memberSchedMilestoneThisWeek")
-      case "next_week":
-        return t("memberSchedMilestoneNextWeek")
-      case "month":
-      default:
-        return tr("memberSchedMilestoneMonth", {
-          month: String(bucket.month).padStart(2, "0"),
-          year: bucket.year,
-        })
-    }
+  const formatWeekGroupLabel = (weekRange) => {
+    if (!weekRange) return ""
+    const prefix = weekRange.isThisWeek
+      ? `${t("memberSchedMilestoneThisWeek")} · `
+      : weekRange.isNextWeek
+        ? `${t("memberSchedMilestoneNextWeek")} · `
+        : ""
+    return `${prefix}${tr("memberSchedWeekGroupRange", {
+      start: weekRange.ddMmStart,
+      end: weekRange.ddMmYyyyEnd,
+    })}`
   }
 
   const hasTodayGroup = dayGroups.some((g) => g.dateIso === todayIso)
+  const firstUpcoming = items[0] || null
+  const firstUpcomingText = firstUpcoming
+    ? `${
+        language === "vi"
+          ? getWeekdayMeta(firstUpcoming.date).fullVi
+          : getWeekdayMeta(firstUpcoming.date).fullEn
+      }, ${toDdMm(firstUpcoming.date)} · ${firstUpcoming.startTime}`
+    : null
 
   if (items.length === 0) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {statusTab === "upcoming" && !hasTodayGroup && (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] font-medium text-slate-700">
+          <p className="text-[13px] font-medium text-slate-700 px-1">
             {t("memberSchedTodayNoSession")}
-          </div>
+          </p>
         )}
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-[14px] text-slate-600">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-[14px] text-slate-700">
           {t("scheduleEmptySessions")}
         </div>
       </div>
@@ -709,27 +761,54 @@ export function ScheduleList({
     slicedGroups.push({ ...g, items: slice })
   }
 
-  let lastBucketKey = null
+  let lastWeekKey = null
 
   return (
     <div className="space-y-4">
       {statusTab === "upcoming" && !hasTodayGroup && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] font-medium text-slate-700">
-          {t("memberSchedTodayNoSession")}
-        </div>
+        <p className="text-[13px] font-medium text-slate-700 px-1 flex flex-wrap items-center gap-1.5">
+          <span>
+            {firstUpcomingText
+              ? tr("memberSchedTodayNoSessionSubtle", {
+                  next: firstUpcomingText,
+                })
+              : t("memberSchedTodayNoSession")}
+          </span>
+        </p>
       )}
 
       {slicedGroups.map((group) => {
-        const showBucketHeader = group.bucket.key !== lastBucketKey
-        lastBucketKey = group.bucket.key
+        const showWeekHeader = group.weekKey !== lastWeekKey
+        lastWeekKey = group.weekKey
+        const weekdayFull =
+          language === "vi" ? group.weekday?.fullVi : group.weekday?.fullEn
 
         return (
           <div key={group.dateIso} className="space-y-2">
-            {showBucketHeader && (
-              <h3 className="text-[13px] font-extrabold uppercase tracking-wider text-slate-600 pt-1">
-                {formatBucketLabel(group.bucket)}
-              </h3>
+            {showWeekHeader && group.weekRange && (
+              <div className="sticky top-0 z-10 rounded-lg bg-slate-100/95 backdrop-blur-xs px-3 py-1.5 border border-slate-200/80">
+                <h3 className="text-[12px] font-extrabold uppercase tracking-wider text-slate-700">
+                  {formatWeekGroupLabel(group.weekRange)}
+                </h3>
+              </div>
             )}
+
+            {/* Tiêu đề ngày (Thứ Hai, 09/11 + badge Hôm nay / Ngày mai) */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 px-1">
+              <h4 className="text-[14px] font-extrabold text-slate-900">
+                {weekdayFull}, {group.ddMm}
+              </h4>
+              {group.isToday && (
+                <span className="rounded-full bg-blue-700 px-2 py-0.5 text-[11px] font-bold text-white">
+                  {t("memberSchedMilestoneToday")}
+                </span>
+              )}
+              {group.isTomorrow && (
+                <span className="rounded-full bg-sky-100 border border-sky-300 px-2 py-0.5 text-[11px] font-bold text-sky-900">
+                  {t("memberSchedMilestoneTomorrow")}
+                </span>
+              )}
+            </div>
 
             {group.holidayName && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[13px] font-bold text-amber-900 flex items-center gap-2">
@@ -746,6 +825,8 @@ export function ScheduleList({
                 <SessionRow
                   key={item.id}
                   item={item}
+                  todayIso={todayIso}
+                  statusTab={statusTab}
                   onSelect={onSelectSession}
                   language={language}
                   t={t}
@@ -823,7 +904,7 @@ export function NextSessionCard({
   }
 
   return (
-    <section className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 shadow-2xs space-y-3">
+    <section className="rounded-xl border border-blue-200 bg-blue-50/60 px-3.5 py-3 shadow-2xs space-y-2.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[13px] font-extrabold uppercase tracking-wider text-blue-950">
           {t("memberSchedNextSessionHeader")}
@@ -880,101 +961,169 @@ export function NextSessionCard({
 }
 
 /**
- * 4.7 PackageSummary ("Gói của tôi" — thay thế các thẻ lớp trống ở trang cũ)
+ * 4.7 PackageSummary ("Gói của tôi" — compact, scroll 280px, link nhỏ thay nút tím, bóng mờ mép)
  */
-export function PackageSummary({ packages = [], onNavigateBookPt, t, tr }) {
+export function PackageSummary({ packages = [], onNavigateBookPt, t, tr, fillHeight = false }) {
+  const scrollRef = useRef(null)
+
+  // Reset scroll về đầu khi danh sách thay đổi
+  React.useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0
+  }, [packages])
+
+  const renderPackageCard = (pkg) => {
+    const pct =
+      pkg.totalSessions > 0
+        ? Math.min(
+            100,
+            Math.round((pkg.completedSessions / pkg.totalSessions) * 100),
+          )
+        : 0
+
+    return (
+      <div
+        key={pkg.id}
+        className="rounded-lg border border-slate-200/90 bg-slate-50/60 px-2.5 py-2 space-y-1.5"
+      >
+        {/* Hàng 1: Tên gói (line-clamp-2 + tooltip) & X/Y buổi */}
+        <div className="flex items-start justify-between gap-2">
+          <p
+            title={pkg.title}
+            className="text-[12px] font-bold text-slate-900 leading-snug line-clamp-2 min-w-0 flex-1"
+          >
+            {pkg.title}
+          </p>
+          <span className="text-[11px] font-extrabold text-slate-700 shrink-0 tabular-nums whitespace-nowrap">
+            {tr("memberSchedPkgSessionsUnit", {
+              done: pkg.completedSessions,
+              total: pkg.totalSessions,
+            })}
+          </span>
+        </div>
+
+        {/* Hàng 2: Thanh tiến độ mỏng h-1.5 */}
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+          <div
+            className={`h-full rounded-full transition-all ${
+              pkg.kind === "pt" ? "bg-indigo-500" : "bg-sky-500"
+            }`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+
+        {/* Hàng 3: Trạng thái + Hạn + link Đặt lịch nhỏ */}
+        <div className="flex flex-wrap items-center justify-between gap-1">
+          <div className="flex flex-wrap items-center gap-1">
+            {pkg.hasSchedule ? (
+              <span className="text-[11px] font-semibold text-emerald-800">
+                {tr("memberSchedPkgScheduledCount", {
+                  count: pkg.scheduledCount,
+                })}
+              </span>
+            ) : (
+              <span className="text-[11px] font-semibold text-amber-800">
+                {t("memberSchedPkgNoScheduleYet")}
+              </span>
+            )}
+            {pkg.expiryDate && (
+              <span className="text-[11px] text-slate-500 tabular-nums">
+                · {t("memberSchedPkgExpiresPrefix")} {pkg.expiryDate}
+              </span>
+            )}
+          </div>
+
+          {!pkg.hasSchedule && (
+            <button
+              type="button"
+              onClick={onNavigateBookPt}
+              className="inline-flex items-center gap-0.5 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 hover:underline cursor-pointer"
+            >
+              <span>{t("memberSchedPkgBookBtn")}</span>
+              <ExternalLink className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  const groupPackages = packages.filter((p) => p.kind === "group")
+  const ptPackages = packages.filter((p) => p.kind === "pt")
+
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-[13px] font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-          <Package className="h-4 w-4 text-slate-500 shrink-0" />
+    <section className={`rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden${fillHeight ? " flex flex-col" : ""}`}>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 px-3.5 pt-3 pb-2">
+        <h2 className="text-[12px] font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+          <Package className="h-3.5 w-3.5 text-slate-500 shrink-0" />
           <span>{t("memberSchedMyPackagesHeader")}</span>
         </h2>
-        <span className="text-[12px] font-bold text-slate-500">
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 tabular-nums">
           {packages.length}
         </span>
       </div>
 
       {packages.length === 0 ? (
-        <p className="text-[13px] text-slate-600">
+        <p className="px-3.5 pb-3 text-[12px] text-slate-600">
           {t("memberSchedMyPackagesEmpty")}
         </p>
       ) : (
-        <div className="space-y-3 divide-y divide-slate-100">
-          {packages.map((pkg) => {
-            const pct =
-              pkg.totalSessions > 0
-                ? Math.min(
-                    100,
-                    Math.round((pkg.completedSessions / pkg.totalSessions) * 100),
-                  )
-                : 0
-            return (
-              <div key={pkg.id} className="pt-3 first:pt-0 space-y-1.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${
-                          pkg.kind === "pt"
-                            ? "bg-indigo-50 text-indigo-900 border border-indigo-200"
-                            : "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {pkg.kind === "pt"
-                          ? t("memberSchedPtBadge")
-                          : t("memberSchedGroupBadge")}
-                      </span>
-                      <p className="text-[14px] font-bold text-slate-900 truncate">
-                        {pkg.title}
-                      </p>
-                    </div>
-                    {pkg.expiryDate && (
-                      <p className="text-[12px] text-slate-500 mt-0.5">
-                        {t("memberSchedPkgExpiresPrefix")} {pkg.expiryDate}
-                      </p>
-                    )}
+        <>
+          {/* Vùng cuộn với bóng mờ trên/dưới */}
+          <div className={`relative${fillHeight ? " flex-1 min-h-0 flex flex-col" : ""}`}>
+            <div
+              ref={scrollRef}
+              className={`space-y-2.5 overflow-y-auto px-3 pb-2${fillHeight ? " flex-1 min-h-0" : " max-h-[280px]"}`}
+            >
+              {/* Lớp nhóm cố định */}
+              {groupPackages.length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  <h3 className="text-[10px] font-extrabold uppercase tracking-wider text-sky-900 flex items-center gap-1">
+                    <span className="h-2 w-0.5 rounded-xs bg-sky-600 shrink-0" />
+                    <span>{t("memberSchedPkgGroupSection")}</span>
+                  </h3>
+                  <div className="space-y-1.5">
+                    {groupPackages.map(renderPackageCard)}
                   </div>
-
-                  <span className="text-[13px] font-extrabold text-slate-800 shrink-0 tabular-nums">
-                    {tr("memberSchedPkgSessionsUnit", {
-                      done: pkg.completedSessions,
-                      total: pkg.totalSessions,
-                    })}
-                  </span>
                 </div>
+              )}
 
-                {/* Progress bar */}
-                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      pkg.kind === "pt" ? "bg-indigo-600" : "bg-brand-primary"
-                    }`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-
-                {!pkg.hasSchedule && (
-                  <div className="flex items-center justify-between gap-2 pt-0.5">
-                    <span className="text-[12px] font-semibold text-amber-800">
-                      {t("memberSchedPkgNoScheduleYet")}
-                    </span>
-                    {pkg.kind === "pt" && (
-                      <button
-                        type="button"
-                        onClick={onNavigateBookPt}
-                        className="min-h-[32px] inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-1 text-[12px] font-bold text-indigo-900 hover:bg-indigo-100 cursor-pointer"
-                      >
-                        <span>{t("memberSchedPkgBookPtBtn")}</span>
-                        <ExternalLink className="h-3 w-3" />
-                      </button>
-                    )}
+              {/* Gói PT 1:1 */}
+              {ptPackages.length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  <h3 className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-900 flex items-center gap-1">
+                    <span className="h-2 w-0.5 rounded-xs bg-indigo-600 shrink-0" />
+                    <span>{t("memberSchedPkgPtSection")}</span>
+                  </h3>
+                  <div className="space-y-1.5">
+                    {ptPackages.map(renderPackageCard)}
                   </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+                </div>
+              )}
+            </div>
+            {/* Bóng mờ mép trên */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-5 bg-gradient-to-b from-white to-transparent" />
+            {/* Bóng mờ mép dưới */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-white to-transparent" />
+          </div>
+
+          {/* Nút "Xem tất cả (N)" cố định dưới vùng cuộn */}
+          {packages.length > 4 && (
+            <div className="border-t border-slate-100 px-3 py-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (scrollRef.current) {
+                    scrollRef.current.scrollTo({ top: 999, behavior: "smooth" })
+                  }
+                }}
+                className="w-full text-center text-[11px] font-bold text-slate-500 hover:text-slate-800 cursor-pointer py-0.5"
+              >
+                {tr("memberSchedPkgViewAll", { count: packages.length })}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </section>
   )
@@ -1071,6 +1220,100 @@ export function UpcomingHolidays({
 }
 
 /**
+ * UpcomingHolidaysInline — compact, hiển thị ở cột trái dưới lịch
+ * Chỉ hiện 1–2 ngày lễ gần nhất kèm "Còn X ngày" và link "Xem tất cả" (giữ modal)
+ */
+export function UpcomingHolidaysInline({ next30Days = [], allUpcoming = [], t, tr }) {
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  // Lấy 1–2 ngày lễ gần nhất từ next30Days; nếu không có thì lấy 1 từ allUpcoming
+  const nearestHolidays = next30Days.length > 0
+    ? next30Days.slice(0, 2)
+    : allUpcoming.slice(0, 1)
+
+  // Nếu không có ngày lễ nào cả → ẩn card
+  if (nearestHolidays.length === 0) return null
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-2xs px-3.5 py-2.5">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <span className="text-[12px] font-extrabold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+          <CalendarDays className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+          {t("memberSchedHolidays30Header")}
+        </span>
+        {allUpcoming.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className="text-[12px] font-bold text-slate-500 hover:text-slate-800 underline cursor-pointer whitespace-nowrap"
+          >
+            {t("memberSchedHolidaysViewAll")}
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        {nearestHolidays.map((h) => (
+          <div
+            key={h.id}
+            className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-1.5 text-[12px]"
+          >
+            <span className="font-bold text-slate-900 truncate">{h.name}</span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="font-semibold text-amber-900 tabular-nums">{h.ddMmYyyy}</span>
+              {h.daysUntil != null && h.daysUntil >= 0 && (
+                <span className="rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-bold text-amber-900 tabular-nums whitespace-nowrap">
+                  {tr("memberSchedHolidayDaysLeft", { days: h.daysUntil })}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Modal xem tất cả */}
+      {isModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("memberSchedHolidaysModalTitle")}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
+        >
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-[16px] font-extrabold text-slate-900">
+                {t("memberSchedHolidaysModalTitle")}
+              </h3>
+              <button
+                type="button"
+                aria-label={t("scheduleAbsenceClose")}
+                onClick={() => setIsModalOpen(false)}
+                className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-80 overflow-y-auto space-y-2">
+              {allUpcoming.map((h) => (
+                <div
+                  key={h.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 text-[13px]"
+                >
+                  <span className="font-bold text-slate-900">{h.name}</span>
+                  <span className="font-semibold text-slate-700 tabular-nums">
+                    {h.ddMmYyyy}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
  * 4.6 SessionDrawer (Panel bên phải trên desktop, bottom sheet trên mobile)
  */
 export function SessionDrawer({
@@ -1079,6 +1322,8 @@ export function SessionDrawer({
   onOpenAbsenceModal,
   onRequestCancelPt,
   onNavigateProgress,
+  onNavigateCoach,
+  onNavigateFacilities,
   language,
   t,
   tr,
@@ -1091,6 +1336,23 @@ export function SessionDrawer({
     item.slotNumber && item.slotNumber !== "other"
       ? tr("memberSchedSlotPrefix", { num: item.slotNumber })
       : t("memberSchedOtherSlot")
+
+  const buildGoogleCalendarUrl = () => {
+    const cleanDate = String(item.date || "").replace(/-/g, "")
+    const cleanStart = String(item.startTime || "06:00").replace(/:/g, "") + "00"
+    const cleanEnd = String(item.endTime || "07:30").replace(/:/g, "") + "00"
+    const dates = `${cleanDate}T${cleanStart}/${cleanDate}T${cleanEnd}`
+    const details = `${item.sportName} · ${t("scheduleDrawerCoach")}: ${item.coachName || "VIBE Sport"}`
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: item.className,
+      dates,
+      ctz: "Asia/Ho_Chi_Minh",
+      location: item.roomName || "VIBE Sport Center",
+      details,
+    })
+    return `https://calendar.google.com/calendar/render?${params.toString()}`
+  }
 
   return (
     <div
@@ -1105,23 +1367,28 @@ export function SessionDrawer({
         className="w-full sm:max-w-md max-h-[90vh] sm:h-full rounded-t-2xl sm:rounded-none bg-white p-6 shadow-2xl flex flex-col justify-between overflow-y-auto"
       >
         <div className="space-y-5">
-          {/* Header */}
+          {/* Header (P2 4.4: Gộp 2 nhãn PT 1:1 + TENNIS thành 1 chip "PT 1:1 · Tennis") */}
           <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-4">
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex items-center gap-2">
                 <span
-                  className={`rounded px-2 py-0.5 text-[12px] font-bold ${
+                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-0.5 text-[12px] font-bold border ${
                     item.kind === "pt"
-                      ? "bg-indigo-50 text-indigo-900 border border-indigo-200"
-                      : "bg-slate-100 text-slate-700"
+                      ? "bg-indigo-50 text-indigo-900 border-indigo-200"
+                      : "bg-sky-50 text-sky-900 border-sky-200"
                   }`}
                 >
-                  {item.kind === "pt"
-                    ? t("memberSchedPtBadge")
-                    : t("memberSchedGroupBadge")}
-                </span>
-                <span className="text-[12px] font-bold uppercase text-brand-accent-dark">
-                  {item.sportName}
+                  <span>
+                    {item.kind === "pt"
+                      ? t("memberSchedPtBadge")
+                      : t("memberSchedGroupBadge")}
+                  </span>
+                  {item.sportName && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span>{item.sportName}</span>
+                    </>
+                  )}
                 </span>
               </div>
               <h3 className="text-[18px] font-extrabold text-slate-950">
@@ -1133,16 +1400,16 @@ export function SessionDrawer({
               type="button"
               aria-label={t("scheduleAbsenceClose")}
               onClick={onClose}
-              className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 cursor-pointer"
+              className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          {/* Thông tin chi tiết */}
+          {/* Thông tin chi tiết (WCAG AA contrast >= 4.5:1) */}
           <dl className="space-y-3 text-[14px]">
             <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-              <dt className="font-semibold text-slate-600">
+              <dt className="font-semibold text-slate-700">
                 {t("scheduleDrawerDate")}
               </dt>
               <dd className="font-bold text-slate-900 text-right">
@@ -1151,7 +1418,7 @@ export function SessionDrawer({
             </div>
 
             <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-              <dt className="font-semibold text-slate-600">
+              <dt className="font-semibold text-slate-700">
                 {t("scheduleDrawerTime")}
               </dt>
               <dd className="font-bold text-slate-900 text-right">
@@ -1160,7 +1427,7 @@ export function SessionDrawer({
             </div>
 
             <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-              <dt className="font-semibold text-slate-600">
+              <dt className="font-semibold text-slate-700">
                 {t("scheduleDrawerRoom")}
               </dt>
               <dd className="font-semibold text-slate-900 text-right">
@@ -1169,7 +1436,7 @@ export function SessionDrawer({
             </div>
 
             <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-              <dt className="font-semibold text-slate-600">
+              <dt className="font-semibold text-slate-700">
                 {t("scheduleDrawerCoach")}
               </dt>
               <dd className="font-semibold text-slate-900 text-right">
@@ -1177,22 +1444,73 @@ export function SessionDrawer({
               </dd>
             </div>
 
-            {item.sessionNumber && item.totalSessions && (
+            {item.packageName && (
               <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-                <dt className="font-semibold text-slate-600">
-                  {t("trainingProgress")}
+                <dt className="font-semibold text-slate-700">
+                  {t("memberSchedDrawerPackageLabel")}
                 </dt>
-                <dd className="font-bold text-slate-900">
-                  {tr("memberSchedDrawerSessionProgress", {
-                    current: item.sessionNumber,
-                    total: item.totalSessions,
-                  })}
+                <dd className="font-semibold text-slate-900 text-right">
+                  {item.packageName}
+                </dd>
+              </div>
+            )}
+
+            {item.sessionNumber && item.totalSessions && (
+              <div className="py-1.5 border-b border-slate-100 space-y-1.5">
+                <div className="flex justify-between gap-3">
+                  <dt className="font-semibold text-slate-700">
+                    {t("trainingProgress")}
+                  </dt>
+                  <dd className="font-bold text-slate-900 text-right">
+                    {tr("memberSchedDrawerSessionProgress", {
+                      current: item.sessionNumber,
+                      total: item.totalSessions,
+                    })}
+                    {item.remainingSessions != null && (
+                      <span className="text-slate-700 font-semibold">
+                        {" · "}
+                        {tr("memberSchedDrawerSessionsRemaining", {
+                          remaining: item.remainingSessions,
+                        })}
+                      </span>
+                    )}
+                  </dd>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 border border-slate-300/60">
+                  <div
+                    className={`h-full rounded-full ${
+                      item.kind === "pt" ? "bg-indigo-600" : "bg-sky-600"
+                    }`}
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.round(
+                          (Number(item.sessionNumber) /
+                            Math.max(1, Number(item.totalSessions))) *
+                            100,
+                        ),
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {item.courseSummary && (
+              <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
+                <dt className="font-semibold text-slate-700">
+                  {t("memberSchedDrawerCourseSummaryLabel")}
+                </dt>
+                <dd className="font-semibold text-slate-800 text-right tabular-nums">
+                  {t("memberSchedStatDone")} {item.courseSummary.done} ·{" "}
+                  {t("memberSchedStatAbsent")} {item.courseSummary.absent} ·{" "}
+                  {t("memberSchedStatUpcoming")} {item.courseSummary.upcoming}
                 </dd>
               </div>
             )}
 
             <div className="flex justify-between items-center gap-3 py-1.5 border-b border-slate-100">
-              <dt className="font-semibold text-slate-600">
+              <dt className="font-semibold text-slate-700">
                 {t("scheduleDrawerStatus")}
               </dt>
               <dd>
@@ -1202,7 +1520,7 @@ export function SessionDrawer({
 
             {item.status === "Completed" && item.attendance && (
               <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-                <dt className="font-semibold text-slate-600">
+                <dt className="font-semibold text-slate-700">
                   {t("memberSchedDrawerAttendanceLabel")}
                 </dt>
                 <dd className="font-bold text-slate-900">
@@ -1215,7 +1533,7 @@ export function SessionDrawer({
 
             {item.status === "Cancelled" && (
               <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-                <dt className="font-semibold text-slate-600">
+                <dt className="font-semibold text-slate-700">
                   {t("memberSchedDrawerCancelReasonLabel")}
                 </dt>
                 <dd className="font-bold text-slate-800 text-right">
@@ -1267,10 +1585,10 @@ export function SessionDrawer({
           )}
         </div>
 
-        {/* Khu vực hành động ở chân Drawer */}
-        <div className="border-t border-slate-200 pt-4 mt-4 space-y-2.5">
+        {/* Khu vực hành động sticky ở chân Drawer (P0 4.1: luôn có hành động rõ ràng) */}
+        <div className="sticky bottom-0 bg-white border-t border-slate-200 pt-4 mt-4 space-y-2">
           {item.kind === "pt" && item.status === "Scheduled" && (
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 disabled={!item.canReportAbsence}
@@ -1282,7 +1600,7 @@ export function SessionDrawer({
                       })
                     : undefined
                 }
-                className="w-full min-h-[42px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 text-[14px] font-bold text-slate-900 cursor-pointer"
+                className="min-h-[40px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 text-[13px] font-bold text-slate-900 cursor-pointer"
               >
                 {t("scheduleBtnReportAbsence")}
               </button>
@@ -1291,7 +1609,7 @@ export function SessionDrawer({
                 <button
                   type="button"
                   onClick={() => onRequestCancelPt(item)}
-                  className="w-full min-h-[42px] rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 px-4 py-2 text-[14px] font-bold text-rose-800 cursor-pointer"
+                  className="min-h-[40px] rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 px-3 py-2 text-[13px] font-bold text-rose-800 cursor-pointer"
                 >
                   {t("schedulePtBtnCancel")}
                 </button>
@@ -1303,12 +1621,52 @@ export function SessionDrawer({
             <button
               type="button"
               onClick={onNavigateProgress}
-              className="w-full min-h-[42px] inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 hover:bg-slate-800 px-4 py-2 text-[14px] font-bold text-white cursor-pointer"
+              className="w-full min-h-[40px] inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 hover:bg-slate-800 px-4 py-2 text-[13px] font-bold text-white cursor-pointer"
             >
               <span>{t("memberSchedDrawerViewProgressLink")}</span>
               <ExternalLink className="h-4 w-4" />
             </button>
           )}
+
+          {item.status === "Scheduled" && (
+            <a
+              href={buildGoogleCalendarUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full min-h-[40px] inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-3 py-2 text-[13px] font-bold text-slate-900"
+            >
+              <Calendar className="h-4 w-4 text-blue-700" />
+              <span>{t("memberSchedDrawerAddCalendarBtn")}</span>
+            </a>
+          )}
+
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={onNavigateFacilities}
+              className="min-h-[38px] inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 text-[12px] font-bold text-slate-800 cursor-pointer"
+            >
+              <MapPin className="h-3.5 w-3.5 text-slate-600 shrink-0" />
+              <span className="truncate">{t("memberSchedDrawerViewCourtBtn")}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onNavigateCoach}
+              className="min-h-[38px] inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 text-[12px] font-bold text-slate-800 cursor-pointer"
+            >
+              <UserRound className="h-3.5 w-3.5 text-slate-600 shrink-0" />
+              <span className="truncate">{t("memberSchedDrawerContactCoachBtn")}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-h-[38px] inline-flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 px-3 py-1.5 text-[12px] font-bold text-white cursor-pointer"
+            >
+              {t("memberSchedDrawerCloseBtn")}
+            </button>
+          </div>
         </div>
       </div>
     </div>

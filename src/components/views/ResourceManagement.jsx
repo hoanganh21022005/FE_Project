@@ -246,7 +246,7 @@ export function ResourceManagement() {
                   <td className="p-3 tabular-nums">{currency(item.normalPrice)}</td>
                   <td className="p-3 tabular-nums">{currency(item.advancedPrice)}</td>
                   <td className="p-3">{item.outdoor == null ? '—' : item.outdoor ? 'Outdoor' : 'Indoor'}</td>
-                  <td className="p-3"><span className={`rounded px-2 py-1 text-[10px] font-bold uppercase ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{item.status || '—'}</span></td>
+                  <td className="p-3"><span className={`rounded px-2 py-1 text-xs font-bold uppercase ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{item.status || '—'}</span></td>
                   <td className="p-3"><div className="flex gap-2">
                     <button onClick={() => setEditor({ type: 'subject', item })} className="p-2 rounded bg-slate-100" title="Edit"><Edit3 className="w-4 h-4" /></button>
                     <button disabled={busyId === item.id} onClick={() => removeSubject(item)} className="p-2 rounded bg-rose-50 text-rose-700 disabled:opacity-50" title="Delete"><Trash2 className="w-4 h-4" /></button>
@@ -267,7 +267,7 @@ export function ResourceManagement() {
                   <td className="p-3">{item.location || '—'}</td>
                   <td className="p-3 tabular-nums">{item.capacity ?? '—'}</td>
                   <td className="p-3">{item.facilityType || (item.outdoor == null ? '—' : item.outdoor ? 'Outdoor' : 'Indoor')}</td>
-                  <td className="p-3"><span className={`rounded px-2 py-1 text-[10px] font-bold uppercase ${item.status === 'available' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{item.status || '—'}</span></td>
+                  <td className="p-3"><span className={`rounded px-2 py-1 text-xs font-bold uppercase ${item.status === 'available' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{item.status || '—'}</span></td>
                   <td className="p-3"><div className="flex items-center gap-2">
                     <button onClick={() => setEditor({ type: 'room', item })} className="p-2 rounded bg-slate-100" title="Edit"><Edit3 className="w-4 h-4" /></button>
                     <select aria-label={label(`Trạng thái ${item.name}`, `Status for ${item.name}`)} disabled={busyId === item.id} value={item.status || ''} onChange={event => changeRoomStatus(item, event.target.value)} className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50">

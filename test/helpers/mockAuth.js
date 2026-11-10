@@ -1,5 +1,13 @@
 import { expect } from '@playwright/test';
 import { mockUsers } from './mockData.js';
+import config from '../../playwright.config.js';
+
+const testOrigin = new URL(config.use.baseURL).origin;
+
+export function isLocalApi(url, path) {
+  const parsed = typeof url === 'string' ? new URL(url, testOrigin) : url;
+  return parsed.origin === testOrigin && parsed.pathname === path;
+}
 
 /**
  * Kiểm tra xem URL có phải là API REST của backend hay không (loại trừ các file JS/JSX của Vite trong /src/)
@@ -7,8 +15,9 @@ import { mockUsers } from './mockData.js';
  * @param {string} [endpoint] Tên endpoint (ví dụ: 'classes', 'invoices', 'members')
  */
 export function isApiMatch(url, endpoint) {
-  const parsed = typeof url === 'string' ? new URL(url, 'http://localhost:5173') : url;
+  const parsed = typeof url === 'string' ? new URL(url, testOrigin) : url;
   const p = parsed.pathname;
+  if (parsed.origin !== testOrigin) return false;
 
   // Bỏ qua các file source và asset của Vite
   if (p.startsWith('/src/') || p.includes('@') || p.endsWith('.js') || p.endsWith('.jsx') || p.endsWith('.css') || p.endsWith('.html')) {
@@ -28,8 +37,9 @@ export function isApiMatch(url, endpoint) {
  */
 export async function setupDefaultApiMocks(page, auxiliaryPaths = []) {
   // Auxiliary GETs are explicitly mocked; other requests hit the test guard.
-  const paths = ['subjects', 'rooms', 'coaches', 'staff', 'packages', 'notifications'];
-  await page.route((url) => paths.some((path) => url.pathname === `/api/${path}`) || ['/api/notifications/me', '/api/reports/dashboard', '/api/audit-logs', ...auxiliaryPaths].includes(url.pathname), async (route) => {
+  const paths = ['subjects', 'rooms', 'coaches', 'staff', 'packages', 'notifications'].map((path) => `/api/${path}`);
+  paths.push('/api/notifications/me', '/api/reports/dashboard', '/api/audit-logs', ...auxiliaryPaths);
+  await page.route((url) => url.origin === testOrigin && paths.includes(url.pathname), async (route) => {
     if (route.request().method() !== 'GET') return route.fallback();
     return route.fulfill({ status: 200, json: [] });
   });

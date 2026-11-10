@@ -19,6 +19,7 @@ import { membershipApi } from "../../api/membershipApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { getErrorMessage } from "../../api/apiErrors"
+import { PageHeader } from "../ui/PageHeader"
 
 const INITIAL_REQUESTS = [
   {
@@ -108,13 +109,14 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
   } catch {
     // Graceful fallback when rendered outside Router context
   }
-  const { language, apiEnabled, currentUser } = useSCMS()
+  const { language, apiEnabled, currentUser, t } = useSCMS()
   const isVi = language === "vi"
 
   const memberId =
     getAuthoritativeProfileId(currentUser) ?? currentUser?.memberId
 
   const [requests, setRequests] = useState(apiEnabled ? [] : INITIAL_REQUESTS)
+  const [requestsLoading, setRequestsLoading] = useState(!!apiEnabled)
   const [subscriptions, setSubscriptions] = useState(
     Array.isArray(initialSubscriptions) ? initialSubscriptions : []
   )
@@ -159,6 +161,17 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
           }
         })
         .catch(() => {})
+    }
+    // Fetch lịch sử yêu cầu bảo lưu
+    if (memberId) {
+      setRequestsLoading(true)
+      membershipApi
+        .getFreezeRequests?.(memberId)
+        .then((list) => setRequests(Array.isArray(list) ? list : []))
+        .catch(() => {})
+        .finally(() => setRequestsLoading(false))
+    } else {
+      setRequestsLoading(false)
     }
   }, [apiEnabled, memberId])
 
@@ -234,31 +247,24 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
     >
       {/* Header */}
       {!embedded && (
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
-              VIBE SPORT · MEMBER
-            </p>
-            <h1 className="mt-2 text-3xl font-black text-slate-950">
-              {isVi ? "Yêu cầu bảo lưu gói tập" : "Membership Freeze Request"}
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              {isVi
-                ? "Tạm dừng thời hạn gói khi bạn đi công tác, điều trị chấn thương hoặc có việc cá nhân."
-                : "Put your membership on hold during trips, medical treatments, or personal leave."}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate("/member/my-membership")}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>
-              {isVi ? "Quay lại Gói hội viên" : "Back to My Membership"}
-            </span>
-          </button>
-        </header>
+        <PageHeader
+          title={isVi ? "Yêu cầu bảo lưu gói tập" : "Membership Freeze Request"}
+          description={isVi
+            ? "Tạm dừng thời hạn gói khi bạn đi công tác, điều trị chấn thương hoặc có việc cá nhân."
+            : "Put your membership on hold during trips, medical treatments, or personal leave."}
+          actions={
+            <button
+              type="button"
+              onClick={() => navigate("/member/my-membership")}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>
+                {isVi ? "Quay lại Gói hội viên" : "Back to My Membership"}
+              </span>
+            </button>
+          }
+        />
       )}
 
       {/* Policy banner */}
@@ -325,14 +331,10 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
               <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <p className="font-bold text-sm">
-                  {isVi
-                    ? "Form gửi yêu cầu bảo lưu trực tuyến hiện đang tạm khóa"
-                    : "Online Freeze Request Form is Temporarily Locked"}
+                  {t("memberFreezeUpgradeTitle")}
                 </p>
                 <p className="text-amber-900/90 leading-relaxed">
-                  {isVi
-                    ? "Chức năng gửi yêu cầu bảo lưu trực tuyến đang được nâng cấp. Các ngày Trung tâm nghỉ lễ và sự cố cơ sở vật chất ở trên đã được hệ thống tự động cộng bù thời hạn sử dụng mà không cần gửi đơn."
-                    : "Online freeze requests are currently under upgrade. Center holidays and incidents above are compensated automatically without submitting a request."}
+                  {t("memberFreezeUpgradeBody")}
                 </p>
               </div>
             </div>
@@ -585,9 +587,14 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
           </h2>
         </div>
 
-        {requests.length === 0 ? (
+        {requestsLoading ? (
+          <div className="p-8 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+            <Clock className="h-4 w-4 animate-spin text-slate-400" />
+            <span>{t("memberFreezeLoadingRequests")}</span>
+          </div>
+        ) : requests.length === 0 ? (
           <div className="p-8 text-center text-xs text-slate-500">
-            {isVi ? "Chưa có yêu cầu bảo lưu nào." : "No freeze requests yet."}
+            {t("memberFreezeNoRequests")}
           </div>
         ) : (
           <div className="divide-y divide-slate-100">

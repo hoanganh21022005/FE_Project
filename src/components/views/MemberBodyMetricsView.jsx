@@ -4,6 +4,7 @@ import {
   HeartPulse,
   TrendingDown,
   TrendingUp,
+  Minus,
   Scale,
   Activity,
   Plus,
@@ -34,6 +35,7 @@ import { useSCMS } from "../../context/SCMSContext"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
+import { PageHeader } from "../ui/PageHeader"
 
 const API_ENABLED = import.meta.env.VITE_API_ENABLED
   ? import.meta.env.VITE_API_ENABLED === "true"
@@ -282,50 +284,40 @@ export function MemberBodyMetricsView() {
   return (
     <main className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-7 sm:py-8">
       {/* Header */}
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
-            VIBE SPORT · MEMBER PORTAL
-          </p>
-          <h1 className="mt-2 text-3xl font-black text-slate-950">
-            {isVi
-              ? "Thể chất & Kế hoạch tập luyện"
-              : "Body Metrics & Training Plans"}
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {isVi
-              ? "Theo dõi chỉ số InBody, kế hoạch huấn luyện và nhận xét tiến độ từ HLV."
-              : "Track your body composition, customized training plans, and coach feedback."}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {activeTab === "inbody" ? (
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-primary-hover transition-colors shadow-xs cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>{isVi ? "Ghi nhận chỉ số mới" : "Log New Metric"}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={fetchTrainingData}
-              disabled={loadingTraining}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`w-3.5 h-3.5 ${
-                  loadingTraining ? "animate-spin" : ""
-                }`}
-              />
-              <span>{isVi ? "Làm mới dữ liệu" : "Refresh"}</span>
-            </button>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title={isVi ? "Thể chất & Kế hoạch tập luyện" : "Body Metrics & Training Plans"}
+        description={isVi
+          ? "Theo dõi chỉ số InBody, kế hoạch huấn luyện và nhận xét tiến độ từ HLV."
+          : "Track your body composition, customized training plans, and coach feedback."}
+        actions={
+          <div className="flex items-center gap-2">
+            {activeTab === "inbody" ? (
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-primary-hover transition-colors shadow-xs cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{isVi ? "Ghi nhận chỉ số mới" : "Log New Metric"}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={fetchTrainingData}
+                disabled={loadingTraining}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${
+                    loadingTraining ? "animate-spin" : ""
+                  }`}
+                />
+                <span>{isVi ? "Làm mới dữ liệu" : "Refresh"}</span>
+              </button>
+            )}
+          </div>
+        }
+      />
 
       {/* Navigation Tabs */}
       <div className="flex border-b border-slate-200 gap-2 sm:gap-6 text-sm font-semibold">
@@ -428,7 +420,7 @@ export function MemberBodyMetricsView() {
           {/* KPI Metric Cards */}
           <div className="grid gap-3.5 grid-cols-2 sm:grid-cols-4">
             {/* Weight */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+            <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
               <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
                 <span>{isVi ? "Cân nặng" : "Weight"}</span>
                 <Scale className="w-4 h-4 text-slate-400" />
@@ -444,7 +436,13 @@ export function MemberBodyMetricsView() {
               <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-emerald-600">
                 {metrics.length > 1 ? (
                   <>
-                    <TrendingDown className="w-3.5 h-3.5" />
+                    {Number(weightDiff) > 0 ? (
+                      <TrendingUp className="w-3.5 h-3.5 text-red-500" />
+                    ) : Number(weightDiff) < 0 ? (
+                      <TrendingDown className="w-3.5 h-3.5 text-emerald-600" />
+                    ) : (
+                      <Minus className="w-3.5 h-3.5 text-slate-400" />
+                    )}
                     <span>{weightDiff} kg so với lần trước</span>
                   </>
                 ) : (
@@ -462,7 +460,7 @@ export function MemberBodyMetricsView() {
             </div>
 
             {/* Fat % */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+            <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
               <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
                 <span>{isVi ? "Tỷ lệ mỡ" : "Body Fat"}</span>
                 <HeartPulse className="w-4 h-4 text-slate-400" />
@@ -498,7 +496,7 @@ export function MemberBodyMetricsView() {
             </div>
 
             {/* Muscle mass */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+            <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
               <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
                 <span>{isVi ? "Khối lượng cơ" : "Muscle Mass"}</span>
                 <Activity className="w-4 h-4 text-slate-400" />
@@ -535,7 +533,7 @@ export function MemberBodyMetricsView() {
             </div>
 
             {/* BMI */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+            <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
               <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
                 <span>{isVi ? "Chỉ số BMI" : "BMI"}</span>
                 <Sparkles className="w-4 h-4 text-slate-400" />
@@ -582,6 +580,11 @@ export function MemberBodyMetricsView() {
             </p>
 
             <div className="mt-6 h-64 w-full">
+              {metrics.length === 0 ? (
+                <p className="flex h-full items-center justify-center text-sm text-slate-400">
+                  {isVi ? "Chưa có dữ liệu để hiển thị biểu đồ." : "No data available to display the chart."}
+                </p>
+              ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                   data={metrics}
@@ -635,6 +638,7 @@ export function MemberBodyMetricsView() {
                   />
                 </LineChart>
               </ResponsiveContainer>
+              )}
             </div>
           </section>
 

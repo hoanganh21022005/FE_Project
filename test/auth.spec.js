@@ -1,12 +1,12 @@
 import { test, expect } from './helpers/guardedTest.js';
 import { mockUsers } from './helpers/mockData.js';
-import { setupDefaultApiMocks } from './helpers/mockAuth.js';
+import { setupDefaultApiMocks, isLocalApi } from './helpers/mockAuth.js';
 
 test.describe('Kịch bản Xác thực & Phân quyền (AUTH-01 -> AUTH-07)', () => {
   test.beforeEach(async ({ page }) => {
     await setupDefaultApiMocks(page, ['/api/members', '/api/classes', '/api/invoices', '/api/members/101/enrollments', '/api/members/101/subscriptions', '/api/members/me/invoices']);
     // Chặn mặc định các API không mong muốn
-    await page.route('**/api/auth/me', async (route) => {
+    await page.route((url) => isLocalApi(url, '/api/auth/me'), async (route) => {
       route.fulfill({
         status: 401,
         contentType: 'application/json',
@@ -74,7 +74,7 @@ test.describe('Kịch bản Xác thực & Phân quyền (AUTH-01 -> AUTH-07)', (
 
   // AUTH-03: Nhập sai thông tin và submit
   test('AUTH-03: Nhập sai thông tin đăng nhập, POST login trả 401, hiển thị thông báo lỗi và ở lại trang', async ({ page }) => {
-    await page.route('**/api/auth/login', async (route) => {
+    await page.route((url) => isLocalApi(url, '/api/auth/login'), async (route) => {
       return route.fulfill({
         status: 401,
         contentType: 'application/json',
@@ -114,7 +114,7 @@ test.describe('Kịch bản Xác thực & Phân quyền (AUTH-01 -> AUTH-07)', (
     test(`AUTH-04: Đăng nhập hợp lệ với vai trò ${item.user.role} (${item.user.email})`, async ({ page }) => {
       // Mock API đăng nhập và me
       let loggedIn = false;
-      await page.route('**/api/auth/login', async (route) => {
+      await page.route((url) => isLocalApi(url, '/api/auth/login'), async (route) => {
         loggedIn = true;
         return route.fulfill({
           status: 200,
@@ -123,7 +123,7 @@ test.describe('Kịch bản Xác thực & Phân quyền (AUTH-01 -> AUTH-07)', (
         });
       });
 
-      await page.route('**/api/auth/me', async (route) => {
+      await page.route((url) => isLocalApi(url, '/api/auth/me'), async (route) => {
         if (!loggedIn) return route.fulfill({ status: 401, json: { message: 'Unauthenticated' } });
         return route.fulfill({
           status: 200,
@@ -147,19 +147,19 @@ test.describe('Kịch bản Xác thực & Phân quyền (AUTH-01 -> AUTH-07)', (
     const managerUser = mockUsers.manager;
     let isAuthenticatedState = false;
 
-    await page.route('**/api/auth/login', async (route) => {
+    await page.route((url) => isLocalApi(url, '/api/auth/login'), async (route) => {
       isAuthenticatedState = true;
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(managerUser) });
     });
 
-    await page.route('**/api/auth/me', async (route) => {
+    await page.route((url) => isLocalApi(url, '/api/auth/me'), async (route) => {
       if (isAuthenticatedState) {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(managerUser) });
       }
       return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Unauthenticated' }) });
     });
 
-    await page.route('**/api/auth/logout', async (route) => {
+    await page.route((url) => isLocalApi(url, '/api/auth/logout'), async (route) => {
       isAuthenticatedState = false;
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ message: 'Success' }) });
     });
@@ -196,7 +196,7 @@ test.describe('Kịch bản Xác thực & Phân quyền (AUTH-01 -> AUTH-07)', (
   test('AUTH-06: Vai trò không phù hợp (Member) mở route quản trị (/manager/classes) bị chặn 403', async ({ page }) => {
     const memberUser = mockUsers.member;
 
-    await page.route('**/api/auth/me', async (route) => {
+    await page.route((url) => isLocalApi(url, '/api/auth/me'), async (route) => {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(memberUser) });
     });
 
@@ -217,7 +217,7 @@ test.describe('Kịch bản Xác thực & Phân quyền (AUTH-01 -> AUTH-07)', (
 
   // AUTH-07: Mô phỏng phiên hết hạn, timeout hoặc mất mạng
   test('AUTH-07: Mô phỏng mất mạng khi submit login, hiển thị thông báo lỗi phù hợp', async ({ page }) => {
-    await page.route('**/api/auth/login', async (route) => {
+    await page.route((url) => isLocalApi(url, '/api/auth/login'), async (route) => {
       // Mô phỏng rớt mạng / kết nối thất bại
       route.abort('failed');
     });

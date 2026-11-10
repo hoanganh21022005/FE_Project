@@ -75,26 +75,26 @@ export function ReceptionistDashboard() {
   }, [todayAttendances])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans">
       {/* Reception Desk Banner */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-base font-bold text-slate-900">
+          <h2 className="text-xl leading-7 font-semibold text-text-primary">
             {language === "vi"
               ? "Tổng Quan Quầy Lễ Tân VIBE Sport Center"
               : "VIBE Sport Reception Desk"}
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-sm leading-5 text-text-secondary">
             {language === "vi"
               ? "Thống kê hoạt động trong ca trực và lối tắt điều hướng nhanh"
               : "Shift activity overview and quick navigation shortcuts"}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => navigate("/receptionist/checkin")}
-            className="px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-3.5 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer shadow-xs"
           >
             <QrCode className="w-3.5 h-3.5" />
             <span>
@@ -104,7 +104,7 @@ export function ReceptionistDashboard() {
 
           <button
             onClick={() => setIsNewMemberOpen(true)}
-            className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-3.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span>{language === "vi" ? "Tạo Hội Viên Mới" : "New Member"}</span>
@@ -113,20 +113,20 @@ export function ReceptionistDashboard() {
       </div>
 
       {/* Quick Navigation Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
         <button
           type="button"
           onClick={() => navigate("/receptionist/checkin")}
-          className="text-left p-4 bg-white hover:bg-brand-sky-soft/30 border border-slate-200 hover:border-brand-accent rounded-lg shadow-xs transition-all cursor-pointer flex items-start gap-3"
+          className="text-left rounded-lg border border-border-color bg-bg-card p-3.5 text-text-primary hover:bg-bg-secondary/60 hover:border-brand-primary/40 transition-colors cursor-pointer flex items-start gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
         >
-          <div className="p-2.5 bg-brand-sky-soft text-brand-accent-dark rounded border border-brand-accent/30">
-            <QrCode className="w-5 h-5" />
+          <div className="p-2 bg-bg-secondary text-brand-primary rounded border border-border-color shrink-0">
+            <QrCode className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-sm font-bold text-slate-900">
+            <div className="text-sm font-semibold text-text-primary">
               Điểm danh &amp; Check-in
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs leading-4 text-text-secondary mt-0.5">
               Quét mã QR cổng vào, Check-in / Check-out thủ công và xem lịch sử
               điểm danh
             </p>
@@ -136,16 +136,16 @@ export function ReceptionistDashboard() {
         <button
           type="button"
           onClick={() => navigate("/receptionist/search")}
-          className="text-left p-4 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg shadow-xs transition-all cursor-pointer flex items-start gap-3"
+          className="text-left rounded-lg border border-border-color bg-bg-card p-3.5 text-text-primary hover:bg-bg-secondary/60 hover:border-brand-primary/40 transition-colors cursor-pointer flex items-start gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
         >
-          <div className="p-2.5 bg-brand-lavender-soft text-brand-purple-dark rounded border border-brand-purple/20">
-            <Search className="w-5 h-5" />
+          <div className="p-2 bg-bg-secondary text-brand-primary rounded border border-border-color shrink-0">
+            <Search className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-sm font-bold text-slate-900">
+            <div className="text-sm font-semibold text-text-primary">
               Tìm kiếm &amp; Hỗ trợ Hội viên
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs leading-4 text-text-secondary mt-0.5">
               Tra cứu hồ sơ hội viên, kiểm tra hạn gói tập và gỡ chặn đặt lịch
               (Unblock)
             </p>
@@ -155,16 +155,16 @@ export function ReceptionistDashboard() {
         <button
           type="button"
           onClick={() => navigate("/receptionist/booking")}
-          className="text-left p-4 bg-white hover:bg-brand-mint-soft border border-slate-200 hover:border-brand-teal/40 rounded-lg shadow-xs transition-all cursor-pointer flex items-start gap-3"
+          className="text-left rounded-lg border border-border-color bg-bg-card p-3.5 text-text-primary hover:bg-bg-secondary/60 hover:border-brand-primary/40 transition-colors cursor-pointer flex items-start gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
         >
-          <div className="p-2.5 bg-brand-mint-soft text-brand-teal rounded border border-brand-teal/20">
-            <Calendar className="w-5 h-5" />
+          <div className="p-2 bg-bg-secondary text-brand-primary rounded border border-border-color shrink-0">
+            <Calendar className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-sm font-bold text-slate-900">
+            <div className="text-sm font-semibold text-text-primary">
               Đăng ký lớp học tại quầy
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs leading-4 text-text-secondary mt-0.5">
               Ghi danh hoặc hủy đăng ký lớp học trực tiếp thay cho hội viên
             </p>
           </div>
@@ -172,23 +172,23 @@ export function ReceptionistDashboard() {
       </div>
 
       {/* Reception KPI Metrics & Hourly Check-in Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-lg p-5 shadow-xs">
-          <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 rounded-lg border border-border-color bg-bg-card p-4 text-text-primary">
+          <div className="flex items-center justify-between mb-3 border-b border-border-color pb-2.5">
             <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-blue-700 shrink-0" />
-              <h3 className="text-sm font-bold text-slate-900 whitespace-nowrap">
+              <Activity className="w-4 h-4 text-brand-primary shrink-0" />
+              <h3 className="text-sm font-semibold text-text-primary whitespace-nowrap">
                 {language === "vi"
                   ? "Lưu Lượng Lượt Check-in Theo Khung Giờ"
                   : "Hourly Check-in Volume"}
               </h3>
             </div>
-            <span className="text-[11px] text-slate-500 font-mono">
+            <span className="text-xs text-text-secondary font-mono">
               Hôm nay
             </span>
           </div>
 
-          <div className="h-48 w-full">
+          <div className="h-44 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={checkinData}
@@ -197,68 +197,68 @@ export function ReceptionistDashboard() {
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
-                  stroke="#E2E8F0"
+                  stroke="var(--border-color)"
                 />
                 <XAxis
                   dataKey="time"
-                  tick={{ fontSize: 11, fill: "#64748B" }}
+                  tick={{ fontSize: 11, fill: "var(--text-secondary)" }}
                 />
-                <YAxis tick={{ fontSize: 11, fill: "#64748B" }} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--text-secondary)" }} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: "var(--bg-card)",
                     borderRadius: "6px",
-                    border: "1px solid #CBD5E1",
+                    border: "1px solid var(--border-color)",
                     fontSize: "12px",
                   }}
                 />
                 <Bar
                   dataKey="count"
                   name={language === "vi" ? "Lượt khách check-in" : "Check-ins"}
-                  fill="#2563EB"
-                  radius={[4, 4, 0, 0]}
+                  fill="var(--brand-primary)"
+                  radius={[3, 3, 0, 0]}
                 />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex flex-col justify-between">
-          <div className="border-b border-slate-200 pb-3 mb-3">
-            <h3 className="text-sm font-bold text-slate-900">
+        <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col justify-between">
+          <div className="border-b border-border-color pb-2.5 mb-2.5">
+            <h3 className="text-sm font-semibold text-text-primary">
               {language === "vi" ? "Tổng Quan Ca Trực" : "Shift Overview"}
             </h3>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs text-text-secondary">
               {language === "vi"
                 ? "Thống kê hoạt động quầy lễ tân"
                 : "Reception desk activity summary"}
             </p>
           </div>
 
-          <div className="space-y-3">
-            <div className="p-3 bg-slate-50 rounded border border-slate-200 flex items-center justify-between">
-              <span className="text-xs text-slate-600 font-bold">
+          <div className="space-y-2">
+            <div className="p-2.5 bg-bg-secondary rounded border border-border-color/60 flex items-center justify-between">
+              <span className="text-xs text-text-secondary">
                 {language === "vi"
                   ? "Lượt check-in ghi nhận:"
                   : "Recorded Check-ins:"}
               </span>
-              <span className="text-base font-bold text-slate-900 tabular-nums">
+              <span className="text-base font-semibold text-text-primary tabular-nums">
                 {todayAttendances.length}
               </span>
             </div>
-            <div className="p-3 bg-slate-50 rounded border border-slate-200 flex items-center justify-between">
-              <span className="text-xs text-slate-600 font-bold">
+            <div className="p-2.5 bg-bg-secondary rounded border border-border-color/60 flex items-center justify-between">
+              <span className="text-xs text-text-secondary">
                 {language === "vi" ? "Giao dịch thu tiền:" : "Transactions:"}
               </span>
-              <span className="text-base font-bold text-emerald-800 tabular-nums">
+              <span className="text-base font-semibold text-status-success tabular-nums">
                 {apiEnabled ? invoices.length : payments?.length || 0}
               </span>
             </div>
-            <div className="p-3 bg-slate-50 rounded border border-slate-200 flex items-center justify-between">
-              <span className="text-xs text-slate-600 font-bold">
+            <div className="p-2.5 bg-bg-secondary rounded border border-border-color/60 flex items-center justify-between">
+              <span className="text-xs text-text-secondary">
                 {language === "vi" ? "Tổng số hội viên:" : "Total Members:"}
               </span>
-              <span className="text-base font-bold text-blue-800 tabular-nums">
+              <span className="text-base font-semibold text-brand-primary tabular-nums">
                 {members.length}
               </span>
             </div>
@@ -267,21 +267,21 @@ export function ReceptionistDashboard() {
       </div>
 
       {/* Recent Attendances Snapshot */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
-          <h3 className="text-sm font-bold text-slate-900">
+      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3">
+        <div className="flex items-center justify-between border-b border-border-color pb-2.5">
+          <h3 className="text-sm font-semibold text-text-primary">
             Lượt Điểm Danh &amp; Check-in Gần Nhất ({todayAttendances.length})
           </h3>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {apiEnabled && (
               <button
                 type="button"
                 onClick={loadAttendances}
                 disabled={loadingAttendances}
-                className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1 cursor-pointer"
+                className="inline-flex h-7 items-center justify-center gap-1 rounded px-2.5 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer"
               >
                 <RefreshCw
-                  className={`w-3.5 h-3.5 ${
+                  className={`w-3 h-3 ${
                     loadingAttendances ? "animate-spin" : ""
                   }`}
                 />
@@ -291,15 +291,15 @@ export function ReceptionistDashboard() {
             <button
               type="button"
               onClick={() => navigate("/receptionist/checkin")}
-              className="text-xs font-bold text-blue-700 hover:text-blue-900 cursor-pointer"
+              className="inline-flex h-7 items-center justify-center gap-1 rounded px-2.5 text-xs font-medium text-brand-primary hover:underline cursor-pointer"
             >
-              Mở trang Điểm danh &amp; Check-in &rarr;
+              Mở trang Check-in &rarr;
             </button>
           </div>
         </div>
 
         {todayAttendances.length === 0 ? (
-          <p className="text-xs text-slate-500 py-3">
+          <p className="text-xs text-text-secondary py-3">
             Chưa có lượt check-in nào được ghi nhận.
           </p>
         ) : (
@@ -307,20 +307,20 @@ export function ReceptionistDashboard() {
             {todayAttendances.slice(0, 6).map((att) => (
               <div
                 key={att.attendanceId || `${att.memberId}-${att.checkInTime}`}
-                className="p-3 bg-slate-50 border border-slate-200 rounded flex items-center justify-between text-xs"
+                className="p-2.5 bg-bg-secondary/60 border border-border-color/70 rounded flex items-center justify-between text-xs"
               >
                 <div>
-                  <div className="font-bold text-slate-900">
+                  <div className="font-semibold text-text-primary">
                     {att.memberName || `Hội viên #${att.memberId}`}
                   </div>
-                  <div className="text-[11px] text-slate-500 font-mono">
+                  <div className="text-xs text-text-secondary font-mono mt-0.5">
                     {att.className || "Check-in Cổng"} &bull;{" "}
                     {att.checkInTime
                       ? String(att.checkInTime).slice(0, 16).replace("T", " ")
                       : "Hôm nay"}
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200">
                   {att.state || "Present"}
                 </span>
               </div>

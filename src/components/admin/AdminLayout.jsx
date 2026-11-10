@@ -21,7 +21,7 @@ export function AdminLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="admin-shell min-h-screen bg-admin-canvas text-stone-900 flex font-sans antialiased">
+    <div className="admin-shell min-h-screen bg-bg-main text-text-primary flex font-sans antialiased">
       <AdminSidebar
         currentTab={currentTab}
         onSelectTab={onSelectTab}
