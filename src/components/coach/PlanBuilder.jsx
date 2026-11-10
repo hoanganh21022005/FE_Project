@@ -52,7 +52,7 @@ export function PlanBuilder({
         <button
           type="button"
           onClick={handleAddRow}
-          className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
+          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>{t("coachPlanBuilderAddRow")}</span>
@@ -74,7 +74,7 @@ export function PlanBuilder({
             <tbody className="divide-y divide-border-color">
               {exercises.map((ex, idx) => (
                 <tr key={idx} className="transition-colors hover:bg-bg-secondary/70">
-                  <td className="px-3 py-2 align-middle text-xs leading-5 text-text-primary">
+                  <td className="px-3 py-2 align-middle text-sm leading-5 text-text-primary">
                     <input
                       type="text"
                       value={ex.name}
@@ -82,10 +82,10 @@ export function PlanBuilder({
                         handleUpdateRow(idx, "name", e.target.value)
                       }
                       placeholder="VD: Footwork 4 góc sân / Back Squat"
-                      className="h-8 w-full rounded border border-border-color bg-bg-card px-2.5 py-1 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                      className="min-h-11 w-full rounded border border-border-color bg-bg-card px-2.5 py-1 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                     />
                   </td>
-                  <td className="px-3 py-2 align-middle text-xs leading-5 text-text-primary">
+                  <td className="px-3 py-2 align-middle text-sm leading-5 text-text-primary">
                     <input
                       type="number"
                       min={1}
@@ -94,10 +94,10 @@ export function PlanBuilder({
                       onChange={(e) =>
                         handleUpdateRow(idx, "sets", e.target.value)
                       }
-                      className="h-8 w-full rounded border border-border-color bg-bg-card px-2.5 py-1 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
+                      className="min-h-11 w-full rounded border border-border-color bg-bg-card px-2.5 py-1 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
                     />
                   </td>
-                  <td className="px-3 py-2 align-middle text-xs leading-5 text-text-primary">
+                  <td className="px-3 py-2 align-middle text-sm leading-5 text-text-primary">
                     <input
                       type="text"
                       value={ex.reps}
@@ -105,10 +105,10 @@ export function PlanBuilder({
                         handleUpdateRow(idx, "reps", e.target.value)
                       }
                       placeholder="12 reps / 15 phút"
-                      className="h-8 w-full rounded border border-border-color bg-bg-card px-2.5 py-1 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
+                      className="min-h-11 w-full rounded border border-border-color bg-bg-card px-2.5 py-1 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
                     />
                   </td>
-                  <td className="px-3 py-2 align-middle text-xs leading-5 text-text-primary">
+                  <td className="px-3 py-2 align-middle text-sm leading-5 text-text-primary">
                     <input
                       type="text"
                       value={ex.load}
@@ -116,17 +116,17 @@ export function PlanBuilder({
                         handleUpdateRow(idx, "load", e.target.value)
                       }
                       placeholder="Tốc độ cao / 40kg"
-                      className="h-8 w-full rounded border border-border-color bg-bg-card px-2.5 py-1 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                      className="min-h-11 w-full rounded border border-border-color bg-bg-card px-2.5 py-1 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                     />
                   </td>
-                  <td className="px-3 py-2 align-middle text-xs leading-5 text-text-primary text-right">
+                  <td className="px-3 py-2 align-middle text-sm leading-5 text-text-primary text-right">
                     <div className="inline-flex items-center gap-1">
                       <button
                         type="button"
                         disabled={idx === 0}
                         aria-label={t("coachPlanBuilderMoveUp")}
                         onClick={() => handleMoveRow(idx, -1)}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
                       >
                         <ChevronUp className="w-3.5 h-3.5" />
                       </button>
@@ -135,7 +135,7 @@ export function PlanBuilder({
                         disabled={idx === exercises.length - 1}
                         aria-label={t("coachPlanBuilderMoveDown")}
                         onClick={() => handleMoveRow(idx, 1)}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
                       >
                         <ChevronDown className="w-3.5 h-3.5" />
                       </button>
@@ -143,7 +143,7 @@ export function PlanBuilder({
                         type="button"
                         aria-label={t("coachPlanBuilderRemove")}
                         onClick={() => handleRemoveRow(idx)}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded text-status-danger transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-status-danger transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

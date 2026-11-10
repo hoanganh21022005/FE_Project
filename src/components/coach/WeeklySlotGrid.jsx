@@ -171,7 +171,7 @@ export function WeeklySlotGrid({ selectedSlots = [], onChange, disabled = false 
                       disabled={disabled}
                       onClick={() => toggleDayColumn(day.key)}
                       title={t("coachSelectAllDay")}
-                      className={`w-full py-1.5 px-2 rounded text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
+                      className={`w-full min-h-11 py-1.5 px-2 rounded text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
                         allDaySelected
                           ? "bg-brand-primary text-text-inverse"
                           : "text-text-secondary hover:bg-bg-card hover:text-text-primary"

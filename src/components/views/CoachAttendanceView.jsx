@@ -1119,7 +1119,7 @@ export function CoachAttendanceView() {
                     )
                   }
                 }}
-                className="h-9 w-full sm:w-auto rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+                className="min-h-11 w-full sm:w-auto rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
               >
                 {classSessions.map((ses, idx) => {
                   const isCancel = isSessionCancelled(ses)
@@ -1217,7 +1217,7 @@ export function CoachAttendanceView() {
                           : "Loading or data not ready..."
                   : ""
               }
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-3.5 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3.5 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
             >
               <CheckCheck className="w-3.5 h-3.5" />
               <span>
@@ -1234,7 +1234,7 @@ export function CoachAttendanceView() {
               disabled={loadingRoster}
               aria-label={t("coachBtnRefresh")}
               title={t("coachBtnRefresh")}
-              className="inline-flex h-9 w-9 items-center justify-center rounded transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-secondary hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-secondary hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
             >
               <RefreshCw
                 className={`w-4 h-4 ${loadingRoster ? "animate-spin" : ""}`}
@@ -1332,7 +1332,7 @@ export function CoachAttendanceView() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t("coachSearchStudentPlaceholder")}
-                className="h-9 w-full sm:w-56 rounded border border-border-color bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                className="min-h-11 w-full sm:w-56 rounded border border-border-color bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
               />
             </div>
 
@@ -1347,12 +1347,12 @@ export function CoachAttendanceView() {
                   value={quickMemberInput}
                   onChange={(e) => setQuickMemberInput(e.target.value)}
                   placeholder={apiEnabled ? "MB-1002 hoặc MB-1002 123456" : "Quét QR / nhập MB-xxxx..."}
-                  className="h-9 w-full sm:w-52 rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                  className="min-h-11 w-full sm:w-52 rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 />
                 <button
                   type="submit"
                   disabled={quickSaving || !quickMemberInput.trim()}
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-3.5 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active whitespace-nowrap cursor-pointer"
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3.5 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active whitespace-nowrap cursor-pointer"
                 >
                   {quickSaving ? "Đang xử lý..." : "Điểm danh nhanh"}
                 </button>
@@ -1540,7 +1540,7 @@ export function CoachAttendanceView() {
                               onClick={() =>
                                 handleOneTouchCheckIn(m, btn.key, attendanceId)
                               }
-                              className={`inline-flex h-8 items-center justify-center gap-1 rounded px-2 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border cursor-pointer ${
+                              className={`inline-flex min-h-11 items-center justify-center gap-1 rounded px-2 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border cursor-pointer ${
                                 isSelected
                                   ? btn.activeCls
                                   : "border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
@@ -1569,7 +1569,7 @@ export function CoachAttendanceView() {
                                 attendanceId,
                               })
                             }
-                            className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
+                            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
                             title="Chỉnh sửa &amp; nhập lý do"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -1598,7 +1598,7 @@ export function CoachAttendanceView() {
                 type="button"
                 onClick={() => setShowBulkConfirmModal(false)}
                 aria-label={t("coachCancelBtn") || "Đóng"}
-                className="inline-flex h-8 w-8 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1613,7 +1613,7 @@ export function CoachAttendanceView() {
               <button
                 type="button"
                 onClick={() => setShowBulkConfirmModal(false)}
-                className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
               >
                 {t("coachCancelBtn")}
               </button>
@@ -1621,7 +1621,7 @@ export function CoachAttendanceView() {
                 type="button"
                 disabled={!bulkAllowed}
                 onClick={handleConfirmBulkMarkPresent}
-                className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
               >
                 {t("coachConfirmBtn")}
               </button>

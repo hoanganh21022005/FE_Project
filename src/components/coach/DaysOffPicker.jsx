@@ -74,7 +74,7 @@ export function DaysOffPicker({
           disabled={disabled}
           value={dateInput}
           onChange={(e) => setDateInput(e.target.value)}
-          className="h-9 w-full sm:w-48 rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
+          className="min-h-11 w-full sm:w-48 rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
         />
         {dateInput && (
           <span className="text-xs leading-4 font-medium font-mono text-text-secondary">
@@ -85,7 +85,7 @@ export function DaysOffPicker({
           type="button"
           disabled={disabled || !dateInput}
           onClick={handleAddDayOff}
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-3.5 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3.5 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>{t("coachDaysOffAddBtn")}</span>
@@ -109,7 +109,7 @@ export function DaysOffPicker({
           {normalizedDaysOff.map((d) => (
             <span
               key={d}
-              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold bg-bg-secondary text-text-primary ring-1 ring-inset ring-border-color font-mono"
+              className="inline-flex items-center gap-1.5 rounded-full py-0 pl-2.5 pr-0.5 text-xs font-semibold bg-bg-secondary text-text-primary ring-1 ring-inset ring-border-color font-mono"
             >
               <span>{formatDate(d)}</span>
               <button
@@ -117,7 +117,7 @@ export function DaysOffPicker({
                 disabled={disabled}
                 aria-label={`Remove ${formatDate(d)}`}
                 onClick={() => handleRemoveDayOff(d)}
-                className="text-text-secondary hover:text-status-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary rounded cursor-pointer"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center text-text-secondary hover:text-status-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary rounded cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
