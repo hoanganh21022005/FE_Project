@@ -14,6 +14,7 @@ import {
 } from './mappers.js';
 import { extractList } from './schemaValidators.js';
 import { buildRoomRequest, buildSubjectRequest, roomStatusForApi } from './resourceRequests.js';
+import { validNormalClassOpeningRequest } from './normalClassOpening.js';
 import {
   buildNormalClassWithSessionsRequest,
   computeNormalClassFingerprint,
@@ -60,6 +61,22 @@ export const getClassById = async (id, lookups = {}, options) => {
     await httpClient.get(`/api/classes/${numericId}`, options),
     lookups,
   );
+};
+const openingRequestsInFlight = new Map();
+export const confirmNormalClassOpening = async (classId, payload = {}, options) => {
+  const numericId = Number(classId);
+  if (!Number.isInteger(numericId) || numericId <= 0) {
+    throw new Error('Class ID must be a positive integer.');
+  }
+  const requestPayload = validNormalClassOpeningRequest(payload);
+  const inFlight = openingRequestsInFlight.get(numericId);
+  if (inFlight) return inFlight;
+
+  const request = httpClient
+    .post(`/api/classes/${numericId}/confirm-opening`, requestPayload, options)
+    .finally(() => openingRequestsInFlight.delete(numericId));
+  openingRequestsInFlight.set(numericId, request);
+  return request;
 };
 export const getHolidays = async (options) => mapListResponse(
   await httpClient.get('/api/holidays', options),
