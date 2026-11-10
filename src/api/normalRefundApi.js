@@ -49,14 +49,19 @@ const optionalText = (value, field) => {
   return trimmed || undefined
 }
 
-export const buildNormalRefundReviewRequest = (refund, input = {}) => {
+const requiredText = (value, field, maxLength = 2000) => {
+  const text = optionalText(value, field)
+  if (!text) throw new NormalRefundValidationError(`${field} is required.`, `NORMAL_REFUND_${field.toUpperCase()}_REQUIRED`)
+  if (text.length > maxLength) throw new NormalRefundValidationError(`${field} exceeds ${maxLength} characters.`, `NORMAL_REFUND_${field.toUpperCase()}_TOO_LONG`)
+  return text
+}
+
+export const buildVerifyNormalRefundReceiverRequest = (refund, input = {}) => {
   const current = requireRefund(refund, refund?.id)
   assertOnlyKeys(input, ['source', 'note'])
-  const source = optionalText(input.source, 'source')
+  const source = requiredText(input.source, 'source')
   const note = optionalText(input.note, 'note')
-  if (!source) {
-    throw new NormalRefundValidationError('A Backend-approved review source must be supplied explicitly.', 'NORMAL_REFUND_SOURCE_UNVERIFIED')
-  }
+  if (note?.length > 2000) throw new NormalRefundValidationError('note exceeds 2000 characters.', 'NORMAL_REFUND_NOTE_TOO_LONG')
   return {
     version: current.version,
     source,
@@ -64,47 +69,93 @@ export const buildNormalRefundReviewRequest = (refund, input = {}) => {
   }
 }
 
+export const buildApproveNormalRefundRequest = (refund, input = {}) => {
+  const current = requireRefund(refund, refund?.id)
+  assertOnlyKeys(input, [])
+  if (current.receiverVerified !== true) {
+    throw new NormalRefundValidationError('Receiver must be verified before approval.', 'RECEIVER_VERIFICATION_REQUIRED')
+  }
+  return { version: current.version }
+}
+
+export const buildNormalRefundNoteRequest = (refund, input = {}) => {
+  const current = requireRefund(refund, refund?.id)
+  assertOnlyKeys(input, ['note'])
+  return { version: current.version, note: requiredText(input.note, 'note') }
+}
+
 const isValidDateTime = (value) => typeof value === 'string' && value.trim() !== '' && Number.isFinite(Date.parse(value))
 
 export const buildNormalRefundVerificationRequest = (refund, attempt, input = {}) => {
   const current = requireRefund(refund, refund?.id)
-  assertOnlyKeys(input, ['outcome', 'bankSource', 'reference', 'performedAt', 'note'])
+  assertOnlyKeys(input, [
+    'outcome', 'bankSource', 'reference', 'amount', 'receiverId', 'performedAt', 'note',
+    'independentBankCheckConfirmed', 'documentVerified',
+  ])
   if (!attempt || typeof attempt !== 'object' || Array.isArray(attempt)) {
     throw new NormalRefundValidationError('A current Backend NormalRefundAttemptView is required.', 'NORMAL_REFUND_ATTEMPT_UNVERIFIED')
   }
   if (!positiveInt32(attempt.id)) {
     throw new NormalRefundValidationError('Attempt ID is missing or invalid.', 'NORMAL_REFUND_ATTEMPT_UNVERIFIED')
   }
-  if (typeof attempt.amount !== 'number' || !Number.isFinite(attempt.amount) || attempt.amount < 0) {
-    throw new NormalRefundValidationError('Attempt amount is not verified by Backend.', 'NORMAL_REFUND_AMOUNT_UNVERIFIED')
-  }
-  const receiverId = attempt.receiverId ?? current.receiverId
-  if (!positiveInt32(receiverId)) {
-    throw new NormalRefundValidationError('Refund receiver is not verified by Backend.', 'NORMAL_REFUND_RECEIVER_UNVERIFIED')
-  }
-
   const outcome = optionalText(input.outcome, 'outcome')
-  const bankSource = optionalText(input.bankSource, 'bankSource')
-  const reference = optionalText(input.reference, 'reference') ?? optionalText(attempt.bankReference, 'attempt.bankReference')
-  const performedAt = optionalText(input.performedAt, 'performedAt') ?? optionalText(attempt.performedAt, 'attempt.performedAt')
-  const note = optionalText(input.note, 'note')
-  if (!outcome || !bankSource || !reference || !isValidDateTime(performedAt)) {
-    throw new NormalRefundValidationError(
-      'Outcome, bank source, reference and a verified transfer time are required before reconciliation.',
-      'NORMAL_REFUND_VERIFICATION_UNVERIFIED',
-    )
+  const allowedOutcomes = ['Success', 'Pending', 'Failed', 'Reversed']
+  if (!allowedOutcomes.includes(outcome)) throw new NormalRefundValidationError('Outcome must match a Backend-supported value.', 'BANK_OUTCOME_INVALID')
+  const bankSource = requiredText(input.bankSource, 'bankSource')
+  const note = requiredText(input.note, 'note')
+
+  if (outcome !== 'Success') return { version: current.version, outcome, bankSource, note }
+
+  if (input.independentBankCheckConfirmed !== true) {
+    throw new NormalRefundValidationError('Manager must confirm an independent bank check.', 'NORMAL_REFUND_INDEPENDENT_CHECK_REQUIRED')
+  }
+  if (input.documentVerified !== true || !Array.isArray(attempt.documentIds) || attempt.documentIds.length === 0) {
+    throw new NormalRefundValidationError('A valid transfer document is required before Success reconciliation.', 'TRANSFER_DOCUMENT_REQUIRED')
+  }
+  if (String(attempt.status || '').trim().toLowerCase() !== 'submitted') {
+    throw new NormalRefundValidationError('Only a Submitted transfer attempt can be reconciled as Success.', 'NORMAL_REFUND_ATTEMPT_NOT_SUBMITTED')
   }
 
-  return {
-    version: current.version,
-    outcome,
-    bankSource,
-    reference,
-    amount: attempt.amount,
-    receiverId,
-    performedAt,
-    ...(note === undefined ? {} : { note }),
+  const reference = optionalText(input.reference, 'reference')
+  if (!reference) throw new NormalRefundValidationError('reference is required.', 'NORMAL_REFUND_REFERENCE_REQUIRED')
+  const rawAmount = input.amount
+  const amount = typeof rawAmount === 'number' ? rawAmount : Number(rawAmount)
+  if (!Number.isFinite(amount) || amount < 0 || rawAmount === '' || rawAmount === null || rawAmount === undefined) {
+    throw new NormalRefundValidationError('An independently verified amount is required.', 'NORMAL_REFUND_AMOUNT_UNVERIFIED')
   }
+  if (typeof current.amount !== 'number' || !Number.isFinite(current.amount)) {
+    throw new NormalRefundValidationError('Backend refund amount is unavailable for exact reconciliation.', 'NORMAL_REFUND_AMOUNT_UNVERIFIED')
+  }
+  if (typeof attempt.amount !== 'number' || !Number.isFinite(attempt.amount)) {
+    throw new NormalRefundValidationError('Backend submitted attempt amount is unavailable for exact reconciliation.', 'NORMAL_REFUND_AMOUNT_UNVERIFIED')
+  }
+  const receiverId = Number(input.receiverId)
+  if (!positiveInt32(receiverId)) throw new NormalRefundValidationError('An independently verified receiverId is required.', 'NORMAL_REFUND_RECEIVER_UNVERIFIED')
+  const performedAt = requiredText(input.performedAt, 'performedAt')
+  if (!isValidDateTime(performedAt)) throw new NormalRefundValidationError('performedAt must be a valid date-time.', 'NORMAL_REFUND_VERIFICATION_UNVERIFIED')
+  if (amount !== current.amount) {
+    throw new NormalRefundValidationError('Reconciled amount does not exactly match the Backend refund amount.', 'BANK_VERIFICATION_MISMATCH')
+  }
+  if (amount !== attempt.amount) {
+    throw new NormalRefundValidationError('Reconciled amount does not exactly match the Backend submitted attempt.', 'BANK_VERIFICATION_MISMATCH')
+  }
+  const expectedReceiver = attempt.receiverId ?? current.receiverId
+  if (!positiveInt32(expectedReceiver)) {
+    throw new NormalRefundValidationError('Backend recipient ID is unavailable for exact reconciliation.', 'NORMAL_REFUND_RECEIVER_UNVERIFIED')
+  }
+  if (receiverId !== expectedReceiver) {
+    throw new NormalRefundValidationError('Reconciled receiverId does not match the Backend recipient.', 'BANK_VERIFICATION_MISMATCH')
+  }
+  if (current.receiverId !== null && current.receiverId !== undefined && positiveInt32(current.receiverId) && receiverId !== current.receiverId) {
+    throw new NormalRefundValidationError('Reconciled receiverId does not match the current Backend recipient.', 'BANK_VERIFICATION_MISMATCH')
+  }
+  if (!attempt.bankReference || reference !== attempt.bankReference) {
+    throw new NormalRefundValidationError('Reconciled reference does not match the submitted transfer reference.', 'BANK_VERIFICATION_MISMATCH')
+  }
+  if (!isValidDateTime(attempt.performedAt) || Date.parse(performedAt) !== Date.parse(attempt.performedAt)) {
+    throw new NormalRefundValidationError('Reconciled performedAt does not match the submitted transfer time.', 'BANK_VERIFICATION_MISMATCH')
+  }
+  return { version: current.version, outcome, bankSource, reference, amount, receiverId, performedAt, note }
 }
 
 export const inspectNormalRefund = (refund) => {
@@ -208,8 +259,8 @@ export const getNormalRefundDocument = async (refundId, documentId, options) => 
 }
 
 const writesInFlight = new Map()
-const managerMutationOnce = (path, input, execute) => {
-  const key = `${path}:${JSON.stringify(input)}`
+const managerMutationOnce = (path, input, actor, execute) => {
+  const key = `${path}:${actor?.id ?? 'unknown'}:${JSON.stringify(input)}`
   const existing = writesInFlight.get(key)
   if (existing) return existing
   const request = Promise.resolve()
@@ -220,40 +271,89 @@ const managerMutationOnce = (path, input, execute) => {
   return request
 }
 
+export const canActOnNormalRefund = (user, refund) => {
+  if (!canReviewNormalRefund(user)) return false
+  if (user?.authenticated !== true) return false
+  if (typeof user?.status === 'string' && user.status.trim().toLowerCase() !== 'active') return false
+  if (user?.isActive === false || user?.enabled === false) return false
+  const actorCenter = user?.centerId
+  const refundCenter = refund?.centerId
+  if (actorCenter !== undefined && actorCenter !== null && refundCenter !== undefined && refundCenter !== null) {
+    if (String(actorCenter) !== String(refundCenter)) return false
+  }
+  return true
+}
+
+const requireManagerActor = (actor, refund) => {
+  if (!canActOnNormalRefund(actor, refund)) {
+    throw new NormalRefundValidationError(
+      'A signed-in active Center Manager with MANAGE_INVOICES in the refund center is required.',
+      'NORMAL_REFUND_MANAGER_ACCESS_REQUIRED',
+    )
+  }
+}
+
+const splitActorOptions = (options = {}) => {
+  const { actor, ...httpOptions } = options || {}
+  return { actor, httpOptions }
+}
+
 const currentRefundThenPost = (refundId, route, input, buildRequest, options) => {
   const id = requireId(refundId, 'refundId')
   const path = `/api/normal-refunds/${id}/${route}`
-  return managerMutationOnce(path, input, async () => {
-    const current = await getNormalRefundById(id, options)
+  const { actor, httpOptions } = splitActorOptions(options)
+  return managerMutationOnce(path, input, actor, async () => {
+    if (!canActOnNormalRefund(actor)) requireManagerActor(actor, null)
+    const current = await getNormalRefundById(id, httpOptions)
+    requireManagerActor(actor, current)
     const payload = buildRequest(current, input)
-    return httpClient.post(path, payload, options)
+    return httpClient.post(path, payload, httpOptions)
   })
 }
 
 export const verifyNormalRefundReceiver = (refundId, input = {}, options) =>
-  currentRefundThenPost(refundId, 'verify-receiver', input, buildNormalRefundReviewRequest, options)
+  currentRefundThenPost(refundId, 'verify-receiver', input, buildVerifyNormalRefundReceiverRequest, options)
 
 export const approveNormalRefund = (refundId, input = {}, options) =>
-  currentRefundThenPost(refundId, 'approve', input, buildNormalRefundReviewRequest, options)
+  currentRefundThenPost(refundId, 'approve', input, buildApproveNormalRefundRequest, options)
 
 export const requestNormalRefundInformation = (refundId, input = {}, options) =>
-  currentRefundThenPost(refundId, 'request-information', input, buildNormalRefundReviewRequest, options)
+  currentRefundThenPost(refundId, 'request-information', input, buildNormalRefundNoteRequest, options)
 
 export const recordNormalRefundIssue = (refundId, input = {}, options) =>
-  currentRefundThenPost(refundId, 'issues', input, buildNormalRefundReviewRequest, options)
+  currentRefundThenPost(refundId, 'issues', input, buildNormalRefundNoteRequest, options)
 
 export const verifyNormalRefundAttempt = (refundId, attemptId, input = {}, options) => {
   const id = requireId(refundId, 'refundId')
   const attempt = requireId(attemptId, 'attemptId')
   const path = `/api/normal-refunds/${id}/attempts/${attempt}/verify`
-  return managerMutationOnce(path, input, async () => {
-    const current = await getNormalRefundById(id, options)
+  const { actor, httpOptions } = splitActorOptions(options)
+  return managerMutationOnce(path, input, actor, async () => {
+    if (!canActOnNormalRefund(actor)) requireManagerActor(actor, null)
+    const current = await getNormalRefundById(id, httpOptions)
+    requireManagerActor(actor, current)
     if (!Array.isArray(current.attempts)) {
       throw new NormalRefundValidationError('Current Backend attempt list is unavailable.', 'NORMAL_REFUND_ATTEMPT_UNVERIFIED')
     }
     const currentAttempt = current.attempts.find((item) => String(item?.id) === String(attempt))
+    if (input?.outcome === 'Success') {
+      if (input?.documentVerified !== true || !Array.isArray(currentAttempt?.documentIds) || currentAttempt.documentIds.length === 0) {
+        throw new NormalRefundValidationError('A valid transfer document must be inspected before Success reconciliation.', 'TRANSFER_DOCUMENT_REQUIRED')
+      }
+      let documentAvailable = false
+      for (const documentId of currentAttempt.documentIds) {
+        try {
+          await getNormalRefundDocument(id, documentId, httpOptions)
+          documentAvailable = true
+          break
+        } catch {
+          // Continue checking other document IDs without logging response data.
+        }
+      }
+      if (!documentAvailable) throw new NormalRefundValidationError('No valid transfer document could be read from Backend.', 'TRANSFER_DOCUMENT_REQUIRED')
+    }
     const payload = buildNormalRefundVerificationRequest(current, currentAttempt, input)
-    return httpClient.post(path, payload, options)
+    return httpClient.post(path, payload, httpOptions)
   })
 }
 

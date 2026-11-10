@@ -21,6 +21,7 @@ import {
   validateRescheduleForm,
 } from '../../api/sessionIncidentUtils.js'
 import { canManageClasses } from '../../api/holidayUtils.js'
+import CenterIncidentsPanel from './CenterIncidentsPanel.jsx'
 
 function SessionIncidentsView() {
   const {
@@ -346,6 +347,8 @@ function SessionIncidentsView() {
         <div className="flex items-center gap-3"><div className="rounded border border-blue-200 bg-blue-50 p-2.5 text-blue-800"><CalendarClock className="h-5 w-5" /></div><div><h1 className="text-base font-bold">{vi ? 'Sự cố lịch học' : 'Session incidents'}</h1><p className="mt-1 text-xs text-slate-500">{vi ? 'Xử lý dời lịch và thay Coach cho từng buổi.' : 'Reschedule or substitute the coach for an individual session.'}</p></div></div>
         <button type="button" onClick={loadSessions} disabled={loading} className="inline-flex min-h-11 items-center gap-2 rounded border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />{vi ? 'Tải lại' : 'Refresh'}</button>
       </header>
+
+      <CenterIncidentsPanel apiEnabled={apiEnabled} currentUser={currentUser} language={language} showToast={showToast} />
 
       {!canManage && <p className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{vi ? 'Bạn có thể xem lịch; thao tác dời lịch/thay Coach yêu cầu MANAGE_CLASSES.' : 'You can view the schedule; rescheduling and coach changes require MANAGE_CLASSES.'}</p>}
       {lookupsError && <p role="alert" className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{lookupsError}</p>}

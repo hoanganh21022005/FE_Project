@@ -43,9 +43,14 @@ export const buildCurrentUser = (authUser, fallbackUser) => {
     name: authUser.fullName,
     email: authUser.email,
     role: authUser.role,
+    authenticated: true,
     avatarUrl:
       authUser.avatarUrl || authUser.avatar || fallbackUser?.avatarUrl || null,
     authorities: authUser.authorities || [],
+    ...(typeof authUser.status === "string" ? { status: authUser.status } : {}),
+    ...(Number.isInteger(authUser.centerId) && authUser.centerId > 0
+      ? { centerId: authUser.centerId }
+      : {}),
     ...(typeof authUser.isFirstLogin === "boolean"
       ? { isFirstLogin: authUser.isFirstLogin }
       : {}),

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="vi">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Center Incident UI Test Harness</title></head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import React from 'react'
+      import { createRoot } from 'react-dom/client'
+      import CenterIncidentsPanel from '/src/components/views/CenterIncidentsPanel.jsx'
+
+      const localTime = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+      })
+      const pastStart = localTime.format(new Date(Date.now() - 60 * 60 * 1000)).replace(' ', 'T')
+      const fixture = {
+        pastStart,
+        incidents: [{
+          id: 9, sessionId: 123, status: 'WaitingForRecovery', startedAt: pastStart, endedAt: null,
+          originalDeadline: null, deadlineBefore: null, deadlineAfter: null, recoveredCredits: 0,
+          sessionCompensated: false, affectedMemberIds: [31, 32], reason: 'Center power outage', evidence: 'Facility incident report',
+        }, {
+          id: 11, sessionId: 124, status: 'Resolved', startedAt: pastStart, endedAt: pastStart,
+          originalDeadline: null, deadlineBefore: null, deadlineAfter: null, recoveredCredits: 0,
+          sessionCompensated: true, affectedMemberIds: [], reason: 'Advanced outage', evidence: 'Report',
+        }, {
+          id: 12, sessionId: 125, status: 'Resolved', startedAt: pastStart, endedAt: pastStart,
+          recoveredCredits: null, sessionCompensated: true, affectedMemberIds: null, reason: 'Unverified type', evidence: null,
+        }],
+        sessions: [
+          { id: 123, classId: 4, className: 'Tennis Normal', sessionDate: '2026-11-11', startTime: '09:00:00', endTime: '10:30:00', isPrivate: false, makeupForSessionId: null },
+          { id: 124, classId: 5, className: 'Tennis Advanced', sessionDate: '2026-11-11', startTime: '11:00:00', endTime: '12:30:00', isPrivate: true, makeupForSessionId: null },
+          { id: 125, classId: 6, className: 'Unverified type', sessionDate: '2026-11-11', startTime: '13:00:00', endTime: '14:30:00', isPrivate: null, makeupForSessionId: null },
+        ],
+        rooms: [{ id: 2, roomCode: 'R2', name: 'Court 2', capacity: 12, status: 'Available' }],
+        coaches: [{ id: 7, name: 'Coach Seven', specializations: ['Tennis'] }],
+        requests: [], failList: false, timeoutNextOpen: false,
+      }
+      window.__centerIncidentFixture = fixture
+      const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+      window.fetch = async (url, options = {}) => {
+        const path = new URL(String(url), location.href).pathname
+        const method = options.method || 'GET'
+        const body = options.body ? JSON.parse(options.body) : null
+        fixture.requests.push({ path, method, body })
+        if (method === 'GET' && path === '/api/center-incidents') return fixture.failList ? jsonResponse({ code: 'FORBIDDEN', message: 'Fixture denied' }, 403) : jsonResponse(fixture.incidents)
+        if (method === 'GET' && path === '/api/sessions') return jsonResponse(fixture.sessions)
+        if (method === 'GET' && path === '/api/rooms') return jsonResponse(fixture.rooms)
+        if (method === 'GET' && path === '/api/coaches') return jsonResponse(fixture.coaches)
+        if (method === 'POST' && path === '/api/center-incidents' && fixture.timeoutNextOpen) {
+          fixture.timeoutNextOpen = false
+          throw new TypeError('local timeout fixture')
+        }
+        if (method === 'POST' && path === '/api/center-incidents') {
+          const item = { ...body, id: 10, status: 'WaitingForRecovery', endedAt: null, recoveredCredits: 0, sessionCompensated: false, affectedMemberIds: [] }
+          fixture.incidents = [item, ...fixture.incidents]
+          return jsonResponse(item)
+        }
+        const match = path.match(/^\/api\/center-incidents\/(\d+)\/(resolve|compensate|normal-makeup)$/)
+        if (method === 'POST' && match) {
+          const id = Number(match[1])
+          const item = fixture.incidents.find((candidate) => candidate.id === id)
+          if (!item) return jsonResponse({ code: 'NOT_FOUND', message: 'No incident' }, 404)
+          if (match[2] === 'resolve') Object.assign(item, body, { status: 'Resolved' })
+          if (match[2] === 'compensate') Object.assign(item, body, { sessionCompensated: true })
+          if (match[2] === 'normal-makeup') fixture.sessions.push({ id: 300, ...body, classId: item.sessionId, isPrivate: false, makeupForSessionId: item.sessionId })
+          return jsonResponse(match[2] === 'normal-makeup' ? fixture.sessions.at(-1) : item)
+        }
+        return jsonResponse({ code: 'NOT_FOUND' }, 404)
+      }
+
+      const root = createRoot(document.getElementById('root'))
+      const actor = { id: 1, role: 'CenterManager', status: 'Active', authenticated: true, centerId: 1, authorities: ['MANAGE_CLASSES'] }
+      window.__setCenterIncidentActor = (nextActor) => root.render(React.createElement(CenterIncidentsPanel, { apiEnabled: true, currentUser: nextActor, language: 'vi' }))
+      root.render(React.createElement(CenterIncidentsPanel, { apiEnabled: true, currentUser: actor, language: 'vi' }))
+    </script>
+  </body>
+</html>
