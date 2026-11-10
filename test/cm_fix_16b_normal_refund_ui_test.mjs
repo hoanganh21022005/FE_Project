@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+
+const read = async (path) => readFile(new URL(path, import.meta.url), 'utf8')
+const page = await read('../src/components/views/NormalRefundManagement.jsx')
+const app = await read('../src/App.jsx')
+const sidebar = await read('../src/components/layout/Sidebar.jsx')
+const api = await read('../src/api/normalRefundApi.js')
+const payment = await read('../src/components/views/PaymentManagement.jsx')
+
+assert.match(app, /path="\/manager\/normal-refunds"[\s\S]*?allowedRoles=\{\[ROLE_MANAGER\]\}[\s\S]*?<NormalRefundManagement \/>/)
+assert.match(sidebar, /path: "\/manager\/normal-refunds"/)
+assert.match(page, /getNormalRefunds\(\)/)
+assert.match(page, /getNormalRefundById\(refundId\)/)
+assert.match(page, /getNormalRefundHistory\(refundId\)/)
+assert.match(page, /getNormalRefundDocument\(refundId, documentId\)/)
+assert.match(page, /canReviewNormalRefund\(currentUser\)/)
+assert.match(page, /new Set\(refunds\.map\(\(refund\) => refund\?\.status\)/)
+assert.match(page, /refund\?\.overdue === true|overdueLabel/)
+assert.match(page, /value === false \? 'Chưa quá hạn'/)
+assert.match(page, /value === null \|\| value === undefined/)
+assert.match(page, /history\?\.receivers/)
+assert.match(page, /history\?\.verifications/)
+assert.match(page, /URL\.createObjectURL\(blob\)/)
+assert.doesNotMatch(page, /https?:\/\/|localStorage|console\.(log|warn|error)/)
+assert.doesNotMatch(page, /claimNormalRefund|submitNormalRefund|uploadNormalRefundDocument/)
+assert.doesNotMatch(page, /verifyNormalRefundAttempt\(|approveNormalRefund\(|verifyNormalRefundReceiver\(|requestNormalRefundInformation\(|recordNormalRefundIssue\(/)
+assert.match(page, /chưa có tài liệu xác nhận giá trị hợp lệ/i)
+assert.match(page, /không gửi xác minh người nhận, phê duyệt/i)
+assert.match(page, /textOrMissing\(refund\.status\)/) // Approved/Completed are displayed as Backend strings only.
+assert.doesNotMatch(page, /status\s*=\s*['"]Completed['"]|setRefund\(\{[^}]*status/)
+assert.match(api, /const current = await getNormalRefundById\(id, options\)/)
+assert.match(api, /return httpClient\.post\(path, payload, options\)/)
+assert.match(payment, /invoiceApi\.getInvoices/)
+assert.match(payment, /invoiceApi\.cancelInvoice/)
+assert.match(app, /path="\/manager\/payments"/)
+
+console.log('CM-FIX-16B Normal refund UI integration checks passed')

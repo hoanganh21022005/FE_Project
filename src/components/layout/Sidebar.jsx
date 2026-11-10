@@ -10,6 +10,7 @@ import {
   ClipboardCheck,
   TrendingUp,
   CreditCard,
+  ReceiptText,
   BarChart3,
   History,
   Search,
@@ -70,6 +71,11 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             icon: Library,
           },
           { path: "/manager/payments", labelKey: "payments", icon: CreditCard },
+          {
+            path: "/manager/normal-refunds",
+            label: language === "vi" ? "Hoàn tiền Normal" : "Normal refunds",
+            icon: ReceiptText,
+          },
           { path: "/manager/reports", labelKey: "reports", icon: BarChart3 },
           { path: "/manager/audit-logs", labelKey: "auditLogs", icon: History },
         ]

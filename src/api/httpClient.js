@@ -15,7 +15,7 @@ function resolveUrl(path) {
 }
 
 export async function httpRequest(path, options = {}) {
-  const { expectedStatus, timeoutMs, ...fetchOptions } = options
+  const { expectedStatus, timeoutMs, responseType, ...fetchOptions } = options
   const headers = new Headers(options.headers)
   const hasBody = options.body !== undefined && options.body !== null
   const isFormData =
@@ -80,6 +80,8 @@ export async function httpRequest(path, options = {}) {
   const body =
     response.status === 204
       ? null
+      : response.ok && responseType === "blob"
+        ? await response.blob()
       : contentType.includes("application/json")
         ? await response.json().catch(() => null)
         : await response.text().catch(() => "")
@@ -122,11 +124,20 @@ export async function httpRequest(path, options = {}) {
     throw apiError
   }
 
+  if (responseType === "blob") {
+    return {
+      data: body,
+      contentType: response.headers.get("content-type"),
+      contentDisposition: response.headers.get("content-disposition"),
+    }
+  }
+
   return body
 }
 
 export const httpClient = {
   get: (path, options) => httpRequest(path, { ...options, method: "GET" }),
+  getBlob: (path, options) => httpRequest(path, { ...options, method: "GET", responseType: "blob" }),
   post: (path, body, options) =>
     httpRequest(path, { ...options, method: "POST", body }),
   put: (path, body, options) =>
