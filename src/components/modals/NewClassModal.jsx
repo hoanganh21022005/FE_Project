@@ -130,6 +130,17 @@ const DEFAULT_COACHES = [
   },
 ]
 
+const ROOM_ACTIVITY_TYPES = {
+  badminton: "BADMINTON",
+  table_tennis: "TABLE_TENNIS",
+  pickleball: "PICKLEBALL",
+  basketball: "BASKETBALL",
+  volleyball: "VOLLEYBALL",
+  archery: "ARCHERY",
+  football: "FOOTBALL",
+  tennis: "TENNIS",
+}
+
 // Generate 15-minute time options from 05:00 to 23:00
 const TIME_OPTIONS_15MIN = []
 for (let h = 5; h <= 22; h++) {
@@ -519,17 +530,35 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
   const sportCourts = useMemo(() => currentSport.courts || [], [currentSport])
 
-  const allAvailableRooms = useMemo(() => {
-    return apiEnabled ? validCenterRooms : [...sportCourts, ...validCenterRooms]
-  }, [apiEnabled, sportCourts, validCenterRooms])
+  const matchingCenterRooms = useMemo(() => {
+    const expectedActivityType = ROOM_ACTIVITY_TYPES[currentSport.id]
+    if (apiEnabled) {
+      if (!expectedActivityType) return []
+      return validCenterRooms.filter(
+        (room) => String(room.activityType || "").trim().toUpperCase() === expectedActivityType,
+      )
+    }
 
-  // Filter coaches by sport specialization
-  const { matchedCoaches, otherCoaches } = useMemo(() => {
-    const sportName = currentSport.name
-    const matched = coaches.filter((c) => isCoachMatchingSport(c, sportName))
-    const other = coaches.filter((c) => !matched.includes(c))
-    return { matchedCoaches: matched, otherCoaches: other }
-  }, [coaches, currentSport])
+    return validCenterRooms.filter((room) =>
+      isCoachMatchingSport(
+        { specialization: [room.name, room.roomCode].filter(Boolean).join(" ") },
+        currentSport.name,
+      ),
+    )
+  }, [apiEnabled, currentSport, validCenterRooms])
+
+  const allAvailableRooms = useMemo(() => {
+    const sportSpecificRooms = apiEnabled
+      ? matchingCenterRooms
+      : [...sportCourts, ...matchingCenterRooms]
+    return [...new Map(sportSpecificRooms.map((room) => [String(room.id), room])).values()]
+  }, [apiEnabled, matchingCenterRooms, sportCourts])
+
+  // Only offer coaches whose specialization matches the selected sport.
+  const matchedCoaches = useMemo(
+    () => coaches.filter((coach) => isCoachMatchingSport(coach, currentSport.name)),
+    [coaches, currentSport],
+  )
 
   // Keep sport-based defaults for capacity and coach.
   const prevSportRef = useRef(currentSport?.id)
@@ -585,19 +614,19 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
           }
           return prevRoomId
         })
-      } else if (validCenterRooms.length > 0) {
+      } else {
         setRoomId((prevRoomId) => {
-          if (!prevRoomId) {
-            return String(validCenterRooms[0].id)
-          }
-          if (sportChanged && !validCenterRooms.some((r) => String(r.id) === String(prevRoomId))) {
-            return String(validCenterRooms[0].id)
+          const currentRoomIsCompatible = allAvailableRooms.some(
+            (room) => String(room.id) === String(prevRoomId),
+          )
+          if (sportChanged || !currentRoomIsCompatible) {
+            return allAvailableRooms.length > 0 ? String(allAvailableRooms[0].id) : ""
           }
           return prevRoomId
         })
       }
     }
-  }, [apiEnabled, currentSport?.id, validCenterRooms])
+  }, [apiEnabled, currentSport?.id, allAvailableRooms])
 
   // Handle prefilled clone / duplicate class
   useEffect(() => {
@@ -673,26 +702,19 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     }
   }, [isOpen, cloneFrom, allAvailableRooms])
 
-  // Keep coachId synced when coaches load asynchronously
+  // Keep coachId synced with the selected sport when coaches load asynchronously.
   useEffect(() => {
-    if (
-      (!coachId || !coaches.some((c) => String(c.id) === String(coachId))) &&
-      coaches.length > 0
-    ) {
-      const matched = coaches.filter((c) =>
-        isCoachMatchingSport(c, currentSport.name),
-      )
-      if (matched.length > 0) {
-        setCoachId(String(matched[0].id))
-      } else {
-        setCoachId("")
-      }
-    }
-  }, [coaches, currentSport, coachId])
+    const selectedCoachMatchesSport = matchedCoaches.some(
+      (coach) => String(coach.id) === String(coachId),
+    )
+    if (selectedCoachMatchesSport) return
+
+    setCoachId(matchedCoaches.length > 0 ? String(matchedCoaches[0].id) : "")
+  }, [matchedCoaches, coachId])
 
   const selectedCoachObj = useMemo(
-    () => coaches.find((c) => String(c.id) === String(coachId)),
-    [coaches, coachId],
+    () => matchedCoaches.find((coach) => String(coach.id) === String(coachId)),
+    [matchedCoaches, coachId],
   )
 
   const selectedRoomObj = useMemo(
@@ -1190,7 +1212,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   className="w-full h-11 px-3.5 pr-10 bg-white border border-stone-300 rounded-xl text-sm text-stone-900 font-normal appearance-none focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800 cursor-pointer"
                 >
                   <option value="">Chọn huấn luyện viên...</option>
-                  {matchedCoaches.length > 0 && (
+                  {matchedCoaches.length > 0 ? (
                     <optgroup
                       label={`HLV đúng chuyên môn ${currentSport.name}`}
                     >
@@ -1201,20 +1223,19 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                         </option>
                       ))}
                     </optgroup>
-                  )}
-                  {otherCoaches.length > 0 && (
-                    <optgroup label="Các HLV khác (Không đúng bộ môn)">
-                      {otherCoaches.map((c) => (
-                        <option key={c.id} value={String(c.id)}>
-                          {c.name} —{" "}
-                          {c.specializationVi || c.specialization || "HLV"}
-                        </option>
-                      ))}
-                    </optgroup>
+                  ) : (
+                    <option value="__no_matching_coach__" disabled>
+                      Chưa có huấn luyện viên cho bộ môn này
+                    </option>
                   )}
                 </select>
                 <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
+              {matchedCoaches.length === 0 && (
+                <p role="status" className="mt-1.5 text-xs text-amber-700">
+                  Chưa có huấn luyện viên được ghi nhận dạy bộ môn này.
+                </p>
+              )}
               {selectedCoachObj ? (
                 <div className="flex items-center gap-2 mt-1.5 text-xs flex-wrap">
                   <span className="text-stone-500">Chuyên môn:</span>
@@ -1257,41 +1278,36 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   className="w-full h-11 px-3.5 pr-10 bg-white border border-stone-300 rounded-xl text-sm text-stone-900 font-normal appearance-none focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800 cursor-pointer"
                 >
                   <option value="">Chọn sân tập...</option>
-                  {!apiEnabled && sportCourts.length > 0 && (
+                  {allAvailableRooms.length > 0 ? (
                     <optgroup label={`Sân chuyên dụng ${currentSport.name}`}>
-                      {sportCourts.map((court) => (
-                        <option key={court.id} value={court.id}>
-                          {court.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {apiEnabled && roomId && !validCenterRooms.some((r) => String(r.id) === String(roomId)) && (
-                    <option value={roomId} disabled>
-                      {`Phòng #${roomId} (không còn khả dụng)`}
-                    </option>
-                  )}
-                  {validCenterRooms.length > 0 && (
-                    <optgroup label="Sân đa năng / Liên hợp">
-                      {validCenterRooms.map((r) => {
-                        const code = r.roomCode ? String(r.roomCode).trim() : ""
-                        const name = r.name || `Sân #${r.id}`
-                        const label = code ? `${code} - ${name}` : name
+                      {allAvailableRooms.map((room) => {
+                        const code = room.roomCode ? String(room.roomCode).trim() : ""
+                        const label = code ? `${code} - ${room.name || `Sân #${room.id}`}` : room.name
                         return (
-                          <option key={r.id} value={r.id}>
+                          <option key={room.id} value={String(room.id)}>
                             {label}
                           </option>
                         )
                       })}
                     </optgroup>
+                  ) : (
+                    <option value="__no_matching_room__" disabled>
+                      Chưa có sân/phòng được cấu hình cho bộ môn này
+                    </option>
                   )}
                 </select>
                 <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
-              <div className="text-xs text-stone-500 mt-1">
-                Sức chứa {selectedRoomObj?.capacity || 8} học viên,{" "}
-                {selectedRoomObj?.spec || "Thảm PVC thi đấu"}
-              </div>
+              {allAvailableRooms.length === 0 ? (
+                <p role="status" className="text-xs text-amber-700 mt-1">
+                  Chưa có sân/phòng phù hợp với bộ môn này.
+                </p>
+              ) : (
+                <div className="text-xs text-stone-500 mt-1">
+                  Sức chứa {selectedRoomObj?.capacity ?? 8} học viên
+                  {selectedRoomObj?.facilityType ? `, ${selectedRoomObj.facilityType}` : ""}
+                </div>
+              )}
             </div>
           </div>
 

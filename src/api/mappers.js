@@ -48,6 +48,7 @@ export const mapRoom = (room) => {
     status: normalizeStatus(room?.status, null),
     rawStatus: room?.status ?? null,
     facilityType: room?.facilityType ?? null,
+    activityType: room?.activityType ?? null,
     outdoor: typeof room?.outdoor === "boolean" ? room?.outdoor : null,
   }
 }
