@@ -13,10 +13,13 @@ import {
   previewRecurringSessions,
 } from '../src/api/managerApi.js'
 import {
+  adjustNormalMinCapacityForMaxChange,
   buildNormalClassWithSessionsRequest,
+  getDefaultNormalMinCapacity,
   isNormalClassApiCreationBlocked,
   NORMAL_CLASS_API_BLOCKED_MESSAGE,
   toBackendDaysOfWeek,
+  validateNormalClassCapacity,
 } from '../src/api/normalClassCreation.js'
 
 const browserOnly = process.argv.includes('--browser-only')
@@ -26,7 +29,7 @@ async function runUnitSuite() {
   const originalFetch = globalThis.fetch
   const requests = []
   let mockSessionCount = 12
-  let postResponseMode = 'success' // 'success' | 'room_conflict_409' | 'coach_conflict_409' | 'idempotency_conflict_409' | 'server_500'
+  let postResponseMode = 'success' // 'success' | 'validation_400' | 'room_conflict_409' | 'coach_conflict_409' | 'idempotency_conflict_409' | 'server_500'
   let failPrimarySessionsEndpoint = false
 
   globalThis.fetch = async (reqUrl, options = {}) => {
@@ -35,6 +38,12 @@ async function runUnitSuite() {
     requests.push({ url: requestUrl, options, body: parsedBody })
 
     if (requestUrl.includes('/api/classes/normal-with-sessions')) {
+      if (postResponseMode === 'validation_400') {
+        return new Response(
+          JSON.stringify({ code: 'VALIDATION_ERROR', message: 'minCapacity is invalid.' }),
+          { status: 400, headers: { 'content-type': 'application/json' } },
+        )
+      }
       if (postResponseMode === 'room_conflict_409') {
         return new Response(
           JSON.stringify({
@@ -189,12 +198,65 @@ async function runUnitSuite() {
       subjectId: 1,
       coachId: 9,
       capacity: 15,
+      roomCapacity: 15,
       startDate: '2026-11-02',
       roomId: 1,
       selectedDays: [1, 3, 0],
       startTime: '06:00',
       endTime: '07:30',
     }
+
+    // Normal class minimum capacity defaults to ceil(2/3 × maxCapacity).
+    for (const [maxCapacity, expectedMinCapacity] of [[2, 2], [4, 3], [5, 4], [8, 6], [10, 7], [15, 10]]) {
+      assert.equal(getDefaultNormalMinCapacity(maxCapacity), expectedMinCapacity)
+      const defaultRequest = buildNormalClassWithSessionsRequest({
+        ...baseInput,
+        capacity: maxCapacity,
+      }, { requestId: `default-${maxCapacity}` })
+      assert.equal(defaultRequest.sportsClass.minCapacity, expectedMinCapacity)
+    }
+    assert.equal(
+      adjustNormalMinCapacityForMaxChange(6, 15, false),
+      10,
+      'Uncustomized minimum follows the default after max capacity changes',
+    )
+    assert.equal(
+      adjustNormalMinCapacityForMaxChange(7, 10, true),
+      7,
+      'A valid Manager-selected minimum is preserved when max capacity changes',
+    )
+    assert.equal(adjustNormalMinCapacityForMaxChange(4, 8, true), 6)
+    assert.equal(adjustNormalMinCapacityForMaxChange(12, 8, true), 8)
+    assert.equal(validateNormalClassCapacity({ maxCapacity: 15, minCapacity: 12 }), '')
+    assert.match(
+      validateNormalClassCapacity({ maxCapacity: 15, minCapacity: 9 }),
+      /không được thấp hơn mức mặc định 10/,
+    )
+    assert.match(
+      validateNormalClassCapacity({ maxCapacity: 10, minCapacity: 11 }),
+      /không được lớn hơn sĩ số tối đa/,
+    )
+    assert.match(
+      validateNormalClassCapacity({ maxCapacity: 10, minCapacity: 7, roomCapacity: 8 }),
+      /vượt quá sức chứa của phòng/,
+    )
+    assert.match(
+      validateNormalClassCapacity({ maxCapacity: 10, minCapacity: 7, requireRoomCapacity: true }),
+      /Không xác định được sức chứa phòng/,
+    )
+    const customMinimumRequest = buildNormalClassWithSessionsRequest({
+      ...baseInput,
+      minCapacity: 12,
+    }, { requestId: 'custom-minimum' })
+    assert.equal(customMinimumRequest.sportsClass.minCapacity, 12)
+    assert.throws(
+      () => buildNormalClassWithSessionsRequest({ ...baseInput, minCapacity: 9 }),
+      /không được thấp hơn mức mặc định 10/,
+    )
+    assert.throws(
+      () => buildNormalClassWithSessionsRequest({ ...baseInput, minCapacity: 16 }),
+      /không được lớn hơn sĩ số tối đa/,
+    )
 
     const reqAttempt1 = buildNormalClassWithSessionsRequest(baseInput, { stateRef })
     const reqAttempt2Same = buildNormalClassWithSessionsRequest({ ...baseInput }, { stateRef })
@@ -231,8 +293,19 @@ async function runUnitSuite() {
     assert.deepEqual(requests[0].body.daysOfWeek, [1, 3, 7])
     assert.equal(requests[0].body.sportsClass.name, 'Tennis Normal K01')
     assert.equal(requests[0].body.sportsClass.totalSessions, 12)
+    assert.equal(requests[0].body.sportsClass.minCapacity, 10)
     assert.match(requests[1].url, /\/api\/sessions\?classId=17$/)
     assert.equal(atomicStateRef.current, null, 'State ref cleared after successful creation and verification')
+
+    requests.length = 0
+    await createNormalClassWithSessions(
+      { ...baseInput, minCapacity: 12 },
+      {},
+      { verifySessions: false },
+    )
+    assert.equal(requests.length, 1)
+    assert.equal(requests[0].body.sportsClass.minCapacity, 12, 'Manager-selected minimum must be sent to the API')
+    assert.equal(requests[0].body.sportsClass.totalSessions, 12, 'Custom minimum must not change the 12-session creation flow')
 
     // 5. Fallback to GET /api/sessions/catalog/{classId} when primary /api/sessions fails
     failPrimarySessionsEndpoint = true
@@ -262,6 +335,16 @@ async function runUnitSuite() {
       'Uncertain read-back outcome must keep requestId stable in stateRef for safe reconciliation',
     )
     mockSessionCount = 12
+
+    // Backend validation errors are surfaced without retry or follow-up writes.
+    requests.length = 0
+    postResponseMode = 'validation_400'
+    await assert.rejects(
+      () => createNormalClassWithSessions(baseInput, {}),
+      (err) => err.status === 400 && /minCapacity is invalid/.test(err.message),
+    )
+    assert.equal(requests.length, 1, '400 validation error sends exactly one creation request')
+    postResponseMode = 'success'
 
     // 7. Non-idempotency 409 (ROOM_CONFLICT / COACH_CONFLICT) MUST preserve requestId across retries
     requests.length = 0
@@ -411,7 +494,7 @@ async function runUnitSuite() {
     assert.match(modalSource, /selectedSubject\.outdoor === null/)
     assert.match(modalSource, /idempotencyStateRef:\s*normalRequestIdStateRef/)
 
-    console.log('PASS: FE-10 unit tests: atomic Normal class creation preserves requestId on 409 schedule conflict, uncertain outcomes, and same-payload retries; rotates requestId only on confirmed IDEMPOTENCY_CONFLICT with changed payload.')
+    console.log('PASS: FE-10 unit tests: Normal minCapacity defaults, constraints and request body; 400/409 handling; atomic 12-session creation and idempotent retries.')
   } finally {
     globalThis.fetch = originalFetch
   }
@@ -774,6 +857,22 @@ async function runBrowserSuite() {
       })()
     `
 
+    const setCapacityField = (labelText, value) => `
+      (() => {
+        const label = Array.from(document.querySelectorAll('label')).find(
+          (item) => item.textContent.trim().includes(${JSON.stringify(labelText)})
+        );
+        const input = label?.parentElement?.querySelector('input[type="number"]');
+        if (!input) return false;
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(input, String(${JSON.stringify(value)}));
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.blur();
+        return input.value === String(${JSON.stringify(value)});
+      })()
+    `
+
     const clickSubmitModalButton = `
       (() => {
         const btn = Array.from(document.querySelectorAll('button')).find(
@@ -805,6 +904,23 @@ async function runBrowserSuite() {
 
     await client.eval(setClassNameInput('Cầu lông Normal K01'))
 
+    const initialMinimum = await client.eval(`
+      Array.from(document.querySelectorAll('label')).find((item) => item.textContent.trim().includes('Sĩ số tối thiểu'))?.parentElement?.querySelector('input[type="number"]')?.value
+    `)
+    assert.equal(initialMinimum, '6', 'Default max capacity 8 must produce minCapacity 6')
+    await client.eval(setCapacityField('Sĩ số tối đa', 10))
+    await client.waitFor(`Array.from(document.querySelectorAll('label')).find((item) => item.textContent.trim().includes('Sĩ số tối thiểu'))?.parentElement?.querySelector('input[type="number"]')?.value === '7'`)
+    await client.eval(setCapacityField('Sĩ số tối thiểu', 9))
+    await client.eval(setCapacityField('Sĩ số tối đa', 12))
+    await client.waitFor(`Array.from(document.querySelectorAll('label')).find((item) => item.textContent.trim().includes('Sĩ số tối thiểu'))?.parentElement?.querySelector('input[type="number"]')?.value === '9'`)
+    await client.eval(setCapacityField('Sĩ số tối đa', 8))
+    await client.waitFor(`Array.from(document.querySelectorAll('label')).find((item) => item.textContent.trim().includes('Sĩ số tối thiểu'))?.parentElement?.querySelector('input[type="number"]')?.value === '8'`)
+    await client.eval(setCapacityField('Sĩ số tối thiểu', 5))
+    await client.eval(clickSubmitModalButton)
+    await client.waitFor(`document.body.innerText.includes('không được thấp hơn mức mặc định 6')`)
+    assert.equal(await client.eval(`window.__fe10Calls.normalCreatePosts.length`), 0, 'Minimum below default must be rejected before sending API request')
+    await client.eval(setCapacityField('Sĩ số tối thiểu', 8))
+
     // Submit 1: 409 ROOM_CONFLICT
     await client.eval(clickSubmitModalButton)
     await client.waitFor(`window.__fe10Calls.normalCreatePosts.length === 1`)
@@ -812,6 +928,8 @@ async function runBrowserSuite() {
     const firstPost = await client.eval(`window.__fe10Calls.normalCreatePosts[0]`)
     assert.ok(firstPost.body.requestId, 'First POST must include a UUID requestId')
     assert.equal(firstPost.body.sportsClass.name, 'Cầu lông Normal K01')
+    assert.equal(firstPost.body.sportsClass.maxCapacity, 8)
+    assert.equal(firstPost.body.sportsClass.minCapacity, 8)
     assert.equal(firstPost.body.sportsClass.totalSessions, 12)
     assert.deepEqual(firstPost.body.daysOfWeek, [1, 3, 5])
 
@@ -833,7 +951,7 @@ async function runBrowserSuite() {
     await client.eval(clickSubmitModalButton)
     await client.waitFor(`window.__fe10Calls.normalCreatePosts.length === 3`)
     await client.waitFor(`window.__fe10Calls.sessionReadBacks.some(c => c.url.includes('classId=88'))`)
-    await client.waitFor(`document.body.innerText.includes('Đã tạo lớp Normal và sinh đủ 12 buổi theo API.')`)
+    await client.waitFor(`document.body.innerText.includes('Đã tạo lớp học và khởi tạo đủ lịch 12 buổi thành công.')`)
     await client.waitFor(`!document.querySelector('#new-class-name')`)
 
     const thirdPost = await client.eval(`window.__fe10Calls.normalCreatePosts[2]`)

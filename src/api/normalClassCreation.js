@@ -6,6 +6,58 @@ export const NORMAL_CLASS_API_BLOCKED_MESSAGE =
 export const isNormalClassApiCreationBlocked = (apiEnabled, targetStatus = 'Open') =>
   Boolean(apiEnabled) && String(targetStatus || 'Open').trim().toLowerCase() === 'draft'
 
+export const getDefaultNormalMinCapacity = (maxCapacity) => {
+  const max = Number(maxCapacity)
+  return Number.isInteger(max) && max > 0 ? Math.ceil((max * 2) / 3) : null
+}
+
+export const adjustNormalMinCapacityForMaxChange = (
+  currentMinCapacity,
+  nextMaxCapacity,
+  managerCustomized = false,
+) => {
+  const defaultMinCapacity = getDefaultNormalMinCapacity(nextMaxCapacity)
+  if (defaultMinCapacity === null) return currentMinCapacity
+  if (!managerCustomized) return defaultMinCapacity
+
+  const current = Number(currentMinCapacity)
+  if (!Number.isInteger(current)) return defaultMinCapacity
+  return Math.min(Number(nextMaxCapacity), Math.max(defaultMinCapacity, current))
+}
+
+export const validateNormalClassCapacity = ({
+  maxCapacity,
+  minCapacity,
+  roomCapacity,
+  maxAllowedCapacity,
+  requireRoomCapacity = false,
+} = {}) => {
+  const max = Number(maxCapacity)
+  const min = Number(minCapacity)
+  const defaultMin = getDefaultNormalMinCapacity(max)
+
+  if (defaultMin === null) return 'Sĩ số tối đa phải là số nguyên lớn hơn 0.'
+  if (!Number.isInteger(min)) return 'Sĩ số tối thiểu phải là số nguyên.'
+  if (Number.isFinite(Number(maxAllowedCapacity)) && max > Number(maxAllowedCapacity)) {
+    return `Sĩ số lớp không được vượt quá ${Number(maxAllowedCapacity)} học viên.`
+  }
+  const roomMax = Number(roomCapacity)
+  if (requireRoomCapacity && (!Number.isInteger(roomMax) || roomMax <= 0)) {
+    return 'Không xác định được sức chứa phòng đã chọn. Vui lòng tải lại danh mục phòng.'
+  }
+  if (
+    roomCapacity !== null && roomCapacity !== undefined && roomCapacity !== '' &&
+    Number.isInteger(roomMax) && roomMax >= 0 && max > roomMax
+  ) {
+    return `Sĩ số vượt quá sức chứa của phòng (${roomMax} người).`
+  }
+  if (min < defaultMin) {
+    return `Sĩ số tối thiểu không được thấp hơn mức mặc định ${defaultMin}.`
+  }
+  if (min > max) return 'Sĩ số tối thiểu không được lớn hơn sĩ số tối đa.'
+  return ''
+}
+
 export const toBackendDaysOfWeek = (daysOfWeek) => {
   if (!Array.isArray(daysOfWeek)) return daysOfWeek
   return daysOfWeek.map((day) => day === 0 ? 7 : day === '0' ? '7' : day)
@@ -48,11 +100,25 @@ export const buildNormalClassWithSessionsRequest = (
     totalSessions: 12,
   }
   const baseClass = toClassRequest(mergedClassInput)
+  const defaultMinCapacity = getDefaultNormalMinCapacity(baseClass.maxCapacity)
+  const requestedMinCapacity = mergedClassInput.minCapacity == null
+    ? defaultMinCapacity
+    : Number(mergedClassInput.minCapacity)
+  const capacityError = validateNormalClassCapacity({
+    maxCapacity: baseClass.maxCapacity,
+    minCapacity: requestedMinCapacity,
+    roomCapacity: data.roomCapacity,
+    maxAllowedCapacity: 15,
+    requireRoomCapacity: data.requireRoomCapacity,
+  })
+  if (capacityError) throw new Error(capacityError)
+
   const sportsClass = {
     name: baseClass.name,
     subjectId: baseClass.subjectId,
     coachId: baseClass.coachId,
     maxCapacity: baseClass.maxCapacity,
+    minCapacity: requestedMinCapacity,
     startDate: baseClass.startDate,
     ...(baseClass.endDate ? { endDate: baseClass.endDate } : {}),
     ...(baseClass.tuitionFee !== null && baseClass.tuitionFee !== undefined
