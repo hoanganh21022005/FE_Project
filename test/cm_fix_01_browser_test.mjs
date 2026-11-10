@@ -77,10 +77,16 @@ try {
   const today = vietnamDateKey(new Date())
   const month = currentCalendarMonth()
   const nextMonth = shiftCalendarMonth(month, 1)
+  const openingTimeParts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(Date.now() + 60 * 60 * 1000)).map(({ type, value }) => [type, value]))
   const fixture = {
     today,
     nextSession: `${nextMonth}-15`,
+    openingSessionDate: `${openingTimeParts.year}-${openingTimeParts.month}-${openingTimeParts.day}`,
+    openingSessionTime: `${openingTimeParts.hour}:${openingTimeParts.minute}:00`,
     classInfo: { id: 71, name: 'Lớp kiểm thử lịch', subjectId: 1, coachId: 2, maxCapacity: 12, startDate: today, endDate: `${nextMonth}-20`, status: 'Ongoing', classType: 'Normal', totalSessions: 12, tuitionFee: 650000 },
+    classDetail: { id: 71, name: 'Lớp kiểm thử lịch', subjectId: 1, subjectName: 'Cầu lông', coachId: 2, maxCapacity: 12, minCapacity: 2, startDate: today, endDate: `${nextMonth}-20`, status: 'Open', classType: 'Normal', totalSessions: 12, tuitionFee: 650000, openingConfirmedAt: null, openingConfirmedBy: null, changePending: false },
   }
   await send('Page.enable')
   await send('Runtime.enable')
@@ -90,6 +96,7 @@ try {
     window.confirm = () => true;
     window.__cmFixture = ${JSON.stringify(fixture)};
     window.__cmWrites = [];
+    window.__cmFailNextClassDetail = false;
     const originalFetch = window.fetch;
     window.fetch = async (input, init = {}) => {
       const url = typeof input === 'string' ? input : input.url;
@@ -99,13 +106,33 @@ try {
       if (method !== 'GET') {
         const body = init.body ? JSON.parse(init.body) : null;
         window.__cmWrites.push({ url, method, body });
+        if (method === 'POST' && url.includes('/api/classes/71/confirm-opening')) {
+          window.__cmFixture.classDetail = { ...window.__cmFixture.classDetail, openingConfirmedAt: new Date().toISOString(), openingConfirmedBy: 1 };
+          window.__cmFailNextClassDetail = true;
+          return response(window.__cmFixture.classDetail);
+        }
         if (method === 'PUT' && url.includes('/api/classes/71')) return response({ ...window.__cmFixture.classInfo, ...body });
         return new Response('{}', { status: 400, headers: { 'Content-Type': 'application/json' } });
       }
       if (url.includes('/api/auth/me')) return response({ userId: 1, email: 'manager@scms.com', fullName: 'Manager', role: 'Manager', authorities: ['MANAGE_CLASSES', 'MANAGE_SUBJECTS', 'MANAGE_ROOMS'] });
       if (url.includes('/api/subjects')) return response([{ id: 1, name: 'Cầu lông', status: 'Active', outdoor: false }]);
       if (url.includes('/api/coaches') || url.includes('/api/staff')) return response([{ id: 2, name: 'Coach', fullName: 'Coach', role: 'Coach', status: 'Active' }]);
+      if (url.includes('/api/classes/71') && !url.includes('/enrollments')) {
+        if (window.__cmFailNextClassDetail) {
+          window.__cmFailNextClassDetail = false;
+          return new Response(JSON.stringify({ message: 'temporary detail refresh failure' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+        }
+        return response(window.__cmFixture.classDetail);
+      }
+      if (url.includes('/api/classes/71/enrollments')) return response([
+        { id: 1, memberId: 101, memberName: 'Paid member 1', status: 'Registered', paymentStatus: 'Paid' },
+        { id: 2, memberId: 102, memberName: 'Paid member 2', status: 'Registered', paymentStatus: 'Paid' },
+        { id: 3, memberId: 103, memberName: 'Pending member', status: 'Pending', paymentStatus: 'Paid' },
+      ]);
       if (url.includes('/api/classes')) return response([window.__cmFixture.classInfo]);
+      if (url.includes('/api/sessions?classId=71')) return response([
+        { id: 103, classId: 71, sessionDate: window.__cmFixture.openingSessionDate, startTime: window.__cmFixture.openingSessionTime, endTime: '23:59', status: 'Scheduled', coachId: 2, roomId: 3 },
+      ]);
       if (url.includes('/api/sessions')) return response([
         { id: 101, classId: 71, sessionDate: window.__cmFixture.today, startTime: '08:00', endTime: '09:00', status: 'Scheduled' },
         { id: 102, classId: 71, sessionDate: window.__cmFixture.nextSession, startTime: '10:00', endTime: '11:00', status: 'Scheduled' },
@@ -131,6 +158,35 @@ try {
 
   await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.trim() === 'Danh sách').click()`)
   await waitFor(`document.querySelector('button[title="Thao tác"]')`)
+  await evaluate(`document.querySelector('button[title="Thao tác"]').click()`)
+  await waitFor(`Array.from(document.querySelectorAll('button')).some((button) => button.textContent.includes('Xem chi tiết nhanh'))`)
+  await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.includes('Xem chi tiết nhanh')).click()`)
+  await waitFor(`document.body.textContent.includes('Vòng đời lớp học') && document.body.textContent.includes('Member hợp lệ (Registered + Paid)')`)
+  assert.ok(await evaluate(`document.body.textContent.includes('2 / 2')`), 'only Registered + Paid enrollments count toward minCapacity')
+  await waitFor(`Array.from(document.querySelectorAll('button')).some((button) => button.textContent.includes('Xác nhận khai giảng') && !button.disabled)`)
+  assert.ok(await evaluate(`Array.from(document.querySelectorAll('button')).some((button) => button.textContent.includes('Xác nhận khai giảng'))`), 'Manager with MANAGE_CLASSES sees Normal opening action')
+  await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.includes('Xác nhận khai giảng')).click()`)
+  await waitFor(`document.querySelector('[role="dialog"]')`)
+  assert.ok(await evaluate(`document.querySelector('[role="dialog"]').textContent.includes('Lớp kiểm thử lịch')`))
+  assert.ok(await evaluate(`document.querySelector('[role="dialog"]').textContent.includes('Member hợp lệ')`))
+  assert.ok(await evaluate(`document.querySelector('[role="dialog"]').textContent.includes('Sĩ số tối thiểu')`))
+  assert.ok(await evaluate(`Boolean(document.querySelector('[role="dialog"] textarea[required]'))`), 'reason is required within 24 hours of the first session')
+  assert.ok(await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find((button) => button.textContent.trim() === 'Xác nhận với Backend').disabled`), 'blank reason cannot submit')
+  await evaluate(`(() => { const input = document.querySelector('[role="dialog"] textarea[required]'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'Test reason'); input.dispatchEvent(new Event('input', { bubbles: true })); })()`)
+  await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find((button) => button.textContent.trim() === 'Xác nhận với Backend').click()`)
+  await waitFor(`window.__cmWrites.some((write) => write.method === 'POST' && write.url.includes('/confirm-opening'))`)
+  const openingWrite = await evaluate(`window.__cmWrites.find((write) => write.method === 'POST' && write.url.includes('/confirm-opening'))`)
+  assert.deepEqual(openingWrite.body, { reason: 'Test reason' })
+  await waitFor(`document.body.textContent.includes('Backend đã nhận yêu cầu xác nhận nhưng chưa đồng bộ được dữ liệu mới')`)
+  assert.equal(await evaluate(`window.__cmWrites.filter((write) => write.method === 'POST' && write.url.includes('/confirm-opening')).length`), 1, 'a failed refresh must not repeat the successful POST')
+  await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.trim() === 'Tải lại').click()`)
+  await waitFor(`document.body.textContent.includes('Đã xác nhận')`)
+  assert.ok(await evaluate(`document.body.textContent.includes('Mở đăng ký')`), 'confirmation refresh does not change Open to Ongoing')
+  assert.ok(await evaluate(`!document.body.textContent.includes('Đang chờ đồng bộ trạng thái mới')`), 'successful refresh clears the pending-sync warning')
+  assert.equal(await evaluate(`window.__cmWrites.filter((write) => write.method === 'POST' && write.url.includes('/confirm-opening')).length`), 1)
+  await evaluate(`window.__cmWrites = []`)
+  await evaluate(`document.querySelector('button[title="Đóng (Esc)"]').click()`)
+
   await evaluate(`document.querySelector('button[title="Thao tác"]').click()`)
   await waitFor(`Array.from(document.querySelectorAll('button')).some((button) => button.textContent.includes('Sửa lớp học'))`)
   await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.includes('Sửa lớp học')).click()`)
