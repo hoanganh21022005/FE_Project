@@ -51,6 +51,16 @@ export const getClasses = async (lookups, options) => {
   const data = await httpClient.get('/api/classes', options);
   return mapListResponse(data, (item) => mapApiClass(item, lookups));
 };
+export const getClassById = async (id, lookups = {}, options) => {
+  const numericId = Number(id);
+  if (!Number.isInteger(numericId) || numericId <= 0) {
+    throw new Error('Class ID must be a positive integer.');
+  }
+  return mapApiClass(
+    await httpClient.get(`/api/classes/${numericId}`, options),
+    lookups,
+  );
+};
 export const getHolidays = async (options) => mapListResponse(
   await httpClient.get('/api/holidays', options),
   (item) => ({

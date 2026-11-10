@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react"
 import { useSCMS } from "../../context/SCMSContext"
+import * as managerApi from "../../api/managerApi"
+import { getErrorMessage } from "../../api/apiErrors"
 import {
   getEnrollmentsByClass,
   enrollMemberInClass,
@@ -51,6 +53,16 @@ function formatNumber(num) {
     : new Intl.NumberFormat("vi-VN").format(num)
 }
 
+function formatLifecycleDateTime(value) {
+  if (value == null || value === "") return "—"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return new Intl.DateTimeFormat("vi-VN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date)
+}
+
 const WEEKDAY_NAMES_MAP = {
   1: "T2",
   2: "T3",
@@ -70,7 +82,7 @@ export function ClassDetailDrawer({
   onCancelClass,
   onEnrollmentChange,
 }) {
-  const { members, language, showToast, apiEnabled } = useSCMS()
+  const { members, classes, language, showToast, apiEnabled } = useSCMS()
   const [enrollments, setEnrollments] = useState([])
   const [loading, setLoading] = useState(true)
   const [enrollmentLoadFailed, setEnrollmentLoadFailed] = useState(false)
@@ -78,8 +90,38 @@ export function ClassDetailDrawer({
   const [isAddingMember, setIsAddingMember] = useState(false)
   const [selectedNewMemberId, setSelectedNewMemberId] = useState("")
   const [actionLoading, setActionLoading] = useState(false)
+  const [classDetail, setClassDetail] = useState(null)
+  const [classDetailLoading, setClassDetailLoading] = useState(apiEnabled)
+  const [classDetailError, setClassDetailError] = useState("")
+  const [classDetailReload, setClassDetailReload] = useState(0)
 
   const classId = cls?.id
+
+  useEffect(() => {
+    let active = true
+    if (!apiEnabled) {
+      setClassDetail(cls)
+      setClassDetailError("")
+      setClassDetailLoading(false)
+      return () => { active = false }
+    }
+
+    setClassDetail(null)
+    setClassDetailError("")
+    setClassDetailLoading(true)
+    managerApi.getClassById(classId, {}, { notifyForbidden: false })
+      .then((item) => {
+        if (active) setClassDetail(item)
+      })
+      .catch((error) => {
+        if (active) setClassDetailError(getErrorMessage(error))
+      })
+      .finally(() => {
+        if (active) setClassDetailLoading(false)
+      })
+
+    return () => { active = false }
+  }, [apiEnabled, classId, classDetailReload, classes])
 
   // Close on Escape key
   useEffect(() => {
@@ -157,11 +199,11 @@ export function ClassDetailDrawer({
 
   if (!cls) return null
 
-  const capacity = cls.capacity ?? (apiEnabled ? null : 8)
+  const capacity = apiEnabled ? classDetail?.maxCapacity ?? null : cls.capacity ?? 8
   const enrolled = apiEnabled
     ? (loading || enrollmentLoadFailed ? cls.enrolledCount : enrollments.length)
     : enrollments.length || cls.enrolledCount || 0
-  const minCap = cls.minCapacity ?? (apiEnabled ? null : 4)
+  const minCap = apiEnabled ? classDetail?.minCapacity ?? null : cls.minCapacity ?? 4
   const percent =
     capacity > 0 && enrolled !== null
       ? Math.min(100, Math.round((enrolled / capacity) * 100))
@@ -271,9 +313,12 @@ export function ClassDetailDrawer({
     },
   }
 
-  const statusKey = cls.status === "published" ? "open" : cls.status === "completed" ? "closed" : cls.status
+  const statusSource = apiEnabled ? classDetail : cls
+  const statusKey = statusSource?.status === "published" ? "open" : statusSource?.status === "completed" ? "closed" : statusSource?.status
   const currentStatus = statusConfig[statusKey] || {
-    label: cls.apiStatus || cls.status || "Unknown status",
+    label: apiEnabled && !statusSource
+      ? classDetailLoading ? "Đang tải trạng thái…" : classDetailError ? "Chưa tải được trạng thái" : "Chưa có thông tin"
+      : statusSource?.apiStatus || statusSource?.status || "Chưa có thông tin",
     bg: "bg-stone-100",
     text: "text-stone-500",
     border: "border-stone-200",
@@ -405,17 +450,7 @@ export function ClassDetailDrawer({
                   {percent === null ? "—" : percent + "%"}
                 </div>
                 <span className="text-[10px] text-stone-500 block mt-1">
-                  {enrolled === null || minCap === null ? (
-                    "—"
-                  ) : enrolled >= minCap ? (
-                    <span className="text-emerald-700 font-medium">
-                      Đủ điều kiện mở
-                    </span>
-                  ) : (
-                    <span className="text-amber-700">
-                      Cần thêm {minCap - enrolled} HV
-                    </span>
-                  )}
+                  {minCap === null ? "Chưa có thông tin sĩ số tối thiểu" : `Tối thiểu ${minCap} học viên`}
                 </span>
               </div>
 
@@ -455,6 +490,77 @@ export function ClassDetailDrawer({
                 </span>
               </div>
             </div>
+
+            {apiEnabled && (
+              <section className="rounded-xl border border-stone-200 bg-white p-4" aria-labelledby="class-lifecycle-heading" aria-busy={classDetailLoading}>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 id="class-lifecycle-heading" className="text-sm font-semibold text-stone-900">
+                    Vòng đời lớp học
+                  </h3>
+                  {classDetailLoading && <span role="status" className="text-xs text-stone-500">Đang tải…</span>}
+                </div>
+
+                {classDetailError ? (
+                  <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                    <span>Không tải được thông tin vòng đời. {classDetailError}</span>
+                    <button type="button" onClick={() => setClassDetailReload((value) => value + 1)} className="rounded border border-rose-200 bg-white px-2.5 py-1.5 font-semibold hover:bg-rose-50">
+                      Tải lại
+                    </button>
+                  </div>
+                ) : classDetailLoading || !classDetail ? (
+                  <p className="text-xs text-stone-500">{classDetailLoading ? "Đang tải thông tin lớp…" : "Chưa có thông tin"}</p>
+                ) : (
+                  <dl className="grid grid-cols-2 gap-x-5 gap-y-3 text-xs sm:grid-cols-3">
+                    <div>
+                      <dt className="text-stone-500">Trạng thái hiện tại</dt>
+                      <dd className="mt-1 font-semibold text-stone-900">{currentStatus.label}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-stone-500">Sĩ số tối thiểu / tối đa</dt>
+                      <dd className="mt-1 font-semibold tabular-nums text-stone-900">
+                        {classDetail.minCapacity == null ? "Chưa có thông tin" : classDetail.minCapacity}
+                        {" / "}
+                        {classDetail.maxCapacity == null ? "Chưa có thông tin" : classDetail.maxCapacity}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-stone-500">Xác nhận khai giảng</dt>
+                      <dd className="mt-1 font-semibold text-stone-900">
+                        {classDetail.openingConfirmedAt === undefined
+                          ? "Chưa có thông tin"
+                          : classDetail.openingConfirmedAt === null
+                            ? "Chưa xác nhận"
+                            : "Đã xác nhận"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-stone-500">Thời điểm xác nhận</dt>
+                      <dd className="mt-1 font-semibold text-stone-900">
+                        {formatLifecycleDateTime(classDetail.openingConfirmedAt)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-stone-500">Người xác nhận</dt>
+                      <dd className="mt-1 font-semibold tabular-nums text-stone-900">
+                        {classDetail.openingConfirmedBy == null ? "Chưa có thông tin" : `Mã người dùng #${classDetail.openingConfirmedBy}`}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-stone-500">Số lần dời khai giảng</dt>
+                      <dd className="mt-1 font-semibold tabular-nums text-stone-900">
+                        {classDetail.postponementCount == null ? "Chưa có thông tin" : classDetail.postponementCount}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-stone-500">Phương án thay đổi đang chờ</dt>
+                      <dd className="mt-1 font-semibold text-stone-900">
+                        {classDetail.changePending === true ? "Có" : classDetail.changePending === false ? "Không" : "Chưa có thông tin"}
+                      </dd>
+                    </div>
+                  </dl>
+                )}
+              </section>
+            )}
 
             {/* SECTION: LỊCH HỌC VÀ SÂN TẬP */}
             <div className="p-4 bg-stone-50/50 border border-stone-200/70 rounded-xl space-y-3.5">

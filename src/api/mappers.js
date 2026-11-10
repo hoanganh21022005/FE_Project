@@ -158,7 +158,12 @@ export function mapClass(
       durationMinutes: null,
       code: null,
       minTierRequired: null,
-      minCapacity: null,
+      minCapacity: asNumber(item.minCapacity),
+      openingConfirmedAt: item.openingConfirmedAt,
+      openingConfirmedBy: asNumber(item.openingConfirmedBy),
+      postponementCount: asNumber(item.postponementCount),
+      lifecycleVersion: asNumber(item.lifecycleVersion),
+      changePending: typeof item.changePending === "boolean" ? item.changePending : null,
       selectedDays: null,
     }
   }
