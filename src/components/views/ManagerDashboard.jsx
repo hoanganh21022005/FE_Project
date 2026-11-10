@@ -6,7 +6,8 @@ import { StatusBadge } from '../common/Badge';
 import { ManagerDashboardInsights } from './ManagerDashboardInsights';
 import {
   Users, Clock, Calendar, CreditCard,
-  ArrowUpRight, AlertTriangle, Activity
+  ArrowUpRight, AlertTriangle, Activity, UserRound, CalendarDays,
+  BadgeCheck, WalletCards, ReceiptText, CalendarClock
 } from 'lucide-react';
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend
@@ -35,31 +36,61 @@ export function ManagerDashboard({ onNavigate }) {
   const pendingPaymentsCount = apiEnabled ? null : visiblePayments.filter(p => p.status === 'pending').length;
 
   if (apiEnabled) {
-    const metrics = [
-      { label: language === 'vi' ? 'Tổng người dùng' : 'Total users', value: dashboard?.totalUsers },
-      { label: language === 'vi' ? 'Tổng hội viên' : 'Total members', value: dashboard?.totalMembers },
-      { label: language === 'vi' ? 'Tổng lớp học' : 'Total classes', value: dashboard?.totalClasses },
-      { label: language === 'vi' ? 'Tổng gói' : 'Total packages', value: dashboard?.totalPackages },
-      { label: language === 'vi' ? 'Tổng doanh thu' : 'Total revenue', value: dashboard?.totalRevenue, money: true },
-      { label: language === 'vi' ? 'Hóa đơn đã thanh toán' : 'Paid invoices', value: dashboard?.totalInvoices },
-      { label: language === 'vi' ? 'Subscription đang hoạt động' : 'Active subscriptions', value: dashboard?.activeSubscriptions },
-      { label: language === 'vi' ? 'Buổi tập hôm nay' : 'Sessions today', value: dashboard?.todaySessions },
+    const primaryMetrics = [
+      { label: language === 'vi' ? 'Người dùng' : 'Users', value: dashboard?.totalUsers, icon: Users },
+      { label: language === 'vi' ? 'Hội viên' : 'Members', value: dashboard?.totalMembers, icon: UserRound },
+      { label: language === 'vi' ? 'Lớp học' : 'Classes', value: dashboard?.totalClasses, icon: CalendarDays },
+      { label: language === 'vi' ? 'Subscription đang hoạt động' : 'Active subscriptions', value: dashboard?.activeSubscriptions, icon: BadgeCheck },
+    ];
+    const secondaryMetrics = [
+      { label: language === 'vi' ? 'Tổng doanh thu' : 'Total revenue', value: dashboard?.totalRevenue, icon: WalletCards, money: true },
+      { label: language === 'vi' ? 'Hóa đơn đã thanh toán' : 'Paid invoices', value: dashboard?.totalInvoices, icon: ReceiptText },
+      { label: language === 'vi' ? 'Buổi tập hôm nay' : 'Sessions today', value: dashboard?.todaySessions, icon: CalendarClock },
     ];
 
     return (
-      <div className="space-y-6">
-        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-label={language === 'vi' ? 'Chỉ số tổng quan' : 'Dashboard metrics'}>
-          {metrics.map((metric) => (
-            <article key={metric.label} className="bg-white border border-stone-200 rounded-lg p-4 shadow-2xs">
-              <h2 className="text-xs font-bold text-stone-500 uppercase tracking-wider">{metric.label}</h2>
-              <p className="mt-2 text-2xl font-bold text-stone-900 tabular-nums">
-                {metric.value == null ? '—' : metric.money ? formatCurrency(metric.value, language) : metric.value}
-              </p>
-            </article>
-          ))}
+      <div className="space-y-7">
+        <div className="text-sm font-medium text-slate-600">
+          {new Intl.DateTimeFormat(language === 'vi' ? 'vi-VN' : 'en-US', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+          }).format(new Date())}
+        </div>
+
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label={language === 'vi' ? 'Chỉ số tổng quan' : 'Dashboard metrics'}>
+          {primaryMetrics.map((metric) => {
+            const Icon = metric.icon;
+            return (
+              <article key={metric.label} className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/[0.02]">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-medium text-slate-600">{metric.label}</h2>
+                  <span className="rounded-md border border-slate-200 bg-slate-50 p-2 text-slate-600"><Icon className="h-4 w-4" aria-hidden="true" /></span>
+                </div>
+                <p className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 tabular-nums">
+                  {metric.value == null ? '—' : metric.value.toLocaleString(language === 'vi' ? 'vi-VN' : 'en-US')}
+                </p>
+              </article>
+            );
+          })}
         </section>
-        {dashboardLoading && <p className="text-xs text-stone-500">{language === 'vi' ? 'Đang tải số liệu tổng quan…' : 'Loading dashboard metrics…'}</p>}
-        {dashboardError && <p role="alert" className="rounded border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">{dashboardError}</p>}
+
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label={language === 'vi' ? 'Chỉ số tài chính và lịch học' : 'Financial and schedule metrics'}>
+          {secondaryMetrics.map((metric) => {
+            const Icon = metric.icon;
+            return (
+              <article key={metric.label} className="flex min-w-0 items-center gap-4 rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-900/[0.02]">
+                <span className="shrink-0 rounded-md bg-blue-50 p-2.5 text-blue-800"><Icon className="h-5 w-5" aria-hidden="true" /></span>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-medium text-slate-600">{metric.label}</h2>
+                  <p className="mt-1 truncate text-xl font-semibold tracking-tight text-slate-950 tabular-nums">
+                    {metric.value == null ? '—' : metric.money ? formatCurrency(metric.value, language) : metric.value.toLocaleString(language === 'vi' ? 'vi-VN' : 'en-US')}
+                  </p>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+        {dashboardLoading && <p role="status" className="text-xs text-slate-500">{language === 'vi' ? 'Đang tải số liệu tổng quan…' : 'Loading dashboard metrics…'}</p>}
+        {dashboardError && <p role="alert" className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{dashboardError}</p>}
         <ManagerDashboardInsights navigate={navigate} />
       </div>
     );
