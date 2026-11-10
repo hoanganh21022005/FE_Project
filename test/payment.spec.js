@@ -10,7 +10,7 @@ test.describe('Kịch bản Thanh Toán Tiền Mặt & VNPay (PAY-01 -> PAY-03)'
 
   // PAY-01: Receptionist xác nhận Cash cho hóa đơn test hợp lệ
   test('PAY-01: Receptionist xác nhận thu tiền mặt thành công, trạng thái hóa đơn đổi thành Paid trên Table', async ({ page }) => {
-    const pendingCashInvoice = { ...mockInvoices[0] }; // ID 45, Pending, Cash
+    const pendingCashInvoice = { ...mockInvoices[0], serverTime: '2026-11-08T08:30:00Z', expiresAt: '2026-11-08T09:30:00Z' }; // ID 45, Pending, Cash
     const paidCashInvoice = {
       ...pendingCashInvoice,
       paymentStatus: 'successful',
@@ -70,7 +70,7 @@ test.describe('Kịch bản Thanh Toán Tiền Mặt & VNPay (PAY-01 -> PAY-03)'
 
   // PAY-02: Xác nhận Cash lỗi hoặc timeout
   test('PAY-02: Xác nhận Cash thất bại (500 Error), không tự hiển thị Paid và không xử lý trùng', async ({ page }) => {
-    const pendingCashInvoice = { ...mockInvoices[0] };
+    const pendingCashInvoice = { ...mockInvoices[0], serverTime: '2026-11-08T08:30:00Z', expiresAt: '2026-11-08T09:30:00Z' };
 
     await page.route((url) => isApiMatch(url, 'invoices'), async (route) => {
       const req = route.request();

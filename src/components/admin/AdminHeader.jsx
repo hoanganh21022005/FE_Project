@@ -8,32 +8,32 @@ export function AdminHeader({ title, onMenu, onLogout }) {
   const userEmail = currentUser?.email || "admin@scms.com"
 
   return (
-    <header className="h-16 shrink-0 border-b border-stone-200 bg-white px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20">
+    <header className="h-16 shrink-0 border-b border-border-color bg-bg-card px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20">
       <div className="flex items-center gap-3 min-w-0">
         <button
           type="button"
           onClick={onMenu}
-          className="w-11 h-11 min-h-[44px] min-w-[44px] -ml-2 inline-flex items-center justify-center rounded text-text-primary hover:bg-bg-secondary focus:outline-none focus:ring-2 focus:ring-brand-accent lg:hidden transition-colors cursor-pointer"
+          className="inline-flex min-h-11 min-w-11 -ml-2 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 lg:hidden cursor-pointer"
           aria-label="Mở menu Admin"
         >
           <Menu className="w-5 h-5" />
         </button>
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold text-brand-primary flex items-center gap-1.5">
+          <p className="text-xs leading-4 font-medium text-brand-primary flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5" />
             Admin Portal
           </p>
-          <h1 className="text-base font-bold text-text-primary truncate">
+          <h1 className="text-2xl leading-8 font-bold text-text-primary truncate">
             {title}
           </h1>
         </div>
       </div>
       <div className="flex items-center gap-3">
         <div className="hidden sm:block text-right min-w-0">
-          <p className="text-xs font-bold text-stone-900 truncate max-w-48">
+          <p className="text-sm leading-5 font-semibold text-text-primary truncate max-w-48">
             {userName}
           </p>
-          <p className="text-[11px] text-stone-600 truncate max-w-48">
+          <p className="text-xs leading-4 font-medium text-text-secondary truncate max-w-48">
             {userEmail}
           </p>
         </div>
@@ -41,7 +41,7 @@ export function AdminHeader({ title, onMenu, onLogout }) {
           type="button"
           onClick={onLogout}
           title="Đăng xuất"
-          className="w-11 h-11 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded border border-border-color text-text-secondary hover:bg-bg-secondary focus:outline-none focus:ring-2 focus:ring-brand-accent focus:ring-offset-2 transition-colors cursor-pointer"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded border border-border-color bg-bg-card text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
         >
           <LogOut className="w-4 h-4" />
           <span className="sr-only">Đăng xuất</span>

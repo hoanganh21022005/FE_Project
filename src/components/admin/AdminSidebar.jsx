@@ -53,10 +53,10 @@ export function AdminSidebar({
                   className="w-12 h-9 object-contain flex-shrink-0"
                 />
                 <div>
-                  <p className="text-sm font-extrabold text-white leading-none">
+                  <p className="text-sm leading-5 font-bold text-text-inverse">
                     VIBE Sport Admin
                   </p>
-                  <p className="mt-1 text-[11px] text-slate-300">
+                  <p className="mt-0.5 text-xs leading-4 font-medium text-text-muted">
                     Quản trị hệ thống
                   </p>
                 </div>
@@ -64,7 +64,7 @@ export function AdminSidebar({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-11 h-11 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-white hover:bg-brand-dark-hover rounded lg:hidden transition-colors cursor-pointer"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-text-inverse transition-colors hover:bg-brand-dark-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 lg:hidden cursor-pointer"
                 aria-label="Đóng menu"
               >
                 <X className="w-5 h-5" />
@@ -83,13 +83,13 @@ export function AdminSidebar({
                     type="button"
                     onClick={() => select(id)}
                     aria-current={active ? "page" : undefined}
-                    className={`w-full h-11 min-h-[44px] px-3 flex items-center gap-3 rounded text-sm font-semibold transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-accent ${
+                    className={`w-full min-h-11 px-3 flex items-center gap-3 rounded text-sm leading-5 font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
                       active
-                        ? "bg-brand-primary text-white font-bold border-l-2 border-brand-accent shadow-2xs"
-                        : "text-slate-200 hover:text-white hover:bg-brand-dark-hover"
+                        ? "bg-brand-primary text-text-inverse font-bold border-l-2 border-brand-accent"
+                        : "text-text-inverse/80 hover:text-text-inverse hover:bg-brand-dark-hover"
                     }`}
                   >
-                    <Icon className={`w-4 h-4 shrink-0 ${active ? "text-brand-accent" : "text-slate-300"}`} />
+                    <Icon className={`w-4 h-4 shrink-0 ${active ? "text-brand-accent" : "text-text-inverse/70"}`} />
                     <span className="truncate">{label}</span>
                   </button>
                 )
@@ -101,19 +101,19 @@ export function AdminSidebar({
             <button
               type="button"
               onClick={() => select("profile")}
-              className={`w-full h-11 min-h-[44px] px-3 flex items-center gap-3 rounded text-sm font-semibold transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-accent ${
+              className={`w-full min-h-11 px-3 flex items-center gap-3 rounded text-sm leading-5 font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
                 currentTab === "profile"
-                  ? "bg-brand-primary text-white font-bold border-l-2 border-brand-accent shadow-2xs"
-                  : "text-slate-200 hover:text-white hover:bg-brand-dark-hover"
+                  ? "bg-brand-primary text-text-inverse font-bold border-l-2 border-brand-accent"
+                  : "text-text-inverse/80 hover:text-text-inverse hover:bg-brand-dark-hover"
               }`}
             >
-              <UserCircle className={`w-4 h-4 shrink-0 ${currentTab === "profile" ? "text-brand-accent" : "text-slate-300"}`} />
+              <UserCircle className={`w-4 h-4 shrink-0 ${currentTab === "profile" ? "text-brand-accent" : "text-text-inverse/70"}`} />
               Hồ sơ
             </button>
             <button
               type="button"
               onClick={onLogout}
-              className="w-full h-11 min-h-[44px] px-3 flex items-center gap-3 rounded text-sm font-semibold text-slate-200 hover:text-white hover:bg-brand-dark-hover focus:outline-none focus:ring-2 focus:ring-brand-accent transition-colors cursor-pointer"
+              className="w-full min-h-11 px-3 flex items-center gap-3 rounded text-sm leading-5 font-semibold text-text-inverse/80 hover:text-text-inverse hover:bg-brand-dark-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
               Đăng xuất

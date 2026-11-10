@@ -28,6 +28,7 @@ import {
   ChevronUp,
   RefreshCw,
 } from "lucide-react"
+import { PageHeader } from "../ui/PageHeader"
 
 export { FEEDBACK_DEADLINE_DAYS }
 
@@ -1405,42 +1406,33 @@ export function MemberFeedbackView({ embedded = false }) {
     >
       {/* 1. HEADER */}
       {!embedded && (
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
-              {t("feedbackBrand")}
-            </p>
-            <h1 className="mt-2 text-3xl font-black text-slate-950">
-              {t("feedbackPageTitle")}
-            </h1>
-            <p className="mt-2 text-sm text-slate-500">
-              {t("feedbackPageSubtitle")}
-            </p>
-          </div>
-
-          <div className="flex flex-col items-end gap-1.5">
-            <button
-              type="button"
-              onClick={fetchBackendFeedbackData}
-              disabled={isLoadingApi}
-              aria-label={t("feedbackBtnRefresh")}
-              title={t("feedbackBtnRefresh")}
-              className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 p-2 text-slate-700 disabled:opacity-60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${isLoadingApi ? "animate-spin" : ""}`}
-              />
-            </button>
-
-            {lastUpdatedAt && (
-              <span className="text-xs text-slate-500">
-                {tr("feedbackUpdatedAt", {
-                  time: TIME_FORMATTER_HHMM.format(lastUpdatedAt),
-                })}
-              </span>
-            )}
-          </div>
-        </header>
+        <PageHeader
+          title={t("feedbackPageTitle")}
+          description={t("feedbackPageSubtitle")}
+          actions={
+            <div className="flex flex-col items-end gap-1.5">
+              <button
+                type="button"
+                onClick={fetchBackendFeedbackData}
+                disabled={isLoadingApi}
+                aria-label={t("feedbackBtnRefresh")}
+                title={t("feedbackBtnRefresh")}
+                className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 p-2 text-slate-700 disabled:opacity-60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${isLoadingApi ? "animate-spin" : ""}`}
+                />
+              </button>
+              {lastUpdatedAt && (
+                <span className="text-xs text-slate-500">
+                  {tr("feedbackUpdatedAt", {
+                    time: TIME_FORMATTER_HHMM.format(lastUpdatedAt),
+                  })}
+                </span>
+              )}
+            </div>
+          }
+        />
       )}
 
       {/* 2. DẢI CHỈ SỐ: 4 Thẻ cùng đơn vị là KHÓA (Chờ đánh giá + Đã gửi = Khóa đã tham gia) */}

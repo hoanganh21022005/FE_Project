@@ -4,6 +4,7 @@ import { useSCMS } from '../../context/SCMSContext';
 import { getMemberTrainingPlans, getMemberTrainingResults, getMemberEvaluations, getTrainingPlanById } from '../../api/memberPortalApi';
 import { getAuthoritativeProfileId } from '../../utils/memberSafetyHelpers';
 import { getErrorMessage } from '../../api/apiErrors';
+import { PageHeader } from '../ui/PageHeader';
 
 export function MemberTrainingView() {
   const { currentUser, language } = useSCMS();
@@ -77,24 +78,19 @@ export function MemberTrainingView() {
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-7 sm:py-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-teal-dark">VIBE SPORT · MEMBER</p>
-          <h1 className="mt-2 text-3xl font-black text-slate-950">{isVi ? 'Tiến độ tập luyện' : 'Training progress'}</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            {isVi
-              ? 'Kế hoạch từ huấn luyện viên, kết quả từng buổi tập và đánh giá định kỳ.'
-              : 'Coach plans, session results, and periodic evaluations.'}
-          </p>
-        </div>
-        <button
-          onClick={refresh}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-        >
-          <RefreshCw className="h-4 w-4" />
-          {isVi ? 'Tải lại' : 'Refresh'}
-        </button>
-      </header>
+      <PageHeader
+        title={isVi ? 'Tiến độ tập luyện' : 'Training progress'}
+        description={isVi ? 'Kế hoạch từ huấn luyện viên, kết quả từng buổi tập và đánh giá định kỳ.' : 'Coach plans, session results, and periodic evaluations.'}
+        actions={
+          <button
+            onClick={refresh}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+          >
+            <RefreshCw className="h-4 w-4" />
+            {isVi ? 'Tải lại' : 'Refresh'}
+          </button>
+        }
+      />
       {!validMember && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           {isVi ? 'Tài khoản chưa được liên kết với hồ sơ hội viên.' : 'This account is not linked to a member profile.'}

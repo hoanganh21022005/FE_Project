@@ -90,7 +90,7 @@ export function CoachesView() {
                 <Icon className="h-6 w-6 shrink-0 text-mlc-red sm:h-7 sm:w-7" aria-hidden="true" />
                 <div>
                   <span className="block font-display text-4xl font-extrabold leading-none text-mlc-red sm:text-5xl">{number}</span>
-                  <span className="mt-3 block text-[10px] font-bold uppercase leading-4 tracking-wide sm:text-xs">{isVi ? vi : en}</span>
+                  <span className="mt-3 block text-xs font-bold uppercase leading-4 tracking-wide sm:text-xs">{isVi ? vi : en}</span>
                 </div>
               </div>
             ))}
@@ -136,7 +136,7 @@ export function CoachesView() {
                   <div className="coaches-team-card-shade" aria-hidden="true" />
                   <span className="coaches-team-card-icon" aria-hidden="true"><Users className="h-5 w-5" /></span>
                   <div className="coaches-team-card-copy">
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-white/80 sm:text-xs">{isVi ? coach.specialtyVi : coach.specialty}</p>
+                    <p className="mb-2 text-xs font-bold uppercase tracking-[0.12em] text-white/80 sm:text-xs">{isVi ? coach.specialtyVi : coach.specialty}</p>
                     <h3 className="font-display text-2xl font-extrabold uppercase leading-[1.02] sm:text-3xl">{coach.name}</h3>
                   </div>
                 </button>

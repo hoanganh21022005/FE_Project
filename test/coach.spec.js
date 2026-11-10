@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/guardedTest.js';
-import { loginAs, navigateTo, setupDefaultApiMocks, isApiMatch } from './helpers/mockAuth.js';
+import { loginAs, navigateTo, setupDefaultApiMocks, isApiMatch, isLocalApi } from './helpers/mockAuth.js';
 import { mockClasses, mockCoachSessions, mockRoster } from './helpers/mockData.js';
 
 test.describe('Kịch bản Huấn Luyện Viên Điểm Danh (COACH-01 -> COACH-03)', () => {
@@ -48,8 +48,8 @@ test.describe('Kịch bản Huấn Luyện Viên Điểm Danh (COACH-01 -> COACH
       const url = new URL(request.url());
       if (url.pathname === '/api/classes/999/enrollments' || (url.pathname === '/api/enrollments' && url.searchParams.get('classId') === '999')) unauthorizedRosterRequests++;
     });
-    await page.route((url) => url.pathname === '/api/classes', (route) => route.fulfill({ json: [...mockClasses, otherClass] }));
-    await page.route((url) => url.pathname.startsWith('/api/sessions'), (route) => {
+    await page.route((url) => isLocalApi(url, '/api/classes'), (route) => route.fulfill({ json: [...mockClasses, otherClass] }));
+    await page.route((url) => isApiMatch(url, 'sessions'), (route) => {
       const url = new URL(route.request().url());
       const classId = url.searchParams.get('classId') || url.pathname.match(/\/catalog\/(\d+)$/)?.[1];
       return route.fulfill({ json: classId === '999' ? [otherSession] : mockCoachSessions });
@@ -108,7 +108,7 @@ test.describe('Kịch bản Huấn Luyện Viên Điểm Danh (COACH-01 -> COACH
 
     // A denied roster and its fallback must not leave the old roster visible.
     let deniedRequests = 0;
-    await page.route((url) => isApiMatch(url, 'classes/101/enrollments') || url.pathname === '/api/enrollments', async (route) => {
+    await page.route((url) => isApiMatch(url, 'classes/101/enrollments') || isLocalApi(url, '/api/enrollments'), async (route) => {
       deniedRequests++;
       return route.fulfill({
         status: 403,

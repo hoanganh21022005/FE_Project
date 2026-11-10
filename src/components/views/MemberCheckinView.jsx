@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
+import { PageHeader } from "../ui/PageHeader"
 import {
   AlertCircle,
   CalendarDays,
@@ -1507,19 +1508,19 @@ export function MemberCheckinView() {
         } space-y-1.5 text-xs text-slate-600`}
       >
         <li className="flex items-start gap-2">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-[11px] font-bold text-slate-700">
+          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
             1
           </span>
           <span>{t("checkinHowToStep1")}</span>
         </li>
         <li className="flex items-start gap-2">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-[11px] font-bold text-slate-700">
+          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
             2
           </span>
           <span>{t("checkinHowToStep2")}</span>
         </li>
         <li className="flex items-start gap-2">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-[11px] font-bold text-slate-700">
+          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
             3
           </span>
           <span>{t("checkinHowToStep3")}</span>
@@ -1530,21 +1531,11 @@ export function MemberCheckinView() {
 
   return (
     <main className="mx-auto max-w-[1100px] space-y-6 px-4 py-6 sm:px-7 sm:py-8">
-      {/* 4.1 Header: giữ tiêu đề, mô tả tự nhiên và nút Tải lại (icon, có trạng thái đang tải); bỏ nút Yêu cầu đối soát + nhãn Bản nháp */}
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-brand-accent-dark">
-            {t("checkinBrand")}
-          </p>
-          <h1 className="mt-2 text-3xl font-black text-slate-950">
-            {t("checkinPageTitle")}
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            {t("checkinPageSubtitle")}
-          </p>
-        </div>
-
-        <div className="group relative">
+      {/* 4.1 Header */}
+      <PageHeader
+        title={t("checkinPageTitle")}
+        description={t("checkinPageSubtitle")}
+        actions={
           <button
             type="button"
             onClick={reloadAll}
@@ -1561,8 +1552,8 @@ export function MemberCheckinView() {
               }`}
             />
           </button>
-        </div>
-      </header>
+        }
+      />
 
       {!validMember && (
         <div

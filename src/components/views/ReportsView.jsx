@@ -230,9 +230,9 @@ export function ReportsView() {
         </div>
         {sectionError(memberError)}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-          <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Tổng hội viên' : 'Total members'}</p><p className="mt-1 font-bold text-slate-900">{apiEnabled ? memberReport?.totalMembers ?? '—' : members.length}</p></article>
-          <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Hội viên Active' : 'Active members'}</p><p className="mt-1 font-bold text-slate-900">{apiEnabled ? memberReport?.activeMembers ?? '—' : members.filter((member) => member.membershipStatus === 'active').length}</p></article>
-          <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Không có gói đang hoạt động' : 'No active package'}</p><p className="mt-1 font-bold text-slate-900">{apiEnabled ? memberReport?.expiredMembers ?? '—' : members.filter((member) => member.membershipStatus !== 'active').length}</p></article>
+          <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">{vi ? 'Tổng hội viên' : 'Total members'}</p><p className="mt-1 font-bold text-slate-900">{apiEnabled ? memberReport?.totalMembers ?? '—' : members.length}</p></article>
+          <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">{vi ? 'Hội viên Active' : 'Active members'}</p><p className="mt-1 font-bold text-slate-900">{apiEnabled ? memberReport?.activeMembers ?? '—' : members.filter((member) => member.membershipStatus === 'active').length}</p></article>
+          <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">{vi ? 'Không có gói đang hoạt động' : 'No active package'}</p><p className="mt-1 font-bold text-slate-900">{apiEnabled ? memberReport?.expiredMembers ?? '—' : members.filter((member) => member.membershipStatus !== 'active').length}</p></article>
         </div>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
           <div>

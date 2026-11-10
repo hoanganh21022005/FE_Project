@@ -513,27 +513,27 @@ export function CoachScheduleView() {
     return (
       <div
         key={ses.id || index}
-        className={`p-4 rounded-lg border transition-all space-y-2 ${
+        className={`rounded-lg border p-4 text-text-primary transition-colors space-y-2 ${
           sessionCancelled
-            ? "bg-slate-100/80 border-slate-300 opacity-85"
+            ? "bg-bg-secondary border-border-color opacity-85"
             : isToday
-              ? "bg-blue-50/50 border-blue-300"
-              : "bg-slate-50 border-slate-200 hover:border-slate-300"
+              ? "bg-sky-50/40 border-sky-200"
+              : "bg-bg-secondary border-border-color hover:bg-bg-card"
         }`}
       >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <span
-                className={`px-2.5 py-0.5 rounded text-xs font-bold border ${
+                className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
                   ses.isPrivate
-                    ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                    : "bg-blue-100 text-blue-900 border-blue-200"
+                    ? "bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200"
+                    : "bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200"
                 }`}
               >
                 {ses.isPrivate ? "PT 1:1" : ses.subjectName || "Lớp nhóm"}
               </span>
-              <span className="text-sm font-bold text-slate-900">
+              <span className="text-sm leading-5 font-semibold text-text-primary">
                 {ses.isPrivate
                   ? `${ses.subjectName || "Kèm PT 1:1"} — Học viên: ${
                       ses.bookedMemberName || "Hội viên PT"
@@ -542,7 +542,7 @@ export function CoachScheduleView() {
               </span>
               {/* R4.3: Do not repeat "Hôm nay" badge inside the "Hôm nay" group header */}
               {isToday && groupType !== "today" && (
-                <span className="px-2.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded text-xs font-bold">
+                <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200">
                   {t("coachTodayGroup")}
                 </span>
               )}
@@ -556,20 +556,20 @@ export function CoachScheduleView() {
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-700">
-              <div className="flex items-center gap-1.5 font-semibold text-slate-900">
-                <Calendar className="w-3.5 h-3.5 text-blue-700" />
+            <div className="flex flex-wrap items-center gap-4 text-sm leading-5 text-text-secondary">
+              <div className="flex items-center gap-1.5 font-semibold text-text-primary">
+                <Calendar className="w-3.5 h-3.5 text-brand-primary" />
                 <span>{formatSessionDayLabel(ses.sessionDate, language)}</span>
               </div>
 
-              <div className="flex items-center gap-1.5 font-mono font-bold text-blue-900 bg-white px-2.5 py-0.5 rounded border border-slate-200">
-                <Clock className="w-3.5 h-3.5 text-blue-700" />
+              <div className="flex items-center gap-1.5 font-mono font-semibold text-text-primary bg-bg-card px-2.5 py-0.5 rounded border border-border-color">
+                <Clock className="w-3.5 h-3.5 text-brand-primary" />
                 <span>{formatTimeRange(ses.startTime, ses.endTime)}</span>
               </div>
 
               <div className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-rose-600" />
-                <span className="font-semibold text-slate-800">
+                <MapPin className="w-3.5 h-3.5 text-status-danger" />
+                <span className="font-semibold text-text-primary">
                   {ses.roomName || "Sân tập trung tâm"}
                 </span>
               </div>
@@ -583,9 +583,9 @@ export function CoachScheduleView() {
                     : (ses.maxCapacity ?? 12)
                   return (
                     <div className="flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-slate-500" />
+                      <Users className="w-3.5 h-3.5 text-text-muted" />
                       <span
-                        className="font-mono font-bold text-slate-900"
+                        className="font-mono font-semibold text-text-primary"
                         title={
                           apiEnabled && !hasReliableSessionCapacity
                             ? language === "vi"
@@ -604,7 +604,7 @@ export function CoachScheduleView() {
             </div>
 
             {sessionCancelled && (
-              <div className="text-xs text-rose-800 bg-rose-50 border border-rose-200 rounded px-3 py-1.5">
+              <div className="text-xs leading-4 font-medium text-status-danger bg-rose-50 border border-rose-200 rounded px-3 py-1.5">
                 {ses.centerInvalidated
                   ? t("coachBannerCenterInvalidatedDesc")
                   : t("coachBannerCancelledDesc")}
@@ -618,9 +618,9 @@ export function CoachScheduleView() {
               <button
                 type="button"
                 onClick={() => toggleNoticeExpand(ses.id)}
-                className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded text-xs font-bold text-amber-900 flex items-center gap-1.5 cursor-pointer"
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
               >
-                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                <AlertCircle className="w-3.5 h-3.5 text-status-warning" />
                 <span>
                   {t("coachAbsenceNoticeCountBadge").replace(
                     "{count}",
@@ -637,7 +637,7 @@ export function CoachScheduleView() {
                   <button
                     type="button"
                     onClick={() => handleGoToAttendance(ses)}
-                    className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>{t("coachBtnCheckInThisSession")}</span>
@@ -646,10 +646,10 @@ export function CoachScheduleView() {
                   <button
                     type="button"
                     onClick={() => handleGoToPtResult(ses)}
-                    className={`px-3.5 py-1.5 rounded text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer ${
+                    className={`inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
                       hasLoggedResult
-                        ? "bg-white hover:bg-slate-100 text-slate-800 border border-slate-300"
-                        : "bg-emerald-700 hover:bg-emerald-800 text-white"
+                        ? "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
+                        : "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
                     }`}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
@@ -664,7 +664,7 @@ export function CoachScheduleView() {
                 <button
                   type="button"
                   onClick={() => handleGoToAttendance(ses)}
-                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>
@@ -678,17 +678,17 @@ export function CoachScheduleView() {
         </div>
 
         {hasNotices && isNoticeExpanded && (
-          <div className="pt-2 border-t border-slate-200 text-xs space-y-1">
+          <div className="pt-2 border-t border-border-color text-sm leading-5 space-y-1">
             {notices.map((n, idx) => (
               <div
                 key={n.id || idx}
-                className="p-2.5 bg-amber-50 border border-amber-200 rounded text-amber-900 flex items-center justify-between"
+                className="p-2.5 bg-amber-50 border border-amber-200 rounded text-status-warning flex items-center justify-between"
               >
                 <span>
                   <strong>{n.memberName || "Học viên"}</strong>:{" "}
                   {n.reason || "Xin phép vắng buổi học"}
                 </span>
-                <span className="font-mono text-xs text-amber-700">
+                <span className="font-mono text-xs leading-4 text-status-warning">
                   {formatDateTime(n.reportedAt || n.createdAt)}
                 </span>
               </div>
@@ -702,17 +702,17 @@ export function CoachScheduleView() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header + Top-level Tabs */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
+      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-50 text-blue-800 rounded border border-blue-200">
+            <div className="p-2.5 bg-bg-secondary text-brand-primary rounded border border-border-color">
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 whitespace-nowrap">
+              <h2 className="text-xl leading-7 font-semibold text-text-primary whitespace-nowrap">
                 {t("schedule")}
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-sm leading-5 text-text-secondary">
                 {language === "vi"
                   ? "Thời khóa biểu từng buổi dạy (Thứ/Ngày, Khung giờ, Sân tập), ca PT 1:1 & cấu hình lịch làm việc"
                   : "Detailed teaching schedule by session, 1:1 private PT sessions & work schedule configuration"}
@@ -726,22 +726,23 @@ export function CoachScheduleView() {
                 type="button"
                 onClick={loadCoachScheduleData}
                 disabled={loadingSessions}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-xs font-bold text-slate-700 flex items-center gap-1 cursor-pointer"
+                aria-label={t("coachBtnRefresh")}
+                title={t("coachBtnRefresh")}
+                className="inline-flex h-9 w-9 items-center justify-center rounded transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-secondary hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
               >
                 <RefreshCw
-                  className={`w-3.5 h-3.5 ${loadingSessions ? "animate-spin" : ""}`}
+                  className={`w-4 h-4 ${loadingSessions ? "animate-spin" : ""}`}
                 />
-                <span>{t("coachBtnRefresh")}</span>
               </button>
             )}
-            <Filter className="w-4 h-4 text-slate-500" />
-            <span className="text-xs font-bold text-slate-700">
+            <Filter className="w-3.5 h-3.5 text-text-muted" />
+            <span className="text-xs leading-4 font-medium text-text-secondary">
               Lọc theo phòng:
             </span>
             <select
               value={selectedRoom}
               onChange={(e) => setSelectedRoom(e.target.value)}
-              className="bg-slate-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
+              className="h-9 w-full sm:w-48 rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
             >
               <option value="all">
                 {language === "vi" ? "Tất cả phòng / sân" : "All Rooms"}
@@ -758,17 +759,17 @@ export function CoachScheduleView() {
         {/* Top-level Tabs (P2.1) */}
         <div
           role="tablist"
-          className="flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3"
+          className="flex flex-wrap items-center gap-2 border-t border-border-color pt-3"
         >
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === "schedule"}
             onClick={() => setActiveTab("schedule")}
-            className={`px-4 py-2 rounded text-xs font-bold border transition-colors cursor-pointer ${
+            className={`inline-flex h-9 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
               activeTab === "schedule"
-                ? "bg-slate-900 text-white border-slate-900"
-                : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
+                : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
             }`}
           >
             {t("coachTabScheduleClasses")}
@@ -778,10 +779,10 @@ export function CoachScheduleView() {
             role="tab"
             aria-selected={activeTab === "work_schedule"}
             onClick={() => setActiveTab("work_schedule")}
-            className={`px-4 py-2 rounded text-xs font-bold border transition-colors cursor-pointer ${
+            className={`inline-flex h-9 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
               activeTab === "work_schedule"
-                ? "bg-slate-900 text-white border-slate-900"
-                : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
+                : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
             }`}
           >
             {t("coachTabWorkSchedule")}
@@ -792,28 +793,28 @@ export function CoachScheduleView() {
       {activeTab === "schedule" ? (
         <>
           {/* Section 1: Detailed Sessions Schedule */}
-          <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+          <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-border-color pb-3">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-blue-700" />
+                <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-brand-primary" />
                   <span>Thời khóa biểu các buổi giảng dạy chi tiết</span>
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-sm leading-5 text-text-secondary mt-0.5">
                   {t("coachScheduleSubtitleShort")}
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 {/* View Mode Toggle: List vs Week Grid */}
-                <div className="inline-flex rounded border border-slate-300 bg-slate-100 p-0.5">
+                <div className="inline-flex rounded border border-border-color bg-bg-secondary p-1 gap-1">
                   <button
                     type="button"
                     onClick={() => setViewMode("list")}
-                    className={`px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 cursor-pointer ${
+                    className={`inline-flex h-7 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
                       viewMode === "list"
-                        ? "bg-white text-slate-900 shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
+                        ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
+                        : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
                     }`}
                   >
                     <LayoutList className="w-3.5 h-3.5" />
@@ -822,10 +823,10 @@ export function CoachScheduleView() {
                   <button
                     type="button"
                     onClick={() => setViewMode("week")}
-                    className={`px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 cursor-pointer ${
+                    className={`inline-flex h-7 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
                       viewMode === "week"
-                        ? "bg-white text-slate-900 shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
+                        ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
+                        : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
                     }`}
                   >
                     <CalendarDays className="w-3.5 h-3.5" />
@@ -849,10 +850,10 @@ export function CoachScheduleView() {
                     key={tab.id}
                     type="button"
                     onClick={() => setScheduleFilter(tab.id)}
-                    className={`px-3 py-1.5 rounded text-xs font-bold border cursor-pointer ${
+                    className={`inline-flex h-7.5 items-center justify-center gap-1 rounded px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
                       scheduleFilter === tab.id
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                        ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
+                        : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
                     }`}
                   >
                     {tab.label}
@@ -866,39 +867,39 @@ export function CoachScheduleView() {
                 {[1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className="h-20 bg-slate-100 animate-pulse rounded-lg border border-slate-200"
+                    className="h-20 bg-bg-secondary animate-pulse rounded-lg border border-border-color"
                   />
                 ))}
               </div>
             ) : filteredSessions.length === 0 ? (
-              <div className="p-6 text-center text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded">
+              <div className="p-6 text-center text-sm leading-5 text-text-secondary bg-bg-secondary border border-border-color rounded-lg">
                 Không có buổi dạy nào khớp với bộ lọc hiện tại.
               </div>
             ) : viewMode === "week" ? (
               /* Weekly 7 days x 8 slots Grid View */
-              <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                <table className="w-full text-xs border-collapse min-w-[720px]">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="p-2.5 text-left font-bold text-slate-700 border-r border-slate-200 w-32">
+              <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
+                <table className="w-full min-w-full text-left text-sm border-collapse">
+                  <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
+                    <tr>
+                      <th className="px-4 py-3 text-left align-middle border-r border-border-color w-32">
                         Ca / Thứ
                       </th>
                       {WEEKDAYS.map((day) => (
                         <th
                           key={day.key}
-                          className="p-2.5 text-center font-bold text-slate-800 border-r last:border-r-0 border-slate-200"
+                          className="px-4 py-3 text-center align-middle border-r last:border-r-0 border-border-color"
                         >
                           {t(day.labelKey)}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-border-color">
                     {apiTimeSlots.map((slot) => (
-                      <tr key={slot.slotNumber}>
-                        <td className="p-2 border-r border-slate-200 bg-slate-50/60 font-semibold text-slate-800">
+                      <tr key={slot.slotNumber} className="transition-colors hover:bg-bg-secondary/70">
+                        <td className="px-4 py-3 align-middle text-sm leading-5 text-text-primary border-r border-border-color bg-bg-secondary/60 font-semibold">
                           <div>{slot.name}</div>
-                          <div className="text-[11px] font-mono text-slate-500">
+                          <div className="text-xs leading-4 font-mono text-text-secondary">
                             {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
                           </div>
                         </td>
@@ -911,7 +912,7 @@ export function CoachScheduleView() {
                           return (
                             <td
                               key={`${day.key}-${slot.slotNumber}`}
-                              className="p-1.5 align-top border-r last:border-r-0 border-slate-200 min-w-[110px]"
+                              className="px-4 py-3 align-top text-sm leading-5 text-text-primary border-r last:border-r-0 border-border-color min-w-[110px]"
                             >
                               <div className="space-y-1.5">
                                 {cellSessions.map((ses) => {
@@ -924,21 +925,21 @@ export function CoachScheduleView() {
                                           handleGoToAttendance(ses)
                                         }
                                       }}
-                                      className={`p-2 rounded border text-[11px] space-y-1 ${
+                                      className={`p-2 rounded border text-xs leading-4 space-y-1 ${
                                         cancelled
-                                          ? "bg-rose-50 border-rose-200 text-rose-800 opacity-75"
+                                          ? "bg-rose-50 border-rose-200 text-status-danger opacity-75"
                                           : ses.isPrivate
-                                            ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                                            : "bg-blue-50 border-blue-200 text-blue-900 cursor-pointer hover:border-blue-400"
+                                            ? "bg-emerald-50 border-emerald-200 text-status-success"
+                                            : "bg-sky-50 border-sky-200 text-status-info cursor-pointer hover:border-brand-primary"
                                       }`}
                                     >
-                                      <div className="font-bold truncate">
+                                      <div className="font-semibold">
                                         {ses.className || ses.subjectName || "PT 1:1"}
                                       </div>
-                                      <div className="font-mono text-[10px]">
+                                      <div className="font-mono text-xs leading-4">
                                         {formatDate(ses.sessionDate)}
                                       </div>
-                                      <div className="truncate text-[10px] text-slate-600">
+                                      <div className="text-xs leading-4 text-text-secondary">
                                         {ses.roomName}
                                       </div>
                                       <CoachStatusBadge
@@ -967,7 +968,7 @@ export function CoachScheduleView() {
                 {groupedSessions.today.length > 0 && (
                   <div className="space-y-2.5">
                     <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold">
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200">
                         {t("coachTodayGroup")} ({groupedSessions.today.length})
                       </span>
                     </div>
@@ -982,7 +983,7 @@ export function CoachScheduleView() {
                 {groupedSessions.upcoming.length > 0 && (
                   <div className="space-y-2.5">
                     <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200 text-xs font-bold">
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200">
                         {t("coachUpcomingGroup")} ({groupedSessions.upcoming.length})
                       </span>
                     </div>
@@ -995,11 +996,11 @@ export function CoachScheduleView() {
                 )}
 
                 {groupedSessions.past.length > 0 && (
-                  <div className="space-y-2.5 pt-2 border-t border-slate-200">
+                  <div className="space-y-2.5 pt-2 border-t border-border-color">
                     <button
                       type="button"
                       onClick={() => setShowPastSessions((v) => !v)}
-                      className="flex items-center justify-between w-full px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer"
+                      className="inline-flex min-h-11 w-full items-center justify-between gap-2 rounded px-4 py-2 text-sm font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
                     >
                       <span>
                         {t("coachPastGroup")} ({groupedSessions.past.length})
@@ -1032,13 +1033,13 @@ export function CoachScheduleView() {
           </div>
 
           {/* Section 2: Assigned Courses Summary */}
-          <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-slate-700" />
+          <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
+            <div className="flex items-center justify-between border-b border-border-color pb-3">
+              <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-brand-primary" />
                 <span>Danh sách khóa / lớp học đang phụ trách</span>
               </h3>
-              <span className="text-xs text-slate-500 font-mono">
+              <span className="text-xs leading-4 font-medium text-text-secondary font-mono">
                 Tổng số: {filteredClasses.length} lớp
               </span>
             </div>
@@ -1047,24 +1048,24 @@ export function CoachScheduleView() {
               {filteredClasses.map((cls) => (
                 <div
                   key={cls.id}
-                  className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:border-slate-300 transition-all"
+                  className="p-4 bg-bg-secondary border border-border-color rounded-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-bg-card transition-colors"
                 >
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 bg-blue-100 text-blue-900 border border-blue-200 text-xs font-bold rounded">
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200">
                         {cls.category || "Thể thao"}
                       </span>
-                      <span className="text-sm font-bold text-slate-900">
+                      <span className="text-sm leading-5 font-semibold text-text-primary">
                         {language === "vi" ? cls.nameVi || cls.name : cls.name}
                       </span>
-                      <span className="px-2.5 py-0.5 bg-white border border-slate-200 rounded text-xs font-mono text-slate-600">
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-bg-card text-text-secondary ring-1 ring-inset ring-border-color font-mono">
                         {cls.sessionCount} buổi học
                       </span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
+                    <div className="flex flex-wrap items-center gap-4 text-sm leading-5 text-text-secondary">
                       <div className="flex items-center gap-1 font-mono tabular-nums">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        <Calendar className="w-3.5 h-3.5 text-text-muted" />
                         <span>
                           Khóa học: {formatDate(cls.date || cls.startDate)}
                           {cls.endDate
@@ -1075,14 +1076,14 @@ export function CoachScheduleView() {
                       </div>
 
                       <div className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="font-semibold text-slate-800">
+                        <MapPin className="w-3.5 h-3.5 text-text-muted" />
+                        <span className="font-semibold text-text-primary">
                           {cls.resolvedRoom}
                         </span>
                       </div>
 
                       <div className="flex items-center gap-1">
-                        <Users className="w-3.5 h-3.5 text-slate-400" />
+                        <Users className="w-3.5 h-3.5 text-text-muted" />
                         {(() => {
                           const hasReliableCapacity =
                             Number.isInteger(cls.capacity) && cls.capacity > 0
@@ -1091,7 +1092,7 @@ export function CoachScheduleView() {
                             : (cls.capacity ?? 12)
                           return (
                             <span
-                              className="font-mono tabular-nums font-bold text-slate-900"
+                              className="font-mono tabular-nums font-semibold text-text-primary"
                               title={
                                 apiEnabled && !hasReliableCapacity
                                   ? language === "vi"
@@ -1111,10 +1112,11 @@ export function CoachScheduleView() {
 
                   <div className="flex items-center gap-2">
                     <button
+                      type="button"
                       onClick={() => handleGoToAttendance(cls)}
-                      className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 py-2 text-sm font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <CheckCircle2 className="w-4 h-4" />
                       <span>Mở sổ điểm danh lớp</span>
                     </button>
                   </div>
@@ -1127,18 +1129,18 @@ export function CoachScheduleView() {
         /* Tab 2: Coach Work Schedule Configuration (P2.3) */
         <form
           onSubmit={handleSaveWorkSchedule}
-          className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-6"
+          className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-6"
         >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-color pb-4">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">
+              <h3 className="text-lg leading-7 font-semibold text-text-primary">
                 {t("coachTabWorkSchedule")}
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-sm leading-5 text-text-secondary mt-0.5">
                 {t("coachWorkScheduleSubtitleShort")}
               </p>
             </div>
-            <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer bg-slate-50 px-3 py-2 rounded border border-slate-200">
+            <label className="flex items-center gap-2 text-sm leading-5 font-semibold text-text-primary cursor-pointer bg-bg-secondary px-3 py-2.5 rounded border border-border-color">
               <input
                 type="checkbox"
                 checked={acceptingNew}
@@ -1146,7 +1148,7 @@ export function CoachScheduleView() {
                   setAcceptingNew(e.target.checked)
                   setIsWorkScheduleDirty(true)
                 }}
-                className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                className="rounded border-border-color text-brand-primary focus:ring-brand-primary"
               />
               <span>{t("coachAcceptingNewLabel")}</span>
             </label>
@@ -1161,7 +1163,7 @@ export function CoachScheduleView() {
             disabled={savingWorkSchedule}
           />
 
-          <div className="border-t border-slate-200 pt-4">
+          <div className="border-t border-border-color pt-4">
             <DaysOffPicker
               daysOff={daysOff}
               onChange={(nextDays) => {
@@ -1173,13 +1175,13 @@ export function CoachScheduleView() {
             />
           </div>
 
-          <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-4">
+          <div className="flex items-center justify-end gap-3 border-t border-border-color pt-4">
             <button
               type="submit"
               disabled={savingWorkSchedule || (apiEnabled && !isWorkScheduleDirty)}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white rounded text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 py-2 text-sm font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
             >
-              <Save className="w-3.5 h-3.5" />
+              <Save className="w-4 h-4" />
               <span>
                 {savingWorkSchedule
                   ? "Đang lưu..."

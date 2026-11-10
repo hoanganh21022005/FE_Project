@@ -3,11 +3,11 @@ import { useSCMS } from '../../context/SCMSContext';
 import { statusLabel, statusTone } from '../../utils/status';
 
 const TONE_CLASSES = {
-  green: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  amber: 'bg-amber-50 text-amber-800 border-amber-200',
-  red: 'bg-rose-50 text-rose-800 border-rose-200',
-  blue: 'bg-blue-50 text-blue-800 border-blue-200',
-  slate: 'bg-slate-100 text-slate-700 border-slate-200',
+  green: 'bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200',
+  amber: 'bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200',
+  red: 'bg-rose-50 text-status-danger ring-1 ring-inset ring-rose-200',
+  blue: 'bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200',
+  slate: 'bg-bg-secondary text-text-secondary ring-1 ring-inset ring-border-color',
 };
 
 export function CoachStatusBadge({ type = 'session', value = '', className = '' }) {
@@ -18,7 +18,7 @@ export function CoachStatusBadge({ type = 'session', value = '', className = '' 
 
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold border whitespace-nowrap ${toneClass} ${className}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${toneClass} ${className}`}
     >
       {label}
     </span>
