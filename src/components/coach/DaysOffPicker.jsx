@@ -58,11 +58,11 @@ export function DaysOffPicker({
   return (
     <div className="space-y-3">
       <div>
-        <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-          <CalendarOff className="w-3.5 h-3.5 text-slate-600" />
+        <h4 className="text-sm leading-5 font-semibold text-text-primary flex items-center gap-1.5">
+          <CalendarOff className="w-4 h-4 text-text-secondary" />
           <span>{t("coachDaysOffTitle")}</span>
         </h4>
-        <p className="text-[11px] text-slate-500">
+        <p className="text-xs leading-4 font-medium text-text-secondary">
           {t("coachDaysOffSubtitle")}
         </p>
       </div>
@@ -74,10 +74,10 @@ export function DaysOffPicker({
           disabled={disabled}
           value={dateInput}
           onChange={(e) => setDateInput(e.target.value)}
-          className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-mono text-slate-900"
+          className="h-9 w-full sm:w-48 rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
         />
         {dateInput && (
-          <span className="text-[11px] font-mono text-slate-500">
+          <span className="text-xs leading-4 font-medium font-mono text-text-secondary">
             ({formatDate(dateInput)})
           </span>
         )}
@@ -85,16 +85,16 @@ export function DaysOffPicker({
           type="button"
           disabled={disabled || !dateInput}
           onClick={handleAddDayOff}
-          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white rounded text-xs font-bold flex items-center gap-1 cursor-pointer"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-3.5 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="w-4 h-4" />
           <span>{t("coachDaysOffAddBtn")}</span>
         </button>
       </div>
 
       {conflictingCount > 0 && (
-        <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-xs text-amber-900 flex items-center gap-2 font-semibold">
-          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm leading-5 text-status-warning flex items-center gap-2 font-semibold">
+          <AlertTriangle className="w-4 h-4 text-status-warning shrink-0" />
           <span>
             {t("coachDaysOffConflictWarn").replace(
               "{count}",
@@ -109,7 +109,7 @@ export function DaysOffPicker({
           {normalizedDaysOff.map((d) => (
             <span
               key={d}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 border border-slate-300 rounded-full text-xs font-mono font-bold text-slate-800"
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold bg-bg-secondary text-text-primary ring-1 ring-inset ring-border-color font-mono"
             >
               <span>{formatDate(d)}</span>
               <button
@@ -117,7 +117,7 @@ export function DaysOffPicker({
                 disabled={disabled}
                 aria-label={`Remove ${formatDate(d)}`}
                 onClick={() => handleRemoveDayOff(d)}
-                className="text-slate-500 hover:text-rose-600 cursor-pointer"
+                className="text-text-secondary hover:text-status-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary rounded cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
