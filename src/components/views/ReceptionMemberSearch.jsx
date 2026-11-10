@@ -96,7 +96,7 @@ export function ReceptionMemberSearch() {
 
         <button
           onClick={() => setIsNewMemberOpen(true)}
-          className="inline-flex h-9 items-center justify-center gap-2 rounded px-4 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer w-full md:w-auto"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer w-full md:w-auto"
         >
           <UserPlus className="w-4 h-4" />
           <span>Tạo Thành Viên Mới</span>
@@ -113,7 +113,7 @@ export function ReceptionMemberSearch() {
               placeholder="Nhập tên, số điện thoại, email hoặc mã hội viên..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-9 w-full rounded border border-border-color bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+              className="min-h-11 w-full rounded border border-border-color bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
             />
           </div>
 
@@ -122,7 +122,7 @@ export function ReceptionMemberSearch() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-9 w-full sm:w-auto rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+              className="min-h-11 w-full sm:w-auto rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
             >
               <option value="all">Tất cả trạng thái (All Statuses)</option>
               <option value="active">Hoạt động (Active)</option>
@@ -220,7 +220,7 @@ export function ReceptionMemberSearch() {
                     type="button"
                     onClick={() => handleLiftBookingBlock(m)}
                     disabled={actionBusyKey === `lift-${m.id}`}
-                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded border border-border-color bg-bg-card px-3 text-xs font-medium text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer"
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded border border-border-color bg-bg-card px-3 text-xs font-medium text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer"
                     title="Gỡ khóa đặt lịch do vắng mặt quá số buổi"
                   >
                     <Unlock className="w-3.5 h-3.5" />

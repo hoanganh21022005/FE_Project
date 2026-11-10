@@ -94,7 +94,7 @@ export function ReceptionistDashboard() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => navigate("/receptionist/checkin")}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-3.5 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer shadow-xs"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3.5 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer shadow-xs"
           >
             <QrCode className="w-3.5 h-3.5" />
             <span>
@@ -104,7 +104,7 @@ export function ReceptionistDashboard() {
 
           <button
             onClick={() => setIsNewMemberOpen(true)}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-3.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span>{language === "vi" ? "Tạo Hội Viên Mới" : "New Member"}</span>
@@ -278,7 +278,7 @@ export function ReceptionistDashboard() {
                 type="button"
                 onClick={loadAttendances}
                 disabled={loadingAttendances}
-                className="inline-flex h-7 items-center justify-center gap-1 rounded px-2.5 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer"
+                className="inline-flex min-h-11 items-center justify-center gap-1 rounded px-2.5 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer"
               >
                 <RefreshCw
                   className={`w-3 h-3 ${
@@ -291,7 +291,7 @@ export function ReceptionistDashboard() {
             <button
               type="button"
               onClick={() => navigate("/receptionist/checkin")}
-              className="inline-flex h-7 items-center justify-center gap-1 rounded px-2.5 text-xs font-medium text-brand-primary hover:underline cursor-pointer"
+              className="inline-flex min-h-11 items-center justify-center gap-1 rounded px-2.5 text-xs font-medium text-brand-primary hover:underline cursor-pointer"
             >
               Mở trang Check-in &rarr;
             </button>
