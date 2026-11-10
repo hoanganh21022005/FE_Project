@@ -8,6 +8,7 @@ import {
   getFirstNormalClassSession,
   getNormalClassOpeningError,
 } from "../../api/normalClassOpening"
+import NormalClassLifecyclePanel from "./NormalClassLifecyclePanel"
 import {
   getEnrollmentsByClass,
   enrollMemberInClass,
@@ -826,6 +827,12 @@ export function ClassDetailDrawer({
                 )}
               </section>
             )}
+
+            <NormalClassLifecyclePanel
+              classItem={classDetail ?? cls}
+              sessions={sessions}
+              onRefreshClassDetail={() => refreshOpeningData()}
+            />
 
             {/* SECTION: LỊCH HỌC VÀ SÂN TẬP */}
             <div className="p-4 bg-stone-50/50 border border-stone-200/70 rounded-xl space-y-3.5">
