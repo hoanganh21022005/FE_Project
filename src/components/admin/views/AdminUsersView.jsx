@@ -101,7 +101,7 @@ export function AdminUsersView() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Tên, email, mã hoặc số điện thoại..."
-            className="h-9 w-full rounded border border-border-color bg-bg-card pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+            className="min-h-11 w-full rounded border border-border-color bg-bg-card pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
           />
         </label>
         <label className="w-full md:w-48">
@@ -109,7 +109,7 @@ export function AdminUsersView() {
           <select
             value={roleFilter}
             onChange={(event) => setRoleFilter(event.target.value)}
-            className="h-9 w-full rounded border border-border-color bg-bg-card px-2.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+            className="min-h-11 w-full rounded border border-border-color bg-bg-card px-2.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
           >
             <option value="all">Tất cả vai trò</option>
             {roleOptions.map((role) => (
@@ -124,7 +124,7 @@ export function AdminUsersView() {
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
-            className="h-9 w-full rounded border border-border-color bg-bg-card px-2.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+            className="min-h-11 w-full rounded border border-border-color bg-bg-card px-2.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
           >
             <option value="all">Tất cả trạng thái</option>
             <option value="active">Hoạt động</option>
@@ -145,7 +145,7 @@ export function AdminUsersView() {
           }`}
         >
           <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
-            <table className="w-full min-w-full text-left text-sm">
+            <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
                 <tr>
                   <th className="px-3.5 py-2.5 text-left align-middle">Người dùng</th>
@@ -187,14 +187,14 @@ export function AdminUsersView() {
                         {statusLabel(user.status)}
                       </span>
                     </td>
-                    <td className="px-3.5 py-2.5 align-middle text-xs leading-4 text-text-secondary tabular-nums font-mono">
+                    <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-secondary tabular-nums font-mono">
                       {formatAdminDate(user.createdAt)}
                     </td>
-                    <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-primary text-right">
+                    <td className="px-3.5 py-1 align-middle text-sm leading-5 text-text-primary text-right">
                       <button
                         type="button"
                         onClick={(event) => handleSelectUser(user, event)}
-                        className="inline-flex h-7 items-center justify-center rounded px-2.5 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary hover:text-brand-primary transition-colors cursor-pointer scroll-mt-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                        className="inline-flex min-h-11 items-center justify-center rounded px-2.5 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary hover:text-brand-primary transition-colors cursor-pointer scroll-mt-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                       >
                         Xem
                       </button>
@@ -234,7 +234,7 @@ export function AdminUsersView() {
                   ref={closeBtnRef}
                   type="button"
                   onClick={handleCloseDetails}
-                  className="w-7 h-7 inline-flex items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer shrink-0"
+                  className="w-11 h-11 inline-flex items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer shrink-0"
                   aria-label="Đóng chi tiết"
                 >
                   <X className="w-4 h-4" />

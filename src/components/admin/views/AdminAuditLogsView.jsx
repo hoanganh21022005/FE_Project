@@ -67,7 +67,7 @@ export function AdminAuditLogsView() {
             value={query}
             onChange={handleQueryChange}
             placeholder="Actor, hành động, đối tượng..."
-            className="h-9 w-full rounded border border-border-color bg-bg-card pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+            className="min-h-11 w-full rounded border border-border-color bg-bg-card pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
           />
         </label>
       </div>
@@ -78,7 +78,7 @@ export function AdminAuditLogsView() {
         emptyTitle="Chưa có nhật ký"
       >
         <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
-          <table className="w-full min-w-full text-left text-xs">
+          <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
               <tr>
                 <th className="px-3.5 py-2.5 text-left align-middle">Thời gian</th>
@@ -95,10 +95,10 @@ export function AdminAuditLogsView() {
                   data-log-id={log.id}
                   className="transition-colors hover:bg-bg-secondary/70"
                 >
-                  <td className="px-3.5 py-2 align-middle text-xs text-text-secondary tabular-nums font-mono whitespace-nowrap">
+                  <td className="px-3.5 py-2 align-middle text-sm leading-5 text-text-secondary tabular-nums font-mono whitespace-nowrap">
                     {formatAdminDateTime(log.createdAt)}
                   </td>
-                  <td className="px-3.5 py-2 align-middle text-xs font-semibold text-text-primary">
+                  <td className="px-3.5 py-2 align-middle text-sm leading-5 font-semibold text-text-primary">
                     {log.actorLabel}
                   </td>
                   <td className="px-3.5 py-2 align-middle text-xs">
@@ -106,10 +106,10 @@ export function AdminAuditLogsView() {
                       {log.action}
                     </span>
                   </td>
-                  <td className="px-3.5 py-2 align-middle text-xs text-text-primary">
+                  <td className="px-3.5 py-2 align-middle text-sm leading-5 text-text-primary">
                     {log.targetLabel}
                   </td>
-                  <td className="px-3.5 py-2 align-middle text-xs text-text-secondary max-w-xl">
+                  <td className="px-3.5 py-2 align-middle text-sm leading-5 text-text-secondary max-w-xl">
                     {log.detail || "Không có thông tin chi tiết."}
                   </td>
                 </tr>
@@ -131,7 +131,7 @@ export function AdminAuditLogsView() {
                 type="button"
                 disabled={activePage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="inline-flex h-8 items-center justify-center rounded px-3 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                className="inline-flex min-h-11 items-center justify-center rounded px-3 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
                 aria-label="Trang trước"
               >
                 Trang trước
@@ -143,7 +143,7 @@ export function AdminAuditLogsView() {
                 type="button"
                 disabled={activePage >= totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="inline-flex h-8 items-center justify-center rounded px-3 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                className="inline-flex min-h-11 items-center justify-center rounded px-3 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
                 aria-label="Trang sau"
               >
                 Trang sau

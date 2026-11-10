@@ -68,7 +68,7 @@ function MetricPanel({ config, resource, onRetry }) {
           <button
             type="button"
             onClick={onRetry}
-            className="mt-2 inline-flex h-8 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+            className="mt-2 inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Thử lại

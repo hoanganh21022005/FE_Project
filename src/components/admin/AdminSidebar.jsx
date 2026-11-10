@@ -45,7 +45,7 @@ export function AdminSidebar({
               <button
                 type="button"
                 onClick={() => select("admin_dashboard")}
-                className="flex items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-brand-accent rounded cursor-pointer"
+                className="flex min-h-11 items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-brand-accent rounded cursor-pointer"
               >
                 <img
                   src="/images/MainPage/vibe-sport-logo.png?v=2"
