@@ -142,19 +142,19 @@ export function WeeklySlotGrid({ selectedSlots = [], onChange, disabled = false 
   return (
     <div className="space-y-2">
       <div>
-        <h4 className="text-xs font-bold text-slate-900">
+        <h4 className="text-sm leading-5 font-semibold text-text-primary">
           {t("coachSlotGridTitle")}
         </h4>
-        <p className="text-[11px] text-slate-500">
+        <p className="text-xs leading-4 font-medium text-text-secondary">
           {t("coachSlotGridSubtitle")}
         </p>
       </div>
 
-      <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white">
-        <table className="w-full text-xs border-collapse min-w-[640px]">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="p-2.5 text-left font-bold text-slate-700 border-r border-slate-200 w-36">
+      <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
+        <table className="w-full min-w-full text-left text-sm border-collapse">
+          <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
+            <tr>
+              <th className="px-4 py-3 text-left align-middle border-r border-border-color w-36">
                 Ca / Thứ
               </th>
               {WEEKDAYS.map((day) => {
@@ -164,17 +164,17 @@ export function WeeklySlotGrid({ selectedSlots = [], onChange, disabled = false 
                 return (
                   <th
                     key={day.key}
-                    className="p-2 text-center border-r last:border-r-0 border-slate-200"
+                    className="px-4 py-3 text-center align-middle border-r last:border-r-0 border-border-color"
                   >
                     <button
                       type="button"
                       disabled={disabled}
                       onClick={() => toggleDayColumn(day.key)}
                       title={t("coachSelectAllDay")}
-                      className={`w-full py-1 px-1.5 rounded font-bold transition-colors cursor-pointer ${
+                      className={`w-full py-1.5 px-2 rounded text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
                         allDaySelected
-                          ? "bg-blue-700 text-white"
-                          : "text-slate-700 hover:bg-slate-200"
+                          ? "bg-brand-primary text-text-inverse"
+                          : "text-text-secondary hover:bg-bg-card hover:text-text-primary"
                       }`}
                     >
                       {t(day.labelKey)}
@@ -184,30 +184,30 @@ export function WeeklySlotGrid({ selectedSlots = [], onChange, disabled = false 
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200">
+          <tbody className="divide-y divide-border-color">
             {timeSlots.map((slot) => {
               const slotNum = slot.slotNumber
               const rowKeys = WEEKDAYS.map((d) => `${d.key}:${slotNum}`)
               const allRowSelected =
                 rowKeys.length > 0 && rowKeys.every((k) => normalizedSet.has(k))
               return (
-                <tr key={slotNum} className="hover:bg-slate-50/60">
-                  <td className="p-2 border-r border-slate-200 bg-slate-50/50">
+                <tr key={slotNum} className="transition-colors hover:bg-bg-secondary/70">
+                  <td className="px-4 py-3 align-middle text-sm leading-5 text-text-primary border-r border-border-color bg-bg-secondary/50">
                     <button
                       type="button"
                       disabled={disabled}
                       onClick={() => toggleSlotRow(slotNum)}
                       title={t("coachSelectAllSlot")}
-                      className={`w-full text-left px-2 py-1 rounded transition-colors cursor-pointer ${
+                      className={`w-full text-left px-2 py-1 rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
                         allRowSelected
-                          ? "bg-blue-50 text-blue-900 font-bold"
-                          : "text-slate-800 hover:bg-slate-100"
+                          ? "bg-sky-50 text-status-info font-semibold ring-1 ring-inset ring-sky-200"
+                          : "text-text-primary hover:bg-bg-secondary"
                       }`}
                     >
-                      <div className="font-bold">
+                      <div className="font-semibold text-sm leading-5">
                         {slot.name || `Ca ${slotNum}`}
                       </div>
-                      <div className="text-[11px] font-mono text-slate-500">
+                      <div className="text-xs leading-4 font-medium font-mono text-text-secondary">
                         {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
                       </div>
                     </button>
@@ -218,7 +218,7 @@ export function WeeklySlotGrid({ selectedSlots = [], onChange, disabled = false 
                     return (
                       <td
                         key={cellKey}
-                        className="p-1.5 text-center border-r last:border-r-0 border-slate-200"
+                        className="px-4 py-3 align-middle text-sm leading-5 text-text-primary text-center border-r last:border-r-0 border-border-color"
                       >
                         <button
                           type="button"
@@ -226,10 +226,10 @@ export function WeeklySlotGrid({ selectedSlots = [], onChange, disabled = false 
                           aria-label={`${t(day.labelKey)} ${slot.name || `Ca ${slotNum}`}`}
                           aria-pressed={isSelected}
                           onClick={() => toggleCell(day.key, slotNum)}
-                          className={`w-full min-h-[44px] rounded border flex items-center justify-center transition-colors cursor-pointer ${
+                          className={`w-full min-h-11 rounded border flex items-center justify-center transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 ${
                             isSelected
-                              ? "bg-blue-600 border-blue-700 text-white font-bold shadow-2xs"
-                              : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-400"
+                              ? "bg-brand-primary border-brand-primary text-text-inverse font-semibold"
+                              : "bg-bg-secondary hover:bg-bg-card border-border-color text-text-muted"
                           }`}
                         >
                           {isSelected ? <Check className="w-4 h-4" /> : "—"}

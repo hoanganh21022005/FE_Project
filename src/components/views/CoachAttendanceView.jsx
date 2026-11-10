@@ -1068,7 +1068,7 @@ export function CoachAttendanceView() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Class Banner & Selector */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <CoachStatusBadge
@@ -1092,7 +1092,7 @@ export function CoachAttendanceView() {
                     )
                   }
                 }}
-                className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
+                className="min-h-11 w-full sm:w-auto rounded border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
               >
                 {selectedClassId && !coachClasses.some((c) => String(c.id) === String(selectedClassId)) && (
                   <option value="" disabled>
@@ -1119,7 +1119,7 @@ export function CoachAttendanceView() {
                     )
                   }
                 }}
-                className="bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
+                className="h-9 w-full sm:w-auto rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
               >
                 {classSessions.map((ses, idx) => {
                   const isCancel = isSessionCancelled(ses)
@@ -1161,7 +1161,7 @@ export function CoachAttendanceView() {
             )}
           </div>
 
-          <h2 className="text-base font-bold text-slate-900 mt-1">
+          <h2 className="text-xl leading-7 font-semibold text-text-primary mt-1">
             {selectedClass?.nameVi || selectedClass?.name || "Lớp học"}
           </h2>
 
@@ -1182,7 +1182,7 @@ export function CoachAttendanceView() {
               selectedClass?.room ||
               "Sân tập trung tâm"
             return (
-              <p className="text-xs text-slate-600 mt-0.5 font-mono tabular-nums">
+              <p className="text-sm leading-5 text-text-secondary mt-0.5 font-mono tabular-nums">
                 Buổi {orderNum}/{totalClassSessions} &bull; Ngày: {sesDate} &bull;
                 Ca: {sesTime} &bull; Sân: {sesRoom}
               </p>
@@ -1217,9 +1217,9 @@ export function CoachAttendanceView() {
                           : "Loading or data not ready..."
                   : ""
               }
-              className="px-3.5 py-2 min-h-[44px] bg-emerald-700 hover:bg-emerald-800 disabled:opacity-40 text-white rounded text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-3.5 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
             >
-              <CheckCheck className="w-4 h-4" />
+              <CheckCheck className="w-3.5 h-3.5" />
               <span>
                 {bulkSaving
                   ? "Đang điểm danh..."
@@ -1232,19 +1232,20 @@ export function CoachAttendanceView() {
               type="button"
               onClick={loadClassRosterAndAttendance}
               disabled={loadingRoster}
-              className="px-3 py-2 min-h-[44px] bg-slate-100 hover:bg-slate-200 text-slate-700 rounded border border-slate-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              aria-label={t("coachBtnRefresh")}
+              title={t("coachBtnRefresh")}
+              className="inline-flex h-9 w-9 items-center justify-center rounded transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-secondary hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
             >
               <RefreshCw
-                className={`w-3.5 h-3.5 ${loadingRoster ? "animate-spin" : ""}`}
+                className={`w-4 h-4 ${loadingRoster ? "animate-spin" : ""}`}
               />
-              <span>{t("coachBtnRefresh")}</span>
             </button>
           )}
-          <div className="p-3 bg-slate-50 rounded border border-slate-200 text-right">
-            <div className="text-xs text-slate-500 uppercase font-bold whitespace-nowrap">
+          <div className="p-3 bg-bg-secondary rounded-lg border border-border-color text-right">
+            <div className="text-xs leading-4 font-medium text-text-secondary uppercase whitespace-nowrap">
               {language === "vi" ? "Sĩ số lớp" : "Enrolled Capacity"}
             </div>
-            <div className="text-lg font-bold text-slate-900 tabular-nums whitespace-nowrap">
+            <div className="text-lg leading-7 font-semibold text-text-primary tabular-nums whitespace-nowrap">
               {enrolledMembers.length || selectedClass?.enrolledCount || 0}/
               {selectedClass?.capacity || 12}{" "}
               {language === "vi" ? "Học viên" : "Members"}
@@ -1255,10 +1256,10 @@ export function CoachAttendanceView() {
 
       {/* Session Status & Permission Banners */}
       {!hasSessionPermission && !loadingRoster && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-amber-900">
-          <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-          <div className="space-y-1 text-xs">
-            <div className="font-bold text-sm">
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-status-warning">
+          <AlertCircle className="w-5 h-5 text-status-warning shrink-0 mt-0.5" />
+          <div className="space-y-1 text-sm leading-5">
+            <div className="font-semibold">
               {sessionPermission.isMismatched
                 ? (language === "vi" ? "Ca học không khớp với lớp đã chọn" : "Session does not match selected class")
                 : (language === "vi" ? "Không có quyền điểm danh ca này" : "Unauthorized for this session")}
@@ -1273,10 +1274,10 @@ export function CoachAttendanceView() {
       )}
 
       {sessionCancelled && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg flex items-start gap-3 text-rose-900">
-          <AlertCircle className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
-          <div className="space-y-1 text-xs">
-            <div className="font-bold text-sm">
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg flex items-start gap-3 text-status-danger">
+          <AlertCircle className="w-5 h-5 text-status-danger shrink-0 mt-0.5" />
+          <div className="space-y-1 text-sm leading-5">
+            <div className="font-semibold">
               {t("coachBannerCancelledTitle")}
             </div>
             <p>
@@ -1289,8 +1290,8 @@ export function CoachAttendanceView() {
       )}
 
       {allowCorrection && !sessionCancelled && (
-        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2.5 text-amber-900 text-xs font-medium">
-          <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2.5 text-status-warning text-sm leading-5 font-medium">
+          <AlertCircle className="w-4 h-4 text-status-warning shrink-0" />
           <span>{apiEnabled
             ? language === "vi"
               ? "Buổi học đã hoàn thành. Liên hệ quản lý trung tâm nếu cần sửa điểm danh."
@@ -1300,18 +1301,18 @@ export function CoachAttendanceView() {
       )}
 
       {/* Attendance Roster */}
-      <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-5 space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-border-color pb-3">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <ClipboardCheck className="w-4 h-4 text-slate-700 shrink-0" />
+            <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
+              <ClipboardCheck className="w-4 h-4 text-brand-primary shrink-0" />
               <span className="whitespace-nowrap">
                 {language === "vi"
                   ? "Danh sách học viên điểm danh"
                   : "Attendance roster"}
               </span>
             </h3>
-            <span className="text-xs text-slate-500">
+            <span className="text-sm leading-5 text-text-secondary">
               {apiEnabled
                 ? language === "vi"
                   ? "Chọn Có mặt hoặc Vắng mặt trong giờ học. Để quét QR, nhập mã hội viên rồi đến mã 6 số."
@@ -1325,13 +1326,13 @@ export function CoachAttendanceView() {
           <div className="flex flex-wrap items-center gap-2">
             {/* Search by student name or code */}
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t("coachSearchStudentPlaceholder")}
-                className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded focus:outline-none focus:border-blue-600 w-52"
+                className="h-9 w-full sm:w-56 rounded border border-border-color bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
               />
             </div>
 
@@ -1346,12 +1347,12 @@ export function CoachAttendanceView() {
                   value={quickMemberInput}
                   onChange={(e) => setQuickMemberInput(e.target.value)}
                   placeholder={apiEnabled ? "MB-1002 hoặc MB-1002 123456" : "Quét QR / nhập MB-xxxx..."}
-                  className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded focus:outline-none focus:border-blue-600 w-44"
+                  className="h-9 w-full sm:w-52 rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 />
                 <button
                   type="submit"
                   disabled={quickSaving || !quickMemberInput.trim()}
-                  className="px-3 py-1.5 min-h-[36px] bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded text-xs font-bold whitespace-nowrap cursor-pointer"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-3.5 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active whitespace-nowrap cursor-pointer"
                 >
                   {quickSaving ? "Đang xử lý..." : "Điểm danh nhanh"}
                 </button>
@@ -1362,30 +1363,30 @@ export function CoachAttendanceView() {
 
         {/* Sticky Attendance Summary Bar (R1.2 & R1.5) */}
         {enrolledMembers.length > 0 && (
-          <div className="sticky top-0 z-10 bg-slate-900 text-white px-4 py-2.5 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs font-mono shadow-xs">
+          <div className="sticky top-0 z-10 bg-brand-dark text-text-inverse px-4 py-2.5 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs leading-4 font-mono">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-emerald-300 font-bold">
+              <span className="text-emerald-300 font-semibold">
                 {t("coachAttendanceSummaryPresent")}: {summaryCounts.present}
               </span>
               <span>&bull;</span>
-              <span className="text-amber-300 font-bold">
+              <span className="text-amber-300 font-semibold">
                 {t("coachAttendanceSummaryLate")}: {summaryCounts.late}
               </span>
               <span>&bull;</span>
-              <span className="text-blue-300 font-bold">
+              <span className="text-sky-300 font-semibold">
                 {t("coachAttendanceSummaryExcused")}: {summaryCounts.excused}
               </span>
               <span>&bull;</span>
-              <span className="text-rose-300 font-bold">
+              <span className="text-rose-300 font-semibold">
                 {t("coachAttendanceSummaryAbsent")}: {summaryCounts.absent}
               </span>
               <span>&bull;</span>
-              <span className="text-slate-300 font-bold">
+              <span className="text-text-inverse/80 font-semibold">
                 {t("coachAttendanceSummaryUnmarked")}:{" "}
                 {summaryCounts.not_recorded}
               </span>
             </div>
-            <div className="text-slate-300">
+            <div className="text-text-inverse/80">
               Tổng: {enrolledMembers.length} HV
             </div>
           </div>
@@ -1393,7 +1394,7 @@ export function CoachAttendanceView() {
 
         <div className="space-y-3">
           {!loadingRoster && rosterError && (
-            <p role="alert" className="p-3 text-sm text-red-800 bg-red-50 border border-red-200 rounded">
+            <p role="alert" className="p-3 text-sm leading-5 text-status-danger bg-rose-50 border border-rose-200 rounded">
               {rosterError.status === 403
                 ? language === "vi"
                   ? "Bạn không có quyền xem danh sách học viên của lớp này."
@@ -1404,7 +1405,7 @@ export function CoachAttendanceView() {
             </p>
           )}
           {!loadingRoster && (attendancesError || trainingResultsError) && (
-            <p role="alert" className="p-3 text-sm text-red-800 bg-red-50 border border-red-200 rounded">
+            <p role="alert" className="p-3 text-sm leading-5 text-status-danger bg-rose-50 border border-rose-200 rounded">
               {language === "vi"
                 ? "Không tải được trạng thái điểm danh của buổi học. Chức năng điểm danh hàng loạt tạm thời bị khóa. Hãy thử làm mới."
                 : "Could not load session attendance status. Bulk attendance is locked. Try refreshing."}
@@ -1415,12 +1416,12 @@ export function CoachAttendanceView() {
               {[1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="h-14 bg-slate-100 animate-pulse rounded border border-slate-200"
+                  className="h-14 bg-bg-secondary animate-pulse rounded border border-border-color"
                 />
               ))}
             </div>
           ) : filteredMembers.length === 0 && !rosterError && !attendancesError && !trainingResultsError ? (
-            <div className="p-6 text-center text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded">
+            <div className="p-6 text-center text-sm leading-5 text-text-secondary bg-bg-secondary border border-border-color rounded-lg">
               {enrolledMembers.length > 0
                 ? "Không tìm thấy học viên khớp với từ khóa."
                 : Number(selectedClass?.enrolledCount || 0) > 0
@@ -1439,14 +1440,14 @@ export function CoachAttendanceView() {
               return (
                 <div
                   key={m.id}
-                  className="min-h-[56px] p-3.5 bg-slate-50 border border-slate-200 rounded-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-3"
+                  className="min-h-[56px] p-3.5 bg-bg-secondary border border-border-color rounded-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-3"
                 >
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-bold text-slate-900">
+                      <span className="text-sm leading-5 font-semibold text-text-primary">
                         {m.name}
                       </span>
-                      <span className="px-2 py-0.5 bg-white border border-slate-200 rounded text-xs font-mono font-semibold text-slate-700">
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-bg-card text-text-secondary ring-1 ring-inset ring-border-color font-mono">
                         {m.code}
                       </span>
 
@@ -1454,9 +1455,9 @@ export function CoachAttendanceView() {
                       {absenceNotice && (
                         <span
                           title={absenceNotice.reason || ""}
-                          className="px-2 py-0.5 rounded bg-slate-200 text-slate-800 border border-slate-300 text-xs font-semibold inline-flex items-center gap-1"
+                          className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-bg-card text-text-secondary ring-1 ring-inset ring-border-color gap-1"
                         >
-                          <FileText className="w-3 h-3 text-slate-600" />
+                          <FileText className="w-3 h-3 text-text-muted" />
                           <span>
                             {t("coachPreAbsenceReasonPrefix")}{" "}
                             {absenceNotice.reason || "Xin nghỉ phép"}
@@ -1465,24 +1466,24 @@ export function CoachAttendanceView() {
                       )}
 
                       {saveState === "saving" && (
-                        <span className="text-xs font-mono text-blue-700">
+                        <span className="text-xs leading-4 font-mono text-status-info">
                           {t("coachSavingRow")}
                         </span>
                       )}
                       {saveState === "saved" && (
-                        <span className="text-xs font-mono text-emerald-700">
+                        <span className="text-xs leading-4 font-mono text-status-success">
                           ✓ {t("coachSavedRow")}
                         </span>
                       )}
                       {saveState === "error" && (
-                        <span className="text-xs font-mono text-rose-700">
+                        <span className="text-xs leading-4 font-mono text-status-danger">
                           {t("coachErrorRow")}
                         </span>
                       )}
                     </div>
 
                     {/* R1.4: Group class shows member code & group label, NEVER "Gói PT: Điểm danh lớp" */}
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs leading-4 font-medium text-text-secondary">
                       {activeSession?.isPrivate
                         ? `${t("coachPtSessionSubtitle")} · ${t("coachMemberCodePrefix")}: ${m.code}`
                         : `${t("coachGroupEnrolledSubtitle")} · Khóa ${totalClassSessions} buổi`}
@@ -1500,7 +1501,7 @@ export function CoachAttendanceView() {
                             shortLabel: "Có mặt",
                             Icon: Check,
                             activeCls:
-                              "bg-[#DCFCE7] text-[#166534] border-[#86EFAC] ring-1 ring-[#166534]/20",
+                              "bg-emerald-50 text-status-success border-emerald-200 ring-1 ring-inset ring-emerald-200",
                           },
                           {
                             key: "late",
@@ -1508,7 +1509,7 @@ export function CoachAttendanceView() {
                             shortLabel: "Đi trễ",
                             Icon: Clock,
                             activeCls:
-                              "bg-[#FEF3C7] text-[#92400E] border-[#FDE68A] ring-1 ring-[#92400E]/20",
+                              "bg-amber-50 text-status-warning border-amber-200 ring-1 ring-inset ring-amber-200",
                           },
                           {
                             key: "excused",
@@ -1516,7 +1517,7 @@ export function CoachAttendanceView() {
                             shortLabel: "Có phép",
                             Icon: FileText,
                             activeCls:
-                              "bg-[#DBEAFE] text-[#1E40AF] border-[#BFDBFE] ring-1 ring-[#1E40AF]/20",
+                              "bg-sky-50 text-status-info border-sky-200 ring-1 ring-inset ring-sky-200",
                           },
                           {
                             key: "absent",
@@ -1524,7 +1525,7 @@ export function CoachAttendanceView() {
                             shortLabel: "Vắng",
                             Icon: XCircle,
                             activeCls:
-                              "bg-[#FEE2E2] text-[#991B1B] border-[#FECACA] ring-1 ring-[#991B1B]/20",
+                              "bg-rose-50 text-status-danger border-rose-200 ring-1 ring-inset ring-rose-200",
                           },
                           ].filter((btn) => !apiEnabled || ["present", "absent"].includes(btn.key)).map((btn) => {
                           const isSelected = currentStatus === btn.key
@@ -1539,10 +1540,10 @@ export function CoachAttendanceView() {
                               onClick={() =>
                                 handleOneTouchCheckIn(m, btn.key, attendanceId)
                               }
-                              className={`min-h-[44px] px-2 sm:px-3 py-1.5 text-xs font-bold rounded border flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                              className={`inline-flex h-8 items-center justify-center gap-1 rounded px-2 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border cursor-pointer ${
                                 isSelected
                                   ? btn.activeCls
-                                  : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
+                                  : "border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
                               }`}
                             >
                               <IconComp className="w-3.5 h-3.5 shrink-0" />
@@ -1568,7 +1569,7 @@ export function CoachAttendanceView() {
                                 attendanceId,
                               })
                             }
-                            className="min-h-[44px] px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded border border-slate-300 text-xs font-bold shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                            className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
                             title="Chỉnh sửa &amp; nhập lý do"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -1587,31 +1588,32 @@ export function CoachAttendanceView() {
 
       {/* Confirmation Modal for Bulk Mark Present (R1.5) */}
       {showBulkConfirmModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-lg max-w-md w-full p-5 shadow-lg space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
-              <h4 className="text-sm font-bold text-slate-900">
+        <div className="fixed inset-0 z-50 bg-brand-dark/50 flex items-center justify-center p-4">
+          <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary max-w-md w-full shadow-lg space-y-4">
+            <div className="flex items-center justify-between border-b border-border-color pb-2.5">
+              <h4 className="text-lg leading-7 font-semibold text-text-primary">
                 {t("coachConfirmBulkPresentTitle")}
               </h4>
               <button
                 type="button"
                 onClick={() => setShowBulkConfirmModal(false)}
-                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                aria-label={t("coachCancelBtn") || "Đóng"}
+                className="inline-flex h-8 w-8 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-slate-700 leading-relaxed">
+            <p className="text-sm leading-5 font-normal text-text-primary">
               {t("coachConfirmBulkPresentDesc").replace(
                 "{count}",
                 String(unmarkedMembers.length),
               )}
             </p>
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-color">
               <button
                 type="button"
                 onClick={() => setShowBulkConfirmModal(false)}
-                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-bold cursor-pointer"
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
               >
                 {t("coachCancelBtn")}
               </button>
@@ -1619,7 +1621,7 @@ export function CoachAttendanceView() {
                 type="button"
                 disabled={!bulkAllowed}
                 onClick={handleConfirmBulkMarkPresent}
-                className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white rounded text-xs font-bold cursor-pointer"
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
               >
                 {t("coachConfirmBtn")}
               </button>
