@@ -109,6 +109,17 @@ const getVerdictMeta = (ratingLevel, t) => {
   }
 }
 
+const getFeedbackSportName = (course, isVi) => {
+  const title = [course?.className, course?.sportName, course?.sport]
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase("vi")
+  if (/bóng\s*chuyền|volley\s?ball/.test(title)) return isVi ? "Bóng chuyền" : "Volleyball"
+  if (/cầu\s*lông|badminton/.test(title)) return isVi ? "Cầu lông" : "Badminton"
+  if (/bóng\s*bàn|table\s?tennis|ping\s?pong/.test(title)) return isVi ? "Bóng bàn" : "Table tennis"
+  return course?.sportName || course?.sport || (isVi ? "Thể thao" : "Sport")
+}
+
 // Các câu cố định hệ thống trước đây không được phép hiển thị giả danh phản hồi thật của HLV
 const CANNED_SYSTEM_REPLIES = new Set([
   "HLV và ban chuyên môn đã tiếp nhận phản hồi của bạn.",
@@ -1536,7 +1547,7 @@ export function MemberFeedbackView({ embedded = false }) {
                       {/* Thông tin Khóa học: Tên khóa, HLV, sân, số buổi đã tham gia, buổi gần nhất */}
                       <div className="min-w-0 flex-1 space-y-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">{course.sportName || course.sport || (isVi ? "Thể thao" : "Sport")}</span>
+                          <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">{getFeedbackSportName(course, isVi)}</span>
                           <h3 className="text-base font-bold text-slate-900">{course.className}</h3>
                         </div>
                         <div>
@@ -1938,7 +1949,7 @@ export function MemberFeedbackView({ embedded = false }) {
                 animate={{ x: 0 }}
                 exit={{ x: "100%" }}
                 transition={{ type: "spring", damping: 28, stiffness: 300 }}
-                className="w-screen max-w-[480px] bg-white text-slate-900 shadow-2xl flex flex-col justify-between border-l border-slate-200 z-10"
+                className="w-screen max-w-[480px] min-h-0 bg-white text-slate-900 shadow-2xl flex flex-col border-l border-slate-200 z-10"
                 role="dialog"
                 aria-modal="true"
               >
@@ -1988,7 +1999,7 @@ export function MemberFeedbackView({ embedded = false }) {
                 </div>
 
                 {/* Drawer Body */}
-                <div className="p-6 overflow-y-auto space-y-6 flex-1">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-6 p-6 pb-10">
                   {isThankYouMode ? (
                     <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 animate-in fade-in duration-200">
                       <div className="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
@@ -2329,7 +2340,7 @@ export function MemberFeedbackView({ embedded = false }) {
 
                 {/* Footer Drawer */}
                 {!isThankYouMode && (
-                  <div className="sticky bottom-0 z-10 p-5 border-t border-slate-200 bg-white/95 backdrop-blur flex items-center justify-between gap-4">
+                  <div className="shrink-0 p-5 border-t border-slate-200 bg-white flex items-center justify-between gap-4">
                     <button
                       type="button"
                       onClick={() => setDrawerOpen(false)}
