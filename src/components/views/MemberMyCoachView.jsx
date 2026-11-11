@@ -223,8 +223,15 @@ export function MemberMyCoachView() {
     setCoachWorkSchedule(null)
     setCoachCapacity(null)
     setAdvancedError("")
-    const defaultSub =
-      subjects?.find((s) => !Number.isNaN(Number(s.id)))?.id || ""
+    const coachSport = coach.specializations?.[0] || coach.specialization || coach.sportName || ""
+    const normalizeSport = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
+    const matchedSubject = (subjects || []).find((subject) =>
+      String(subject.id) === String(coach.sportId || coach.subjectId || "") ||
+      normalizeSport(subject.name) === normalizeSport(coachSport) ||
+      normalizeSport(subject.name).includes(normalizeSport(coachSport)) ||
+      normalizeSport(coachSport).includes(normalizeSport(subject.name)),
+    )
+    const defaultSub = matchedSubject?.id || subjects?.find((s) => !Number.isNaN(Number(s.id)))?.id || ""
     setSelectedSubjectId(defaultSub ? String(defaultSub) : "")
     if (!apiEnabled || !coach?.id) return
     setLoadingCoachMeta(true)
@@ -426,6 +433,18 @@ export function MemberMyCoachView() {
     setIsBookingModalOpen(true)
     fetchSlots(coach.id, bookingDate)
   }
+
+  const weeklyShiftRows = useMemo(() => {
+    const days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]
+    const names = isVi ? ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"] : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    const grouped = new Map(days.map((day, index) => [day, { name: names[index], slots: [] }]))
+    for (const value of coachWorkSchedule?.weeklySlots || []) {
+      const [day, slot] = String(value).toUpperCase().split(":")
+      const number = Number(slot)
+      if (grouped.has(day) && number >= 1 && number <= 7) grouped.get(day).slots.push(number)
+    }
+    return [...grouped.entries()].map(([key, row]) => ({ key, ...row, slots: [...new Set(row.slots)].sort((a, b) => a - b) })).filter((row) => row.slots.length)
+  }, [coachWorkSchedule, isVi])
 
   const handleDateChange = (newDate) => {
     setBookingDate(newDate)
@@ -1128,23 +1147,11 @@ export function MemberMyCoachView() {
                           : "Closed"}
                     </span>
                   </div>
-                  {Array.isArray(coachWorkSchedule.weeklySlots) &&
-                    coachWorkSchedule.weeklySlots.length > 0 && (
+                  {weeklyShiftRows.length > 0 && (
                       <div>
-                        <span className="font-bold text-slate-700 block mb-1">
-                          {isVi
-                            ? "Khung ca làm việc trong tuần:"
-                            : "Weekly slots:"}
-                        </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {coachWorkSchedule.weeklySlots.map((slot, idx) => (
-                            <span
-                              key={idx}
-                              className="px-2 py-0.5 rounded bg-white border border-slate-200 font-mono text-[11px] text-slate-700"
-                            >
-                              {slot}
-                            </span>
-                          ))}
+                        <div className="mb-2 flex items-center justify-between"><span className="font-bold text-slate-700">{isVi ? "Lịch ca hàng tuần" : "Weekly shift schedule"}</span><span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-800">{weeklyShiftRows.reduce((sum, row) => sum + row.slots.length, 0)} {isVi ? "ca" : "shifts"}</span></div>
+                        <div className="space-y-1.5">
+                          {weeklyShiftRows.map((row) => <div key={row.key} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"><span className="font-semibold text-slate-700">{row.name}</span><div className="flex flex-wrap justify-end gap-1">{row.slots.map((slot) => <span key={slot} className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-700">{isVi ? `Ca ${slot}` : `Slot ${slot}`}</span>)}</div></div>)}
                         </div>
                       </div>
                     )}
@@ -1250,9 +1257,9 @@ export function MemberMyCoachView() {
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900">
                 {apiEnabled
-                  ? isVi
-                    ? "Tra cứu ca trống Huấn luyện viên (7 ca chuẩn 90p · D04/D12)"
-                    : "Coach Available Slots Lookup (D04/D12)"
+                    ? isVi
+                      ? "Tra cứu lịch trống Huấn luyện viên"
+                      : "Coach Availability"
                   : isVi
                     ? "Đặt lịch tập 1:1 với Huấn luyện viên"
                     : "Book 1-on-1 Session"}
@@ -1268,12 +1275,7 @@ export function MemberMyCoachView() {
 
             {apiEnabled && (
               <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 leading-relaxed">
-                <strong>Quy định D04 &amp; D12:</strong> Hội viên tra cứu 7 ca
-                chuẩn (90 phút/ca) của HLV tại đây. Sau khi trao đổi thống nhất
-                lịch, <strong>Huấn luyện viên chính (Primary Coach)</strong>{" "}
-                hoặc <strong>Quản lý trung tâm</strong> sẽ là người trực tiếp
-                tạo lịch học 1:1 lên hệ thống (tự động trừ 1 credit khi tạo, yêu
-                cầu trước ≥ 12h).
+                {isVi ? "Tra cứu khung giờ trống theo ngày để thống nhất lịch tập 1:1 cùng Huấn luyện viên phụ trách (xếp lịch trước tối thiểu 12 giờ)." : "Check available times by date and coordinate a 1:1 session with your coach at least 12 hours in advance."}
               </div>
             )}
 
@@ -1284,14 +1286,14 @@ export function MemberMyCoachView() {
                 alt={selectedCoach.name}
                 className="w-12 h-12 rounded-lg object-cover object-top"
               />
-              <div>
+              {!apiEnabled && subscriptions.length > 0 ? <div>
                 <div className="font-bold text-slate-900 text-sm">
                   {selectedCoach.name}
                 </div>
                 <div className="text-xs text-slate-500 font-mono">
                   {selectedCoach.phone}
                 </div>
-              </div>
+              </div> : <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4"><p className="text-sm font-bold text-slate-900">{isVi ? "Bạn chưa có gói HLV 1:1 (Advanced) đang hoạt động cho bộ môn này" : "No active Advanced 1:1 coaching entitlement for this sport"}</p><p className="mt-1 text-xs text-slate-600">{isVi ? "Bạn có thể xem ca trống và trao đổi lịch với Huấn luyện viên." : "You can review availability and coordinate a time with the coach."}</p><button type="button" onClick={() => { setIsBookingModalOpen(false); handleOpenAdvancedModal(selectedCoach) }} className="mt-3 inline-flex rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-white">{isVi ? "Đăng ký HLV chính →" : "Register Primary Coach →"}</button></div>}
             </div>
 
             {bookingSuccess && (
