@@ -63,11 +63,17 @@ export const updatePackageStatus = async (id, status) => {
   return mapMembershipPackage(updated)
 }
 
-export const getMemberSubscriptions = async (memberId, { strict = false } = {}) => {
+export const getMemberSubscriptions = async (
+  memberId,
+  { strict = false, notifyForbidden = true, notifyUnauthorized = true } = {},
+) => {
   if (!isValidNumericId(memberId)) {
     throw new Error("ID hội viên không hợp lệ.")
   }
-  const data = await httpClient.get(`/api/members/${memberId}/subscriptions`)
+  const data = await httpClient.get(`/api/members/${memberId}/subscriptions`, {
+    notifyForbidden,
+    notifyUnauthorized,
+  })
   const list = extractList(data)
   if (strict && !Array.isArray(list)) throw new Error("Phản hồi danh sách gói hội viên không đúng định dạng.")
   return Array.isArray(list)
