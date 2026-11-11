@@ -2064,10 +2064,8 @@ export function MemberFeedbackView({ embedded = false }) {
                                 onClick={() => handleSelectOverallRating(level)}
                                 className={`h-11 rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer font-bold text-sm border ${
                                   isSelected
-                                    ? "bg-brand-primary text-white border-brand-accent shadow-xs"
-                                    : overallRating >= level
-                                      ? "bg-brand-accent-soft text-brand-accent-dark border-brand-accent/40"
-                                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                                    ? "bg-amber-50 text-amber-800 border-amber-300 ring-2 ring-amber-100 shadow-sm"
+                                    : "bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:bg-blue-50/40"
                                 }`}
                               >
                                 <span>{level}★</span>
@@ -2105,7 +2103,7 @@ export function MemberFeedbackView({ embedded = false }) {
                       {overallRating > 0 && !isEditingWithoutLocalMeta && (
                         <div className="space-y-5 pt-3 border-t border-slate-100 animate-in fade-in duration-200">
                           {/* Nhóm 1: Huấn luyện viên */}
-                          <div className="space-y-3">
+                          <div className="space-y-3 rounded-xl border border-slate-200/80 bg-slate-50/70 p-4">
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                                 {t("feedbackDrawerCoachCriteriaHeader")}
@@ -2153,10 +2151,8 @@ export function MemberFeedbackView({ embedded = false }) {
                                           }
                                           className={`w-6 h-6 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                                             currentVal === pt
-                                              ? "bg-brand-primary text-white"
-                                              : currentVal >= pt
-                                                ? "bg-brand-accent-soft text-brand-accent-dark"
-                                                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                              ? "border border-blue-600 bg-blue-600 text-white ring-2 ring-blue-100"
+                                              : "border border-slate-200 bg-white text-slate-600 hover:border-blue-300"
                                           }`}
                                         >
                                           {pt}
@@ -2170,7 +2166,7 @@ export function MemberFeedbackView({ embedded = false }) {
                           </div>
 
                           {/* Nhóm 2: Sân bãi & Tiện nghi */}
-                          <div className="space-y-3 pt-2 border-t border-slate-100">
+                          <div className="space-y-3 rounded-xl border border-slate-200/80 bg-slate-50/70 p-4">
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                                 {t("feedbackDrawerFacilityCriteriaHeader")}
@@ -2218,10 +2214,8 @@ export function MemberFeedbackView({ embedded = false }) {
                                           }
                                           className={`w-6 h-6 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                                             currentVal === pt
-                                              ? "bg-brand-primary text-white"
-                                              : currentVal >= pt
-                                                ? "bg-brand-accent-soft text-brand-accent-dark"
-                                                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                              ? "border border-blue-600 bg-blue-600 text-white ring-2 ring-blue-100"
+                                              : "border border-slate-200 bg-white text-slate-600 hover:border-blue-300"
                                           }`}
                                         >
                                           {pt}
@@ -2263,9 +2257,9 @@ export function MemberFeedbackView({ embedded = false }) {
                                   type="button"
                                   onClick={() => handleToggleTag(tagCode)}
                                   className={`text-xs px-3 py-1.5 rounded-lg transition-all cursor-pointer font-medium border ${
-                                    isSelected
-                                      ? "bg-brand-accent-soft text-brand-accent-dark border-brand-accent/40 font-bold"
-                                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                                      isSelected
+                                      ? "bg-blue-600 text-white border-blue-600 font-semibold shadow-sm"
+                                      : "bg-white text-slate-700 border-slate-200 hover:border-blue-300 hover:bg-blue-50/50"
                                   }`}
                                 >
                                   {getTagLabel(tagCode, t)}
@@ -2298,24 +2292,24 @@ export function MemberFeedbackView({ embedded = false }) {
                       {/* BƯỚC 5: Quyền riêng tư & Đối thoại bảo mật */}
                       {overallRating > 0 && !isEditingWithoutLocalMeta && (
                         <div className="space-y-2.5 pt-3 border-t border-slate-100">
-                          <label className="flex items-center gap-2.5 cursor-pointer text-xs text-slate-700">
+                          <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-3 cursor-pointer text-xs text-slate-700 transition hover:border-blue-200 hover:bg-blue-50/40">
                             <input
                               type="checkbox"
                               checked={isAnonymous}
                               onChange={(e) => setIsAnonymous(e.target.checked)}
-                              className="w-4 h-4 rounded border-slate-300 text-brand-accent-dark focus:ring-brand-accent"
+                              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-200"
                             />
                             <span>{t("feedbackDrawerAnonymousLabel")}</span>
                           </label>
 
-                          <label className="flex items-center gap-2.5 cursor-pointer text-xs text-slate-700">
+                          <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-3 cursor-pointer text-xs text-slate-700 transition hover:border-blue-200 hover:bg-blue-50/40">
                             <input
                               type="checkbox"
                               checked={isPrivateContactRequested}
                               onChange={(e) =>
                                 setIsPrivateContactRequested(e.target.checked)
                               }
-                              className="w-4 h-4 rounded border-slate-300 text-brand-accent-dark focus:ring-brand-accent"
+                              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-200"
                             />
                             <span>
                               {t("feedbackDrawerPrivateContactLabel")}
@@ -2335,11 +2329,11 @@ export function MemberFeedbackView({ embedded = false }) {
 
                 {/* Footer Drawer */}
                 {!isThankYouMode && (
-                  <div className="p-6 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-4">
+                  <div className="sticky bottom-0 z-10 p-5 border-t border-slate-200 bg-white/95 backdrop-blur flex items-center justify-between gap-4">
                     <button
                       type="button"
                       onClick={() => setDrawerOpen(false)}
-                      className="px-4 py-2.5 text-xs text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 cursor-pointer"
                     >
                       {t("feedbackDrawerBtnCancel")}
                     </button>
