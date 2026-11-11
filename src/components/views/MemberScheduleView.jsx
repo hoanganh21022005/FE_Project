@@ -4,7 +4,6 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
-  HelpCircle,
   RefreshCw,
   X,
 } from "lucide-react"
@@ -690,15 +689,7 @@ export function MemberScheduleView() {
                   </button>
                   <ScheduleLegend t={t} />
                 </div>
-              ) : (
-                <div title={t("memberSchedAttendanceTooltip")} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-[13px] font-semibold text-slate-800 cursor-help">
-                  <span>{t("memberSchedStatAttendance")}:</span>
-                  <strong className="font-extrabold text-slate-950 tabular-nums">
-                    {globalCounts.attendanceRate === null ? "–" : `${globalCounts.attendanceRate}%`}
-                  </strong>
-                  <HelpCircle className="h-3.5 w-3.5 text-slate-500" />
-                </div>
-              )}
+              ) : null}
             </div>
 
             {/* Tab trạng thái ở chế độ Danh sách */}

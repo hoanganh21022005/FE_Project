@@ -756,7 +756,8 @@ export function ScheduleList({
   return (
     <div className="space-y-4">
       {statusTab === "upcoming" && !hasTodayGroup && (
-        <p className="text-[13px] font-medium text-slate-700 px-1 flex flex-wrap items-center gap-1.5">
+        <div className="inline-flex max-w-full items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] font-medium text-slate-600">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
           <span>
             {firstUpcomingText
               ? tr("memberSchedTodayNoSessionSubtle", {
@@ -764,7 +765,7 @@ export function ScheduleList({
                 })
               : t("memberSchedTodayNoSession")}
           </span>
-        </p>
+        </div>
       )}
 
       {slicedGroups.map((group) => {
