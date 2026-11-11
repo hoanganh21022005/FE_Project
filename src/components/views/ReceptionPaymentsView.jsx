@@ -434,7 +434,7 @@ export function ReceptionPaymentsView() {
               disabled={loading}
               aria-label={language === 'vi' ? 'Tải lại danh sách' : 'Refresh'}
               title={language === 'vi' ? 'Tải lại danh sách' : 'Refresh'}
-              className="inline-flex h-9 w-9 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-border-color bg-bg-card cursor-pointer"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-border-color bg-bg-card cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-brand-primary' : ''}`} />
             </button>
@@ -472,7 +472,7 @@ export function ReceptionPaymentsView() {
                 setTargetNotice(null);
                 setTargetRetryCount((c) => c + 1);
               }}
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-status-danger text-text-inverse hover:bg-status-danger/90 cursor-pointer"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-status-danger text-text-inverse hover:bg-status-danger/90 cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>{language === 'vi' ? 'Thử lại' : 'Retry'}</span>
@@ -481,7 +481,7 @@ export function ReceptionPaymentsView() {
               type="button"
               onClick={() => setTargetError(null)}
               aria-label={language === 'vi' ? 'Đóng' : 'Dismiss'}
-              className="inline-flex h-8 w-8 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
               title={language === 'vi' ? 'Đóng' : 'Dismiss'}
             >
               <X className="w-4 h-4" />
@@ -503,7 +503,7 @@ export function ReceptionPaymentsView() {
             type="button"
             onClick={() => setTargetNotice(null)}
             aria-label={language === 'vi' ? 'Đóng' : 'Dismiss'}
-            className="inline-flex h-8 w-8 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
             title={language === 'vi' ? 'Đóng' : 'Dismiss'}
           >
             <X className="w-4 h-4" />
@@ -525,7 +525,7 @@ export function ReceptionPaymentsView() {
                 ? 'Tìm mã hóa đơn, tên thành viên...'
                 : 'Search invoice code, member name...'
             }
-            className="h-9 w-full rounded border border-border-color bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+            className="min-h-11 w-full rounded border border-border-color bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
           />
         </div>
 
@@ -535,7 +535,7 @@ export function ReceptionPaymentsView() {
             id={statusSelectId}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-9 w-full sm:w-auto rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+            className="min-h-11 w-full sm:w-auto rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
           >
             <option value="all">{language === 'vi' ? 'Tất cả trạng thái' : 'All statuses'}</option>
             <option value="pending">{language === 'vi' ? 'Chờ thu tiền (Pending)' : 'Pending'}</option>
@@ -567,7 +567,7 @@ export function ReceptionPaymentsView() {
           <p className="text-sm leading-5 text-text-secondary">{error}</p>
           <button
             onClick={fetchInvoices}
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active mx-auto cursor-pointer"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active mx-auto cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>{language === 'vi' ? 'Thử lại' : 'Retry'}</span>
@@ -635,7 +635,7 @@ export function ReceptionPaymentsView() {
                         <td className="px-4 py-3 align-middle text-sm leading-5 text-text-primary text-center">
                           <StatusBadge type="payment" status={status} />
                         </td>
-                        <td className="px-4 py-3 align-middle text-sm leading-5 text-text-primary text-center">
+                        <td className="px-4 py-1.5 align-middle text-sm leading-5 text-text-primary text-center">
                           {isPending && canConfirmCash && isCashMethod(p) && (!apiEnabled || isCashInvoiceConfirmable(p)) ? (
                             <button
                               type="button"
@@ -644,7 +644,7 @@ export function ReceptionPaymentsView() {
                                 setConfirmError(null);
                                 setCashNotes('');
                               }}
-                              className="inline-flex h-7 items-center justify-center gap-1 rounded bg-brand-primary px-2.5 text-xs font-semibold text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+                              className="inline-flex min-h-11 items-center justify-center gap-1 rounded bg-brand-primary px-2.5 text-xs font-semibold text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
                             >
                               <DollarSign className="w-3.5 h-3.5" />
                               <span>{language === 'vi' ? 'Thu tiền mặt' : 'Collect Cash'}</span>
@@ -699,7 +699,7 @@ export function ReceptionPaymentsView() {
                 type="button"
                 onClick={() => setConfirmingInvoice(null)}
                 aria-label="Đóng"
-                className="inline-flex h-8 w-8 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -746,7 +746,7 @@ export function ReceptionPaymentsView() {
                   onChange={(e) => setCashNotes(e.target.value)}
                   disabled={isConfirming}
                   placeholder={language === 'vi' ? 'Ví dụ: Đã nhận đủ tiền mặt từ hội viên...' : 'Receipt notes...'}
-                  className="h-9 w-full rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                  className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 />
               </div>
 
@@ -755,14 +755,14 @@ export function ReceptionPaymentsView() {
                   type="button"
                   onClick={() => setConfirmingInvoice(null)}
                   disabled={isConfirming}
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
                 >
                   {language === 'vi' ? 'Hủy' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
                   disabled={isConfirming || !canConfirmCash}
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                 >
                   {isConfirming && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>

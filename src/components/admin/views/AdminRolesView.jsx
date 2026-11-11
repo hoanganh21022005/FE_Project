@@ -85,7 +85,7 @@ export function AdminRolesView() {
               Ma trận quyền hiện tại
             </h3>
             <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
-              <table className="w-full min-w-full text-left text-xs">
+              <table className="w-full min-w-[760px] text-left text-xs">
                 <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
                   <tr>
                     <th className="sticky left-0 z-10 bg-bg-secondary px-3.5 py-2.5 text-left align-middle">
@@ -107,7 +107,7 @@ export function AdminRolesView() {
                       key={permission.id ?? permission.name}
                       className="transition-colors hover:bg-bg-secondary/70"
                     >
-                      <td className="sticky left-0 bg-bg-card px-3.5 py-2 align-middle text-xs leading-4 text-text-primary">
+                      <td className="sticky left-0 bg-bg-card px-3.5 py-2 align-middle text-sm leading-5 text-text-primary">
                         <p className="font-mono font-semibold text-text-primary">
                           {permission.name}
                         </p>

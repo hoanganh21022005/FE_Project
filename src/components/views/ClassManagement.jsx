@@ -1962,7 +1962,7 @@ export function ClassManagement() {
           <button
             type="button"
             onClick={() => {
-              if (urgentCoachAlerts[0]) handleEdit(urgentCoachAlerts[0])
+              if (urgentCoachAlerts[0]) setEditingClass(urgentCoachAlerts[0])
             }}
             className="text-xs font-bold text-amber-800 underline shrink-0 cursor-pointer hover:text-amber-950"
           >
