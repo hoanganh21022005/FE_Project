@@ -12,7 +12,7 @@
         timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
       })
-      const pastStart = localTime.format(new Date(Date.now() - 60 * 60 * 1000)).replace(' ', 'T')
+      const pastStart = localTime.format(new Date(Date.now() - 60 * 60 * 1000)).replace(' ', 'T').slice(0, 16) + ':00'
       const fixture = {
         pastStart,
         incidents: [{

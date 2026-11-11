@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import { CoachStatusBadge } from "../coach/StatusBadge"
 import { formatMemberCode } from "../../utils/formatMember"
+import { formatDate } from "../../utils/datetime"
 import { memberApi } from "../../api/memberApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getErrorMessage, getFriendlyError } from "../../api/apiErrors"
@@ -1205,7 +1206,7 @@ export function CoachAssignedMembersView() {
               onClick={() => loadAdvancedRequests().catch(() => {})}
               title={t("coachBtnRefresh")}
               aria-label={t("coachBtnRefresh")}
-              className="inline-flex h-9 w-9 items-center justify-center rounded border border-border-color bg-bg-card text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded border border-border-color bg-bg-card text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${loadingRequests ? "animate-spin" : ""}`} />
             </button>
@@ -1235,7 +1236,7 @@ export function CoachAssignedMembersView() {
               const reg = advancedRequests.find((r) => Number(r.subscriptionId) === unresolvedAttempt.subscriptionId)
               if (reg) openBookPrivateModal(reg)
             }}
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer self-start sm:self-auto shrink-0"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer self-start sm:self-auto shrink-0"
           >
             Mở xem lại &amp; Thử lại
           </button>
@@ -1253,7 +1254,7 @@ export function CoachAssignedMembersView() {
             type="button"
             disabled={loadingRequests}
             onClick={() => loadAdvancedRequests().catch(() => {})}
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingRequests ? "animate-spin" : ""}`} />
             <span>Tải lại dữ liệu</span>
@@ -1304,7 +1305,7 @@ export function CoachAssignedMembersView() {
                       disabled={decidingId !== null}
                       onClick={() => handleCoachDecision(req, "APPROVE")}
                       aria-label={`${t("coachPtAcceptBtn")} ${memberDisplayName}`}
-                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                      className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                     >
                       {decidingId === req.id ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1322,7 +1323,7 @@ export function CoachAssignedMembersView() {
                       disabled={decidingId !== null}
                       onClick={() => openRejectModal(req)}
                       aria-label={`${t("coachPtRejectBtn")} ${memberDisplayName}`}
-                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-status-danger text-text-inverse hover:bg-status-danger/90 cursor-pointer"
+                      className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-status-danger text-text-inverse hover:bg-status-danger/90 cursor-pointer"
                     >
                       <XCircle className="w-3.5 h-3.5" />
                       <span>{t("coachPtRejectBtn")}</span>
@@ -1354,14 +1355,14 @@ export function CoachAssignedMembersView() {
                   value={memberSearchQuery}
                   onChange={(e) => setMemberSearchQuery(e.target.value)}
                   placeholder={t("coachSearchStudentPlaceholder")}
-                  className="h-9 w-full sm:w-56 rounded border border-border-color bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                  className="min-h-11 w-full sm:w-56 rounded border border-border-color bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 />
               </div>
 
               <select
                 value={subjectFilter}
                 onChange={(e) => setSubjectFilter(e.target.value)}
-                className="h-9 w-full sm:w-44 rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+                className="min-h-11 w-full sm:w-44 rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
               >
                 <option value="all">{t("coachFilterAllSubjects")}</option>
                 {availableSubjects.map((sub) => (
@@ -1374,7 +1375,7 @@ export function CoachAssignedMembersView() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="h-9 w-full sm:w-48 rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+                className="min-h-11 w-full sm:w-48 rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
               >
                 <option value="all">{t("coachFilterAllStatuses")}</option>
                 <option value="active">{t("coachStatusActive")}</option>
@@ -1387,7 +1388,7 @@ export function CoachAssignedMembersView() {
                 disabled={loadingRequests}
                 onClick={() => loadAdvancedRequests().catch(() => {})}
                 aria-label={t("coachBtnRefresh")}
-                className="inline-flex h-9 w-9 items-center justify-center rounded border border-border-color bg-bg-card text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded border border-border-color bg-bg-card text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
                 title={t("coachBtnRefresh")}
               >
                 <RefreshCw className={`w-4 h-4 ${loadingRequests ? "animate-spin" : ""}`} />
@@ -1401,7 +1402,7 @@ export function CoachAssignedMembersView() {
               <button
                 type="button"
                 onClick={() => loadAdvancedRequests().catch(() => {})}
-                className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
               >
                 Thử lại
               </button>
@@ -1499,7 +1500,7 @@ export function CoachAssignedMembersView() {
                           setCurrentTab("trainingProgress")
                           navigate("/coach/progress")
                         }}
-                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary whitespace-nowrap cursor-pointer"
+                        className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary whitespace-nowrap cursor-pointer"
                       >
                         <Dumbbell className="w-3.5 h-3.5 shrink-0" />
                         <span>Giáo án &amp; đánh giá</span>
@@ -1559,7 +1560,7 @@ export function CoachAssignedMembersView() {
                               setCurrentTab("trainingProgress")
                               navigate("/coach/progress")
                             }}
-                            className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer shrink-0 self-start sm:self-auto"
+                            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer shrink-0 self-start sm:self-auto"
                           >
                             {t("coachBtnLogResult")}
                           </button>
@@ -1739,7 +1740,7 @@ export function CoachAssignedMembersView() {
                                       [studentGroup.memberKey]: e.target.value,
                                     }))
                                   }
-                                  className="h-8 rounded border border-border-color bg-bg-card px-2.5 py-1 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+                                  className="min-h-11 rounded border border-border-color bg-bg-card px-2.5 py-1 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
                                 >
                                   {bookablePackages.map((pkg) => (
                                     <option key={pkg.id} value={String(pkg.id)}>
@@ -1760,7 +1761,7 @@ export function CoachAssignedMembersView() {
                                 type="button"
                                 onClick={() => openBookPrivateModal(activeSelectedPkg)}
                                 aria-label={`Xem lại đối soát cho học viên ${memberDisplayName}`}
-                                className="inline-flex h-8 items-center justify-center gap-1.5 rounded border border-border-color bg-bg-card px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none text-text-primary hover:bg-bg-secondary whitespace-nowrap cursor-pointer"
+                                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded border border-border-color bg-bg-card px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none text-text-primary hover:bg-bg-secondary whitespace-nowrap cursor-pointer"
                               >
                                 <AlertCircle className="w-3.5 h-3.5 text-status-warning shrink-0" />
                                 <span>Đối soát giao dịch</span>
@@ -1773,7 +1774,7 @@ export function CoachAssignedMembersView() {
                                 disabled
                                 aria-disabled="true"
                                 title="Khóa do đang có giao dịch khác chờ đối soát"
-                                className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 border border-border-color bg-bg-card text-text-secondary whitespace-nowrap"
+                                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 border border-border-color bg-bg-card text-text-secondary whitespace-nowrap"
                               >
                                 <Lock className="w-3.5 h-3.5 shrink-0" />
                                 <span>Đang chờ xác nhận</span>
@@ -1783,7 +1784,7 @@ export function CoachAssignedMembersView() {
                                 type="button"
                                 onClick={() => openBookPrivateModal(activeSelectedPkg)}
                                 aria-label={`Đặt lịch PT 1:1 cho học viên ${memberDisplayName}`}
-                                className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active whitespace-nowrap cursor-pointer"
+                                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active whitespace-nowrap cursor-pointer"
                               >
                                 <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
                                 <span>Đặt lịch PT 1:1</span>
@@ -1805,7 +1806,7 @@ export function CoachAssignedMembersView() {
                             disabled
                             aria-disabled="true"
                             title={primaryBlockReason || (language === "vi" ? "Không có gói PT hợp lệ" : "No valid PT package")}
-                            className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 border border-border-color bg-bg-card text-text-secondary whitespace-nowrap"
+                            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 border border-border-color bg-bg-card text-text-secondary whitespace-nowrap"
                           >
                             <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
                             <span>Không đủ điều kiện</span>
@@ -2053,7 +2054,7 @@ export function CoachAssignedMembersView() {
                       <button
                         type="button"
                         onClick={handleRetryRooms}
-                        className="ml-2 underline font-semibold cursor-pointer"
+                        className="ml-2 inline-flex min-h-11 items-center underline font-semibold cursor-pointer"
                       >
                         Thử lại
                       </button>
@@ -2185,7 +2186,7 @@ export function CoachAssignedMembersView() {
 
               {/* Agreement Confirmation Checkbox */}
               <div className="pt-2 border-t border-border-color">
-                <label className="flex items-start gap-2.5 cursor-pointer text-sm leading-5 text-text-primary font-medium">
+                <label className="flex min-h-11 items-start gap-2.5 cursor-pointer text-sm leading-5 text-text-primary font-medium">
                   <input
                     type="checkbox"
                     required

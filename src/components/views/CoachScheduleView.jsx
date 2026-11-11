@@ -618,7 +618,7 @@ export function CoachScheduleView() {
               <button
                 type="button"
                 onClick={() => toggleNoticeExpand(ses.id)}
-                className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
               >
                 <AlertCircle className="w-3.5 h-3.5 text-status-warning" />
                 <span>
@@ -637,7 +637,7 @@ export function CoachScheduleView() {
                   <button
                     type="button"
                     onClick={() => handleGoToAttendance(ses)}
-                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>{t("coachBtnCheckInThisSession")}</span>
@@ -646,7 +646,7 @@ export function CoachScheduleView() {
                   <button
                     type="button"
                     onClick={() => handleGoToPtResult(ses)}
-                    className={`inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
                       hasLoggedResult
                         ? "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
                         : "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
@@ -664,7 +664,7 @@ export function CoachScheduleView() {
                 <button
                   type="button"
                   onClick={() => handleGoToAttendance(ses)}
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>
@@ -728,7 +728,7 @@ export function CoachScheduleView() {
                 disabled={loadingSessions}
                 aria-label={t("coachBtnRefresh")}
                 title={t("coachBtnRefresh")}
-                className="inline-flex h-9 w-9 items-center justify-center rounded transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-secondary hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-secondary hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
               >
                 <RefreshCw
                   className={`w-4 h-4 ${loadingSessions ? "animate-spin" : ""}`}
@@ -742,7 +742,7 @@ export function CoachScheduleView() {
             <select
               value={selectedRoom}
               onChange={(e) => setSelectedRoom(e.target.value)}
-              className="h-9 w-full sm:w-48 rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+              className="min-h-11 w-full sm:w-48 rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
             >
               <option value="all">
                 {language === "vi" ? "Tất cả phòng / sân" : "All Rooms"}
@@ -766,7 +766,7 @@ export function CoachScheduleView() {
             role="tab"
             aria-selected={activeTab === "schedule"}
             onClick={() => setActiveTab("schedule")}
-            className={`inline-flex h-9 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+            className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
               activeTab === "schedule"
                 ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
                 : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
@@ -779,7 +779,7 @@ export function CoachScheduleView() {
             role="tab"
             aria-selected={activeTab === "work_schedule"}
             onClick={() => setActiveTab("work_schedule")}
-            className={`inline-flex h-9 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+            className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
               activeTab === "work_schedule"
                 ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
                 : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
@@ -811,7 +811,7 @@ export function CoachScheduleView() {
                   <button
                     type="button"
                     onClick={() => setViewMode("list")}
-                    className={`inline-flex h-7 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
                       viewMode === "list"
                         ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
                         : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
@@ -823,7 +823,7 @@ export function CoachScheduleView() {
                   <button
                     type="button"
                     onClick={() => setViewMode("week")}
-                    className={`inline-flex h-7 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
                       viewMode === "week"
                         ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
                         : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
@@ -850,7 +850,7 @@ export function CoachScheduleView() {
                     key={tab.id}
                     type="button"
                     onClick={() => setScheduleFilter(tab.id)}
-                    className={`inline-flex h-7.5 items-center justify-center gap-1 rounded px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+                    className={`inline-flex min-h-11 items-center justify-center gap-1 rounded px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
                       scheduleFilter === tab.id
                         ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
                         : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
@@ -1140,7 +1140,7 @@ export function CoachScheduleView() {
                 {t("coachWorkScheduleSubtitleShort")}
               </p>
             </div>
-            <label className="flex items-center gap-2 text-sm leading-5 font-semibold text-text-primary cursor-pointer bg-bg-secondary px-3 py-2.5 rounded border border-border-color">
+            <label className="flex min-h-11 items-center gap-2 text-sm leading-5 font-semibold text-text-primary cursor-pointer bg-bg-secondary px-3 py-2.5 rounded border border-border-color">
               <input
                 type="checkbox"
                 checked={acceptingNew}

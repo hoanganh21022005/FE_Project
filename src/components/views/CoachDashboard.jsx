@@ -620,7 +620,7 @@ export function CoachDashboard() {
               setCurrentTab("assignedMembers")
               navigate("/coach/assigned-members")
             }}
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active shrink-0 self-start sm:self-auto cursor-pointer"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active shrink-0 self-start sm:self-auto cursor-pointer"
           >
             <span>{t("coachPendingPtBannerBtn")}</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -659,7 +659,7 @@ export function CoachDashboard() {
                 setCurrentTab("schedule")
                 navigate("/coach/schedule")
               }}
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer self-start sm:self-auto"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer self-start sm:self-auto"
             >
               {language === "vi" ? "Xem toàn bộ lịch dạy →" : "View full schedule →"}
             </button>
@@ -715,7 +715,7 @@ export function CoachDashboard() {
                     <button
                       type="button"
                       onClick={() => handleGoToAttendance(ses)}
-                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer self-start sm:self-auto"
+                      className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer self-start sm:self-auto"
                     >
                       {canCheckIn(ses)
                         ? t("coachBtnCheckInThisSession")
@@ -1093,7 +1093,7 @@ export function CoachDashboard() {
                         setCurrentTab("assignedMembers")
                         navigate("/coach/assigned-members")
                       }}
-                      className="inline-flex h-7 items-center justify-center gap-1 rounded border border-border-color bg-bg-card px-2.5 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none text-text-primary hover:bg-bg-secondary cursor-pointer"
+                      className="inline-flex min-h-11 items-center justify-center gap-1 rounded border border-border-color bg-bg-card px-2.5 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none text-text-primary hover:bg-bg-secondary cursor-pointer"
                     >
                       {language === "vi" ? "Chi tiết →" : "Details →"}
                     </button>
@@ -1132,7 +1132,7 @@ export function CoachDashboard() {
               setCurrentTab("schedule")
               navigate("/coach/schedule")
             }}
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
           >
             {language === "vi" ? "Xem lịch đầy đủ →" : "Full schedule →"}
           </button>
@@ -1186,7 +1186,7 @@ export function CoachDashboard() {
                       <button
                         type="button"
                         onClick={() => handleGoToAttendance(ses)}
-                        className="inline-flex h-7 items-center justify-center gap-1 rounded px-2.5 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                        className="inline-flex min-h-11 items-center justify-center gap-1 rounded px-2.5 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                       >
                         {t("attendance")}
                       </button>
@@ -1240,7 +1240,7 @@ export function CoachDashboard() {
                       <button
                         type="button"
                         onClick={() => handleGoToAttendance(cls)}
-                        className="inline-flex h-7 items-center justify-center gap-1 rounded px-2.5 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                        className="inline-flex min-h-11 items-center justify-center gap-1 rounded px-2.5 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                       >
                         {t("attendance")}
                       </button>

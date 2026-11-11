@@ -6,8 +6,8 @@ const fixture = (page, expression) => page.evaluate((code) => Function(`return (
 test('center incident list preserves BE values, separates session types, and handles list errors', async ({ page }) => {
   await openPanel(page)
   await expect(page.getByRole('heading', { name: 'Sự cố trung tâm' })).toBeVisible()
-  await expect(page.getByText('Credit phục hồi')).toBeVisible()
-  await expect(page.getByText('Member bị ảnh hưởng')).toBeVisible()
+  await expect(page.getByText('Credit phục hồi').first()).toBeVisible()
+  await expect(page.getByText('Member bị ảnh hưởng').first()).toBeVisible()
   await expect(page.getByText('0', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('Chưa xác minh loại lớp')).toBeVisible()
   await expect(page.getByText('Advanced', { exact: true })).toBeVisible()
@@ -15,7 +15,7 @@ test('center incident list preserves BE values, separates session types, and han
 
   await page.evaluate(() => { window.__centerIncidentFixture.failList = true })
   await page.getByRole('button', { name: 'Tải lại' }).click()
-  await expect(page.getByRole('alert')).toBeVisible()
+  await expect(page.getByRole('alert').filter({ hasText: 'Fixture denied' })).toBeVisible()
   await expect(page.getByText('Chưa có sự cố trung tâm.')).toHaveCount(0)
 })
 
@@ -64,7 +64,7 @@ test('Manager manually confirms compensation, creates Normal makeup, and resolve
   await resolveDialog.getByRole('button', { name: 'Xác nhận khắc phục' }).click()
   await expect.poll(() => fixture(page, `window.__centerIncidentFixture.requests.filter((request) => request.path.endsWith('/resolve')).length`)).toBe(1)
   const resolveRequest = await fixture(page, `window.__centerIncidentFixture.requests.find((request) => request.path.endsWith('/resolve'))`)
-  expect(resolveRequest.body.endedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+  expect(resolveRequest.body.endedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/)
   const finalIncident = await fixture(page, `window.__centerIncidentFixture.incidents.find((item) => item.id === 9)`)
   expect(finalIncident.status).toBe('Resolved')
   expect(finalIncident.recoveredCredits).toBe(0)

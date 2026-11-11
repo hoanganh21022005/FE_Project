@@ -151,7 +151,7 @@ export function WeeklySlotGrid({ selectedSlots = [], onChange, disabled = false 
       </div>
 
       <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
-        <table className="w-full min-w-full text-left text-sm border-collapse">
+        <table className="w-full min-w-[640px] text-left text-sm border-collapse">
           <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
             <tr>
               <th className="px-4 py-3 text-left align-middle border-r border-border-color w-36">
@@ -164,14 +164,14 @@ export function WeeklySlotGrid({ selectedSlots = [], onChange, disabled = false 
                 return (
                   <th
                     key={day.key}
-                    className="px-4 py-3 text-center align-middle border-r last:border-r-0 border-border-color"
+                    className="px-2 py-3 text-center align-middle border-r last:border-r-0 border-border-color"
                   >
                     <button
                       type="button"
                       disabled={disabled}
                       onClick={() => toggleDayColumn(day.key)}
                       title={t("coachSelectAllDay")}
-                      className={`w-full py-1.5 px-2 rounded text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
+                      className={`w-full min-w-11 min-h-11 py-1.5 px-2 rounded text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
                         allDaySelected
                           ? "bg-brand-primary text-text-inverse"
                           : "text-text-secondary hover:bg-bg-card hover:text-text-primary"
@@ -198,7 +198,7 @@ export function WeeklySlotGrid({ selectedSlots = [], onChange, disabled = false 
                       disabled={disabled}
                       onClick={() => toggleSlotRow(slotNum)}
                       title={t("coachSelectAllSlot")}
-                      className={`w-full text-left px-2 py-1 rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
+                      className={`w-full min-h-11 text-left px-2 py-1 rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary flex flex-col justify-center ${
                         allRowSelected
                           ? "bg-sky-50 text-status-info font-semibold ring-1 ring-inset ring-sky-200"
                           : "text-text-primary hover:bg-bg-secondary"
@@ -218,7 +218,7 @@ export function WeeklySlotGrid({ selectedSlots = [], onChange, disabled = false 
                     return (
                       <td
                         key={cellKey}
-                        className="px-4 py-3 align-middle text-sm leading-5 text-text-primary text-center border-r last:border-r-0 border-border-color"
+                        className="px-2 py-3 align-middle text-sm leading-5 text-text-primary text-center border-r last:border-r-0 border-border-color"
                       >
                         <button
                           type="button"
@@ -226,7 +226,7 @@ export function WeeklySlotGrid({ selectedSlots = [], onChange, disabled = false 
                           aria-label={`${t(day.labelKey)} ${slot.name || `Ca ${slotNum}`}`}
                           aria-pressed={isSelected}
                           onClick={() => toggleCell(day.key, slotNum)}
-                          className={`w-full min-h-11 rounded border flex items-center justify-center transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 ${
+                          className={`w-full min-w-11 min-h-11 rounded border flex items-center justify-center transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 ${
                             isSelected
                               ? "bg-brand-primary border-brand-primary text-text-inverse font-semibold"
                               : "bg-bg-secondary hover:bg-bg-card border-border-color text-text-muted"

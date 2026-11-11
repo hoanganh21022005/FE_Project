@@ -26,7 +26,7 @@ test('CM-FIX-16B manager review actions send contract bodies and reload Backend 
   const history = { receivers: [], verifications: [] }
   const posts = []
 
-  await page.route('**/api/**', async (route) => {
+  await page.route((url) => url.pathname.startsWith('/api/'), async (route) => {
     if (route.request().method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', json: [] })
     return route.fulfill({ status: 403, contentType: 'application/json', json: { code: 'UNEXPECTED_WRITE' } })
   })
@@ -85,6 +85,7 @@ test('CM-FIX-16B manager review actions send contract bodies and reload Backend 
   expect(posts[3]).toEqual({ path: '/api/normal-refunds/31/issues', body: { version: 7, note: 'The bank receiver details need review' } })
 
   await page.getByRole('button', { name: 'Đối soát chuyển khoản' }).click()
+  await page.getByLabel(/Lần chuyển khoản/).selectOption('22')
   await page.getByLabel(/Kết quả đối soát/).selectOption('Pending')
   await page.getByLabel(/Nguồn đối soát ngân hàng/).fill('Independent bank transfer status page')
   await page.getByLabel(/Ghi chú/).fill('Bank has not settled the transfer yet')
