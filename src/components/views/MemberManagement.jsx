@@ -6,7 +6,6 @@ import { NewMemberModal } from '../modals/NewMemberModal';
 import {
   UserCheck,
   UserPlus,
-  CreditCard,
   Search,
   ChevronRight,
   SearchX,
@@ -14,9 +13,16 @@ import {
   Clock,
   PackagePlus,
   AlertTriangle,
-  Sparkles,
-  RefreshCw
+  RefreshCw,
 } from 'lucide-react';
+
+function getMemberInitials(name) {
+  const words = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  const first = words[0].charAt(0).toLocaleUpperCase();
+  const last = words.length > 1 ? words[words.length - 1].charAt(0).toLocaleUpperCase() : '';
+  return `${first}${last}`;
+}
 
 export function MemberManagement({ onSelectMemberDetail }) {
   const {
@@ -39,13 +45,14 @@ export function MemberManagement({ onSelectMemberDetail }) {
   const activeCount = members.filter(m => m.membershipStatus === 'active').length;
   const graceCount = members.filter(m => m.membershipStatus === 'grace_period').length;
   const noPackageCount = members.filter(m => !m.membershipStatus || m.membershipStatus === 'none' || !m.currentPackageId).length;
+  const memberMetricsReady = !membersLoading && !membersError;
+  const activeRatio = totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0;
 
   const filteredMembers = members.filter(m => {
     const nameMatch = (m.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const codeMatch = (m.code || '').toLowerCase().includes(searchTerm.toLowerCase());
     const emailMatch = (m.email || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const phoneMatch = (m.phone || '').includes(searchTerm);
-    const matchesSearch = nameMatch || codeMatch || emailMatch || phoneMatch;
+    const phoneMatch = String(m.phone || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = nameMatch || emailMatch || phoneMatch;
 
     const matchesStatus =
       statusFilter === 'all' ||
@@ -66,96 +73,109 @@ export function MemberManagement({ onSelectMemberDetail }) {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      <div className="flex items-start gap-3">
+        <div className="rounded-xl bg-violet-100 p-2.5 text-violet-700">
+          <Users className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+            {language === 'vi' ? 'Thành viên' : t('members')}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {language === 'vi'
+              ? 'Quản lý hồ sơ, gói tập và trạng thái hội viên của trung tâm.'
+              : 'Manage member profiles, memberships and account status.'}
+          </p>
+        </div>
+      </div>
+
       {/* 1. Quick Stats KPI Bar */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {/* Total Members */}
-        <div
+        <button
+          type="button"
+          aria-pressed={statusFilter === 'all'}
           onClick={() => setStatusFilter('all')}
-          className={`p-3.5 rounded-lg border transition-all cursor-pointer ${
-            statusFilter === 'all'
-              ? 'bg-brand-dark text-white border-brand-dark-hover shadow-sm'
-              : 'bg-white text-brand-dark border-slate-200 hover:border-brand-dark-hover'
+          className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 ${
+            statusFilter === 'all' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
           }`}
         >
-          <div className="flex items-center justify-between text-xs font-semibold">
-            <span className={statusFilter === 'all' ? 'text-stone-300' : 'text-slate-500'}>
-              {language === 'vi' ? 'Tổng số hội viên' : 'Total Members'}
-            </span>
-            <Users className={`w-4 h-4 ${statusFilter === 'all' ? 'text-brand-accent-dark' : 'text-slate-400'}`} />
+          <div className="mb-2 flex items-start justify-between gap-2 text-xs font-medium text-slate-500">
+            <span>{language === 'vi' ? 'Tổng hội viên' : 'Total members'}</span>
+            <span className="rounded-lg bg-blue-50 p-2 text-blue-700"><Users className="h-4 w-4" aria-hidden="true" /></span>
           </div>
-          <div className="mt-2 text-2xl font-black tabular-nums tracking-tight">{totalCount}</div>
-        </div>
+          <div className="text-2xl font-semibold tracking-tight text-blue-800 tabular-nums">{memberMetricsReady ? totalCount : '—'}</div>
+          <p className="mt-1 text-xs text-slate-500">{language === 'vi' ? 'Tất cả hồ sơ hội viên' : 'All member profiles'}</p>
+        </button>
 
         {/* Active Members */}
-        <div
+        <button
+          type="button"
+          aria-pressed={statusFilter === 'active'}
           onClick={() => setStatusFilter('active')}
-          className={`p-3.5 rounded-lg border transition-all cursor-pointer ${
-            statusFilter === 'active'
-              ? 'bg-emerald-900 text-white border-emerald-800 shadow-sm'
-              : 'bg-white text-brand-dark border-slate-200 hover:border-emerald-300'
+          className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 ${
+            statusFilter === 'active' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
           }`}
         >
-          <div className="flex items-center justify-between text-xs font-semibold">
-            <span className={statusFilter === 'active' ? 'text-emerald-200' : 'text-slate-500'}>
+          <div className="mb-2 flex items-start justify-between gap-2 text-xs font-medium text-slate-500">
+            <span>
               {language === 'vi' ? 'Đang hoạt động' : 'Active'}
             </span>
-            <UserCheck className={`w-4 h-4 ${statusFilter === 'active' ? 'text-emerald-300' : 'text-emerald-600'}`} />
+            <span className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><UserCheck className="h-4 w-4" aria-hidden="true" /></span>
           </div>
-          <div className="mt-2 text-2xl font-black text-emerald-600 tabular-nums tracking-tight">
-            {activeCount}
+          <div className="text-2xl font-semibold tracking-tight text-emerald-800 tabular-nums">
+            {memberMetricsReady ? activeCount : '—'}
           </div>
-        </div>
+          <p className="mt-1 text-xs text-slate-500">{language === 'vi' ? 'Gói hội viên đang hoạt động' : 'Active memberships'}</p>
+          {memberMetricsReady && (
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-emerald-100" aria-label={`${activeRatio}% active`}>
+              <div className="h-full rounded-full bg-emerald-600 transition-[width]" style={{ width: `${activeRatio}%` }} />
+            </div>
+          )}
+        </button>
 
         {/* 72h Grace Period */}
-        <div
+        <button
+          type="button"
+          aria-pressed={statusFilter === 'grace_period'}
           onClick={() => setStatusFilter('grace_period')}
-          className={`p-3.5 rounded-lg border transition-all cursor-pointer ${
-            statusFilter === 'grace_period'
-              ? 'bg-brand-dark text-white border-amber-800 shadow-sm'
-              : 'bg-white text-brand-dark border-slate-200 hover:border-amber-300'
+          className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 ${
+            statusFilter === 'grace_period' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
           }`}
         >
-          <div className="flex items-center justify-between text-xs font-semibold">
-            <span className={statusFilter === 'grace_period' ? 'text-amber-200' : 'text-slate-500'}>
+          <div className="mb-2 flex items-start justify-between gap-2 text-xs font-medium text-slate-500">
+            <span>
               {language === 'vi' ? 'Chờ gia hạn (72h)' : '72h Grace Period'}
             </span>
-            <Clock className={`w-4 h-4 ${statusFilter === 'grace_period' ? 'text-amber-300' : 'text-amber-600'}`} />
+            <span className="rounded-lg bg-amber-50 p-2 text-amber-700"><Clock className="h-4 w-4" aria-hidden="true" /></span>
           </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl font-black text-amber-600 tabular-nums tracking-tight">
-              {graceCount}
-            </span>
-            <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
-              {language === 'vi' ? 'Cần nhắc' : 'Alert'}
-            </span>
+          <div className="text-2xl font-semibold tracking-tight text-amber-800 tabular-nums">
+            {memberMetricsReady ? graceCount : '—'}
           </div>
-        </div>
+          <p className="mt-1 text-xs text-slate-500">{language === 'vi' ? 'Đang trong thời gian gia hạn' : 'Within grace period'}</p>
+        </button>
 
         {/* No Package */}
-        <div
+        <button
+          type="button"
+          aria-pressed={statusFilter === 'none'}
           onClick={() => setStatusFilter('none')}
-          className={`p-3.5 rounded-lg border transition-all cursor-pointer ${
-            statusFilter === 'none'
-              ? 'bg-brand-dark text-white border-brand-dark-hover shadow-sm'
-              : 'bg-white text-brand-dark border-slate-200 hover:border-slate-300'
+          className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 ${
+            statusFilter === 'none' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
           }`}
         >
-          <div className="flex items-center justify-between text-xs font-semibold">
-            <span className={statusFilter === 'none' ? 'text-stone-300' : 'text-slate-500'}>
+          <div className="mb-2 flex items-start justify-between gap-2 text-xs font-medium text-slate-500">
+            <span>
               {language === 'vi' ? 'Chưa đăng ký gói' : 'No Package'}
             </span>
-            <Sparkles className={`w-4 h-4 ${statusFilter === 'none' ? 'text-brand-accent-dark' : 'text-slate-400'}`} />
+            <span className="rounded-lg bg-orange-50 p-2 text-orange-700"><PackagePlus className="h-4 w-4" aria-hidden="true" /></span>
           </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl font-black text-slate-700 tabular-nums tracking-tight">
-              {noPackageCount}
-            </span>
-            <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-              {language === 'vi' ? 'G4 Member' : 'Leads'}
-            </span>
+          <div className="text-2xl font-semibold tracking-tight text-orange-800 tabular-nums">
+            {memberMetricsReady ? noPackageCount : '—'}
           </div>
-        </div>
+          <p className="mt-1 text-xs text-slate-500">{language === 'vi' ? 'Chưa có gói hội viên' : 'No active package'}</p>
+        </button>
       </div>
 
       {/* Error state with retry */}
@@ -179,28 +199,25 @@ export function MemberManagement({ onSelectMemberDetail }) {
         </div>
       )}
 
-      {/* 2. Top Header & Actions Bar */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white border border-slate-200 p-4 rounded-lg shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-brand-dark text-brand-accent-dark rounded-lg flex items-center justify-center shrink-0 shadow-xs">
-            <UserCheck className="w-5 h-5" />
+      {/* Member filters and actions */}
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+        <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              placeholder={language === 'vi' ? 'Tìm theo tên, email hoặc số điện thoại...' : 'Search by name, email or phone...'}
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              aria-label={language === 'vi' ? 'Tìm thành viên' : 'Search members'}
+              className="h-10 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
+            />
           </div>
-          <div>
-            <h2 className="text-sm font-bold text-brand-dark tracking-tight">{t('members')}</h2>
-            <p className="text-xs text-stone-500">
-              {language === 'vi'
-                ? 'Danh sách hồ sơ thành viên và quản lý thông tin hội viên của trung tâm'
-                : 'Member profiles and membership account management'}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
-          {/* Status Filter Dropdown */}
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            className="w-full sm:w-auto bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:border-brand-primary focus:bg-white font-medium cursor-pointer"
+            aria-label={language === 'vi' ? 'Lọc theo trạng thái gói' : 'Filter by membership status'}
+            className="h-10 w-full shrink-0 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 cursor-pointer sm:w-52"
           >
             <option value="all">{language === 'vi' ? 'Tất cả trạng thái' : 'All statuses'}</option>
             <option value="active">{t('active')}</option>
@@ -209,115 +226,106 @@ export function MemberManagement({ onSelectMemberDetail }) {
             <option value="expired">{t('expired')}</option>
             <option value="none">{language === 'vi' ? 'Chưa đăng ký gói' : 'No package'}</option>
           </select>
-
-          {/* Search Input */}
-          <div className="relative flex-1 sm:w-56">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder={t('search') + "..."}
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full bg-stone-50 border border-slate-300 rounded pl-8 pr-3 py-1.5 text-xs text-brand-dark placeholder-slate-400 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors"
-            />
-          </div>
-
-          {/* Add Member Button */}
           <button
+            type="button"
             onClick={() => setIsAddOpen(true)}
-            className="px-3.5 py-1.5 bg-brand-primary hover:bg-brand-primary-hover text-white rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap transition-colors cursor-pointer w-full sm:w-auto"
+            className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-primary px-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-hover sm:w-auto"
           >
-            <UserPlus className="w-3.5 h-3.5" />
+            <UserPlus className="h-4 w-4" />
             <span>{t('addMember')}</span>
           </button>
         </div>
       </div>
-
-      {/* 3. Member Data Table */}
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
+      {/* Member Data Table */}
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-[13px]">
-            <thead className="bg-brand-dark text-slate-200 uppercase tracking-wider border-b border-slate-200 font-bold text-xs">
-              <tr>
-                <th className="py-3 px-4">{language === 'vi' ? 'Họ và tên' : 'Name'}</th>
-                <th className="py-3 px-4">{language === 'vi' ? 'Liên hệ' : 'Contact'}</th>
-                <th className="py-3 px-4">{language === 'vi' ? 'Gói hiện tại' : 'Current package'}</th>
-                <th className="py-3 px-4">{language === 'vi' ? 'Huấn luyện viên' : 'Coach'}</th>
-                <th className="py-3 px-4">{language === 'vi' ? 'Trạng thái' : 'Status'}</th>
-                <th className="py-3 px-4">{language === 'vi' ? 'Ngày tham gia' : 'Join date'}</th>
-                <th className="py-3 px-4 text-right w-[160px]">{language === 'vi' ? 'Thao tác' : 'Actions'}</th>
+          <table className="w-full min-w-[1180px] table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[5%]" />
+              <col className="w-[18%]" />
+              <col className="w-[19%]" />
+              <col className="w-[15%]" />
+              <col className="w-[12%]" />
+              <col className="w-[12%]" />
+              <col className="w-[8%]" />
+              <col className="w-[11%]" />
+            </colgroup>
+            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
+              <tr className="[&>th]:border-r [&>th]:border-slate-200 [&>th:last-child]:border-r-0">
+                <th scope="col" className="px-3 py-3 text-center">STT</th>
+                <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Họ và tên' : 'Name'}</th>
+                <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Liên hệ' : 'Contact'}</th>
+                <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Gói hiện tại' : 'Current package'}</th>
+                <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Huấn luyện viên' : 'Coach'}</th>
+                <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Trạng thái' : 'Status'}</th>
+                <th scope="col" className="px-3 py-3">{language === 'vi' ? 'Ngày tham gia' : 'Joined'}</th>
+                <th scope="col" className="px-3 py-3 text-center">{language === 'vi' ? 'Thao tác' : 'Actions'}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 text-slate-700">
+            <tbody className="text-slate-700 [&>tr>td]:border-r [&>tr>td]:border-slate-100 [&>tr>td:last-child]:border-r-0 [&>tr:not(:last-child)]:border-b [&>tr:not(:last-child)]:border-slate-200">
               {membersLoading ? (
-                // Skeleton loading rows
                 [...Array(5)].map((_, idx) => (
-                  <tr key={idx} className="animate-pulse h-[46px]">
-                    <td className="py-2 px-4"><div className="h-4 bg-slate-200 rounded w-28 mb-1" /><div className="h-3 bg-slate-100 rounded w-16" /></td>
-                    <td className="py-2 px-4"><div className="h-4 bg-slate-200 rounded w-36 mb-1" /><div className="h-3 bg-slate-100 rounded w-20" /></td>
-                    <td className="py-2 px-4"><div className="h-4 bg-slate-200 rounded w-24" /></td>
-                    <td className="py-2 px-4"><div className="h-4 bg-slate-200 rounded w-20" /></td>
-                    <td className="py-2 px-4"><div className="h-5 bg-slate-200 rounded w-20" /></td>
-                    <td className="py-2 px-4"><div className="h-4 bg-slate-200 rounded w-20" /></td>
-                    <td className="py-2 px-4 text-right"><div className="h-6 bg-slate-200 rounded w-16 ml-auto" /></td>
+                  <tr key={idx} className="animate-pulse">
+                    <td className="px-3 py-4"><div className="mx-auto h-4 w-5 rounded bg-slate-200" /></td>
+                    <td className="px-4 py-4"><div className="h-4 w-32 rounded bg-slate-200" /><div className="mt-2 h-3 w-20 rounded bg-slate-100" /></td>
+                    <td className="px-4 py-4"><div className="h-4 w-36 rounded bg-slate-200" /><div className="mt-2 h-3 w-24 rounded bg-slate-100" /></td>
+                    <td className="px-4 py-4"><div className="h-4 w-24 rounded bg-slate-200" /></td>
+                    <td className="px-4 py-4"><div className="h-4 w-24 rounded bg-slate-200" /></td>
+                    <td className="px-4 py-4"><div className="h-5 w-20 rounded bg-slate-200" /></td>
+                    <td className="px-3 py-4"><div className="h-4 w-16 rounded bg-slate-200" /></td>
+                    <td className="px-3 py-4"><div className="mx-auto h-8 w-16 rounded bg-slate-200" /></td>
                   </tr>
                 ))
-              ) : (
-                filteredMembers.map(m => (
-                  <tr key={m.id} className="hover:bg-brand-blue-soft/50 transition-colors h-[42px]">
-                    <td className="py-2 px-4 font-bold text-slate-900">
-                      <div>{m.name}</div>
-                    </td>
-                    <td className="py-2 px-4">
-                      <div>{m.email}</div>
-                      <div className="text-xs text-slate-500 tabular-nums">{m.phone || '—'}</div>
-                    </td>
-                    <td className="py-2 px-4 text-slate-900 font-medium">
-                      {m.membershipStatus === 'none' || !m.currentPackageId ? (
-                        <span className="italic text-stone-400 text-xs">
-                          {language === 'vi' ? 'Chưa đăng ký gói' : 'No package'}
+              ) : filteredMembers.map((m, index) => (
+                <tr key={m.id} className="transition-colors hover:bg-slate-50">
+                  <td className="px-3 py-4 text-center text-xs tabular-nums text-slate-500">{index + 1}</td>
+                  <td className="px-4 py-4">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700" aria-hidden="true">
+                        {getMemberInitials(m.name)}
+                      </span>
+                      <span className="truncate font-semibold text-slate-900" title={m.name || ''}>{m.name || '—'}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="truncate text-slate-800" title={m.email || ''}>{m.email || '—'}</div>
+                    <div className="mt-1 text-xs tabular-nums text-slate-500">{m.phone || '—'}</div>
+                  </td>
+                  <td className="px-4 py-4 font-medium text-slate-800">
+                    {m.membershipStatus === 'none' || !m.currentPackageId ? (
+                      <span className="text-slate-400">{language === 'vi' ? 'Chưa đăng ký gói' : 'No package'}</span>
+                    ) : <span className="line-clamp-2">{getPackageName(m)}</span>}
+                  </td>
+                  <td className="px-4 py-4 text-slate-700">{m.primaryCoachName || (language === 'vi' ? 'Chưa phân công' : 'Unassigned')}</td>
+                  <td className="px-4 py-4">
+                    <div className="flex flex-col items-start gap-1">
+                      <StatusBadge type="membership" status={m.membershipStatus || 'none'} />
+                      {m.accountStatus && m.accountStatus !== 'active' && (
+                        <span className="text-xs font-medium text-rose-700">
+                          {m.accountStatus === 'locked' ? (language === 'vi' ? 'Khóa TK' : 'Locked') : m.accountStatus}
                         </span>
-                      ) : (
-                        getPackageName(m)
                       )}
-                    </td>
-                    <td className="py-2 px-4 text-slate-700">
-                      {m.primaryCoachName || (language === 'vi' ? 'Chưa phân công' : 'Unassigned')}
-                    </td>
-                    <td className="py-2 px-4">
-                      <div className="flex flex-col gap-0.5">
-                        <StatusBadge type="membership" status={m.membershipStatus || 'none'} />
-                        {m.accountStatus && m.accountStatus !== 'active' && (
-                          <span className="text-xs font-semibold text-rose-700">
-                            {m.accountStatus === 'locked' ? (language === 'vi' ? 'Khóa TK' : 'Locked') : m.accountStatus}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-2 px-4 tabular-nums text-slate-500 whitespace-nowrap">
-                      {formatDate(m.joinDate, language)}
-                    </td>
-                    <td className="py-2 px-4 text-right w-[160px]">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {/* Detail View Button */}
-                        <button
-                          onClick={() => onSelectMemberDetail && onSelectMemberDetail(m.id)}
-                          className="px-2.5 py-1 bg-white hover:bg-stone-50 hover:border-brand-accent hover:text-brand-primary text-brand-dark border border-slate-300 rounded text-xs font-semibold transition-all inline-flex items-center gap-1 shadow-xs cursor-pointer"
-                        >
-                          <span>{language === 'vi' ? 'Chi tiết' : 'Details'}</span>
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
+                    </div>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-xs tabular-nums text-slate-600">{formatDate(m.joinDate, language)}</td>
+                  <td className="px-3 py-4 text-center">
+                    <button
+                      type="button"
+                      onClick={() => onSelectMemberDetail?.(m.id)}
+                      className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-brand-primary hover:text-brand-primary"
+                    >
+                      <span>{language === 'vi' ? 'Chi tiết' : 'Details'}</span>
+                      <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
 
               {!membersLoading && filteredMembers.length === 0 && (
                 <tr>
-                  <td colSpan="7" className="py-12 px-4 text-center">
-                    <SearchX className="w-8 h-8 text-slate-300 mx-auto" />
-                    <p className="mt-3 text-sm font-bold text-slate-800">
+                  <td colSpan="8" className="px-4 py-12 text-center">
+                    <SearchX className="mx-auto h-8 w-8 text-slate-300" aria-hidden="true" />
+                    <p className="mt-3 text-sm font-semibold text-slate-800">
                       {language === 'vi' ? 'Không tìm thấy thành viên phù hợp' : 'No matching members found'}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
@@ -326,7 +334,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
                     <button
                       type="button"
                       onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}
-                      className="mt-3 px-3 py-1.5 border border-slate-300 rounded text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                      className="mt-3 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                     >
                       {language === 'vi' ? 'Xóa bộ lọc' : 'Clear filters'}
                     </button>
@@ -335,24 +343,6 @@ export function MemberManagement({ onSelectMemberDetail }) {
               )}
             </tbody>
           </table>
-        </div>
-
-        {/* Table Pagination Footer */}
-        <div className="flex items-center justify-between text-xs text-slate-500 p-3 border-t border-slate-200 bg-slate-50">
-          <span>
-            {language === 'vi'
-              ? `Hiển thị 1-${filteredMembers.length} của ${filteredMembers.length} hội viên`
-              : `Showing 1-${filteredMembers.length} of ${filteredMembers.length} members`}
-          </span>
-          <div className="flex items-center gap-1 text-xs tabular-nums">
-            <button disabled className="px-2 py-1 bg-white border border-slate-200 rounded opacity-50 cursor-not-allowed">
-              {language === 'vi' ? 'Trang trước' : 'Previous'}
-            </button>
-            <span className="px-2.5 py-1 bg-brand-dark text-white rounded font-bold">1</span>
-            <button disabled className="px-2 py-1 bg-white border border-slate-200 rounded opacity-50 cursor-not-allowed">
-              {language === 'vi' ? 'Trang sau' : 'Next'}
-            </button>
-          </div>
         </div>
       </div>
 
