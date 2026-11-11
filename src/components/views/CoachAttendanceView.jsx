@@ -3,7 +3,6 @@ import { useSCMS } from "../../context/SCMSContext"
 import { CoachStatusBadge } from "../coach/StatusBadge"
 import { formatDate, formatTime, formatTimeRange } from "../../utils/datetime"
 import { formatMemberCode } from "../../utils/formatMember"
-import { AttendanceCorrectionModal } from "../modals/AttendanceCorrectionModal"
 import { classEnrollmentApi } from "../../api/classEnrollmentApi"
 import { attendanceApi, matchesSessionAttendance } from "../../api/attendanceApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
@@ -20,7 +19,6 @@ import {
 } from "../../utils/permissions"
 import {
   ClipboardCheck,
-  Edit2,
   RefreshCw,
   CheckCheck,
   AlertCircle,
@@ -204,7 +202,6 @@ export function CoachAttendanceView() {
     }
   }, [selectedClass?.id, resolvedCoachId])
 
-  const [selectedMemberModal, setSelectedMemberModal] = useState(null)
   const [apiEnrollments, setApiEnrollments] = useState([])
   const [apiAttendances, setApiAttendances] = useState([])
   const [sessionTrainingResults, setSessionTrainingResults] = useState([])
@@ -1092,7 +1089,7 @@ export function CoachAttendanceView() {
                     )
                   }
                 }}
-                className="min-h-11 w-full sm:w-auto rounded border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                className="min-h-11 w-full sm:w-auto rounded border border-border-strong bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
               >
                 {selectedClassId && !coachClasses.some((c) => String(c.id) === String(selectedClassId)) && (
                   <option value="" disabled>
@@ -1119,7 +1116,7 @@ export function CoachAttendanceView() {
                     )
                   }
                 }}
-                className="min-h-11 w-full sm:w-auto rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+                className="min-h-11 w-full sm:w-auto rounded border border-border-strong bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
               >
                 {classSessions.map((ses, idx) => {
                   const isCancel = isSessionCancelled(ses)
@@ -1256,7 +1253,7 @@ export function CoachAttendanceView() {
 
       {/* Session Status & Permission Banners */}
       {!hasSessionPermission && !loadingRoster && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-status-warning">
+        <div className="p-4 bg-status-warning-bg border border-status-warning-border rounded-lg flex items-start gap-3 text-status-warning">
           <AlertCircle className="w-5 h-5 text-status-warning shrink-0 mt-0.5" />
           <div className="space-y-1 text-sm leading-5">
             <div className="font-semibold">
@@ -1274,7 +1271,7 @@ export function CoachAttendanceView() {
       )}
 
       {sessionCancelled && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg flex items-start gap-3 text-status-danger">
+        <div className="p-4 bg-status-danger-bg border border-status-danger-border rounded-lg flex items-start gap-3 text-status-danger">
           <AlertCircle className="w-5 h-5 text-status-danger shrink-0 mt-0.5" />
           <div className="space-y-1 text-sm leading-5">
             <div className="font-semibold">
@@ -1290,7 +1287,7 @@ export function CoachAttendanceView() {
       )}
 
       {allowCorrection && !sessionCancelled && (
-        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2.5 text-status-warning text-sm leading-5 font-medium">
+        <div className="p-3.5 bg-status-warning-bg border border-status-warning-border rounded-lg flex items-center gap-2.5 text-status-warning text-sm leading-5 font-medium">
           <AlertCircle className="w-4 h-4 text-status-warning shrink-0" />
           <span>{apiEnabled
             ? language === "vi"
@@ -1332,7 +1329,7 @@ export function CoachAttendanceView() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t("coachSearchStudentPlaceholder")}
-                className="min-h-11 w-full sm:w-56 rounded border border-border-color bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                className="min-h-11 w-full sm:w-56 rounded border border-border-strong bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
               />
             </div>
 
@@ -1347,7 +1344,7 @@ export function CoachAttendanceView() {
                   value={quickMemberInput}
                   onChange={(e) => setQuickMemberInput(e.target.value)}
                   placeholder={apiEnabled ? "MB-1002 hoặc MB-1002 123456" : "Quét QR / nhập MB-xxxx..."}
-                  className="min-h-11 w-full sm:w-52 rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                  className="min-h-11 w-full sm:w-52 rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 />
                 <button
                   type="submit"
@@ -1394,7 +1391,7 @@ export function CoachAttendanceView() {
 
         <div className="space-y-3">
           {!loadingRoster && rosterError && (
-            <p role="alert" className="p-3 text-sm leading-5 text-status-danger bg-rose-50 border border-rose-200 rounded">
+            <p role="alert" className="p-3 text-sm leading-5 text-status-danger bg-status-danger-bg border border-status-danger-border rounded">
               {rosterError.status === 403
                 ? language === "vi"
                   ? "Bạn không có quyền xem danh sách học viên của lớp này."
@@ -1405,7 +1402,7 @@ export function CoachAttendanceView() {
             </p>
           )}
           {!loadingRoster && (attendancesError || trainingResultsError) && (
-            <p role="alert" className="p-3 text-sm leading-5 text-status-danger bg-rose-50 border border-rose-200 rounded">
+            <p role="alert" className="p-3 text-sm leading-5 text-status-danger bg-status-danger-bg border border-status-danger-border rounded">
               {language === "vi"
                 ? "Không tải được trạng thái điểm danh của buổi học. Chức năng điểm danh hàng loạt tạm thời bị khóa. Hãy thử làm mới."
                 : "Could not load session attendance status. Bulk attendance is locked. Try refreshing."}
@@ -1501,7 +1498,7 @@ export function CoachAttendanceView() {
                             shortLabel: "Có mặt",
                             Icon: Check,
                             activeCls:
-                              "bg-emerald-50 text-status-success border-emerald-200 ring-1 ring-inset ring-emerald-200",
+                              "bg-status-success-bg text-status-success border-status-success-border ring-1 ring-inset ring-status-success-border",
                           },
                           {
                             key: "late",
@@ -1509,7 +1506,7 @@ export function CoachAttendanceView() {
                             shortLabel: "Đi trễ",
                             Icon: Clock,
                             activeCls:
-                              "bg-amber-50 text-status-warning border-amber-200 ring-1 ring-inset ring-amber-200",
+                              "bg-status-warning-bg text-status-warning border-status-warning-border ring-1 ring-inset ring-status-warning-border",
                           },
                           {
                             key: "excused",
@@ -1517,7 +1514,7 @@ export function CoachAttendanceView() {
                             shortLabel: "Có phép",
                             Icon: FileText,
                             activeCls:
-                              "bg-sky-50 text-status-info border-sky-200 ring-1 ring-inset ring-sky-200",
+                              "bg-status-info-bg text-status-info border-status-info-border ring-1 ring-inset ring-status-info-border",
                           },
                           {
                             key: "absent",
@@ -1525,7 +1522,7 @@ export function CoachAttendanceView() {
                             shortLabel: "Vắng",
                             Icon: XCircle,
                             activeCls:
-                              "bg-rose-50 text-status-danger border-rose-200 ring-1 ring-inset ring-rose-200",
+                              "bg-status-danger-bg text-status-danger border-status-danger-border ring-1 ring-inset ring-status-danger-border",
                           },
                           ].filter((btn) => !apiEnabled || ["present", "absent"].includes(btn.key)).map((btn) => {
                           const isSelected = currentStatus === btn.key
@@ -1558,24 +1555,6 @@ export function CoachAttendanceView() {
                           type="attendance"
                           value={currentStatus}
                         />
-                        {!apiEnabled && allowCorrection && !sessionCancelled && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setSelectedMemberModal({
-                                memberId: m.id,
-                                memberName: m.name,
-                                status: currentStatus,
-                                attendanceId,
-                              })
-                            }
-                            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
-                            title="Chỉnh sửa &amp; nhập lý do"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                            <span>{t("coachBtnViewOrCorrectAttendance")}</span>
-                          </button>
-                        )}
                       </div>
                     )}
                   </div>
@@ -1628,19 +1607,6 @@ export function CoachAttendanceView() {
             </div>
           </div>
         </div>
-      )}
-
-      {selectedMemberModal && (
-        <AttendanceCorrectionModal
-          classId={selectedClass?.id || ""}
-          memberId={selectedMemberModal.memberId}
-          memberName={selectedMemberModal.memberName}
-          currentStatus={selectedMemberModal.status}
-          attendanceId={selectedMemberModal.attendanceId}
-          onUpdated={loadClassRosterAndAttendance}
-          isOpen={!!selectedMemberModal}
-          onClose={() => setSelectedMemberModal(null)}
-        />
       )}
     </div>
   )

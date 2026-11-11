@@ -595,9 +595,9 @@ export function CoachDashboard() {
 
       {/* R5.3: Prominent Banner when Pending PT 1:1 Registration Requests exist */}
       {pendingPtRequests.length > 0 && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-4 bg-status-warning-bg border border-status-warning-border rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-100 text-status-warning rounded-lg border border-amber-200 shrink-0">
+            <div className="p-2 bg-status-warning-bg text-status-warning rounded-lg border border-status-warning-border shrink-0">
               <BellRing className="w-5 h-5" />
             </div>
             <div>
@@ -636,13 +636,13 @@ export function CoachDashboard() {
             <h3 className="text-lg leading-7 font-semibold text-text-primary">
               {t("coachTodayTeachingTitle")} ({formatDate(todayIso)})
             </h3>
-            <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200">
+            <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
               {todaySessionsInfo.sessions.length}{" "}
               {language === "vi" ? "buổi" : "sessions"}
             </span>
           </div>
           {todaySessionsInfo.uncheckedCount > 0 && (
-            <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200">
+            <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border">
               {language === "vi"
                 ? `${todaySessionsInfo.uncheckedCount} buổi chưa điểm danh`
                 : `${todaySessionsInfo.uncheckedCount} unchecked session(s)`}
@@ -678,8 +678,8 @@ export function CoachDashboard() {
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
                           ses.isPrivate
-                            ? "bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200"
-                            : "bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200"
+                            ? "bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border"
+                            : "bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border"
                         }`}
                       >
                         {ses.isPrivate ? "PT 1:1" : ses.subjectName || "Lớp nhóm"}
@@ -934,7 +934,7 @@ export function CoachDashboard() {
               </h3>
             </div>
             {realAttendanceMetrics.overallRate !== null && (
-              <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200 font-mono">
+              <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border font-mono">
                 TB: {realAttendanceMetrics.overallRate}%
               </span>
             )}
@@ -1026,7 +1026,7 @@ export function CoachDashboard() {
                     <span className="text-sm leading-5 font-semibold text-text-primary">
                       {fb.className || (fb.classId ? `Lớp #${fb.classId}` : "Lớp học")}
                     </span>
-                    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200 gap-1">
+                    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border gap-1">
                       <Star className="w-3.5 h-3.5 fill-amber-400 text-status-warning" />
                       HLV: {fb.coachRating || 5}/5 &bull; Lớp:{" "}
                       {fb.classRating || 5}/5
@@ -1056,13 +1056,13 @@ export function CoachDashboard() {
                   : "At-risk assigned students"}
               </span>
             </SectionTitle>
-            <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200 font-mono">
+            <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border font-mono">
               {enrichedAtRiskMembers.length} học viên
             </span>
           </div>
 
           {enrichedAtRiskMembers.length === 0 ? (
-            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded text-sm leading-5 text-status-success font-medium">
+            <div className="p-4 bg-status-success-bg border border-status-success-border rounded text-sm leading-5 text-status-success font-medium">
               Tất cả học viên phụ trách đều duy trì lịch tập luyện đều đặn.
             </div>
           ) : (
@@ -1070,7 +1070,7 @@ export function CoachDashboard() {
               {enrichedAtRiskMembers.map((rm) => (
                 <div
                   key={rm.memberId}
-                  className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg space-y-2 text-sm leading-5"
+                  className="p-3.5 bg-status-warning-bg border border-status-warning-border rounded-lg space-y-2 text-sm leading-5"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -1105,7 +1105,7 @@ export function CoachDashboard() {
                     {rm.computedReasons.map((reasonText, rIdx) => (
                       <span
                         key={rIdx}
-                        className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200"
+                        className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border"
                       >
                         {reasonText}
                       </span>
@@ -1153,8 +1153,8 @@ export function CoachDashboard() {
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
                             ses.isPrivate
-                              ? "bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200"
-                              : "bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200"
+                              ? "bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border"
+                              : "bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border"
                           }`}
                         >
                           {ses.isPrivate ? "PT 1:1" : ses.subjectName || "Lớp nhóm"}

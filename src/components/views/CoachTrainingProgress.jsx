@@ -587,7 +587,7 @@ export function CoachTrainingProgress() {
                       )
                     }
                   }}
-                  className="min-h-11 w-full sm:w-56 rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+                  className="min-h-11 w-full sm:w-56 rounded border border-border-strong bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
                 >
                   {availableStudents.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -729,7 +729,7 @@ export function CoachTrainingProgress() {
                           <span
                             className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
                               isPersonal
-                                ? "bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200"
+                                ? "bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border"
                                 : "bg-bg-card text-text-secondary ring-1 ring-inset ring-border-color"
                             }`}
                           >
@@ -844,7 +844,7 @@ export function CoachTrainingProgress() {
                   value={planTitle}
                   onChange={(e) => setPlanTitle(e.target.value)}
                   placeholder="VD: Giáo án phát triển kỹ thuật & thể lực chuyên sâu"
-                  className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                  className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 />
               </div>
               <div>
@@ -857,7 +857,7 @@ export function CoachTrainingProgress() {
                   value={planGoal}
                   onChange={(e) => setPlanGoal(e.target.value)}
                   placeholder="VD: Tăng cường sức bền, tốc độ di chuyển và độ chuẩn xác kỹ thuật"
-                  className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                  className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 />
               </div>
             </div>
@@ -871,7 +871,7 @@ export function CoachTrainingProgress() {
                   type="date"
                   value={planStartDate}
                   onChange={(e) => setPlanStartDate(e.target.value)}
-                  className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
+                  className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
                 />
                 <div className="text-xs leading-4 font-medium font-mono text-text-secondary mt-0.5">
                   {formatDate(planStartDate)}
@@ -885,7 +885,7 @@ export function CoachTrainingProgress() {
                   type="date"
                   value={planEndDate}
                   onChange={(e) => setPlanEndDate(e.target.value)}
-                  className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
+                  className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
                 />
                 <div className="text-xs leading-4 font-medium font-mono text-text-secondary mt-0.5">
                   {formatDate(planEndDate)}
@@ -978,7 +978,7 @@ export function CoachTrainingProgress() {
                 <select
                   value={selectedSessionId}
                   onChange={(e) => setSelectedSessionId(e.target.value)}
-                  className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                  className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 >
                   {completedSessions.length === 0 ? (
                     <option value="">{t("coachNoCompletedSessions")}</option>
@@ -1021,7 +1021,7 @@ export function CoachTrainingProgress() {
                 value={resultContent}
                 onChange={(e) => setResultContent(e.target.value)}
                 placeholder="Nhập nhận xét thực tế về khối lượng bài tập, kỹ thuật động tác và thể lực của học viên trong buổi..."
-                className="w-full rounded border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                className="w-full rounded border border-border-strong bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
               />
             </div>
 
@@ -1109,7 +1109,7 @@ export function CoachTrainingProgress() {
                   step="0.5"
                   value={normalizedInputScore10}
                   onChange={(e) => setProgressScore(Number(e.target.value))}
-                  className="min-h-11 w-24 rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono font-semibold"
+                  className="min-h-11 w-24 rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono font-semibold"
                 />
               </div>
             </div>
@@ -1118,7 +1118,7 @@ export function CoachTrainingProgress() {
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Nhập nhận xét đánh giá định kỳ cho học viên..."
-              className="w-full rounded border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+              className="w-full rounded border border-border-strong bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
             />
             <div className="flex justify-end">
               <button

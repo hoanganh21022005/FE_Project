@@ -260,6 +260,59 @@ function computePasswordStrength(pwd, isVi) {
   return { score: Math.max(1, score), ...picked, checks }
 }
 
+function parseJwtPayload(token) {
+  if (!token || typeof token !== "string") return null
+  try {
+    const parts = token.split(".")
+    if (parts.length < 2) return null
+    let base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/")
+    while (base64.length % 4) {
+      base64 += "="
+    }
+    const binary = atob(base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+    const text = new TextDecoder("utf-8").decode(bytes)
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
+function getGoogleErrorMessage(error, tab, isVi) {
+  if (error?.message === "Vai trò người dùng không được hỗ trợ trong hệ thống.") {
+    return isVi
+      ? "Vai trò người dùng không được hỗ trợ trong hệ thống."
+      : "User role is not supported in the system."
+  }
+  const status = error?.status
+  if (status === 401) {
+    if (tab === "register") {
+      return isVi
+        ? "Chưa tạo được tài khoản bằng Google. Vui lòng điền biểu mẫu bên trên; email Google của bạn đã được điền sẵn."
+        : "Could not create account with Google. Please fill in the form above; your Google email has been autofilled."
+    }
+    return isVi
+      ? "Không đăng nhập được bằng Google. Nếu chưa có tài khoản, hãy chuyển sang tab Đăng ký."
+      : "Unable to sign in with Google. If you do not have an account, please switch to the Register tab."
+  }
+  if (status === 403) {
+    return isVi
+      ? "Tài khoản đã bị khóa hoặc không có quyền đăng nhập."
+      : "Account is locked or not authorized to sign in."
+  }
+  if (!status || status >= 500) {
+    return isVi
+      ? "Không kết nối được máy chủ. Vui lòng thử lại."
+      : "Cannot connect to server. Please try again."
+  }
+  return isVi
+    ? "Đăng nhập Google thất bại. Vui lòng thử lại."
+    : "Google sign-in failed. Please try again."
+}
+
 export function LoginView({
   onLoginSuccess,
   onBackToHome,
@@ -300,7 +353,10 @@ export function LoginView({
   const [loginNotice, setLoginNotice] = useState("")
   const [isLoginLoading, setIsLoginLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
-  const [googleError, setGoogleError] = useState("")
+  const [loginGoogleError, setLoginGoogleError] = useState("")
+  const [registerGoogleError, setRegisterGoogleError] = useState("")
+  const authModeRef = useRef(authMode)
+  const lastClickedGoogleTabRef = useRef(null)
   const [rememberEmail, setRememberEmail] = useState(true)
   const [recentEmails, setRecentEmails] = useState(() => {
     try {
@@ -600,20 +656,47 @@ export function LoginView({
     setLoginNotice("")
   }
 
-  const handleGoogleLogin = async (credentialResponse) => {
+  useEffect(() => {
+    authModeRef.current = authMode
+    setLoginGoogleError("")
+    setRegisterGoogleError("")
+  }, [authMode])
+
+  const handleGoogleLogin = async (credentialResponse, sourceTab) => {
     const credential = credentialResponse?.credential
     if (!credential) return
-    setGoogleError("")
+    const tab = sourceTab || lastClickedGoogleTabRef.current || authModeRef.current || authMode
+    if (tab === "register") {
+      setRegisterGoogleError("")
+    } else {
+      setLoginGoogleError("")
+    }
     setIsGoogleLoading(true)
     try {
       const user = await loginWithGoogle(credential)
       onLoginSuccess(user)
     } catch (error) {
-      setGoogleError(
-        isVi
-          ? "Đăng nhập Google thất bại. Vui lòng thử lại."
-          : "Google sign-in failed. Please try again.",
-      )
+      const errMsg = getGoogleErrorMessage(error, tab, isVi)
+      if (tab === "register") {
+        setRegisterGoogleError(errMsg)
+        if (error?.status === 401) {
+          try {
+            const payload = parseJwtPayload(credential)
+            if (payload) {
+              if (payload.email && typeof payload.email === "string") {
+                setRegEmail((prev) => (prev && prev.trim() ? prev : payload.email.trim()))
+              }
+              if (payload.name && typeof payload.name === "string") {
+                setRegName((prev) => (prev && prev.trim() ? prev : payload.name.trim()))
+              }
+            }
+          } catch {
+            // bỏ qua lỗi decode
+          }
+        }
+      } else {
+        setLoginGoogleError(errMsg)
+      }
     } finally {
       setIsGoogleLoading(false)
     }
@@ -626,7 +709,10 @@ export function LoginView({
     if (!window.google?.accounts?.id || !import.meta.env.VITE_GOOGLE_CLIENT_ID) return
     window.google.accounts.id.initialize({
       client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-      callback: handleGoogleLogin,
+      callback: (res) => {
+        const tab = lastClickedGoogleTabRef.current || authModeRef.current || authMode
+        handleGoogleLogin(res, tab)
+      },
       auto_select: false,
     })
     const opts = {
@@ -661,7 +747,7 @@ export function LoginView({
       return () => script.removeEventListener("load", renderGoogleButtons)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiEnabled])
+  }, [apiEnabled, authMode])
 
   // --- FORGOT PASSWORD HANDLERS ---
   const handleOpenForgotPassword = () => {
@@ -2095,15 +2181,20 @@ export function LoginView({
                       </span>
                       <div className="flex-1 h-px bg-mlc-border" />
                     </div>
-                    {googleError && (
-                      <p className="mb-2 text-center text-xs text-red-500">{googleError}</p>
+                    {loginGoogleError && (
+                      <p role="alert" className="mb-2 text-center text-xs text-status-danger">{loginGoogleError}</p>
                     )}
                     {isGoogleLoading && (
                       <div className="flex justify-center py-2">
                         <span className="h-5 w-5 animate-spin rounded-full border-2 border-stone-400 border-t-transparent" />
                       </div>
                     )}
-                    <div ref={googleLoginBtnRef} className="flex justify-center" />
+                    <div
+                      ref={googleLoginBtnRef}
+                      onMouseDown={() => { lastClickedGoogleTabRef.current = "login" }}
+                      onClick={() => { lastClickedGoogleTabRef.current = "login" }}
+                      className="flex justify-center"
+                    />
                   </div>
                 )}
 
@@ -2628,15 +2719,20 @@ export function LoginView({
                         </span>
                         <div className="flex-1 h-px bg-mlc-border" />
                       </div>
-                      {googleError && (
-                        <p className="mb-2 text-center text-xs text-red-500">{googleError}</p>
+                      {registerGoogleError && (
+                        <p role="alert" className="mb-2 text-center text-xs text-status-danger">{registerGoogleError}</p>
                       )}
                       {isGoogleLoading && (
                         <div className="flex justify-center py-2">
                           <span className="h-5 w-5 animate-spin rounded-full border-2 border-stone-400 border-t-transparent" />
                         </div>
                       )}
-                      <div ref={googleRegisterBtnRef} className="flex justify-center" />
+                      <div
+                        ref={googleRegisterBtnRef}
+                        onMouseDown={() => { lastClickedGoogleTabRef.current = "register" }}
+                        onClick={() => { lastClickedGoogleTabRef.current = "register" }}
+                        className="flex justify-center"
+                      />
                     </div>
                   )}
 

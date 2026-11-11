@@ -79,7 +79,7 @@ function MetricPanel({ config, resource, onRetry }) {
           <strong className="text-2xl leading-7 font-bold text-text-primary tabular-nums">
             {resource.data.length}
           </strong>
-          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200/60">
+          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-status-success-bg text-status-success ring-1 ring-inset ring-emerald-200/60">
             Đã đồng bộ
           </span>
         </div>
@@ -106,8 +106,8 @@ export function AdminDashboard() {
         <span
           className={`w-fit inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
             apiEnabled
-              ? "bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200"
-              : "bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200"
+              ? "bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border"
+              : "bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border"
           }`}
         >
           {apiEnabled ? "Nguồn: Hệ thống trực tuyến" : "Nguồn: Chế độ thử nghiệm"}

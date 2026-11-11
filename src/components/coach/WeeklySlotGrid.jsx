@@ -200,7 +200,7 @@ export function WeeklySlotGrid({ selectedSlots = [], onChange, disabled = false 
                       title={t("coachSelectAllSlot")}
                       className={`w-full min-h-11 text-left px-2 py-1 rounded transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary flex flex-col justify-center ${
                         allRowSelected
-                          ? "bg-sky-50 text-status-info font-semibold ring-1 ring-inset ring-sky-200"
+                          ? "bg-status-info-bg text-status-info font-semibold ring-1 ring-inset ring-status-info-border"
                           : "text-text-primary hover:bg-bg-secondary"
                       }`}
                     >

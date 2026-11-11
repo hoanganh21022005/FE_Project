@@ -101,7 +101,7 @@ export function AdminUsersView() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Tên, email, mã hoặc số điện thoại..."
-            className="min-h-11 w-full rounded border border-border-color bg-bg-card pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+            className="min-h-11 w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
           />
         </label>
         <label className="w-full md:w-48">
@@ -109,7 +109,7 @@ export function AdminUsersView() {
           <select
             value={roleFilter}
             onChange={(event) => setRoleFilter(event.target.value)}
-            className="min-h-11 w-full rounded border border-border-color bg-bg-card px-2.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+            className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
           >
             <option value="all">Tất cả vai trò</option>
             {roleOptions.map((role) => (
@@ -124,7 +124,7 @@ export function AdminUsersView() {
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
-            className="min-h-11 w-full rounded border border-border-color bg-bg-card px-2.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+            className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
           >
             <option value="all">Tất cả trạng thái</option>
             <option value="active">Hoạt động</option>
@@ -170,7 +170,7 @@ export function AdminUsersView() {
                       </p>
                     </td>
                     <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-primary">
-                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200">
+                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
                         {user.roleName || `Role #${user.roleId ?? "?"}`}
                       </span>
                     </td>
@@ -178,9 +178,9 @@ export function AdminUsersView() {
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                           user.status === "active"
-                            ? "bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200"
+                            ? "bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border"
                             : user.status === "locked"
-                              ? "bg-rose-50 text-status-danger ring-1 ring-inset ring-rose-200"
+                              ? "bg-status-danger-bg text-status-danger ring-1 ring-inset ring-status-danger-border"
                               : "bg-bg-secondary text-text-secondary ring-1 ring-inset ring-border-color"
                         }`}
                       >
