@@ -215,7 +215,7 @@ export function HomeLandingView({ onOpenLogin }) {
             className="flex items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
           >
             <img
-              src="/images/MainPage/vibe-sport-logo.png?v=3"
+              src="/images/MainPage/vibe-sport-logo.png?v=4"
               alt="Vibe Sport"
               className="h-11 w-auto shrink-0 object-contain sm:h-14"
             />

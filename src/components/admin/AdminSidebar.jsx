@@ -48,7 +48,7 @@ export function AdminSidebar({
                 className="flex min-h-11 items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-brand-accent rounded cursor-pointer"
               >
                 <img
-                  src="/images/MainPage/vibe-sport-logo.png?v=2"
+                  src="/images/MainPage/vibe-sport-logo.png?v=4"
                   alt="Vibe Sport"
                   className="w-12 h-9 object-contain flex-shrink-0"
                 />
