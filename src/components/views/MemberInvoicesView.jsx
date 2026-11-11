@@ -10,11 +10,12 @@ import {
   Wallet,
   Receipt,
   XCircle,
-  Scale,
   X,
   CheckCircle2,
   Loader2,
   Clock,
+  Copy,
+  Check,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { invoiceApi } from "../../api/invoiceApi"
@@ -56,7 +57,11 @@ const STATUS_LABELS = {
     en: "Pending",
     style: "bg-amber-50 text-amber-800",
   },
-  failed: { vi: "Thất bại", en: "Failed", style: "bg-rose-50 text-status-error" },
+  failed: {
+    vi: "Thất bại",
+    en: "Failed",
+    style: "bg-rose-50 text-status-error",
+  },
   cancelled: {
     vi: "Đã hủy",
     en: "Cancelled",
@@ -89,8 +94,76 @@ const formatDate = (value, isVi) =>
       })
     : "—"
 
+const getLocalizedInvoiceStatus = (status, isVi) => {
+  const value = String(status || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[ _-]+/g, "")
+  if (
+    ["successful", "success", "paid", "completed", "complete"].includes(value)
+  )
+    return STATUS_LABELS.successful[isVi ? "vi" : "en"]
+  if (["pending", "awaitingpayment", "processing"].includes(value))
+    return STATUS_LABELS.pending[isVi ? "vi" : "en"]
+  if (["failed", "failure", "error"].includes(value))
+    return STATUS_LABELS.failed[isVi ? "vi" : "en"]
+  if (["cancelled", "canceled", "cancel"].includes(value))
+    return STATUS_LABELS.cancelled[isVi ? "vi" : "en"]
+  if (["expired", "timeout"].includes(value))
+    return STATUS_LABELS.expired[isVi ? "vi" : "en"]
+  if (["reversed", "refunded", "refund"].includes(value))
+    return STATUS_LABELS.reversed[isVi ? "vi" : "en"]
+  return isVi ? "Chưa rõ" : "Unknown"
+}
+
+const getInvoiceStatusTone = (status) => {
+  const value = String(status || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[ _-]+/g, "")
+  if (
+    ["successful", "success", "paid", "completed", "complete"].includes(value)
+  )
+    return "emerald"
+  if (
+    [
+      "pending",
+      "awaitingpayment",
+      "processing",
+      "expired",
+      "reconciliation",
+    ].includes(value)
+  )
+    return "amber"
+  if (["failed", "failure", "error"].includes(value)) return "rose"
+  return "slate"
+}
+
+const getPaymentMethodLabel = (invoice, isVi) => {
+  const method = String(
+    invoice?.paymentMethod || invoice?.rawPaymentMethod || "",
+  )
+    .trim()
+    .toLowerCase()
+  if (method.includes("cash") || method.includes("tiền mặt"))
+    return isVi ? "Tiền mặt tại quầy" : "Cash at counter"
+  if (
+    method.includes("vnpay") ||
+    method.includes("online") ||
+    method.includes("qr")
+  )
+    return "VNPay / Online"
+  return method ? (isVi ? "Khác" : "Other") : "—"
+}
+
 export function MemberInvoicesView() {
-  const { currentUser, language, apiEnabled, payments: mockPayments, showToast } = useSCMS()
+  const {
+    currentUser,
+    language,
+    apiEnabled,
+    payments: mockPayments,
+    showToast,
+  } = useSCMS()
   const isVi = language === "vi"
   const [searchParams, setSearchParams] = useSearchParams()
   const [invoices, setInvoices] = useState([])
@@ -106,7 +179,13 @@ export function MemberInvoicesView() {
     invoice: null,
     error: "",
   })
-  const [verification, setVerification] = useState({ invoiceId: "", status: "", retryAt: 0, running: false, error: "" })
+  const [verification, setVerification] = useState({
+    invoiceId: "",
+    status: "",
+    retryAt: 0,
+    running: false,
+    error: "",
+  })
   const [retryClock, setRetryClock] = useState(Date.now())
   const mountedRef = useRef(false)
   const invoiceListRequestSeqRef = useRef(0)
@@ -126,12 +205,30 @@ export function MemberInvoicesView() {
   const hasReturnParams = Boolean(
     returnStatus || returnInvoiceCode || returnInvoiceId,
   )
-  const normalizedRole = String(currentUser?.role || "").trim().toLowerCase()
+  const normalizedRole = String(currentUser?.role || "")
+    .trim()
+    .toLowerCase()
   const normalizedUserId = String(currentUser?.id ?? "").trim()
 
   // Receipt / Detail modal state
   const [selectedInvoice, setSelectedInvoice] = useState(null)
   const [loadingReceipt, setLoadingReceipt] = useState(false)
+  const [copiedKey, setCopiedKey] = useState("")
+  const copyTimerRef = useRef(null)
+
+  const copyValue = useCallback(async (value, key) => {
+    if (!value || !navigator.clipboard?.writeText) return
+    try {
+      await navigator.clipboard.writeText(String(value))
+      setCopiedKey(key)
+      window.clearTimeout(copyTimerRef.current)
+      copyTimerRef.current = window.setTimeout(() => setCopiedKey(""), 1500)
+    } catch {
+      setCopiedKey("")
+    }
+  }, [])
+
+  useEffect(() => () => window.clearTimeout(copyTimerRef.current), [])
 
   // Payment Resolution modal state
   const [resolutionModalInvoice, setResolutionModalInvoice] = useState(null)
@@ -146,25 +243,35 @@ export function MemberInvoicesView() {
     try {
       if (apiEnabled) {
         const invList = await invoiceApi.getMemberOwnInvoices()
-        if (mountedRef.current && requestSeq === invoiceListRequestSeqRef.current) {
+        if (
+          mountedRef.current &&
+          requestSeq === invoiceListRequestSeqRef.current
+        ) {
           setInvoices(invList)
           setResolutions([])
         }
         return invList
       } else {
         const mockInvoices = applyMockPaymentSettlements(mockPayments || [])
-        if (mountedRef.current && requestSeq === invoiceListRequestSeqRef.current) {
+        if (
+          mountedRef.current &&
+          requestSeq === invoiceListRequestSeqRef.current
+        ) {
           setInvoices(mockInvoices)
           setResolutions([])
         }
         return mockInvoices
       }
     } catch (err) {
-      if (mountedRef.current && requestSeq === invoiceListRequestSeqRef.current) {
+      if (
+        mountedRef.current &&
+        requestSeq === invoiceListRequestSeqRef.current
+      ) {
         setError(getErrorMessage(err, "Could not load invoices."))
       }
     } finally {
-      if (mountedRef.current && requestSeq === invoiceListRequestSeqRef.current) setLoading(false)
+      if (mountedRef.current && requestSeq === invoiceListRequestSeqRef.current)
+        setLoading(false)
     }
   }, [apiEnabled, currentUser?.role, isVi, mockPayments])
 
@@ -247,105 +354,181 @@ export function MemberInvoicesView() {
   ].join("|")
   activeReturnKeyRef.current = hasReturnParams ? returnLookupKey : ""
 
-  const refreshTrackedInvoice = useCallback(async (invoiceId, requestKey) => {
-    const latestInvoices = await refresh()
-    if (!Array.isArray(latestInvoices) || !mountedRef.current ||
-        !isCurrentPaymentReturnRequest(requestKey, activeReturnKeyRef.current)) return latestInvoices
-    const latestInvoice = latestInvoices.find((item) => String(item.id) === String(invoiceId))
-    if (latestInvoice) {
-      setReturnInvoiceLookup({ status: "loaded", invoice: latestInvoice, error: "" })
-    }
-    return latestInvoices
-  }, [refresh])
+  const refreshTrackedInvoice = useCallback(
+    async (invoiceId, requestKey) => {
+      const latestInvoices = await refresh()
+      if (
+        !Array.isArray(latestInvoices) ||
+        !mountedRef.current ||
+        !isCurrentPaymentReturnRequest(requestKey, activeReturnKeyRef.current)
+      )
+        return latestInvoices
+      const latestInvoice = latestInvoices.find(
+        (item) => String(item.id) === String(invoiceId),
+      )
+      if (latestInvoice) {
+        setReturnInvoiceLookup({
+          status: "loaded",
+          invoice: latestInvoice,
+          error: "",
+        })
+      }
+      return latestInvoices
+    },
+    [refresh],
+  )
 
   const runVerificationRef = useRef(null)
-  const runVerification = useCallback(async (invoice, requestKey, automatic = false) => {
-    const invoiceId = String(invoice?.id || "")
-    if (!isCurrentPaymentReturnRequest(requestKey, activeReturnKeyRef.current)) return false
-    if (automatic && (
-      autoVerifyAttemptedRef.current.has(requestKey) ||
-      hasAutomaticVnpayAttempt({ userId: normalizedUserId, invoiceId })
-    )) return false
-    const storedRetryAt = restoreVnpayCooldown({ userId: normalizedUserId, invoiceId })
-    const memoryRetryAt = verification.invoiceId === invoiceId ? verification.retryAt : 0
-    const retryAt = Math.max(storedRetryAt, memoryRetryAt)
-    if (!canStartVnpayVerification({
-      invoice,
-      role: normalizedRole,
-      apiEnabled,
-      inFlight: verifyInFlightRef.current.has(invoiceId),
-      retryAt,
-      verificationStatus: verification.invoiceId === invoiceId ? verification.status : "",
-    })) return false
-
-    if (automatic) {
-      if (!markAutomaticVerificationAttempt(autoVerifyAttemptedRef.current, requestKey)) return false
-      storeAutomaticVnpayAttempt({ userId: normalizedUserId, invoiceId })
-    }
-    if (!acquireInvoiceVerificationLock(verifyInFlightRef.current, invoiceId)) return false
-    const controller = new AbortController()
-    verifyControllerRef.current = { controller, requestKey, invoiceId }
-    setVerification({ invoiceId, status: "VERIFYING", retryAt: 0, running: true, error: "" })
-    try {
-      const result = await executeVnpayVerification(
-        invoiceId,
-        (id, options) => invoiceApi.verifyVnpay(id, options),
-        controller.signal,
+  const runVerification = useCallback(
+    async (invoice, requestKey, automatic = false) => {
+      const invoiceId = String(invoice?.id || "")
+      if (
+        !isCurrentPaymentReturnRequest(requestKey, activeReturnKeyRef.current)
       )
-      if (result.aborted) return false
-      if (!mountedRef.current || !isCurrentPaymentReturnRequest(requestKey, activeReturnKeyRef.current)) return false
-      const response = result.response
-      const status = normalizeVerificationStatus(response?.verificationStatus)
-      const nextRetryAt = status === "RETRY_LATER"
-        ? storeVnpayCooldown({
-            userId: normalizedUserId,
-            invoiceId,
-            retryAfterSeconds: response?.retryAfterSeconds,
-          })
-        : 0
-      if (status !== "RETRY_LATER") clearVnpayCooldown({ userId: normalizedUserId, invoiceId })
+        return false
+      if (
+        automatic &&
+        (autoVerifyAttemptedRef.current.has(requestKey) ||
+          hasAutomaticVnpayAttempt({ userId: normalizedUserId, invoiceId }))
+      )
+        return false
+      const storedRetryAt = restoreVnpayCooldown({
+        userId: normalizedUserId,
+        invoiceId,
+      })
+      const memoryRetryAt =
+        verification.invoiceId === invoiceId ? verification.retryAt : 0
+      const retryAt = Math.max(storedRetryAt, memoryRetryAt)
+      if (
+        !canStartVnpayVerification({
+          invoice,
+          role: normalizedRole,
+          apiEnabled,
+          inFlight: verifyInFlightRef.current.has(invoiceId),
+          retryAt,
+          verificationStatus:
+            verification.invoiceId === invoiceId ? verification.status : "",
+        })
+      )
+        return false
+
+      if (automatic) {
+        if (
+          !markAutomaticVerificationAttempt(
+            autoVerifyAttemptedRef.current,
+            requestKey,
+          )
+        )
+          return false
+        storeAutomaticVnpayAttempt({ userId: normalizedUserId, invoiceId })
+      }
+      if (!acquireInvoiceVerificationLock(verifyInFlightRef.current, invoiceId))
+        return false
+      const controller = new AbortController()
+      verifyControllerRef.current = { controller, requestKey, invoiceId }
       setVerification({
         invoiceId,
-        status,
-        retryAt: nextRetryAt,
-        running: false,
+        status: "VERIFYING",
+        retryAt: 0,
+        running: true,
         error: "",
       })
-      await refreshTrackedInvoice(invoiceId, requestKey)
-      return true
-    } catch (err) {
-      if (controller.signal.aborted || err?.name === "AbortError") return false
-      if (mountedRef.current && isCurrentPaymentReturnRequest(requestKey, activeReturnKeyRef.current)) {
+      try {
+        const result = await executeVnpayVerification(
+          invoiceId,
+          (id, options) => invoiceApi.verifyVnpay(id, options),
+          controller.signal,
+        )
+        if (result.aborted) return false
+        if (
+          !mountedRef.current ||
+          !isCurrentPaymentReturnRequest(requestKey, activeReturnKeyRef.current)
+        )
+          return false
+        const response = result.response
+        const status = normalizeVerificationStatus(response?.verificationStatus)
+        const nextRetryAt =
+          status === "RETRY_LATER"
+            ? storeVnpayCooldown({
+                userId: normalizedUserId,
+                invoiceId,
+                retryAfterSeconds: response?.retryAfterSeconds,
+              })
+            : 0
+        if (status !== "RETRY_LATER")
+          clearVnpayCooldown({ userId: normalizedUserId, invoiceId })
         setVerification({
           invoiceId,
-          status: "UNKNOWN",
-          retryAt: 0,
+          status,
+          retryAt: nextRetryAt,
           running: false,
-          error: getErrorMessage(err, "The transaction could not be verified. Invoice status is unchanged."),
+          error: "",
         })
         await refreshTrackedInvoice(invoiceId, requestKey)
+        return true
+      } catch (err) {
+        if (controller.signal.aborted || err?.name === "AbortError")
+          return false
+        if (
+          mountedRef.current &&
+          isCurrentPaymentReturnRequest(requestKey, activeReturnKeyRef.current)
+        ) {
+          setVerification({
+            invoiceId,
+            status: "UNKNOWN",
+            retryAt: 0,
+            running: false,
+            error: getErrorMessage(
+              err,
+              "The transaction could not be verified. Invoice status is unchanged.",
+            ),
+          })
+          await refreshTrackedInvoice(invoiceId, requestKey)
+        }
+        return false
+      } finally {
+        releaseInvoiceVerificationLock(verifyInFlightRef.current, invoiceId)
+        if (verifyControllerRef.current?.controller === controller) {
+          verifyControllerRef.current = null
+        }
+        if (mountedRef.current) {
+          setVerification((current) =>
+            current.invoiceId === invoiceId && current.running
+              ? {
+                  ...current,
+                  status: current.status === "VERIFYING" ? "" : current.status,
+                  running: false,
+                }
+              : current,
+          )
+        }
       }
-      return false
-    } finally {
-      releaseInvoiceVerificationLock(verifyInFlightRef.current, invoiceId)
-      if (verifyControllerRef.current?.controller === controller) {
-        verifyControllerRef.current = null
-      }
-      if (mountedRef.current) {
-        setVerification((current) => current.invoiceId === invoiceId && current.running
-          ? { ...current, status: current.status === "VERIFYING" ? "" : current.status, running: false }
-          : current)
-      }
-    }
-  }, [apiEnabled, normalizedRole, normalizedUserId, refreshTrackedInvoice, verification.invoiceId, verification.retryAt, verification.status])
+    },
+    [
+      apiEnabled,
+      normalizedRole,
+      normalizedUserId,
+      refreshTrackedInvoice,
+      verification.invoiceId,
+      verification.retryAt,
+      verification.status,
+    ],
+  )
   runVerificationRef.current = runVerification
 
   useEffect(() => {
-    if (!verification.retryAt || getVerificationSecondsRemaining(verification.retryAt) <= 0) return undefined
+    if (
+      !verification.retryAt ||
+      getVerificationSecondsRemaining(verification.retryAt) <= 0
+    )
+      return undefined
     const timer = window.setInterval(() => {
       setRetryClock(Date.now())
       if (getVerificationSecondsRemaining(verification.retryAt) <= 1) {
-        clearVnpayCooldown({ userId: normalizedUserId, invoiceId: verification.invoiceId })
+        clearVnpayCooldown({
+          userId: normalizedUserId,
+          invoiceId: verification.invoiceId,
+        })
         window.clearInterval(timer)
       }
     }, 1000)
@@ -388,9 +571,13 @@ export function MemberInvoicesView() {
         if (!active) return
         if (!invoice) throw new Error("Invoice detail was empty.")
         setReturnInvoiceLookup({ status: "loaded", invoice, error: "" })
-        setInvoices((current) => current.map((item) =>
-          String(item.id) === String(invoice.id) ? { ...item, ...invoice } : item,
-        ))
+        setInvoices((current) =>
+          current.map((item) =>
+            String(item.id) === String(invoice.id)
+              ? { ...item, ...invoice }
+              : item,
+          ),
+        )
         const persistedRetryAt = restoreVnpayCooldown({
           userId: normalizedUserId,
           invoiceId: invoice.id,
@@ -438,7 +625,8 @@ export function MemberInvoicesView() {
   ])
 
   useEffect(() => {
-    if (!hasReturnParams || !apiEnabled || targetReturnInvoiceId || loading) return
+    if (!hasReturnParams || !apiEnabled || targetReturnInvoiceId || loading)
+      return
     setReturnInvoiceLookup({
       status: "error",
       invoice: null,
@@ -454,7 +642,8 @@ export function MemberInvoicesView() {
       ? returnInvoiceLookup.invoice
       : null
   const currentVerification =
-    authoritativeReturnInvoice && String(verification.invoiceId) === String(authoritativeReturnInvoice.id)
+    authoritativeReturnInvoice &&
+    String(verification.invoiceId) === String(authoritativeReturnInvoice.id)
       ? verification
       : { invoiceId: "", status: "", retryAt: 0, running: false, error: "" }
   const currentRetrySecondsRemaining = currentVerification.retryAt
@@ -464,17 +653,39 @@ export function MemberInvoicesView() {
   const handleRefresh = async () => {
     if (hasReturnParams && apiEnabled && targetReturnInvoiceId) {
       try {
-        const detail = await invoiceApi.getMemberOwnInvoiceById(targetReturnInvoiceId)
-        if (!detail || !isCurrentPaymentReturnRequest(returnLookupKey, activeReturnKeyRef.current)) return
+        const detail = await invoiceApi.getMemberOwnInvoiceById(
+          targetReturnInvoiceId,
+        )
+        if (
+          !detail ||
+          !isCurrentPaymentReturnRequest(
+            returnLookupKey,
+            activeReturnKeyRef.current,
+          )
+        )
+          return
         setReturnInvoiceLookup({ status: "loaded", invoice: detail, error: "" })
-        setInvoices((current) => current.map((item) =>
-          String(item.id) === String(detail.id) ? { ...item, ...detail } : item,
-        ))
+        setInvoices((current) =>
+          current.map((item) =>
+            String(item.id) === String(detail.id)
+              ? { ...item, ...detail }
+              : item,
+          ),
+        )
         const didVerify = await runVerification(detail, returnLookupKey)
         if (!didVerify) await refreshTrackedInvoice(detail.id, returnLookupKey)
       } catch (err) {
-        if (isCurrentPaymentReturnRequest(returnLookupKey, activeReturnKeyRef.current)) {
-          setReturnInvoiceLookup({ status: "error", invoice: null, error: getErrorMessage(err, "Could not load invoice status.") })
+        if (
+          isCurrentPaymentReturnRequest(
+            returnLookupKey,
+            activeReturnKeyRef.current,
+          )
+        ) {
+          setReturnInvoiceLookup({
+            status: "error",
+            invoice: null,
+            error: getErrorMessage(err, "Could not load invoice status."),
+          })
         }
       }
       return
@@ -484,7 +695,10 @@ export function MemberInvoicesView() {
 
   const clearReturnBanner = () => {
     if (targetReturnInvoiceId) {
-      clearAutomaticVnpayAttempt({ userId: normalizedUserId, invoiceId: targetReturnInvoiceId })
+      clearAutomaticVnpayAttempt({
+        userId: normalizedUserId,
+        invoiceId: targetReturnInvoiceId,
+      })
     }
     autoVerifyAttemptedRef.current.delete(returnLookupKey)
     setSearchParams({}, { replace: true })
@@ -586,14 +800,22 @@ export function MemberInvoicesView() {
 
   const isReturnInvoice = (invoice) => {
     if (!hasReturnParams || !invoice) return false
-    if (/^\d+$/.test(returnInvoiceId) && Number(invoice.id) === Number(returnInvoiceId)) return true
+    if (
+      /^\d+$/.test(returnInvoiceId) &&
+      Number(invoice.id) === Number(returnInvoiceId)
+    )
+      return true
     if (!returnInvoiceCode) return false
     return [
       invoice.invoiceCode,
       invoice.code,
       formatInvoiceCode(invoice.id),
       String(invoice.id),
-    ].some((value) => String(value || "").toLowerCase() === returnInvoiceCode.trim().toLowerCase())
+    ].some(
+      (value) =>
+        String(value || "").toLowerCase() ===
+        returnInvoiceCode.trim().toLowerCase(),
+    )
   }
 
   const handleCancelInvoice = async (invoice) => {
@@ -666,10 +888,14 @@ export function MemberInvoicesView() {
   }
 
   return (
-    <main className="w-full max-w-6xl space-y-6 px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-0">
+    <main className="min-w-0 w-full space-y-6 px-4 py-5 sm:px-6 lg:px-8">
       <PageHeader
         title={isVi ? "Hóa đơn & thanh toán" : "Invoices & payments"}
-        description={isVi ? "Theo dõi hóa đơn và trạng thái thanh toán của bạn." : "Review your invoices and payment status."}
+        description={
+          isVi
+            ? "Theo dõi hóa đơn và trạng thái thanh toán của bạn."
+            : "Review your invoices and payment status."
+        }
         actions={
           <button
             type="button"
@@ -677,12 +903,22 @@ export function MemberInvoicesView() {
             disabled={loading || currentVerification.running}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 ${loading || currentVerification.running ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`h-4 w-4 ${
+                loading || currentVerification.running ? "animate-spin" : ""
+              }`}
+            />
             {currentVerification.running
-              ? isVi ? "Đang xác minh..." : "Verifying..."
+              ? isVi
+                ? "Đang xác minh..."
+                : "Verifying..."
               : currentRetrySecondsRemaining > 0
-                ? isVi ? `Tải lại · thử xác minh sau ${currentRetrySecondsRemaining}s` : `Refresh · verify in ${currentRetrySecondsRemaining}s`
-                : isVi ? "Tải lại" : "Refresh"}
+                ? isVi
+                  ? `Tải lại · thử xác minh sau ${currentRetrySecondsRemaining}s`
+                  : `Refresh · verify in ${currentRetrySecondsRemaining}s`
+                : isVi
+                  ? "Tải lại"
+                  : "Refresh"}
           </button>
         }
       />
@@ -692,16 +928,22 @@ export function MemberInvoicesView() {
           icon={FileText}
           title={isVi ? "Tổng hóa đơn" : "Invoices"}
           value={totals.count}
+          detail={isVi ? "hóa đơn" : "invoices"}
+          tone="blue"
         />
         <Summary
           icon={Wallet}
           title={isVi ? "Đã thanh toán" : "Paid total"}
           value={formatMoney(totals.paid, isVi)}
+          detail={isVi ? "Tổng tiền đã thanh toán" : "Total amount paid"}
+          tone="emerald"
         />
         <Summary
           icon={CreditCard}
           title={isVi ? "Đang chờ thanh toán" : "Awaiting payment"}
           value={totals.pending}
+          detail={isVi ? "hóa đơn" : "invoices"}
+          tone="amber"
         />
       </section>
       {hasReturnParams && (
@@ -728,11 +970,11 @@ export function MemberInvoicesView() {
       )}
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <h2 className="font-bold text-slate-900">
             {isVi ? "Lịch sử hóa đơn" : "Invoice history"}
           </h2>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
             <label className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
@@ -742,7 +984,7 @@ export function MemberInvoicesView() {
                 placeholder={
                   isVi ? "Tìm mã hóa đơn, gói..." : "Search invoice, package..."
                 }
-                className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-brand-primary sm:w-56"
+                className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-blue-100 sm:w-80 sm:min-w-[300px]"
               />
             </label>
             <select
@@ -785,162 +1027,251 @@ export function MemberInvoicesView() {
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {filtered.map((invoice) => {
-              const expired = isInvoiceExpired(invoice)
-              const effectiveStatusKey =
-                expired && invoice.paymentStatus === "pending"
-                  ? "expired"
-                  : invoice.paymentStatus === "successful" && invoice.reconciliationRequired
-                    ? "reconciliation"
-                  : invoice.paymentStatus
-              const status = effectiveStatusKey === "reconciliation"
-                ? {
-                    vi: "Cần đối soát",
-                    en: "Reconciliation required",
-                    style: "bg-amber-50 text-amber-800",
-                  }
-                : STATUS_LABELS[effectiveStatusKey] || {
-                vi:
-                  invoice.rawPaymentStatus ||
-                  invoice.paymentStatus ||
-                  "Chưa rõ",
-                en:
-                  invoice.rawPaymentStatus ||
-                  invoice.paymentStatus ||
-                  "Unknown",
-                style: "bg-slate-100 text-slate-700",
-              }
-              const isCash = invoice.paymentMethod === "cash"
-              const methodBadge = isCash
-                ? isVi
-                  ? "Tiền mặt tại quầy"
-                  : "Cash at counter"
-                : invoice.paymentMethod === "online"
-                  ? "VNPay / Online"
-                  : invoice.rawPaymentMethod || null
-              return (
-                <article
-                  key={invoice.id}
-                  className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-bold text-slate-900">
-                        {invoice.invoiceCode ||
-                          invoice.code ||
-                          formatInvoiceCode(invoice.id)}
-                      </h3>
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-bold ${status.style}`}
-                      >
-                        {isVi ? status.vi : status.en}
-                      </span>
-                      {methodBadge && (
-                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
-                          {methodBadge}
+          <>
+            <div className="hidden md:block">
+              <div className="grid grid-cols-[minmax(220px,1.45fr)_minmax(160px,1fr)_minmax(130px,.8fr)_minmax(120px,.75fr)_minmax(240px,1.25fr)] gap-4 border-b border-slate-100 bg-slate-50/80 px-5 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                <span>
+                  {isVi ? "Dịch vụ / Mã hóa đơn" : "Service / Invoice ID"}
+                </span>
+                <span>{isVi ? "Thời gian" : "Timestamps"}</span>
+                <span>{isVi ? "Phương thức" : "Payment method"}</span>
+                <span>{isVi ? "Trạng thái" : "Status"}</span>
+                <span className="text-right">
+                  {isVi ? "Số tiền / Thao tác" : "Amount / Action"}
+                </span>
+              </div>
+              {filtered.map((invoice) => {
+                const expired = isInvoiceExpired(invoice)
+                const statusKey =
+                  expired && invoice.paymentStatus === "pending"
+                    ? "expired"
+                    : invoice.paymentStatus === "successful" &&
+                        invoice.reconciliationRequired
+                      ? "reconciliation"
+                      : invoice.paymentStatus
+                const tone = getInvoiceStatusTone(statusKey)
+                const statusLabel =
+                  statusKey === "reconciliation"
+                    ? isVi
+                      ? "Cần đối soát"
+                      : "Reconciliation required"
+                    : getLocalizedInvoiceStatus(statusKey, isVi)
+                const service =
+                  invoice.packageName ||
+                  invoice.className ||
+                  (isVi ? "Dịch vụ VIBE Sport" : "VIBE Sport service")
+                const code =
+                  invoice.invoiceCode ||
+                  invoice.code ||
+                  formatInvoiceCode(invoice.id)
+                const isCash =
+                  String(invoice.paymentMethod || "").toLowerCase() === "cash"
+                const actionProps = {
+                  invoice,
+                  isVi,
+                  apiEnabled,
+                  payingId,
+                  cancellingId,
+                  isCash,
+                  onViewReceipt: handleViewReceipt,
+                  onPayOnline: payOnline,
+                  onCancel: handleCancelInvoice,
+                  isReturnInvoice,
+                }
+                return (
+                  <article
+                    key={invoice.id}
+                    className="grid grid-cols-[minmax(220px,1.45fr)_minmax(160px,1fr)_minmax(130px,.8fr)_minmax(120px,.75fr)_minmax(240px,1.25fr)] items-center gap-4 border-b border-slate-100 px-5 py-4 last:border-0 hover:bg-slate-50/60"
+                  >
+                    <InvoiceServiceCell
+                      invoice={invoice}
+                      serviceName={service}
+                      invoiceCode={code}
+                      copiedKey={copiedKey}
+                      onCopy={copyValue}
+                    />
+                    <InvoiceTimeCell invoice={invoice} isVi={isVi} />
+                    <PaymentMethodBadge
+                      label={getPaymentMethodLabel(invoice, isVi)}
+                    />
+                    <InvoiceStatusBadge label={statusLabel} tone={tone} />
+                    <InvoiceAmountActions
+                      invoice={invoice}
+                      isVi={isVi}
+                      actionProps={actionProps}
+                    />
+                  </article>
+                )
+              })}
+            </div>
+            <div className="divide-y divide-slate-100 md:hidden">
+              {filtered.map((invoice) => {
+                const expired = isInvoiceExpired(invoice)
+                const effectiveStatusKey =
+                  expired && invoice.paymentStatus === "pending"
+                    ? "expired"
+                    : invoice.paymentStatus === "successful" &&
+                        invoice.reconciliationRequired
+                      ? "reconciliation"
+                      : invoice.paymentStatus
+                const isCash = invoice.paymentMethod === "cash"
+                const methodBadge = getPaymentMethodLabel(invoice, isVi)
+                const mobileCode =
+                  invoice.invoiceCode ||
+                  invoice.code ||
+                  formatInvoiceCode(invoice.id)
+                return (
+                  <article
+                    key={invoice.id}
+                    className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-bold text-slate-900">
+                          {invoice.packageName ||
+                            invoice.className ||
+                            (isVi
+                              ? "Dịch vụ VIBE Sport"
+                              : "VIBE Sport service")}
+                        </h3>
+                        <InvoiceStatusBadge
+                          label={getLocalizedInvoiceStatus(
+                            effectiveStatusKey,
+                            isVi,
+                          )}
+                          tone={getInvoiceStatusTone(effectiveStatusKey)}
+                        />
+                        {methodBadge && (
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                            {methodBadge}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <span className="truncate font-mono text-xs text-slate-500">
+                          {mobileCode}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            copyValue(mobileCode, `invoice-${invoice.id}`)
+                          }
+                          aria-label={
+                            copiedKey === `invoice-${invoice.id}`
+                              ? "Copied"
+                              : "Copy invoice ID"
+                          }
+                          className="rounded p-1 text-slate-400 hover:bg-slate-100"
+                        >
+                          {copiedKey === `invoice-${invoice.id}` ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {isVi ? "Tạo lúc" : "Created"}:{" "}
+                        {formatDate(invoice.createdAt, isVi)}
+                        {invoice.paymentDate
+                          ? ` · ${
+                              isVi ? "Thanh toán" : "Paid"
+                            }: ${formatDate(invoice.paymentDate, isVi)}`
+                          : invoice.paymentStatus === "pending" &&
+                              invoice.expiresAt
+                            ? ` · ${
+                                isVi ? "Hạn thanh toán" : "Expires"
+                              }: ${formatDate(invoice.expiresAt, isVi)}`
+                            : ""}
+                      </p>
+                      {invoice.reconciliationRequired && (
+                        <p className="mt-1 text-xs font-semibold text-amber-700">
+                          {isVi
+                            ? "Đang chờ hệ thống đối soát giao dịch"
+                            : "Awaiting payment reconciliation"}
+                        </p>
                       )}
                     </div>
-                    <p className="mt-1 truncate text-sm text-slate-700">
-                      {invoice.packageName ||
-                        invoice.className ||
-                        (isVi ? "Dịch vụ VIBE Sport" : "VIBE Sport service")}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {isVi ? "Tạo lúc" : "Created"}:{" "}
-                      {formatDate(invoice.createdAt, isVi)}
-                      {invoice.paymentDate
-                        ? ` · ${
-                            isVi ? "Thanh toán" : "Paid"
-                          }: ${formatDate(invoice.paymentDate, isVi)}`
-                        : invoice.paymentStatus === "pending" &&
-                            invoice.expiresAt
-                          ? ` · ${
-                              isVi ? "Hạn thanh toán" : "Expires"
-                            }: ${formatDate(invoice.expiresAt, isVi)}`
-                          : ""}
-                    </p>
-                    {invoice.reconciliationRequired && (
-                      <p className="mt-1 text-xs font-semibold text-amber-700">
-                        {isVi
-                          ? "Đang chờ hệ thống đối soát giao dịch"
-                          : "Awaiting payment reconciliation"}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
-                    <strong className="whitespace-nowrap text-base font-extrabold text-slate-900 mr-2">
-                      {formatMoney(invoice.amount, isVi)}
-                    </strong>
-                    <button
-                      type="button"
-                      onClick={() => handleViewReceipt(invoice)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-                    >
-                      <Receipt className="h-3.5 w-3.5 text-slate-500" />
-                      {canRequestInvoiceReceipt(invoice)
-                        ? isVi ? "Biên lai / Chi tiết" : "Receipt / Details"
-                        : isVi ? "Chi tiết hóa đơn" : "Invoice details"}
-                    </button>
-                    {apiEnabled && invoice.paymentStatus === "pending" && (
-                      <>
-                        {isCash ? (
-                          <span className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800">
-                            <Clock className="h-3.5 w-3.5" />
-                            {isVi
-                              ? "Thanh toán tại quầy lễ tân"
-                              : "Pay at reception counter"}
-                          </span>
-                        ) : canOfferPaymentRetry(invoice, {
-                            isReturnInvoice: isReturnInvoice(invoice),
-                          }) ? (
-                          <button
-                            type="button"
-                            onClick={() => payOnline(invoice)}
-                            disabled={payingId === invoice.id}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-primary-hover disabled:opacity-60 cursor-pointer"
-                          >
-                            {payingId === invoice.id
-                              ? isVi
-                                ? "Đang chuyển VNPay..."
-                                : "Redirecting..."
-                              : isVi
-                                ? "Thanh toán VNPay"
-                                : "Pay online"}
-                            <ArrowUpRight className="h-3.5 w-3.5" />
-                          </button>
-                        ) : null}
-                        {!isReturnInvoice(invoice) && <button
-                          type="button"
-                          onClick={() => handleCancelInvoice(invoice)}
-                          disabled={cancellingId === invoice.id}
-                          className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-60 cursor-pointer"
-                        >
-                          <XCircle className="h-3.5 w-3.5" />
-                          {cancellingId === invoice.id
-                            ? isVi
-                              ? "Đang hủy..."
-                              : "Cancelling..."
-                            : isVi
-                              ? "Hủy đơn"
-                              : "Cancel"}
-                        </button>}
-                      </>
-                    )}
-                  </div>
-                </article>
-              )
-            })}
-          </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
+                      <strong className="whitespace-nowrap text-base font-extrabold text-slate-900 mr-2">
+                        {formatMoney(invoice.amount, isVi)}
+                      </strong>
+                      <button
+                        type="button"
+                        onClick={() => handleViewReceipt(invoice)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                      >
+                        <Receipt className="h-3.5 w-3.5 text-slate-500" />
+                        {canRequestInvoiceReceipt(invoice)
+                          ? isVi
+                            ? "Biên lai / Chi tiết"
+                            : "Receipt / Details"
+                          : isVi
+                            ? "Chi tiết hóa đơn"
+                            : "Invoice details"}
+                      </button>
+                      {apiEnabled && invoice.paymentStatus === "pending" && (
+                        <>
+                          {isCash ? (
+                            <span className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800">
+                              <Clock className="h-3.5 w-3.5" />
+                              {isVi
+                                ? "Thanh toán tại quầy lễ tân"
+                                : "Pay at reception counter"}
+                            </span>
+                          ) : canOfferPaymentRetry(invoice, {
+                              isReturnInvoice: isReturnInvoice(invoice),
+                            }) ? (
+                            <button
+                              type="button"
+                              onClick={() => payOnline(invoice)}
+                              disabled={payingId === invoice.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-primary-hover disabled:opacity-60 cursor-pointer"
+                            >
+                              {payingId === invoice.id
+                                ? isVi
+                                  ? "Đang chuyển VNPay..."
+                                  : "Redirecting..."
+                                : isVi
+                                  ? "Thanh toán VNPay"
+                                  : "Pay online"}
+                              <ArrowUpRight className="h-3.5 w-3.5" />
+                            </button>
+                          ) : null}
+                          {!isReturnInvoice(invoice) && (
+                            <button
+                              type="button"
+                              onClick={() => handleCancelInvoice(invoice)}
+                              disabled={cancellingId === invoice.id}
+                              className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-60 cursor-pointer"
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              {cancellingId === invoice.id
+                                ? isVi
+                                  ? "Đang hủy..."
+                                  : "Cancelling..."
+                                : isVi
+                                  ? "Hủy đơn"
+                                  : "Cancel"}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          </>
         )}
       </section>
 
       {/* Receipt / Invoice Detail Modal (GET /api/invoices/{id}/receipt) */}
       {selectedInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="member-invoice-modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <style>{`@media print { body * { visibility: hidden !important; } .member-invoice-print-card, .member-invoice-print-card * { visibility: visible !important; } .member-invoice-print-card { position: fixed !important; inset: 0 auto auto 0 !important; width: 100% !important; max-width: none !important; max-height: none !important; overflow: visible !important; border: 0 !important; box-shadow: none !important; } .member-invoice-print-hide { display: none !important; } @page { margin: 16mm; } }`}</style>
+          <div className="member-invoice-print-card w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-5">
+            <div className="member-invoice-print-hide flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <Receipt className="h-5 w-5 text-brand-accent-dark" />
                 <h3 className="text-base font-extrabold text-slate-900">
@@ -961,108 +1292,204 @@ export function MemberInvoicesView() {
                 {isVi ? "Đang tải biên lai..." : "Loading receipt..."}
               </div>
             ) : (
-              <div className="space-y-2.5 text-xs text-slate-700">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">
-                    {isVi ? "Mã hóa đơn:" : "Invoice Code:"}
-                  </span>
-                  <strong className="font-mono text-slate-900">
-                    {selectedInvoice.invoiceCode ||
-                      selectedInvoice.code ||
-                      formatInvoiceCode(selectedInvoice.id)}
-                  </strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">
-                    {isVi ? "Dịch vụ / Gói:" : "Service / Package:"}
-                  </span>
-                  <strong className="text-slate-900 text-right">
-                    {selectedInvoice.packageName ||
-                      selectedInvoice.className ||
-                      (isVi ? "Dịch vụ VIBE Sport" : "VIBE Sport Service")}
-                  </strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">
-                    {isVi ? "Số tiền:" : "Amount:"}
-                  </span>
-                  <strong className="text-sm font-extrabold text-brand-primary">
+              <div className="space-y-4 text-sm text-slate-700">
+                <div className="text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                    {selectedInvoice.paymentStatus === "successful" ? (
+                      <CheckCircle2 className="h-6 w-6" />
+                    ) : (
+                      <Receipt className="h-6 w-6 text-brand-primary" />
+                    )}
+                  </div>
+                  <p className="mt-3 text-3xl font-black tracking-tight tabular-nums text-slate-950">
                     {formatMoney(selectedInvoice.amount, isVi)}
-                  </strong>
+                  </p>
+                  <div className="mt-2 flex justify-center">
+                    <InvoiceStatusBadge
+                      label={getLocalizedInvoiceStatus(
+                        selectedInvoice.rawPaymentStatus ||
+                          selectedInvoice.paymentStatus,
+                        isVi,
+                      )}
+                      tone={getInvoiceStatusTone(
+                        selectedInvoice.rawPaymentStatus ||
+                          selectedInvoice.paymentStatus,
+                      )}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">
+                    VIBE Athletic Club
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">
-                    {isVi ? "Phương thức:" : "Method:"}
-                  </span>
-                  <span className="font-semibold">
-                    {selectedInvoice.rawPaymentMethod ||
-                      selectedInvoice.paymentMethod ||
-                      "—"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">
-                    {isVi ? "Trạng thái:" : "Status:"}
-                  </span>
-                  <span className="font-bold">
-                    {selectedInvoice.rawPaymentStatus ||
-                      selectedInvoice.paymentStatus ||
-                      "—"}
-                  </span>
-                </div>
-                {(selectedInvoice.gatewayTransactionRef ||
-                  selectedInvoice.transactionCode) && (
+                <div className="border-t border-dashed border-slate-300" />
+                <div className="space-y-3 rounded-xl bg-slate-50 p-4">
                   <div className="flex justify-between">
                     <span className="text-slate-500">
-                      {isVi ? "Mã giao dịch:" : "Transaction ID:"}
+                      {isVi ? "Mã hóa đơn:" : "Invoice Code:"}
                     </span>
-                    <span className="font-mono">
-                      {selectedInvoice.gatewayTransactionRef ||
-                        selectedInvoice.transactionCode}
-                    </span>
+                    <strong className="font-mono text-slate-900">
+                      {selectedInvoice.invoiceCode ||
+                        selectedInvoice.code ||
+                        formatInvoiceCode(selectedInvoice.id)}
+                    </strong>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        copyValue(
+                          selectedInvoice.invoiceCode ||
+                            selectedInvoice.code ||
+                            formatInvoiceCode(selectedInvoice.id),
+                          `receipt-invoice-${selectedInvoice.id}`,
+                        )
+                      }
+                      className="rounded p-1 text-slate-400 hover:bg-white"
+                      aria-label={
+                        isVi ? "Sao chép mã hóa đơn" : "Copy invoice ID"
+                      }
+                    >
+                      {copiedKey === `receipt-invoice-${selectedInvoice.id}` ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </button>
                   </div>
-                )}
-                {selectedInvoice.cashNote && (
                   <div className="flex justify-between">
                     <span className="text-slate-500">
-                      {isVi ? "Ghi chú thu ngân:" : "Cashier note:"}
+                      {isVi ? "Dịch vụ / Gói:" : "Service / Package:"}
                     </span>
-                    <span className="text-right">{selectedInvoice.cashNote}</span>
+                    <strong className="text-slate-900 text-right">
+                      {selectedInvoice.packageName ||
+                        selectedInvoice.className ||
+                        (isVi ? "Dịch vụ VIBE Sport" : "VIBE Sport Service")}
+                    </strong>
                   </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-slate-500">
-                    {isVi ? "Ngày tạo:" : "Created at:"}
-                  </span>
-                  <span>{formatDate(selectedInvoice.createdAt, isVi)}</span>
-                </div>
-                {selectedInvoice.expiresAt &&
-                  selectedInvoice.paymentStatus === "pending" && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">
+                      {isVi ? "Số tiền:" : "Amount:"}
+                    </span>
+                    <strong className="text-sm font-extrabold text-brand-primary">
+                      {formatMoney(selectedInvoice.amount, isVi)}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">
+                      {isVi ? "Phương thức:" : "Method:"}
+                    </span>
+                    <span className="font-semibold">
+                      {getPaymentMethodLabel(selectedInvoice, isVi) ||
+                        selectedInvoice.paymentMethod ||
+                        "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">
+                      {isVi ? "Trạng thái:" : "Status:"}
+                    </span>
+                    <span className="font-bold">
+                      {getLocalizedInvoiceStatus(
+                        selectedInvoice.rawPaymentStatus ||
+                          selectedInvoice.paymentStatus,
+                        isVi,
+                      ) ||
+                        selectedInvoice.paymentStatus ||
+                        "—"}
+                    </span>
+                  </div>
+                  <>
                     <div className="flex justify-between">
                       <span className="text-slate-500">
-                        {isVi ? "Hạn thanh toán:" : "Expires at:"}
+                        {isVi ? "Mã giao dịch:" : "Transaction ID:"}
                       </span>
-                      <span>{formatDate(selectedInvoice.expiresAt, isVi)}</span>
+                      <span className="font-mono">
+                        {selectedInvoice.gatewayTransactionRef ||
+                          selectedInvoice.transactionCode ||
+                          "—"}
+                      </span>
+                      {(selectedInvoice.gatewayTransactionRef ||
+                        selectedInvoice.transactionCode) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            copyValue(
+                              selectedInvoice.gatewayTransactionRef ||
+                                selectedInvoice.transactionCode,
+                              `receipt-transaction-${selectedInvoice.id}`,
+                            )
+                          }
+                          className="rounded p-1 text-slate-400 hover:bg-white"
+                          aria-label={
+                            isVi
+                              ? "Sao chép mã giao dịch"
+                              : "Copy transaction ID"
+                          }
+                        >
+                          {copiedKey ===
+                          `receipt-transaction-${selectedInvoice.id}` ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </>
+                  {selectedInvoice.cashNote && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">
+                        {isVi ? "Ghi chú thu ngân:" : "Cashier note:"}
+                      </span>
+                      <span className="text-right">
+                        {selectedInvoice.cashNote}
+                      </span>
                     </div>
                   )}
-                {selectedInvoice.paymentDate && (
                   <div className="flex justify-between">
                     <span className="text-slate-500">
-                      {isVi ? "Thanh toán lúc:" : "Paid at:"}
+                      {isVi ? "Ngày tạo:" : "Created at:"}
                     </span>
-                    <span>{formatDate(selectedInvoice.paymentDate, isVi)}</span>
+                    <span>{formatDate(selectedInvoice.createdAt, isVi)}</span>
                   </div>
-                )}
-                {selectedInvoice.reconciliationRequired && (
-                  <div className="rounded-lg bg-amber-50 p-2 text-amber-800 font-semibold">
-                    {isVi
-                      ? "Giao dịch đang chờ đối soát từ hệ thống."
-                      : "Payment requires system reconciliation."}
-                  </div>
-                )}
+                  {selectedInvoice.expiresAt &&
+                    selectedInvoice.paymentStatus === "pending" && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">
+                          {isVi ? "Hạn thanh toán:" : "Expires at:"}
+                        </span>
+                        <span>
+                          {formatDate(selectedInvoice.expiresAt, isVi)}
+                        </span>
+                      </div>
+                    )}
+                  {selectedInvoice.paymentDate && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">
+                        {isVi ? "Thanh toán lúc:" : "Paid at:"}
+                      </span>
+                      <span>
+                        {formatDate(selectedInvoice.paymentDate, isVi)}
+                      </span>
+                    </div>
+                  )}
+                  {selectedInvoice.reconciliationRequired && (
+                    <div className="rounded-lg bg-amber-50 p-2 text-amber-800 font-semibold">
+                      {isVi
+                        ? "Giao dịch đang chờ đối soát từ hệ thống."
+                        : "Payment requires system reconciliation."}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
-            <div className="flex justify-end pt-2 border-t border-slate-100">
+            <div className="member-invoice-print-hide flex justify-end gap-2 border-t border-slate-100 pt-4">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                <Receipt className="h-4 w-4" />
+                {isVi ? "In / Tải biên lai" : "Print / Download receipt"}
+              </button>
               <button
                 type="button"
                 onClick={() => setSelectedInvoice(null)}
@@ -1106,40 +1533,68 @@ function PaymentReturnBanner({
 
   const copy = {
     checking: {
-      title: isVi ? "Đang kiểm tra trạng thái thanh toán" : "Checking payment status",
-      description: isVi ? "Đang lấy trạng thái hóa đơn từ hệ thống. Vui lòng chờ và không thanh toán lại trong lúc kiểm tra." : "The invoice status is being retrieved from the system. Please wait and do not pay again while it is being checked.",
+      title: isVi
+        ? "Đang kiểm tra trạng thái thanh toán"
+        : "Checking payment status",
+      description: isVi
+        ? "Đang lấy trạng thái hóa đơn từ hệ thống. Vui lòng chờ và không thanh toán lại trong lúc kiểm tra."
+        : "The invoice status is being retrieved from the system. Please wait and do not pay again while it is being checked.",
     },
     unverified: {
-      title: isVi ? "Chưa xác minh được thanh toán" : "Payment not yet verified",
-      description: lookupError || (isVi ? "Chưa có trạng thái hóa đơn xác nhận từ hệ thống. Vui lòng tải lại hóa đơn hoặc liên hệ trung tâm; đừng thanh toán lại lúc này." : "There is no confirmed invoice status from the system yet. Refresh invoices or contact the center; do not pay again yet."),
+      title: isVi
+        ? "Chưa xác minh được thanh toán"
+        : "Payment not yet verified",
+      description:
+        lookupError ||
+        (isVi
+          ? "Chưa có trạng thái hóa đơn xác nhận từ hệ thống. Vui lòng tải lại hóa đơn hoặc liên hệ trung tâm; đừng thanh toán lại lúc này."
+          : "There is no confirmed invoice status from the system yet. Refresh invoices or contact the center; do not pay again yet."),
     },
     paid: {
       title: isVi ? "Hóa đơn đã thanh toán" : "Invoice paid",
-      description: isVi ? "Hệ thống xác nhận hóa đơn đã thanh toán thành công." : "The system confirms that the invoice is paid.",
+      description: isVi
+        ? "Hệ thống xác nhận hóa đơn đã thanh toán thành công."
+        : "The system confirms that the invoice is paid.",
     },
     reconciliation: {
-      title: isVi ? "Thanh toán đang cần đối soát" : "Payment requires reconciliation",
-      description: isVi ? "Hệ thống xác nhận hóa đơn đã thanh toán nhưng đang cần đối soát. Chưa thể xác nhận quyền học đã được kích hoạt." : "The system reports the invoice as paid but requires reconciliation. Course access activation is not confirmed.",
+      title: isVi
+        ? "Thanh toán đang cần đối soát"
+        : "Payment requires reconciliation",
+      description: isVi
+        ? "Hệ thống xác nhận hóa đơn đã thanh toán nhưng đang cần đối soát. Chưa thể xác nhận quyền học đã được kích hoạt."
+        : "The system reports the invoice as paid but requires reconciliation. Course access activation is not confirmed.",
     },
     pending: {
-      title: isVi ? "Thanh toán chưa được xác minh" : "Payment has not been verified",
-      description: isVi ? "Hóa đơn hiện vẫn Chờ thanh toán. Có thể giao dịch đang được cập nhật; vui lòng tải lại sau hoặc liên hệ trung tâm. Đừng thanh toán lại lúc này." : "The invoice is currently pending. The transaction may still be updating; refresh later or contact the center. Do not pay again yet.",
+      title: isVi
+        ? "Thanh toán chưa được xác minh"
+        : "Payment has not been verified",
+      description: isVi
+        ? "Hóa đơn hiện vẫn Chờ thanh toán. Có thể giao dịch đang được cập nhật; vui lòng tải lại sau hoặc liên hệ trung tâm. Đừng thanh toán lại lúc này."
+        : "The invoice is currently pending. The transaction may still be updating; refresh later or contact the center. Do not pay again yet.",
     },
     expired: {
       title: isVi ? "Hóa đơn đã hết hạn" : "Invoice expired",
-      description: isVi ? "Hệ thống ghi nhận hóa đơn đã hết hạn. Nếu bạn đã bị trừ tiền, vui lòng liên hệ trung tâm để được kiểm tra." : "The system confirms that the invoice has expired. If you were charged, contact the center for a review.",
+      description: isVi
+        ? "Hệ thống ghi nhận hóa đơn đã hết hạn. Nếu bạn đã bị trừ tiền, vui lòng liên hệ trung tâm để được kiểm tra."
+        : "The system confirms that the invoice has expired. If you were charged, contact the center for a review.",
     },
     failed: {
       title: isVi ? "Ghi nhận thanh toán thất bại" : "Payment failed",
-      description: isVi ? "Đây là trạng thái hiện được hệ thống xác nhận. Nếu bạn đã bị trừ tiền, vui lòng liên hệ trung tâm." : "This is the status currently confirmed by the system. If you were charged, contact the center.",
+      description: isVi
+        ? "Đây là trạng thái hiện được hệ thống xác nhận. Nếu bạn đã bị trừ tiền, vui lòng liên hệ trung tâm."
+        : "This is the status currently confirmed by the system. If you were charged, contact the center.",
     },
     cancelled: {
       title: isVi ? "Hóa đơn đã hủy" : "Invoice cancelled",
-      description: isVi ? "Hệ thống xác nhận hóa đơn đã hủy. Nếu bạn đã bị trừ tiền, vui lòng liên hệ trung tâm." : "The system confirms that the invoice was cancelled. If you were charged, contact the center.",
+      description: isVi
+        ? "Hệ thống xác nhận hóa đơn đã hủy. Nếu bạn đã bị trừ tiền, vui lòng liên hệ trung tâm."
+        : "The system confirms that the invoice was cancelled. If you were charged, contact the center.",
     },
     refunded: {
       title: isVi ? "Khoản thanh toán đã hoàn" : "Payment reversed",
-      description: isVi ? "Hệ thống ghi nhận khoản thanh toán đã được hoàn." : "The system reports that the payment was reversed.",
+      description: isVi
+        ? "Hệ thống ghi nhận khoản thanh toán đã được hoàn."
+        : "The system reports that the payment was reversed.",
     },
   }[state]
   const verificationNotice = (() => {
@@ -1160,8 +1615,12 @@ function PaymentReturnBanner({
           : "The system reports this transaction was already recorded. Do not pay again."
       case "RETRY_LATER":
         return retrySecondsRemaining > 0
-          ? isVi ? `Chưa thể kiểm tra lại. Có thể thử lại sau ${retrySecondsRemaining} giây.` : `Verification is cooling down. Try again in ${retrySecondsRemaining} seconds.`
-          : isVi ? "Đã hết thời gian chờ. Nhấn Tải lại để thử xác minh lại giao dịch." : "The cooldown has ended. Refresh to check the transaction again."
+          ? isVi
+            ? `Chưa thể kiểm tra lại. Có thể thử lại sau ${retrySecondsRemaining} giây.`
+            : `Verification is cooling down. Try again in ${retrySecondsRemaining} seconds.`
+          : isVi
+            ? "Đã hết thời gian chờ. Nhấn Tải lại để thử xác minh lại giao dịch."
+            : "The cooldown has ended. Refresh to check the transaction again."
       case "NOT_CONFIRMED":
         return isVi
           ? "Hệ thống chưa xác nhận được giao dịch. Đây chưa phải kết luận thanh toán thất bại; vui lòng chờ hoặc liên hệ trung tâm, không thanh toán lại lúc này."
@@ -1196,14 +1655,28 @@ function PaymentReturnBanner({
   })()
 
   return (
-    <section role="status" className={`rounded-xl border p-4 shadow-xs ${toneClass}`}>
+    <section
+      role="status"
+      className={`rounded-xl border p-4 shadow-xs ${toneClass}`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          {isPaid ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" /> : <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />}
+          {isPaid ? (
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+          ) : (
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+          )}
           <div>
             <h2 className="text-sm font-extrabold">{copy.title}</h2>
-            {returnInvoiceCode && <p className="mt-0.5 text-xs font-semibold opacity-85">{isVi ? "Mã hóa đơn / tham chiếu:" : "Invoice / Ref:"} <span className="font-mono">{returnInvoiceCode}</span></p>}
-            <p className="mt-1 text-xs leading-5 opacity-90">{copy.description}</p>
+            {returnInvoiceCode && (
+              <p className="mt-0.5 text-xs font-semibold opacity-85">
+                {isVi ? "Mã hóa đơn / tham chiếu:" : "Invoice / Ref:"}{" "}
+                <span className="font-mono">{returnInvoiceCode}</span>
+              </p>
+            )}
+            <p className="mt-1 text-xs leading-5 opacity-90">
+              {copy.description}
+            </p>
             {verificationNotice && (
               <p className="mt-2 text-xs leading-5 font-semibold" role="status">
                 {verificationNotice}
@@ -1221,7 +1694,12 @@ function PaymentReturnBanner({
             )}
           </div>
         </div>
-        <button type="button" onClick={onDismiss} className="rounded-lg p-1 opacity-70 hover:bg-black/5 hover:opacity-100 cursor-pointer" aria-label={isVi ? "Đóng thông báo" : "Dismiss"}>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="rounded-lg p-1 opacity-70 hover:bg-black/5 hover:opacity-100 cursor-pointer"
+          aria-label={isVi ? "Đóng thông báo" : "Dismiss"}
+        >
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -1229,14 +1707,191 @@ function PaymentReturnBanner({
   )
 }
 
-function Summary({ icon: Icon, title, value }) {
+function Summary({ icon: Icon, title, value, detail, tone = "blue" }) {
+  const colors = {
+    blue: "bg-blue-50 text-blue-700",
+    emerald: "bg-emerald-50 text-emerald-700",
+    amber: "bg-amber-50 text-amber-700",
+  }
   return (
-    <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-        <Icon className="h-4 w-4 text-brand-accent-dark" />
-        {title}
+    <div className="group flex min-w-0 items-start gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
+      <span
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] ${colors[tone]}`}
+      >
+        <Icon className="h-5 w-5" />
+      </span>
+      <div className="min-w-0">
+        <div className="text-xs font-bold uppercase tracking-wide text-slate-500">
+          {title}
+        </div>
+        <p className="mt-1 text-xl font-black tabular-nums text-slate-900">
+          {value}
+        </p>
+        <p className="mt-0.5 text-xs text-slate-500">{detail}</p>
       </div>
-      <p className="mt-3 text-xl font-black text-slate-900">{value}</p>
+    </div>
+  )
+}
+
+function InvoiceServiceCell({
+  serviceName,
+  invoiceCode,
+  copiedKey,
+  onCopy,
+  invoice,
+}) {
+  const copyKey = `invoice-${invoice.id}`
+  const copied = copiedKey === copyKey
+  return (
+    <div className="min-w-0">
+      <p className="truncate text-sm font-semibold text-slate-900">
+        {serviceName}
+      </p>
+      <div className="mt-1 flex items-center gap-1.5">
+        <span className="truncate font-mono text-xs text-slate-500">
+          {invoiceCode}
+        </span>
+        <button
+          type="button"
+          onClick={() => onCopy(invoiceCode, copyKey)}
+          aria-label={copied ? "Copied" : "Copy invoice ID"}
+          className="shrink-0 rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+        >
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-emerald-600" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" />
+          )}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function InvoiceTimeCell({ invoice, isVi }) {
+  return (
+    <div className="min-w-0 text-xs">
+      <p className="font-medium text-slate-700">
+        {invoice.paymentDate ? formatDate(invoice.paymentDate, isVi) : "—"}
+      </p>
+      <p className="mt-1 text-slate-500">
+        {isVi ? "Tạo" : "Created"}: {formatDate(invoice.createdAt, isVi)}
+      </p>
+    </div>
+  )
+}
+
+function PaymentMethodBadge({ label }) {
+  return (
+    <span className="inline-flex w-fit max-w-full items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
+      {label}
+    </span>
+  )
+}
+
+function InvoiceStatusBadge({ label, tone = "slate" }) {
+  const colors = {
+    emerald: "bg-emerald-50 text-emerald-700",
+    amber: "bg-amber-50 text-amber-800",
+    rose: "bg-rose-50 text-rose-700",
+    slate: "bg-slate-100 text-slate-600",
+  }
+  const dots = {
+    emerald: "bg-emerald-500",
+    amber: "bg-amber-500",
+    rose: "bg-rose-500",
+    slate: "bg-slate-400",
+  }
+  return (
+    <span
+      className={`inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${colors[tone]}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${dots[tone]}`} />
+      {label}
+    </span>
+  )
+}
+
+function InvoiceAmountActions({ invoice, isVi, actionProps, mobile = false }) {
+  const {
+    apiEnabled,
+    payingId,
+    cancellingId,
+    isCash,
+    onViewReceipt,
+    onPayOnline,
+    onCancel,
+    isReturnInvoice,
+  } = actionProps
+  const pending = apiEnabled && invoice.paymentStatus === "pending"
+  const canPay =
+    pending &&
+    !isCash &&
+    canOfferPaymentRetry(invoice, { isReturnInvoice: isReturnInvoice(invoice) })
+  return (
+    <div
+      className={`flex min-w-0 flex-wrap items-center gap-2 ${
+        mobile
+          ? "justify-between border-t border-slate-100 pt-3"
+          : "justify-end"
+      }`}
+    >
+      <strong className="whitespace-nowrap text-sm font-extrabold tabular-nums text-slate-900">
+        {formatMoney(invoice.amount, isVi)}
+      </strong>
+      <button
+        type="button"
+        onClick={() => onViewReceipt(invoice)}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+      >
+        <Receipt className="h-3.5 w-3.5 text-slate-500" />
+        {canRequestInvoiceReceipt(invoice)
+          ? isVi
+            ? "Biên lai / Chi tiết"
+            : "Receipt / Details"
+          : isVi
+            ? "Chi tiết hóa đơn"
+            : "Invoice details"}
+      </button>
+      {pending && isCash && (
+        <span className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800">
+          <Clock className="h-3.5 w-3.5" />
+          {isVi ? "Thanh toán tại quầy" : "Pay at reception"}
+        </span>
+      )}
+      {canPay && (
+        <button
+          type="button"
+          onClick={() => onPayOnline(invoice)}
+          disabled={payingId === invoice.id}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-bold text-white transition hover:bg-brand-primary-hover disabled:opacity-60"
+        >
+          {payingId === invoice.id
+            ? isVi
+              ? "Đang chuyển..."
+              : "Redirecting..."
+            : isVi
+              ? "Thanh toán"
+              : "Pay now"}
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {pending && !isReturnInvoice(invoice) && (
+        <button
+          type="button"
+          onClick={() => onCancel(invoice)}
+          disabled={cancellingId === invoice.id}
+          className="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
+        >
+          {cancellingId === invoice.id
+            ? isVi
+              ? "Đang hủy..."
+              : "Cancelling..."
+            : isVi
+              ? "Hủy"
+              : "Cancel"}
+        </button>
+      )}
     </div>
   )
 }
