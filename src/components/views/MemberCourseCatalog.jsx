@@ -93,24 +93,23 @@ function StatusPill({ status, language }) {
   return <span className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-semibold ' + tone}><span className={'h-1.5 w-1.5 rounded-full ' + dot} />{statusText(status, language)}</span>
 }
 
-function SportTile({ row, tier, language, selected, onClick }) {
+function SportTile({ row, tier, language, selected, availability, onClick }) {
   const config = SPORT_LABELS[row.key]
   const subject = row.subject
   const price = subject?.[tier === 'Normal' ? 'normalPrice' : 'advancedPrice']
-  const verified = Boolean(subject && hasSellablePrice(price) && !row.ambiguous && !row.invalidId)
   const media = SPORT_MEDIA[row.key] || {}
   const label = subject?.name || config[language === 'vi' ? 'vi' : 'en']
   const cardStatus = row.ambiguous
     ? (language === 'vi' ? 'Dữ liệu môn bị trùng' : 'Duplicate subject data')
-    : verified
+    : availability?.available
       ? tier === 'Normal'
-        ? (language === 'vi' ? 'Lớp nhóm · 12 buổi' : 'Group class · 12 sessions')
-        : (language === 'vi' ? '1:1 · 12 credit' : '1:1 · 12 credits')
-      : (language === 'vi' ? 'Chưa thể đăng ký' : 'Unavailable')
+        ? (language === 'vi' ? `${availability.count} lớp đang mở` : `${availability.count} open ${availability.count === 1 ? 'class' : 'classes'}`)
+        : (language === 'vi' ? 'Sẵn sàng đăng ký' : 'Ready to register')
+      : (language === 'vi' ? 'Chưa có lớp mở' : 'No open availability')
   return <button type="button" aria-pressed={selected} onClick={onClick} className={'group relative min-h-[210px] overflow-hidden rounded-2xl border text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent ' + (selected ? 'scale-[1.01] border-brand-primary ring-2 ring-brand-primary shadow-md' : 'border-slate-200')}>
-    <img src={media.poster} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" />
-    <span className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/45 to-slate-950/5" />
-    <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[13px] font-bold text-slate-900">{cardStatus}</span>
+    <img src={media.poster} alt="" loading="lazy" className={'absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-[1.03] ' + (!availability?.available ? 'grayscale-[35%]' : '')} />
+    <span className={'absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/45 to-slate-950/5 ' + (!availability?.available ? 'opacity-80' : '')} />
+    <span className={'absolute left-3 top-3 rounded-full px-3 py-1 text-[13px] font-bold ' + (availability?.available ? 'bg-emerald-50/95 text-emerald-800' : 'bg-slate-100/95 text-slate-600')}>{cardStatus}</span>
     {selected && <span className="absolute right-3 top-3 rounded-full bg-brand-primary p-1.5 text-white shadow"><Check size={17} /></span>}
     <span className="absolute inset-x-0 bottom-0 p-4 text-white"><span className="block text-lg font-bold">{label}</span><span className="mt-2 block text-lg font-extrabold tabular-nums">{formatMoney(price, language)}</span></span>
   </button>
@@ -146,6 +145,7 @@ export function MemberCourseCatalog() {
   const [registrationsState, setRegistrationsState] = useState({ loading: true, error: '' })
   const [scheduleStates, setScheduleStates] = useState({})
   const [coachState, setCoachState] = useState({ loading: false, error: '', specializations: [], coaches: [] })
+  const [coachAvailabilityBySubject, setCoachAvailabilityBySubject] = useState({})
   const [capacityState, setCapacityState] = useState({ loading: false, error: '', verified: false, available: false, count: null })
   const [selectedCoachId, setSelectedCoachId] = useState('')
   const [classDetailsId, setClassDetailsId] = useState(null)
@@ -169,14 +169,37 @@ export function MemberCourseCatalog() {
   const selectedSubject = subjectRow?.subject || null
   const selectedSport = SPORT_LABELS[sportKey] || SPORT_LABELS.tennis
   const selectedPrice = selectedSubject?.[tier === 'Normal' ? 'normalPrice' : 'advancedPrice']
+  const sportAvailability = useMemo(() => {
+    const bySport = new Map()
+    resolvedSubjects.forEach((row) => {
+      const subject = row.subject
+      const hasValidPrice = Boolean(subject && hasSellablePrice(subject[tier === 'Normal' ? 'normalPrice' : 'advancedPrice']) && !row.ambiguous && !row.invalidId)
+      if (tier === 'Normal') {
+        const openClasses = hasValidPrice ? classes.filter((item) =>
+          String(item.subjectId) === String(subject.id)
+          && verifyNormalCourseClass(item, scheduleStates[item.id] ? scheduleStates[item.id].sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules), subject.id).eligible,
+        ) : []
+        bySport.set(row.key, { available: openClasses.length > 0, count: openClasses.length })
+        return
+      }
+      const advancedAvailability = subject?.advancedAvailability
+      const metadataAvailability = [subject?.advancedAvailable, subject?.isAdvancedAvailable, subject?.advancedOpen, subject?.advancedRegistrationOpen,
+        advancedAvailability === true || normalizeCatalogStatus(advancedAvailability?.status) === 'active' || advancedAvailability?.active === true || advancedAvailability?.available === true]
+        .some((value) => value === true)
+      const coachData = coachAvailabilityBySubject[String(subject?.id)]
+      const availableCoaches = (coachData?.coaches || []).filter(coachIsActive)
+      bySport.set(row.key, { available: hasValidPrice && (metadataAvailability || availableCoaches.length > 0), count: availableCoaches.length })
+    })
+    return bySport
+  }, [resolvedSubjects, tier, classes, scheduleStates, coachAvailabilityBySubject])
   const filteredSubjects = useMemo(() => {
     const normalizedQuery = normalizeCatalogText(query)
     return resolvedSubjects.filter((row) => {
       const label = row.subject?.name || SPORT_LABELS[row.key]?.[isVi ? 'vi' : 'en'] || row.key
       return (!normalizedQuery || normalizeCatalogText(label + ' ' + row.key).includes(normalizedQuery))
-        && (!onlyAvailable || Boolean(row.subject && hasSellablePrice(row.subject[tier === 'Normal' ? 'normalPrice' : 'advancedPrice']) && !row.ambiguous))
+        && (!onlyAvailable || sportAvailability.get(row.key)?.available === true)
     })
-  }, [resolvedSubjects, query, onlyAvailable, tier, isVi])
+  }, [resolvedSubjects, query, onlyAvailable, isVi, sportAvailability])
   const selectedClasses = useMemo(() => classes.filter((item) => String(item.subjectId) === String(selectedSubject?.id)), [classes, selectedSubject?.id])
   const visibleRegistrations = useMemo(() => registrations.filter((item) => {
     const ownerId = item.memberId ?? item.ownerMemberId ?? item.member?.id
@@ -312,7 +335,7 @@ export function MemberCourseCatalog() {
     if (nextSport !== sportKey) setSportKey(nextSport)
   }, [searchParams, tier, sportKey])
 
-  const changeSelection = (nextTier, nextSport) => {
+  const changeSelection = useCallback((nextTier, nextSport) => {
     setTier(nextTier)
     setSportKey(nextSport)
     const params = new URLSearchParams(searchParams)
@@ -324,7 +347,12 @@ export function MemberCourseCatalog() {
     setCapacityState({ loading: false, error: '', verified: false, available: false, count: null })
     setCoachState({ loading: false, error: '', specializations: [], coaches: [] })
     setNotice('')
-  }
+  }, [searchParams, setSearchParams])
+
+  useEffect(() => {
+    if (!onlyAvailable || filteredSubjects.some((row) => row.key === sportKey) || !filteredSubjects.length) return
+    changeSelection(tier, filteredSubjects[0].key)
+  }, [onlyAvailable, filteredSubjects, sportKey, tier, changeSelection])
 
   useEffect(() => {
     const candidates = selectedClasses.filter((item) => normalizeCatalogText(item.classType) === 'normal')
@@ -354,6 +382,7 @@ export function MemberCourseCatalog() {
         .filter((item) => String(item.subjectId) === String(selectedSubject.id) && item.id != null)
         .map((item) => [String(item.id), item])).values())
       if (!matchedSpecializations.length) {
+        setCoachAvailabilityBySubject((current) => ({ ...current, [requestKey]: { coaches: [] } }))
         setCoachState({ loading: false, error: isVi ? 'Chưa có huấn luyện viên phụ trách môn học này.' : 'No coach available for this subject.', specializations: [], coaches: [] })
         return
       }
@@ -366,9 +395,11 @@ export function MemberCourseCatalog() {
         .filter((coach) => coachMatchesSubject(coach, result.specialization))
         .map((coach) => ({ ...coach, matchedSpecialization: result.specialization })))
       const unique = Array.from(new Map(options.filter((coach) => coach.id != null).map((coach) => [String(coach.id), coach])).values())
+      setCoachAvailabilityBySubject((current) => ({ ...current, [requestKey]: { coaches: unique } }))
       setCoachState({ loading: false, error: '', specializations: matchedSpecializations, coaches: unique })
     } catch (error) {
       if (coachRequestInFlightRef.current === requestKey) {
+        setCoachAvailabilityBySubject((current) => ({ ...current, [requestKey]: { coaches: [] } }))
         setCoachState({ loading: false, error: getErrorMessage(error, isVi ? 'Không tải được danh sách Coach. Không thể tiếp tục đăng ký.' : 'Could not load coaches. Registration is blocked.'), specializations: [], coaches: [] })
       }
     } finally {
@@ -778,10 +809,10 @@ export function MemberCourseCatalog() {
 
     <section className="space-y-4" aria-labelledby="sport-grid-title">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><h2 id="sport-grid-title" className="text-2xl font-bold text-slate-950">{isVi ? 'Chọn môn thể thao' : 'Choose a sport'}</h2><p className="mt-1 text-sm text-slate-600">{isVi ? 'Thông tin bộ môn và học phí được đồng bộ trực tuyến.' : 'Sports information and tuition fees are updated online.'}</p></div><label className="relative block w-full sm:w-80 sm:min-w-[280px]"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={isVi ? 'Tìm môn hoặc lớp…' : 'Search sports or classes…'} className="min-h-11 w-full rounded-xl border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none focus:border-brand-accent focus:ring-2 focus:ring-brand-blue-soft" /></label></div>
-      <div className="flex flex-wrap items-center gap-3"><label className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"><input type="checkbox" checked={onlyAvailable} onChange={(event) => setOnlyAvailable(event.target.checked)} className="h-4 w-4 accent-brand-primary" />{isVi ? 'Chỉ hiển thị môn đang mở đăng ký' : 'Show only sports open for registration'}</label><span className="inline-flex min-h-10 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600">{isVi ? 'Giá đang xem:' : 'Price shown:'} <strong className="ml-1 text-slate-900">{tier}</strong></span></div>
+      <div className="flex flex-wrap items-center gap-3"><label className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"><input type="checkbox" checked={onlyAvailable} onChange={(event) => setOnlyAvailable(event.target.checked)} className="h-4 w-4 accent-brand-primary" />{isVi ? 'Chỉ hiển thị môn đang mở đăng ký' : 'Show only sports open for registration'}</label>{onlyAvailable && <span aria-live="polite" className="inline-flex min-h-9 items-center rounded-full bg-emerald-50 px-3 text-sm font-semibold text-emerald-800">{isVi ? `Hiển thị ${filteredSubjects.length}/${resolvedSubjects.length} môn` : `Showing ${filteredSubjects.length}/${resolvedSubjects.length} sports`}</span>}<span className="inline-flex min-h-10 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600">{isVi ? 'Giá đang xem:' : 'Price shown:'} <strong className="ml-1 text-slate-900">{tier}</strong></span></div>
       <InlineState loading={subjectsState.loading} error={subjectsState.error} retry={refreshSubjects} empty={null} language={language}>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{filteredSubjects.map((row) => <SportTile key={row.key} row={row} tier={tier} language={language} selected={row.key === sportKey} onClick={() => changeSelection(tier, row.key)} />)}</div>
-        {filteredSubjects.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-600">{isVi ? 'Không tìm thấy môn phù hợp.' : 'No matching sports.'}</div>}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{filteredSubjects.map((row) => <SportTile key={row.key} row={row} tier={tier} language={language} availability={sportAvailability.get(row.key)} selected={row.key === sportKey} onClick={() => changeSelection(tier, row.key)} />)}</div>
+        {filteredSubjects.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-600">{onlyAvailable && !normalizeCatalogText(query) ? (isVi ? 'Hiện chưa có môn nào được xác minh còn chỗ và mở đăng ký ở hình thức này.' : 'No sports are currently verified as open with availability for this course type.') : (isVi ? 'Không tìm thấy môn phù hợp.' : 'No matching sports.')}</div>}
         {resolvedSubjects.some((row) => row.ambiguous || row.invalidId) && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{isVi ? 'Dữ liệu môn học này đang được chuẩn hóa; vui lòng liên hệ quầy lễ tân để được hỗ trợ đăng ký.' : 'Subject information is being updated; please contact reception for assistance.'}</p>}
       </InlineState>
     </section>
