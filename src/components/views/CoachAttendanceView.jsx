@@ -3,7 +3,6 @@ import { useSCMS } from "../../context/SCMSContext"
 import { CoachStatusBadge } from "../coach/StatusBadge"
 import { formatDate, formatTime, formatTimeRange } from "../../utils/datetime"
 import { formatMemberCode } from "../../utils/formatMember"
-import { AttendanceCorrectionModal } from "../modals/AttendanceCorrectionModal"
 import { classEnrollmentApi } from "../../api/classEnrollmentApi"
 import { attendanceApi, matchesSessionAttendance } from "../../api/attendanceApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
@@ -20,7 +19,6 @@ import {
 } from "../../utils/permissions"
 import {
   ClipboardCheck,
-  Edit2,
   RefreshCw,
   CheckCheck,
   AlertCircle,
@@ -204,7 +202,6 @@ export function CoachAttendanceView() {
     }
   }, [selectedClass?.id, resolvedCoachId])
 
-  const [selectedMemberModal, setSelectedMemberModal] = useState(null)
   const [apiEnrollments, setApiEnrollments] = useState([])
   const [apiAttendances, setApiAttendances] = useState([])
   const [sessionTrainingResults, setSessionTrainingResults] = useState([])
@@ -1558,24 +1555,6 @@ export function CoachAttendanceView() {
                           type="attendance"
                           value={currentStatus}
                         />
-                        {!apiEnabled && allowCorrection && !sessionCancelled && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setSelectedMemberModal({
-                                memberId: m.id,
-                                memberName: m.name,
-                                status: currentStatus,
-                                attendanceId,
-                              })
-                            }
-                            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
-                            title="Chỉnh sửa &amp; nhập lý do"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                            <span>{t("coachBtnViewOrCorrectAttendance")}</span>
-                          </button>
-                        )}
                       </div>
                     )}
                   </div>
@@ -1628,19 +1607,6 @@ export function CoachAttendanceView() {
             </div>
           </div>
         </div>
-      )}
-
-      {selectedMemberModal && (
-        <AttendanceCorrectionModal
-          classId={selectedClass?.id || ""}
-          memberId={selectedMemberModal.memberId}
-          memberName={selectedMemberModal.memberName}
-          currentStatus={selectedMemberModal.status}
-          attendanceId={selectedMemberModal.attendanceId}
-          onUpdated={loadClassRosterAndAttendance}
-          isOpen={!!selectedMemberModal}
-          onClose={() => setSelectedMemberModal(null)}
-        />
       )}
     </div>
   )
