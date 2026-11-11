@@ -406,32 +406,9 @@ export function PersonalProfileView() {
 
   return (
     <main className="w-full space-y-6 px-4 py-5 sm:px-6 lg:px-8 font-['Be_Vietnam_Pro',sans-serif]">
-      <section className="relative overflow-hidden rounded-2xl border border-slate-700/70 bg-gradient-to-br from-[#0f172a] via-[#172554] to-[#1e3a8a] p-6 text-white shadow-lg shadow-slate-950/10 sm:p-8">
-        <div className="pointer-events-none absolute -right-12 -top-20 h-64 w-64 rounded-full bg-blue-400/10 blur-3xl" />
-        <div className="relative flex flex-wrap items-center justify-between gap-6">
-          <div className="flex min-w-0 items-center gap-5">
-            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-white/10 shadow-inner sm:h-24 sm:w-24">
-              {avatarUrl ? <img src={avatarUrl} alt={profile.name || "Avatar"} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-blue-100"><UserRound className="h-10 w-10" /></div>}
-              <span className="absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full border-2 border-[#172554] bg-emerald-400" />
-            </div>
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarFileSelect} className="hidden" />
-            <div className="min-w-0">
-              <span className="inline-flex rounded-full border border-blue-200/20 bg-blue-200/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-blue-100">VIBE SPORT · MEMBER</span>
-              <h1 className="mt-2 truncate text-2xl font-black tracking-tight text-white sm:text-3xl">{profile.name || currentUser?.name || (isVi ? "Hồ sơ hội viên" : "Member profile")}</h1>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-white/10 px-3 py-1 font-mono text-xs font-semibold text-blue-100">{formattedMemberId ? `#HV-${formattedMemberId}` : (isVi ? "Chưa liên kết mã hội viên" : "No member ID linked")}</span>
-                {(profile.email || currentUser?.email) && <span className="max-w-full truncate rounded-full bg-white/10 px-3 py-1 text-xs text-blue-100">{profile.email || currentUser.email}</span>}
-              </div>
-            </div>
-          </div>
-          <div className="relative flex flex-wrap items-center gap-2">
-            <button type="button" disabled={avatarLoading} onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm backdrop-blur transition hover:bg-white/15 disabled:opacity-50">
-              {avatarLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}{isVi ? "Đổi ảnh" : "Change photo"}
-            </button>
-            {avatarUrl && <button type="button" disabled={avatarLoading} onClick={handleDeleteAvatar} className="inline-flex items-center gap-2 rounded-xl border border-rose-200/20 bg-rose-400/10 px-3.5 py-2.5 text-xs font-bold text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-50"><Trash2 className="h-4 w-4" />{isVi ? "Xóa ảnh" : "Remove photo"}</button>}
-          </div>
-        </div>
-      </section>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div><h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{isVi ? "Thông tin cá nhân" : "Personal information"}</h1><p className="mt-1 text-sm text-slate-500">{isVi ? "Quản lý hồ sơ hội viên, ảnh đại diện và bảo mật tài khoản." : "Manage your member profile, avatar, and account security."}</p></div>
+      </header>
 
       {!valid && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{isVi ? "Tài khoản chưa được liên kết với hồ sơ hội viên. Hãy liên hệ lễ tân để đồng bộ thông tin." : "No member profile is linked to this account. Contact reception to link it."}</div>}
       {error && <div role="alert" className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><AlertCircle className="h-4 w-4 shrink-0" /><span>{error}</span></div>}
@@ -441,6 +418,20 @@ export function PersonalProfileView() {
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
         <form onSubmit={submit} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.02] sm:p-7 lg:col-span-8">
+          <div className="-mx-5 -mt-5 flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/70 p-5 sm:-mx-7 sm:-mt-7 sm:p-7">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                {avatarUrl ? <img src={avatarUrl} alt={profile.name || "Avatar"} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-blue-700"><UserRound className="h-8 w-8" /></div>}
+                <span className="absolute bottom-1 right-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+              </div>
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarFileSelect} className="hidden" />
+              <div className="min-w-0"><h2 className="truncate text-base font-extrabold text-slate-900">{profile.name || currentUser?.name || (isVi ? "Hồ sơ hội viên" : "Member profile")}</h2><div className="mt-1.5 flex flex-wrap items-center gap-2"><span className="rounded-full bg-blue-100 px-2.5 py-1 font-mono text-[11px] font-bold text-blue-800">{formattedMemberId ? `#HV-${formattedMemberId}` : (isVi ? "Chưa liên kết mã hội viên" : "No member ID linked")}</span>{(profile.email || currentUser?.email) && <span className="max-w-full truncate rounded-full bg-white px-2.5 py-1 text-[11px] text-slate-600">{profile.email || currentUser.email}</span>}</div></div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" disabled={avatarLoading} onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 disabled:opacity-50">{avatarLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}{isVi ? "Đổi ảnh" : "Change photo"}</button>
+              {avatarUrl && <button type="button" disabled={avatarLoading} onClick={handleDeleteAvatar} className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" />{isVi ? "Xóa ảnh" : "Remove photo"}</button>}
+            </div>
+          </div>
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><UserRound className="h-5 w-5" /></span>
             <div><h2 className="text-lg font-black tracking-tight text-slate-950">{isVi ? "Hồ sơ cá nhân" : "Personal profile"}</h2><p className="mt-0.5 text-xs text-slate-500">{isVi ? "Thông tin hồ sơ phục vụ tập luyện và định danh." : "Profile details for training and account identity."}</p></div>
@@ -481,9 +472,8 @@ export function PersonalProfileView() {
             </form>
           </section>
 
-          <section className="relative overflow-hidden rounded-2xl border border-slate-700 bg-gradient-to-br from-[#0f172a] to-[#172554] p-5 text-white shadow-lg shadow-slate-950/10 sm:p-6">
-            <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-emerald-400/10 blur-2xl" />
-            <div className="relative flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-emerald-300"><ShieldCheck className="h-5 w-5" /></span><div><h2 className="text-base font-black">{isVi ? "Bảo mật tài khoản" : "Account security"}</h2><p className="mt-2 text-xs leading-5 text-blue-100/80">{isVi ? "Thông tin hồ sơ và ảnh đại diện được đồng bộ an toàn. Không chia sẻ mật khẩu hoặc mã xác minh với người khác." : "Your profile and avatar are securely synced. Never share your password or verification codes."}</p><div className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-400/10 px-3 py-1.5 text-[11px] font-bold text-emerald-200"><Sparkles className="h-3.5 w-3.5" />{isVi ? "Tài khoản được bảo vệ" : "Account protected"}</div></div></div>
+          <section className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5 sm:p-6">
+            <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-700"><ShieldCheck className="h-5 w-5" /></span><div><h2 className="text-base font-black text-slate-900">{isVi ? "Bảo mật tài khoản" : "Account security"}</h2><p className="mt-2 text-xs leading-5 text-slate-600">{isVi ? "Thông tin hồ sơ và ảnh đại diện được đồng bộ an toàn. Không chia sẻ mật khẩu hoặc mã xác minh với người khác." : "Your profile and avatar are securely synced. Never share your password or verification codes."}</p><div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-[11px] font-bold text-blue-800"><Sparkles className="h-3.5 w-3.5" />{isVi ? "Tài khoản được bảo vệ" : "Account protected"}</div></div></div>
           </section>
         </div>
       </div>

@@ -395,25 +395,21 @@ export function SupportView() {
   return (
     <main className="w-full space-y-6 px-4 py-5 sm:px-6 lg:px-8">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl border border-slate-700/70 bg-gradient-to-br from-[#0f172a] via-[#172554] to-[#1e3a8a] p-6 text-white shadow-lg shadow-slate-950/10 sm:p-8">
-        <div className="pointer-events-none absolute -right-12 -top-20 h-64 w-64 rounded-full bg-blue-400/10 blur-3xl" />
-        <div className="relative flex flex-wrap items-center justify-between gap-5">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs sm:p-6">
         <div className="flex items-center gap-3.5">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-blue-100 shadow-inner">
-            <MessageSquare className="h-6 w-6" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+            <MessageSquare className="h-5 w-5" />
           </div>
           <div>
-            <span className="inline-flex rounded-full border border-blue-200/20 bg-blue-200/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-blue-100">
-              {isVi ? "TRUNG TÂM HỖ TRỢ 24/7" : "24/7 SUPPORT CENTER"}
-            </span>
-            <div className="mt-2 flex flex-wrap items-center gap-2.5">
-              <h1 className="text-xl font-black tracking-tight text-white sm:text-2xl">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
                 {isVi ? "Trợ lý VIBE AI & Chăm sóc Hội viên" : "VIBE AI & Member Care"}
               </h1>
             </div>
-            <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold text-blue-100/90">
-              <span className="rounded-full bg-white/10 px-2.5 py-1">• {isVi ? "AI phản hồi tức thì" : "Instant AI replies"}</span>
-              <span className="rounded-full bg-white/10 px-2.5 py-1">• {isVi ? "Lễ tân trực ca" : "Reception on duty"}</span>
+            <p className="mt-1 text-sm text-slate-500">{isVi ? "Trò chuyện với Trợ lý AI hoặc kết nối lễ tân để được hỗ trợ." : "Chat with VIBE AI or connect with reception for help."}</p>
+            <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600">
+              <span className="rounded-full bg-slate-100 px-2.5 py-1">• {isVi ? "AI phản hồi tức thì" : "Instant AI replies"}</span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1">• {isVi ? "Lễ tân trực ca" : "Reception on duty"}</span>
             </div>
           </div>
         </div>
@@ -422,14 +418,13 @@ export function SupportView() {
           type="button"
           onClick={refreshSupportChat}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-bold text-white shadow-sm backdrop-blur transition hover:bg-white/15 disabled:opacity-50 cursor-pointer"
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
         >
           <RefreshCw
             className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
           />
           <span>{isVi ? "Làm mới" : "Refresh"}</span>
         </button>
-      </div>
       </div>
 
       {error && (
@@ -539,21 +534,20 @@ export function SupportView() {
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-gradient-to-br from-[#0f172a] to-[#172554] p-5 text-white shadow-lg shadow-slate-950/10 space-y-3">
-            <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-emerald-400/10 blur-2xl" />
-            <div className="relative flex items-center gap-2 text-sm font-bold text-white">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-emerald-300"><Phone className="h-4 w-4" /></span>
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5 shadow-sm space-y-3">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-emerald-700"><Phone className="h-4 w-4" /></span>
               <span>
                 {isVi
                   ? "Hotline Trực Trung Tâm"
                   : "Center Hotline Support"}
               </span>
             </div>
-            <p className="relative text-xs leading-relaxed text-blue-100/80">
+            <p className="text-xs leading-relaxed text-slate-600">
               {isVi
                 ? "Hotline hỗ trợ khẩn cấp 24/7:"
                 : "24/7 Emergency Support Hotline:"}{" "}
-              <strong className="mt-1 block font-mono text-2xl font-black tracking-wide text-emerald-300">1900 888 999</strong>
+              <strong className="mt-1 block font-mono text-2xl font-black tracking-wide text-emerald-800">1900 888 999</strong>
             </p>
           </div>
         </div>
