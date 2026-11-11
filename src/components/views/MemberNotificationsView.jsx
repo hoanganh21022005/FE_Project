@@ -10,7 +10,9 @@ import {
   AlertTriangle,
   Info,
   Clock,
-  Filter,
+  Search,
+  SlidersHorizontal,
+  RotateCcw,
   RefreshCw,
   ArrowRight,
   CheckCircle2,
@@ -125,6 +127,7 @@ export function MemberNotificationsView() {
   const [loading, setLoading] = useState(Boolean(apiEnabled))
   const [error, setError] = useState("")
   const [filterType, setFilterType] = useState("all")
+  const [notificationSearch, setNotificationSearch] = useState("")
   const [busyId, setBusyId] = useState(null)
 
   const loadNotifications = useCallback(async () => {
@@ -226,11 +229,13 @@ export function MemberNotificationsView() {
 
   const filtered = useMemo(() => {
     return notifications.filter((n) => {
+      const search = notificationSearch.trim().toLocaleLowerCase()
+      if (search && !`${getLocalizedNotificationText(n.title, isVi)} ${getLocalizedNotificationText(n.message, isVi)}`.toLocaleLowerCase().includes(search)) return false
       if (filterType === "unread") return !n.isRead
       if (filterType === "all") return true
-      return categorizeNotificationType(n.type) === filterType
+      return categorizeNotificationType(n.type || n.category) === filterType
     })
-  }, [notifications, filterType])
+  }, [notifications, filterType, notificationSearch, isVi])
 
   const getIcon = (rawType) => {
     const kind = getNotificationKind(rawType)
@@ -293,40 +298,26 @@ export function MemberNotificationsView() {
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
       <div className="space-y-5 lg:col-span-8">
       {/* Filter Tabs */}
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-        <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500 mr-2">
-          <Filter className="w-3.5 h-3.5" />
-          {isVi ? "Lọc theo:" : "Filter:"}
-        </span>
-        {[
-          { key: "all", labelVi: "Tất cả", labelEn: "All" },
-          {
-            key: "unread",
-            labelVi: `Chưa đọc (${unreadCount})`,
-            labelEn: `Unread (${unreadCount})`,
-          },
-          { key: "class", labelVi: "Lịch tập & Lớp", labelEn: "Classes" },
-          {
-            key: "payment",
-            labelVi: "Hóa đơn & Thanh toán",
-            labelEn: "Billing",
-          },
-          { key: "membership", labelVi: "Gói hội viên", labelEn: "Membership" },
-          { key: "system", labelVi: "Hệ thống & Hỗ trợ", labelEn: "System" },
-        ].map((tab) => (
-          <button
-            type="button"
-            key={tab.key}
-            onClick={() => setFilterType(tab.key)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-              filterType === tab.key
-                ? "bg-blue-700 text-white shadow-sm"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
-          >
-            {isVi ? tab.labelVi : tab.labelEn}
-          </button>
-        ))}
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+        <div className="inline-flex w-fit items-center rounded-xl bg-slate-100 p-1" role="group" aria-label={isVi ? "Trạng thái thông báo" : "Notification status"}>
+          {[{ key: "all", label: isVi ? "Tất cả" : "All" }, { key: "unread", label: `${isVi ? "Chưa đọc" : "Unread"} (${unreadCount})` }].map((tab) => {
+            const active = tab.key === "all" ? filterType !== "unread" : filterType === tab.key
+            return <button key={tab.key} type="button" aria-pressed={active} onClick={() => setFilterType(tab.key)} className={`rounded-lg px-3 py-2 text-xs transition ${active ? "bg-white font-semibold text-slate-900 shadow-2xs" : "font-medium text-slate-600 hover:text-slate-900"}`}>{tab.label}</button>
+          })}
+        </div>
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+          <label className="relative block min-w-0 sm:w-56">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input value={notificationSearch} onChange={(event) => setNotificationSearch(event.target.value)} placeholder={isVi ? "Tìm thông báo..." : "Search notifications..."} aria-label={isVi ? "Tìm thông báo" : "Search notifications"} className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-8 pr-3 text-xs font-medium text-slate-700 outline-none hover:bg-white focus:border-blue-500" />
+          </label>
+          <label className="relative block">
+            <SlidersHorizontal className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <select aria-label={isVi ? "Danh mục thông báo" : "Notification category"} value={["class", "payment", "membership", "system"].includes(filterType) ? filterType : "all"} onChange={(event) => setFilterType(event.target.value)} className="h-9 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 pl-8 pr-7 text-xs font-semibold text-slate-700 hover:bg-white focus:border-blue-500 focus:outline-none sm:w-48">
+              <option value="all">{isVi ? "Danh mục: Tất cả" : "Category: All"}</option><option value="class">{isVi ? "Lịch tập & Lớp" : "Classes & schedule"}</option><option value="payment">{isVi ? "Hóa đơn & Thanh toán" : "Billing & payments"}</option><option value="membership">{isVi ? "Gói hội viên" : "Membership"}</option><option value="system">{isVi ? "Hệ thống & Hỗ trợ" : "System & support"}</option>
+            </select>
+          </label>
+          {(filterType !== "all" || notificationSearch.trim()) && <button type="button" onClick={() => { setFilterType("all"); setNotificationSearch("") }} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"><RotateCcw className="h-3.5 w-3.5" />{isVi ? "Xóa lọc" : "Clear"}</button>}
+        </div>
       </div>
 
       {error && (
@@ -463,15 +454,15 @@ export function MemberNotificationsView() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             {[
-              [isVi ? "Chưa đọc" : "Unread", summaryCounts.unread, "bg-blue-50 text-blue-700"],
-              [isVi ? "Lịch tập" : "Training", summaryCounts.classes, "bg-indigo-50 text-indigo-700"],
-              [isVi ? "Hóa đơn" : "Billing", summaryCounts.billing, "bg-emerald-50 text-emerald-700"],
-              [isVi ? "Hỗ trợ" : "Support", summaryCounts.support, "bg-violet-50 text-violet-700"],
-            ].map(([label, count, tone]) => (
-              <div key={label} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+              [isVi ? "Chưa đọc" : "Unread", summaryCounts.unread, "bg-blue-50 text-blue-700", "unread"],
+              [isVi ? "Lịch tập" : "Training", summaryCounts.classes, "bg-indigo-50 text-indigo-700", "class"],
+              [isVi ? "Hóa đơn" : "Billing", summaryCounts.billing, "bg-emerald-50 text-emerald-700", "payment"],
+              [isVi ? "Hỗ trợ" : "Support", summaryCounts.support, "bg-violet-50 text-violet-700", "system"],
+            ].map(([label, count, tone, filterKey]) => (
+              <button key={label} type="button" onClick={() => { setFilterType(filterKey); setNotificationSearch("") }} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5 text-left transition hover:border-slate-200 hover:bg-white hover:shadow-sm">
                 <span className={`inline-flex rounded-lg px-2 py-1 text-[10px] font-bold ${tone}`}>{label}</span>
                 <p className="mt-2 text-2xl font-black tabular-nums text-slate-900">{count}</p>
-              </div>
+              </button>
             ))}
           </div>
         </section>

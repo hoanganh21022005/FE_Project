@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, Award, ClipboardList, RefreshCw, UserRound } from 'lucide-react';
+import { Activity, Award, ClipboardList, RefreshCw, UserRound, Search, Filter, X } from 'lucide-react';
 import { useSCMS } from '../../context/SCMSContext';
 import { getMemberTrainingPlans, getMemberTrainingResults, getMemberEvaluations, getTrainingPlanById } from '../../api/memberPortalApi';
 import { getAuthoritativeProfileId } from '../../utils/memberSafetyHelpers';
@@ -180,7 +180,11 @@ export function MemberTrainingView() {
                 <Activity className="h-5 w-5 text-brand-teal-dark" />
                 <h2 className="text-lg font-extrabold text-slate-900">{isVi ? 'Kết quả tập luyện' : 'Session results'}</h2>
               </div>
-              <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => setCourseFilter('all')} className={`rounded-full border px-3 py-2 text-xs font-bold ${courseFilter === 'all' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600'}`}>{isVi ? 'Tất cả' : 'All'}</button>{courseNames.map((name) => <button key={name} type="button" onClick={() => setCourseFilter(name)} className={`rounded-full border px-3 py-2 text-xs font-bold ${courseFilter === name ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600'}`}>{name}</button>)}<input value={resultSearch} onChange={(event) => setResultSearch(event.target.value)} placeholder={isVi ? 'Tìm kết quả...' : 'Search results...'} className="min-h-9 flex-1 rounded-xl border border-slate-200 px-3 text-xs" /></div>
+              <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs sm:flex-row sm:items-center">
+                <label className="relative block sm:w-64"><Filter className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><select aria-label={isVi ? 'Lọc theo khóa học' : 'Filter by course'} value={courseFilter} onChange={(event) => setCourseFilter(event.target.value)} className="h-9 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 pl-8 pr-7 text-xs font-semibold text-slate-700 hover:bg-white focus:border-blue-500 focus:outline-none"><option value="all">{isVi ? 'Tất cả khóa học' : 'All courses'}</option>{courseNames.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
+                <label className="relative block min-w-0 flex-1"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={resultSearch} onChange={(event) => setResultSearch(event.target.value)} placeholder={isVi ? 'Tìm kết quả...' : 'Search results...'} className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-8 pr-3 text-xs font-semibold text-slate-700 outline-none hover:bg-white focus:border-blue-500" /></label>
+                {(courseFilter !== 'all' || resultSearch.trim()) && <button type="button" onClick={() => { setCourseFilter('all'); setResultSearch('') }} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100"><X className="h-3.5 w-3.5" />{isVi ? 'Xóa lọc' : 'Clear'}</button>}
+              </div>
               {visibleResults.length ? (
                 <div className="max-h-[620px] space-y-3 overflow-y-auto pr-1">{visibleResults.map((r) => (
                   <article key={r.resultId || r.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">

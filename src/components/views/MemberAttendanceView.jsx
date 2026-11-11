@@ -1384,26 +1384,14 @@ export function MemberAttendanceView() {
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {[
-                { id: "all", label: "Tất cả" },
-                { id: "present", label: "Có mặt" },
-                { id: "late", label: "Đi muộn" },
-                { id: "absent", label: "Vắng mặt" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setApiStatusFilter(tab.id)}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                    apiStatusFilter === tab.id
-                      ? "bg-slate-900 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <div className="flex items-center gap-1.5">
+            <label className="relative block">
+              <SlidersHorizontal className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <select aria-label="Lọc trạng thái điểm danh" value={apiStatusFilter} onChange={(event) => setApiStatusFilter(event.target.value)} className="h-9 min-w-40 appearance-none rounded-xl border border-slate-200 bg-slate-50/80 pl-8 pr-7 text-xs font-semibold text-slate-700 hover:bg-white focus:border-blue-500 focus:outline-none">
+                <option value="all">Tất cả trạng thái</option><option value="present">Có mặt</option><option value="late">Đi muộn</option><option value="absent">Vắng mặt</option>
+              </select>
+            </label>
+            {apiStatusFilter !== "all" && <button type="button" onClick={() => setApiStatusFilter("all")} className="inline-flex h-9 items-center gap-1 rounded-xl px-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100"><X className="h-3.5 w-3.5" />Xóa lọc</button>}
             </div>
           </div>
 

@@ -7,6 +7,8 @@ import {
   FileText,
   RefreshCw,
   Search,
+  Filter,
+  RotateCcw,
   Wallet,
   Receipt,
   XCircle,
@@ -974,8 +976,8 @@ export function MemberInvoicesView() {
           <h2 className="font-bold text-slate-900">
             {isVi ? "Lịch sử hóa đơn" : "Invoice history"}
           </h2>
-          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-            <label className="relative">
+          <div className="flex min-w-0 flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs sm:flex-row sm:items-center">
+            <label className="relative block min-w-0 sm:flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 aria-label={isVi ? "Tìm kiếm hóa đơn" : "Search invoices"}
@@ -984,14 +986,16 @@ export function MemberInvoicesView() {
                 placeholder={
                   isVi ? "Tìm mã hóa đơn, gói..." : "Search invoice, package..."
                 }
-                className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-blue-100 sm:w-80 sm:min-w-[300px]"
+                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2 pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none transition hover:bg-white focus:border-blue-500"
               />
             </label>
+            <label className="relative block">
+            <Filter className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <select
               aria-label={isVi ? "Lọc trạng thái" : "Filter by status"}
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-brand-primary"
+              className="h-9 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 pl-8 pr-7 text-xs font-semibold text-slate-700 hover:bg-white focus:border-blue-500 focus:outline-none sm:w-52"
             >
               <option value="all">
                 {isVi ? "Tất cả trạng thái" : "All statuses"}
@@ -1002,6 +1006,8 @@ export function MemberInvoicesView() {
                 </option>
               ))}
             </select>
+            </label>
+            {(statusFilter !== "all" || keyword.trim()) && <button type="button" onClick={() => { setStatusFilter("all"); setKeyword("") }} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"><RotateCcw className="h-3.5 w-3.5" />{isVi ? "Xóa lọc" : "Clear"}</button>}
           </div>
         </div>
         {loading ? (

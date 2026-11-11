@@ -670,11 +670,14 @@ export function MemberMyCoachView() {
       {activeTab === "coaches" && (
         <section className="space-y-4">
           {/* Search bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {[{ key: "all", label: isVi ? "Tất cả" : "All" }, ...coachSports.map((sport) => ({ key: sport, label: sport }))].map((sport) => <button key={sport.key} type="button" onClick={() => setSportFilter(sport.key)} className={`rounded-full border px-3 py-2 text-xs font-bold ${sportFilter === sport.key ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>{sport.label}</button>)}
-            </div>
-            <div className="flex items-center gap-3"><div className="relative w-full sm:w-80">
+          <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs sm:flex-row sm:items-center">
+            <label className="relative block sm:w-56">
+              <Filter className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <select aria-label={isVi ? "Lọc theo môn thể thao" : "Filter by sport"} value={sportFilter} onChange={(event) => setSportFilter(event.target.value)} className="h-9 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 pl-8 pr-7 text-xs font-semibold text-slate-700 hover:bg-white focus:border-blue-500 focus:outline-none">
+                <option value="all">{isVi ? "Tất cả môn" : "All sports"}</option>{coachSports.map((sport) => <option key={sport} value={sport}>{sport}</option>)}
+              </select>
+            </label>
+            <div className="flex min-w-0 flex-1 items-center gap-3"><div className="relative w-full sm:max-w-sm">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
@@ -686,9 +689,9 @@ export function MemberMyCoachView() {
                     ? "Tìm theo tên HLV, chuyên môn..."
                     : "Search coach name, specialty..."
                 }
-                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-brand-primary shadow-2xs"
+                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2 pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none hover:bg-white focus:border-blue-500"
               />
-            </div><div className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
+            </div>{(sportFilter !== "all" || keyword.trim()) && <button type="button" onClick={() => { setSportFilter("all"); setKeyword("") }} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100"><X className="h-3.5 w-3.5" />{isVi ? "Xóa lọc" : "Clear"}</button>}<div className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
               {isVi
                 ? `Hiển thị ${coaches.length} HLV`
                 : `Showing ${coaches.length} coaches`}

@@ -17,6 +17,7 @@ import {
   QrCode,
   RefreshCw,
   Search,
+  SlidersHorizontal,
   X,
 } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
@@ -2083,35 +2084,19 @@ export function MemberCheckinView() {
 
         {/* Bộ lọc trạng thái, tìm kiếm & khoảng ngày */}
         <div className="space-y-3">
-          <div
-            className="flex flex-wrap items-center gap-1.5"
-            role="group"
-            aria-label={t("filter")}
-          >
-            {[
-              { key: "all", icon: null, label: t("checkinFilterAll"), count: historyCounts.all },
-              { key: "present", icon: "✓", label: t("checkinFilterPresent"), count: historyCounts.present },
-              { key: "late", icon: "◑", label: t("checkinFilterLate"), count: historyCounts.late },
-              { key: "absent", icon: "✕", label: t("checkinFilterAbsent"), count: historyCounts.absent },
-              { key: "excused", icon: "◈", label: t("checkinFilterExcused"), count: historyCounts.excused },
-            ].map((chip) => {
-              const isSelected = historyStatus === chip.key
-              const isZero = !historyLoading && !historyFailed && chip.count === 0
-              return (
-                <button
-                  key={chip.key}
-                  type="button"
-                  aria-pressed={isSelected}
-                  onClick={() => setHistoryStatus(chip.key)}
-                  className={`min-h-[36px] inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer ${isSelected ? "border-slate-900 bg-slate-900 text-white shadow-2xs" : isZero ? "border-slate-200 bg-slate-50 text-slate-400 opacity-65 hover:opacity-100" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
-                >
-                  {chip.icon && <span aria-hidden="true">{chip.icon}</span>}
-                  <span>{chip.label} ({historyLoading || historyFailed ? "–" : chip.count})</span>
-                </button>
-              )
-            })}
+          <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+            <label className="relative block sm:w-64">
+              <SlidersHorizontal className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <select aria-label={t("filter")} value={historyStatus} onChange={(event) => setHistoryStatus(event.target.value)} className="h-9 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 pl-8 pr-7 text-xs font-semibold text-slate-700 hover:bg-white focus:border-blue-500 focus:outline-none">
+                <option value="all">{t("checkinFilterAll")} ({historyLoading || historyFailed ? "–" : historyCounts.all})</option>
+                <option value="present">{t("checkinFilterPresent")} ({historyLoading || historyFailed ? "–" : historyCounts.present})</option>
+                <option value="late">{t("checkinFilterLate")} ({historyLoading || historyFailed ? "–" : historyCounts.late})</option>
+                <option value="absent">{t("checkinFilterAbsent")} ({historyLoading || historyFailed ? "–" : historyCounts.absent})</option>
+                <option value="excused">{t("checkinFilterExcused")} ({historyLoading || historyFailed ? "–" : historyCounts.excused})</option>
+              </select>
+            </label>
             {hasHistoryFilters && (
-              <button type="button" onClick={clearHistoryFilters} className="min-h-[36px] inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-slate-700 underline hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer">
+              <button type="button" onClick={clearHistoryFilters} className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer">
                 <X className="h-3.5 w-3.5" /><span>{t("checkinClearFilters")}</span>
               </button>
             )}
