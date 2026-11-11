@@ -5,7 +5,6 @@ import {
   Camera,
   Trash2,
   Loader2,
-  Upload,
   CheckCircle2,
   AlertCircle,
   Lock,
@@ -444,7 +443,7 @@ export function PersonalProfileView() {
         <form onSubmit={submit} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.02] sm:p-7 lg:col-span-8">
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><UserRound className="h-5 w-5" /></span>
-            <div><h2 className="text-lg font-black tracking-tight text-slate-950">{isVi ? "Thông tin cá nhân" : "Personal information"}</h2><p className="mt-0.5 text-xs text-slate-500">{isVi ? "Thông tin hồ sơ phục vụ tập luyện và định danh." : "Profile details for training and account identity."}</p></div>
+            <div><h2 className="text-lg font-black tracking-tight text-slate-950">{isVi ? "Hồ sơ cá nhân" : "Personal profile"}</h2><p className="mt-0.5 text-xs text-slate-500">{isVi ? "Thông tin hồ sơ phục vụ tập luyện và định danh." : "Profile details for training and account identity."}</p></div>
           </div>
           {loading ? <p className="py-12 text-center text-sm text-slate-500">{isVi ? "Đang tải hồ sơ…" : "Loading profile…"}</p> : <>
             <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
@@ -459,8 +458,8 @@ export function PersonalProfileView() {
             </div>
 
             <div className="grid gap-5 border-t border-slate-100 pt-5 sm:grid-cols-2">
-              <label className="block space-y-1.5"><span className="block text-xs font-bold text-slate-700">{isVi ? "Mục tiêu tập luyện" : "Training goal"}</span><textarea name="goal" value={profile.goal || ""} onChange={change} rows={4} placeholder={isVi ? "Ví dụ: cải thiện sức bền, tăng cơ hoặc duy trì thói quen vận động…" : "For example: improve endurance, build strength, or stay active…"} className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm leading-relaxed outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100" /></label>
-              <label className="block space-y-1.5"><span className="block text-xs font-bold text-slate-700">{isVi ? "Lưu ý sức khỏe" : "Health notes"}</span><textarea name="healthNote" value={profile.healthNote || ""} onChange={change} rows={4} placeholder={isVi ? "Chia sẻ chấn thương, dị ứng hoặc lưu ý sức khỏe cần biết…" : "Share injuries, allergies, or relevant health considerations…"} className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm leading-relaxed outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100" /></label>
+              <label className="block space-y-1.5"><span className="block text-xs font-bold text-slate-700">{isVi ? "Mục tiêu tập luyện" : "Training goal"}</span><textarea name="goal" value={profile.goal || ""} onChange={change} rows={4} placeholder={isVi ? "Ví dụ: Giảm mỡ tăng cơ, cải thiện sức bền hoặc nâng cao kỹ thuật Cầu lông..." : "For example: build strength, improve endurance, or develop your badminton technique..."} className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm leading-relaxed outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100" /></label>
+              <label className="block space-y-1.5"><span className="block text-xs font-bold text-slate-700">{isVi ? "Lưu ý sức khỏe" : "Health notes"}</span><textarea name="healthNote" value={profile.healthNote || ""} onChange={change} rows={4} placeholder={isVi ? "Ví dụ: Tiền sử đau cổ tay, dị ứng hoặc lưu ý đặc biệt cho HLV..." : "For example: wrist pain history, allergies, or notes for your coach..."} className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm leading-relaxed outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100" /></label>
             </div>
 
             <div className="flex justify-end border-t border-slate-100 pt-5">
