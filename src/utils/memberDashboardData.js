@@ -67,9 +67,9 @@ export const getAttendedCount = (attendances, memberId) => {
   }
   return attendances.filter(
     (attendance) =>
-      String(attendance?.memberId ?? attendance?.userId ?? attendance?.profileId ?? "") === String(memberId) &&
+      String(attendance?.memberId ?? attendance?.userId ?? attendance?.profileId ?? attendance?.member_id ?? "") === String(memberId) &&
       ATTENDED_STATES.has(
-        normalizeState(attendance?.state ?? attendance?.status),
+        normalizeState(attendance?.state ?? attendance?.status ?? attendance?.attendanceStatus),
       ),
   ).length
 }
