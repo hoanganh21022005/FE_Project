@@ -20,7 +20,17 @@ export function MemberTrainingView() {
   const [error, setError] = useState('');
   const [courseFilter, setCourseFilter] = useState('all');
   const [resultSearch, setResultSearch] = useState('');
-  const cleanText = (value) => String(value || '').replace(/\bdemo\s*/gi, '').trim();
+  const cleanText = (value) => {
+    const cleaned = String(value || '').replace(/\bdemo\s*/gi, '').trim();
+    return cleaned ? cleaned.charAt(0).toLocaleUpperCase(isVi ? 'vi-VN' : 'en-US') + cleaned.slice(1) : '';
+  };
+  const formatDate = (value) => {
+    if (!value) return '—';
+    const match = String(value).match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (match) return `${match[3].padStart(2, '0')}/${match[2].padStart(2, '0')}/${match[1]}`;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+  };
   const courseNames = useMemo(() => [...new Set(results.map((item) => cleanText(item.className)).filter(Boolean))], [results]);
   const visibleResults = useMemo(() => results.filter((item) => (courseFilter === 'all' || cleanText(item.className) === courseFilter) && (!resultSearch.trim() || `${item.className || ''} ${item.content || ''} ${item.coachName || ''}`.toLocaleLowerCase().includes(resultSearch.trim().toLocaleLowerCase()))).sort((a, b) => String(b.sessionDate || '').localeCompare(String(a.sessionDate || ''))), [results, courseFilter, resultSearch]);
 
@@ -208,12 +218,12 @@ export function MemberTrainingView() {
                 <h2 id="training-plan-title" className="mt-2 text-xl font-extrabold text-slate-900">{cleanText(selectedPlan.title) || (isVi ? 'Chi tiết kế hoạch tập luyện' : 'Training plan details')}</h2>
                 <div className="mt-3 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs"><UserRound className="h-4 w-4 text-slate-500"/><span className="font-semibold text-slate-700">{cleanText(selectedPlan.coachName) || (isVi ? 'Huấn luyện viên' : 'Coach')}</span></div>
               </div>
-              <button type="button" aria-label={isVi ? 'Đóng' : 'Close'} onClick={() => setSelectedPlan(null)} className="rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100">×</button>
+              <button type="button" aria-label={isVi ? 'Đóng' : 'Close'} onClick={() => setSelectedPlan(null)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-base font-bold text-slate-600 hover:bg-slate-100">×</button>
             </header>
             <div className="overflow-y-auto p-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <section className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{isVi ? 'Mục tiêu' : 'Objectives'}</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-800">{cleanText(selectedPlan.goal) || (isVi ? 'Chưa có mục tiêu cụ thể.' : 'No objective provided.')}</p></section>
-                <section className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{isVi ? 'Lịch tập & thời lượng' : 'Schedule & duration'}</p><p className="mt-2 text-sm font-semibold text-slate-800">{[selectedPlan.startDate, selectedPlan.endDate].filter(Boolean).map((date) => { const parsed = new Date(date); return Number.isNaN(parsed.getTime()) ? date : parsed.toLocaleDateString(isVi ? 'vi-VN' : 'en-GB') }).join(' – ') || '—'}</p>{selectedPlan.duration && <p className="mt-1 text-xs text-slate-600">{cleanText(selectedPlan.duration)}</p>}</section>
+                <section className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{isVi ? 'Lịch tập & thời lượng' : 'Schedule & duration'}</p><p className="mt-2 text-sm font-semibold text-slate-800">{[selectedPlan.startDate, selectedPlan.endDate].filter(Boolean).map(formatDate).join(' – ') || (isVi ? 'Theo lịch khóa học' : 'According to course schedule')}</p>{selectedPlan.duration && <p className="mt-1 text-xs text-slate-600">{cleanText(selectedPlan.duration)}</p>}</section>
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:col-span-2"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{isVi ? 'Bài tập & các giai đoạn' : 'Exercises & phases'}</p><div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{cleanText(selectedPlan.content) || '—'}</div></section>
                 <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 sm:col-span-2"><p className="text-xs font-bold uppercase tracking-wide text-amber-900">{isVi ? 'Ghi chú từ Huấn luyện viên' : 'Coach notes'}</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{cleanText(selectedPlan.coachNotes || selectedPlan.notes) || (isVi ? 'Chưa có ghi chú.' : 'No notes provided.')}</p></section>
               </div>
