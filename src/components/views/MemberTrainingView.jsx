@@ -200,33 +200,25 @@ export function MemberTrainingView() {
       )}
 
       {selectedPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-900">
-                {selectedPlan.title || (isVi ? 'Chi tiết kế hoạch tập luyện' : 'Training Plan Details')}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setSelectedPlan(null)}
-                className="text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
-              >
-                {isVi ? 'Đóng' : 'Close'}
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="training-plan-title" className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+              <div className="min-w-0">
+                <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-800">{cleanText(selectedPlan.className || selectedPlan.subjectName || (isVi ? 'Giáo án huấn luyện' : 'Training plan'))}</span>
+                <h2 id="training-plan-title" className="mt-2 text-xl font-extrabold text-slate-900">{cleanText(selectedPlan.title) || (isVi ? 'Chi tiết kế hoạch tập luyện' : 'Training plan details')}</h2>
+                <div className="mt-3 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs"><UserRound className="h-4 w-4 text-slate-500"/><span className="font-semibold text-slate-700">{cleanText(selectedPlan.coachName) || (isVi ? 'Huấn luyện viên' : 'Coach')}</span></div>
+              </div>
+              <button type="button" aria-label={isVi ? 'Đóng' : 'Close'} onClick={() => setSelectedPlan(null)} className="rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100">×</button>
+            </header>
+            <div className="overflow-y-auto p-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <section className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{isVi ? 'Mục tiêu' : 'Objectives'}</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-800">{cleanText(selectedPlan.goal) || (isVi ? 'Chưa có mục tiêu cụ thể.' : 'No objective provided.')}</p></section>
+                <section className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{isVi ? 'Lịch tập & thời lượng' : 'Schedule & duration'}</p><p className="mt-2 text-sm font-semibold text-slate-800">{[selectedPlan.startDate, selectedPlan.endDate].filter(Boolean).map((date) => { const parsed = new Date(date); return Number.isNaN(parsed.getTime()) ? date : parsed.toLocaleDateString(isVi ? 'vi-VN' : 'en-GB') }).join(' – ') || '—'}</p>{selectedPlan.duration && <p className="mt-1 text-xs text-slate-600">{cleanText(selectedPlan.duration)}</p>}</section>
+                <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:col-span-2"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{isVi ? 'Bài tập & các giai đoạn' : 'Exercises & phases'}</p><div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{cleanText(selectedPlan.content) || '—'}</div></section>
+                <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 sm:col-span-2"><p className="text-xs font-bold uppercase tracking-wide text-amber-900">{isVi ? 'Ghi chú từ Huấn luyện viên' : 'Coach notes'}</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{cleanText(selectedPlan.coachNotes || selectedPlan.notes) || (isVi ? 'Chưa có ghi chú.' : 'No notes provided.')}</p></section>
+              </div>
             </div>
-            <div className="space-y-2 text-sm text-slate-700">
-              {selectedPlan.goal && (
-                <p>
-                  <strong>{isVi ? 'Mục tiêu: ' : 'Goal: '}</strong>
-                  {selectedPlan.goal}
-                </p>
-              )}
-              <p className="whitespace-pre-wrap leading-6">{selectedPlan.content || '—'}</p>
-              <p className="text-xs text-slate-500 pt-2">
-                {selectedPlan.coachName ? `HLV: ${selectedPlan.coachName} · ` : ''}
-                {selectedPlan.startDate || '—'} – {selectedPlan.endDate || '—'}
-              </p>
-            </div>
+            <footer className="flex justify-end border-t border-slate-200 bg-white px-6 py-4"><button type="button" onClick={() => setSelectedPlan(null)} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">{isVi ? 'Đóng' : 'Close'}</button></footer>
           </div>
         </div>
       )}
