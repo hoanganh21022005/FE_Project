@@ -698,7 +698,7 @@ export function MemberDashboard() {
 
   return (
     <main className="min-h-full w-full overflow-x-hidden bg-slate-50/70 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div className="mx-auto max-w-[1400px] w-full space-y-6 px-6 lg:space-y-7">
+      <div className="min-w-0 w-full max-w-[1400px] space-y-6 lg:space-y-7">
         <PageHeader
           title={isVi ? "Tổng quan" : "Overview"}
           description={

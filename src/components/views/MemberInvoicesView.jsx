@@ -666,7 +666,7 @@ export function MemberInvoicesView() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-7 sm:py-8">
+    <main className="w-full max-w-6xl space-y-6 px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-0">
       <PageHeader
         title={isVi ? "Hóa đơn & thanh toán" : "Invoices & payments"}
         description={isVi ? "Theo dõi hóa đơn và trạng thái thanh toán của bạn." : "Review your invoices and payment status."}
