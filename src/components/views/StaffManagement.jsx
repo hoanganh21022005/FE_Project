@@ -5,6 +5,9 @@ import { EditStaffModal } from '../modals/EditStaffModal';
 import { isValidNumericId } from '../../api/schemaValidators';
 import {
   Users,
+  Dumbbell,
+  UserCheck,
+  Shield,
   Lock,
   Unlock,
   UserPlus,
@@ -12,14 +15,19 @@ import {
   Mail,
   SearchX,
   ShieldCheck,
-  Dumbbell,
-  UserCheck,
-  Shield,
   Edit2,
   RefreshCw,
   AlertTriangle,
   Search,
 } from 'lucide-react';
+
+function getStaffInitials(name) {
+  const words = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  const first = words[0].charAt(0).toLocaleUpperCase();
+  const last = words.length > 1 ? words.at(-1).charAt(0).toLocaleUpperCase() : '';
+  return `${first}${last}`;
+}
 
 export function StaffManagement() {
   const {
@@ -44,11 +52,14 @@ export function StaffManagement() {
   const coachCount = staff.filter(s => s.role === 'coach').length;
   const receptionistCount = staff.filter(s => s.role === 'receptionist').length;
   const activeCount = staff.filter(s => s.status === 'active').length;
+  const staffMetricsReady = !staffLoading && !staffError;
+  const activeRatio = totalStaff > 0 ? Math.round((activeCount / totalStaff) * 100) : 0;
 
   const filteredStaff = staff.filter(s => {
     const nameMatch = (s.name || '').toLowerCase().includes(searchTerm.toLowerCase());
     const emailMatch = (s.email || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSearch = nameMatch || emailMatch;
+    const phoneMatch = (s.phone || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = nameMatch || emailMatch || phoneMatch;
     const matchesRole = roleFilter === 'all' || s.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -65,6 +76,22 @@ export function StaffManagement() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-start gap-3">
+        <div className="rounded-xl bg-violet-100 p-2.5 text-violet-700">
+          <Users className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+            {language === 'vi' ? 'Nhân viên' : t('staff')}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {language === 'vi'
+              ? 'Quản lý thông tin nhân viên, huấn luyện viên và các vai trò trong trung tâm.'
+              : 'Manage staff, coaches and roles across your center.'}
+          </p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {/* Card 1: Total Staff */}
         <button
@@ -74,11 +101,11 @@ export function StaffManagement() {
             roleFilter === 'all' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
           }`}
         >
-          <div className="flex items-center justify-between text-slate-500 text-xs mb-2 font-medium">
+          <div className="flex items-start justify-between gap-2 text-slate-500 text-xs mb-2 font-medium">
             <span>{language === 'vi' ? 'Tổng nhân sự' : 'Total Staff'}</span>
-            <Users className="w-4 h-4 text-slate-400" />
+            <span className="rounded-lg bg-blue-50 p-2 text-blue-700"><Users className="h-4 w-4" aria-hidden="true" /></span>
           </div>
-          <div className="text-2xl font-semibold tracking-tight text-slate-900 tabular-nums">{totalStaff}</div>
+          <div className="text-2xl font-semibold tracking-tight text-blue-800 tabular-nums">{staffMetricsReady ? totalStaff : '—'}</div>
           <p className="text-xs text-slate-500 mt-1">
             {language === 'vi' ? 'Bao gồm toàn bộ nhân viên' : 'All staff members'}
           </p>
@@ -92,11 +119,11 @@ export function StaffManagement() {
             roleFilter === 'coach' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
           }`}
         >
-          <div className="flex items-center justify-between text-slate-500 text-xs mb-2 font-medium">
+          <div className="flex items-start justify-between gap-2 text-slate-500 text-xs mb-2 font-medium">
             <span>{language === 'vi' ? 'Huấn luyện viên' : 'Coaches'}</span>
-            <Dumbbell className="w-4 h-4 text-slate-400" />
+            <span className="rounded-lg bg-violet-50 p-2 text-violet-700"><Dumbbell className="h-4 w-4" aria-hidden="true" /></span>
           </div>
-          <div className="text-2xl font-semibold tracking-tight text-slate-900 tabular-nums">{coachCount}</div>
+          <div className="text-2xl font-semibold tracking-tight text-violet-800 tabular-nums">{staffMetricsReady ? coachCount : '—'}</div>
           <p className="text-xs text-slate-500 mt-1">
             {language === 'vi' ? 'Phụ trách lớp & tập luyện' : 'Assigned to classes & training'}
           </p>
@@ -110,11 +137,11 @@ export function StaffManagement() {
             roleFilter === 'receptionist' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
           }`}
         >
-          <div className="flex items-center justify-between text-slate-500 text-xs mb-2 font-medium">
+          <div className="flex items-start justify-between gap-2 text-slate-500 text-xs mb-2 font-medium">
             <span>{language === 'vi' ? 'Nhân viên lễ tân' : 'Receptionists'}</span>
-            <UserCheck className="w-4 h-4 text-slate-400" />
+            <span className="rounded-lg bg-orange-50 p-2 text-orange-700"><UserCheck className="h-4 w-4" aria-hidden="true" /></span>
           </div>
-          <div className="text-2xl font-semibold tracking-tight text-slate-900 tabular-nums">{receptionistCount}</div>
+          <div className="text-2xl font-semibold tracking-tight text-orange-800 tabular-nums">{staffMetricsReady ? receptionistCount : '—'}</div>
           <p className="text-xs text-slate-500 mt-1">
             {language === 'vi' ? 'Tiếp đón & ghi nhận thanh toán' : 'Check-in & payment processing'}
           </p>
@@ -122,16 +149,23 @@ export function StaffManagement() {
 
         {/* Card 4: Active Accounts */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 text-xs mb-2 font-medium">
+          <div className="flex items-start justify-between gap-2 text-slate-500 text-xs mb-2 font-medium">
             <span>{language === 'vi' ? 'Đang hoạt động' : 'Active Accounts'}</span>
-            <Shield className="w-4 h-4 text-slate-400" />
+            <span className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><Shield className="h-4 w-4" aria-hidden="true" /></span>
           </div>
-          <div className="text-2xl font-semibold tracking-tight text-slate-900 tabular-nums">
-            {activeCount} / {totalStaff}
+          <div className="text-2xl font-semibold tracking-tight text-emerald-800 tabular-nums">
+            {staffMetricsReady ? `${activeCount} / ${totalStaff}` : '—'}
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            {language === 'vi' ? `${totalStaff - activeCount} tài khoản tạm khóa` : `${totalStaff - activeCount} inactive`}
+            {staffMetricsReady
+              ? (language === 'vi' ? `${totalStaff - activeCount} tài khoản chưa hoạt động` : `${totalStaff - activeCount} inactive`)
+              : (language === 'vi' ? 'Chưa có dữ liệu' : 'No data available')}
           </p>
+          {staffMetricsReady && (
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-emerald-100" aria-label={`${activeRatio}% active`}>
+              <div className="h-full rounded-full bg-emerald-600 transition-[width]" style={{ width: `${activeRatio}%` }} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -163,7 +197,7 @@ export function StaffManagement() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
-              placeholder={language === 'vi' ? 'Tìm theo tên hoặc email...' : 'Search by name or email...'}
+              placeholder={language === 'vi' ? 'Tìm theo tên, email hoặc số điện thoại...' : 'Search by name, email or phone...'}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               aria-label={language === 'vi' ? 'Tìm nhân viên' : 'Search staff'}
@@ -199,10 +233,20 @@ export function StaffManagement() {
       {/* Staff Data Table */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 uppercase tracking-wide border-b border-slate-200 font-semibold text-[11px]">
+          <table className="w-full min-w-[1180px] table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[6%]" />
+              <col className="w-[18%]" />
+              <col className="w-[12%]" />
+              <col className="w-[17%]" />
+              <col className="w-[22%]" />
+              <col className="w-[11%]" />
+              <col className="w-[14%]" />
+            </colgroup>
+            <thead className="bg-slate-50 text-slate-600 uppercase tracking-wide border-b border-slate-200 font-semibold text-[11px] [&_th]:border-r [&_th]:border-slate-200 [&_th:last-child]:border-r-0">
               <tr>
-                <th className="py-3 px-4">{language === 'vi' ? 'Mã và họ tên' : 'Code and name'}</th>
+                <th className="py-3 px-4 text-center">{language === 'vi' ? 'STT' : 'No.'}</th>
+                <th className="py-3 px-4">{language === 'vi' ? 'Nhân viên' : 'Employee'}</th>
                 <th className="py-3 px-4">{language === 'vi' ? 'Vai trò' : 'Role'}</th>
                 <th className="py-3 px-4">{language === 'vi' ? 'Chuyên môn' : 'Specialization'}</th>
                 <th className="py-3 px-4">{language === 'vi' ? 'Liên hệ' : 'Contact'}</th>
@@ -210,10 +254,11 @@ export function StaffManagement() {
                 <th className="py-3 px-4 text-right">{language === 'vi' ? 'Thao tác' : 'Actions'}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="divide-y divide-slate-200 text-slate-700 [&_td]:border-r [&_td]:border-slate-100 [&_td:last-child]:border-r-0">
               {staffLoading ? (
                 [...Array(4)].map((_, idx) => (
                   <tr key={idx} className="animate-pulse h-[62px]">
+                    <td className="py-3 px-5 text-center"><div className="h-4 bg-slate-100 rounded w-5 mx-auto" /></td>
                     <td className="py-3 px-5"><div className="h-4 bg-slate-200 rounded w-32 mb-2" /><div className="h-3 bg-slate-100 rounded w-20" /></td>
                     <td className="py-3 px-5"><div className="h-6 bg-slate-100 rounded-full w-24" /></td>
                     <td className="py-3 px-5"><div className="h-4 bg-slate-100 rounded w-32" /></td>
@@ -223,23 +268,29 @@ export function StaffManagement() {
                   </tr>
                 ))
               ) : (
-                filteredStaff.map(s => (
+                filteredStaff.map((s, index) => (
                   <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3.5 px-4 text-center text-xs tabular-nums text-slate-500">{index + 1}</td>
                     <td className="py-3.5 px-5">
-                      <div className="font-semibold text-slate-900">{s.name}</div>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-50 text-xs font-semibold text-violet-700 ring-1 ring-violet-100" aria-hidden="true">
+                          {getStaffInitials(s.name)}
+                        </span>
+                        <span className="min-w-0 truncate font-semibold text-slate-900" title={s.name || undefined}>{s.name || '—'}</span>
+                      </div>
                     </td>
                     <td className="py-3.5 px-5">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${
-                        s.role === 'manager' ? 'bg-slate-100 text-slate-700 border-slate-200' :
+                        s.role === 'manager' ? 'bg-violet-50 text-violet-700 border-violet-100' :
                         s.role === 'coach' ? 'bg-sky-50 text-sky-700 border-sky-100' :
                         'bg-stone-50 text-stone-700 border-stone-200'
                       }`}>
-                        {t(s.role === 'manager' ? 'roleManager' : s.role === 'coach' ? 'roleCoach' : 'roleReceptionist')}
+                        {s.role === 'manager' ? t('roleManager') : s.role === 'coach' ? t('roleCoach') : s.role === 'receptionist' ? t('roleReceptionist') : (s.beRole || s.role || '—')}
                       </span>
                     </td>
                     <td className="py-3.5 px-5 text-slate-800">
                       <div>
-                        {s.specialization || s.specialty || (language === 'vi' ? 'Bộ phận vận hành' : 'Operations')}
+                        {s.specialization || s.specialty || '—'}
                       </div>
                       {s.activeClassesCount ? (
                         <div className="text-xs text-slate-500 font-medium mt-1">
@@ -250,7 +301,7 @@ export function StaffManagement() {
                     <td className="py-3.5 px-5">
                       <div className="flex items-center gap-2 text-slate-700">
                         <Mail className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{s.email || '—'}</span>
+                        <span className="min-w-0 truncate" title={s.email || undefined}>{s.email || '—'}</span>
                       </div>
                       <div className="flex items-center gap-2 text-slate-500 text-xs tabular-nums mt-1">
                         <Phone className="w-3.5 h-3.5 text-slate-400" />
@@ -259,12 +310,16 @@ export function StaffManagement() {
                     </td>
                     <td className="py-3.5 px-5">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${
-                        s.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-600 border-slate-200'
+                        s.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : s.status === 'locked' ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-slate-100 text-slate-600 border-slate-200'
                       }`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${s.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                        {language === 'vi'
-                          ? (s.status === 'active' ? 'Hoạt động' : 'Tạm khóa')
-                          : (s.status === 'active' ? 'Active' : 'Locked')}
+                        <span className={`h-1.5 w-1.5 rounded-full ${s.status === 'active' ? 'bg-emerald-500' : s.status === 'locked' ? 'bg-rose-500' : 'bg-slate-400'}`} />
+                        {s.status === 'active'
+                          ? (language === 'vi' ? 'Hoạt động' : 'Active')
+                          : s.status === 'locked'
+                            ? (language === 'vi' ? 'Tạm khóa' : 'Locked')
+                            : s.status === 'inactive'
+                              ? (language === 'vi' ? 'Không hoạt động' : 'Inactive')
+                              : (s.rawStatus || s.status || '—')}
                       </span>
                     </td>
                     <td className="py-3.5 px-5 text-right">
@@ -311,7 +366,7 @@ export function StaffManagement() {
 
               {!staffLoading && filteredStaff.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="py-12 px-4 text-center">
+                  <td colSpan="7" className="py-12 px-4 text-center">
                     <SearchX className="w-8 h-8 text-stone-300 mx-auto" />
                     <p className="mt-3 text-sm font-bold text-stone-800">
                       {language === 'vi' ? 'Không tìm thấy nhân viên' : 'No matching staff found'}
@@ -333,9 +388,6 @@ export function StaffManagement() {
           </table>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/70 px-5 py-3 text-xs text-slate-500">
-          <span>{language === 'vi' ? `Hiển thị ${filteredStaff.length} nhân viên` : `Showing ${filteredStaff.length} staff members`}</span>
-        </div>
       </div>
 
       <NewStaffModal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} />

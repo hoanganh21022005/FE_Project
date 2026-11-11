@@ -238,7 +238,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
               ? "translate-x-0 shadow-2xl"
               : "-translate-x-full md:translate-x-0"
           }
-          w-[260px] ${collapsed ? "md:w-16" : "md:w-[256px]"}
+          w-[288px] ${collapsed ? "md:w-16" : "md:w-[288px]"}
         `}
       >
         {/* Brand Header & Navigation */}
@@ -311,7 +311,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           </div>
 
           {/* Navigation Menu */}
-          <nav className="p-2 space-y-1">
+          <nav className="p-2.5 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = Array.isArray(item.matchPaths)
@@ -328,9 +328,9 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
                   type="button"
                   key={item.path}
                   onClick={() => handleNav(item.path)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded text-xs transition-all cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all cursor-pointer ${
                     isActive
-                      ? "bg-brand-primary text-white font-bold border-l-2 border-brand-accent shadow-2xs"
+                      ? "bg-brand-primary text-white font-semibold border-l-2 border-brand-accent shadow-2xs"
                       : "text-slate-200 hover:text-white hover:bg-brand-dark-hover font-medium"
                   }`}
                   title={collapsed ? item.label || t(item.labelKey) : undefined}
@@ -352,12 +352,12 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
         </div>
 
         {/* Footer Settings & Support */}
-        <div className="p-2 border-t border-brand-dark-hover space-y-1">
+        <div className="p-2.5 border-t border-brand-dark-hover space-y-1">
           {role === "member" && (
             <button
               type="button"
               onClick={() => handleNav("/profile")}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded text-xs font-medium transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all cursor-pointer ${
                 location.pathname === "/profile"
                   ? "bg-brand-primary text-white font-bold border-l-2 border-brand-accent"
                   : "text-slate-200 hover:text-white hover:bg-brand-dark-hover"
@@ -381,7 +381,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           <button
             type="button"
             onClick={() => handleNav("/settings")}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded text-xs font-medium transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all cursor-pointer ${
               location.pathname.includes("/settings")
                 ? "bg-brand-primary text-white font-bold border-l-2 border-brand-accent"
                 : "text-slate-200 hover:text-white hover:bg-brand-dark-hover"
@@ -397,7 +397,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           <button
             type="button"
             onClick={() => handleNav("/support")}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded text-xs font-medium transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all cursor-pointer ${
               location.pathname.includes("/support")
                 ? "bg-brand-primary text-white font-bold border-l-2 border-brand-accent"
                 : "text-slate-200 hover:text-white hover:bg-brand-dark-hover"

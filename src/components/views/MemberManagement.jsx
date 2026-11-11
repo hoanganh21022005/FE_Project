@@ -239,7 +239,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
           <table className="w-full text-left text-[13px]">
             <thead className="bg-brand-dark text-slate-200 uppercase tracking-wider border-b border-slate-200 font-bold text-xs">
               <tr>
-                <th className="py-3 px-4">{language === 'vi' ? 'Mã và họ tên' : 'Code and name'}</th>
+                <th className="py-3 px-4">{language === 'vi' ? 'Họ và tên' : 'Name'}</th>
                 <th className="py-3 px-4">{language === 'vi' ? 'Liên hệ' : 'Contact'}</th>
                 <th className="py-3 px-4">{language === 'vi' ? 'Gói hiện tại' : 'Current package'}</th>
                 <th className="py-3 px-4">{language === 'vi' ? 'Huấn luyện viên' : 'Coach'}</th>
@@ -267,7 +267,6 @@ export function MemberManagement({ onSelectMemberDetail }) {
                   <tr key={m.id} className="hover:bg-brand-blue-soft/50 transition-colors h-[42px]">
                     <td className="py-2 px-4 font-bold text-slate-900">
                       <div>{m.name}</div>
-                      <div className="text-xs text-slate-500 font-mono tabular-nums">{m.code}</div>
                     </td>
                     <td className="py-2 px-4">
                       <div>{m.email}</div>
