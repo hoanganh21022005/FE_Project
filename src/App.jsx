@@ -831,7 +831,9 @@ function SCMSApp() {
           />
           <main
             className={`flex-1 ${
-              location.pathname.startsWith("/member")
+              location.pathname.startsWith("/member") ||
+              location.pathname.startsWith("/support") ||
+              location.pathname.startsWith("/profile")
                 ? "min-w-0 overflow-y-auto w-full bg-bg-main"
                 : location.pathname.startsWith("/manager")
                   ? "min-w-0 p-3 sm:p-4 md:p-6 overflow-y-auto w-full"
