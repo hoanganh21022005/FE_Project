@@ -285,17 +285,21 @@ export function SessionCell({ item, onSelect, language, t }) {
       onClick={() => onSelect(item)}
       aria-label={ariaLabel}
       title={tooltipText}
-      className={`w-full text-left rounded-md border p-1.5 transition-all hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer space-y-0.5 ${
+      className={`relative w-full text-left rounded-xl border p-2 pl-3 transition-all hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer space-y-1 ${
         meta.cellClass
       } ${
-        item.kind === "pt"
-          ? "border-l-[3px] border-l-indigo-600"
-          : "border-l-[3px] border-l-sky-600"
+        item.uiState === "completed_present"
+            ? "border-l-4 border-l-emerald-600"
+            : item.uiState === "completed_absent"
+              ? "border-l-4 border-l-rose-500"
+              : item.kind === "pt"
+                ? "border-l-4 border-l-indigo-600"
+              : "border-l-4 border-l-sky-600"
       }`}
     >
       {/* Dòng 1: Giờ (cỡ nhỏ gọn) + Icon trạng thái ở góc phải */}
       <div className="flex items-center justify-between gap-1">
-        <span className="text-[11px] font-bold tracking-tight text-slate-700 tabular-nums">
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold tracking-tight text-slate-700 tabular-nums">
           {item.startTime}–{item.endTime}
         </span>
         <span
@@ -322,7 +326,7 @@ export function SessionCell({ item, onSelect, language, t }) {
 
       {/* Dòng 2: Tên lớp (tối đa 2 dòng, text-wrap:balance để cân đều 2 dòng) */}
       <p
-        className={`text-[12px] font-bold leading-snug line-clamp-2 break-words ${
+        className={`text-[12px] font-bold leading-snug break-words ${
           meta.titleStrike ? "line-through text-slate-500" : "text-slate-900"
         }`}
         style={{ textWrap: "balance" }}
@@ -330,8 +334,8 @@ export function SessionCell({ item, onSelect, language, t }) {
         {item.className}
       </p>
 
-      {/* Dòng 3: Sân (1 dòng, cắt nếu dài) */}
-      <p className="text-[11px] font-medium text-slate-700 truncate">
+      {/* Dòng 3: Sân hiển thị đầy đủ, xuống dòng khi cần */}
+      <p className="text-[11px] font-medium leading-snug text-slate-700 break-words">
         {roomText}
       </p>
     </button>
@@ -350,12 +354,11 @@ export function WeekGrid({
   onSelectSession,
   nextAvailableMondayIso,
   onJumpToWeek,
+  showAllSlots = false,
   language,
   t,
   tr,
 }) {
-  const [showAllSlots, setShowAllSlots] = useState(false)
-
   // Map holiday by dateIso
   const holidayByDate = new Map()
   for (const h of Array.isArray(holidays) ? holidays : []) {
@@ -363,6 +366,8 @@ export function WeekGrid({
       holidayByDate.set(
         String(h.holidayDate).slice(0, 10),
         String(h.holidayName || t("scheduleHolidayDefaultName"))
+          .replace(/\bDEMO\b\s*/gi, "")
+          .replace(/Trung tâm đóng cửa/gi, language === "vi" ? "Nghỉ hoạt động toàn Trung tâm" : "Center-wide closure")
           .replace(/\s*[-–—(]?\s*\b20\d{2}\b\s*\)?$/g, "")
           .trim(),
       )
@@ -436,7 +441,7 @@ export function WeekGrid({
   return (
     <div className="space-y-2.5">
       <div className="overflow-x-auto md:overflow-x-visible rounded-xl border border-slate-200 bg-white shadow-2xs">
-        <div className="min-w-[640px] md:min-w-0">
+        <div className="min-w-[1120px] xl:min-w-0">
           {/* Header Row: 88px + 7 cột đều nhau */}
           <div className="grid grid-cols-[88px_repeat(7,minmax(0,1fr))] border-b border-slate-200 bg-slate-50/90">
             <div className="border-r border-slate-200 p-2 text-left text-[12px] font-bold text-slate-700 flex items-center whitespace-nowrap">
@@ -541,21 +546,6 @@ export function WeekGrid({
       </div>
 
       {/* Nút Hiện tất cả ca / Ẩn các ca trống */}
-      {timeSlots.length > activeSlotNumbers.size && (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => setShowAllSlots((prev) => !prev)}
-            className="min-h-[36px] inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-          >
-            <span>
-              {showAllSlots
-                ? t("memberSchedHideEmptySlots")
-                : tr("memberSchedShowAllSlots", { count: timeSlots.length })}
-            </span>
-          </button>
-        </div>
-      )}
     </div>
   )
 }
@@ -904,12 +894,12 @@ export function NextSessionCard({
   }
 
   return (
-    <section className="rounded-xl border border-blue-200 bg-blue-50/60 px-3.5 py-3 shadow-2xs space-y-2.5">
+    <section className="h-full rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 via-white to-indigo-50 px-4 py-4 shadow-sm space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[13px] font-extrabold uppercase tracking-wider text-blue-950">
+        <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-800">
           {t("memberSchedNextSessionHeader")}
         </span>
-        <span className="rounded-full bg-blue-700 px-2.5 py-0.5 text-[12px] font-bold text-white">
+        <span className="rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-bold text-blue-900">
           {countdownLabel}
         </span>
       </div>
@@ -921,7 +911,7 @@ export function NextSessionCard({
               {t("memberSchedPtBadge")}
             </span>
           )}
-          <h3 className="text-[16px] font-extrabold text-slate-950">
+          <h3 className="text-lg font-extrabold leading-tight text-slate-950 break-words">
             {nextItem.className}
           </h3>
         </div>
@@ -929,7 +919,7 @@ export function NextSessionCard({
           {weekdayFull}, {toDdMmYyyy(nextItem.date)} · {nextItem.startTime}–
           {nextItem.endTime}
         </p>
-        <p className="text-[13px] font-medium text-slate-700 flex items-center gap-1.5">
+        <p className="text-[13px] font-medium text-slate-700 flex items-start gap-1.5 break-words">
           <MapPin className="h-3.5 w-3.5 text-slate-500 shrink-0" />
           <span>{nextItem.roomName || t("scheduleRoomTbd")}</span>
           {nextItem.coachName ? ` · ${nextItem.coachName}` : ""}
@@ -940,7 +930,7 @@ export function NextSessionCard({
         <button
           type="button"
           onClick={() => onSelectSession(nextItem)}
-          className="min-h-[38px] flex-1 rounded-lg bg-slate-900 px-3 py-1.5 text-[13px] font-bold text-white hover:bg-slate-800 cursor-pointer"
+          className="min-h-[36px] flex-1 rounded-lg border border-blue-200 bg-white/80 px-3 py-1.5 text-[12px] font-bold text-blue-900 hover:bg-white cursor-pointer"
         >
           {t("scheduleDrawerTitle")}
         </button>
@@ -1223,7 +1213,7 @@ export function UpcomingHolidays({
  * UpcomingHolidaysInline — compact, hiển thị ở cột trái dưới lịch
  * Chỉ hiện 1–2 ngày lễ gần nhất kèm "Còn X ngày" và link "Xem tất cả" (giữ modal)
  */
-export function UpcomingHolidaysInline({ next30Days = [], allUpcoming = [], t, tr }) {
+export function UpcomingHolidaysInline({ next30Days = [], allUpcoming = [], t, tr, language = "vi" }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   // Lấy 1–2 ngày lễ gần nhất từ next30Days; nếu không có thì lấy 1 từ allUpcoming
@@ -1258,7 +1248,7 @@ export function UpcomingHolidaysInline({ next30Days = [], allUpcoming = [], t, t
             key={h.id}
             className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-1.5 text-[12px]"
           >
-            <span className="font-bold text-slate-900 truncate">{h.name}</span>
+            <span className="font-bold text-slate-900 break-words">{String(h.name || "").replace(/\bDEMO\b\s*/gi, "").replace(/trung tâm đóng cửa/gi, language === "vi" ? "Nghỉ hoạt động toàn Trung tâm" : "Center-wide closure")}</span>
             <div className="flex items-center gap-2 shrink-0">
               <span className="font-semibold text-amber-900 tabular-nums">{h.ddMmYyyy}</span>
               {h.daysUntil != null && h.daysUntil >= 0 && (
@@ -1299,7 +1289,7 @@ export function UpcomingHolidaysInline({ next30Days = [], allUpcoming = [], t, t
                   key={h.id}
                   className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 text-[13px]"
                 >
-                  <span className="font-bold text-slate-900">{h.name}</span>
+                  <span className="font-bold text-slate-900">{String(h.name || "").replace(/\bDEMO\b\s*/gi, "").replace(/trung tâm đóng cửa/gi, language === "vi" ? "Nghỉ hoạt động toàn Trung tâm" : "Center-wide closure")}</span>
                   <span className="font-semibold text-slate-700 tabular-nums">
                     {h.ddMmYyyy}
                   </span>
@@ -1336,6 +1326,7 @@ export function SessionDrawer({
     item.slotNumber && item.slotNumber !== "other"
       ? tr("memberSchedSlotPrefix", { num: item.slotNumber })
       : t("memberSchedOtherSlot")
+  const sessionStatus = getStatusVisualMeta(item, t)
 
   const buildGoogleCalendarUrl = () => {
     const cleanDate = String(item.date || "").replace(/-/g, "")
@@ -1364,7 +1355,7 @@ export function SessionDrawer({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-md max-h-[90vh] sm:h-full rounded-t-2xl sm:rounded-none bg-white p-6 shadow-2xl flex flex-col justify-between overflow-y-auto"
+        className="w-full sm:max-w-xl max-h-[92vh] sm:h-auto rounded-t-2xl sm:rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xl flex flex-col justify-between overflow-y-auto"
       >
         <div className="space-y-5">
           {/* Header (P2 4.4: Gộp 2 nhãn PT 1:1 + TENNIS thành 1 chip "PT 1:1 · Tennis") */}
@@ -1390,6 +1381,10 @@ export function SessionDrawer({
                     </>
                   )}
                 </span>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${item.uiState === "completed_present" ? "bg-emerald-50 text-emerald-800" : item.uiState === "completed_absent" ? "bg-rose-50 text-rose-800" : item.uiState === "cancelled" ? "bg-slate-100 text-slate-700" : "bg-blue-50 text-blue-800"}`}>
+                  <span className={`h-2 w-2 rounded-full ${item.uiState === "completed_present" ? "bg-emerald-500" : item.uiState === "completed_absent" ? "bg-rose-500" : item.uiState === "cancelled" ? "bg-slate-400" : "bg-blue-500"}`} />
+                  {sessionStatus.label}
+                </span>
               </div>
               <h3 className="text-[18px] font-extrabold text-slate-950">
                 {item.className}
@@ -1407,8 +1402,8 @@ export function SessionDrawer({
           </div>
 
           {/* Thông tin chi tiết (WCAG AA contrast >= 4.5:1) */}
-          <dl className="space-y-3 text-[14px]">
-            <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
+          <dl className="grid grid-cols-2 gap-3 text-[13px]">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
               <dt className="font-semibold text-slate-700">
                 {t("scheduleDrawerDate")}
               </dt>
@@ -1417,7 +1412,7 @@ export function SessionDrawer({
               </dd>
             </div>
 
-            <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
               <dt className="font-semibold text-slate-700">
                 {t("scheduleDrawerTime")}
               </dt>
@@ -1426,7 +1421,7 @@ export function SessionDrawer({
               </dd>
             </div>
 
-            <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
               <dt className="font-semibold text-slate-700">
                 {t("scheduleDrawerRoom")}
               </dt>
@@ -1435,7 +1430,7 @@ export function SessionDrawer({
               </dd>
             </div>
 
-            <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
               <dt className="font-semibold text-slate-700">
                 {t("scheduleDrawerCoach")}
               </dt>
@@ -1456,7 +1451,7 @@ export function SessionDrawer({
             )}
 
             {item.sessionNumber && item.totalSessions && (
-              <div className="py-1.5 border-b border-slate-100 space-y-1.5">
+              <div className="col-span-2 rounded-xl border border-blue-100 bg-blue-50/60 p-3 space-y-2">
                 <div className="flex justify-between gap-3">
                   <dt className="font-semibold text-slate-700">
                     {t("trainingProgress")}
@@ -1469,9 +1464,7 @@ export function SessionDrawer({
                     {item.remainingSessions != null && (
                       <span className="text-slate-700 font-semibold">
                         {" · "}
-                        {tr("memberSchedDrawerSessionsRemaining", {
-                          remaining: item.remainingSessions,
-                        })}
+                        {language === "vi" ? `Còn ${item.remainingSessions} buổi` : `${item.remainingSessions} sessions left`}
                       </span>
                     )}
                   </dd>
@@ -1497,14 +1490,12 @@ export function SessionDrawer({
             )}
 
             {item.courseSummary && (
-              <div className="flex justify-between gap-3 py-1.5 border-b border-slate-100">
-                <dt className="font-semibold text-slate-700">
-                  {t("memberSchedDrawerCourseSummaryLabel")}
-                </dt>
-                <dd className="font-semibold text-slate-800 text-right tabular-nums">
-                  {t("memberSchedStatDone")} {item.courseSummary.done} ·{" "}
-                  {t("memberSchedStatAbsent")} {item.courseSummary.absent} ·{" "}
-                  {t("memberSchedStatUpcoming")} {item.courseSummary.upcoming}
+              <div className="col-span-2 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3">
+                <dt className="mr-1 font-semibold text-slate-700">{t("memberSchedDrawerCourseSummaryLabel")}</dt>
+                <dd className="contents font-semibold text-slate-800 tabular-nums">
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800">{t("memberSchedStatDone")} · {item.courseSummary.done}</span>
+                  <span className="rounded-full bg-rose-50 px-2.5 py-1 text-rose-800">{t("memberSchedStatAbsent")} · {item.courseSummary.absent}</span>
+                  <span className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-800">{t("memberSchedStatUpcoming")} · {item.courseSummary.upcoming}</span>
                 </dd>
               </div>
             )}
