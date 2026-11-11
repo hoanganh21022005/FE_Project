@@ -61,7 +61,7 @@ export function PlanBuilder({
 
       {exercises.length > 0 && (
         <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
-          <table className="w-full min-w-full text-left text-sm">
+          <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
               <tr>
                 <th className="px-3 py-2 text-left align-middle">{t("coachPlanBuilderExName")} *</th>
@@ -189,7 +189,7 @@ export function PlanContentView({ content }) {
     <div className="space-y-2.5">
       {parsed.exercises.length > 0 && (
         <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
-          <table className="w-full min-w-full text-left text-sm">
+          <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
               <tr>
                 <th className="px-3 py-2 text-left align-middle">{t("coachPlanBuilderExName")}</th>
