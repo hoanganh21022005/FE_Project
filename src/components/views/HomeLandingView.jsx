@@ -215,9 +215,9 @@ export function HomeLandingView({ onOpenLogin }) {
             className="flex items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
           >
             <img
-              src="/images/MainPage/vibe-sport-logo.png?v=2"
+              src="/images/MainPage/vibe-sport-logo.png?v=3"
               alt="Vibe Sport"
-              className="h-14 w-24 shrink-0 object-contain sm:h-16 sm:w-32"
+              className="h-11 w-auto shrink-0 object-contain sm:h-14"
             />
           </Link>
 
@@ -490,7 +490,7 @@ export function HomeLandingView({ onOpenLogin }) {
                 <span className="h-0.5 w-10 bg-mlc-red" />
                 VIBE SPORT
               </p>
-              <h1 className="text-[clamp(3.75rem,12vw,10rem)] font-extrabold leading-[0.98] tracking-[-0.055em]">
+              <h1 className="text-[clamp(3.75rem,12vw,10rem)] font-extrabold leading-[1.08] tracking-[0.02em]">
                 <span className="sr-only">Vitality · Inspire · Balance · Energy</span>
                 <span className="vibe-slogan-stage" aria-hidden="true">
                   {heroSlogan.map((word, index) => (
@@ -532,16 +532,18 @@ export function HomeLandingView({ onOpenLogin }) {
             {[0, 1].map((copy) => (
               <div
                 key={copy}
-                className="flex shrink-0 items-center gap-12 px-6 text-lg font-bold text-white sm:gap-16 sm:px-10 sm:text-xl"
+                className="flex shrink-0 items-center gap-10 px-6 text-lg font-bold uppercase tracking-wider text-white sm:gap-14 sm:px-10 sm:text-xl"
                 aria-hidden={copy === 1 ? "true" : undefined}
               >
                 {courses.map((course) => (
-                  <span
-                    key={course.id}
-                    className="flex shrink-0 items-center whitespace-nowrap"
-                  >
-                    {isVi ? course.title : course.titleEn}
-                  </span>
+                  <React.Fragment key={course.id}>
+                    <span className="flex shrink-0 items-center whitespace-nowrap">
+                      {isVi ? course.title : course.titleEn}
+                    </span>
+                    <span className="text-white/40 select-none" aria-hidden="true">
+                      /
+                    </span>
+                  </React.Fragment>
                 ))}
               </div>
             ))}
@@ -557,7 +559,7 @@ export function HomeLandingView({ onOpenLogin }) {
               <p className="mb-5 text-xs font-bold uppercase tracking-[0.16em] text-mlc-red">
                 {isVi ? "TẠI SAO CHỌN VIBE SPORT" : "WHY CHOOSE VIBE SPORT"}
               </p>
-              <h2 className="text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-6xl">
+              <h2 className="text-4xl font-extrabold leading-[1.22] tracking-normal sm:text-6xl sm:leading-[1.18]">
                 {isVi ? (
                   <>
                     LỚN LÊN CÙNG
@@ -587,7 +589,7 @@ export function HomeLandingView({ onOpenLogin }) {
                   <span className="flex h-11 w-11 items-center justify-center rounded-full bg-mlc-red/10 text-sm font-bold text-mlc-red">
                     {value.number}
                   </span>
-                  <h3 className="mt-6 text-base font-bold leading-snug">
+                  <h3 className="mt-6 text-base font-bold leading-snug tracking-wide">
                     {isVi ? value.title : value.titleEn}
                   </h3>
                   <p className="mt-3 text-sm leading-6 text-mlc-muted">
@@ -606,7 +608,7 @@ export function HomeLandingView({ onOpenLogin }) {
                 <p className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-brand-accent-dark">
                   {isVi ? "TÌM MÔN THỂ THAO CỦA BẠN" : "FIND YOUR SPORT"}
                 </p>
-                <h2 className="font-mlc text-4xl font-extrabold leading-[0.98] tracking-tight sm:text-6xl">
+                <h2 className="font-mlc text-4xl font-extrabold leading-tight tracking-normal sm:text-6xl sm:leading-[1.15]">
                   {isVi
                     ? `${visibleCourses.length} KHÓA HỌC THỂ THAO`
                     : `${visibleCourses.length} SPORTS COURSES`}
@@ -637,7 +639,7 @@ export function HomeLandingView({ onOpenLogin }) {
                       </span>
                     </Link>
                     <div className="p-5 sm:p-6">
-                      <h3 className="font-mlc text-2xl font-bold uppercase leading-tight">
+                      <h3 className="font-mlc text-2xl font-bold uppercase leading-snug tracking-normal">
                         <Link to={`/courses/${course.id}`} className="text-brand-dark hover:text-brand-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-primary">{isVi ? course.title : course.titleEn}</Link>
                       </h3>
                       <p className="mt-3 min-h-[48px] text-sm leading-6 text-text-secondary">
