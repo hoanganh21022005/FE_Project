@@ -19,6 +19,7 @@ import {
   Clock,
   Award,
   Trash2,
+  X,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -177,6 +178,16 @@ export function MemberBodyMetricsView() {
   const weightDiff = (latest.weight - previous.weight).toFixed(1)
   const fatDiff = (latest.fatPercent - previous.fatPercent).toFixed(1)
   const muscleDiff = (latest.muscleMass - previous.muscleMass).toFixed(1)
+  const previewHeight = Number(formHeight)
+  const previewWeight = Number(formWeight)
+  const previewBmi = previewHeight > 0 && previewWeight > 0
+    ? previewWeight / Math.pow(previewHeight / 100, 2)
+    : null
+  const previewBmiLabel = previewBmi < 18.5
+    ? (isVi ? "Thiếu cân" : "Underweight")
+    : previewBmi <= 24.9
+      ? (isVi ? "Bình thường (18.5–24.9)" : "Normal (18.5–24.9)")
+      : (isVi ? "Thừa cân" : "Overweight")
 
   // Smart Body Composition Assessment
   const bodyAssessment = (() => {
@@ -828,93 +839,47 @@ export function MemberBodyMetricsView() {
 
       {/* Modal Add InBody Metric */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-black text-slate-900">
-              {isVi ? "Ghi nhận chỉ số InBody mới" : "Log New InBody Record"}
-            </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              {isVi
-                ? "Nhập kết quả từ phiếu đo InBody tại quầy dịch vụ."
-                : "Enter figures from your test sheet."}
-            </p>
-
-            <form onSubmit={handleAddMetric} className="mt-4 space-y-3.5">
-              <div className="grid grid-cols-2 gap-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4 backdrop-blur-sm">
+          <div className="my-auto w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600"><Activity className="h-6 w-6" /></span>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isVi ? "Chiều cao (cm) *" : "Height (cm) *"}
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="100"
-                    max="230"
-                    required
-                    value={formHeight}
-                    onChange={(e) => setFormHeight(e.target.value)}
-                    placeholder="170"
-                    className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary"
-                  />
+                  <h3 className="text-lg font-bold tracking-tight text-slate-900">{isVi ? "Ghi nhận chỉ số InBody mới" : "Log New InBody Record"}</h3>
+                  <p className="mt-1 text-sm text-slate-500">{isVi ? "Nhập kết quả từ phiếu đo InBody tại quầy dịch vụ." : "Enter the results from your InBody checkup."}</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setIsModalOpen(false)} aria-label={isVi ? "Đóng" : "Close"} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"><X className="h-5 w-5" /></button>
+            </div>
+
+            <form onSubmit={handleAddMetric} className="mt-6 space-y-5">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">{isVi ? "Chiều cao *" : "Height *"}</label>
+                  <div className="relative"><input type="number" step="0.5" min="100" max="230" required value={formHeight} onChange={(e) => setFormHeight(e.target.value)} placeholder="170" className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-3.5 pr-12 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50" /><span className="absolute inset-y-0 right-3 flex items-center text-sm font-medium text-slate-400">cm</span></div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isVi ? "Cân nặng (kg) *" : "Weight (kg) *"}
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    required
-                    value={formWeight}
-                    onChange={(e) => setFormWeight(e.target.value)}
-                    placeholder="Ví dụ: 70.5"
-                    className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary"
-                  />
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">{isVi ? "Cân nặng *" : "Weight *"}</label>
+                  <div className="relative"><input type="number" step="0.1" required value={formWeight} onChange={(e) => setFormWeight(e.target.value)} placeholder={isVi ? "Ví dụ: 70.5" : "e.g. 70.5"} className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-3.5 pr-12 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50" /><span className="absolute inset-y-0 right-3 flex items-center text-sm font-medium text-slate-400">kg</span></div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">{isVi ? "Tỷ lệ mỡ (tùy chọn)" : "Body fat (optional)"}</label>
+                  <div className="relative"><input type="number" step="0.1" value={formFat} onChange={(e) => setFormFat(e.target.value)} placeholder={isVi ? "Ví dụ: 18.5" : "e.g. 18.5"} className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-3.5 pr-12 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50" /><span className="absolute inset-y-0 right-3 flex items-center text-sm font-medium text-slate-400">%</span></div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">{isVi ? "Khối lượng cơ (tùy chọn)" : "Muscle mass (optional)"}</label>
+                  <div className="relative"><input type="number" step="0.1" value={formMuscle} onChange={(e) => setFormMuscle(e.target.value)} placeholder={isVi ? "Ví dụ: 35.0" : "e.g. 35.0"} className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-3.5 pr-12 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50" /><span className="absolute inset-y-0 right-3 flex items-center text-sm font-medium text-slate-400">kg</span></div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {isVi ? "Tỷ lệ mỡ (% Body Fat)" : "Body Fat %"}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={formFat}
-                  onChange={(e) => setFormFat(e.target.value)}
-                  placeholder="Ví dụ: 18.5"
-                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary"
-                />
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3.5">
+                <div><p className="text-xs font-semibold text-slate-500">{isVi ? "BMI dự kiến" : "Estimated BMI"}</p><p className="mt-0.5 text-2xl font-bold tabular-nums text-slate-900">{previewBmi ? previewBmi.toFixed(1) : "—"}</p></div>
+                {previewBmi && <span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${previewBmi < 18.5 ? "bg-blue-100 text-blue-700" : previewBmi <= 24.9 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>{previewBmiLabel}</span>}
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {isVi ? "Khối lượng cơ (kg Muscle)" : "Muscle Mass (kg)"}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={formMuscle}
-                  onChange={(e) => setFormMuscle(e.target.value)}
-                  placeholder="Ví dụ: 35.0"
-                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
-                >
-                  {isVi ? "Hủy" : "Cancel"}
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-brand-primary px-5 py-2 text-xs font-bold text-white hover:bg-brand-primary-hover cursor-pointer"
-                >
-                  {isVi ? "Lưu kết quả" : "Save Record"}
-                </button>
+              <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">{isVi ? "Hủy" : "Cancel"}</button>
+                <button type="submit" className="rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-primary-hover">{isVi ? "Lưu kết quả đo" : "Save measurement"}</button>
               </div>
             </form>
           </div>
