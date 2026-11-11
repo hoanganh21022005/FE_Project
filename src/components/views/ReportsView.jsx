@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { getErrorMessage } from '../../api/apiErrors';
 import * as managerApi from '../../api/managerApi';
-import { revenueTimelineForDisplay } from '../../api/reportUtils';
+import { revenueSummaryCsvRows, revenueTimelineForDisplay, serializeCsvRows } from '../../api/reportUtils';
 import { formatCurrency } from '../../locales/translations';
 import { BarChart3, Download } from 'lucide-react';
 import {
@@ -109,19 +109,20 @@ export function ReportsView() {
   const axisProps = { tick: { fontSize: 10, fill: '#64748B' }, axisLine: false, tickLine: false };
 
   const handleExportReport = () => {
+    const revenueCsvReport = apiEnabled ? revenueReport : { totalRevenue: mockRevenue };
     const rows = [
       ['Metric', 'Value'],
-      ['Total Revenue', revenueValue ?? 0],
-      ['Total Paid Transactions', apiEnabled ? (revenueReport?.totalTransactions ?? 0) : payments.filter((p) => p.status === 'successful').length],
-      ['Average Transaction Value', apiEnabled ? (revenueReport?.averageTransactionValue ?? 0) : ''],
-      ['Total Members', apiEnabled ? (memberReport?.totalMembers ?? 0) : members.length],
-      ['Active Members', apiEnabled ? (memberReport?.activeMembers ?? 0) : members.filter((m) => m.status === 'active').length],
-      ['Expired Members', apiEnabled ? (memberReport?.expiredMembers ?? 0) : members.filter((m) => m.status === 'expired').length],
+      ...revenueSummaryCsvRows(revenueCsvReport),
+      ['totalTransactions', apiEnabled ? revenueReport?.totalTransactions ?? null : payments.filter((p) => p.status === 'successful').length],
+      ['averageTransactionValue', apiEnabled ? revenueReport?.averageTransactionValue ?? null : null],
+      ['totalMembers', apiEnabled ? memberReport?.totalMembers ?? null : members.length],
+      ['activeMembers', apiEnabled ? memberReport?.activeMembers ?? null : members.filter((m) => m.status === 'active').length],
+      ['expiredMembers', apiEnabled ? memberReport?.expiredMembers ?? null : members.filter((m) => m.status === 'expired').length],
       [],
       ['Period', 'Revenue', 'Transactions'],
-      ...timeline.map((item) => [item.period || item.month || '', item.revenue ?? 0, item.count ?? '']),
+      ...timeline.map((item) => [item.period || item.month || '', item.revenue, item.count]),
     ];
-    const csvContent = '\uFEFF' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const csvContent = serializeCsvRows(rows);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -171,11 +172,18 @@ export function ReportsView() {
         </div>
         {filterError && <p role="alert" className="mb-4 text-xs text-rose-700">{filterError}</p>}
         {sectionError(revenueError)}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-          <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">{vi ? 'Tổng doanh thu' : 'Total revenue'}</p><p className="mt-1 font-bold text-slate-900">{revenueValue == null ? '—' : formatCurrency(revenueValue, language)}</p></article>
-          <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">{vi ? 'Giao dịch Paid' : 'Paid transactions'}</p><p className="mt-1 font-bold text-slate-900">{apiEnabled ? revenueReport?.totalTransactions ?? '—' : payments.filter((payment) => payment.status === 'successful').length}</p></article>
-          <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">{vi ? 'Giá trị trung bình' : 'Average transaction value'}</p><p className="mt-1 font-bold text-slate-900">{apiEnabled ? revenueReport?.averageTransactionValue == null ? '—' : formatCurrency(revenueReport.averageTransactionValue, language) : mockRevenue ? formatCurrency(mockRevenue / Math.max(1, payments.filter((payment) => payment.status === 'successful').length), language) : '—'}</p></article>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mb-5">
+          <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Tổng doanh thu (totalRevenue)' : 'Total revenue (totalRevenue)'}</p><p className="mt-1 font-bold text-slate-900">{revenueValue == null ? '—' : formatCurrency(revenueValue, language)}</p></article>
+          {apiEnabled && <>
+            <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Tiền đã thu' : 'Money received'}</p><p className="mt-1 font-bold text-slate-900">{revenueReport?.moneyReceived == null ? '—' : formatCurrency(revenueReport.moneyReceived, language)}</p></article>
+            <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Tiền đã hoàn' : 'Money refunded'}</p><p className="mt-1 font-bold text-slate-900">{revenueReport?.moneyRefunded == null ? '—' : formatCurrency(revenueReport.moneyRefunded, language)}</p></article>
+            <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Tiền thu thuần' : 'Net received'}</p><p className="mt-1 font-bold text-slate-900">{revenueReport?.netReceived == null ? '—' : formatCurrency(revenueReport.netReceived, language)}</p></article>
+            <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Điều chỉnh Cash' : 'Cash corrections recorded'}</p><p className="mt-1 font-bold text-slate-900">{revenueReport?.cashCorrectionsRecorded == null ? '—' : formatCurrency(revenueReport.cashCorrectionsRecorded, language)}</p></article>
+          </>}
+          <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Giao dịch Paid' : 'Paid transactions'}</p><p className="mt-1 font-bold text-slate-900">{apiEnabled ? revenueReport?.totalTransactions ?? '—' : payments.filter((payment) => payment.status === 'successful').length}</p></article>
+          <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Giá trị trung bình' : 'Average transaction value'}</p><p className="mt-1 font-bold text-slate-900">{apiEnabled ? revenueReport?.averageTransactionValue == null ? '—' : formatCurrency(revenueReport.averageTransactionValue, language) : mockRevenue ? formatCurrency(mockRevenue / Math.max(1, payments.filter((payment) => payment.status === 'successful').length), language) : '—'}</p></article>
         </div>
+        {apiEnabled && <p className="-mt-3 text-xs text-slate-500">{vi ? 'OpenAPI trả totalRevenue như một trường riêng và không mô tả công thức; số liệu này không được xem là đồng nghĩa với tiền thu thuần.' : 'OpenAPI returns totalRevenue as a separate field without defining its formula; it is not treated as the same value as net received.'}</p>}
         {revenueLoading && <p className="mb-3 text-xs text-slate-500">{vi ? 'Đang tải báo cáo doanh thu…' : 'Loading revenue report…'}</p>}
         {apiEnabled && noPaidTransactions
           ? <EmptyChart>{vi ? 'Chưa có giao dịch trong kỳ.' : 'No transactions in this period.'}</EmptyChart>

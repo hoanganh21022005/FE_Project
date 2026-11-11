@@ -94,6 +94,11 @@ const PaymentManagement = React.lazy(() =>
     default: module.PaymentManagement,
   })),
 )
+const NormalRefundManagement = React.lazy(() =>
+  import("./components/views/NormalRefundManagement").then((module) => ({
+    default: module.NormalRefundManagement,
+  })),
+)
 const ReportsView = React.lazy(() =>
   import("./components/views/ReportsView").then((module) => ({
     default: module.ReportsView,
@@ -536,6 +541,8 @@ function SCMSApp() {
     if (path.includes("/invoices") || path.includes("/payment-result"))
       return t("memberInvoicesTitle")
     if (path.includes("/payments")) return t("payments")
+    if (path.includes("/normal-refunds"))
+      return language === "vi" ? "Hoàn tiền Normal" : "Normal refunds"
     if (path.includes("/reports")) return t("reports")
     if (path.includes("/audit-logs")) return t("auditLogs")
     if (path.includes("/my-membership")) return t("myMembership")
@@ -989,6 +996,19 @@ function SCMSApp() {
                         onForbidden={() => navigate(`/${role}/dashboard`)}
                       >
                         <PaymentManagement />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/manager/normal-refunds"
+                    element={
+                      <RequireRole
+                        allowedRoles={[ROLE_MANAGER]}
+                        currentRole={role}
+                        attemptedPath={location.pathname}
+                        onForbidden={() => navigate(`/${role}/dashboard`)}
+                      >
+                        <NormalRefundManagement />
                       </RequireRole>
                     }
                   />

@@ -32,6 +32,12 @@ const classDto = {
   enrolledCount: 0,
   classType: 'Normal',
   totalSessions: 0,
+  minCapacity: 0,
+  openingConfirmedAt: null,
+  openingConfirmedBy: null,
+  postponementCount: 0,
+  lifecycleVersion: 0,
+  changePending: false,
 }
 const mappedClass = mapClass(classDto, { apiMode: true })
 assert.equal(mappedClass.status, 'open')
@@ -48,6 +54,45 @@ assert.equal(mappedClass.room, null)
 assert.equal(mappedClass.startTime, null)
 assert.equal(mappedClass.selectedDays, null)
 assert.equal(mappedClass.coachSpecialty, null)
+assert.equal(mappedClass.minCapacity, 0)
+assert.equal(mappedClass.openingConfirmedAt, null)
+assert.equal(mappedClass.openingConfirmedBy, null)
+assert.equal(mappedClass.postponementCount, 0)
+assert.equal(mappedClass.lifecycleVersion, 0)
+assert.equal(mappedClass.changePending, false)
+
+const confirmedClass = mapClass({
+  ...classDto,
+  minCapacity: 6,
+  maxCapacity: 10,
+  openingConfirmedAt: '2026-10-22T09:30:00Z',
+  openingConfirmedBy: 42,
+  postponementCount: 1,
+  lifecycleVersion: 3,
+  changePending: true,
+}, { apiMode: true })
+assert.equal(confirmedClass.minCapacity, 6)
+assert.equal(confirmedClass.maxCapacity, 10)
+assert.equal(confirmedClass.openingConfirmedAt, '2026-10-22T09:30:00Z')
+assert.equal(confirmedClass.openingConfirmedBy, 42)
+assert.equal(confirmedClass.postponementCount, 1)
+assert.equal(confirmedClass.lifecycleVersion, 3)
+assert.equal(confirmedClass.changePending, true)
+
+const missingLifecycle = mapClass({ ...classDto,
+  minCapacity: undefined,
+  openingConfirmedAt: undefined,
+  openingConfirmedBy: undefined,
+  postponementCount: undefined,
+  lifecycleVersion: undefined,
+  changePending: undefined,
+}, { apiMode: true })
+assert.equal(missingLifecycle.minCapacity, null)
+assert.equal(missingLifecycle.openingConfirmedAt, undefined)
+assert.equal(missingLifecycle.openingConfirmedBy, null)
+assert.equal(missingLifecycle.postponementCount, null)
+assert.equal(missingLifecycle.lifecycleVersion, null)
+assert.equal(missingLifecycle.changePending, null)
 
 const nullableClass = mapClass({ ...classDto, maxCapacity: null, tuitionFee: null, totalSessions: null, enrolledCount: null, subjectName: null, coachName: null }, { apiMode: true })
 assert.equal(nullableClass.capacity, null)

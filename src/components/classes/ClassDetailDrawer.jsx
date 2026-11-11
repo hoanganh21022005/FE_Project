@@ -1,5 +1,14 @@
-import React, { useState, useEffect, useMemo } from "react"
+import React, { useState, useEffect, useMemo, useRef } from "react"
 import { useSCMS } from "../../context/SCMSContext"
+import * as managerApi from "../../api/managerApi"
+import { getErrorMessage } from "../../api/apiErrors"
+import { normalizeRole, ROLE_MANAGER } from "../../utils/navigation"
+import {
+  evaluateNormalClassOpening,
+  getFirstNormalClassSession,
+  getNormalClassOpeningError,
+} from "../../api/normalClassOpening"
+import NormalClassLifecyclePanel from "./NormalClassLifecyclePanel"
 import {
   getEnrollmentsByClass,
   enrollMemberInClass,
@@ -27,6 +36,8 @@ import {
   ExternalLink,
 } from "lucide-react"
 
+const confirmationAcceptedButUnrefreshed = new Set()
+
 function formatViDate(dateInput) {
   if (!dateInput) return "—"
   let yyyy, mm, dd
@@ -51,6 +62,16 @@ function formatNumber(num) {
     : new Intl.NumberFormat("vi-VN").format(num)
 }
 
+function formatLifecycleDateTime(value) {
+  if (value == null || value === "") return "—"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return new Intl.DateTimeFormat("vi-VN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date)
+}
+
 const WEEKDAY_NAMES_MAP = {
   1: "T2",
   2: "T3",
@@ -70,7 +91,7 @@ export function ClassDetailDrawer({
   onCancelClass,
   onEnrollmentChange,
 }) {
-  const { members, language, showToast, apiEnabled } = useSCMS()
+  const { members, language, showToast, apiEnabled, currentUser, subjects, coaches, setClasses } = useSCMS()
   const [enrollments, setEnrollments] = useState([])
   const [loading, setLoading] = useState(true)
   const [enrollmentLoadFailed, setEnrollmentLoadFailed] = useState(false)
@@ -78,25 +99,96 @@ export function ClassDetailDrawer({
   const [isAddingMember, setIsAddingMember] = useState(false)
   const [selectedNewMemberId, setSelectedNewMemberId] = useState("")
   const [actionLoading, setActionLoading] = useState(false)
+  const [classDetail, setClassDetail] = useState(null)
+  const [classDetailLoading, setClassDetailLoading] = useState(apiEnabled)
+  const [classDetailError, setClassDetailError] = useState("")
+  const [sessions, setSessions] = useState(null)
+  const [sessionsLoading, setSessionsLoading] = useState(apiEnabled)
+  const [sessionsError, setSessionsError] = useState("")
+  const [openingDialogOpen, setOpeningDialogOpen] = useState(false)
+  const [openingReason, setOpeningReason] = useState("")
+  const [openingSubmitting, setOpeningSubmitting] = useState(false)
+  const [openingActionError, setOpeningActionError] = useState(null)
+  const [openingRefreshWarning, setOpeningRefreshWarning] = useState("")
+  const [confirmationAccepted, setConfirmationAccepted] = useState(false)
 
   const classId = cls?.id
+  const classIdRef = useRef(classId)
+  const openingDataGeneration = useRef(0)
+  classIdRef.current = classId
+
+  useEffect(() => () => { openingDataGeneration.current += 1 }, [classId])
+
+  useEffect(() => {
+    let active = true
+    if (!apiEnabled) {
+      setClassDetail(cls)
+      setClassDetailError("")
+      setClassDetailLoading(false)
+      return () => { active = false }
+    }
+
+    setClassDetail(null)
+    setClassDetailError("")
+    setClassDetailLoading(true)
+    managerApi.getClassById(classId, {}, { notifyForbidden: false })
+      .then((item) => {
+        if (active) setClassDetail(item)
+      })
+      .catch((error) => {
+        if (active) setClassDetailError(getErrorMessage(error))
+      })
+      .finally(() => {
+        if (active) setClassDetailLoading(false)
+      })
+
+    return () => { active = false }
+  }, [apiEnabled, classId])
+
+  useEffect(() => {
+    let active = true
+    if (!apiEnabled || !classId) {
+      setSessions(null)
+      setSessionsError("")
+      setSessionsLoading(false)
+      return () => { active = false }
+    }
+    setSessions(null)
+    setSessionsError("")
+    setSessionsLoading(true)
+    managerApi.getSessions({ classId }, { notifyForbidden: false })
+      .then((items) => { if (active) setSessions(items) })
+      .catch((error) => { if (active) setSessionsError(getErrorMessage(error)) })
+      .finally(() => { if (active) setSessionsLoading(false) })
+    return () => { active = false }
+  }, [apiEnabled, classId])
+
+  useEffect(() => {
+    setConfirmationAccepted(confirmationAcceptedButUnrefreshed.has(String(classId)))
+  }, [classId])
 
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === "Escape") onClose()
+      if (e.key === "Escape") {
+        if (openingSubmitting) return
+        if (openingDialogOpen) setOpeningDialogOpen(false)
+        else onClose()
+      }
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [onClose])
+  }, [onClose, openingDialogOpen, openingSubmitting])
 
   // Load registered members
   const loadEnrollments = async () => {
     if (!classId) return
+    const requestedClassId = classId
     setLoading(true)
     try {
       if (apiEnabled) {
-        const data = await getEnrollmentsByClass(classId)
+        const data = await getEnrollmentsByClass(requestedClassId, { strict: true })
+        if (String(classIdRef.current) !== String(requestedClassId)) return
         setEnrollments(data || [])
         setEnrollmentLoadFailed(false)
       } else {
@@ -116,9 +208,154 @@ export function ClassDetailDrawer({
         setEnrollments(mockList)
       }
     } catch {
+      if (String(classIdRef.current) !== String(requestedClassId)) return
       setEnrollmentLoadFailed(true)
     } finally {
-      setLoading(false)
+      if (String(classIdRef.current) === String(requestedClassId)) setLoading(false)
+    }
+  }
+
+  const refreshOpeningData = async ({ afterConfirmation = false } = {}) => {
+    if (!apiEnabled || !classId) return false
+    const requestedClassId = classId
+    const requestGeneration = ++openingDataGeneration.current
+    const confirmingRequestWasAccepted = afterConfirmation || confirmationAcceptedButUnrefreshed.has(String(classId))
+    setClassDetailLoading(true)
+    setLoading(true)
+    setSessionsLoading(true)
+    setClassDetailError("")
+    setSessionsError("")
+    setEnrollmentLoadFailed(false)
+
+    const results = await Promise.allSettled([
+      managerApi.getClassById(classId, {}, { notifyForbidden: false }),
+      getEnrollmentsByClass(classId, { strict: true }),
+      managerApi.getSessions({ classId }, { notifyForbidden: false }),
+      managerApi.getClasses({ subjects, coaches }, { notifyForbidden: false }),
+    ])
+    if (
+      requestGeneration !== openingDataGeneration.current ||
+      String(classIdRef.current) !== String(requestedClassId)
+    ) return false
+    const errors = []
+
+    if (results[0].status === "fulfilled") {
+      setClassDetail(results[0].value)
+      if (confirmingRequestWasAccepted && results[0].value.openingConfirmedAt != null) {
+        confirmationAcceptedButUnrefreshed.delete(String(classId))
+        setConfirmationAccepted(false)
+      } else if (confirmingRequestWasAccepted) {
+        errors.push("Backend đã nhận xác nhận nhưng dữ liệu chi tiết chưa phản ánh trạng thái mới.")
+      }
+    } else {
+      const message = getErrorMessage(results[0].reason)
+      setClassDetailError(message)
+      errors.push(`Chi tiết lớp: ${message}`)
+    }
+
+    if (results[1].status === "fulfilled") {
+      setEnrollments(results[1].value || [])
+    } else {
+      setEnrollmentLoadFailed(true)
+      errors.push(`Danh sách đăng ký: ${getErrorMessage(results[1].reason)}`)
+    }
+
+    if (results[2].status === "fulfilled") {
+      setSessions(results[2].value || [])
+    } else {
+      const message = getErrorMessage(results[2].reason)
+      setSessionsError(message)
+      errors.push(`Lịch học: ${message}`)
+    }
+
+    if (results[3].status === "fulfilled") {
+      setClasses?.(results[3].value || [])
+    } else {
+      errors.push(`Danh sách lớp: ${getErrorMessage(results[3].reason)}`)
+    }
+
+    const synchronized = errors.length === 0
+    setOpeningRefreshWarning(synchronized ? "" : errors.join(" "))
+    setClassDetailLoading(false)
+    setLoading(false)
+    setSessionsLoading(false)
+    return synchronized
+  }
+
+  const authorities = Array.isArray(currentUser?.authorities) ? currentUser.authorities : []
+  const hasManageClasses = authorities.includes("MANAGE_CLASSES")
+  const hasManagerRole = normalizeRole(currentUser?.role, { isApiMode: apiEnabled }) === ROLE_MANAGER
+  const hasVerifiedEnrollmentData = !loading && !enrollmentLoadFailed && Array.isArray(enrollments) &&
+    enrollments.every((enrollment) => {
+      const enrollmentStatus = typeof enrollment?.status === "string" ? enrollment.status.trim().toLowerCase() : ""
+      if (!enrollmentStatus) return false
+      return enrollmentStatus !== "registered" ||
+        (typeof enrollment.paymentStatus === "string" && Boolean(enrollment.paymentStatus.trim()))
+    })
+  const openingEvaluation = evaluateNormalClassOpening({
+    classItem: classDetail,
+    enrollments: apiEnabled && hasVerifiedEnrollmentData ? enrollments : null,
+    sessions: apiEnabled && !sessionsLoading && !sessionsError ? sessions : null,
+    authorities,
+    reason: openingReason,
+  })
+  const openingReasonNeedsInput = openingEvaluation.reasonRequired === true && !openingReason.trim()
+  const openingActionBlockers = openingReasonNeedsInput
+    ? openingEvaluation.blockers.slice(0, -1)
+    : openingEvaluation.blockers
+  const firstOpeningSession = getFirstNormalClassSession(sessions)?.session || null
+  const normalClass = String(classDetail?.classType ?? cls?.classType ?? "").trim().toLowerCase() === "normal"
+  const lifecycleStatus = String(classDetail?.apiStatus ?? classDetail?.status ?? "").trim().toLowerCase()
+  const canShowOpeningAction = apiEnabled && hasManagerRole && hasManageClasses && normalClass &&
+    !["cancelled", "canceled", "closed", "completed", "ongoing"].includes(lifecycleStatus) &&
+    !classDetailLoading && !classDetailError && classDetail != null &&
+    classDetail.openingConfirmedAt == null && !confirmationAccepted
+
+  const formatOpeningSession = (item) => {
+    if (!item) return "Chưa xác minh"
+    const parsed = openingEvaluation.firstSessionStartsAt
+    if (parsed == null) return `${formatViDate(item.sessionDate)} ${item.startTime || ""}`.trim()
+    return new Intl.DateTimeFormat("vi-VN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Asia/Ho_Chi_Minh",
+    }).format(new Date(parsed))
+  }
+
+  const submitOpeningConfirmation = async (event) => {
+    event?.preventDefault?.()
+    const currentCheck = evaluateNormalClassOpening({
+      classItem: classDetail,
+      enrollments: hasVerifiedEnrollmentData ? enrollments : null,
+      sessions: !sessionsLoading && !sessionsError ? sessions : null,
+      authorities,
+      reason: openingReason,
+      now: new Date(),
+    })
+    setOpeningActionError(null)
+    if (!hasManagerRole || !currentCheck.canSubmit || openingSubmitting || confirmationAccepted) {
+      setOpeningActionError({
+        status: 0,
+        code: null,
+        message: currentCheck.blockers[0] || "Đang có yêu cầu xác nhận được xử lý.",
+      })
+      return
+    }
+
+    setOpeningSubmitting(true)
+    try {
+      await managerApi.confirmNormalClassOpening(classId, currentCheck.payload, { notifyForbidden: false })
+      confirmationAcceptedButUnrefreshed.add(String(classId))
+      setConfirmationAccepted(true)
+      setOpeningDialogOpen(false)
+      setOpeningReason("")
+      showToast("Backend đã xác nhận khai giảng lớp học.", "success")
+      await refreshOpeningData({ afterConfirmation: true })
+    } catch (error) {
+      const normalized = getNormalClassOpeningError(error)
+      setOpeningActionError(normalized)
+    } finally {
+      setOpeningSubmitting(false)
     }
   }
 
@@ -157,11 +394,11 @@ export function ClassDetailDrawer({
 
   if (!cls) return null
 
-  const capacity = cls.capacity ?? (apiEnabled ? null : 8)
+  const capacity = apiEnabled ? classDetail?.maxCapacity ?? null : cls.capacity ?? 8
   const enrolled = apiEnabled
     ? (loading || enrollmentLoadFailed ? cls.enrolledCount : enrollments.length)
     : enrollments.length || cls.enrolledCount || 0
-  const minCap = cls.minCapacity ?? (apiEnabled ? null : 4)
+  const minCap = apiEnabled ? classDetail?.minCapacity ?? null : cls.minCapacity ?? 4
   const percent =
     capacity > 0 && enrolled !== null
       ? Math.min(100, Math.round((enrolled / capacity) * 100))
@@ -271,9 +508,12 @@ export function ClassDetailDrawer({
     },
   }
 
-  const statusKey = cls.status === "published" ? "open" : cls.status === "completed" ? "closed" : cls.status
+  const statusSource = apiEnabled ? classDetail : cls
+  const statusKey = statusSource?.status === "published" ? "open" : statusSource?.status === "completed" ? "closed" : statusSource?.status
   const currentStatus = statusConfig[statusKey] || {
-    label: cls.apiStatus || cls.status || "Unknown status",
+    label: apiEnabled && !statusSource
+      ? classDetailLoading ? "Đang tải trạng thái…" : classDetailError ? "Chưa tải được trạng thái" : "Chưa có thông tin"
+      : statusSource?.apiStatus || statusSource?.status || "Chưa có thông tin",
     bg: "bg-stone-100",
     text: "text-stone-500",
     border: "border-stone-200",
@@ -405,17 +645,7 @@ export function ClassDetailDrawer({
                   {percent === null ? "—" : percent + "%"}
                 </div>
                 <span className="text-[10px] text-stone-500 block mt-1">
-                  {enrolled === null || minCap === null ? (
-                    "—"
-                  ) : enrolled >= minCap ? (
-                    <span className="text-emerald-700 font-medium">
-                      Đủ điều kiện mở
-                    </span>
-                  ) : (
-                    <span className="text-amber-700">
-                      Cần thêm {minCap - enrolled} HV
-                    </span>
-                  )}
+                  {minCap === null ? "Chưa có thông tin sĩ số tối thiểu" : `Tối thiểu ${minCap} học viên`}
                 </span>
               </div>
 
@@ -455,6 +685,154 @@ export function ClassDetailDrawer({
                 </span>
               </div>
             </div>
+
+            {apiEnabled && (
+              <section className="rounded-xl border border-stone-200 bg-white p-4" aria-labelledby="class-lifecycle-heading" aria-busy={classDetailLoading}>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 id="class-lifecycle-heading" className="text-sm font-semibold text-stone-900">
+                    Vòng đời lớp học
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    {classDetailLoading && <span role="status" className="text-xs text-stone-500">Đang tải…</span>}
+                    <button type="button" disabled={classDetailLoading || loading || sessionsLoading} onClick={() => refreshOpeningData()} className="rounded-md border border-stone-300 px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">
+                      Tải lại
+                    </button>
+                  </div>
+                </div>
+
+                {classDetailError ? (
+                  <>
+                    <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                      <span>Không tải được thông tin vòng đời. {classDetailError}</span>
+                      <button type="button" onClick={() => refreshOpeningData({ afterConfirmation: confirmationAccepted })} className="rounded border border-rose-200 bg-white px-2.5 py-1.5 font-semibold hover:bg-rose-50">
+                        Tải lại
+                      </button>
+                    </div>
+                    {confirmationAccepted && (
+                      <p role="status" className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-medium text-amber-900">
+                        Backend đã nhận yêu cầu xác nhận nhưng chưa đồng bộ được dữ liệu mới. Không gửi lại yêu cầu; hãy tải lại dữ liệu.
+                      </p>
+                    )}
+                  </>
+                ) : classDetailLoading || !classDetail ? (
+                  <p className="text-xs text-stone-500">{classDetailLoading ? "Đang tải thông tin lớp…" : "Chưa có thông tin"}</p>
+                ) : (
+                  <>
+                  <dl className="grid grid-cols-2 gap-x-5 gap-y-3 text-xs sm:grid-cols-3">
+                    <div>
+                      <dt className="text-stone-500">Trạng thái hiện tại</dt>
+                      <dd className="mt-1 font-semibold text-stone-900">{currentStatus.label}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-stone-500">Sĩ số tối thiểu / tối đa</dt>
+                      <dd className="mt-1 font-semibold tabular-nums text-stone-900">
+                        {classDetail.minCapacity == null ? "Chưa có thông tin" : classDetail.minCapacity}
+                        {" / "}
+                        {classDetail.maxCapacity == null ? "Chưa có thông tin" : classDetail.maxCapacity}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-stone-500">Xác nhận khai giảng</dt>
+                      <dd className="mt-1 font-semibold text-stone-900">
+                        {classDetail.openingConfirmedAt === undefined
+                          ? "Chưa có thông tin"
+                          : classDetail.openingConfirmedAt === null
+                            ? "Chưa xác nhận"
+                            : "Đã xác nhận"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-stone-500">Thời điểm xác nhận</dt>
+                      <dd className="mt-1 font-semibold text-stone-900">
+                        {formatLifecycleDateTime(classDetail.openingConfirmedAt)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-stone-500">Người xác nhận</dt>
+                      <dd className="mt-1 font-semibold tabular-nums text-stone-900">
+                        {classDetail.openingConfirmedBy == null ? "Chưa có thông tin" : `Mã người dùng #${classDetail.openingConfirmedBy}`}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-stone-500">Số lần dời khai giảng</dt>
+                      <dd className="mt-1 font-semibold tabular-nums text-stone-900">
+                        {classDetail.postponementCount == null ? "Chưa có thông tin" : classDetail.postponementCount}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-stone-500">Phương án thay đổi đang chờ</dt>
+                      <dd className="mt-1 font-semibold text-stone-900">
+                        {classDetail.changePending === true ? "Có" : classDetail.changePending === false ? "Không" : "Chưa có thông tin"}
+                      </dd>
+                    </div>
+                  </dl>
+                  {String(classDetail?.classType ?? "").trim().toLowerCase() === "normal" && (
+                    <div className="mt-4 rounded-lg border border-stone-200 bg-stone-50 p-3 text-xs">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-stone-500">Member hợp lệ (Registered + Paid)</div>
+                          <div className="mt-1 font-semibold tabular-nums text-stone-900">
+                            {!hasVerifiedEnrollmentData
+                              ? "Chưa xác minh"
+                              : `${openingEvaluation.paidRegisteredCount ?? 0}${classDetail.minCapacity == null ? "" : ` / ${classDetail.minCapacity}`}`}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-stone-500">Buổi học đầu tiên</div>
+                          <div className="mt-1 font-semibold text-stone-900">
+                            {sessionsLoading || sessionsError ? "Chưa xác minh" : formatOpeningSession(firstOpeningSession)}
+                          </div>
+                        </div>
+                      </div>
+                      {openingEvaluation.blockers.length > 0 ? (
+                        <p className="mt-3 text-amber-800">{openingEvaluation.blockers[0]}</p>
+                      ) : (
+                        <p className="mt-3 text-stone-600">
+                          {openingEvaluation.unverified.length > 0
+                            ? "Chưa xác minh toàn bộ điều kiện. Backend sẽ kiểm tra điều kiện cuối cùng khi gửi yêu cầu."
+                            : "Backend vẫn là nơi xác nhận điều kiện khai giảng cuối cùng."}
+                        </p>
+                      )}
+                      {sessionsError && <p role="alert" className="mt-2 text-rose-700">Không tải được lịch học: {sessionsError}</p>}
+                      {enrollmentLoadFailed && <p role="alert" className="mt-2 text-rose-700">Không tải được enrollment và trạng thái thanh toán.</p>}
+
+                      {openingRefreshWarning && (
+                        <div role="alert" className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-amber-900">
+                          <span>{openingRefreshWarning}</span>
+                          <button type="button" disabled={classDetailLoading || loading || sessionsLoading} onClick={() => refreshOpeningData({ afterConfirmation: confirmationAccepted })} className="rounded border border-amber-300 bg-white px-2.5 py-1.5 font-semibold disabled:opacity-50">
+                            Tải lại dữ liệu
+                          </button>
+                        </div>
+                      )}
+
+                      {confirmationAccepted && (
+                        <p role="status" className="mt-3 font-medium text-emerald-800">
+                          Backend đã nhận yêu cầu xác nhận. Đang chờ đồng bộ trạng thái mới; không gửi lại yêu cầu.
+                        </p>
+                      )}
+
+                      {canShowOpeningAction && !confirmationAccepted && (
+                        <button
+                          type="button"
+                          disabled={openingSubmitting || classDetailLoading || loading || sessionsLoading || openingActionBlockers.length > 0}
+                          onClick={() => { setOpeningActionError(null); setOpeningReason(""); setOpeningDialogOpen(true) }}
+                          className="mt-3 inline-flex min-h-9 items-center justify-center rounded-lg bg-indigo-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Xác nhận khai giảng
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  </>
+                )}
+              </section>
+            )}
+
+            <NormalClassLifecyclePanel
+              classItem={classDetail ?? cls}
+              sessions={sessions}
+              onRefreshClassDetail={() => refreshOpeningData()}
+            />
 
             {/* SECTION: LỊCH HỌC VÀ SÂN TẬP */}
             <div className="p-4 bg-stone-50/50 border border-stone-200/70 rounded-xl space-y-3.5">
@@ -737,6 +1115,100 @@ export function ClassDetailDrawer({
           </div>
         </div>
       </div>
+      {openingDialogOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-stone-950/45 p-4" role="presentation">
+          <div role="dialog" aria-modal="true" aria-labelledby="opening-confirm-title" className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 id="opening-confirm-title" className="text-base font-bold text-stone-900">Xác nhận khai giảng</h3>
+                <p className="mt-1 text-sm text-stone-600">{classDetail?.name || cls.name}</p>
+              </div>
+              <button type="button" disabled={openingSubmitting} onClick={() => setOpeningDialogOpen(false)} className="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100 disabled:opacity-50" aria-label="Đóng hộp xác nhận">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs">
+              <div>
+                <dt className="text-stone-500">Member hợp lệ</dt>
+                <dd className="mt-1 font-semibold text-stone-900">
+                  {!hasVerifiedEnrollmentData ? "Chưa xác minh" : openingEvaluation.paidRegisteredCount ?? 0}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-stone-500">Sĩ số tối thiểu</dt>
+                <dd className="mt-1 font-semibold text-stone-900">{classDetail?.minCapacity ?? "Chưa xác minh"}</dd>
+              </div>
+              <div>
+                <dt className="text-stone-500">Buổi học đầu tiên</dt>
+                <dd className="mt-1 font-semibold text-stone-900">{sessionsLoading || sessionsError ? "Chưa xác minh" : formatOpeningSession(firstOpeningSession)}</dd>
+              </div>
+              <div>
+                <dt className="text-stone-500">Trạng thái lớp</dt>
+                <dd className="mt-1 font-semibold text-stone-900">{currentStatus.label}</dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="text-stone-500">Trạng thái xác nhận khai giảng</dt>
+                <dd className="mt-1 font-semibold text-stone-900">
+                  {classDetail?.openingConfirmedAt === undefined ? "Chưa xác minh" : classDetail.openingConfirmedAt === null ? "Chưa xác nhận" : "Đã xác nhận"}
+                </dd>
+              </div>
+            </dl>
+
+            {openingEvaluation.unverified.length > 0 && (
+              <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                <p className="font-semibold">Còn điều kiện chưa xác minh</p>
+                <p className="mt-1">Dữ liệu FE chưa đủ để kết luận lớp đủ điều kiện. Backend sẽ kiểm tra quyết định cuối cùng.</p>
+              </div>
+            )}
+            {openingEvaluation.blockers.length > 0 && (
+              <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                {openingEvaluation.blockers[0]}
+              </p>
+            )}
+
+            {openingEvaluation.reasonRequired === true && (
+              <label className="mt-4 block text-xs font-semibold text-stone-700">
+                Lý do xác nhận trễ <span className="text-rose-600">*</span>
+                <textarea
+                  autoFocus
+                  required
+                  value={openingReason}
+                  onChange={(event) => { setOpeningReason(event.target.value); setOpeningActionError(null) }}
+                  rows={3}
+                  className="mt-1.5 w-full resize-y rounded-lg border border-stone-300 px-3 py-2 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  placeholder="Nhập lý do xác nhận trong 24 giờ trước buổi đầu tiên"
+                />
+              </label>
+            )}
+
+            {openingActionError && (
+              <div role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                <p>{openingActionError.message}</p>
+                {(openingActionError.status || openingActionError.code) && (
+                  <p className="mt-1 text-[11px] text-rose-700">
+                    {openingActionError.status ? `HTTP ${openingActionError.status}` : ""}{openingActionError.code ? ` · ${openingActionError.code}` : ""}
+                  </p>
+                )}
+                {openingActionError.status === 409 && (
+                  <button type="button" disabled={classDetailLoading || loading || sessionsLoading} onClick={() => refreshOpeningData()} className="mt-2 rounded-md border border-rose-300 bg-white px-2.5 py-1.5 font-semibold disabled:opacity-50">
+                    Tải lại lớp, enrollment và lịch
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" disabled={openingSubmitting} onClick={() => setOpeningDialogOpen(false)} className="rounded-lg border border-stone-300 px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">
+                Hủy
+              </button>
+              <button type="button" disabled={openingSubmitting || !openingEvaluation.canSubmit || (openingEvaluation.reasonRequired === true && !openingReason.trim())} onClick={submitOpeningConfirmation} className="rounded-lg bg-indigo-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50">
+                {openingSubmitting ? "Đang xác nhận…" : "Xác nhận với Backend"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

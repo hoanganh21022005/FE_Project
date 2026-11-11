@@ -75,9 +75,8 @@ export function mapSession(item) {
     sessionNumber: asNumber(item.sessionNumber),
     enrolledCount: asNumber(item.enrolledCount),
     maxCapacity: asNumber(item.maxCapacity),
-    isPrivate: item.isPrivate === true,
-    bookedMemberId: asNumber(item.bookedMemberId),
-    bookedMemberName: item.bookedMemberName ?? null,
+    isPrivate: typeof item.isPrivate === "boolean" ? item.isPrivate : null,
+    makeupForSessionId: asNumber(item.makeupForSessionId),
   }
 }
 
@@ -158,7 +157,12 @@ export function mapClass(
       durationMinutes: null,
       code: null,
       minTierRequired: null,
-      minCapacity: null,
+      minCapacity: asNumber(item.minCapacity),
+      openingConfirmedAt: item.openingConfirmedAt,
+      openingConfirmedBy: asNumber(item.openingConfirmedBy),
+      postponementCount: asNumber(item.postponementCount),
+      lifecycleVersion: asNumber(item.lifecycleVersion),
+      changePending: typeof item.changePending === "boolean" ? item.changePending : null,
       selectedDays: null,
     }
   }
@@ -344,6 +348,10 @@ export const mapDashboard = (item) => ({
 
 export const mapRevenueReport = (item = {}) => ({
   totalRevenue: asNumber(item.totalRevenue),
+  moneyReceived: asNumber(item.moneyReceived),
+  moneyRefunded: asNumber(item.moneyRefunded),
+  netReceived: asNumber(item.netReceived),
+  cashCorrectionsRecorded: asNumber(item.cashCorrectionsRecorded),
   totalTransactions: asNumber(item.totalTransactions),
   averageTransactionValue: asNumber(item.averageTransactionValue),
   revenueByPackage: Array.isArray(item.revenueByPackage)

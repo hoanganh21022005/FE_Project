@@ -8,8 +8,11 @@ import { validateClassName, MAX_CLASS_NAME_LENGTH } from "../../api/classValidat
 import { useScheduleConflict } from "../classes/hooks/useScheduleConflict"
 import { CurrencyInput } from "../common/CurrencyInput"
 import {
+  adjustNormalMinCapacityForMaxChange,
+  getDefaultNormalMinCapacity,
   isNormalClassApiCreationBlocked,
   NORMAL_CLASS_API_BLOCKED_MESSAGE,
+  validateNormalClassCapacity,
 } from "../../api/normalClassCreation.js"
 import {
   ArrowLeft,
@@ -483,7 +486,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const [showSessionList, setShowSessionList] = useState(false)
 
   const [capacity, setCapacity] = useState(8)
-  const [minCapacity, setMinCapacity] = useState(4)
+  const [minCapacity, setMinCapacity] = useState(() => getDefaultNormalMinCapacity(8))
+  const [minCapacityCustomized, setMinCapacityCustomized] = useState(false)
   const [price, setPrice] = useState(650000)
   const [pricingMode, setPricingMode] = useState("total") // 'total' | 'per_session'
   const [isFreeClass, setIsFreeClass] = useState(false)
@@ -536,7 +540,15 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
       // Auto-set sport default capacity
       if (sportChanged) {
-        setCapacity(currentSport.defaultCapacity || 8)
+        const nextCapacity = currentSport.defaultCapacity || 8
+        setCapacity(nextCapacity)
+        setMinCapacity((currentMinCapacity) =>
+          adjustNormalMinCapacityForMaxChange(
+            currentMinCapacity,
+            nextCapacity,
+            minCapacityCustomized,
+          ),
+        )
       }
 
       // Auto-select first coach with matching specialization when sport changes or initially empty
@@ -556,7 +568,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         })
       }
     }
-  }, [currentSport?.id, coaches])
+  }, [currentSport?.id, coaches, minCapacityCustomized])
 
   // Keep sport-based default room.
   const prevSportForRoomRef = useRef(currentSport?.id)
@@ -616,8 +628,23 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     }
     if (cloneFrom.startTime) setStartTime(cloneFrom.startTime)
     if (cloneFrom.endTime) setEndTime(cloneFrom.endTime)
-    if (cloneFrom.capacity) setCapacity(cloneFrom.capacity)
-    if (cloneFrom.minCapacity) setMinCapacity(cloneFrom.minCapacity)
+    if (cloneFrom.capacity) {
+      const clonedCapacity = Number(cloneFrom.capacity)
+      const clonedDefaultMin = getDefaultNormalMinCapacity(clonedCapacity)
+      const clonedMin = cloneFrom.minCapacity == null
+        ? clonedDefaultMin
+        : Number(cloneFrom.minCapacity)
+      const hasCustomMinimum = Number.isInteger(clonedMin)
+        && clonedDefaultMin !== null
+        && clonedMin > clonedDefaultMin
+      setCapacity(clonedCapacity)
+      setMinCapacityCustomized(hasCustomMinimum)
+      setMinCapacity(adjustNormalMinCapacityForMaxChange(
+        clonedMin,
+        clonedCapacity,
+        hasCustomMinimum,
+      ))
+    }
     if (cloneFrom.price !== undefined) {
       const p = Number(cloneFrom.price)
       if (p === 0 || cloneFrom.isFree) {
@@ -792,18 +819,42 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
   // Field validation checks
   const nameError = touched.className ? validateClassName(className) : ""
-  const capacityError =
-    touched.capacity &&
-    selectedRoomObj?.capacity &&
-    capacity > selectedRoomObj.capacity
-      ? `Sĩ số vượt quá sức chứa sân (${selectedRoomObj.capacity} người).`
-      : touched.capacity && capacity <= 0
-        ? "Sĩ số tối đa phải lớn hơn 0."
-        : ""
-  const minCapacityError =
-    touched.minCapacity && minCapacity > capacity
-      ? "Sĩ số tối thiểu không được lớn hơn tối đa."
-      : ""
+  const defaultMinCapacity = getDefaultNormalMinCapacity(capacity)
+  const numericCapacity = Number(capacity)
+  const numericMinCapacity = Number(minCapacity)
+  const capacityError = touched.capacity && (
+    !Number.isInteger(numericCapacity) || numericCapacity <= 0
+      ? "Sĩ số tối đa phải là số nguyên lớn hơn 0."
+      : selectedRoomObj?.capacity != null && numericCapacity > Number(selectedRoomObj.capacity)
+        ? `Sĩ số vượt quá sức chứa phòng (${selectedRoomObj.capacity} người).`
+        : apiEnabled && selectedRoomObj?.capacity == null
+          ? "Chưa xác định được sức chứa phòng đã chọn."
+        : apiEnabled && numericCapacity > 15
+          ? "Lớp Normal không được vượt quá 15 học viên."
+          : ""
+  )
+  const minCapacityError = touched.minCapacity && (
+    !Number.isInteger(numericMinCapacity)
+      ? "Sĩ số tối thiểu phải là số nguyên."
+      : defaultMinCapacity !== null && numericMinCapacity < defaultMinCapacity
+        ? `Sĩ số tối thiểu không được thấp hơn mức mặc định ${defaultMinCapacity}.`
+        : numericMinCapacity > numericCapacity
+          ? "Sĩ số tối thiểu không được lớn hơn sĩ số tối đa."
+          : ""
+  )
+
+  const handleCapacityChange = (value) => {
+    setCapacity(value)
+    if (value === "") return
+    const nextCapacity = Number(value)
+    setMinCapacity((currentMinCapacity) =>
+      adjustNormalMinCapacityForMaxChange(
+        currentMinCapacity,
+        nextCapacity,
+        minCapacityCustomized,
+      ),
+    )
+  }
   const dateError = isFirstSessionInPast
     ? "Buổi học đầu tiên đã qua giờ hiện tại."
     : ""
@@ -898,19 +949,15 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
       showToast("Vui lòng chọn ít nhất một thứ trong tuần.", "error")
       return
     }
-    if (minCapacity > capacity) {
-      showToast("Sĩ số tối thiểu không được lớn hơn sĩ số tối đa.", "error")
-      return
-    }
-    if (selectedRoomObj?.capacity && capacity > selectedRoomObj.capacity) {
-      showToast(
-        `Sĩ số vượt quá sức chứa của sân (${selectedRoomObj.capacity} người).`,
-        "error",
-      )
-      return
-    }
-    if (apiEnabled && capacity > 15) {
-      showToast("Lớp Normal không được vượt quá 15 học viên.", "error")
+    const capacityValidationError = validateNormalClassCapacity({
+      maxCapacity: capacity,
+      minCapacity,
+      roomCapacity: selectedRoomObj?.capacity,
+      maxAllowedCapacity: apiEnabled ? 15 : undefined,
+      requireRoomCapacity: apiEnabled,
+    })
+    if (capacityValidationError) {
+      showToast(capacityValidationError, "error")
       return
     }
     if (apiEnabled) {
@@ -967,6 +1014,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
           (Number(endTime.split(":")[1]) - Number(startTime.split(":")[1])),
         capacity: Number(capacity),
         minCapacity: Number(minCapacity),
+        roomCapacity: selectedRoomObj?.capacity,
+        requireRoomCapacity: apiEnabled,
         status: targetStatus === "Draft" ? "draft" : "published",
         apiStatus: targetStatus,
         price: apiEnabled ? normalPrice : isFreeClass ? 0 : Number(price),
@@ -1547,14 +1596,14 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                 onBlur={() => {
                   setTouched((p) => ({ ...p, capacity: true }))
                   if (!capacity || capacity < 1) {
-                    setCapacity(selectedRoomObj?.capacity || 8)
+                    const fallbackCapacity = Number(selectedRoomObj?.capacity) || 8
+                    handleCapacityChange(apiEnabled ? Math.min(fallbackCapacity, 15) : fallbackCapacity)
                   }
                 }}
                 onChange={(e) => {
                   setIsDirty(true)
                   const val = e.target.value
-                  if (val === "") setCapacity("")
-                  else setCapacity(Number(val))
+                  handleCapacityChange(val === "" ? "" : Number(val))
                 }}
                 className={`w-full h-11 px-3.5 text-sm font-normal bg-white border rounded-xl focus:outline-none transition-colors tabular-nums ${
                   capacityError
@@ -1563,7 +1612,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                 }`}
               />
               <div className="text-xs text-stone-500 mt-1">
-                {apiEnabled ? "Normal tối đa 15 học viên. " : ""}Sân chứa tối đa {selectedRoomObj?.capacity || 8}
+                {apiEnabled ? "Normal tối đa 15 học viên. " : ""}Sức chứa phòng {selectedRoomObj?.capacity ?? (apiEnabled ? "chưa xác định" : 8)} học viên.
               </div>
               {capacityError && (
                 <p className="text-xs text-orange-600 mt-1 font-medium flex items-center gap-1">
@@ -1580,7 +1629,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
               </label>
               <input
                 type="number"
-                min="1"
+                min={defaultMinCapacity ?? 1}
                 max={capacity || 30}
                 value={minCapacity}
                 onFocus={(e) => e.target.select()}
@@ -1590,12 +1639,10 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                 }}
                 onBlur={() => {
                   setTouched((p) => ({ ...p, minCapacity: true }))
-                  if (!minCapacity || minCapacity < 1) {
-                    setMinCapacity(1)
-                  }
                 }}
                 onChange={(e) => {
                   setIsDirty(true)
+                  setMinCapacityCustomized(true)
                   const val = e.target.value
                   if (val === "") setMinCapacity("")
                   else setMinCapacity(Number(val))
@@ -1607,7 +1654,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                 }`}
               />
               <div className="text-xs text-stone-500 mt-1">
-                Đạt mức này lớp sẽ tự xác nhận mở
+                Mặc định {defaultMinCapacity ?? "—"} học viên (2/3 sĩ số tối đa). Manager có thể tăng ngưỡng; Backend quyết định điều kiện mở lớp.
               </div>
               {minCapacityError && (
                 <p className="text-xs text-orange-600 mt-1 font-medium flex items-center gap-1">

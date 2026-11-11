@@ -9,6 +9,9 @@ export const getEnrollmentsByClass = async (classId, { strict = false, ...option
       ...options,
     })
     const list = extractList(data)
+    if (strict && !Array.isArray(list)) {
+      throw new Error("Phản hồi danh sách enrollment không đúng định dạng.")
+    }
     return Array.isArray(list) ? list : []
   } catch (err) {
     if (err?.status === 403 || err?.status === 404) {
@@ -18,6 +21,9 @@ export const getEnrollmentsByClass = async (classId, { strict = false, ...option
           { notifyForbidden: false, ...options },
         )
         const fallbackList = extractList(fallback)
+        if (strict && !Array.isArray(fallbackList)) {
+          throw new Error("Phản hồi danh sách enrollment không đúng định dạng.")
+        }
         return Array.isArray(fallbackList) ? fallbackList : []
       } catch (fallbackError) {
         if (strict) throw fallbackError

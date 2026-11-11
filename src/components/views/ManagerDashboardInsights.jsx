@@ -1,11 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   Activity,
-  AlertTriangle,
   ArrowRight,
-  BarChart3,
   CalendarClock,
-  MapPin,
   RefreshCw,
   TrendingUp,
 } from 'lucide-react'
@@ -21,7 +18,6 @@ import {
 import { useSCMS } from '../../context/SCMSContext'
 import * as managerApi from '../../api/managerApi'
 import { getErrorMessage } from '../../api/apiErrors'
-import { canManageClasses } from '../../api/holidayUtils'
 import { addDays, localDateString } from '../../api/sessionIncidentUtils'
 import { revenueTimelineForDisplay } from '../../api/reportUtils'
 import { formatCurrency } from '../../locales/translations'
@@ -88,7 +84,6 @@ export function ManagerDashboardInsights({ navigate }) {
     dashboard,
     managerDataLoading,
     managerDataError,
-    currentUser,
     language,
   } = useSCMS()
   const vi = language === 'vi'
@@ -160,8 +155,6 @@ export function ManagerDashboardInsights({ navigate }) {
     (item) => item.period && item.revenue != null,
   )
   const classTotal = dashboard?.totalClasses
-  const canManageSchedule = canManageClasses(apiEnabled, currentUser?.authorities)
-
   const goTo = (path) => navigate?.(path)
   const sessionStatusLabel = (status) => {
     const normalized = String(status ?? '').trim().toLowerCase()
@@ -286,26 +279,6 @@ export function ManagerDashboardInsights({ navigate }) {
         </Panel>
       </div>
 
-      <Panel
-        title={vi ? 'Thao tác nhanh' : 'Quick actions'}
-        subtitle={vi ? 'Đi đến các trang quản lý hiện có.' : 'Open existing manager pages.'}
-        icon={BarChart3}
-      >
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            { path: '/manager/classes', icon: CalendarClock, label: vi ? 'Quản lý lớp học' : 'Manage classes' },
-            { path: '/manager/resources', icon: MapPin, label: vi ? 'Quản lý sân/phòng' : 'Manage facilities' },
-            { path: '/manager/reports', icon: BarChart3, label: vi ? 'Xem báo cáo' : 'View reports' },
-            ...(canManageSchedule ? [{ path: '/manager/session-incidents', icon: AlertTriangle, label: vi ? 'Xử lý sự cố lịch học' : 'Handle schedule incidents' }] : []),
-          ].map((action) => {
-            const Icon = action.icon
-            return <button key={action.path} type="button" onClick={() => goTo(action.path)} className="flex min-h-12 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-xs font-semibold text-slate-700 transition-colors hover:border-brand-primary/40 hover:bg-slate-50 hover:text-brand-primary">
-              <span className="flex min-w-0 items-center gap-2.5"><Icon className="h-4 w-4 shrink-0 text-brand-primary" /><span className="truncate">{action.label}</span></span>
-              <ArrowRight className="h-3.5 w-3.5 shrink-0" />
-            </button>
-          })}
-        </div>
-      </Panel>
     </div>
   )
 }

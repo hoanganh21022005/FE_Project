@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { getMemberReport, getRevenueReport } from '../src/api/managerApi.js'
 import { mapDashboard, mapMemberReport, mapRevenueReport } from '../src/api/mappers.js'
-import { revenueTimelineForDisplay } from '../src/api/reportUtils.js'
+import { revenueSummaryCsvRows, revenueTimelineForDisplay, serializeCsvRows } from '../src/api/reportUtils.js'
 
 const dashboard = mapDashboard({
   totalUsers: 0,
@@ -26,14 +26,22 @@ assert.deepEqual(dashboard, {
 assert.equal(mapDashboard({ totalRevenue: null }).totalRevenue, null)
 
 const dailyRevenue = mapRevenueReport({
-  totalRevenue: '150000.50',
+  totalRevenue: '180000',
+  moneyReceived: '165000.50',
+  moneyRefunded: '15000',
+  netReceived: '150000.50',
+  cashCorrectionsRecorded: '2500',
   totalTransactions: 2,
   averageTransactionValue: '75000.25',
   revenueByPackage: [{ packageId: 4, packageName: 'Advanced', count: 2, totalRevenue: 150000.5 }],
   revenueByMethod: [{ method: 'Cash', count: 1, totalRevenue: 50000 }, { method: 'Transfer', count: 1, totalRevenue: 100000.5 }],
   timeline: [{ period: '2026-10-21', revenue: 150000.5, count: 2 }],
 })
-assert.equal(dailyRevenue.totalRevenue, 150000.5)
+assert.equal(dailyRevenue.totalRevenue, 180000)
+assert.equal(dailyRevenue.moneyReceived, 165000.5)
+assert.equal(dailyRevenue.moneyRefunded, 15000)
+assert.equal(dailyRevenue.netReceived, 150000.5)
+assert.equal(dailyRevenue.cashCorrectionsRecorded, 2500)
 assert.equal(dailyRevenue.totalTransactions, 2)
 assert.equal(dailyRevenue.averageTransactionValue, 75000.25)
 assert.equal(dailyRevenue.revenueByPackage[0].packageName, 'Advanced')
@@ -42,6 +50,10 @@ assert.equal(dailyRevenue.timeline[0].period, '2026-10-21')
 
 const emptyRevenue = mapRevenueReport({
   totalRevenue: 0,
+  moneyReceived: 0,
+  moneyRefunded: 0,
+  netReceived: 0,
+  cashCorrectionsRecorded: 0,
   totalTransactions: 0,
   averageTransactionValue: 0,
   revenueByPackage: [],
@@ -49,10 +61,48 @@ const emptyRevenue = mapRevenueReport({
   timeline: [{ period: '2026-09', revenue: 0, count: 0 }],
 })
 assert.equal(emptyRevenue.totalTransactions, 0)
+assert.equal(emptyRevenue.moneyReceived, 0)
+assert.equal(emptyRevenue.moneyRefunded, 0)
+assert.equal(emptyRevenue.netReceived, 0)
+assert.equal(emptyRevenue.cashCorrectionsRecorded, 0)
 assert.equal(emptyRevenue.timeline.length, 1, 'The view must suppress a default timeline row when there are no transactions.')
 assert.deepEqual(revenueTimelineForDisplay(emptyRevenue), [])
 assert.deepEqual(revenueTimelineForDisplay(dailyRevenue), dailyRevenue.timeline)
 assert.deepEqual(mapRevenueReport({ totalRevenue: null, totalTransactions: null }).timeline, [])
+
+const nullMoneyFields = mapRevenueReport({
+  totalRevenue: null,
+  moneyReceived: null,
+  moneyRefunded: null,
+  netReceived: null,
+  cashCorrectionsRecorded: null,
+})
+assert.equal(nullMoneyFields.totalRevenue, null)
+assert.equal(nullMoneyFields.moneyReceived, null)
+assert.equal(nullMoneyFields.moneyRefunded, null)
+assert.equal(nullMoneyFields.netReceived, null)
+assert.equal(nullMoneyFields.cashCorrectionsRecorded, null)
+assert.deepEqual(revenueSummaryCsvRows(emptyRevenue), [
+  ['totalRevenue', 0],
+  ['moneyReceived', 0],
+  ['moneyRefunded', 0],
+  ['netReceived', 0],
+  ['cashCorrectionsRecorded', 0],
+])
+assert.deepEqual(revenueSummaryCsvRows(nullMoneyFields), [
+  ['totalRevenue', null],
+  ['moneyReceived', null],
+  ['moneyRefunded', null],
+  ['netReceived', null],
+  ['cashCorrectionsRecorded', null],
+])
+const csvWithZeroAndNull = serializeCsvRows([
+  ['moneyRefunded', emptyRevenue.moneyRefunded],
+  ['netReceived', nullMoneyFields.netReceived],
+])
+assert.match(csvWithZeroAndNull, /"moneyRefunded","0"/)
+assert.match(csvWithZeroAndNull, /"netReceived","null"/)
+assert.notEqual(dailyRevenue.totalRevenue, dailyRevenue.netReceived, 'Keep totalRevenue independent from netReceived; OpenAPI defines both without a formula.')
 
 const memberReport = mapMemberReport({
   totalMembers: 5,
@@ -79,10 +129,23 @@ globalThis.fetch = async (url, options) => {
 }
 
 try {
-  replies.push({ status: 200, body: { ...emptyRevenue, timeline: [{ period: '2026-10-22', revenue: 0, count: 0 }] } })
+  replies.push({ status: 200, body: {
+    ...emptyRevenue,
+    totalRevenue: 140,
+    moneyReceived: 125,
+    moneyRefunded: 20,
+    netReceived: 105,
+    cashCorrectionsRecorded: null,
+    timeline: [{ period: '2026-10-22', revenue: 0, count: 0 }],
+  } })
   const filtered = await getRevenueReport({ startDate: '2026-10-01', endDate: '2026-10-22', groupBy: 'day' }, { notifyForbidden: false })
   assert.equal(requests.at(-1).url, 'https://scms-app-p1gy.onrender.com/api/reports/revenue?startDate=2026-10-01&endDate=2026-10-22&groupBy=day')
   assert.equal(filtered.timeline[0].period, '2026-10-22')
+  assert.equal(filtered.totalRevenue, 140)
+  assert.equal(filtered.moneyReceived, 125)
+  assert.equal(filtered.moneyRefunded, 20)
+  assert.equal(filtered.netReceived, 105)
+  assert.equal(filtered.cashCorrectionsRecorded, null)
 
   replies.push({ status: 200, body: emptyRevenue })
   const monthly = await getRevenueReport({ groupBy: 'month' }, { notifyForbidden: false })
