@@ -1493,7 +1493,7 @@ export function CoachAttendanceView() {
                   <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
                     {/* R1.1 & R1.5: 4 one-touch buttons on 1 single row even at 375px */}
                     {allowCheckIn && !sessionCancelled && hasSessionPermission ? (
-                      <div className="grid grid-cols-4 gap-1 w-full sm:w-auto">
+                      <div className={`grid ${apiEnabled ? "grid-cols-2" : "grid-cols-4"} gap-1 w-full sm:w-auto`}>
                         {[
                           {
                             key: "present",
@@ -1540,14 +1540,14 @@ export function CoachAttendanceView() {
                               onClick={() =>
                                 handleOneTouchCheckIn(m, btn.key, attendanceId)
                               }
-                              className={`inline-flex min-h-11 items-center justify-center gap-1 rounded px-2 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border cursor-pointer ${
+                              className={`inline-flex min-h-11 items-center justify-center gap-0.5 sm:gap-1 rounded px-0.5 sm:px-2 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border cursor-pointer ${
                                 isSelected
                                   ? btn.activeCls
                                   : "border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
                               }`}
                             >
-                              <IconComp className="w-3.5 h-3.5 shrink-0" />
-                              <span className="truncate">{btn.shortLabel}</span>
+                              <IconComp className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+                              <span className="whitespace-nowrap">{btn.shortLabel}</span>
                             </button>
                           )
                         })}
