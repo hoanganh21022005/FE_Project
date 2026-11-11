@@ -13,6 +13,9 @@ import {
   ArrowLeft,
   CalendarCheck2,
   Building2,
+  CalendarPlus,
+  Headset,
+  ClipboardList,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { membershipApi } from "../../api/membershipApi"
@@ -102,6 +105,15 @@ export function resolveSubscriptionBadge(sub, isVi) {
   }
 }
 
+function FreezeSummary({ icon: Icon, tone, title, detail }) {
+  const colors = { blue: "bg-blue-50 text-blue-700", emerald: "bg-emerald-50 text-emerald-700", amber: "bg-amber-50 text-amber-700" }
+  return <article className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-[10px] ${colors[tone]}`}><Icon size={19} /></span><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{title}</p><p className="mt-0.5 text-xs text-slate-500">{detail}</p></div></article>
+}
+
+function PolicyItem({ number, icon: Icon, title, body }) {
+  return <li className="flex gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-600"><Icon size={17} /></span><div className="min-w-0"><div className="flex items-center gap-2"><span className="text-[10px] font-bold tracking-wider text-slate-400">{number}</span><h3 className="text-sm font-semibold text-slate-800">{title}</h3></div><p className="mt-1 text-xs leading-5 text-slate-500">{body}</p></div></li>
+}
+
 export function MemberFreezeRequestView({ embedded = false, initialSubscriptions = null }) {
   let navigate = () => {}
   try {
@@ -165,10 +177,10 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
     // Fetch lịch sử yêu cầu bảo lưu
     if (memberId) {
       setRequestsLoading(true)
-      membershipApi
-        .getFreezeRequests?.(memberId)
+      Promise.resolve()
+        .then(() => membershipApi.getFreezeRequests?.(memberId, { notifyForbidden: false, notifyUnauthorized: false }))
         .then((list) => setRequests(Array.isArray(list) ? list : []))
-        .catch(() => {})
+        .catch(() => setRequests([]))
         .finally(() => setRequestsLoading(false))
     } else {
       setRequestsLoading(false)
@@ -242,7 +254,7 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
       className={
         embedded
           ? "space-y-6"
-          : "mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-7 sm:py-8"
+          : "min-w-0 w-full space-y-6 px-4 py-5 sm:px-6 lg:px-8"
       }
     >
       {/* Header */}
@@ -267,33 +279,25 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
         />
       )}
 
+      {!embedded && <section className="grid gap-3 sm:grid-cols-3" aria-label={isVi ? "Tóm tắt chính sách bảo lưu" : "Freeze policy summary"}>
+        <FreezeSummary icon={CalendarPlus} tone="blue" title={isVi ? "Tự động cộng bù" : "Automatic extension"} detail={isVi ? "Ngày nghỉ lễ / sự cố trung tâm" : "Center holidays / incidents"} />
+        <FreezeSummary icon={Calendar} tone="emerald" title={isVi ? "7 – 30 ngày" : "7 – 30 days"} detail={isVi ? "Gói từ 3 tháng" : "Plans of 3+ months"} />
+        <FreezeSummary icon={Headset} tone="amber" title={isVi ? "Hỗ trợ tại quầy Lễ tân" : "Reception desk support"} detail={isVi ? "Tư vấn và tiếp nhận yêu cầu" : "Guidance and request intake"} />
+      </section>}
+
+      <div className={embedded ? "space-y-6" : "grid min-w-0 gap-6 lg:grid-cols-[1.35fr_1fr] lg:items-start"}>
+
       {/* Policy banner */}
-      <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 text-xs text-amber-950 shadow-xs">
-        <div className="flex items-center gap-2 font-bold text-amber-900 text-sm">
-          <Info className="w-4 h-4 text-amber-700" />
-          <span>
-            {isVi
-              ? "Quy định Gia hạn & Bảo lưu thời hạn gói (D08 / D12 / D14)"
-              : "Validity Extension & Freeze Policy (D08 / D12 / D14)"}
-          </span>
+      <section className={"rounded-2xl border border-slate-200 bg-white p-5 shadow-sm " + (embedded ? "" : "order-2 lg:order-none lg:col-start-2 lg:row-start-1")}>
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-slate-600"><Info size={19} /></span><div><h2 className="font-bold text-slate-900">{isVi ? "Quy định Gia hạn & Bảo lưu" : "Extension & Freeze Policy"}</h2><p className="mt-0.5 text-xs text-slate-500">{isVi ? "Áp dụng theo điều kiện gói và xác nhận của trung tâm" : "Subject to plan eligibility and center review"}</p></div></div>
+          <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold tracking-wide text-slate-500">D08 · D12 · D14</span>
         </div>
-        <ul className="mt-2.5 list-disc list-inside space-y-1 text-amber-900/90 leading-relaxed">
-          <li>
-            {isVi
-              ? "Tự động cộng bù ngày nghỉ Trung tâm (D12/D14): Thời hạn 45 ngày sử dụng của gói Advanced được máy chủ tự động skip các ngày Trung tâm nghỉ lễ (Holiday) hoặc gián đoạn sự cố (Center Incident) mà không cần gửi đơn."
-              : "Automatic Center Holiday & Incident skip (D12/D14): The 45-day usage period of Advanced packages automatically skips official Center Holidays and verified Center Incidents on the server."}
-          </li>
-          <li>
-            {isVi
-              ? "Yêu cầu bảo lưu cá nhân: Gói chung từ 3 tháng trở lên có thể gửi phiếu đề xuất bảo lưu cá nhân (tối thiểu 7 ngày, tối đa 30 ngày) để Lễ tân & Quản lý trung tâm xem xét hỗ trợ."
-              : "Personal freeze request: Standard plans of 3+ months can submit a consultation request (7–30 days) for Reception & Center Management review."}
-          </li>
-          <li>
-            {isVi
-              ? "Thời hạn chính thức của gói luôn hiển thị theo trường expiresAt từ máy chủ sau khi đã đối soát."
-              : "Authoritative package expiration is always governed by the server expiresAt timestamp."}
-          </li>
-        </ul>
+        <ol className="mt-4 space-y-4">
+          <PolicyItem number="01" icon={CalendarPlus} title={isVi ? "Tự động cộng bù ngày nghỉ" : "Automatic day extension"} body={isVi ? "Ngày nghỉ lễ hoặc sự cố đã được trung tâm xác nhận sẽ tự động được cộng bù; bạn không cần gửi yêu cầu riêng." : "Confirmed center holidays or incidents are automatically added to your validity; no separate request is needed."} />
+          <PolicyItem number="02" icon={Calendar} title={isVi ? "Bảo lưu cá nhân: 7–30 ngày" : "Personal freeze: 7–30 days"} body={isVi ? "Có thể đề nghị bảo lưu với gói có thời hạn từ 3 tháng trở lên. Quầy Lễ tân sẽ tư vấn điều kiện cụ thể." : "Requests are available for plans of at least 3 months. Reception can advise on eligibility."} />
+          <PolicyItem number="03" icon={CheckCircle2} title={isVi ? "Ngày hết hạn được cập nhật sau đối soát" : "Expiry updates after reconciliation"} body={isVi ? "Thời hạn gói chính thức được hệ thống tự động cập nhật ngay sau khi đối soát." : "Your official package expiry is updated automatically by the system after reconciliation."} />
+        </ol>
         {(activeHolidays.length > 0 || centerIncidents.length > 0) && (
           <div className="mt-3 pt-3 border-t border-amber-200/80 flex flex-wrap gap-2">
             {activeHolidays.map((h) => (
@@ -319,7 +323,7 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
       </section>
 
       {/* Request Form */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <section className={"rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7 " + (embedded ? "" : "order-1 lg:col-start-1 lg:row-start-1")}>
         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
           <PauseCircle className="w-5 h-5 text-brand-accent-dark" />
           {isVi ? "Yêu cầu bảo lưu thời hạn gói" : "Membership Freeze Request"}
@@ -327,39 +331,30 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
 
         {apiEnabled ? (
           <div className="mt-5 space-y-4">
-            <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs text-amber-950 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-slate-700">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-brand-primary" />
               <div className="space-y-1">
                 <p className="font-bold text-sm">
                   {t("memberFreezeUpgradeTitle")}
                 </p>
-                <p className="text-amber-900/90 leading-relaxed">
+                <p className="text-slate-600 leading-relaxed">
                   {t("memberFreezeUpgradeBody")}
                 </p>
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-              <div className="flex items-center gap-2 font-bold text-slate-900 text-xs">
-                <Building2 className="w-4 h-4 text-brand-primary" />
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <div className="mb-4 flex items-center gap-2 font-bold text-slate-900 text-sm">
+                <Building2 className="h-4 w-4 text-brand-primary" />
                 <span>
                   {isVi
                     ? "Hướng dẫn liên hệ Lễ tân để hỗ trợ bảo lưu thủ công"
                     : "Contact Reception for Manual Freeze Support"}
                 </span>
               </div>
-              <ul className="list-disc list-inside space-y-1.5 text-xs text-slate-600 leading-relaxed">
-                <li>
-                  {isVi
-                    ? "Quý hội viên có nhu cầu bảo lưu cá nhân (công tác, điều trị chấn thương, lý do sức khỏe) vui lòng liên hệ trực tiếp quầy Lễ tân tại cơ sở để được nhân viên lập phiếu đề xuất."
-                    : "Members with personal leave needs (business trips, medical treatment) please visit Reception directly to submit a physical request."}
-                </li>
-                <li>
-                  {isVi
-                    ? "Áp dụng theo quy chế bảo lưu cho các gói hội viên có thời hạn từ 3 tháng trở lên."
-                    : "Applicable under freeze policy for membership plans of 3+ months."}
-                </li>
-              </ul>
+              <ol className="grid gap-3 sm:grid-cols-3">
+                {[isVi ? "Chuẩn bị thông tin gói" : "Prepare membership details", isVi ? "Liên hệ quầy Lễ tân" : "Contact Reception", isVi ? "Hệ thống cập nhật ngày hết hạn" : "System updates expiry date"].map((step, index) => <li key={step} className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs leading-5 text-slate-600"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-[10px] font-bold text-brand-primary ring-1 ring-slate-200">{index + 1}</span><span><strong className="block text-slate-800">{isVi ? `Bước ${index + 1}` : `Step ${index + 1}`}</strong>{step}</span></li>)}
+              </ol>
             </div>
 
             {subscriptions.length > 0 && (
@@ -580,7 +575,7 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
       </section>
 
       {/* History table */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <section className={"overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm " + (embedded ? "" : "order-3 lg:col-start-1 lg:row-start-2")}>
         <div className="border-b border-slate-100 p-4 sm:px-6">
           <h2 className="font-bold text-slate-900">
             {isVi ? "Lịch sử yêu cầu bảo lưu" : "Request History"}
@@ -588,20 +583,22 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
         </div>
 
         {requestsLoading ? (
-          <div className="p-8 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+          <div className="flex items-center justify-center gap-2 p-8 text-sm text-slate-500">
             <Clock className="h-4 w-4 animate-spin text-slate-400" />
             <span>{t("memberFreezeLoadingRequests")}</span>
           </div>
         ) : requests.length === 0 ? (
-          <div className="p-8 text-center text-xs text-slate-500">
-            {t("memberFreezeNoRequests")}
+          <div className="p-8 text-center">
+            <span className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-slate-100 text-slate-400"><FileText size={20} /></span>
+            <p className="text-sm font-semibold text-slate-700">{isVi ? "Chưa có lịch sử yêu cầu bảo lưu" : "No freeze request history yet"}</p>
+            <p className="mt-1 text-xs text-slate-500">{isVi ? "Yêu cầu đã gửi sẽ xuất hiện tại đây." : "Submitted requests will appear here."}</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
             {requests.map((req) => (
               <div
                 key={req.id}
-                className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -611,15 +608,8 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
                     <span className="font-bold text-slate-900 text-sm">
                       {req.packageName}
                     </span>
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                        req.status === "approved"
-                          ? "bg-emerald-50 text-emerald-700"
-                          : req.status === "rejected"
-                            ? "bg-rose-50 text-rose-700"
-                            : "bg-amber-50 text-amber-700"
-                      }`}
-                    >
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${req.status === "approved" ? "bg-emerald-50 text-emerald-700" : req.status === "rejected" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${req.status === "approved" ? "bg-emerald-500" : req.status === "rejected" ? "bg-rose-500" : "bg-amber-500"}`} />
                       {req.status === "approved"
                         ? isVi
                           ? "Đã duyệt"
@@ -657,6 +647,7 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
           </div>
         )}
       </section>
+      </div>
     </main>
   )
 }
