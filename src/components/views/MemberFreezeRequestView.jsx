@@ -6,20 +6,16 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  ShieldAlert,
   Info,
   Send,
   FileText,
   ArrowLeft,
-  CalendarCheck2,
   Building2,
   CalendarPlus,
   Headset,
-  ClipboardList,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { membershipApi } from "../../api/membershipApi"
-import { memberPortalApi } from "../../api/memberPortalApi"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { getErrorMessage } from "../../api/apiErrors"
 import { PageHeader } from "../ui/PageHeader"
@@ -133,8 +129,6 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
     Array.isArray(initialSubscriptions) ? initialSubscriptions : []
   )
   const [selectedSubId, setSelectedSubId] = useState("")
-  const [activeHolidays, setActiveHolidays] = useState([])
-  const [centerIncidents, setCenterIncidents] = useState([])
   const [startDate, setStartDate] = useState("")
   const [days, setDays] = useState("7")
   const [reason, setReason] = useState("business")
@@ -145,17 +139,9 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
 
   useEffect(() => {
     if (!apiEnabled) return
-    memberPortalApi
-      .getActiveHolidays()
-      .then((list) => setActiveHolidays(Array.isArray(list) ? list : []))
-      .catch(() => {})
-    memberPortalApi
-      .getCenterIncidents()
-      .then((list) => setCenterIncidents(Array.isArray(list) ? list : []))
-      .catch(() => {})
     if (memberId) {
       membershipApi
-        .getMemberSubscriptions(memberId)
+        .getMemberSubscriptions(memberId, { notifyForbidden: false, notifyUnauthorized: false })
         .then((subs) => {
           const list = Array.isArray(subs) ? subs : []
           setSubscriptions(list)
@@ -298,28 +284,6 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
           <PolicyItem number="02" icon={Calendar} title={isVi ? "Bảo lưu cá nhân: 7–30 ngày" : "Personal freeze: 7–30 days"} body={isVi ? "Có thể đề nghị bảo lưu với gói có thời hạn từ 3 tháng trở lên. Quầy Lễ tân sẽ tư vấn điều kiện cụ thể." : "Requests are available for plans of at least 3 months. Reception can advise on eligibility."} />
           <PolicyItem number="03" icon={CheckCircle2} title={isVi ? "Ngày hết hạn được cập nhật sau đối soát" : "Expiry updates after reconciliation"} body={isVi ? "Thời hạn gói chính thức được hệ thống tự động cập nhật ngay sau khi đối soát." : "Your official package expiry is updated automatically by the system after reconciliation."} />
         </ol>
-        {(activeHolidays.length > 0 || centerIncidents.length > 0) && (
-          <div className="mt-3 pt-3 border-t border-amber-200/80 flex flex-wrap gap-2">
-            {activeHolidays.map((h) => (
-              <span
-                key={h.id || h.holidayDate}
-                className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-bold text-amber-900 border border-amber-200"
-              >
-                <CalendarCheck2 className="w-3.5 h-3.5 text-amber-700" />
-                {h.holidayName || "Ngày nghỉ lễ"} ({h.holidayDate})
-              </span>
-            ))}
-            {centerIncidents.map((inc) => (
-              <span
-                key={inc.id}
-                className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-bold text-rose-800 border border-rose-200"
-              >
-                <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
-                {inc.title || inc.reason || "Sự cố trung tâm"} ({inc.incidentDate || inc.startDate || ""})
-              </span>
-            ))}
-          </div>
-        )}
       </section>
 
       {/* Request Form */}
