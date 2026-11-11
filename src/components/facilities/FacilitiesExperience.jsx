@@ -91,7 +91,6 @@ export function FacilitiesExperience() {
                   <span className="facility-detail-number">{String(index + 1).padStart(2, "0")}</span>
                 </div>
                 <div className="facility-detail-copy">
-                  <p className="facility-section-kicker">{isVi ? "KHÔNG GIAN TẬP LUYỆN" : "TRAINING SPACE"} · {String(index + 1).padStart(2, "0")}</p>
                   <h3>{courseTitle}</h3>
                   <p className="facility-detail-description">{isVi ? course.space : course.spaceEn}</p>
                   <div className="facility-detail-facts">

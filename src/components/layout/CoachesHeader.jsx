@@ -83,12 +83,12 @@ export function CoachesHeader({ showRegister = true }) {
           {renderLinks()}
         </nav>
         <div className="flex items-center gap-3 sm:gap-5">
-          <div className="flex items-center gap-1 text-xs font-bold" aria-label={isVi ? "Ngôn ngữ" : "Language"}>
+          <div className="flex items-center gap-1 text-[1.0625rem] font-bold" aria-label={isVi ? "Ngôn ngữ" : "Language"}>
             <button type="button" onClick={() => setLanguage("vi")} aria-pressed={isVi} className={`p-1.5 ${isVi ? "text-mlc-red" : "text-mlc-muted"}`}>VI</button>
             <span aria-hidden="true" className="text-mlc-border">/</span>
             <button type="button" onClick={() => setLanguage("en")} aria-pressed={!isVi} className={`p-1.5 ${!isVi ? "text-mlc-red" : "text-mlc-muted"}`}>EN</button>
           </div>
-          <Link to="/login" className="hidden text-xs font-bold hover:text-mlc-red sm:block">{isVi ? "Đăng nhập" : "Login"}</Link>
+          <Link to="/login" className="hidden text-[1.0625rem] font-bold hover:text-mlc-red sm:block">{isVi ? "Đăng nhập" : "Login"}</Link>
           {showRegister && (
             <Link to="/register" className="hidden rounded-full bg-mlc-red px-5 py-3 text-xs font-bold text-white shadow-mlc transition hover:bg-brand-primary-hover sm:block">
               {isVi ? "Đăng ký ngay" : "Join now"}

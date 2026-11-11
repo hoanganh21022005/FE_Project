@@ -614,11 +614,6 @@ export function HomeLandingView({ onOpenLogin }) {
                     : `${visibleCourses.length} SPORTS COURSES`}
                 </h2>
               </div>
-              <p className="max-w-lg text-base leading-7 text-text-secondary">
-                {isVi
-                  ? "Từ những môn phối hợp đồng đội đến thử thách cá nhân, hãy chọn hoạt động khiến bạn muốn quay lại sân tập."
-                  : "From team play to individual challenges, choose an activity that makes you want to come back."}
-              </p>
             </Reveal>
             <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {visibleCourses.map((course) => {
