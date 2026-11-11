@@ -27,6 +27,9 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
+  ClipboardList,
+  CalendarDays,
+  Star,
 } from "lucide-react"
 import { PageHeader } from "../ui/PageHeader"
 
@@ -251,8 +254,10 @@ export function MemberFeedbackView({ embedded = false }) {
     submitFeedback,
     showToast,
     apiEnabled,
+    language,
     t,
   } = useSCMS()
+  const isVi = language === "vi"
 
   const tr = useCallback(
     (key, params = {}) => {
@@ -873,6 +878,10 @@ export function MemberFeedbackView({ embedded = false }) {
           metaSource?.facilityBreakdown ||
           rawSource.criteria?.facilityBreakdown ||
           null
+        const hasSubcriteriaData = [
+          savedCoachBd?.expertise, savedCoachBd?.interaction, savedCoachBd?.punctuality,
+          savedFacilityBd?.court, savedFacilityBd?.lighting, savedFacilityBd?.cleanliness,
+        ].some((value) => Number(value) > 0)
 
         const criteria = hasLocalMetadata
           ? {
@@ -963,12 +972,17 @@ export function MemberFeedbackView({ embedded = false }) {
           coachRating: apiCoachRating || derivedOverall,
           classRating: apiClassRating || derivedOverall,
           hasLocalMetadata,
+          hasSubcriteriaData,
           criteria,
           tags: normalizedTags,
-          comment:
+          comment: String(
             rawSource.comment !== undefined && rawSource.comment !== null
-              ? String(rawSource.comment)
-              : String(metaSource?.comment || ""),
+              ? rawSource.comment
+              : metaSource?.comment || "",
+          )
+            .replace(/\bDEMO\b\s*/gi, "")
+            .trim()
+            .replace(/^./u, (letter) => letter.toLocaleUpperCase("vi")),
           isAnonymous: hasLocalMetadata
             ? Boolean(metaSource?.isAnonymous ?? rawSource.isAnonymous)
             : Boolean(rawSource.isAnonymous),
@@ -1398,11 +1412,7 @@ export function MemberFeedbackView({ embedded = false }) {
 
   return (
     <main
-      className={
-        embedded
-          ? "space-y-6 font-['Be_Vietnam_Pro',sans-serif]"
-          : "mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-7 sm:py-8 font-['Be_Vietnam_Pro',sans-serif]"
-      }
+      className="w-full space-y-6 px-6 py-6 font-['Be_Vietnam_Pro',sans-serif]"
     >
       {/* 1. HEADER */}
       {!embedded && (
@@ -1410,26 +1420,23 @@ export function MemberFeedbackView({ embedded = false }) {
           title={t("feedbackPageTitle")}
           description={t("feedbackPageSubtitle")}
           actions={
-            <div className="flex flex-col items-end gap-1.5">
+            <div className="flex items-center gap-2">
+              {lastUpdatedAt && (
+                <span className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600">
+                  {tr("feedbackUpdatedAt", { time: TIME_FORMATTER_HHMM.format(lastUpdatedAt) })}
+                </span>
+              )}
               <button
                 type="button"
                 onClick={fetchBackendFeedbackData}
                 disabled={isLoadingApi}
                 aria-label={t("feedbackBtnRefresh")}
                 title={t("feedbackBtnRefresh")}
-                className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 p-2 text-slate-700 disabled:opacity-60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
               >
-                <RefreshCw
-                  className={`h-4 w-4 ${isLoadingApi ? "animate-spin" : ""}`}
-                />
+                <RefreshCw className={`h-4 w-4 ${isLoadingApi ? "animate-spin" : ""}`} />
+                <span>{t("feedbackBtnRefresh")}</span>
               </button>
-              {lastUpdatedAt && (
-                <span className="text-xs text-slate-500">
-                  {tr("feedbackUpdatedAt", {
-                    time: TIME_FORMATTER_HHMM.format(lastUpdatedAt),
-                  })}
-                </span>
-              )}
             </div>
           }
         />
@@ -1438,91 +1445,50 @@ export function MemberFeedbackView({ embedded = false }) {
       {/* 2. DẢI CHỈ SỐ: 4 Thẻ cùng đơn vị là KHÓA (Chờ đánh giá + Đã gửi = Khóa đã tham gia) */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Cột 1: Chờ đánh giá (số khóa chưa có đánh giá) */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-            {t("feedbackKpiPending")}
-          </span>
-          <div
-            className={`text-3xl font-black mt-2 tabular-nums ${
-              pendingCourses.length > 0 ? "text-amber-600" : "text-slate-900"
-            }`}
-          >
-            {pendingCourses.length}
-          </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="flex items-center gap-3"><span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600"><ClipboardList className="h-5 w-5" /></span><div><span className="block text-xs font-semibold text-slate-500">{t("feedbackKpiPending")}</span><div className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{pendingCourses.length}</div></div></div>
         </div>
 
         {/* Cột 2: Đã gửi (số khóa đã có đánh giá) */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-            {t("feedbackKpiSubmitted")}
-          </span>
-          <div className="text-3xl font-black mt-2 tabular-nums text-slate-900">
-            {submittedReviews.length}
-          </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="flex items-center gap-3"><span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><CheckCircle2 className="h-5 w-5" /></span><div><span className="block text-xs font-semibold text-slate-500">{t("feedbackKpiSubmitted")}</span><div className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{submittedReviews.length}</div></div></div>
         </div>
 
         {/* Cột 3: Khóa đã tham gia (= Chờ đánh giá + Đã gửi), kèm dòng phụ N buổi có mặt */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-            {t("feedbackKpiAttended")}
-          </span>
-          <div className="text-3xl font-black mt-2 tabular-nums text-slate-900">
-            {attendedCoursesCount}
-          </div>
-          <div className="text-xs text-slate-500 mt-1 tabular-nums">
-            {tr("feedbackKpiAttendedSub", { count: attendedSessions.length })}
-          </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="flex items-center gap-3"><span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><CalendarDays className="h-5 w-5" /></span><div><span className="block text-xs font-semibold text-slate-500">{t("feedbackKpiAttended")}</span><div className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{attendedCoursesCount}</div><div className="mt-0.5 text-[11px] text-slate-500 tabular-nums">{tr("feedbackKpiAttendedSub", { count: attendedSessions.length })}</div></div></div>
         </div>
 
         {/* Cột 4: Điểm bạn đã cho */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-            {t("feedbackKpiAvgRating")}
-          </span>
-          <div className="text-3xl font-black mt-2 tabular-nums text-slate-900 flex items-center gap-1.5">
-            <span>{averageRating}</span>
-            {submittedReviews.length > 0 && (
-              <span className="text-sm font-medium text-slate-400">/ 5★</span>
-            )}
-          </div>
-          <div className="text-xs text-slate-500 mt-1">
-            {submittedReviews.length > 0
-              ? tr("feedbackKpiAvgSub", { count: submittedReviews.length })
-              : t("feedbackKpiNoRating")}
-          </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="flex items-center gap-3"><span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600"><Star className="h-5 w-5 fill-current" /></span><div><span className="block text-xs font-semibold text-slate-500">{t("feedbackKpiAvgRating")}</span><div className="mt-1 flex items-center gap-1.5 text-2xl font-bold tabular-nums text-slate-900"><span>{averageRating}</span>{submittedReviews.length > 0 && <span className="text-sm font-medium text-slate-400">/ 5</span>}</div><div className="mt-0.5 text-[11px] text-slate-500">{submittedReviews.length > 0 ? tr("feedbackKpiAvgSub", { count: submittedReviews.length }) : t("feedbackKpiNoRating")}</div></div></div>
         </div>
       </section>
 
       {/* 3. TABS */}
-      <div className="flex border-b border-slate-200 gap-6 text-sm">
+      <div className="inline-flex w-fit max-w-full gap-1 rounded-2xl border border-slate-200 bg-slate-100 p-1 text-sm">
         <button
           type="button"
           onClick={() => setActiveTab("pending")}
-          className={`pb-3 font-bold border-b-2 cursor-pointer transition-colors flex items-center gap-2 ${
+          className={`rounded-xl px-4 py-2.5 font-semibold cursor-pointer transition-colors flex items-center gap-2 ${
             activeTab === "pending"
-              ? "border-brand-accent text-brand-accent-dark"
-              : "border-transparent text-slate-500 hover:text-slate-800"
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span>{t("feedbackTabPending")}</span>
-          <span className="px-2 py-0.5 text-xs rounded-full bg-slate-100 text-slate-700 font-semibold">
-            {pendingCourses.length}
-          </span>
+          <span>{t("feedbackTabPending")} ({pendingCourses.length})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("submitted")}
-          className={`pb-3 font-bold border-b-2 cursor-pointer transition-colors flex items-center gap-2 ${
+          className={`rounded-xl px-4 py-2.5 font-semibold cursor-pointer transition-colors flex items-center gap-2 ${
             activeTab === "submitted"
-              ? "border-brand-accent text-brand-accent-dark"
-              : "border-transparent text-slate-500 hover:text-slate-800"
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span>{t("feedbackTabSubmitted")}</span>
-          <span className="px-2 py-0.5 text-xs rounded-full bg-slate-100 text-slate-700 font-semibold">
-            {submittedReviews.length}
-          </span>
+          <span>{t("feedbackTabSubmitted")} ({submittedReviews.length})</span>
         </button>
       </div>
 
@@ -1551,15 +1517,11 @@ export function MemberFeedbackView({ embedded = false }) {
               )}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid gap-4 xl:grid-cols-2">
               <AnimatePresence>
                 {pendingCourses.map((course) => {
-                  const latestSlot = course.latestSession
-                    ? formatSessionDateTimeSlot(
-                        course.latestSession.sessionDate,
-                        course.latestSession.startTime,
-                        course.latestSession.endTime,
-                      )
+                  const latestDate = course.latestSession?.sessionDate
+                    ? toDateDdMmYyyy(course.latestSession.sessionDate)
                     : null
                   const remainingDays = course.remainingDeadlineDays
 
@@ -1569,36 +1531,25 @@ export function MemberFeedbackView({ embedded = false }) {
                       initial={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0, overflow: "hidden" }}
                       transition={{ duration: 0.2 }}
-                      className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:border-slate-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                      className="flex flex-col justify-between gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs transition-all hover:border-slate-300 sm:flex-row sm:items-center"
                     >
                       {/* Thông tin Khóa học: Tên khóa, HLV, sân, số buổi đã tham gia, buổi gần nhất */}
-                      <div className="flex-1 min-w-0 space-y-1.5">
-                        <h3 className="text-base font-bold text-slate-900 truncate">
-                          {course.className}
-                        </h3>
-                        <p className="text-xs text-slate-600">
-                          {course.roomName} · {t("feedbackCoachPrefix")}{" "}
-                          {String(course.coachName || "").replace(
-                            /^HLV\s+/i,
-                            "",
-                          )}
-                        </p>
-                        <div className="text-xs text-slate-500 flex items-center gap-2 pt-0.5 flex-wrap">
-                          <span className="px-2 py-0.5 rounded text-[11px] font-medium border bg-emerald-50 text-emerald-700 border-emerald-200 tabular-nums">
+                      <div className="min-w-0 flex-1 space-y-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">{course.sportName || course.sport || (isVi ? "Thể thao" : "Sport")}</span>
+                          <h3 className="text-base font-bold text-slate-900">{course.className}</h3>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700">{t("feedbackCoachPrefix")} {String(course.coachName || "").replace(/^HLV\s+/i, "")}</p>
+                          <p className="mt-1 text-xs text-slate-500">{course.roomName || t("feedbackRoomTbd")}</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 tabular-nums"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                             {tr("feedbackCourseAttendedCount", {
                               count: course.attendedSessionCount,
                             })}
                           </span>
-                          {latestSlot && (
-                            <>
-                              <span className="text-slate-300">•</span>
-                              <span className="text-slate-600 tabular-nums">
-                                {tr("feedbackCourseLatestSession", {
-                                  slot: latestSlot,
-                                })}
-                              </span>
-                            </>
-                          )}
+                          {latestDate && <span className="text-slate-500 tabular-nums">{isVi ? "Buổi gần nhất" : "Last session"}: {latestDate}</span>}
                           {remainingDays !== null && (
                             <>
                               <span className="text-slate-300">•</span>
@@ -1706,6 +1657,7 @@ export function MemberFeedbackView({ embedded = false }) {
                 )
                 const coachBd = review.criteria?.coachBreakdown
                 const facilityBd = review.criteria?.facilityBreakdown
+                const hasSubcriteria = Boolean(review.hasSubcriteriaData && hasLocalMeta)
                 const verdictMeta = getVerdictMeta(overallScore, t)
                 const realCoachReply = sanitizeRealCoachReply(review.coachReply)
                 const replyDateFormatted = review.coachReplyDate
@@ -1784,7 +1736,7 @@ export function MemberFeedbackView({ embedded = false }) {
 
                     {/* Mức đánh giá & Thẻ nhận định nhanh */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-brand-accent-dark uppercase tracking-wider">
+                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                         {verdictMeta.label}
                       </span>
 
@@ -1806,7 +1758,7 @@ export function MemberFeedbackView({ embedded = false }) {
                     </div>
 
                     {/* Nhận xét văn bản (hiển thị tóm tắt khi đang thu gọn chi tiết) */}
-                    {review.comment && !isBreakdownOpen && (
+                    {review.comment && (
                       <div className="space-y-1">
                         <p
                           className={`text-sm text-slate-700 bg-slate-50 p-3.5 rounded-xl border border-slate-100 italic leading-relaxed ${
@@ -1830,7 +1782,7 @@ export function MemberFeedbackView({ embedded = false }) {
                     )}
 
                     {/* Nút mở rộng / thu gọn chi tiết đánh giá tại chỗ */}
-                    <div className="pt-1">
+                    {hasSubcriteria && <div className="pt-1">
                       <button
                         type="button"
                         aria-expanded={isBreakdownOpen}
@@ -1929,36 +1881,11 @@ export function MemberFeedbackView({ embedded = false }) {
                                 </div>
                               )}
                             </>
-                          ) : (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <span className="text-amber-500 font-black">
-                                  ★ {overallScore.toFixed(1)}/5
-                                </span>
-                                <span className="text-slate-300">·</span>
-                                <span className="font-semibold text-slate-800">
-                                  {verdictMeta.label}
-                                </span>
-                              </div>
-                              <p className="text-xs text-slate-500 italic">
-                                {t("feedbackMissingLocalMetaNote")}
-                              </p>
-                            </div>
-                          )}
+                          ) : null}
 
-                          {review.comment && (
-                            <div className="pt-3 border-t border-slate-200/80 space-y-1">
-                              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                                {t("feedbackDetailCommentLabel")}
-                              </span>
-                              <p className="text-xs text-slate-700 leading-relaxed">
-                                {review.comment}
-                              </p>
-                            </div>
-                          )}
                         </div>
                       )}
-                    </div>
+                    </div>}
 
                     {/* Khối trích dẫn phản hồi của HLV: CHỈ hiển thị khi API trả phản hồi thật */}
                     {realCoachReply && (
