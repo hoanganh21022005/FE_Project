@@ -917,20 +917,40 @@ export function CoachScheduleView() {
                               <div className="space-y-1.5">
                                 {cellSessions.map((ses) => {
                                   const cancelled = isSessionCancelled(ses)
+                                  const canInteract = !ses.isPrivate && !cancelled
                                   return (
                                     <div
                                       key={ses.id}
+                                      role={canInteract ? "button" : undefined}
+                                      tabIndex={canInteract ? 0 : undefined}
+                                      aria-label={
+                                        canInteract
+                                          ? `${ses.className || ses.subjectName || "PT 1:1"} - ${formatDate(ses.sessionDate)} - ${ses.roomName}`
+                                          : undefined
+                                      }
                                       onClick={() => {
-                                        if (!ses.isPrivate && !cancelled) {
+                                        if (canInteract) {
                                           handleGoToAttendance(ses)
                                         }
                                       }}
+                                      onKeyDown={
+                                        canInteract
+                                          ? (e) => {
+                                              if (e.key === "Enter" || e.key === " ") {
+                                                if (e.key === " ") {
+                                                  e.preventDefault()
+                                                }
+                                                handleGoToAttendance(ses)
+                                              }
+                                            }
+                                          : undefined
+                                      }
                                       className={`p-2 rounded border text-xs leading-4 space-y-1 ${
                                         cancelled
                                           ? "bg-rose-50 border-rose-200 text-status-danger opacity-75"
                                           : ses.isPrivate
                                             ? "bg-emerald-50 border-emerald-200 text-status-success"
-                                            : "bg-sky-50 border-sky-200 text-status-info cursor-pointer hover:border-brand-primary"
+                                            : "bg-sky-50 border-sky-200 text-status-info cursor-pointer hover:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                                       }`}
                                     >
                                       <div className="font-semibold">
