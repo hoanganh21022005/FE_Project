@@ -5,24 +5,33 @@ import {
   CheckCheck,
   Calendar,
   CreditCard,
+  Receipt,
+  MessageSquare,
   AlertTriangle,
   Info,
   Clock,
-  Filter,
+  Search,
+  SlidersHorizontal,
+  RotateCcw,
   RefreshCw,
   ArrowRight,
   CheckCircle2,
+  Settings,
+  Headphones,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { notificationApi } from "../../api/notificationApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import { PageHeader } from "../ui/PageHeader"
 
-const categorizeNotificationType = (rawType) => {
+const getNotificationKind = (rawType) => {
   const t = String(rawType || "").toUpperCase()
+  if (t.includes("CHAT") || t.includes("SUPPORT")) return "support"
+  if (t.includes("INCIDENT") || t.includes("CENTER_ALERT")) return "incident"
   if (
     t.includes("ENROLLMENT") ||
     t.includes("PRIVATE_BOOKING") ||
+    t.includes("SCHEDULE") ||
     t.includes("SESSION") ||
     t.includes("COACH") ||
     t.includes("NO_SHOW") ||
@@ -39,8 +48,41 @@ const categorizeNotificationType = (rawType) => {
   return "system"
 }
 
+const categorizeNotificationType = (rawType) => {
+  const kind = getNotificationKind(rawType)
+  return ["support", "incident", "system"].includes(kind) ? "system" : kind
+}
+
+const getNotificationTypeLabel = (rawType, isVi) => {
+  const kind = getNotificationKind(rawType)
+  const labels = {
+    support: isVi ? "Phản hồi hỗ trợ" : "Support reply",
+    incident: isVi ? "Sự cố & Bảo lưu" : "Incident & service update",
+    class: isVi ? "Nhắc lịch tập" : "Training reminder",
+    payment: isVi ? "Hóa đơn & Thanh toán" : "Billing & payment",
+    membership: isVi ? "Gói hội viên" : "Membership",
+    system: isVi ? "Hệ thống & Hỗ trợ" : "System & support",
+  }
+  if (rawType) return labels[kind] || String(rawType).toLowerCase().split(/[_\s-]+/).filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ")
+  return labels.system
+}
+
+const getLocalizedNotificationText = (value, isVi) => {
+  const text = String(value || "")
+  if (!isVi) return text
+  const knownTranslations = {
+    "New chat reply": "Phản hồi hỗ trợ mới",
+    "Staff replied to your support conversation.": "Chuyên viên lễ tân hoặc Trợ lý VIBE đã phản hồi cuộc trò chuyện của bạn.",
+    "A concrete center proposal still needs your choice; silence does not waive refund rights": "Trung tâm đã gửi phương án xử lý cụ thể cần bạn xác nhận; việc chưa phản hồi không làm mất quyền hoàn tiền của bạn.",
+  }
+  return knownTranslations[text.trim()] || text
+}
+
 const getNotificationActionLink = (item, isVi) => {
-  const cat = categorizeNotificationType(item.type)
+  const kind = getNotificationKind(item.type || item.category)
+  if (kind === "support") return { path: "/support", label: isVi ? "Mở khung chat" : "Open support chat" }
+  if (kind === "incident") return { path: "/support", label: isVi ? "Liên hệ trung tâm" : "Contact the center" }
+  const cat = categorizeNotificationType(item.type || item.category)
   if (cat === "payment") {
     return {
       path: "/member/invoices",
@@ -85,6 +127,7 @@ export function MemberNotificationsView() {
   const [loading, setLoading] = useState(Boolean(apiEnabled))
   const [error, setError] = useState("")
   const [filterType, setFilterType] = useState("all")
+  const [notificationSearch, setNotificationSearch] = useState("")
   const [busyId, setBusyId] = useState(null)
 
   const loadNotifications = useCallback(async () => {
@@ -119,6 +162,12 @@ export function MemberNotificationsView() {
     () => notifications.filter((n) => !n.isRead).length,
     [notifications],
   )
+  const summaryCounts = useMemo(() => ({
+    unread: unreadCount,
+    classes: notifications.filter((item) => getNotificationKind(item.type || item.category) === "class").length,
+    billing: notifications.filter((item) => getNotificationKind(item.type || item.category) === "payment").length,
+    support: notifications.filter((item) => ["support", "incident"].includes(getNotificationKind(item.type || item.category))).length,
+  }), [notifications, unreadCount])
 
   const notifyHeaderSync = () => {
     if (typeof window !== "undefined") {
@@ -180,42 +229,40 @@ export function MemberNotificationsView() {
 
   const filtered = useMemo(() => {
     return notifications.filter((n) => {
+      const search = notificationSearch.trim().toLocaleLowerCase()
+      if (search && !`${getLocalizedNotificationText(n.title, isVi)} ${getLocalizedNotificationText(n.message, isVi)}`.toLocaleLowerCase().includes(search)) return false
       if (filterType === "unread") return !n.isRead
       if (filterType === "all") return true
-      return categorizeNotificationType(n.type) === filterType
+      return categorizeNotificationType(n.type || n.category) === filterType
     })
-  }, [notifications, filterType])
+  }, [notifications, filterType, notificationSearch, isVi])
 
   const getIcon = (rawType) => {
-    const cat = categorizeNotificationType(rawType)
-    switch (cat) {
-      case "class":
-        return <Calendar className="w-4 h-4 text-blue-600" />
-      case "payment":
-        return <CreditCard className="w-4 h-4 text-emerald-600" />
-      case "membership":
-        return <Info className="w-4 h-4 text-amber-600" />
-      default:
-        return <AlertTriangle className="w-4 h-4 text-slate-600" />
-    }
+    const kind = getNotificationKind(rawType)
+    if (kind === "support") return { Icon: MessageSquare, tone: "bg-blue-50 text-blue-700 ring-blue-100" }
+    if (kind === "class") return { Icon: Calendar, tone: "bg-indigo-50 text-indigo-700 ring-indigo-100" }
+    if (kind === "payment") return { Icon: Receipt, tone: "bg-emerald-50 text-emerald-700 ring-emerald-100" }
+    if (kind === "incident") return { Icon: AlertTriangle, tone: "bg-amber-50 text-amber-700 ring-amber-100" }
+    if (kind === "membership") return { Icon: CreditCard, tone: "bg-violet-50 text-violet-700 ring-violet-100" }
+    return { Icon: Info, tone: "bg-slate-100 text-slate-600 ring-slate-200" }
   }
 
   return (
-    <main className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-7 sm:py-8">
+    <main className="w-full space-y-6 px-4 py-5 sm:px-6 lg:px-8">
       {/* Header */}
       <PageHeader
         title={
-          <span className="flex items-center gap-3">
+          <span className="flex flex-wrap items-center gap-3 text-2xl font-extrabold tracking-tight text-slate-900">
             {isVi ? "Trung tâm thông báo" : "Notifications"}
             {unreadCount > 0 && (
-              <span className="rounded-full bg-brand-primary px-2.5 py-0.5 text-xs font-extrabold text-white">
+              <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700 ring-1 ring-blue-100">
                 {unreadCount} {isVi ? "mới" : "new"}
               </span>
             )}
           </span>
         }
         description={isVi
-          ? "Cập nhật thời gian thực về lịch tập, trạng thái thanh toán, nhắc buổi học và thông tin từ trung tâm."
+          ? "Cập nhật thời gian thực về lịch tập, trạng thái thanh toán, nhắc buổi học và phản hồi từ trung tâm."
           : "Real-time updates on your training schedule, payments, session reminders, and center news."}
         actions={
           <div className="flex items-center gap-2">
@@ -224,7 +271,7 @@ export function MemberNotificationsView() {
                 type="button"
                 onClick={loadNotifications}
                 disabled={loading}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 cursor-pointer"
               >
                 <RefreshCw
                   className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
@@ -236,7 +283,7 @@ export function MemberNotificationsView() {
               <button
                 type="button"
                 onClick={handleMarkAllAsRead}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 cursor-pointer"
               >
                 <CheckCheck className="w-4 h-4 text-emerald-600" />
                 <span>
@@ -248,41 +295,29 @@ export function MemberNotificationsView() {
         }
       />
 
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+      <div className="space-y-5 lg:col-span-8">
       {/* Filter Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
-        <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500 mr-2">
-          <Filter className="w-3.5 h-3.5" />
-          {isVi ? "Lọc theo:" : "Filter:"}
-        </span>
-        {[
-          { key: "all", labelVi: "Tất cả", labelEn: "All" },
-          {
-            key: "unread",
-            labelVi: `Chưa đọc (${unreadCount})`,
-            labelEn: `Unread (${unreadCount})`,
-          },
-          { key: "class", labelVi: "Lịch tập & Lớp", labelEn: "Classes" },
-          {
-            key: "payment",
-            labelVi: "Hóa đơn & Thanh toán",
-            labelEn: "Billing",
-          },
-          { key: "membership", labelVi: "Gói hội viên", labelEn: "Membership" },
-          { key: "system", labelVi: "Hệ thống & Hỗ trợ", labelEn: "System" },
-        ].map((tab) => (
-          <button
-            type="button"
-            key={tab.key}
-            onClick={() => setFilterType(tab.key)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-              filterType === tab.key
-                ? "bg-slate-900 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
-          >
-            {isVi ? tab.labelVi : tab.labelEn}
-          </button>
-        ))}
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+        <div className="inline-flex w-fit items-center rounded-xl bg-slate-100 p-1" role="group" aria-label={isVi ? "Trạng thái thông báo" : "Notification status"}>
+          {[{ key: "all", label: isVi ? "Tất cả" : "All" }, { key: "unread", label: `${isVi ? "Chưa đọc" : "Unread"} (${unreadCount})` }].map((tab) => {
+            const active = tab.key === "all" ? filterType !== "unread" : filterType === tab.key
+            return <button key={tab.key} type="button" aria-pressed={active} onClick={() => setFilterType(tab.key)} className={`rounded-lg px-3 py-2 text-xs transition ${active ? "bg-white font-semibold text-slate-900 shadow-2xs" : "font-medium text-slate-600 hover:text-slate-900"}`}>{tab.label}</button>
+          })}
+        </div>
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+          <label className="relative block min-w-0 sm:w-56">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input value={notificationSearch} onChange={(event) => setNotificationSearch(event.target.value)} placeholder={isVi ? "Tìm thông báo..." : "Search notifications..."} aria-label={isVi ? "Tìm thông báo" : "Search notifications"} className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-8 pr-3 text-xs font-medium text-slate-700 outline-none hover:bg-white focus:border-blue-500" />
+          </label>
+          <label className="relative block">
+            <SlidersHorizontal className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <select aria-label={isVi ? "Danh mục thông báo" : "Notification category"} value={["class", "payment", "membership", "system"].includes(filterType) ? filterType : "all"} onChange={(event) => setFilterType(event.target.value)} className="h-9 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 pl-8 pr-7 text-xs font-semibold text-slate-700 hover:bg-white focus:border-blue-500 focus:outline-none sm:w-48">
+              <option value="all">{isVi ? "Danh mục: Tất cả" : "Category: All"}</option><option value="class">{isVi ? "Lịch tập & Lớp" : "Classes & schedule"}</option><option value="payment">{isVi ? "Hóa đơn & Thanh toán" : "Billing & payments"}</option><option value="membership">{isVi ? "Gói hội viên" : "Membership"}</option><option value="system">{isVi ? "Hệ thống & Hỗ trợ" : "System & support"}</option>
+            </select>
+          </label>
+          {(filterType !== "all" || notificationSearch.trim()) && <button type="button" onClick={() => { setFilterType("all"); setNotificationSearch("") }} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"><RotateCcw className="h-3.5 w-3.5" />{isVi ? "Xóa lọc" : "Clear"}</button>}
+        </div>
       </div>
 
       {error && (
@@ -314,7 +349,11 @@ export function MemberNotificationsView() {
       ) : (
         <div className="space-y-3">
           {filtered.map((item) => {
-            const action = getNotificationActionLink(item, isVi)
+            const rawType = item.type || item.category
+            const action = getNotificationActionLink({ ...item, type: rawType }, isVi)
+            const { Icon: NotificationIcon, tone } = getIcon(rawType)
+            const title = getLocalizedNotificationText(item.title, isVi)
+            const message = getLocalizedNotificationText(item.message, isVi)
             return (
               <article
                 key={item.id}
@@ -327,8 +366,8 @@ export function MemberNotificationsView() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3.5 min-w-0">
-                    <div className="mt-0.5 rounded-lg border border-slate-200 bg-white p-2.5 shadow-2xs shrink-0">
-                      {getIcon(item.type)}
+                    <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${tone}`}>
+                      <NotificationIcon className="h-4.5 w-4.5" />
                     </div>
                     <div className="min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -339,7 +378,7 @@ export function MemberNotificationsView() {
                               : "font-extrabold text-slate-950"
                           }`}
                         >
-                          {item.title ||
+                          {title ||
                             (isVi ? "Thông báo hệ thống" : "Notification")}
                         </h2>
                         {!item.isRead && (
@@ -347,13 +386,13 @@ export function MemberNotificationsView() {
                             {isVi ? "Mới" : "New"}
                           </span>
                         )}
-                        <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-500">
-                          {item.type}
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">
+                          {getNotificationTypeLabel(rawType, isVi)}
                         </span>
                       </div>
 
                       <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                        {item.message}
+                        {message}
                       </p>
 
                       <div className="flex flex-wrap items-center gap-4 pt-1 text-xs text-slate-400">
@@ -405,6 +444,51 @@ export function MemberNotificationsView() {
           })}
         </div>
       )}
+      </div>
+
+      <aside className="space-y-6 lg:col-span-4">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.02] sm:p-6">
+          <div className="mb-4 flex items-center gap-3 border-b border-slate-100 pb-4">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><Bell className="h-5 w-5" /></span>
+            <h2 className="text-base font-black text-slate-900">{isVi ? "Tổng quan thông báo" : "Notification overview"}</h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              [isVi ? "Chưa đọc" : "Unread", summaryCounts.unread, "bg-blue-50 text-blue-700", "unread"],
+              [isVi ? "Lịch tập" : "Training", summaryCounts.classes, "bg-indigo-50 text-indigo-700", "class"],
+              [isVi ? "Hóa đơn" : "Billing", summaryCounts.billing, "bg-emerald-50 text-emerald-700", "payment"],
+              [isVi ? "Hỗ trợ" : "Support", summaryCounts.support, "bg-violet-50 text-violet-700", "system"],
+            ].map(([label, count, tone, filterKey]) => (
+              <button key={label} type="button" onClick={() => { setFilterType(filterKey); setNotificationSearch("") }} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5 text-left transition hover:border-slate-200 hover:bg-white hover:shadow-sm">
+                <span className={`inline-flex rounded-lg px-2 py-1 text-[10px] font-bold ${tone}`}>{label}</span>
+                <p className="mt-2 text-2xl font-black tabular-nums text-slate-900">{count}</p>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.02] sm:p-6">
+          <h2 className="mb-2 text-base font-black text-slate-900">{isVi ? "Lối tắt xử lý nhanh" : "Quick actions"}</h2>
+          {[
+            [Calendar, isVi ? "Lịch học của tôi" : "My schedule", "/member/schedule", "blue"],
+            [Headphones, isVi ? "Trung tâm hỗ trợ" : "Support center", "/support", "violet"],
+            [CreditCard, isVi ? "Hóa đơn & thanh toán" : "Invoices & payments", "/member/invoices", "emerald"],
+            [Settings, isVi ? "Cài đặt thông báo" : "Notification settings", "/settings", "blue"],
+          ].map(([Icon, label, path, tone]) => {
+            const tones = { blue: "bg-blue-50 text-blue-700", violet: "bg-violet-50 text-violet-700", emerald: "bg-emerald-50 text-emerald-700" }
+            return <button key={path} type="button" onClick={() => navigate(path)} className="group flex w-full items-center gap-3 rounded-xl border border-transparent p-3 text-left transition hover:border-slate-200 hover:bg-slate-50">
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tones[tone]}`}><Icon className="h-4 w-4" /></span>
+              <span className="flex-1 text-xs font-bold text-slate-700">{label}</span>
+              <ArrowRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-700" />
+            </button>
+          })}
+        </section>
+
+        <section className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5 sm:p-6">
+          <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-700"><Info className="h-4 w-4" /></span><div><h2 className="text-sm font-extrabold text-slate-900">{isVi ? "Tùy chỉnh thông báo" : "Manage your alerts"}</h2><p className="mt-1 text-xs leading-5 text-slate-600">{isVi ? "Bạn có thể điều chỉnh các loại nhắc lịch tập, hóa đơn và tin nhắn hỗ trợ trong Cài đặt." : "Adjust training, billing, and support alerts in Settings."}</p><button type="button" onClick={() => navigate("/settings")} className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-blue-800 hover:text-blue-950">{isVi ? "Mở Cài đặt" : "Open Settings"}<ArrowRight className="h-3.5 w-3.5" /></button></div></div>
+        </section>
+      </aside>
+      </div>
     </main>
   )
 }

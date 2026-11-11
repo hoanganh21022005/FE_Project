@@ -10,6 +10,8 @@ import {
   Clock3,
   Info,
   Search,
+  Filter,
+  RotateCcw,
   RefreshCw,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
@@ -457,20 +459,15 @@ export function MemberEnrollmentsView() {
       ) : activeCourses.length > 0 ? (
         <>
         <section className="space-y-4" aria-label={t("enrollmentsPageTitle")}>
-          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("scheduleDrawerStatus")}>
-              {[
-                ["all", isVi ? "Tất cả" : "All"],
-                ["in_progress", t("scheduleCourseInProgress")],
-                ["not_started", t("scheduleCourseNotStarted")],
-                ["completed", t("scheduleCourseCompleted")],
-              ].map(([value, label]) => (
-                <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={`inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition ${statusFilter === value ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"}`}>
-                  {label}<span className={`rounded-full px-1.5 py-0.5 text-xs tabular-nums ${statusFilter === value ? "bg-white/15 text-white" : "bg-slate-100 text-slate-500"}`}>{courseCounts[value]}</span>
-                </button>
-              ))}
-            </div>
-            <label className="relative block w-full lg:max-w-sm"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={isVi ? "Tìm tên lớp, môn học, HLV..." : "Search class, sport, coach..."} className="min-h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none transition focus:border-brand-primary focus:bg-white focus:ring-2 focus:ring-blue-100" /></label>
+          <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+            <label className="relative block min-w-0 sm:w-60">
+              <Filter className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <select aria-label={t("scheduleDrawerStatus")} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-9 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 pl-8 pr-7 text-xs font-semibold text-slate-700 hover:bg-white focus:border-blue-500 focus:outline-none">
+                {[["all", isVi ? "Tất cả" : "All"], ["in_progress", t("scheduleCourseInProgress")], ["not_started", t("scheduleCourseNotStarted")], ["completed", t("scheduleCourseCompleted")]].map(([value, label]) => <option key={value} value={value}>{label} ({courseCounts[value]})</option>)}
+              </select>
+            </label>
+            <label className="relative block w-full sm:flex-1 sm:max-w-sm"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={isVi ? "Tìm tên lớp, môn học, HLV..." : "Search class, sport, coach..."} className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none transition hover:bg-white focus:border-blue-500" /></label>
+            {(statusFilter !== "all" || searchQuery.trim()) && <button type="button" onClick={() => { setStatusFilter("all"); setSearchQuery("") }} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"><RotateCcw className="h-3.5 w-3.5" />{isVi ? "Xóa lọc" : "Clear"}</button>}
           </div>
           {filteredCourses.length > 0 ? <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           {filteredCourses.map((course, index) => (

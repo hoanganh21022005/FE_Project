@@ -1,5 +1,6 @@
 const ACTIVE_ENROLLMENT_STATES = new Set(["registered", "active", "confirmed"])
 const ATTENDED_STATES = new Set(["present", "late"])
+const UPCOMING_SESSION_STATES = new Set(["scheduled", "confirmed", "booked"])
 
 export const normalizeState = (value) =>
   String(value || "")
@@ -41,7 +42,7 @@ export const getUpcomingSessions = (sessions, memberId, nowKey) => {
   const seen = new Set()
   return sessions
     .filter((session) => {
-      if (!session || normalizeState(session.status) !== "scheduled")
+      if (!session || !UPCOMING_SESSION_STATES.has(normalizeState(session.status)))
         return false
       const ownedByMember =
         session.__ownerVerified === true ||
@@ -66,9 +67,9 @@ export const getAttendedCount = (attendances, memberId) => {
   }
   return attendances.filter(
     (attendance) =>
-      String(attendance?.memberId ?? "") === String(memberId) &&
+      String(attendance?.memberId ?? attendance?.userId ?? attendance?.profileId ?? attendance?.member_id ?? "") === String(memberId) &&
       ATTENDED_STATES.has(
-        normalizeState(attendance?.state ?? attendance?.status),
+        normalizeState(attendance?.state ?? attendance?.status ?? attendance?.attendanceStatus),
       ),
   ).length
 }

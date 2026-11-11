@@ -972,7 +972,7 @@ function LegacyMemberClassCatalog() {
       </div>
 
       {/* Scrollable Sport Category Bar on Dark Theme */}
-      <div className="relative flex items-center pt-1">
+      <div className="relative flex items-center rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs">
         {canScrollLeft && (
           <button
             type="button"
@@ -991,43 +991,14 @@ function LegacyMemberClassCatalog() {
           className="flex items-center gap-2 overflow-x-auto pb-1 scroll-smooth flex-1 scrollbar-none [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {/* All Sports Chip */}
-          <button
-            type="button"
-            onClick={() => setSelectedCategory('all')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
-              selectedCategory === 'all'
-                ? 'bg-brand-primary text-white shadow-md'
-                : 'bg-[#303B58] text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800'
-            }`}
-          >
-            <span>{language === 'vi' ? 'Tất cả bộ môn' : 'All Sports'}</span>
-            <span className={`text-[10px] px-1.5 py-0.2 rounded-full tabular-nums font-bold ${
-              selectedCategory === 'all' ? 'bg-brand-dark-hover text-brand-sky-soft' : 'bg-slate-800 text-slate-400'
-            }`}>
-              {openClassesCount}
-            </span>
-          </button>
+          <label className="relative block min-w-56">
+            <SlidersHorizontal className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <select value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)} aria-label={language === 'vi' ? 'Lọc theo bộ môn' : 'Filter by sport'} className="h-9 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 pl-8 pr-7 text-xs font-semibold text-slate-700 hover:bg-white focus:border-blue-500 focus:outline-none">
+              <option value="all">{language === 'vi' ? `Tất cả bộ môn (${openClassesCount})` : `All sports (${openClassesCount})`}</option>
+              {activeSportCategories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+            </select>
+          </label>
 
-          {/* Sports Chips */}
-          {activeSportCategories.map(cat => {
-            const isSelected = selectedCategory === cat;
-
-            return (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
-                  isSelected
-                    ? 'bg-brand-primary text-white shadow-md'
-                    : 'bg-[#303B58] text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800'
-                }`}
-              >
-                <span>{cat}</span>
-              </button>
-            );
-          })}
         </div>
 
         {canScrollRight && (

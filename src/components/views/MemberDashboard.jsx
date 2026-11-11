@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { QRCodeSVG } from "qrcode.react"
 import {
@@ -20,7 +20,6 @@ import {
   X,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
-import { PageHeader } from "../ui/PageHeader"
 import { httpClient } from "../../api/httpClient"
 import { extractList } from "../../api/schemaValidators"
 import { mapInvoice } from "../../api/invoiceMappers"
@@ -64,6 +63,77 @@ const extractRequiredList = (response, label) => {
 
 const isUnreadNotification = (item) =>
   item?.isRead === false || item?.read === false || item?.unread === true
+
+const getDashboardSessionTitle = (session, fallback) =>
+  session?.className ||
+  session?.courseName ||
+  session?.title ||
+  session?.subjectName ||
+  session?.class?.name ||
+  session?.course?.name ||
+  fallback
+
+const getDashboardSportName = (session, isVi) => {
+  const title = [session?.subjectName, session?.sportName, session?.sport, session?.className]
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase("vi")
+  if (/bóng\s*chuyền|volley\s?ball/.test(title)) return isVi ? "Bóng chuyền" : "Volleyball"
+  if (/cầu\s*lông|badminton/.test(title)) return isVi ? "Cầu lông" : "Badminton"
+  if (/bóng\s*bàn|table\s?tennis|ping\s?pong/.test(title)) return isVi ? "Bóng bàn" : "Table tennis"
+  return session?.subjectName || session?.sportName || session?.sport || (isVi ? "Thể thao" : "Sport")
+}
+
+const getVietnamDateTimeParts = (value) => {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return {}
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(parsed)
+  const values = Object.fromEntries(parts.map(({ type, value: part }) => [type, part]))
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    time: `${values.hour}:${values.minute}`,
+  }
+}
+
+const normalizeDashboardSession = (session) => {
+  const startAt =
+    session?.startsAt || session?.startAt || session?.startDateTime || session?.scheduledAt || session?.start_datetime || session?.starts_at || ""
+  const endAt = session?.endsAt || session?.endAt || session?.endDateTime || session?.end_datetime || session?.ends_at || ""
+  const startParts = startAt ? getVietnamDateTimeParts(startAt) : {}
+  const endParts = endAt ? getVietnamDateTimeParts(endAt) : {}
+  return {
+    ...session,
+    id: session?.id ?? session?.sessionId ?? session?.session_id,
+    sessionId: session?.sessionId ?? session?.session_id ?? session?.id,
+    classId: session?.classId ?? session?.courseId ?? session?.sportsClassId ?? session?.class_id ?? session?.course_id,
+    className: getDashboardSessionTitle(session, ""),
+    sessionDate: session?.sessionDate || session?.date || session?.startDate || session?.session_date || session?.scheduledDate || startParts.date || String(startAt).slice(0, 10),
+    startTime: session?.startTime || session?.startAtTime || session?.start_time || startParts.time || String(startAt).match(/[T ](\d{2}:\d{2})/)?.[1] || "",
+    endTime: session?.endTime || session?.endAtTime || session?.end_time || endParts.time || String(endAt).match(/[T ](\d{2}:\d{2})/)?.[1] || "",
+    status: session?.status || session?.sessionStatus || session?.session_status || session?.attendanceStatus || session?.state,
+    bookedMemberId: session?.bookedMemberId ?? session?.memberId ?? session?.userId ?? session?.member_id ?? session?.user_id ?? session?.booking?.memberId,
+  }
+}
+
+const formatDashboardDate = (value) => {
+  if (!value) return ""
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return ""
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(parsed)
+}
 
 const getNotificationTitle = (item, isVi) =>
   (isVi ? item?.titleVi : item?.titleEn) ||
@@ -141,46 +211,43 @@ function KpiCard({
   isVi,
 }) {
   const tones = {
-    red: "bg-red-50 text-red-700 ring-red-100",
+    red: "bg-blue-50 text-blue-700 ring-blue-100",
     blue: "bg-blue-50 text-blue-700 ring-blue-100",
     green: "bg-emerald-50 text-emerald-700 ring-emerald-100",
     amber: "bg-amber-50 text-amber-700 ring-amber-100",
+    indigo: "bg-indigo-50 text-indigo-700 ring-indigo-100",
   }
 
   return (
-    <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.02]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[15px] font-semibold leading-5 text-slate-600">
-            {label}
+    <article className="flex min-w-0 gap-3.5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.02]">
+      <span className={`inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl ring-1 ${tones[tone]}`}>
+        <Icon className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[15px] font-semibold leading-5 text-slate-600">
+          {label}
+        </p>
+        {loading ? (
+          <div className="mt-3 h-9 w-20 animate-pulse rounded-lg bg-slate-100" />
+        ) : (
+          <p className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+            {error
+              ? "—"
+              : value === null || value === undefined
+                ? isVi
+                  ? "Chưa có thông tin"
+                  : "Unavailable"
+                : value}
           </p>
-          {loading ? (
-            <div className="mt-3 h-9 w-20 animate-pulse rounded-lg bg-slate-100" />
-          ) : (
-            <p className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
-              {error
-                ? "—"
-                : value === null || value === undefined
-                  ? isVi
-                    ? "Chưa có thông tin"
-                    : "Unavailable"
-                  : value}
-            </p>
-          )}
-        </div>
-        <span
-          className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${tones[tone]}`}
-        >
-          <Icon className="h-5 w-5" aria-hidden="true" />
-        </span>
+        )}
+        <p className="mt-2 min-h-5 text-[13px] leading-5 text-slate-500">
+          {error
+            ? isVi
+              ? "Không thể tải dữ liệu"
+              : "Data could not be loaded"
+            : caption}
+        </p>
       </div>
-      <p className="mt-3 min-h-5 text-[13px] leading-5 text-slate-500">
-        {error
-          ? isVi
-            ? "Không thể tải dữ liệu"
-            : "Data could not be loaded"
-          : caption}
-      </p>
     </article>
   )
 }
@@ -327,10 +394,9 @@ export function MemberDashboard() {
               `/api/sessions?memberId=${encodedId}`,
               "Lịch học",
             )
-            return list.filter(
-              (session) =>
-                String(session?.bookedMemberId ?? "") === String(memberId),
-            )
+            return list
+              .map(normalizeDashboardSession)
+              .filter((session) => String(session?.bookedMemberId ?? "") === String(memberId))
           }),
           loadResource("attendance", async () => {
             const list = await listFrom(
@@ -338,7 +404,7 @@ export function MemberDashboard() {
               "Điểm danh",
             )
             return list.filter(
-              (item) => String(item?.memberId ?? "") === String(memberId),
+              (item) => String(item?.memberId ?? item?.userId ?? item?.profileId ?? item?.member_id ?? item?.user_id ?? "") === String(memberId),
             )
           }),
         )
@@ -393,7 +459,7 @@ export function MemberDashboard() {
       String(item.memberId) === String(memberId),
   )
   const attendance = (resources.attendance.data || []).filter(
-    (item) => String(item?.memberId ?? "") === String(memberId),
+    (item) => String(item?.memberId ?? item?.userId ?? item?.profileId ?? item?.member_id ?? item?.user_id ?? "") === String(memberId),
   )
   const invoices = resources.invoices.data || []
   const notifications = resources.notifications.data || []
@@ -421,7 +487,7 @@ export function MemberDashboard() {
   )
 
   const upcomingSessions = useMemo(() => {
-    const apiSessions = resources.sessions.data || []
+    const apiSessions = (resources.sessions.data || []).map(normalizeDashboardSession)
     const enrollmentSessions = enrollments.flatMap((enrollment) => {
       const nested =
         enrollment?.sessions ||
@@ -437,14 +503,20 @@ export function MemberDashboard() {
       ) {
         return []
       }
-      return nested.map((session) => ({
-        ...session,
-        className:
-          session?.className || enrollment.className || enrollment.name,
-        subjectName: session?.subjectName || enrollment.subjectName,
-        coachName: session?.coachName || enrollment.coachName,
-        __ownerVerified: true,
-      }))
+      return nested.map((rawSession) => {
+        const session = normalizeDashboardSession(rawSession)
+        return {
+          ...session,
+          className: getDashboardSessionTitle(
+            rawSession,
+            enrollment.className || enrollment.courseName || enrollment.name || "",
+          ),
+          subjectName: session.subjectName || enrollment.subjectName,
+          coachName: session.coachName || enrollment.coachName,
+          status: session.status || "scheduled",
+          __ownerVerified: true,
+        }
+      })
     })
     return getUpcomingSessions(
       [...apiSessions, ...enrollmentSessions],
@@ -457,6 +529,9 @@ export function MemberDashboard() {
     () => getAttendedCount(attendance, memberId),
     [attendance, memberId],
   )
+  const attendanceRate = attendance.length > 0 && attendedCount !== null
+    ? Math.round((attendedCount / attendance.length) * 100)
+    : null
   const advancedCreditCount = useMemo(
     () => getActiveAdvancedCreditCount(subscriptions),
     [subscriptions],
@@ -491,15 +566,27 @@ export function MemberDashboard() {
   const recentActivity = useMemo(() => {
     const sessionsById = new Map(
       [...(resources.sessions.data || []), ...allEnrolledSessions].map(
-        (session) => [String(session?.id ?? session?.sessionId ?? ""), session],
+        (rawSession) => {
+          const session = normalizeDashboardSession(rawSession)
+          return [String(session?.id ?? session?.sessionId ?? ""), session]
+        },
       ),
     )
     return [...attendance]
       .map((item) => {
-        const session = sessionsById.get(String(item?.sessionId ?? ""))
+        const session =
+          sessionsById.get(
+            String(item?.sessionId ?? item?.classSessionId ?? item?.session_id ?? item?.session?.id ?? ""),
+          ) || (item?.session ? normalizeDashboardSession(item.session) : null)
         const activityDate =
           item?.checkInTime ||
+          item?.checkedInAt ||
+          item?.checkInAt ||
+          item?.check_in_time ||
           item?.checkOutTime ||
+          item?.attendanceDate ||
+          item?.attendance_date ||
+          item?.createdAt ||
           item?.sessionDate ||
           session?.sessionDate ||
           null
@@ -656,17 +743,17 @@ export function MemberDashboard() {
   const kpis = [
     {
       icon: UsersRound,
-      label: isVi ? "Lớp Normal đang tham gia" : "Active Normal classes",
+      label: isVi ? "Khóa học đang tham gia" : "Active courses",
       value: normalEnrollments.length,
       caption: isVi
-        ? "Chỉ các ghi danh đã xác nhận"
-        : "Confirmed enrollments only",
-      tone: "red",
+        ? "Khóa học đã xác nhận"
+        : "Confirmed courses",
+      tone: "blue",
       resource: resources.enrollments,
     },
     {
       icon: CheckCircle2,
-      label: isVi ? "Buổi đã tham gia" : "Sessions attended",
+      label: isVi ? "Buổi tập đã hoàn thành" : "Completed sessions",
       value: attendedCount,
       caption: isVi
         ? "Theo điểm danh Có mặt/Đi trễ"
@@ -676,48 +763,47 @@ export function MemberDashboard() {
     },
     {
       icon: CalendarDays,
-      label: isVi ? "Buổi học sắp tới" : "Upcoming sessions",
+      label: isVi ? "Buổi tập sắp tới" : "Upcoming sessions",
       value: upcomingSessions.length,
       caption: isVi
         ? "Lịch đã xác nhận trong tương lai"
         : "Confirmed future schedule",
-      tone: "blue",
+      tone: "indigo",
       resource: resources.sessions,
     },
     {
       icon: Dumbbell,
-      label: isVi ? "Credit Advanced còn lại" : "Advanced credits remaining",
+      label: isVi ? "Lượt tập HLV 1:1 (Advanced)" : "1:1 Advanced sessions",
       value: advancedCreditCount,
       caption: isVi
-        ? "T\u1ed5ng th\u1ed1ng k\u00ea, kh\u00f4ng ph\u1ea3i v\u00ed d\u00f9ng chung; credit ri\u00eang t\u1eebng g\u00f3i"
-        : "Statistical total only, not a shared wallet; credits stay with each package",
+        ? "Số buổi 1:1 khả dụng theo gói môn"
+        : "Available 1:1 sessions by sport package",
       tone: "amber",
       resource: resources.subscriptions,
     },
   ]
 
   return (
-    <main className="min-h-full w-full overflow-x-hidden bg-slate-50/70 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div className="min-w-0 w-full max-w-[1400px] space-y-6 lg:space-y-7">
-        <PageHeader
-          title={isVi ? "Tổng quan" : "Overview"}
-          description={
-            isVi
-              ? `Xin chào${memberName ? `, ${memberName}` : ""}! · ${validMemberId ? (isVi ? "Mã hội viên: " : "Member ID: ") + memberId : ""} ${currentUser?.email ?? ""}`
-              : `Welcome${memberName ? `, ${memberName}` : ""}! · ${validMemberId ? "Member ID: " + memberId : ""} ${currentUser?.email ?? ""}`
-          }
-          actions={
-            <button
-              type="button"
-              onClick={handleOpenQr}
-              disabled={!apiEnabled}
-              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-[15px] font-semibold text-white shadow-sm motion-safe:transition hover:bg-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <QrCode className="h-4 w-4" aria-hidden="true" />
-              {isVi ? "Mã QR Check-in" : "Check-in QR"}
-            </button>
-          }
-        />
+    <main className="min-h-full w-full overflow-x-hidden bg-slate-50/70 px-6 py-6">
+      <div className="min-w-0 w-full space-y-6 lg:space-y-7">
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-blue-950 to-slate-800 p-6 text-white shadow-lg shadow-slate-950/10 sm:p-8">
+          <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-blue-400/10 blur-3xl" />
+          <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-blue-200">{isVi ? "Tổng quan hội viên" : "Member overview"}</p>
+              <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">{isVi ? `Xin chào${memberName ? `, ${memberName}` : ""} 👋` : `Hello${memberName ? `, ${memberName}` : ""} 👋`}</h1>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {validMemberId && <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white">{`#HV-${String(memberId).padStart(4, "0")}`}</span>}
+                {currentUser?.email && <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs text-slate-200">{currentUser.email}</span>}
+                {attendanceRate !== null && <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-400/15 px-3 py-1.5 text-xs font-semibold text-emerald-100"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />{isVi ? "Tỷ lệ tham gia" : "Attendance rate"} {attendanceRate}%</span>}
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <button type="button" onClick={handleOpenQr} disabled={!apiEnabled} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:cursor-not-allowed disabled:opacity-50"><QrCode className="h-4 w-4" aria-hidden="true" />{isVi ? "Mã QR Check-in" : "Check-in QR"}</button>
+              <button type="button" onClick={() => navigate("/member/schedule")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">{isVi ? "Xem lịch tuần" : "View weekly schedule"}<ArrowRight className="h-4 w-4" /></button>
+            </div>
+          </div>
+        </section>
 
         <section
           aria-label={isVi ? "Tóm tắt hội viên" : "Member summary"}
@@ -738,51 +824,32 @@ export function MemberDashboard() {
           ))}
         </section>
 
-        <section className="grid grid-cols-1 items-start gap-6 xl:grid-cols-3">
-          <div className="min-w-0 space-y-6 xl:col-span-2">
+        <section className="grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
+          <div className="min-w-0 space-y-6 xl:col-span-8">
+            <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.02] sm:p-6">
+              <SectionHeading icon={CalendarDays} title={isVi ? "Lịch tập sắp tới" : "Upcoming training"} action={isVi ? "Xem tất cả lịch" : "View all schedule"} onAction={() => navigate("/member/schedule")} />
+              {resources.sessions.loading || resources.enrollments.loading ? <LoadingBlock rows={2} /> : resources.sessions.error && !resources.sessions.data ? <ResourceError message={resources.sessions.error} onRetry={retryResource} isVi={isVi} /> : upcomingSessions.length === 0 ? (
+                <div className="flex flex-col gap-3 rounded-xl bg-slate-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"><CalendarDays className="h-5 w-5" /></span><div><p className="text-sm font-semibold text-slate-900">{isVi ? "Chưa có buổi tập sắp tới" : "No upcoming sessions"}</p><p className="mt-0.5 text-xs text-slate-500">{isVi ? "Mở lịch để xem các buổi đã xác nhận." : "Open your schedule to see confirmed sessions."}</p></div></div>
+                  <button type="button" onClick={() => navigate("/member/schedule")} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50">{isVi ? "Mở lịch học" : "Open schedule"}<ArrowRight className="h-3.5 w-3.5" /></button>
+                </div>
+              ) : (
+                <ol className="divide-y divide-slate-100">
+                  {upcomingSessions.slice(0, 3).map((session, index) => <li key={session.id || session.sessionId || `${getSessionStart(session)}-${index}`} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                    <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700">{getDashboardSportName(session, isVi)}</span><h3 className="truncate text-sm font-bold text-slate-900">{getDashboardSessionTitle(session, isVi ? "Buổi tập" : "Training session")}</h3></div><div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500"><span className="inline-flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" />{formatDashboardDate(session.sessionDate)}{session.startTime ? ` · ${session.startTime}${session.endTime ? `–${session.endTime}` : ""}` : ""}</span>{(session.roomName || session.room) && <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" />{session.roomName || session.room}</span>}{(session.coachName || session.primaryCoachName) && <span className="inline-flex items-center gap-1.5"><UserRound className="h-3.5 w-3.5" />{session.coachName || session.primaryCoachName}</span>}</div></div>
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">{getStatusLabel(session.status, isVi)}</span>
+                  </li>)}
+                </ol>
+              )}
+            </section>
+
             <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.02] sm:p-6">
               <SectionHeading
                 icon={ShieldCheck}
-                title={
-                  isVi
-                    ? "Gói học và lớp đang tham gia"
-                    : "My memberships and classes"
-                }
+                title={isVi ? "Khóa học đang tham gia" : "Active courses"}
                 action={isVi ? "Xem gói học" : "View memberships"}
                 onAction={() => navigate("/member/my-membership")}
               />
-              <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-                  <p className="text-[13px] font-bold uppercase tracking-wide text-slate-500">
-                    Normal
-                  </p>
-                  <p className="mt-1 text-[15px] text-slate-700">
-                    {isVi ? "Lớp nhóm đã đăng ký" : "Enrolled group classes"}
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-slate-950">
-                    {resources.enrollments.loading
-                      ? "—"
-                      : resources.enrollments.error
-                        ? "—"
-                        : normalEnrollments.length}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-                  <p className="text-[13px] font-bold uppercase tracking-wide text-slate-500">
-                    Advanced
-                  </p>
-                  <p className="mt-1 text-[15px] text-slate-700">
-                    {isVi ? "Gói theo môn thể thao" : "Sport-specific packages"}
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-slate-950">
-                    {resources.subscriptions.loading
-                      ? "—"
-                      : resources.subscriptions.error
-                        ? "—"
-                        : activeAdvancedSubscriptions.length}
-                  </p>
-                </div>
-              </div>
 
               {(resources.enrollments.error ||
                 resources.subscriptions.error) && (
@@ -923,7 +990,7 @@ export function MemberDashboard() {
                     normalEnrollments.length > 0 && (
                       <div>
                         <h3 className="mb-3 text-[15px] font-bold text-slate-800">
-                          {isVi ? "Lớp Normal" : "Normal classes"}
+                          {isVi ? "Khóa học" : "Courses"}
                         </h3>
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                           {normalEnrollments.map((enrollment, index) => {
@@ -936,14 +1003,17 @@ export function MemberDashboard() {
                             )
                               ? sessions.filter(
                                   (session) =>
-                                    normalizeState(session?.status) ===
-                                    "scheduled",
+                                    ["scheduled", "confirmed", "booked"].includes(normalizeState(session?.status || session?.sessionStatus)),
                                 ).length
                               : null
+                            const enrollmentClassId = enrollment.classId ?? enrollment.class_id ?? enrollment.courseId
+                            const completedSessionCount = Number(enrollment.completedSessionCount ?? enrollment.attendedSessionCount ?? enrollment.sessionsCompleted) || attendance.filter((item) =>
+                              String(item.classId ?? item.courseId ?? item.class_id ?? "") === String(enrollmentClassId) &&
+                              ["present", "late"].includes(normalizeState(item.state ?? item.status ?? item.attendanceStatus))
+                            ).length
+                            const totalSessionCount = Number(enrollment.totalSessionCount ?? enrollment.totalSessions ?? enrollment.sessionCount) || 0
                             const enrollmentName =
-                              enrollment.className ||
-                              enrollment.subjectName ||
-                              enrollment.name
+                              enrollment.className || enrollment.courseName || enrollment.title || enrollment.subjectName || enrollment.name
                             return (
                               <article
                                 key={
@@ -951,14 +1021,11 @@ export function MemberDashboard() {
                                   enrollment.enrollmentId ||
                                   `${enrollment.classId || "normal"}-${index}`
                                 }
-                                className="min-w-0 rounded-xl border border-slate-200 p-4"
+                                className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-md"
                               >
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
-                                    <p className="text-[13px] font-semibold uppercase tracking-wide text-brand-accent-dark">
-                                      {enrollment.subjectName ||
-                                        (isVi ? "Lớp nhóm" : "Group class")}
-                                    </p>
+                                    <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">{getDashboardSportName(enrollment, isVi)}</span>
                                     <h4 className="mt-1 truncate text-base font-bold text-slate-950">
                                       {enrollmentName ||
                                         (isVi
@@ -966,8 +1033,8 @@ export function MemberDashboard() {
                                           : "Enrolled class")}
                                     </h4>
                                   </div>
-                                  <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[13px] font-semibold text-emerald-800">
-                                    {getStatusLabel(enrollment.status, isVi)}
+                                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{isVi ? "Đang học" : "In progress"}
                                   </span>
                                 </div>
                                 <dl className="mt-4 space-y-2 text-[15px] text-slate-600">
@@ -975,25 +1042,14 @@ export function MemberDashboard() {
                                     <UserRound className="h-4 w-4 shrink-0 text-slate-400" />
                                     <dt className="sr-only">Coach</dt>
                                     <dd>
-                                      {enrollment.coachName ||
-                                        (isVi
-                                          ? "Chưa có dữ liệu huấn luyện viên"
-                                          : "Coach information unavailable")}
+                                      {enrollment.coachName || (isVi ? "Huấn luyện viên" : "Coach")}
                                     </dd>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" />
                                     <dt className="sr-only">Sessions</dt>
-                                    <dd>
-                                      {scheduledSessionCount !== null
-                                        ? `${scheduledSessionCount} ${
-                                            isVi
-                                              ? "buổi đã lên lịch"
-                                              : "scheduled sessions"
-                                          }`
-                                        : isVi
-                                          ? "Chưa có dữ liệu số buổi"
-                                          : "Session count unavailable"}
+                                    <dd className="w-full">
+                                      {completedSessionCount > 0 ? <div className="w-full"><div className="flex items-center justify-between gap-2"><span>{isVi ? `${completedSessionCount}${totalSessionCount ? ` / ${totalSessionCount}` : ""} buổi hoàn thành` : `${completedSessionCount}${totalSessionCount ? ` / ${totalSessionCount}` : ""} sessions completed`}</span>{totalSessionCount > 0 && <span>{Math.min(100, Math.round(completedSessionCount / totalSessionCount * 100))}%</span>}</div>{totalSessionCount > 0 && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, completedSessionCount / totalSessionCount * 100)}%` }} /></div>}</div> : scheduledSessionCount > 0 ? `${scheduledSessionCount} ${isVi ? "buổi sắp tới" : "upcoming sessions"}` : <span>{isVi ? "Lịch tập tiêu chuẩn hàng tuần" : "Standard weekly schedule"}</span>}
                                     </dd>
                                   </div>
                                 </dl>
@@ -1136,110 +1192,6 @@ export function MemberDashboard() {
 
             <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.02] sm:p-6">
               <SectionHeading
-                icon={CalendarDays}
-                title={isVi ? "Lịch học sắp tới" : "Upcoming sessions"}
-                action={isVi ? "Xem tất cả lịch học" : "View all schedule"}
-                onAction={() => navigate("/member/schedule")}
-              />
-              {resources.sessions.loading || resources.enrollments.loading ? (
-                <LoadingBlock rows={3} />
-              ) : resources.sessions.error && !resources.enrollments.data ? (
-                <ResourceError
-                  message={resources.sessions.error}
-                  onRetry={retryResource}
-                  isVi={isVi}
-                />
-              ) : upcomingSessions.length === 0 ? (
-                resources.sessions.error ? (
-                  <ResourceError
-                    message={resources.sessions.error}
-                    onRetry={retryResource}
-                    isVi={isVi}
-                  />
-                ) : (
-                  <div className="rounded-xl border border-dashed border-slate-300 px-5 py-8 text-center">
-                    <CalendarDays
-                      className="mx-auto h-7 w-7 text-slate-400"
-                      aria-hidden="true"
-                    />
-                    <p className="mt-2 text-[15px] font-semibold text-slate-800">
-                      {isVi
-                        ? "Chưa có buổi học sắp tới"
-                        : "No upcoming sessions"}
-                    </p>
-                    <p className="mt-1 text-[15px] text-slate-600">
-                      {isVi
-                        ? "Lịch chỉ hiển thị khi được xác nhận từ hệ thống."
-                        : "Only confirmed sessions appear here."}
-                    </p>
-                  </div>
-                )
-              ) : (
-                <ol className="divide-y divide-slate-100">
-                  {upcomingSessions.slice(0, 5).map((session, index) => {
-                    const dateLabel = formatVietnamDateTime(
-                      session.sessionDate,
-                      null,
-                      locale,
-                    )
-                    const start = session.startTime || ""
-                    const end = session.endTime || ""
-                    return (
-                      <li
-                        key={
-                          session.id ||
-                          session.sessionId ||
-                          `${getSessionStart(session)}-${index}`
-                        }
-                        className="flex min-w-0 gap-4 py-4 first:pt-0 last:pb-0"
-                      >
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-accent-soft text-brand-accent-dark">
-                          <CalendarDays
-                            className="h-5 w-5"
-                            aria-hidden="true"
-                          />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="truncate text-[15px] font-bold text-slate-900">
-                              {session.className ||
-                                session.subjectName ||
-                                (isVi ? "Buổi tập" : "Training session")}
-                            </h3>
-                            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[13px] font-semibold text-blue-800">
-                              {getStatusLabel(session.status, isVi)}
-                            </span>
-                          </div>
-                          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[15px] text-slate-600">
-                            <span className="inline-flex items-center gap-1.5">
-                              <Clock3 className="h-3.5 w-3.5 text-slate-400" />
-                              {dateLabel || "—"}
-                              {start && ` · ${start}${end ? `–${end}` : ""}`}
-                            </span>
-                            {(session.roomName || session.room) && (
-                              <span className="inline-flex items-center gap-1.5">
-                                <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                                {session.roomName || session.room}
-                              </span>
-                            )}
-                            {(session.coachName ||
-                              session.primaryCoachName) && (
-                              <span className="inline-flex items-center gap-1.5">
-                                <UserRound className="h-3.5 w-3.5 text-slate-400" />
-                                {session.coachName || session.primaryCoachName}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ol>
-              )}
-            </section>
-
-            <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.02] sm:p-6">
-              <SectionHeading
                 icon={Activity}
                 title={isVi ? "Hoạt động gần đây" : "Recent activity"}
               />
@@ -1261,7 +1213,7 @@ export function MemberDashboard() {
                 <ol className="space-y-1">
                   {recentActivity.map(
                     ({ item, session, activityDate }, index) => {
-                      const state = normalizeState(item.state || item.status)
+                      const state = normalizeState(item.state || item.status || item.attendanceStatus || item.attendance_status)
                       const isPresent = state === "present" || state === "late"
                       return (
                         <li
@@ -1286,14 +1238,12 @@ export function MemberDashboard() {
                           </span>
                           <div className="min-w-0 flex-1">
                             <p className="text-[15px] font-semibold text-slate-900">
-                              {session?.className ||
-                                session?.subjectName ||
-                                (isVi ? "Buổi tập" : "Training session")}
+                              {getDashboardSessionTitle(session, isVi ? "Buổi tập" : "Training session")}
                             </p>
                             <p className="mt-0.5 text-[15px] text-slate-600">
                               {getStatusLabel(state, isVi)}
                               {activityDate
-                                ? ` · ${formatVietnamDateTime(activityDate, null, locale)}`
+                                ? ` · ${formatDashboardDate(activityDate)}`
                                 : ""}
                             </p>
                           </div>
@@ -1306,7 +1256,7 @@ export function MemberDashboard() {
             </section>
           </div>
 
-          <aside className="min-w-0 space-y-6">
+          <aside className="min-w-0 w-full space-y-6 xl:col-span-4">
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.02] sm:p-6">
               <SectionHeading
                 icon={ArrowRight}
