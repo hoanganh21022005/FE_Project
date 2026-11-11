@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, Award, ClipboardList, RefreshCw, UserRound } from 'lucide-react';
 import { useSCMS } from '../../context/SCMSContext';
 import { getMemberTrainingPlans, getMemberTrainingResults, getMemberEvaluations, getTrainingPlanById } from '../../api/memberPortalApi';
@@ -18,6 +18,21 @@ export function MemberTrainingView() {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [courseFilter, setCourseFilter] = useState('all');
+  const [resultSearch, setResultSearch] = useState('');
+  const cleanText = (value) => {
+    const cleaned = String(value || '').replace(/\bdemo\s*/gi, '').trim();
+    return cleaned ? cleaned.charAt(0).toLocaleUpperCase(isVi ? 'vi-VN' : 'en-US') + cleaned.slice(1) : '';
+  };
+  const formatDate = (value) => {
+    if (!value) return '—';
+    const match = String(value).match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (match) return `${match[3].padStart(2, '0')}/${match[2].padStart(2, '0')}/${match[1]}`;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+  };
+  const courseNames = useMemo(() => [...new Set(results.map((item) => cleanText(item.className)).filter(Boolean))], [results]);
+  const visibleResults = useMemo(() => results.filter((item) => (courseFilter === 'all' || cleanText(item.className) === courseFilter) && (!resultSearch.trim() || `${item.className || ''} ${item.content || ''} ${item.coachName || ''}`.toLocaleLowerCase().includes(resultSearch.trim().toLocaleLowerCase()))).sort((a, b) => String(b.sessionDate || '').localeCompare(String(a.sessionDate || ''))), [results, courseFilter, resultSearch]);
 
   const refresh = useCallback(async () => {
     if (!validMember) {
@@ -77,7 +92,7 @@ export function MemberTrainingView() {
   };
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-7 sm:py-8">
+    <main className="w-full space-y-6 px-6 py-6">
       <PageHeader
         title={isVi ? 'Tiến độ tập luyện' : 'Training progress'}
         description={isVi ? 'Kế hoạch từ huấn luyện viên, kết quả từng buổi tập và đánh giá định kỳ.' : 'Coach plans, session results, and periodic evaluations.'}
@@ -96,6 +111,13 @@ export function MemberTrainingView() {
           {isVi ? 'Tài khoản chưa được liên kết với hồ sơ hội viên.' : 'This account is not linked to a member profile.'}
         </div>
       )}
+      <section className="grid gap-4 sm:grid-cols-3">
+        {[
+          { label: isVi ? 'Giáo án đang áp dụng' : 'Current training plans', value: plans.length, Icon: ClipboardList, tone: 'bg-blue-50 text-blue-700' },
+          { label: isVi ? 'Buổi tập đã ghi nhận' : 'Recorded sessions', value: results.length, Icon: Activity, tone: 'bg-emerald-50 text-emerald-700' },
+          { label: isVi ? 'Điểm đánh giá TB / Định kỳ' : 'Average periodic score', value: evaluations.length ? (evaluations.reduce((sum, item) => sum + Number(item.progressScore || 0), 0) / evaluations.length).toFixed(1) : '—', Icon: Award, tone: 'bg-violet-50 text-violet-700' },
+        ].map(({ label, value, Icon, tone }) => <article key={label} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs"><span className={`grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl ${tone}`}><Icon className="h-5 w-5" /></span><div><p className="text-xs font-bold text-slate-500">{label}</p><p className="text-2xl font-extrabold text-slate-900">{value}</p></div></article>)}
+      </section>
       {error && (
         <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           {error}
@@ -105,8 +127,9 @@ export function MemberTrainingView() {
         <div className="rounded-xl border bg-white p-8 text-center text-sm text-slate-500">{isVi ? 'Đang tải…' : 'Loading…'}</div>
       ) : (
         <div className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <section className="space-y-3">
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+            <section className="space-y-6 lg:col-span-5">
+              <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <ClipboardList className="h-5 w-5 text-brand-teal-dark" />
                 <h2 className="text-lg font-extrabold text-slate-900">{isVi ? 'Kế hoạch huấn luyện' : 'Training plans'}</h2>
@@ -115,7 +138,7 @@ export function MemberTrainingView() {
                 plans.map((p) => (
                   <article key={p.planId || p.id} className="rounded-xl border border-slate-200 bg-white p-5">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-bold text-slate-900">{p.title || (isVi ? 'Kế hoạch tập luyện' : 'Training plan')}</h3>
+                      <h3 className="font-bold text-slate-900">{cleanText(p.title) || (isVi ? 'Kế hoạch tập luyện' : 'Training plan')}</h3>
                       <button
                         type="button"
                         onClick={() => handleSelectPlan(p)}
@@ -134,7 +157,7 @@ export function MemberTrainingView() {
                       </p>
                     )}
                     <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
-                      {p.content || (isVi ? 'Chưa có nội dung chi tiết.' : 'No details yet.')}
+                      {cleanText(p.content) || (isVi ? 'Chưa có nội dung chi tiết.' : 'No details yet.')}
                     </p>
                     {(p.startDate || p.endDate) && (
                       <p className="mt-3 text-xs text-slate-500">
@@ -146,104 +169,66 @@ export function MemberTrainingView() {
               ) : (
                 <Empty text={isVi ? 'Huấn luyện viên chưa giao kế hoạch.' : 'No coach plan assigned yet.'} />
               )}
+              </div>
+              <section className="space-y-3">
+                <div className="flex items-center gap-2"><Award className="h-5 w-5 text-brand-teal-dark" /><h2 className="text-lg font-extrabold text-slate-900">{isVi ? 'Đánh giá định kỳ từ Huấn luyện viên' : 'Periodic Coach Evaluations'}</h2></div>
+                {evaluations.length ? evaluations.map((ev) => <article key={ev.evaluationId || ev.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs"><div className="flex items-center justify-between gap-2"><span className="text-xs font-bold text-slate-500">{ev.evaluationDate || '—'}</span>{ev.progressScore != null && <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-800">{Number(ev.progressScore).toFixed(1)} / 10</span>}</div>{ev.progressScore != null && <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-violet-500" style={{ width: `${Math.min(100, Math.max(0, Number(ev.progressScore) * 10))}%` }} /></div>}<p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{cleanText(ev.comment || ev.comments || ev.feedback)}</p><p className="mt-3 text-xs text-slate-500">{ev.coachName || (isVi ? 'Huấn luyện viên' : 'Coach')}</p></article>) : <Empty text={isVi ? 'Chưa có đánh giá định kỳ từ huấn luyện viên.' : 'No periodic coach evaluations yet.'} />}
+              </section>
             </section>
-            <section className="space-y-3">
+            <section className="space-y-3 lg:col-span-7">
               <div className="flex items-center gap-2">
                 <Activity className="h-5 w-5 text-brand-teal-dark" />
                 <h2 className="text-lg font-extrabold text-slate-900">{isVi ? 'Kết quả tập luyện' : 'Session results'}</h2>
               </div>
-              {results.length ? (
-                results.map((r) => (
-                  <article key={r.resultId || r.id} className="rounded-xl border border-slate-200 bg-white p-5">
+              <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => setCourseFilter('all')} className={`rounded-full border px-3 py-2 text-xs font-bold ${courseFilter === 'all' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600'}`}>{isVi ? 'Tất cả' : 'All'}</button>{courseNames.map((name) => <button key={name} type="button" onClick={() => setCourseFilter(name)} className={`rounded-full border px-3 py-2 text-xs font-bold ${courseFilter === name ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600'}`}>{name}</button>)}<input value={resultSearch} onChange={(event) => setResultSearch(event.target.value)} placeholder={isVi ? 'Tìm kết quả...' : 'Search results...'} className="min-h-9 flex-1 rounded-xl border border-slate-200 px-3 text-xs" /></div>
+              {visibleResults.length ? (
+                <div className="max-h-[620px] space-y-3 overflow-y-auto pr-1">{visibleResults.map((r) => (
+                  <article key={r.resultId || r.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
                     <div className="flex justify-between gap-3">
-                      <h3 className="font-bold text-slate-900">{r.className || (isVi ? 'Buổi tập' : 'Training session')}</h3>
-                      <span className="text-xs text-slate-500">{r.sessionDate || ''}</span>
+                      <h3 className="font-bold text-slate-900">{cleanText(r.className) || (isVi ? 'Buổi tập' : 'Training session')}</h3>
+                      <span className="text-xs text-slate-500">{r.sessionDate ? new Date(r.sessionDate).toLocaleDateString(isVi ? 'vi-VN' : 'en-GB') : ''}</span>
                     </div>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{r.content || '—'}</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{cleanText(r.content) || '—'}</p>
                     <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
                       <span className="inline-flex items-center gap-1">
                         <UserRound className="h-3.5 w-3.5" />
                         {r.coachName || (isVi ? 'Huấn luyện viên' : 'Coach')}
                       </span>
                       {r.attendanceStatus && (
-                        <span>
-                          {isVi ? 'Điểm danh:' : 'Attendance:'} {r.attendanceStatus}
-                        </span>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${String(r.attendanceStatus).toLowerCase() === 'present' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}`}>• {String(r.attendanceStatus).toLowerCase() === 'present' ? (isVi ? 'Có mặt' : 'Present') : (isVi ? 'Vắng mặt' : 'Absent')}</span>
                       )}
                     </div>
                   </article>
-                ))
+                ))}</div>
               ) : (
                 <Empty text={isVi ? 'Chưa có kết quả tập luyện được ghi nhận.' : 'No training results recorded yet.'} />
               )}
             </section>
           </div>
 
-          {/* Periodic Coach Evaluations (GET /api/evaluations?memberId=...) */}
-          <section className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Award className="h-5 w-5 text-brand-teal-dark" />
-              <h2 className="text-lg font-extrabold text-slate-900">
-                {isVi ? 'Đánh giá định kỳ từ Huấn luyện viên' : 'Periodic Coach Evaluations'}
-              </h2>
-            </div>
-            {evaluations.length ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                {evaluations.map((ev) => (
-                  <article key={ev.evaluationId || ev.id} className="rounded-xl border border-slate-200 bg-white p-5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-slate-500">{ev.evaluationDate || '—'}</span>
-                      {ev.progressScore != null && (
-                        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-                          {isVi ? 'Điểm tiến độ:' : 'Score:'} {ev.progressScore}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                      {ev.comment || ev.comments || ev.feedback || '—'}
-                    </p>
-                    <p className="mt-3 text-xs text-slate-500 inline-flex items-center gap-1">
-                      <UserRound className="h-3.5 w-3.5" />
-                      {ev.coachName || (isVi ? 'Huấn luyện viên' : 'Coach')}
-                    </p>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <Empty text={isVi ? 'Chưa có đánh giá định kỳ từ huấn luyện viên.' : 'No periodic coach evaluations yet.'} />
-            )}
-          </section>
         </div>
       )}
 
       {selectedPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-900">
-                {selectedPlan.title || (isVi ? 'Chi tiết kế hoạch tập luyện' : 'Training Plan Details')}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setSelectedPlan(null)}
-                className="text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
-              >
-                {isVi ? 'Đóng' : 'Close'}
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="training-plan-title" className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+              <div className="min-w-0">
+                <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-800">{cleanText(selectedPlan.className || selectedPlan.subjectName || (isVi ? 'Giáo án huấn luyện' : 'Training plan'))}</span>
+                <h2 id="training-plan-title" className="mt-2 text-xl font-extrabold text-slate-900">{cleanText(selectedPlan.title) || (isVi ? 'Chi tiết kế hoạch tập luyện' : 'Training plan details')}</h2>
+                <div className="mt-3 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs"><UserRound className="h-4 w-4 text-slate-500"/><span className="font-semibold text-slate-700">{cleanText(selectedPlan.coachName) || (isVi ? 'Huấn luyện viên' : 'Coach')}</span></div>
+              </div>
+              <button type="button" aria-label={isVi ? 'Đóng' : 'Close'} onClick={() => setSelectedPlan(null)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-base font-bold text-slate-600 hover:bg-slate-100">×</button>
+            </header>
+            <div className="overflow-y-auto p-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <section className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{isVi ? 'Mục tiêu' : 'Objectives'}</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-800">{cleanText(selectedPlan.goal) || (isVi ? 'Chưa có mục tiêu cụ thể.' : 'No objective provided.')}</p></section>
+                <section className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{isVi ? 'Lịch tập & thời lượng' : 'Schedule & duration'}</p><p className="mt-2 text-sm font-semibold text-slate-800">{[selectedPlan.startDate, selectedPlan.endDate].filter(Boolean).map(formatDate).join(' – ') || (isVi ? 'Theo lịch khóa học' : 'According to course schedule')}</p>{selectedPlan.duration && <p className="mt-1 text-xs text-slate-600">{cleanText(selectedPlan.duration)}</p>}</section>
+                <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:col-span-2"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{isVi ? 'Bài tập & các giai đoạn' : 'Exercises & phases'}</p><div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{cleanText(selectedPlan.content) || '—'}</div></section>
+                <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 sm:col-span-2"><p className="text-xs font-bold uppercase tracking-wide text-amber-900">{isVi ? 'Ghi chú từ Huấn luyện viên' : 'Coach notes'}</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{cleanText(selectedPlan.coachNotes || selectedPlan.notes) || (isVi ? 'Chưa có ghi chú.' : 'No notes provided.')}</p></section>
+              </div>
             </div>
-            <div className="space-y-2 text-sm text-slate-700">
-              {selectedPlan.goal && (
-                <p>
-                  <strong>{isVi ? 'Mục tiêu: ' : 'Goal: '}</strong>
-                  {selectedPlan.goal}
-                </p>
-              )}
-              <p className="whitespace-pre-wrap leading-6">{selectedPlan.content || '—'}</p>
-              <p className="text-xs text-slate-500 pt-2">
-                {selectedPlan.coachName ? `HLV: ${selectedPlan.coachName} · ` : ''}
-                {selectedPlan.startDate || '—'} – {selectedPlan.endDate || '—'}
-              </p>
-            </div>
+            <footer className="flex justify-end border-t border-slate-200 bg-white px-6 py-4"><button type="button" onClick={() => setSelectedPlan(null)} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">{isVi ? 'Đóng' : 'Close'}</button></footer>
           </div>
         </div>
       )}

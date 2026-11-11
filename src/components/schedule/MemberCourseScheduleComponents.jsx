@@ -33,6 +33,7 @@ export function NextSessionSpotlightBox({
   t,
   tr,
   showCourseName = false,
+  compactLayout = false,
 }) {
   if (!session) return null
 
@@ -40,7 +41,7 @@ export function NextSessionSpotlightBox({
   const courseTitle = session.className || session.subjectName || null
 
   return (
-    <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-3.5 space-y-1">
+    <div className={`rounded-xl border border-blue-200 p-3.5 ${compactLayout ? "bg-blue-50/70 space-y-1.5" : "bg-blue-50/60 space-y-1"}`}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-bold uppercase tracking-wide text-blue-900">
           {t("scheduleNextSessionTitle")}
@@ -60,9 +61,10 @@ export function NextSessionSpotlightBox({
       {showCourseName && courseTitle && (
         <p className="text-xs font-extrabold text-slate-900">{courseTitle}</p>
       )}
-      <p className="text-xs font-bold text-slate-900">
-        {toDateDdMmYyyy(session.sessionDate)} · {session.startTime}–
-        {session.endTime} · {session.roomName || t("scheduleRoomTbd")}
+      <p className={compactLayout ? "flex items-center gap-1.5 text-xs font-bold text-slate-900" : "text-xs font-bold text-slate-900"}>
+        {compactLayout && <CalendarDays className="h-3.5 w-3.5 shrink-0 text-blue-700" />}
+        <span className={compactLayout ? "whitespace-nowrap" : ""}>{toDateDdMmYyyy(session.sessionDate)} · {session.startTime}–
+          {session.endTime} · {session.roomName || t("scheduleRoomTbd")}</span>
       </p>
     </div>
   )
@@ -76,6 +78,7 @@ export function ScheduleSessionRow({
   onSelectSession,
   showMakeupOrigin = false,
   showNextBadge = false,
+  compactLayout = false,
   t,
   tr,
 }) {
@@ -88,16 +91,16 @@ export function ScheduleSessionRow({
     <button
       type="button"
       onClick={() => onSelectSession?.(session)}
-      className={`w-full min-h-[40px] text-left rounded-lg border px-3 py-2 text-xs transition-colors flex flex-wrap items-center justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer ${
+      className={`w-full ${compactLayout ? "min-h-8 px-2 py-1.5 flex-nowrap gap-1.5" : "min-h-[40px] px-3 py-2 flex-wrap gap-2"} text-left rounded-lg border text-xs transition-colors flex items-center justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer ${
         isCancelled
           ? "bg-slate-50/70 border-slate-200 text-slate-400"
           : "bg-slate-50 hover:bg-slate-100/80 border-slate-200/80 text-slate-800"
       }`}
     >
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className={`min-w-0 flex-1 ${compactLayout ? "" : "space-y-1"}`}>
+        <div className={`flex ${compactLayout ? "min-w-0 flex-nowrap" : "flex-wrap"} items-center gap-1.5`}>
           <span
-            className={`font-medium ${
+            className={`${compactLayout ? "min-w-0 truncate" : ""} font-medium ${
               isCancelled ? "line-through text-slate-400" : "text-slate-800"
             }`}
           >
@@ -118,7 +121,7 @@ export function ScheduleSessionRow({
           )}
         </div>
 
-        {showMakeupOrigin && session.isMakeup && session.makeupTargetDate && (
+        {!compactLayout && showMakeupOrigin && session.isMakeup && session.makeupTargetDate && (
           <div className="text-xs font-semibold text-indigo-700">
             {tr("scheduleMakeupForDate", {
               date: session.makeupTargetDate,
@@ -126,7 +129,7 @@ export function ScheduleSessionRow({
           </div>
         )}
 
-        {isCancelled && (
+        {!compactLayout && isCancelled && (
           <div className="text-xs font-semibold text-slate-600">
             {session.replacedByDate
               ? tr("scheduleReplacedByDate", { date: session.replacedByDate })
@@ -134,7 +137,7 @@ export function ScheduleSessionRow({
           </div>
         )}
 
-        {session.hasHolidayConflict && (
+        {!compactLayout && session.hasHolidayConflict && (
           <div className="inline-flex items-center gap-1 text-xs font-semibold text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-700" />
             <span>
@@ -147,7 +150,7 @@ export function ScheduleSessionRow({
       </div>
 
       <span
-        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold shrink-0 ${badge.className}`}
+        className={`inline-flex items-center gap-1 rounded-full border ${compactLayout ? "px-1.5 py-0.5 text-[10px]" : "px-2.5 py-0.5 text-xs"} font-bold shrink-0 ${badge.className}`}
       >
         <span aria-hidden="true">{badge.icon}</span>
         <span>{badge.label}</span>
@@ -162,6 +165,7 @@ export function ScheduleSessionRow({
 export function MemberCourseCard({
   course,
   isSingleCourseLayout = false,
+  compactLayout = false,
   todayIso,
   onSelectSession,
   onViewAllSessions,
@@ -169,13 +173,22 @@ export function MemberCourseCard({
   tr,
 }) {
   const lifecycleBadge = getCourseLifecycleBadge(course.lifecycleStatus, t)
+  const lifecycleTone = compactLayout
+    ? course.lifecycleStatus === "not_started"
+      ? "bg-amber-50 text-amber-900 border-amber-200"
+      : course.lifecycleStatus === "completed"
+        ? "bg-slate-100 text-slate-700 border-slate-200"
+        : "bg-emerald-50 text-emerald-800 border-emerald-200"
+    : lifecycleBadge.className
   const nextSess = course.nextValidSession
 
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between space-y-4">
+    <article className={compactLayout ? "min-w-0 h-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex flex-col justify-between space-y-4 transition-shadow hover:shadow-md sm:p-5" : "rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between space-y-4"}>
       <div
         className={
-          isSingleCourseLayout
+          compactLayout
+            ? "space-y-4"
+            : isSingleCourseLayout
             ? "grid gap-6 grid-cols-1 min-[900px]:grid-cols-2 items-start"
             : "space-y-4"
         }
@@ -183,24 +196,30 @@ export function MemberCourseCard({
         {/* Cột bên trái (hoặc khối trên): thông tin khóa học, tiến độ, dòng bù, buổi tiếp theo */}
         <div className="space-y-4">
           <div className="space-y-1">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-bold uppercase tracking-wide text-brand-accent-dark">
+            <div className={compactLayout ? "flex items-start justify-between gap-3" : "flex items-center justify-between gap-3"}>
+              <span className={compactLayout ? "inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-brand-accent-dark" : "text-xs font-bold uppercase tracking-wide text-brand-accent-dark"}>
                 {course.subjectName || "VIBE SPORT"}
               </span>
               <span
-                className={`rounded-full border px-2.5 py-0.5 text-xs font-bold shrink-0 ${lifecycleBadge.className}`}
+                className={`shrink-0 ${compactLayout ? "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold" : "rounded-full border px-2.5 py-0.5 text-xs font-bold"} ${lifecycleTone}`}
               >
+                {compactLayout && <span className={`h-1.5 w-1.5 rounded-full ${course.lifecycleStatus === "not_started" ? "bg-amber-500" : course.lifecycleStatus === "completed" ? "bg-slate-400" : "bg-emerald-500"}`} />}
                 {lifecycleBadge.label}
               </span>
             </div>
 
-            <h2 className="text-lg font-extrabold text-slate-900">
+            <h2 className={compactLayout ? "mt-1 break-words text-lg font-extrabold leading-6 text-slate-900" : "text-lg font-extrabold text-slate-900"}>
               {course.className || `#${course.classId}`}
             </h2>
           </div>
 
           {/* Thông tin có nhãn: Khai giảng, Lịch cố định, HLV, Sân, Thanh toán (nếu API có trả về) */}
-          <dl className="grid gap-2 text-xs text-slate-700">
+          {compactLayout ? <dl className="grid grid-cols-2 gap-3 text-xs text-slate-700">
+            <div className="min-w-0 rounded-[10px] border border-slate-100 bg-slate-50 p-3"><dt className="font-semibold text-slate-500">{t("scheduleLabelStartDate")}</dt><dd className="mt-1 break-words font-bold text-slate-900">{course.startDateFormatted || t("scheduleValueTbd")}</dd></div>
+            <div className="min-w-0 rounded-[10px] border border-slate-100 bg-slate-50 p-3"><dt className="font-semibold text-slate-500">{t("scheduleLabelFixedSchedule")}</dt><dd className="mt-1 break-words font-semibold text-slate-800">{course.fixedScheduleLabel || t("scheduleValueTbd")}</dd></div>
+            <div className="min-w-0 rounded-[10px] border border-slate-100 bg-slate-50 p-3"><dt className="font-semibold text-slate-500">{t("scheduleLabelCoach")}</dt><dd className="mt-1 break-words font-semibold text-slate-800">{course.primaryCoach || t("scheduleCoachTbd")}</dd></div>
+            <div className="min-w-0 rounded-[10px] border border-slate-100 bg-slate-50 p-3"><dt className="font-semibold text-slate-500">{t("scheduleLabelRoom")}</dt><dd className="mt-1 break-words font-semibold text-slate-800">{course.primaryRoom || t("scheduleValueTbd")}</dd></div>
+          </dl> : <dl className="grid gap-2 text-xs text-slate-700">
             <div className="flex items-start justify-between gap-2">
               <dt className="inline-flex items-center gap-1.5 font-semibold text-slate-500">
                 <CalendarDays className="h-4 w-4 text-slate-400 shrink-0" />
@@ -254,7 +273,8 @@ export function MemberCourseCard({
                 </dd>
               </div>
             )}
-          </dl>
+          </dl>}
+          {compactLayout && course.paymentStatus && <p className="text-xs text-slate-500">{t("schedulePaymentStatusLabel")}: <strong className="text-slate-700">{translatePaymentStatus(course.paymentStatus, t)}</strong></p>}
 
           {/* Thanh tiến độ kèm chữ "X/12 buổi" */}
           <div className="space-y-1.5 pt-1">
@@ -264,7 +284,7 @@ export function MemberCourseCard({
                 {tr("scheduleProgressLabel", {
                   completed: course.completedCount,
                   required: course.requiredSessions,
-                })}
+                })}{compactLayout && ` · ${course.progressPercent}%`}
               </span>
             </div>
             <div
@@ -317,15 +337,16 @@ export function MemberCourseCard({
             todayIso={todayIso}
             t={t}
             tr={tr}
+            compactLayout={compactLayout}
           />
         </div>
 
         {/* Cột bên phải (hoặc khối dưới): "Lịch gần đây và sắp tới" và ghi chú */}
-        <div
+        {!compactLayout && <div
           className={
             isSingleCourseLayout
               ? "space-y-4 border-t border-slate-100 pt-4 min-[900px]:border-t-0 min-[900px]:border-l min-[900px]:border-slate-100 min-[900px]:pt-0 min-[900px]:pl-6"
-              : "space-y-4"
+            : "space-y-4"
           }
         >
           {course.previewSessions.length > 0 && (
@@ -350,6 +371,7 @@ export function MemberCourseCard({
                     onSelectSession={onSelectSession}
                     showMakeupOrigin={false}
                     showNextBadge={false}
+                    compactLayout={compactLayout}
                     t={t}
                     tr={tr}
                   />
@@ -358,15 +380,15 @@ export function MemberCourseCard({
             </div>
           )}
 
-          <p className="flex items-start gap-1.5 text-xs text-slate-500 leading-relaxed pt-1">
+          {!compactLayout && <p className="flex items-start gap-1.5 text-xs text-slate-500 leading-relaxed pt-1">
             <Info className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
             <span>
               {tr("scheduleFixedCourseNote", {
                 required: course.requiredSessions,
               })}
             </span>
-          </p>
-        </div>
+          </p>}
+        </div>}
       </div>
 
       {/* Footer card: nút "Xem tất cả N buổi" */}
@@ -374,7 +396,7 @@ export function MemberCourseCard({
         <button
           type="button"
           onClick={() => onViewAllSessions?.(course)}
-          className="w-full sm:w-auto min-h-[40px] inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 px-3.5 py-2 text-xs font-bold text-slate-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+          className={`w-full sm:w-auto min-h-[40px] inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer ${compactLayout ? "bg-slate-50 text-brand-primary hover:bg-blue-50" : "bg-slate-100 text-slate-900 hover:bg-slate-200"}`}
         >
           <CalendarDays className="h-3.5 w-3.5 shrink-0" />
           <span>

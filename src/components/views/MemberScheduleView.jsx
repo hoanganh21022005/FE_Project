@@ -4,7 +4,6 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
-  HelpCircle,
   RefreshCw,
   X,
 } from "lucide-react"
@@ -104,6 +103,7 @@ export function MemberScheduleView() {
   // Tab trạng thái ở chế độ Danh sách (một hàng duy nhất: upcoming | done | absent | cancelled)
   const [statusTab, setStatusTab] = useState("upcoming")
   const [coachFilter, setCoachFilter] = useState("all")
+  const [showAllSlots, setShowAllSlots] = useState(false)
 
   const handleChangeClassFilter = useCallback(
     (nextClassId) => {
@@ -517,7 +517,7 @@ export function MemberScheduleView() {
   )
 
   return (
-    <main className="mx-auto max-w-[1400px] w-full space-y-6 px-6 py-6">
+    <main className="mx-auto w-full space-y-6 px-6 py-6">
       {/* Header: Tiêu đề + ViewToggle + Làm mới */}
       <PageHeader
         title={t("memberSchedTitle")}
@@ -582,30 +582,28 @@ export function MemberScheduleView() {
         </div>
       )}
 
-      {/* Mobile: Thẻ Buổi tiếp theo hiển thị ngay đầu trang (< 1024px) */}
-      <div className="lg:hidden">
-        <NextSessionCard
-          nextItem={nextUpcomingItem}
-          todayIso={todayIso}
-          nowMs={nowMs}
-          onSelectSession={setDetailSession}
-          onOpenAbsenceModal={handleOpenAbsenceModal}
-          language={language}
-          t={t}
-          tr={tr}
-        />
-      </div>
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label={t("memberSchedTitle")}>
+        <NextSessionCard nextItem={nextUpcomingItem} todayIso={todayIso} nowMs={nowMs} onSelectSession={setDetailSession} onOpenAbsenceModal={handleOpenAbsenceModal} language={language} t={t} tr={tr} />
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-lg text-blue-700">▦</span><div><div className="text-xs font-bold text-slate-500">{t("memberSchedScopeThisWeek")}</div><div className="mt-1 text-sm font-extrabold text-slate-900">{weekCounts.upcoming} {t("memberSchedStatUpcoming")}</div></div></div>
+          <div className="mt-4 flex gap-3 text-xs font-semibold"><span className="text-emerald-700">{weekCounts.done} {t("memberSchedStatDone")}</span><span className="text-rose-700">{weekCounts.absent} {t("memberSchedStatAbsent")}</span></div>
+        </div>
+        <div className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-lg text-emerald-700">✓</span><div><div className="text-xs font-bold text-slate-500">{t("memberSchedStatAttendance")}</div><div className="text-3xl font-extrabold tracking-tight text-emerald-800">{globalCounts.attendanceRate === null ? "–" : `${globalCounts.attendanceRate}%`}</div></div></div>
+          <p title={t("memberSchedAttendanceTooltip")} className="mt-2 text-xs text-slate-600">{t("memberSchedAttendanceTooltip")}</p>
+        </div>
+        <div className="rounded-2xl border border-violet-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-lg text-violet-700">◷</span><div><div className="text-xs font-bold text-slate-500">{t("memberSchedScopeAllPackages")}</div><div className="mt-1 text-sm font-extrabold text-slate-900">{globalCounts.done} {t("memberSchedStatDone")}</div></div></div>
+          <div className="mt-4 text-xs font-semibold text-amber-700">{globalCounts.upcoming} {t("memberSchedStatUpcoming")}</div>
+        </div>
+      </section>
 
-
-      {/* Bố cục chính: Desktop 2 cột */}
-      <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 ${viewMode === "week" ? "lg:items-stretch" : "lg:items-start"}`}>
-
-        {/* ══ CỘT TRÁI ══ */}
-        <div className="space-y-4 min-w-0">
+      <div className="min-w-0 space-y-4">
           {/* Thanh điều khiển (Sticky) */}
-          <div className="sticky top-0 z-20 rounded-xl border border-slate-200 bg-white/95 backdrop-blur-xs p-3.5 shadow-2xs space-y-3">
-            {viewMode === "week" && (
-              <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="sticky top-0 z-20 rounded-xl border border-slate-200 bg-white/95 backdrop-blur-xs p-3 shadow-sm">
+            {/* Hàng lọc */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {viewMode === "week" && (
                 <WeekNavigator
                   weekRange={selectedWeekRange}
                   isCurrentWeek={isCurrentWeek}
@@ -615,47 +613,7 @@ export function MemberScheduleView() {
                   onPickDate={(pickedIso) => setAnchorDateIso(pickedIso)}
                   t={t}
                 />
-
-                {/* Thống kê: 2 pill cùng bộ số + pill Chuyên cần riêng */}
-                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] font-semibold text-slate-700">
-                  <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5">
-                    <span className="font-bold text-slate-600 mr-0.5">{t("memberSchedScopeThisWeek")}</span>
-                    <span>{t("memberSchedStatDone")} <strong className="font-extrabold text-emerald-800 tabular-nums">{weekCounts.done}</strong></span>
-                    <span aria-hidden="true" className="text-slate-300">·</span>
-                    <span>{t("memberSchedStatAbsent")} <strong className="font-extrabold text-rose-700 tabular-nums">{weekCounts.absent}</strong></span>
-                    <span aria-hidden="true" className="text-slate-300">·</span>
-                    <span>{t("memberSchedStatUpcoming")} <strong className="font-extrabold text-sky-900 tabular-nums">{weekCounts.upcoming}</strong></span>
-                    <span aria-hidden="true" className="text-slate-300">·</span>
-                    <span>{t("memberSchedStatCancelled")} <strong className="font-extrabold text-slate-700 tabular-nums">{weekCounts.cancelled}</strong></span>
-                  </span>
-                  <span aria-hidden="true" className="text-slate-300 hidden sm:inline">|</span>
-                  <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 border border-slate-200 px-2 py-0.5">
-                    <span className="font-bold text-slate-600 mr-0.5">{t("memberSchedScopeAllPackages")}</span>
-                    <span>{t("memberSchedStatDone")} <strong className="font-extrabold text-emerald-800 tabular-nums">{globalCounts.done}</strong></span>
-                    <span aria-hidden="true" className="text-slate-300">·</span>
-                    <span>{t("memberSchedStatAbsent")} <strong className="font-extrabold text-rose-700 tabular-nums">{globalCounts.absent}</strong></span>
-                    <span aria-hidden="true" className="text-slate-300">·</span>
-                    <span>{t("memberSchedStatUpcoming")} <strong className="font-extrabold text-sky-900 tabular-nums">{globalCounts.upcoming}</strong></span>
-                    <span aria-hidden="true" className="text-slate-300">·</span>
-                    <span>{t("memberSchedStatCancelled")} <strong className="font-extrabold text-slate-700 tabular-nums">{globalCounts.cancelled}</strong></span>
-                  </span>
-                  {/* Pill Chuyên cần riêng */}
-                  <span
-                    title={t("memberSchedAttendanceTooltip")}
-                    className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-2.5 py-0.5 text-xs font-bold text-white cursor-help"
-                  >
-                    <span>{t("memberSchedStatAttendance")}</span>
-                    <span className="tabular-nums">
-                      {globalCounts.attendanceRate === null ? "–" : `${globalCounts.attendanceRate}%`}
-                    </span>
-                    <HelpCircle className="h-3 w-3 opacity-70" />
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Hàng lọc */}
-            <div className={`flex flex-wrap items-center justify-between gap-2 ${viewMode === "week" ? "pt-2 border-t border-slate-100" : ""}`}>
+              )}
               <div className="flex flex-wrap items-center gap-2">
                 <div className="inline-flex items-center rounded-lg bg-slate-100 p-1">
                   {[
@@ -725,16 +683,13 @@ export function MemberScheduleView() {
               </div>
 
               {viewMode === "week" ? (
-                <ScheduleLegend t={t} />
-              ) : (
-                <div title={t("memberSchedAttendanceTooltip")} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-[13px] font-semibold text-slate-800 cursor-help">
-                  <span>{t("memberSchedStatAttendance")}:</span>
-                  <strong className="font-extrabold text-slate-950 tabular-nums">
-                    {globalCounts.attendanceRate === null ? "–" : `${globalCounts.attendanceRate}%`}
-                  </strong>
-                  <HelpCircle className="h-3.5 w-3.5 text-slate-500" />
+                <div className="flex flex-wrap items-center justify-end gap-3">
+                  <button type="button" onClick={() => setShowAllSlots((prev) => !prev)} className="min-h-[34px] rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50">
+                    {showAllSlots ? t("memberSchedHideEmptySlots") : tr("memberSchedShowAllSlots", { count: timeSlots.length })}
+                  </button>
+                  <ScheduleLegend t={t} />
                 </div>
-              )}
+              ) : null}
             </div>
 
             {/* Tab trạng thái ở chế độ Danh sách */}
@@ -786,6 +741,7 @@ export function MemberScheduleView() {
               weekRange={selectedWeekRange}
               weekItems={weekItems}
               timeSlots={timeSlots}
+              showAllSlots={showAllSlots}
               holidays={holidays}
               todayIso={todayIso}
               onSelectSession={setDetailSession}
@@ -814,68 +770,9 @@ export function MemberScheduleView() {
             allUpcoming={holidaysSummary.allUpcoming}
             t={t}
             tr={tr}
+            language={language}
           />
         </div>
-
-        {/* ══ CỘT PHẢI (320px) ══
-            - Hiển thị ở cả tab Tuần lẫn Danh sách (không ẩn khi list mode).
-            - items-stretch trên grid → aside nhận chiều cao cột trái (tab Tuần).
-            - Tab Danh sách: items-start nên aside tự co theo nội dung.
-            - Inner div sticky + flex-col: NextSession tự nhiên,
-              PackageSummary flex-1 cuộn trong (chỉ khi tab Tuần).
-        */}
-        <aside className="hidden lg:block self-stretch">
-          <div
-            className="sticky top-4 flex flex-col gap-4"
-            style={viewMode === "week" ? { maxHeight: "calc(100vh - 2rem)" } : undefined}
-          >
-            {/* NextSessionCard: chiều cao tự nhiên */}
-            <NextSessionCard
-              nextItem={nextUpcomingItem}
-              todayIso={todayIso}
-              nowMs={nowMs}
-              onSelectSession={setDetailSession}
-              onOpenAbsenceModal={handleOpenAbsenceModal}
-              language={language}
-              t={t}
-              tr={tr}
-            />
-            {/* PackageSummary: fillHeight chỉ khi tab Tuần để lấp đầy cột */}
-            <PackageSummary
-              packages={packageSummaries}
-              onNavigateBookPt={() => navigate("/member/my-coach")}
-              t={t}
-              tr={tr}
-              fillHeight={viewMode === "week"}
-            />
-          </div>
-        </aside>
-
-        {/* Mobile: Gói của tôi (thu gọn accordion) */}
-        <div className="lg:hidden">
-          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setMobilePackagesOpen((prev) => !prev)}
-              aria-expanded={mobilePackagesOpen}
-              className="w-full min-h-[44px] px-4 py-3 flex items-center justify-between text-[14px] font-extrabold text-slate-900 cursor-pointer"
-            >
-              <span>{t("memberSchedMyPackagesHeader")} ({packageSummaries.length})</span>
-              {mobilePackagesOpen ? <ChevronUp className="h-4 w-4 text-slate-500" /> : <ChevronDown className="h-4 w-4 text-slate-500" />}
-            </button>
-            {mobilePackagesOpen && (
-              <div className="border-t border-slate-100 p-3">
-                <PackageSummary
-                  packages={packageSummaries}
-                  onNavigateBookPt={() => navigate("/member/my-coach")}
-                  t={t}
-                  tr={tr}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
       {/* SessionDrawer */}
       <SessionDrawer

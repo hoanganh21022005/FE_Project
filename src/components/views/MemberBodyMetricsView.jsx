@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from "react"
-import { useLocation } from "react-router-dom"
 import {
   HeartPulse,
   TrendingDown,
@@ -20,6 +19,7 @@ import {
   Clock,
   Award,
   Trash2,
+  X,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -43,17 +43,14 @@ const API_ENABLED = import.meta.env.VITE_API_ENABLED
 
 export function MemberBodyMetricsView() {
   const { language, currentUser, showToast } = useSCMS()
-  const location = useLocation()
   const isVi = language === "vi"
+  const activeTab = "inbody"
 
   const memberId =
     getAuthoritativeProfileId(currentUser) ||
     currentUser?.memberId ||
     currentUser?.id
 
-  const [activeTab, setActiveTab] = useState(
-    location.pathname.includes("/progress") ? "plans" : "inbody",
-  ) // "inbody" | "plans" | "results"
   const [metrics, setMetrics] = useState([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [formHeight, setFormHeight] = useState("170")
@@ -61,7 +58,6 @@ export function MemberBodyMetricsView() {
   const [formFat, setFormFat] = useState("")
   const [formMuscle, setFormMuscle] = useState("")
 
-  // Backend training plans & results state
   const [trainingPlans, setTrainingPlans] = useState([])
   const [trainingResults, setTrainingResults] = useState([])
   const [loadingTraining, setLoadingTraining] = useState(false)
@@ -182,6 +178,16 @@ export function MemberBodyMetricsView() {
   const weightDiff = (latest.weight - previous.weight).toFixed(1)
   const fatDiff = (latest.fatPercent - previous.fatPercent).toFixed(1)
   const muscleDiff = (latest.muscleMass - previous.muscleMass).toFixed(1)
+  const previewHeight = Number(formHeight)
+  const previewWeight = Number(formWeight)
+  const previewBmi = previewHeight > 0 && previewWeight > 0
+    ? previewWeight / Math.pow(previewHeight / 100, 2)
+    : null
+  const previewBmiLabel = previewBmi < 18.5
+    ? (isVi ? "Thiếu cân" : "Underweight")
+    : previewBmi <= 24.9
+      ? (isVi ? "Bình thường (18.5–24.9)" : "Normal (18.5–24.9)")
+      : (isVi ? "Thừa cân" : "Overweight")
 
   // Smart Body Composition Assessment
   const bodyAssessment = (() => {
@@ -282,16 +288,24 @@ export function MemberBodyMetricsView() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-7 sm:py-8">
+      <main className="w-full space-y-6 px-6 py-6">
       {/* Header */}
       <PageHeader
-        title={isVi ? "Thể chất & Kế hoạch tập luyện" : "Body Metrics & Training Plans"}
+        title={isVi ? "Chỉ số cơ thể (InBody)" : "Body Metrics (InBody)"}
         description={isVi
-          ? "Theo dõi chỉ số InBody, kế hoạch huấn luyện và nhận xét tiến độ từ HLV."
-          : "Track your body composition, customized training plans, and coach feedback."}
+          ? "Theo dõi cân nặng, tỷ lệ mỡ, khối lượng cơ và phân tích BMI qua từng lần đo."
+          : "Track weight, body fat, muscle mass, and BMI analysis over time."}
         actions={
           <div className="flex items-center gap-2">
-            {activeTab === "inbody" ? (
+              <button
+                type="button"
+                onClick={fetchTrainingData}
+                disabled={loadingTraining}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingTraining ? "animate-spin" : ""}`} />
+                <span>{isVi ? "Làm mới" : "Refresh"}</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(true)}
@@ -300,74 +314,9 @@ export function MemberBodyMetricsView() {
                 <Plus className="w-4 h-4" />
                 <span>{isVi ? "Ghi nhận chỉ số mới" : "Log New Metric"}</span>
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={fetchTrainingData}
-                disabled={loadingTraining}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer disabled:opacity-50"
-              >
-                <RefreshCw
-                  className={`w-3.5 h-3.5 ${
-                    loadingTraining ? "animate-spin" : ""
-                  }`}
-                />
-                <span>{isVi ? "Làm mới dữ liệu" : "Refresh"}</span>
-              </button>
-            )}
           </div>
         }
       />
-
-      {/* Navigation Tabs */}
-      <div className="flex border-b border-slate-200 gap-2 sm:gap-6 text-sm font-semibold">
-        <button
-          type="button"
-          onClick={() => setActiveTab("inbody")}
-          className={`pb-3 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
-            activeTab === "inbody"
-              ? "border-brand-primary text-brand-primary font-bold"
-              : "border-transparent text-slate-500 hover:text-slate-900"
-          }`}
-        >
-          <Scale className="w-4 h-4" />
-          <span>{isVi ? "Chỉ số InBody" : "InBody Metrics"}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("plans")}
-          className={`pb-3 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
-            activeTab === "plans"
-              ? "border-brand-primary text-brand-primary font-bold"
-              : "border-transparent text-slate-500 hover:text-slate-900"
-          }`}
-        >
-          <Target className="w-4 h-4" />
-          <span>{isVi ? "Kế hoạch tập luyện" : "Training Plans"}</span>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-            {trainingPlans.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("results")}
-          className={`pb-3 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
-            activeTab === "results"
-              ? "border-brand-primary text-brand-primary font-bold"
-              : "border-transparent text-slate-500 hover:text-slate-900"
-          }`}
-        >
-          <ClipboardList className="w-4 h-4" />
-          <span>
-            {isVi ? "Đánh giá từ Huấn luyện viên" : "Coach Evaluations"}
-          </span>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-            {trainingResults.length}
-          </span>
-        </button>
-      </div>
 
       {/* TAB 1: INBODY METRICS & CHARTS */}
       {activeTab === "inbody" && (
@@ -387,7 +336,7 @@ export function MemberBodyMetricsView() {
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  {isVi ? "Đánh giá thể trạng thông minh" : "Smart Assessment"}
+                  {isVi ? "Đánh giá thể trạng" : "Body Assessment"}
                 </span>
                 <span
                   className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${
@@ -408,22 +357,15 @@ export function MemberBodyMetricsView() {
                 {bodyAssessment.advice}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(true)}
-              className="shrink-0 rounded-xl bg-slate-900 hover:bg-slate-800 px-3.5 py-2 text-xs font-bold text-white transition-colors cursor-pointer"
-            >
-              {isVi ? "+ Cập nhật phiếu đo" : "+ Update InBody"}
-            </button>
           </div>
 
           {/* KPI Metric Cards */}
           <div className="grid gap-3.5 grid-cols-2 sm:grid-cols-4">
             {/* Weight */}
-            <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+            <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+              <div className="flex items-center justify-start gap-3 text-xs font-semibold text-slate-500">
                 <span>{isVi ? "Cân nặng" : "Weight"}</span>
-                <Scale className="w-4 h-4 text-slate-400" />
+                <span className="flex h-[42px] w-[42px] items-center justify-center rounded-xl bg-blue-50"><Scale className="w-5 h-5 text-blue-600" /></span>
               </div>
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="text-2xl font-black text-slate-900 font-mono">
@@ -433,7 +375,7 @@ export function MemberBodyMetricsView() {
                   <span className="text-xs text-slate-500 font-bold">kg</span>
                 )}
               </div>
-              <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-emerald-600">
+              <div className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-700">
                 {metrics.length > 1 ? (
                   <>
                     {Number(weightDiff) > 0 ? (
@@ -460,10 +402,10 @@ export function MemberBodyMetricsView() {
             </div>
 
             {/* Fat % */}
-            <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+            <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+              <div className="flex items-center justify-start gap-3 text-xs font-semibold text-slate-500">
                 <span>{isVi ? "Tỷ lệ mỡ" : "Body Fat"}</span>
-                <HeartPulse className="w-4 h-4 text-slate-400" />
+                <span className="flex h-[42px] w-[42px] items-center justify-center rounded-xl bg-rose-50"><HeartPulse className="w-5 h-5 text-rose-600" /></span>
               </div>
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="text-2xl font-black text-slate-900 font-mono">
@@ -473,7 +415,7 @@ export function MemberBodyMetricsView() {
                   <span className="text-xs text-slate-500 font-bold">%</span>
                 )}
               </div>
-              <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-emerald-600">
+              <div className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-700">
                 {metrics.length > 1 ? (
                   <>
                     <TrendingDown className="w-3.5 h-3.5" />
@@ -496,10 +438,10 @@ export function MemberBodyMetricsView() {
             </div>
 
             {/* Muscle mass */}
-            <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+            <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+              <div className="flex items-center justify-start gap-3 text-xs font-semibold text-slate-500">
                 <span>{isVi ? "Khối lượng cơ" : "Muscle Mass"}</span>
-                <Activity className="w-4 h-4 text-slate-400" />
+                <span className="flex h-[42px] w-[42px] items-center justify-center rounded-xl bg-emerald-50"><Activity className="w-5 h-5 text-emerald-600" /></span>
               </div>
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="text-2xl font-black text-slate-900 font-mono">
@@ -509,7 +451,7 @@ export function MemberBodyMetricsView() {
                   <span className="text-xs text-slate-500 font-bold">kg</span>
                 )}
               </div>
-              <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-blue-600">
+              <div className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-700">
                 {metrics.length > 1 ? (
                   <>
                     <TrendingUp className="w-3.5 h-3.5" />
@@ -533,18 +475,17 @@ export function MemberBodyMetricsView() {
             </div>
 
             {/* BMI */}
-            <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+            <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+              <div className="flex items-center justify-start gap-3 text-xs font-semibold text-slate-500">
                 <span>{isVi ? "Chỉ số BMI" : "BMI"}</span>
-                <Sparkles className="w-4 h-4 text-slate-400" />
+                <span className="flex h-[42px] w-[42px] items-center justify-center rounded-xl bg-violet-50"><Sparkles className="w-5 h-5 text-violet-600" /></span>
               </div>
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="text-2xl font-black text-slate-900 font-mono">
                   {metrics.length > 0 ? latest.bmi : "—"}
                 </span>
                 {metrics.length > 0 && (
-                  <span className="text-xs text-emerald-600 font-bold">
-                    (
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${latest.bmi < 18.5 ? "bg-blue-50 text-blue-700" : latest.bmi <= 24.9 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
                     {latest.bmi >= 18.5 && latest.bmi <= 24.9
                       ? isVi
                         ? "Bình thường"
@@ -556,7 +497,6 @@ export function MemberBodyMetricsView() {
                         : isVi
                           ? "Thừa cân"
                           : "Overweight"}
-                    )
                   </span>
                 )}
               </div>
@@ -579,11 +519,15 @@ export function MemberBodyMetricsView() {
                 : "Data from periodic InBody checkups"}
             </p>
 
-            <div className="mt-6 h-64 w-full">
+          <div className={`mt-6 w-full ${metrics.length === 0 ? "" : "h-64"}`}>
               {metrics.length === 0 ? (
-                <p className="flex h-full items-center justify-center text-sm text-slate-400">
-                  {isVi ? "Chưa có dữ liệu để hiển thị biểu đồ." : "No data available to display the chart."}
-                </p>
+                <div className="flex items-center gap-4 rounded-2xl border border-dashed border-blue-200 bg-blue-50/50 p-5">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-600 shadow-sm"><Activity className="h-6 w-6" /></span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-900">{isVi ? "Bắt đầu theo dõi tiến trình của bạn" : "Start tracking your progress"}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-600">{isVi ? "Ghi nhận lần đo InBody đầu tiên để xem biểu đồ cân nặng và khối lượng cơ theo thời gian." : "Log your first InBody checkup to see weight and muscle trends over time."}</p>
+                  </div>
+                </div>
               ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
@@ -688,14 +632,19 @@ export function MemberBodyMetricsView() {
                         className="hover:bg-slate-50/80 transition-colors"
                       >
                         <td className="py-3 px-4 font-sans font-semibold text-slate-900">
-                          {row.date}
+                          {row.date ? new Intl.DateTimeFormat(isVi ? "vi-VN" : "en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(`${row.date}T12:00:00`)) : "—"}
                         </td>
                         <td className="py-3 px-4 font-bold">{row.weight}</td>
                         <td className="py-3 px-4">{row.fatPercent}%</td>
                         <td className="py-3 px-4 text-blue-700 font-bold">
                           {row.muscleMass}
                         </td>
-                        <td className="py-3 px-4">{row.bmi}</td>
+                        <td className="py-3 px-4 font-sans">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${row.bmi < 18.5 ? "bg-blue-50 text-blue-700" : row.bmi < 25 ? "bg-emerald-50 text-emerald-700" : row.bmi < 30 ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${row.bmi < 18.5 ? "bg-blue-500" : row.bmi < 25 ? "bg-emerald-500" : row.bmi < 30 ? "bg-amber-500" : "bg-rose-500"}`} />
+                            {row.bmi} · {row.bmi < 18.5 ? (isVi ? "Thiếu cân" : "Underweight") : row.bmi < 25 ? (isVi ? "Bình thường" : "Normal") : row.bmi < 30 ? (isVi ? "Thừa cân" : "Overweight") : (isVi ? "Béo phì" : "Obese")}
+                          </span>
+                        </td>
                         <td className="py-3 px-4 text-right font-sans">
                           {row.isSelfLogged ? (
                             <span className="inline-flex items-center gap-2">
@@ -890,93 +839,47 @@ export function MemberBodyMetricsView() {
 
       {/* Modal Add InBody Metric */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-black text-slate-900">
-              {isVi ? "Ghi nhận chỉ số InBody mới" : "Log New InBody Record"}
-            </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              {isVi
-                ? "Nhập kết quả từ phiếu đo InBody tại quầy dịch vụ."
-                : "Enter figures from your test sheet."}
-            </p>
-
-            <form onSubmit={handleAddMetric} className="mt-4 space-y-3.5">
-              <div className="grid grid-cols-2 gap-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4 backdrop-blur-sm">
+          <div className="my-auto w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600"><Activity className="h-6 w-6" /></span>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isVi ? "Chiều cao (cm) *" : "Height (cm) *"}
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="100"
-                    max="230"
-                    required
-                    value={formHeight}
-                    onChange={(e) => setFormHeight(e.target.value)}
-                    placeholder="170"
-                    className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary"
-                  />
+                  <h3 className="text-lg font-bold tracking-tight text-slate-900">{isVi ? "Ghi nhận chỉ số InBody mới" : "Log New InBody Record"}</h3>
+                  <p className="mt-1 text-sm text-slate-500">{isVi ? "Nhập kết quả từ phiếu đo InBody tại quầy dịch vụ." : "Enter the results from your InBody checkup."}</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setIsModalOpen(false)} aria-label={isVi ? "Đóng" : "Close"} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"><X className="h-5 w-5" /></button>
+            </div>
+
+            <form onSubmit={handleAddMetric} className="mt-6 space-y-5">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">{isVi ? "Chiều cao *" : "Height *"}</label>
+                  <div className="relative"><input type="number" step="0.5" min="100" max="230" required value={formHeight} onChange={(e) => setFormHeight(e.target.value)} placeholder="170" className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-3.5 pr-12 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50" /><span className="absolute inset-y-0 right-3 flex items-center text-sm font-medium text-slate-400">cm</span></div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isVi ? "Cân nặng (kg) *" : "Weight (kg) *"}
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    required
-                    value={formWeight}
-                    onChange={(e) => setFormWeight(e.target.value)}
-                    placeholder="Ví dụ: 70.5"
-                    className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary"
-                  />
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">{isVi ? "Cân nặng *" : "Weight *"}</label>
+                  <div className="relative"><input type="number" step="0.1" required value={formWeight} onChange={(e) => setFormWeight(e.target.value)} placeholder={isVi ? "Ví dụ: 70.5" : "e.g. 70.5"} className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-3.5 pr-12 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50" /><span className="absolute inset-y-0 right-3 flex items-center text-sm font-medium text-slate-400">kg</span></div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">{isVi ? "Tỷ lệ mỡ (tùy chọn)" : "Body fat (optional)"}</label>
+                  <div className="relative"><input type="number" step="0.1" value={formFat} onChange={(e) => setFormFat(e.target.value)} placeholder={isVi ? "Ví dụ: 18.5" : "e.g. 18.5"} className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-3.5 pr-12 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50" /><span className="absolute inset-y-0 right-3 flex items-center text-sm font-medium text-slate-400">%</span></div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">{isVi ? "Khối lượng cơ (tùy chọn)" : "Muscle mass (optional)"}</label>
+                  <div className="relative"><input type="number" step="0.1" value={formMuscle} onChange={(e) => setFormMuscle(e.target.value)} placeholder={isVi ? "Ví dụ: 35.0" : "e.g. 35.0"} className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-3.5 pr-12 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-50" /><span className="absolute inset-y-0 right-3 flex items-center text-sm font-medium text-slate-400">kg</span></div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {isVi ? "Tỷ lệ mỡ (% Body Fat)" : "Body Fat %"}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={formFat}
-                  onChange={(e) => setFormFat(e.target.value)}
-                  placeholder="Ví dụ: 18.5"
-                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary"
-                />
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3.5">
+                <div><p className="text-xs font-semibold text-slate-500">{isVi ? "BMI dự kiến" : "Estimated BMI"}</p><p className="mt-0.5 text-2xl font-bold tabular-nums text-slate-900">{previewBmi ? previewBmi.toFixed(1) : "—"}</p></div>
+                {previewBmi && <span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${previewBmi < 18.5 ? "bg-blue-100 text-blue-700" : previewBmi <= 24.9 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>{previewBmiLabel}</span>}
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {isVi ? "Khối lượng cơ (kg Muscle)" : "Muscle Mass (kg)"}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={formMuscle}
-                  onChange={(e) => setFormMuscle(e.target.value)}
-                  placeholder="Ví dụ: 35.0"
-                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-brand-primary"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
-                >
-                  {isVi ? "Hủy" : "Cancel"}
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-brand-primary px-5 py-2 text-xs font-bold text-white hover:bg-brand-primary-hover cursor-pointer"
-                >
-                  {isVi ? "Lưu kết quả" : "Save Record"}
-                </button>
+              <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">{isVi ? "Hủy" : "Cancel"}</button>
+                <button type="submit" className="rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-primary-hover">{isVi ? "Lưu kết quả đo" : "Save measurement"}</button>
               </div>
             </form>
           </div>
