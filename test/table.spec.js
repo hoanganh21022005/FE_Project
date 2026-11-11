@@ -102,11 +102,11 @@ test.describe('Kịch bản Dữ liệu Bảng & Render API (TABLE-01 -> TABLE-0
     expect(membersRequested).toBe(true);
 
     const tableBody = page.locator('tbody');
-    // Kiểm tra thông tin các hội viên
-    await expect(tableBody).toContainText('MB-001');
+    // Kiểm tra thông tin các hội viên khớp response hiển thị trên bảng
     await expect(tableBody).toContainText('Hội viên mẫu A');
-    await expect(tableBody).toContainText('MB-002');
+    await expect(tableBody).toContainText('member@example.invalid');
     await expect(tableBody).toContainText('Hội viên mẫu B');
+    await expect(tableBody).toContainText('member-b@example.invalid');
   });
 
   // TABLE-04: Trả danh sách rỗng rồi trả lỗi 500/mất mạng
