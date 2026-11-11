@@ -243,6 +243,7 @@ export function SupportView() {
         return
       }
 
+      const knownMessageIds = new Set(messages.map((message) => String(message.id)))
       await chatApi.sendConversationMessage(targetConv.id, { content })
       setMessageInput("")
       await loadMessages(targetConv.id)
@@ -251,6 +252,23 @@ export function SupportView() {
           .getMyActiveConversation()
           .catch(() => targetConv)
         if (refreshedConv) setConversation(refreshedConv)
+
+        // AI replies may be persisted after the send endpoint returns. Poll the
+        // conversation briefly so the member sees that reply without reloading.
+        for (let attempt = 0; attempt < 12; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+          const latestMessages = await chatApi
+            .getConversationMessages(targetConv.id, { limit: 100 })
+            .catch(() => null)
+          if (!latestMessages) continue
+          setMessages(latestMessages)
+          const hasReply = latestMessages.some(
+            (message) =>
+              !knownMessageIds.has(String(message.id)) &&
+              ["AI", "STAFF"].includes(String(message.senderType).toUpperCase()),
+          )
+          if (hasReply) break
+        }
       }
     } catch (err) {
       setError(
@@ -326,6 +344,13 @@ export function SupportView() {
     } finally {
       setActionBusy(false)
     }
+  }
+
+  const handleStartNewConversation = () => {
+    setConversation(null)
+    setMessages([])
+    setSubjectInput("")
+    setError("")
   }
 
   const handleClaimOrRelease = async (mode) => {
@@ -623,15 +648,27 @@ export function SupportView() {
                     <span>{isVi ? "Kết thúc" : "Close"}</span>
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    disabled={actionBusy}
-                    onClick={handleReopenConversation}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 px-3 py-1.5 text-xs font-bold text-white transition-colors cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>{isVi ? "Mở lại hội thoại" : "Reopen"}</span>
-                  </button>
+                  <>
+                    {isMember && (
+                      <button
+                        type="button"
+                        onClick={handleStartNewConversation}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors cursor-pointer"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>{isVi ? "Hội thoại mới" : "New conversation"}</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={actionBusy}
+                      onClick={handleReopenConversation}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 px-3 py-1.5 text-xs font-bold text-white transition-colors cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>{isVi ? "Mở lại hội thoại" : "Reopen"}</span>
+                    </button>
+                  </>
                 )}
               </div>
             )}
