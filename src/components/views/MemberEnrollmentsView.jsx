@@ -1,9 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import {
+  Activity,
   AlertCircle,
   AlertTriangle,
+  BookOpen,
   CalendarDays,
+  CheckCircle2,
+  Clock3,
+  Info,
+  Search,
   RefreshCw,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
@@ -35,7 +41,8 @@ import { PageHeader } from "../ui/PageHeader"
 
 export function MemberEnrollmentsView() {
   const navigate = useNavigate()
-  const { currentUser, t, showToast } = useSCMS()
+  const { currentUser, t, showToast, language } = useSCMS()
+  const isVi = language === "vi"
 
   const tr = useCallback(
     (key, params = {}) => {
@@ -60,6 +67,8 @@ export function MemberEnrollmentsView() {
   const [error, setError] = useState("")
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null)
   const [showAllHolidays, setShowAllHolidays] = useState(false)
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [searchQuery, setSearchQuery] = useState("")
 
   // Ngăn chi tiết buổi học & Báo vắng
   const [detailSession, setDetailSession] = useState(null)
@@ -160,6 +169,33 @@ export function MemberEnrollmentsView() {
         buildCourseScheduleModel(row, allSessions, holidayDateSet, nowMs, t),
       )
   }, [rawEnrollments, allSessions, holidayDateSet, nowMs, t])
+
+  const courseCounts = useMemo(() => ({
+    all: activeCourses.length,
+    in_progress: activeCourses.filter((course) => course.lifecycleStatus === "in_progress").length,
+    not_started: activeCourses.filter((course) => course.lifecycleStatus === "not_started").length,
+    completed: activeCourses.filter((course) => course.lifecycleStatus === "completed").length,
+  }), [activeCourses])
+
+  const filteredCourses = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLocaleLowerCase()
+    return activeCourses.filter((course) => {
+      const matchesStatus = statusFilter === "all" || course.lifecycleStatus === statusFilter
+      const searchableText = [course.className, course.subjectName, course.primaryCoach]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase()
+      return matchesStatus && (!normalizedQuery || searchableText.includes(normalizedQuery))
+    })
+  }, [activeCourses, searchQuery, statusFilter])
+
+  const progressSummary = useMemo(() => {
+    const completed = activeCourses.reduce((sum, course) => sum + (Number(course.completedCount) || 0), 0)
+    const required = activeCourses.reduce((sum, course) => sum + (Number(course.requiredSessions) || 0), 0)
+    const nextSessions = activeCourses.map((course) => course.nextValidSession).filter(Boolean)
+      .sort((a, b) => (a.startMs ?? Number.MAX_SAFE_INTEGER) - (b.startMs ?? Number.MAX_SAFE_INTEGER))
+    return { completed, required, nextSession: nextSessions[0] || null }
+  }, [activeCourses])
 
   const holidayWithinLookahead = useMemo(
     () =>
@@ -315,7 +351,7 @@ export function MemberEnrollmentsView() {
   }
 
   return (
-    <main className="mx-auto max-w-[1100px] space-y-6 px-4 py-6 sm:px-7 sm:py-8">
+    <main className="w-full space-y-6 px-4 py-5 sm:px-6 lg:px-8">
       {/* Header */}
       <PageHeader
         title={t("enrollmentsPageTitle")}
@@ -344,6 +380,18 @@ export function MemberEnrollmentsView() {
           </div>
         }
       />
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label={t("enrollmentsPageTitle")}>
+        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+          <div className="flex items-center gap-3"><span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-700"><BookOpen size={20} /></span><div className="min-w-0"><p className="text-sm font-semibold text-slate-600">{isVi ? "Khóa học đã đăng ký" : "Enrolled courses"}</p><p className="mt-0.5 text-2xl font-extrabold tabular-nums text-slate-950">{courseCounts.all}<span className="ml-1.5 text-sm font-semibold text-slate-500">{isVi ? "khóa học" : "courses"}</span></p></div></div>
+        </article>
+        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+          <div className="flex items-center gap-3"><span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><Activity size={20} /></span><div className="min-w-0"><p className="text-sm font-semibold text-slate-600">{isVi ? "Đang học & Sắp khai giảng" : "In progress & Upcoming"}</p><p className="mt-0.5 text-2xl font-extrabold tabular-nums text-slate-950">{courseCounts.in_progress + courseCounts.not_started}<span className="ml-1.5 text-sm font-semibold text-slate-500">{isVi ? "khóa học" : "courses"}</span></p></div></div>
+        </article>
+        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+          <div className="flex items-center gap-3"><span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl bg-teal-50 text-teal-700"><CheckCircle2 size={20} /></span><div className="min-w-0"><p className="text-sm font-semibold text-slate-600">{isVi ? "Tiến độ buổi học" : "Session progress"}</p><p className="mt-0.5 text-2xl font-extrabold tabular-nums text-slate-950">{progressSummary.completed}<span className="text-base font-bold text-slate-500"> / {progressSummary.required} {isVi ? "buổi" : "sessions"}</span></p><p className="mt-1 truncate text-xs text-slate-500">{progressSummary.nextSession ? <><Clock3 className="mr-1 inline h-3.5 w-3.5" />{isVi ? "Buổi tiếp theo" : "Next session"}: {toDateDdMm(progressSummary.nextSession.sessionDate)} · {progressSummary.nextSession.startTime}</> : (isVi ? "Chưa có buổi học sắp tới" : "No upcoming session")}</p></div></div>
+        </article>
+      </section>
 
       {renderHolidayBanner()}
 
@@ -380,7 +428,7 @@ export function MemberEnrollmentsView() {
       {loading && activeCourses.length === 0 ? (
         <div
           aria-busy="true"
-          className="grid gap-4 grid-cols-1 md:grid-cols-[repeat(auto-fill,minmax(340px,1fr))]"
+          className="grid grid-cols-1 gap-5 lg:grid-cols-2"
         >
           {[1, 2].map((item) => (
             <div
@@ -407,18 +455,29 @@ export function MemberEnrollmentsView() {
           ))}
         </div>
       ) : activeCourses.length > 0 ? (
-        <div
-          className={
-            activeCourses.length === 1
-              ? "grid gap-4 grid-cols-1"
-              : "grid gap-4 grid-cols-1 md:grid-cols-[repeat(auto-fill,minmax(340px,1fr))]"
-          }
-        >
-          {activeCourses.map((course, index) => (
+        <>
+        <section className="space-y-4" aria-label={t("enrollmentsPageTitle")}>
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("scheduleDrawerStatus")}>
+              {[
+                ["all", isVi ? "Tất cả" : "All"],
+                ["in_progress", t("scheduleCourseInProgress")],
+                ["not_started", t("scheduleCourseNotStarted")],
+                ["completed", t("scheduleCourseCompleted")],
+              ].map(([value, label]) => (
+                <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={`inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition ${statusFilter === value ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"}`}>
+                  {label}<span className={`rounded-full px-1.5 py-0.5 text-xs tabular-nums ${statusFilter === value ? "bg-white/15 text-white" : "bg-slate-100 text-slate-500"}`}>{courseCounts[value]}</span>
+                </button>
+              ))}
+            </div>
+            <label className="relative block w-full lg:max-w-sm"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={isVi ? "Tìm tên lớp, môn học, HLV..." : "Search class, sport, coach..."} className="min-h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none transition focus:border-brand-primary focus:bg-white focus:ring-2 focus:ring-blue-100" /></label>
+          </div>
+          {filteredCourses.length > 0 ? <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {filteredCourses.map((course, index) => (
             <MemberCourseCard
               key={course.id || `${course.classId}-${index}`}
               course={course}
-              isSingleCourseLayout={activeCourses.length === 1}
+              compactLayout
               todayIso={todayIso}
               onSelectSession={setDetailSession}
               onViewAllSessions={handleViewAllSessions}
@@ -426,7 +485,10 @@ export function MemberEnrollmentsView() {
               tr={tr}
             />
           ))}
-        </div>
+          </div> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-sm text-slate-600">{isVi ? "Không có khóa học khớp với bộ lọc hoặc từ khóa." : "No courses match these filters or search terms."}</div>}
+        </section>
+        <div className="flex items-start gap-2.5 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3.5 text-sm leading-6 text-blue-950"><Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" /><p>{isVi ? "Khóa học Normal gồm 12 buổi theo lịch cố định và không áp dụng hủy ngang. Nếu cần hỗ trợ kiểm tra thông tin lớp học, vui lòng liên hệ quầy Lễ tân." : "Normal courses include 12 sessions on a fixed schedule and cannot be cancelled partway through. Contact Reception if you need help checking your class information."}</p></div>
+        </>
       ) : (
         /* Trạng thái rỗng: "Bạn chưa đăng ký khóa học nào." kèm nút "Đăng ký khóa học" dẫn tới trang Đăng ký khóa học */
         validMember &&
@@ -447,6 +509,8 @@ export function MemberEnrollmentsView() {
           </section>
         )
       )}
+
+      {activeCourses.length === 0 && !loading && <div className="flex items-start gap-2.5 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3.5 text-sm leading-6 text-blue-950"><Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" /><p>{isVi ? "Khóa học Normal gồm 12 buổi theo lịch cố định và không áp dụng hủy ngang. Nếu cần hỗ trợ kiểm tra thông tin lớp học, vui lòng liên hệ quầy Lễ tân." : "Normal courses include 12 sessions on a fixed schedule and cannot be cancelled partway through. Contact Reception if you need help checking your class information."}</p></div>}
 
       <SessionDetailDrawer
         detailSession={detailSession}
