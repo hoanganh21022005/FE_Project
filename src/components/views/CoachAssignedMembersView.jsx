@@ -1219,7 +1219,7 @@ export function CoachAssignedMembersView() {
 
       {/* Global Unresolved Attempt Banner */}
       {unresolvedAttempt && (!bookingReg || Number(bookingReg.subscriptionId) !== unresolvedAttempt.subscriptionId) && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm leading-5 text-status-warning">
+        <div className="p-4 bg-status-warning-bg border border-status-warning-border rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm leading-5 text-status-warning">
           <div className="flex items-center gap-2.5">
             <AlertCircle className="w-5 h-5 text-status-warning shrink-0" />
             <div>
@@ -1245,7 +1245,7 @@ export function CoachAssignedMembersView() {
 
       {/* Readback Error Alert */}
       {readbackError && (
-        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between text-sm leading-5 text-status-warning">
+        <div className="p-3.5 bg-status-warning-bg border border-status-warning-border rounded-lg flex items-center justify-between text-sm leading-5 text-status-warning">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-status-warning shrink-0" />
             <span>Buổi tập đã được tạo thành công nhưng chưa thể cập nhật số buổi còn lại. Vui lòng tải lại trang.</span>
@@ -1264,12 +1264,12 @@ export function CoachAssignedMembersView() {
 
       {/* Pending Advanced PT Coach Requests (ONLY REQUESTED / PENDING) */}
       {pendingAdvancedRequests.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-bg-card p-4 text-text-primary space-y-3">
+        <div className="rounded-lg border border-status-warning-border bg-bg-card p-4 text-text-primary space-y-3">
           <div className="flex items-center justify-between border-b border-border-color pb-2.5">
             <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
               <Clock className="w-4 h-4 text-status-warning" />
               <span>Yêu cầu đăng ký PT 1:1 chờ duyệt</span>
-              <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200">
+              <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border">
                 {pendingAdvancedRequests.length}
               </span>
             </h3>
@@ -1355,14 +1355,14 @@ export function CoachAssignedMembersView() {
                   value={memberSearchQuery}
                   onChange={(e) => setMemberSearchQuery(e.target.value)}
                   placeholder={t("coachSearchStudentPlaceholder")}
-                  className="min-h-11 w-full sm:w-56 rounded border border-border-color bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                  className="min-h-11 w-full sm:w-56 rounded border border-border-strong bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 />
               </div>
 
               <select
                 value={subjectFilter}
                 onChange={(e) => setSubjectFilter(e.target.value)}
-                className="min-h-11 w-full sm:w-44 rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+                className="min-h-11 w-full sm:w-44 rounded border border-border-strong bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
               >
                 <option value="all">{t("coachFilterAllSubjects")}</option>
                 {availableSubjects.map((sub) => (
@@ -1375,7 +1375,7 @@ export function CoachAssignedMembersView() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="min-h-11 w-full sm:w-48 rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+                className="min-h-11 w-full sm:w-48 rounded border border-border-strong bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
               >
                 <option value="all">{t("coachFilterAllStatuses")}</option>
                 <option value="active">{t("coachStatusActive")}</option>
@@ -1397,7 +1397,7 @@ export function CoachAssignedMembersView() {
           </div>
 
           {requestsError && (
-            <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg text-sm leading-5 text-status-danger flex items-center justify-between">
+            <div className="p-4 bg-status-danger-bg border border-status-danger-border rounded-lg text-sm leading-5 text-status-danger flex items-center justify-between">
               <span>{requestsError}</span>
               <button
                 type="button"
@@ -1529,7 +1529,7 @@ export function CoachAssignedMembersView() {
                       )
                       if (!unloggedCompletedPt) return null
                       return (
-                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm leading-5 text-status-warning">
+                        <div className="p-3 bg-status-warning-bg border border-status-warning-border rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm leading-5 text-status-warning">
                           <div className="flex items-center gap-2">
                             <AlertCircle className="w-4 h-4 text-status-warning shrink-0" />
                             <span>
@@ -1630,7 +1630,7 @@ export function CoachAssignedMembersView() {
                             }}
                             className={`p-3.5 rounded-lg border space-y-2 text-sm leading-5 transition-colors ${
                               isSelectedForBooking
-                                ? "bg-emerald-50/40 border-emerald-200"
+                                ? "bg-emerald-50/40 border-status-success-border"
                                 : "bg-bg-secondary border-border-color"
                             } ${canBook && bookablePackages.length > 1 ? "cursor-pointer" : ""}`}
                           >
@@ -1639,7 +1639,7 @@ export function CoachAssignedMembersView() {
                                 <Award className="w-3.5 h-3.5 text-status-warning shrink-0" />
                                 <span>{formatPkgName(item)}</span>
                                 {isRecommended && (
-                                  <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200">
+                                  <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border">
                                     {language === "vi"
                                       ? "Gần hết hạn nhất"
                                       : "Nearest expiry"}
@@ -1702,7 +1702,7 @@ export function CoachAssignedMembersView() {
                               </div>
 
                               {!canBook && unbookableReason && (
-                                <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200">
+                                <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border">
                                   {unbookableReason}
                                 </span>
                               )}
@@ -1740,7 +1740,7 @@ export function CoachAssignedMembersView() {
                                       [studentGroup.memberKey]: e.target.value,
                                     }))
                                   }
-                                  className="min-h-11 rounded border border-border-color bg-bg-card px-2.5 py-1 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+                                  className="min-h-11 rounded border border-border-strong bg-bg-card px-2.5 py-1 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
                                 >
                                   {bookablePackages.map((pkg) => (
                                     <option key={pkg.id} value={String(pkg.id)}>
@@ -1882,7 +1882,7 @@ export function CoachAssignedMembersView() {
                     }
                   }}
                   placeholder={t("coachPtRejectReasonPlaceholder")}
-                  className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                  className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                   autoFocus
                 />
                 {rejectReasonError && (
@@ -1945,7 +1945,7 @@ export function CoachAssignedMembersView() {
 
             {/* Idempotency Alert / Notice */}
             {currentAttempt?.status === "uncertain" && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm leading-5 text-status-warning space-y-2">
+              <div className="p-3 bg-status-warning-bg border border-status-warning-border rounded text-sm leading-5 text-status-warning space-y-2">
                 <div className="font-semibold flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Giao dịch chưa được xác nhận</span>
@@ -1967,7 +1967,7 @@ export function CoachAssignedMembersView() {
             )}
 
             {currentAttempt?.status === "idempotency_conflict" && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded text-sm leading-5 text-status-danger space-y-1">
+              <div className="p-3 bg-status-danger-bg border border-status-danger-border rounded text-sm leading-5 text-status-danger space-y-1">
                 <div className="font-semibold flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Lịch đã được đặt trước đó</span>
@@ -1980,7 +1980,7 @@ export function CoachAssignedMembersView() {
             )}
 
             {currentAttempt?.status === "conflict_unknown" && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded text-sm leading-5 text-status-danger space-y-1">
+              <div className="p-3 bg-status-danger-bg border border-status-danger-border rounded text-sm leading-5 text-status-danger space-y-1">
                 <div className="font-semibold flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Có xung đột dữ liệu, vui lòng tải lại trang</span>
@@ -1993,7 +1993,7 @@ export function CoachAssignedMembersView() {
             )}
 
             {currentAttempt?.status === "schedule_conflict" && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm leading-5 text-status-warning space-y-1">
+              <div className="p-3 bg-status-warning-bg border border-status-warning-border rounded text-sm leading-5 text-status-warning space-y-1">
                 <div className="font-semibold flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Xung đột lịch tập (Phòng hoặc HLV đã bận)</span>
@@ -2005,7 +2005,7 @@ export function CoachAssignedMembersView() {
             )}
 
             {currentAttempt?.status === "mismatch" && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded text-sm leading-5 text-status-danger space-y-1">
+              <div className="p-3 bg-status-danger-bg border border-status-danger-border rounded text-sm leading-5 text-status-danger space-y-1">
                 <div className="font-semibold flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>Phản hồi xác nhận không như mong đợi</span>
@@ -2032,7 +2032,7 @@ export function CoachAssignedMembersView() {
                     }
                     value={bookingDate}
                     onChange={(e) => handleDateChange(e.target.value)}
-                    className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                    className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                   />
                   <div className="text-xs leading-4 font-medium text-text-secondary font-mono mt-1">
                     {formatDate(bookingDate)}
@@ -2068,7 +2068,7 @@ export function CoachAssignedMembersView() {
                       }
                       value={selectedRoomId}
                       onChange={(e) => handleRoomChange(e.target.value)}
-                      className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                      className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                     >
                       {(() => {
                         const isLocked =
@@ -2126,7 +2126,7 @@ export function CoachAssignedMembersView() {
                     <span>Đang kiểm tra ca trống thực tế...</span>
                   </div>
                 ) : slotsError ? (
-                  <div className="p-3 bg-rose-50 border border-rose-200 rounded text-sm leading-5 text-status-danger flex items-center justify-between">
+                  <div className="p-3 bg-status-danger-bg border border-status-danger-border rounded text-sm leading-5 text-status-danger flex items-center justify-between">
                     <span>{slotsError}</span>
                     <button
                       type="button"
@@ -2196,7 +2196,7 @@ export function CoachAssignedMembersView() {
                     }
                     checked={agreementConfirmed}
                     onChange={(e) => setAgreementConfirmed(e.target.checked)}
-                    className="mt-0.5 rounded border-border-color text-brand-primary focus:ring-brand-primary cursor-pointer disabled:opacity-50"
+                    className="mt-0.5 rounded border-border-strong text-brand-primary focus:ring-brand-primary cursor-pointer disabled:opacity-50"
                   />
                   <span>
                     HLV xác nhận đã thống nhất lịch tập trực tiếp với học viên theo quy định của trung tâm. *

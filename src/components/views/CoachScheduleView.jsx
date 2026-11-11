@@ -517,7 +517,7 @@ export function CoachScheduleView() {
           sessionCancelled
             ? "bg-bg-secondary border-border-color opacity-85"
             : isToday
-              ? "bg-sky-50/40 border-sky-200"
+              ? "bg-sky-50/40 border-status-info-border"
               : "bg-bg-secondary border-border-color hover:bg-bg-card"
         }`}
       >
@@ -527,8 +527,8 @@ export function CoachScheduleView() {
               <span
                 className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
                   ses.isPrivate
-                    ? "bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200"
-                    : "bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200"
+                    ? "bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border"
+                    : "bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border"
                 }`}
               >
                 {ses.isPrivate ? "PT 1:1" : ses.subjectName || "Lớp nhóm"}
@@ -542,7 +542,7 @@ export function CoachScheduleView() {
               </span>
               {/* R4.3: Do not repeat "Hôm nay" badge inside the "Hôm nay" group header */}
               {isToday && groupType !== "today" && (
-                <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200">
+                <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border">
                   {t("coachTodayGroup")}
                 </span>
               )}
@@ -604,7 +604,7 @@ export function CoachScheduleView() {
             </div>
 
             {sessionCancelled && (
-              <div className="text-xs leading-4 font-medium text-status-danger bg-rose-50 border border-rose-200 rounded px-3 py-1.5">
+              <div className="text-xs leading-4 font-medium text-status-danger bg-status-danger-bg border border-status-danger-border rounded px-3 py-1.5">
                 {ses.centerInvalidated
                   ? t("coachBannerCenterInvalidatedDesc")
                   : t("coachBannerCancelledDesc")}
@@ -682,7 +682,7 @@ export function CoachScheduleView() {
             {notices.map((n, idx) => (
               <div
                 key={n.id || idx}
-                className="p-2.5 bg-amber-50 border border-amber-200 rounded text-status-warning flex items-center justify-between"
+                className="p-2.5 bg-status-warning-bg border border-status-warning-border rounded text-status-warning flex items-center justify-between"
               >
                 <span>
                   <strong>{n.memberName || "Học viên"}</strong>:{" "}
@@ -742,7 +742,7 @@ export function CoachScheduleView() {
             <select
               value={selectedRoom}
               onChange={(e) => setSelectedRoom(e.target.value)}
-              className="min-h-11 w-full sm:w-48 rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+              className="min-h-11 w-full sm:w-48 rounded border border-border-strong bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
             >
               <option value="all">
                 {language === "vi" ? "Tất cả phòng / sân" : "All Rooms"}
@@ -947,10 +947,10 @@ export function CoachScheduleView() {
                                       }
                                       className={`p-2 rounded border text-xs leading-4 space-y-1 ${
                                         cancelled
-                                          ? "bg-rose-50 border-rose-200 text-status-danger opacity-75"
+                                          ? "bg-status-danger-bg border-status-danger-border text-status-danger opacity-75"
                                           : ses.isPrivate
-                                            ? "bg-emerald-50 border-emerald-200 text-status-success"
-                                            : "bg-sky-50 border-sky-200 text-status-info cursor-pointer hover:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                                            ? "bg-status-success-bg border-status-success-border text-status-success"
+                                            : "bg-status-info-bg border-status-info-border text-status-info cursor-pointer hover:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                                       }`}
                                     >
                                       <div className="font-semibold">
@@ -988,7 +988,7 @@ export function CoachScheduleView() {
                 {groupedSessions.today.length > 0 && (
                   <div className="space-y-2.5">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200">
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border">
                         {t("coachTodayGroup")} ({groupedSessions.today.length})
                       </span>
                     </div>
@@ -1003,7 +1003,7 @@ export function CoachScheduleView() {
                 {groupedSessions.upcoming.length > 0 && (
                   <div className="space-y-2.5">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200">
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
                         {t("coachUpcomingGroup")} ({groupedSessions.upcoming.length})
                       </span>
                     </div>
@@ -1072,7 +1072,7 @@ export function CoachScheduleView() {
                 >
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200">
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
                         {cls.category || "Thể thao"}
                       </span>
                       <span className="text-sm leading-5 font-semibold text-text-primary">
@@ -1168,7 +1168,7 @@ export function CoachScheduleView() {
                   setAcceptingNew(e.target.checked)
                   setIsWorkScheduleDirty(true)
                 }}
-                className="rounded border-border-color text-brand-primary focus:ring-brand-primary"
+                className="rounded border-border-strong text-brand-primary focus:ring-brand-primary"
               />
               <span>{t("coachAcceptingNewLabel")}</span>
             </label>

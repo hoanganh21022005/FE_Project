@@ -300,7 +300,7 @@ export function ReceptionCheckinView() {
               <select
                 value={scanMemberId}
                 onChange={(e) => setScanMemberId(e.target.value)}
-                className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+                className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
               >
                 <option value="">-- Chọn hội viên --</option>
                 {members.map((m) => (
@@ -320,7 +320,7 @@ export function ReceptionCheckinView() {
                 value={scanCode}
                 onChange={(e) => setScanCode(e.target.value)}
                 placeholder="VD: SCMS-CHK-1029..."
-                className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 text-xs text-text-primary font-mono placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-xs text-text-primary font-mono placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
               />
             </div>
 
@@ -333,7 +333,7 @@ export function ReceptionCheckinView() {
                 value={scanSessionId}
                 onChange={(e) => setScanSessionId(e.target.value)}
                 placeholder="Bỏ trống nếu tập tự do"
-                className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 text-xs text-text-primary font-mono placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-xs text-text-primary font-mono placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
               />
             </div>
 
@@ -379,7 +379,7 @@ export function ReceptionCheckinView() {
                 placeholder="Tìm theo tên, số điện thoại hoặc mã hội viên..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="min-h-11 w-full rounded border border-border-color bg-bg-card pl-9 pr-3 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                className="min-h-11 w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
               />
             </div>
 
@@ -389,7 +389,7 @@ export function ReceptionCheckinView() {
                 placeholder="Ghi chú Check-in (Tùy chọn: Tập ca sáng, Quên thẻ...)"
                 value={notesInput}
                 onChange={(e) => setNotesInput(e.target.value)}
-                className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
               />
             </div>
           </div>
@@ -460,7 +460,7 @@ export function ReceptionCheckinView() {
               <select
                 value={stateFilter}
                 onChange={(e) => setStateFilter(e.target.value)}
-                className="min-h-11 rounded border border-border-color bg-bg-card px-2.5 text-xs text-text-primary focus-visible:border-brand-primary focus-visible:outline-none cursor-pointer"
+                className="min-h-11 rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus-visible:border-brand-primary focus-visible:outline-none cursor-pointer"
               >
                 <option value="all">Tất cả trạng thái</option>
                 <option value="Present">Present (Có mặt)</option>
@@ -514,10 +514,10 @@ export function ReceptionCheckinView() {
                   <span
                     className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                       String(att.state || "").toLowerCase() === "absent"
-                        ? "bg-rose-50 text-status-danger ring-1 ring-inset ring-rose-200"
+                        ? "bg-status-danger-bg text-status-danger ring-1 ring-inset ring-status-danger-border"
                         : String(att.state || "").toLowerCase() === "late"
-                          ? "bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200"
-                          : "bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200"
+                          ? "bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border"
+                          : "bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border"
                     }`}
                   >
                     {att.state || "Present"}

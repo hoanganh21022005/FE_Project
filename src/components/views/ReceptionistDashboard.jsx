@@ -320,7 +320,7 @@ export function ReceptionistDashboard() {
                       : "Hôm nay"}
                   </div>
                 </div>
-                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200">
+                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border">
                   {att.state || "Present"}
                 </span>
               </div>

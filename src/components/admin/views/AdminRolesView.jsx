@@ -35,7 +35,7 @@ export function AdminRolesView() {
                     <p className="text-sm leading-5 font-semibold text-text-primary">
                       {role.name || `Role #${role.id}`}
                     </p>
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200">
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
                       {role.permissions.length} quyền
                     </span>
                   </div>

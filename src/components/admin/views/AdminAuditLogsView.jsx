@@ -67,7 +67,7 @@ export function AdminAuditLogsView() {
             value={query}
             onChange={handleQueryChange}
             placeholder="Actor, hành động, đối tượng..."
-            className="min-h-11 w-full rounded border border-border-color bg-bg-card pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+            className="min-h-11 w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
           />
         </label>
       </div>

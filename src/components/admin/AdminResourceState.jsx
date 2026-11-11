@@ -26,7 +26,7 @@ export function AdminResourceState({
     return (
       <div
         role="alert"
-        className="min-h-36 flex flex-col items-center justify-center text-center px-5 py-7 bg-rose-50 border border-rose-200 rounded-lg"
+        className="min-h-36 flex flex-col items-center justify-center text-center px-5 py-7 bg-status-danger-bg border border-status-danger-border rounded-lg"
       >
         <AlertTriangle className="w-6 h-6 text-status-danger" />
         <p className="mt-3 text-sm leading-5 font-semibold text-status-danger">
