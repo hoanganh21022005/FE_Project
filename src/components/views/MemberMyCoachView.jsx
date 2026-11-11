@@ -1286,14 +1286,15 @@ export function MemberMyCoachView() {
                 alt={selectedCoach.name}
                 className="w-12 h-12 rounded-lg object-cover object-top"
               />
-              {!apiEnabled && subscriptions.length > 0 ? <div>
+              <div className="min-w-0">
                 <div className="font-bold text-slate-900 text-sm">
                   {selectedCoach.name}
                 </div>
-                <div className="text-xs text-slate-500 font-mono">
-                  {selectedCoach.phone}
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-800">{selectedCoach.specializations?.[0] || selectedCoach.specialization || selectedCoach.sportName || (isVi ? "Huấn luyện viên" : "Coach")}</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-800">• {isVi ? "Đang nhận học viên" : "Accepting students"}</span>
                 </div>
-              </div> : <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4"><p className="text-sm font-bold text-slate-900">{isVi ? "Bạn chưa có gói HLV 1:1 (Advanced) đang hoạt động cho bộ môn này" : "No active Advanced 1:1 coaching entitlement for this sport"}</p><p className="mt-1 text-xs text-slate-600">{isVi ? "Bạn có thể xem ca trống và trao đổi lịch với Huấn luyện viên." : "You can review availability and coordinate a time with the coach."}</p><button type="button" onClick={() => { setIsBookingModalOpen(false); handleOpenAdvancedModal(selectedCoach) }} className="mt-3 inline-flex rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-white">{isVi ? "Đăng ký HLV chính →" : "Register Primary Coach →"}</button></div>}
+              </div>
             </div>
 
             {bookingSuccess && (
@@ -1314,7 +1315,7 @@ export function MemberMyCoachView() {
               {/* Step 1: Chọn ngày */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {isVi ? "1. Chọn ngày tập *" : "1. Select Date *"}
+                  {isVi ? "1. Chọn ngày tập" : "1. Select Date"}
                 </label>
                 <input
                   type="date"
@@ -1330,8 +1331,8 @@ export function MemberMyCoachView() {
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   {isVi
-                    ? "2. Chọn khung giờ khả dụng của HLV *"
-                    : "2. Select Coach Slot *"}
+                    ? "2. Khung giờ của HLV"
+                    : "2. Coach availability"}
                 </label>
 
                 {loadingSlots ? (
@@ -1384,6 +1385,7 @@ export function MemberMyCoachView() {
                 )}
               </div>
 
+              {!apiEnabled && subscriptions.length > 0 ? <>
               {/* Step 3: Chọn phòng tập (GET /api/rooms) */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -1438,6 +1440,8 @@ export function MemberMyCoachView() {
                   </select>
                 )}
               </div>
+
+              </> : <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4"><p className="text-sm font-bold text-slate-900">{isVi ? "Bạn chưa có gói HLV 1:1 (Advanced) đang hoạt động cho bộ môn này" : "No active Advanced 1:1 coaching entitlement for this sport"}</p><p className="mt-1 text-xs text-slate-600">{isVi ? "Bạn vẫn có thể xem ca trống và đăng ký HLV chính để bắt đầu." : "You can review availability and register a Primary Coach to get started."}</p><button type="button" onClick={() => { setIsBookingModalOpen(false); handleOpenAdvancedModal(selectedCoach) }} className="mt-3 inline-flex rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-white">{isVi ? "Đăng ký HLV chính →" : "Register Primary Coach →"}</button></div>}
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
