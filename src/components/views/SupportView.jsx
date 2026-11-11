@@ -21,18 +21,53 @@ import {
 } from "lucide-react"
 
 const QUICK_TOPICS_VI = [
-  "Hỗ trợ thanh toán & đối soát hóa đơn VNPay",
-  "Tư vấn chọn khóa học Normal hoặc HLV 1:1 Advanced",
-  "Hỗ trợ điểm danh QR & lịch học",
-  "Yêu cầu bảo lưu / gia hạn thời hạn gói tập",
+  "Hướng dẫn ngắn gọn cách thanh toán và đối soát hóa đơn VNPay",
+  "So sánh ngắn gọn khóa Normal và HLV 1:1 Advanced, gồm giá và khác biệt chính",
+  "Hướng dẫn ngắn gọn điểm danh QR và xem lịch học",
+  "Cho biết ngắn gọn điều kiện bảo lưu hoặc gia hạn gói tập",
 ]
 
 const QUICK_TOPICS_EN = [
-  "Payment & VNPay invoice reconciliation support",
-  "Course & 1-on-1 Personal Coach consultation",
-  "QR Check-in & schedule assistance",
-  "Membership freeze / validity extension inquiry",
+  "Briefly explain payment and VNPay invoice reconciliation",
+  "Briefly compare Normal and 1-on-1 Advanced, including price and key differences",
+  "Briefly explain QR check-in and how to view my schedule",
+  "Briefly explain membership freeze or extension eligibility",
 ]
+
+const renderFormattedMessage = (text) => {
+  const renderInline = (value, keyPrefix) =>
+    value.split(/(\*\*[^*]+\*\*)/g).map((part, index) =>
+      part.startsWith("**") && part.endsWith("**")
+        ? <strong className="font-bold" key={`${keyPrefix}-${index}`}>{part.slice(2, -2)}</strong>
+        : part,
+    )
+
+  const lines = String(text ?? "").split(/\r?\n/)
+  const output = []
+  let bullets = []
+  const flushBullets = () => {
+    if (bullets.length) {
+      output.push(
+        <ul className="my-1 list-disc space-y-1 pl-5" key={`list-${output.length}`}>
+          {bullets.map((item, index) => <li key={`item-${index}`}>{renderInline(item, `bullet-${output.length}-${index}`)}</li>)}
+        </ul>,
+      )
+      bullets = []
+    }
+  }
+
+  lines.forEach((line, index) => {
+    const bullet = line.match(/^\s*-\s+(.+)$/)
+    if (bullet) {
+      bullets.push(bullet[1])
+      return
+    }
+    flushBullets()
+    output.push(<React.Fragment key={`line-${index}`}>{renderInline(line, `line-${index}`)}{index < lines.length - 1 ? <br /> : null}</React.Fragment>)
+  })
+  flushBullets()
+  return output
+}
 
 const formatChatTime = (value, isVi) => {
   if (!value) return ""
@@ -60,9 +95,12 @@ export function SupportView() {
   const [messageInput, setMessageInput] = useState("")
   const [loading, setLoading] = useState(Boolean(apiEnabled))
   const [sending, setSending] = useState(false)
+  const [waitingAI, setWaitingAI] = useState(false)
   const [actionBusy, setActionBusy] = useState(false)
   const [error, setError] = useState("")
   const messagesEndRef = useRef(null)
+  const pendingReplyIdsRef = useRef(new Set())
+  const isClosed = String(conversation?.status || "").toUpperCase() === "CLOSED"
 
   const loadMessages = useCallback(async (convId) => {
     if (!convId) {
@@ -192,16 +230,16 @@ export function SupportView() {
     }
   }
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault()
-    const content = messageInput.trim()
+  const handleSendMessage = async (e, quickContent) => {
+    e?.preventDefault?.()
+    const content = String(quickContent ?? messageInput).trim()
     if (!content || sending) return
 
     setSending(true)
     setError("")
     try {
       let targetConv = conversation
-      if (!targetConv?.id) {
+      if (!targetConv?.id || String(targetConv.status).toUpperCase() === "CLOSED") {
         if (apiEnabled) {
           targetConv = await chatApi.getOrCreateConversation({
             subject:
@@ -244,31 +282,24 @@ export function SupportView() {
       }
 
       const knownMessageIds = new Set(messages.map((message) => String(message.id)))
-      await chatApi.sendConversationMessage(targetConv.id, { content })
+      pendingReplyIdsRef.current = knownMessageIds
+      const clientMessageId = globalThis.crypto?.randomUUID?.() || `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      await chatApi.sendConversationMessage(targetConv.id, { content, clientMessageId })
       setMessageInput("")
-      await loadMessages(targetConv.id)
+      if (targetConv.status === "CLOSED") targetConv = { ...targetConv, status: "OPEN" }
+      const refreshedMessages = await chatApi.getConversationMessages(targetConv.id, { limit: 100 }).catch(() => null)
+      if (refreshedMessages) setMessages(refreshedMessages)
       if (isMember) {
         const refreshedConv = await chatApi
           .getMyActiveConversation()
           .catch(() => targetConv)
         if (refreshedConv) setConversation(refreshedConv)
 
-        // AI replies may be persisted after the send endpoint returns. Poll the
-        // conversation briefly so the member sees that reply without reloading.
-        for (let attempt = 0; attempt < 12; attempt += 1) {
-          await new Promise((resolve) => setTimeout(resolve, 1000))
-          const latestMessages = await chatApi
-            .getConversationMessages(targetConv.id, { limit: 100 })
-            .catch(() => null)
-          if (!latestMessages) continue
-          setMessages(latestMessages)
-          const hasReply = latestMessages.some(
-            (message) =>
-              !knownMessageIds.has(String(message.id)) &&
-              ["AI", "STAFF"].includes(String(message.senderType).toUpperCase()),
-          )
-          if (hasReply) break
-        }
+        setWaitingAI(String(refreshedConv?.handlerType || targetConv.handlerType).toUpperCase() === "AI")
+        const latestMessages = await chatApi.getConversationMessages(targetConv.id, { limit: 100 }).catch(() => null)
+        if (latestMessages) setMessages(latestMessages)
+        const hasReply = latestMessages?.some((message) => !knownMessageIds.has(String(message.id)) && ["AI", "STAFF", "SYSTEM"].includes(String(message.senderType).toUpperCase()))
+        if (hasReply) setWaitingAI(false)
       }
     } catch (err) {
       setError(
@@ -281,6 +312,26 @@ export function SupportView() {
       setSending(false)
     }
   }
+
+  useEffect(() => {
+    if (!conversation?.id || isClosed || !apiEnabled) return undefined
+    let active = true
+    const poll = async () => {
+      const [list, activeConv] = await Promise.all([
+        chatApi.getConversationMessages(conversation.id, { limit: 100 }).catch(() => null),
+        isMember ? chatApi.getMyActiveConversation().catch(() => null) : Promise.resolve(null),
+      ])
+      if (!active) return
+      if (list) {
+        setMessages(list)
+        if (list.some((m) => !pendingReplyIdsRef.current.has(String(m.id)) && ["AI", "STAFF", "SYSTEM"].includes(String(m.senderType).toUpperCase()))) setWaitingAI(false)
+      }
+      if (activeConv) setConversation(activeConv)
+    }
+    const timer = window.setInterval(poll, waitingAI ? 1800 : 5000)
+    const timeout = waitingAI ? window.setTimeout(() => { if (active) setWaitingAI(false) }, 15000) : null
+    return () => { active = false; window.clearInterval(timer); if (timeout) window.clearTimeout(timeout) }
+  }, [apiEnabled, conversation?.id, isClosed, isMember, waitingAI])
 
   const handleCloseConversation = async () => {
     if (!conversation?.id || actionBusy) return
@@ -382,7 +433,18 @@ export function SupportView() {
   }
 
   const quickTopics = isVi ? QUICK_TOPICS_VI : QUICK_TOPICS_EN
-  const isClosed = String(conversation?.status || "").toUpperCase() === "CLOSED"
+  const handleEscalate = async () => {
+    if (!conversation?.id || actionBusy) return
+    setActionBusy(true)
+    setError("")
+    try {
+      const updated = await chatApi.escalateConversation(conversation.id)
+      setConversation(updated)
+      await loadMessages(conversation.id)
+    } catch (err) {
+      setError(getErrorMessage(err, isVi ? "Không thể kết nối lễ tân." : "Could not contact reception."))
+    } finally { setActionBusy(false) }
+  }
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-7 sm:py-8">
@@ -500,13 +562,7 @@ export function SupportView() {
                   key={idx}
                   type="button"
                   disabled={actionBusy}
-                  onClick={() => {
-                    if (!conversation) {
-                      handleStartConversation(topic)
-                    } else {
-                      setMessageInput(topic)
-                    }
-                  }}
+                  onClick={() => handleSendMessage(null, topic)}
                   className="w-full text-left rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-100 hover:border-slate-300 px-3.5 py-2.5 text-xs font-semibold text-slate-800 transition-colors cursor-pointer"
                 >
                   {topic}
@@ -637,6 +693,13 @@ export function SupportView() {
                   </>
                 )}
 
+                {isMember && !isClosed && conversation.handlerType === "AI" && (
+                  <button type="button" disabled={actionBusy} onClick={handleEscalate} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-800 cursor-pointer">
+                    <UserRound className="w-3.5 h-3.5" />
+                    <span>{isVi ? "Gặp nhân viên lễ tân" : "Support from receptionist"}</span>
+                  </button>
+                )}
+
                 {!isClosed ? (
                   <button
                     type="button"
@@ -745,7 +808,7 @@ export function SupportView() {
                       className="flex justify-center my-2"
                     >
                       <span className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600">
-                        {msg.content}
+                        {renderFormattedMessage(msg.content)}
                       </span>
                     </div>
                   )
@@ -776,17 +839,23 @@ export function SupportView() {
                       </span>
                     </div>
                     <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed whitespace-pre-wrap shadow-2xs ${
+                      className={`max-w-[80%] break-words rounded-2xl px-4 py-2.5 text-xs leading-relaxed whitespace-pre-wrap shadow-2xs ${
                         isMine
                           ? "bg-slate-900 text-white rounded-br-xs"
                           : "bg-white border border-slate-200 text-slate-800 rounded-bl-xs"
                       }`}
                     >
-                      {msg.content}
+                      {renderFormattedMessage(msg.content)}
                     </div>
                   </div>
                 )
               })
+            )}
+            {waitingAI && (
+              <div className="flex items-center gap-2 text-xs text-slate-500" role="status" aria-live="polite">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {isVi ? "Trợ lý AI đang trả lời..." : "AI assistant is replying..."}
+              </div>
             )}
             <div ref={messagesEndRef} />
           </div>
@@ -798,7 +867,7 @@ export function SupportView() {
           >
             <input
               type="text"
-              disabled={isClosed || sending}
+              disabled={sending}
               value={messageInput}
               onChange={(e) => setMessageInput(e.target.value)}
               placeholder={
@@ -814,7 +883,7 @@ export function SupportView() {
             />
             <button
               type="submit"
-              disabled={isClosed || sending || !messageInput.trim()}
+              disabled={sending || !messageInput.trim()}
               className="inline-flex items-center gap-1.5 rounded-xl bg-brand-primary hover:bg-brand-primary-hover disabled:opacity-50 px-4 py-2.5 text-xs font-bold text-white transition-colors cursor-pointer shrink-0"
             >
               {sending ? (

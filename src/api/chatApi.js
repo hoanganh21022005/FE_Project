@@ -1,6 +1,8 @@
 import { httpClient } from "./httpClient.js"
 import { extractList, isValidNumericId } from "./schemaValidators.js"
 
+const unwrapResponse = (res) => res?.data?.data ?? res?.data ?? res
+
 export const mapChatMessage = (msg = {}) => {
   if (!msg || typeof msg !== "object") return null
   return {
@@ -39,17 +41,17 @@ export const mapChatConversation = (conv = {}) => {
 
 export const getMyActiveConversation = async () => {
   try {
-    const data = await httpClient.get("/api/chat/conversations/me/active")
+    const data = unwrapResponse(await httpClient.get("/api/chat/conversations/me/active"))
     if (!data || typeof data !== "object" || !data.id) return null
     return mapChatConversation(data)
   } catch (error) {
-    if (error?.status === 404 || error?.status === 204) return null
+    if (error?.status === 404 || error?.status === 204 || error?.response?.status === 404 || error?.response?.status === 204) return null
     throw error
   }
 }
 
 export const getMyChatUnreadCount = async () => {
-  const data = await httpClient.get("/api/chat/me/unread-count")
+  const data = unwrapResponse(await httpClient.get("/api/chat/me/unread-count"))
   if (typeof data === "number") return data
   return Number(data?.unreadCount ?? data?.count ?? 0)
 }
@@ -58,7 +60,7 @@ export const getOrCreateConversation = async ({ subject = "" } = {}) => {
   const payload = {
     subject: String(subject || "").trim().slice(0, 200),
   }
-  const data = await httpClient.post("/api/chat/conversations", payload)
+  const data = unwrapResponse(await httpClient.post("/api/chat/conversations", payload))
   return mapChatConversation(data)
 }
 
@@ -77,9 +79,9 @@ export const getConversationMessages = async (
     query.set("limit", String(limit))
   }
   const qStr = query.toString() ? `?${query.toString()}` : ""
-  const data = await httpClient.get(
+  const data = unwrapResponse(await httpClient.get(
     `/api/chat/conversations/${Number(conversationId)}/messages${qStr}`,
-  )
+  ))
   const list = extractList(data)
   return Array.isArray(list) ? list.map(mapChatMessage).filter(Boolean) : []
 }
@@ -101,27 +103,38 @@ export const sendConversationMessage = async (
       clientMessageId ||
       `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   }
-  const data = await httpClient.post(
+  const data = unwrapResponse(await httpClient.post(
     `/api/chat/conversations/${Number(conversationId)}/messages`,
     payload,
-  )
+  ))
   return mapChatMessage(data)
 }
 
 export const markConversationRead = async (conversationId) => {
   if (!isValidNumericId(conversationId)) return null
-  return httpClient.post(
+  return unwrapResponse(await httpClient.post(
     `/api/chat/conversations/${Number(conversationId)}/read`,
-  )
+  ))
+}
+
+export const escalateConversation = async (conversationId) => {
+  if (!isValidNumericId(conversationId)) throw new Error("ID cuộc trò chuyện không hợp lệ.")
+  const data = unwrapResponse(await httpClient.post(`/api/chat/conversations/${Number(conversationId)}/escalate`))
+  return mapChatConversation(data)
 }
 
 export const closeConversation = async (conversationId) => {
   if (!isValidNumericId(conversationId)) {
     throw new Error("ID cuộc trò chuyện không hợp lệ.")
   }
-  const data = await httpClient.patch(
-    `/api/chat/conversations/${Number(conversationId)}/close`,
-  )
+  let response
+  try {
+    response = await httpClient.post(`/api/chat/conversations/${Number(conversationId)}/close`)
+  } catch (error) {
+    if (![404, 405].includes(error?.status ?? error?.response?.status)) throw error
+    response = await httpClient.patch(`/api/chat/conversations/${Number(conversationId)}/close`)
+  }
+  const data = unwrapResponse(response)
   return mapChatConversation(data)
 }
 
@@ -129,9 +142,9 @@ export const reopenConversation = async (conversationId) => {
   if (!isValidNumericId(conversationId)) {
     throw new Error("ID cuộc trò chuyện không hợp lệ.")
   }
-  const data = await httpClient.patch(
+  const data = unwrapResponse(await httpClient.patch(
     `/api/chat/conversations/${Number(conversationId)}/reopen`,
-  )
+  ))
   return mapChatConversation(data)
 }
 
@@ -152,9 +165,9 @@ export const getConversationsInbox = async ({
   }
   query.set("page", String(page))
   query.set("size", String(size))
-  const data = await httpClient.get(
+  const data = unwrapResponse(await httpClient.get(
     `/api/chat/conversations?${query.toString()}`,
-  )
+  ))
   const content = Array.isArray(data?.content)
     ? data.content
     : extractList(data) || []
@@ -192,6 +205,7 @@ export const chatApi = {
   getConversationMessages,
   sendConversationMessage,
   markConversationRead,
+  escalateConversation,
   closeConversation,
   reopenConversation,
   getConversationsInbox,
