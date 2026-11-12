@@ -8,7 +8,7 @@ export function AdminHeader({ title, onMenu, onLogout }) {
   const userEmail = currentUser?.email || "admin@scms.com"
 
   return (
-    <header className="h-16 shrink-0 border-b border-border-color bg-bg-card px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20">
+    <header className="h-14 shrink-0 border-b border-border-color bg-bg-card px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20">
       <div className="flex items-center gap-3 min-w-0">
         <button
           type="button"
@@ -23,7 +23,7 @@ export function AdminHeader({ title, onMenu, onLogout }) {
             <ShieldCheck className="w-3.5 h-3.5" />
             Admin Portal
           </p>
-          <h1 className="text-2xl leading-8 font-bold text-text-primary truncate">
+          <h1 className="text-xl leading-7 font-bold text-text-primary truncate">
             {title}
           </h1>
         </div>
