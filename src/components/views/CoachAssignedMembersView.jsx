@@ -1179,7 +1179,7 @@ export function CoachAssignedMembersView() {
   }, [filteredCandidates])
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       {/* Header */}
       <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex items-center justify-between">
         <div className="flex items-center gap-3">

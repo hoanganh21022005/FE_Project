@@ -540,7 +540,7 @@ export function CoachTrainingProgress() {
   const displayPercent = scoreToBarWidthPercent(latestEvaluationScore10)
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       {/* Sticky Student Selector + 4 Horizontal Tabs */}
       <div className="sticky top-0 z-10 rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
