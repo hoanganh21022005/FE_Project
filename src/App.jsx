@@ -1038,7 +1038,9 @@ function SCMSApp() {
               location.pathname.startsWith("/profile") ||
               location.pathname.startsWith("/settings")
                 ? "min-w-0 overflow-y-auto w-full bg-bg-main"
-                : location.pathname.startsWith("/manager")
+                : location.pathname.startsWith("/manager") ||
+                  location.pathname.startsWith("/coach") ||
+                  role === ROLE_COACH
                   ? "min-w-0 p-3 sm:p-4 md:p-6 overflow-y-auto w-full"
                   : "p-3 sm:p-4 md:p-6 overflow-y-auto max-w-[1440px] w-full mx-auto"
             }`}

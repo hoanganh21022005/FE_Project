@@ -48,11 +48,11 @@ export function CoachTrainingProgress() {
   } = useSCMS()
 
   const resolvedCoachId = useMemo(() => {
-    const raw = currentUser?.coachId ?? currentUser?.id
+    const raw = currentUser?.coachId ?? (apiEnabled ? null : currentUser?.id)
     const match = String(raw || "").match(/(\d+)$/)
     const parsed = match ? Number(match[1]) : Number(raw)
-    return !Number.isNaN(parsed) && parsed > 0 ? parsed : 1
-  }, [currentUser?.coachId, currentUser?.id])
+    return !Number.isNaN(parsed) && parsed > 0 ? parsed : null
+  }, [apiEnabled, currentUser?.coachId, currentUser?.id])
 
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== "undefined") {
@@ -130,7 +130,9 @@ export function CoachTrainingProgress() {
           evaluationApi.getEvaluations().catch(() => []),
           memberPortalApi.getTrainingPlans().catch(() => []),
           memberPortalApi.getTrainingResults().catch(() => []),
-          memberPortalApi.getClassSessions().catch(() => []),
+          resolvedCoachId
+            ? memberPortalApi.getClassSessions({ coachId: resolvedCoachId }).catch(() => [])
+            : Promise.resolve([]),
           memberPortalApi.getAdvancedRegistrations().catch(() => []),
           attendanceApi.searchAttendances().catch(() => []),
         ])
@@ -148,7 +150,7 @@ export function CoachTrainingProgress() {
     } finally {
       setLoadingData(false)
     }
-  }, [apiEnabled, selectedSessionId])
+  }, [apiEnabled, resolvedCoachId, selectedSessionId])
 
   useEffect(() => {
     loadAllProgressData()

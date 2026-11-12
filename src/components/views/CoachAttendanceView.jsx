@@ -69,6 +69,7 @@ export function CoachAttendanceView() {
     return ""
   })
   const [substituteClassIds, setSubstituteClassIds] = useState(() => new Set())
+  const [coachClassesFromSessions, setCoachClassesFromSessions] = useState([])
 
   // Drop old selection when coach account switches
   useEffect(() => {
@@ -98,20 +99,48 @@ export function CoachAttendanceView() {
       .then((sessions) => {
         if (!active || !Array.isArray(sessions)) return
         const subIds = new Set()
+        const classesById = new Map()
         sessions.forEach((s) => {
-          if (s.classId != null && !s.isPrivate) {
-            subIds.add(String(s.classId))
+          const isNormalSession = s.isPrivate === false ||
+            String(s.classType || "").trim().toLowerCase() === "normal"
+          if (s.classId != null && isNormalSession) {
+            const classId = String(s.classId)
+            subIds.add(classId)
+            const existing = classesById.get(classId) || {}
+            const className = s.className || existing.name || `Lớp #${classId}`
+            classesById.set(classId, {
+              ...existing,
+              id: s.classId,
+              name: className,
+              nameVi: className,
+              category: s.subjectName || existing.category || "Thể thao",
+              classType: "Normal",
+              coachId: s.coachId ?? resolvedCoachId,
+              coachName: s.coachName || existing.coachName || currentUser?.name || "",
+              room: s.roomName || existing.room || "Sân tập trung tâm",
+              roomVi: s.roomName || existing.roomVi || "Sân tập trung tâm",
+              capacity: s.maxCapacity ?? existing.capacity ?? null,
+              enrolledCount: s.enrolledCount ?? existing.enrolledCount ?? 0,
+              startDate: s.sessionDate || existing.startDate || null,
+              date: s.sessionDate || existing.date || null,
+              startTime: s.startTime || existing.startTime || null,
+              endTime: s.endTime || existing.endTime || null,
+            })
           }
         })
         setSubstituteClassIds(subIds)
+        setCoachClassesFromSessions(Array.from(classesById.values()))
       })
       .catch(() => {})
     return () => {
       active = false
     }
-  }, [apiEnabled, resolvedCoachId])
+  }, [apiEnabled, currentUser?.name, resolvedCoachId])
 
   const coachClasses = useMemo(() => {
+    const fallbackClassMap = new Map(
+      coachClassesFromSessions.map((cls) => [String(cls.id), cls]),
+    )
     const coachNameLower = String(currentUser?.name || "").trim().toLowerCase()
     const matched = classes.filter((c) => {
       if (apiEnabled) {
@@ -132,11 +161,11 @@ export function CoachAttendanceView() {
 
     // Include selectedClassId from sessionStorage / URL if it exists in classes
     if (selectedClassId && !matchedIds.has(String(selectedClassId)) && selectedClassId !== "PT_1ON1") {
-      const targetClass = classes.find((c) => String(c.id) === String(selectedClassId))
+      const targetClass = classes.find((c) => String(c.id) === String(selectedClassId)) || fallbackClassMap.get(String(selectedClassId))
       if (targetClass) {
         additionalClasses.push({
           ...targetClass,
-          isSubstitute: true,
+          isSubstitute: String(targetClass.coachId) !== String(resolvedCoachId),
         })
         matchedIds.add(String(targetClass.id))
       }
@@ -145,11 +174,11 @@ export function CoachAttendanceView() {
     // Include other substitute classes discovered from coach sessions
     substituteClassIds.forEach((clsId) => {
       if (!matchedIds.has(String(clsId)) && clsId !== "PT_1ON1") {
-        const targetClass = classes.find((c) => String(c.id) === String(clsId))
+        const targetClass = classes.find((c) => String(c.id) === String(clsId)) || fallbackClassMap.get(String(clsId))
         if (targetClass) {
           additionalClasses.push({
             ...targetClass,
-            isSubstitute: true,
+            isSubstitute: String(targetClass.coachId) !== String(resolvedCoachId),
           })
           matchedIds.add(String(targetClass.id))
         }
@@ -167,7 +196,7 @@ export function CoachAttendanceView() {
       roomVi: "Sân tập PT",
     }
     return [...matched, ...additionalClasses, ptVirtual]
-  }, [apiEnabled, classes, resolvedCoachId, currentUser?.id, currentUser?.name, selectedClassId, substituteClassIds])
+  }, [apiEnabled, classes, coachClassesFromSessions, resolvedCoachId, currentUser?.id, currentUser?.name, selectedClassId, substituteClassIds])
 
   const prevSelectedClassRef = useRef(null)
   const selectedClass = useMemo(() => {
@@ -1063,7 +1092,7 @@ export function CoachAttendanceView() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       {/* Class Banner & Selector */}
       <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1.5">
