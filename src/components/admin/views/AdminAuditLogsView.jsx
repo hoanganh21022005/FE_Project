@@ -189,7 +189,7 @@ export function AdminAuditLogsView() {
   const canGoPrev = page > 1
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full min-w-0 max-w-full">
       <div>
         <h2 className="text-xl leading-7 font-semibold text-text-primary">
           Nhật ký hoạt động hệ thống
@@ -226,7 +226,7 @@ export function AdminAuditLogsView() {
             <select
               value={selectedAction}
               onChange={handleActionChange}
-              className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 cursor-pointer"
+              className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
             >
               <option value="">Tất cả hành động</option>
               {KNOWN_ACTIONS.map((act) => (
@@ -243,7 +243,7 @@ export function AdminAuditLogsView() {
             <select
               value={selectedActorId}
               onChange={handleActorChange}
-              className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 cursor-pointer"
+              className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
             >
               <option value="">Tất cả người thực hiện</option>
               {(resources.users.data || []).map((u) => (
@@ -261,7 +261,7 @@ export function AdminAuditLogsView() {
               type="date"
               value={startDate}
               onChange={handleStartDateChange}
-              className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 cursor-pointer"
+              className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary focus-within:ring-2 focus-within:ring-brand-primary cursor-pointer"
             />
           </label>
 
@@ -272,7 +272,7 @@ export function AdminAuditLogsView() {
               type="date"
               value={endDate}
               onChange={handleEndDateChange}
-              className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 cursor-pointer"
+              className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary focus-within:ring-2 focus-within:ring-brand-primary cursor-pointer"
             />
           </label>
         </div>
@@ -286,7 +286,7 @@ export function AdminAuditLogsView() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Tìm nhanh trên trang (tên, mã hành động, đối tượng, chi tiết)..."
-              className="min-h-11 w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20"
+              className="min-h-11 w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary"
             />
           </label>
         </div>
