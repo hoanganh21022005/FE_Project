@@ -19,14 +19,15 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
   const { language, setLanguage, currentUser, t, apiEnabled } = useSCMS()
   const location = useLocation()
   const navigate = useNavigate()
+  const canUseAvatar = currentUser?.role === "member"
   const [isNotifOpen, setIsNotifOpen] = useState(false)
   const [headerAvatar, setHeaderAvatar] = useState(
-    () => currentUser?.avatarUrl || null,
+    () => canUseAvatar ? currentUser?.avatarUrl || currentUser?.avatar || null : null,
   )
 
   useEffect(() => {
-    setHeaderAvatar(currentUser?.avatarUrl || null)
-  }, [currentUser?.avatarUrl])
+    setHeaderAvatar(canUseAvatar ? currentUser?.avatarUrl || currentUser?.avatar || null : null)
+  }, [canUseAvatar, currentUser?.avatar, currentUser?.avatarUrl])
 
   useEffect(() => {
     const handleAvatarUpdate = (e) => {
@@ -395,7 +396,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
             className="flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer text-left bg-transparent border-0 p-0 focus:outline-hidden"
             title={language === "vi" ? "Xem hồ sơ cá nhân" : "View profile"}
           >
-            <div className="w-8 h-8 rounded-full border border-border-color bg-brand-accent-soft text-brand-primary flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
+            {canUseAvatar && <div className="w-8 h-8 rounded-full border border-border-color bg-brand-accent-soft text-brand-primary flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
               {headerAvatar ? (
                 <img
                   src={headerAvatar}
@@ -405,7 +406,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
               ) : (
                 (currentUser?.name || "B").charAt(0)
               )}
-            </div>
+            </div>}
             <div className="hidden sm:block text-left">
               <div className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[140px]">
                 {currentUser?.name || "Bùi Văn Phúc"}

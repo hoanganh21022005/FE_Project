@@ -3,6 +3,8 @@ import {
   Activity,
   ArrowRight,
   CalendarClock,
+  ChevronDown,
+  ChevronUp,
   RefreshCw,
   TrendingUp,
 } from 'lucide-react'
@@ -140,6 +142,43 @@ export function ManagerDashboardInsights({ navigate }) {
     .filter((session) => session?.sessionDate === today)
     .sort((a, b) => String(a.startTime ?? '').localeCompare(String(b.startTime ?? ''))), [sessions, today])
 
+  const [selectedSportTab, setSelectedSportTab] = useState('all')
+  const [expandedSports, setExpandedSports] = useState({})
+
+  const toggleSportAccordion = (sportName) => {
+    setExpandedSports((prev) => ({
+      ...prev,
+      [sportName]: prev[sportName] === undefined ? false : !prev[sportName],
+    }))
+  }
+
+  const isSportExpanded = (sportName) => {
+    return expandedSports[sportName] !== false
+  }
+
+  const sportGroups = useMemo(() => {
+    const map = {}
+    todaySessions.forEach((session) => {
+      const classInfo = classes.find((item) => String(item.id) === String(session.classId))
+      const sportName = session.subjectName || classInfo?.category || (vi ? 'Bộ môn khác' : 'Other Sport')
+      if (!map[sportName]) {
+        map[sportName] = {
+          name: sportName,
+          sessions: [],
+          cancelledCount: 0,
+        }
+      }
+      map[sportName].sessions.push(session)
+      const st = String(session.status ?? '').toLowerCase()
+      if (st === 'cancelled' || st === 'canceled') {
+        map[sportName].cancelledCount += 1
+      }
+    })
+    return Object.values(map)
+  }, [todaySessions, classes, vi])
+
+  const activeSportTab = sportGroups.some((g) => g.name === selectedSportTab) ? selectedSportTab : 'all'
+
   const classListComplete = !managerDataLoading
     && !managerDataError
     && Number.isInteger(dashboard?.totalClasses)
@@ -164,6 +203,67 @@ export function ManagerDashboardInsights({ navigate }) {
     return status || '—'
   }
 
+  const renderSessionCard = (session) => {
+    const classInfo = classes.find((item) => String(item.id) === String(session.classId))
+    const room = session.roomName || rooms.find((item) => String(item.id) === String(session.roomId))?.name
+    const status = String(session.status ?? '').toLowerCase()
+    const isCancelled = status === 'cancelled' || status === 'canceled'
+    const isCompleted = status === 'completed'
+    const sessionType = classInfo?.classType
+    const startTime = session.startTime ? String(session.startTime).slice(0, 5) : '—'
+    const endTime = session.endTime ? String(session.endTime).slice(0, 5) : '—'
+
+    return (
+      <article
+        key={session.id}
+        className={`flex flex-col justify-between rounded-lg border p-3 transition-colors ${
+          isCancelled
+            ? 'border-rose-200 bg-rose-50/50'
+            : 'border-slate-200 bg-slate-50/70 hover:border-slate-300 hover:bg-slate-100/60'
+        }`}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="font-semibold tabular-nums text-slate-900">
+            <span className="text-xs sm:text-sm">{startTime} - {endTime}</span>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <span
+              className={`rounded px-2 py-0.5 text-[11px] font-semibold border ${
+                isCancelled
+                  ? 'border-rose-300 bg-rose-100 text-rose-800'
+                  : isCompleted
+                    ? 'border-emerald-300 bg-emerald-100 text-emerald-800'
+                    : 'border-blue-200 bg-brand-blue-soft text-brand-primary'
+              }`}
+            >
+              {sessionStatusLabel(session.status)}
+            </span>
+            {sessionType && (
+              <span className="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 shadow-2xs">
+                {sessionType}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-2 min-w-0">
+          <p className="truncate text-xs font-bold text-slate-900" title={session.className || classInfo?.name}>
+            {session.className || classInfo?.name || (vi ? 'Chưa có tên lớp' : 'Class name unavailable')}
+          </p>
+          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
+            <span className="truncate max-w-[130px]" title={session.coachName}>
+              {session.coachName || (vi ? 'Chưa có Coach' : 'Coach unavailable')}
+            </span>
+            <span className="text-slate-300">·</span>
+            <span className="truncate max-w-[130px]" title={room}>
+              {room || (vi ? 'Chưa có phòng' : 'Room unavailable')}
+            </span>
+          </p>
+        </div>
+      </article>
+    )
+  }
+
   return (
     <div className="space-y-4 sm:space-y-5">
       {managerDataError && (
@@ -184,33 +284,115 @@ export function ManagerDashboardInsights({ navigate }) {
             <button type="button" onClick={() => setSessionReload((value) => value + 1)} aria-label={vi ? 'Tải lại lịch học' : 'Refresh schedule'} className="rounded p-2 text-slate-500 hover:bg-slate-100"><RefreshCw className="h-4 w-4" /></button>
           </div>}
         >
-          {sessionsLoading ? <p role="status" className="py-8 text-center text-xs text-slate-500">{vi ? 'Đang tải buổi học…' : 'Loading sessions…'}</p>
-            : sessionsError ? <Notice error>{formatRequestError(sessionsError, language)}</Notice>
-              : todaySessions.length === 0 ? <p className="py-8 text-center text-xs text-slate-500">{vi ? 'Hôm nay chưa có buổi học.' : 'No sessions scheduled for today.'}</p>
-                : <div className="space-y-2.5">
-                  {todaySessions.slice(0, 5).map((session) => {
-                    const classInfo = classes.find((item) => String(item.id) === String(session.classId))
-                    const room = session.roomName || rooms.find((item) => String(item.id) === String(session.roomId))?.name
-                    const status = String(session.status ?? '').toLowerCase()
-                    const sessionType = classInfo?.classType
+          {sessionsLoading ? (
+            <p role="status" className="py-8 text-center text-xs text-slate-500">
+              {vi ? 'Đang tải buổi học…' : 'Loading sessions…'}
+            </p>
+          ) : sessionsError ? (
+            <Notice error>{formatRequestError(sessionsError, language)}</Notice>
+          ) : todaySessions.length === 0 ? (
+            <p className="py-8 text-center text-xs text-slate-500">
+              {vi ? 'Hôm nay chưa có buổi học.' : 'No sessions scheduled for today.'}
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {/* Filter Tabs Bar */}
+              <div className="flex items-center gap-1.5 overflow-x-auto border-b border-slate-100 pb-2.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSportTab('all')}
+                  className={`whitespace-nowrap rounded-md px-3 py-1.5 font-medium transition-colors ${
+                    activeSportTab === 'all'
+                      ? 'bg-brand-primary text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                  }`}
+                >
+                  {vi ? `Tất cả (${todaySessions.length})` : `All (${todaySessions.length})`}
+                </button>
+                {sportGroups.map((group) => (
+                  <button
+                    key={group.name}
+                    type="button"
+                    onClick={() => setSelectedSportTab(group.name)}
+                    className={`whitespace-nowrap rounded-md px-3 py-1.5 font-medium transition-colors ${
+                      activeSportTab === group.name
+                        ? 'bg-brand-primary text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                    }`}
+                  >
+                    {group.name} ({group.sessions.length})
+                  </button>
+                ))}
+              </div>
+
+              {/* Scrollable list bounded to max-h-[380px] */}
+              <div className="max-h-[380px] overflow-y-auto pr-1 space-y-3">
+                {activeSportTab !== 'all' ? (
+                  (() => {
+                    const group = sportGroups.find((g) => g.name === activeSportTab)
+                    if (!group) return null
                     return (
-                      <article key={session.id} className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-md border border-slate-100 bg-slate-50/70 p-3 sm:grid-cols-[88px_minmax(0,1fr)_auto] sm:items-center">
-                        <div className="font-semibold tabular-nums text-brand-dark">
-                          <div className="text-sm">{session.startTime ? String(session.startTime).slice(0, 5) : '—'}</div>
-                          <div className="text-xs text-slate-500">{session.endTime ? String(session.endTime).slice(0, 5) : '—'}</div>
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between px-0.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-bold text-slate-800">{group.name}</span>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                              {vi ? `${group.sessions.length} ca` : `${group.sessions.length} sessions`}
+                            </span>
+                            {group.cancelledCount > 0 && (
+                              <span className="rounded-full border border-rose-200 bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                                {vi ? `${group.cancelledCount} ca bị hủy` : `${group.cancelledCount} cancelled`}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-xs font-bold text-slate-900">{session.className || classInfo?.name || (vi ? 'Chưa có tên lớp' : 'Class name unavailable')}</p>
-                          <p className="mt-1 truncate text-xs text-slate-600">{session.subjectName || classInfo?.category || '—'}<span className="px-1.5">·</span>{session.coachName || (vi ? 'Chưa có Coach' : 'Coach unavailable')}<span className="px-1.5">·</span>{room || (vi ? 'Chưa có phòng' : 'Room unavailable')}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                          {group.sessions.map((session) => renderSessionCard(session))}
                         </div>
-                        <div className="col-start-2 flex flex-wrap items-center gap-1.5 sm:col-start-auto sm:justify-end">
-                          <span className={`rounded px-2 py-1 text-xs font-semibold ${status === 'cancelled' || status === 'canceled' ? 'bg-slate-200 text-slate-700' : 'bg-brand-blue-soft text-brand-primary'}`}>{sessionStatusLabel(session.status)}</span>
-                          {sessionType && <span className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600">{sessionType}</span>}
-                        </div>
-                      </article>
+                      </div>
                     )
-                  })}
-                </div>}
+                  })()
+                ) : (
+                  <div className="space-y-2.5">
+                    {sportGroups.map((group) => {
+                      const expanded = isSportExpanded(group.name)
+                      return (
+                        <div key={group.name} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                          <button
+                            type="button"
+                            onClick={() => toggleSportAccordion(group.name)}
+                            className="flex w-full items-center justify-between bg-slate-50/80 px-3.5 py-2 text-left transition hover:bg-slate-100/80"
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-bold text-slate-900">{group.name}</span>
+                              <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                                {vi ? `${group.sessions.length} ca` : `${group.sessions.length} sessions`}
+                              </span>
+                              {group.cancelledCount > 0 && (
+                                <span className="rounded-full border border-rose-200 bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                                  {vi ? `${group.cancelledCount} ca bị hủy` : `${group.cancelledCount} cancelled`}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-slate-400">
+                              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </span>
+                          </button>
+                          {expanded && (
+                            <div className="border-t border-slate-100 p-2.5 sm:p-3">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                {group.sessions.map((session) => renderSessionCard(session))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </Panel>
       </div>
 
@@ -260,7 +442,7 @@ export function ManagerDashboardInsights({ navigate }) {
           action={<button type="button" onClick={() => goTo('/manager/classes')} aria-label={vi ? 'Mở quản lý lớp' : 'Open class management'} className="rounded p-2 text-brand-primary hover:bg-brand-blue-soft"><ArrowRight className="h-4 w-4" /></button>}
         >
           {managerDataLoading ? <p role="status" className="py-8 text-center text-xs text-slate-500">{vi ? 'Đang tải danh sách lớp…' : 'Loading classes…'}</p>
-            : !classListComplete ? <Notice error>{vi ? `Đang đồng bộ dữ liệu: Danh sách lớp học đang được cập nhật (đã tải ${classes.length}, tổng số theo chỉ số là ${classTotal ?? '—'}).` : `Synchronizing data: Class list is being updated (${classes.length} loaded; reported total is ${classTotal ?? '—'}).`}</Notice>
+            : !classListComplete ? <Notice>{vi ? 'Danh sách lớp học đang được cập nhật…' : 'Class list is being updated…'}</Notice>
               : classTotal === 0 ? <p className="py-8 text-center text-xs text-slate-500">{vi ? 'Chưa có lớp học.' : 'No classes found.'}</p>
                 : <div className="space-y-3">
                   {classStatusCounts.map((status) => {
@@ -274,7 +456,7 @@ export function ManagerDashboardInsights({ navigate }) {
                     </div>
                   })}
                   {unknownClassStatusCount > 0 && <p className="text-xs text-amber-800">{vi ? `${unknownClassStatusCount} lớp có trạng thái chưa được xác định.` : `${unknownClassStatusCount} classes have an unrecognized status.`}</p>}
-                  <p className="border-t border-slate-100 pt-2 text-xs text-slate-500">{vi ? `Tổng ${classTotal} lớp · khớp với KPI tổng quan` : `${classTotal} classes · matches the overview KPI`}</p>
+                  <p className="border-t border-slate-100 pt-2 text-xs text-slate-500">{vi ? `Tổng cộng: ${classTotal} lớp` : `Total: ${classTotal} classes`}</p>
                 </div>}
         </Panel>
       </div>

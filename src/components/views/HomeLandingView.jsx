@@ -239,7 +239,7 @@ export function HomeLandingView({ onOpenLogin }) {
                     onClick={() =>
                       setOpenDropdown((open) => (open === item.id ? null : item.id))
                     }
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-mlc-ink transition-colors hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
+                    className="inline-flex items-center gap-1 text-[1.0625rem] font-semibold text-mlc-ink transition-colors hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
                   >
                     {item.label}
                     <ChevronDown
@@ -283,7 +283,7 @@ export function HomeLandingView({ onOpenLogin }) {
                   to={item.href}
                   aria-current={item.isHome ? "page" : undefined}
                   onClick={() => setOpenDropdown(null)}
-                  className={`text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red ${
+                  className={`text-[1.0625rem] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red ${
                     item.isHome
                       ? "-skew-x-6 bg-mlc-red px-4 py-3 text-white shadow-mlc hover:bg-brand-primary-hover hover:text-white"
                       : "text-mlc-ink hover:text-mlc-red"
@@ -299,7 +299,7 @@ export function HomeLandingView({ onOpenLogin }) {
 
           <div className="hidden items-center gap-3 sm:flex">
             <div
-              className="flex items-center border-r border-mlc-border pr-3 text-xs font-semibold"
+              className="flex items-center border-r border-mlc-border pr-3 text-[1.0625rem] font-semibold"
               aria-label={isVi ? "Ngôn ngữ" : "Language"}
             >
               <button
@@ -329,7 +329,7 @@ export function HomeLandingView({ onOpenLogin }) {
             <button
               type="button"
               onClick={onOpenLogin}
-              className="px-3 py-3 text-xs font-semibold text-mlc-ink transition-colors hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red"
+              className="px-3 py-3 text-[1.0625rem] font-semibold text-mlc-ink transition-colors hover:text-mlc-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red"
             >
               {isVi ? "Đăng nhập" : "Sign in"}
             </button>
@@ -339,7 +339,7 @@ export function HomeLandingView({ onOpenLogin }) {
             <button
               type="button"
               onClick={() => setLanguage(isVi ? "en" : "vi")}
-              className="rounded-full px-2 py-2 text-xs font-bold text-mlc-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red sm:hidden"
+              className="rounded-full px-2 py-2 text-[1.0625rem] font-bold text-mlc-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red sm:hidden"
               aria-label={isVi ? "Switch to English" : "Chuyển sang tiếng Việt"}
             >
               {isVi ? "EN" : "VI"}
@@ -392,7 +392,7 @@ export function HomeLandingView({ onOpenLogin }) {
                       onClick={() =>
                         setOpenDropdown((open) => (open === item.id ? null : item.id))
                       }
-                      className="flex w-full items-center justify-between py-3 text-left text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red"
+                      className="flex w-full items-center justify-between py-3 text-left text-[1.0625rem] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red"
                     >
                       {item.label}
                       <ChevronDown
@@ -437,7 +437,7 @@ export function HomeLandingView({ onOpenLogin }) {
                       setMenuOpen(false)
                       setOpenDropdown(null)
                     }}
-                    className={`border-b border-mlc-border py-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red ${
+                    className={`border-b border-mlc-border py-3 text-[1.0625rem] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-mlc-red ${
                       item.isHome
                         ? "bg-mlc-red px-3 text-white"
                         : "text-mlc-ink"
@@ -453,7 +453,7 @@ export function HomeLandingView({ onOpenLogin }) {
                   setMenuOpen(false)
                   onOpenLogin()
                 }}
-                className="py-3 text-left text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mlc-red"
+                className="py-3 text-left text-[1.0625rem] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mlc-red"
               >
                 {isVi ? "Đăng nhập" : "Sign in"}
               </button>

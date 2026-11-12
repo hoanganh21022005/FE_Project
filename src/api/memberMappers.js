@@ -37,7 +37,7 @@ export function mapMember(dto) {
     name: dto.name ? String(dto.name).trim() : (dto.fullName ? String(dto.fullName).trim() : ''),
     email: dto.email ? String(dto.email).trim() : '',
     phone: dto.phone ? String(dto.phone).trim() : '',
-    avatar: dto.avatar || '',
+    avatar: dto.avatarUrl || dto.avatar || '',
     joinDate: dto.joinDate || dto.joinedDate || null,
     currentPackageId: asNumber(dto.currentPackageId),
     currentPackageName: dto.currentPackageName || '',

@@ -21,14 +21,6 @@ import {
   Search,
 } from 'lucide-react';
 
-function getStaffInitials(name) {
-  const words = String(name || '').trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return '?';
-  const first = words[0].charAt(0).toLocaleUpperCase();
-  const last = words.length > 1 ? words.at(-1).charAt(0).toLocaleUpperCase() : '';
-  return `${first}${last}`;
-}
-
 export function StaffManagement() {
   const {
     staff,
@@ -272,12 +264,7 @@ export function StaffManagement() {
                   <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3.5 px-4 text-center text-xs tabular-nums text-slate-500">{index + 1}</td>
                     <td className="py-3.5 px-5">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-50 text-xs font-semibold text-violet-700 ring-1 ring-violet-100" aria-hidden="true">
-                          {getStaffInitials(s.name)}
-                        </span>
-                        <span className="min-w-0 truncate font-semibold text-slate-900" title={s.name || undefined}>{s.name || '—'}</span>
-                      </div>
+                      <span className="block truncate font-semibold text-slate-900" title={s.name || undefined}>{s.name || '—'}</span>
                     </td>
                     <td className="py-3.5 px-5">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${

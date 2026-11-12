@@ -16,14 +16,6 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
-function getMemberInitials(name) {
-  const words = String(name || '').trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return '?';
-  const first = words[0].charAt(0).toLocaleUpperCase();
-  const last = words.length > 1 ? words[words.length - 1].charAt(0).toLocaleUpperCase() : '';
-  return `${first}${last}`;
-}
-
 export function MemberManagement({ onSelectMemberDetail }) {
   const {
     members,
@@ -280,12 +272,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
                 <tr key={m.id} className="transition-colors hover:bg-slate-50">
                   <td className="px-3 py-4 text-center text-xs tabular-nums text-slate-500">{index + 1}</td>
                   <td className="px-4 py-4">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700" aria-hidden="true">
-                        {getMemberInitials(m.name)}
-                      </span>
-                      <span className="truncate font-semibold text-slate-900" title={m.name || ''}>{m.name || '—'}</span>
-                    </div>
+                    <span className="block truncate font-semibold text-slate-900" title={m.name || ''}>{m.name || '—'}</span>
                   </td>
                   <td className="px-4 py-4">
                     <div className="truncate text-slate-800" title={m.email || ''}>{m.email || '—'}</div>
