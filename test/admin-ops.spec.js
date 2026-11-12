@@ -228,37 +228,38 @@ test.describe('Kịch bản Admin Vận Hành Bao Trùm & Hồ Sơ Admin (W-A3)'
     await page.goto('/profile');
 
     // Render thông tin hồ sơ Admin
-    await expect(page.getByRole('heading', { name: 'Hồ sơ Quản trị viên' })).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('text=admin@example.invalid')).toBeVisible();
-    await expect(page.locator('text=Quản trị viên (Admin)')).toBeVisible();
+    const main = page.getByRole('main');
+    await expect(main.getByRole('heading', { name: 'Hồ sơ Quản trị viên' })).toBeVisible({ timeout: 10000 });
+    await expect(main.getByText('admin@example.invalid')).toBeVisible();
+    await expect(main.getByText('Quản trị viên (Admin)')).toBeVisible();
 
     // Kiểm tra danh sách quyền authorities
-    await expect(page.locator('text=MANAGE_USERS')).toBeVisible();
-    await expect(page.locator('text=MANAGE_RBAC')).toBeVisible();
+    await expect(main.getByText('MANAGE_USERS')).toBeVisible();
+    await expect(main.getByText('MANAGE_RBAC')).toBeVisible();
 
     // 1. Thử submit để trống -> lỗi validation tại chỗ
-    await page.locator('button[type="submit"]:has-text("Cập nhật mật khẩu")').click();
-    await expect(page.locator('text=Mật khẩu hiện tại là bắt buộc')).toBeVisible();
+    await main.locator('button[type="submit"]:has-text("Cập nhật mật khẩu")').click();
+    await expect(main.getByText('Mật khẩu hiện tại là bắt buộc')).toBeVisible();
 
     // 2. Thử mật khẩu cũ sai -> gọi API và hiện lỗi 400 từ Backend
-    await page.locator('#admin-old-password').fill('WrongPass123');
-    await page.locator('#admin-new-password').fill('NewPass456');
-    await page.locator('#admin-confirm-password').fill('NewPass456');
-    await page.locator('button[type="submit"]:has-text("Cập nhật mật khẩu")').click();
+    await main.locator('#admin-old-password').fill('WrongPass123');
+    await main.locator('#admin-new-password').fill('NewPass456');
+    await main.locator('#admin-confirm-password').fill('NewPass456');
+    await main.locator('button[type="submit"]:has-text("Cập nhật mật khẩu")').click();
 
-    await expect(page.locator('div[role="alert"]:has-text("Mật khẩu hiện tại không chính xác")')).toBeVisible();
+    await expect(main.locator('div[role="alert"]:has-text("Mật khẩu hiện tại không chính xác")')).toBeVisible();
     expect(changePasswordPayload).toEqual({
       oldPassword: 'WrongPass123',
       newPassword: 'NewPass456',
     });
 
     // 3. Đổi mật khẩu đúng -> hiện thông báo thành công
-    await page.locator('#admin-old-password').fill('CorrectOld123');
-    await page.locator('#admin-new-password').fill('ValidPass789');
-    await page.locator('#admin-confirm-password').fill('ValidPass789');
-    await page.locator('button[type="submit"]:has-text("Cập nhật mật khẩu")').click();
+    await main.locator('#admin-old-password').fill('CorrectOld123');
+    await main.locator('#admin-new-password').fill('ValidPass789');
+    await main.locator('#admin-confirm-password').fill('ValidPass789');
+    await main.locator('button[type="submit"]:has-text("Cập nhật mật khẩu")').click();
 
-    await expect(page.locator('div[role="alert"]:has-text("Đổi mật khẩu thành công")')).toBeVisible();
+    await expect(main.locator('div[role="alert"]:has-text("Đổi mật khẩu thành công")')).toBeVisible();
     expect(changePasswordPayload).toEqual({
       oldPassword: 'CorrectOld123',
       newPassword: 'ValidPass789',

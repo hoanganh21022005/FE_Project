@@ -6,7 +6,7 @@ product
 
 ## Users
 
-SCMS phục vụ nhân sự vận hành trung tâm thể thao và hội viên. Trong phạm vi G2, người dùng chính là System Admin đang quản trị tài khoản, vai trò, quyền và nhật ký hệ thống trong một ca làm việc tập trung. Họ cần quét nhanh trạng thái hệ thống, tìm đúng bản ghi và nhận biết lỗi dữ liệu mà không mất ngữ cảnh.
+SCMS phục vụ nhân sự vận hành trung tâm thể thao và hội viên. System Admin là vai trò quản trị bao trùm, quản lý tài khoản, vai trò, quyền và nhật ký an toàn, đồng thời có thể trực tiếp thao tác và giám sát vận hành thay cho các vai trò quản lý và lễ tân khi cần thiết trong một ca làm việc tập trung. Họ cần quét nhanh trạng thái hệ thống, tìm đúng bản ghi và nhận biết lỗi dữ liệu mà không mất ngữ cảnh.
 
 ## Product Purpose
 
@@ -19,7 +19,7 @@ Rõ ràng, tin cậy, hiệu quả. Giao diện nói bằng ngôn ngữ vận h�
 ## Anti-references
 
 - Không biến portal Admin thành landing page hoặc dashboard trình diễn với số liệu phóng đại.
-- Không tái sử dụng menu Center Manager cho Admin; lớp, phòng và gói không thuộc điều hướng G2.
+- Theo quyết định Owner ngày 12/11/2026: Admin là vai trò bao trùm, thao tác thay các vai trò khác qua nhóm "Quản lý trung tâm" và "Lễ tân" trong cổng Admin; không nhân bản chức năng gắn danh tính riêng (lịch dạy của Coach, dữ liệu cá nhân Member).
 - Không dùng mock hoặc placeholder như dữ liệu backend thật.
 - Không dùng gradient tím, glassmorphism, card lồng card, typography khổng lồ hoặc motion trang trí.
 

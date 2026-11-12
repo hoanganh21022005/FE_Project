@@ -16,6 +16,17 @@ export function UserRowActions({
 
   useEffect(() => {
     if (!open) return
+
+    // Focus mục đầu tiên khi mở menu
+    const focusTimer = setTimeout(() => {
+      const enabledItems = Array.from(
+        menuRef.current?.querySelectorAll('[role="menuitem"]:not([disabled])') || []
+      )
+      if (enabledItems.length > 0) {
+        enabledItems[0].focus({ preventScroll: true })
+      }
+    }, 0)
+
     const handleClickOutside = (e) => {
       if (
         menuRef.current &&
@@ -26,15 +37,54 @@ export function UserRowActions({
         setOpen(false)
       }
     }
+
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
+        e.preventDefault()
         setOpen(false)
         buttonRef.current?.focus({ preventScroll: true })
+        return
+      }
+
+      if (e.key === "Tab") {
+        setOpen(false)
+        return
+      }
+
+      const enabledItems = Array.from(
+        menuRef.current?.querySelectorAll('[role="menuitem"]:not([disabled])') || []
+      )
+      if (enabledItems.length === 0) return
+
+      const currentIndex = enabledItems.indexOf(document.activeElement)
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault()
+        const nextIndex =
+          currentIndex === -1 || currentIndex === enabledItems.length - 1
+            ? 0
+            : currentIndex + 1
+        enabledItems[nextIndex]?.focus({ preventScroll: true })
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault()
+        const prevIndex =
+          currentIndex <= 0
+            ? enabledItems.length - 1
+            : currentIndex - 1
+        enabledItems[prevIndex]?.focus({ preventScroll: true })
+      } else if (e.key === "Home") {
+        e.preventDefault()
+        enabledItems[0]?.focus({ preventScroll: true })
+      } else if (e.key === "End") {
+        e.preventDefault()
+        enabledItems[enabledItems.length - 1]?.focus({ preventScroll: true })
       }
     }
+
     document.addEventListener("mousedown", handleClickOutside)
     document.addEventListener("keydown", handleKeyDown)
     return () => {
+      clearTimeout(focusTimer)
       document.removeEventListener("mousedown", handleClickOutside)
       document.removeEventListener("keydown", handleKeyDown)
     }
