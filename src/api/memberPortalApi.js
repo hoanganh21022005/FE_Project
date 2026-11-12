@@ -135,21 +135,6 @@ export const createTrainingResult = (payload) =>
 export const recordBulkTrainingResults = (payload) =>
   httpClient.post("/api/training-results/bulk", payload)
 
-export const getMemberBodyMetrics = async (memberId) => {
-  if (!memberId) return []
-  return list(`/api/members/${encodeURIComponent(memberId)}/body-metrics`)
-}
-export const createMemberBodyMetric = async (memberId, payload) => {
-  return httpClient.post(
-    `/api/members/${encodeURIComponent(memberId)}/body-metrics`,
-    payload,
-  )
-}
-export const deleteMemberBodyMetric = async (memberId, metricId) => {
-  return httpClient.delete(
-    `/api/members/${encodeURIComponent(memberId)}/body-metrics/${encodeURIComponent(metricId)}`,
-  )
-}
 export const getMemberEvaluations = async (memberId) => {
   if (!memberId) return []
   try {
@@ -376,9 +361,6 @@ export const memberPortalApi = {
   getTrainingResults,
   createTrainingResult,
   recordBulkTrainingResults,
-  getMemberBodyMetrics,
-  createMemberBodyMetric,
-  deleteMemberBodyMetric,
   getMemberEvaluations,
   getEvaluationById,
   getTrainingPlanById,

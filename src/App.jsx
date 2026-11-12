@@ -245,11 +245,6 @@ const MemberMyCoachView = React.lazy(() =>
     default: module.MemberMyCoachView,
   })),
 )
-const MemberBodyMetricsView = React.lazy(() =>
-  import("./components/views/MemberBodyMetricsView").then((module) => ({
-    default: module.MemberBodyMetricsView,
-  })),
-)
 const MemberFreezeRequestView = React.lazy(() =>
   import("./components/views/MemberFreezeRequestView").then((module) => ({
     default: module.MemberFreezeRequestView,
@@ -685,7 +680,6 @@ function SCMSApp() {
     if (path.includes("/notifications")) return t("memberNotificationsTitle")
     if (path.includes("/freeze-request")) return t("memberFreezeTitle")
     if (path.includes("/my-coach")) return t("memberMyCoachTitle")
-    if (path.includes("/body-metrics")) return t("memberBodyMetricsTitle")
     if (path.includes("/settings")) return t("settings")
     if (path.includes("/support")) return t("support")
     if (path.includes("/profile")) return t("profile")
@@ -1592,20 +1586,6 @@ function SCMSApp() {
                       </RequireRole>
                     }
                   />
-                  <Route
-                    path="/member/body-metrics"
-                    element={
-                      <RequireRole
-                        allowedRoles={[ROLE_MEMBER]}
-                        currentRole={role}
-                        attemptedPath={location.pathname}
-                        onForbidden={() => navigate(`/${role}/dashboard`)}
-                      >
-                        <MemberBodyMetricsView />
-                      </RequireRole>
-                    }
-                  />
-
                   {/* Common Routes */}
                   <Route path="/settings" element={<SettingsView />} />
                   <Route path="/support" element={<SupportView />} />

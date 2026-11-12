@@ -28,7 +28,6 @@ import {
   MessageSquareHeart,
   Bell,
   PauseCircle,
-  HeartPulse,
 } from "lucide-react"
 
 export function Sidebar({ mobileOpen = false, onCloseMobile }) {
@@ -198,12 +197,6 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             label:
               language === "vi" ? "Tiến độ tập luyện" : "Training progress",
             icon: Activity,
-          },
-          {
-            path: "/member/body-metrics",
-            label:
-              language === "vi" ? "Chỉ số cơ thể (InBody)" : "Body metrics",
-            icon: HeartPulse,
           },
           {
             path: "/member/feedback",

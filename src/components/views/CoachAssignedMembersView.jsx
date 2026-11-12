@@ -1184,16 +1184,16 @@ export function CoachAssignedMembersView() {
       <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-bg-secondary text-brand-primary rounded border border-border-color">
-            <Users className="w-5 h-5" />
+            <CalendarPlus className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-xl leading-7 font-semibold text-text-primary whitespace-nowrap">
-              {t("assignedMembers")}
+              {language === "vi" ? "Đăng ký sân & Đặt lịch PT 1:1" : "1:1 Court Booking & Assigned Members"}
             </h2>
             <p className="text-sm leading-5 text-text-secondary whitespace-nowrap">
               {language === "vi"
-                ? "Danh sách học viên Personal Training (PT) được phân công trực tiếp"
-                : "Directly assigned Personal Training (PT) students"}
+                ? "Chọn học viên cá nhân để đăng ký sân tập, chọn ca học trống và theo dõi các gói tập 1:1"
+                : "Select 1:1 students to book sports courts, reserve available slots & track active packages"}
             </p>
           </div>
         </div>
@@ -1340,9 +1340,11 @@ export function CoachAssignedMembersView() {
       <div className="space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 rounded-lg border border-border-color bg-bg-card p-4 text-text-primary">
             <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
-              <Award className="w-4 h-4 text-brand-primary" />
+              <CalendarPlus className="w-4 h-4 text-brand-primary" />
               <span>
-                Học viên &amp; gói PT 1:1 được phân công ({groupedStudentCards.length} học viên)
+                {language === "vi"
+                  ? `Danh sách học viên & Đăng ký sân PT 1:1 (${groupedStudentCards.length} học viên)`
+                  : `1:1 PT Students & Court Booking (${groupedStudentCards.length} members)`}
               </span>
             </h3>
 
@@ -1787,7 +1789,7 @@ export function CoachAssignedMembersView() {
                                 className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active whitespace-nowrap cursor-pointer"
                               >
                                 <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
-                                <span>Đặt lịch PT 1:1</span>
+                                <span>{language === "vi" ? "Đăng ký sân PT 1:1" : "Book PT Court"}</span>
                               </button>
                             )}
                           </div>
@@ -1922,7 +1924,7 @@ export function CoachAssignedMembersView() {
             <div className="flex items-center justify-between border-b border-border-color pb-3">
               <div>
                 <h3 className="text-lg leading-7 font-semibold text-text-primary">
-                  Đặt buổi tập PT 1:1
+                  {language === "vi" ? "Đăng ký sân & Đặt buổi tập PT 1:1" : "Book Court for 1:1 PT Session"}
                 </h3>
                 <p className="text-sm leading-5 text-text-secondary mt-0.5">
                   Học viên: <strong className="text-text-primary">{bookingReg.memberName || `Học viên #${bookingReg.memberId}`}</strong> &bull; Gói:{" "}
@@ -2236,7 +2238,7 @@ export function CoachAssignedMembersView() {
                     currentAttempt?.status === "pending" ? (
                     <span>Thử lại cùng giao dịch</span>
                   ) : (
-                    <span>Xác nhận đặt lịch PT 1:1</span>
+                    <span>{language === "vi" ? "Xác nhận đăng ký sân PT 1:1" : "Confirm PT Court Booking"}</span>
                   )}
                 </button>
               </div>

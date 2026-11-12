@@ -1596,11 +1596,32 @@ export function CoachAttendanceView() {
             </div>
           ) : filteredMembers.length === 0 && !rosterError && !attendancesError && !trainingResultsError ? (
             <div className="p-6 text-center text-sm leading-5 text-text-secondary bg-bg-secondary border border-border-color rounded-lg">
-              {enrolledMembers.length > 0
-                ? "Không tìm thấy học viên khớp với từ khóa."
-                : Number(selectedClass?.enrolledCount || 0) > 0
-                  ? `Lớp đã có ${selectedClass.enrolledCount} học viên đăng ký. Bạn có thể nhập mã hội viên (MB-xxxx) hoặc quét QR ở ô "Điểm danh nhanh" phía trên để ghi nhận buổi học.`
-                  : "Lớp học này hiện chưa có học viên nào đăng ký chính thức."}
+              {attendanceMode === "advanced"
+                ? (
+                  <div className="space-y-3">
+                    <p>
+                      {language === "vi"
+                        ? "Chưa có buổi tập PT 1:1 nào được chọn hoặc chưa có lịch tập khả dụng."
+                        : "No 1:1 PT session selected or no sessions scheduled yet."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentTab?.("assignedMembers")
+                        navigate("/coach/assigned-members")
+                      }}
+                      className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold bg-brand-primary text-text-inverse hover:bg-brand-primary-hover transition-colors cursor-pointer"
+                    >
+                      <UserCheck className="w-4 h-4" />
+                      <span>{language === "vi" ? "Đăng ký sân cho học viên PT 1:1 →" : "Book Court for PT 1:1 Member →"}</span>
+                    </button>
+                  </div>
+                )
+                : enrolledMembers.length > 0
+                  ? "Không tìm thấy học viên khớp với từ khóa."
+                  : Number(selectedClass?.enrolledCount || 0) > 0
+                    ? `Lớp đã có ${selectedClass.enrolledCount} học viên đăng ký. Bạn có thể nhập mã hội viên (MB-xxxx) hoặc quét QR ở ô "Điểm danh nhanh" phía trên để ghi nhận buổi học.`
+                    : "Lớp học này hiện chưa có học viên nào đăng ký chính thức."}
             </div>
           ) : (
             filteredMembers.map((m) => {
