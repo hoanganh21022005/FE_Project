@@ -214,12 +214,13 @@ export function MemberCourseCatalog() {
       const subject = row.subject
       const hasValidPrice = Boolean(subject && hasSellablePrice(subject[tier === 'Normal' ? 'normalPrice' : 'advancedPrice']) && !row.ambiguous && !row.invalidId)
       if (tier === 'Normal') {
-        const openClasses = hasValidPrice ? classes.filter((item) =>
-          String(item.subjectId) === String(subject.id)
-          && verifyNormalCourseClass(item, scheduleStates[item.id] ? scheduleStates[item.id].sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules), subject.id).eligible
+        const subjectClasses = classes.filter((item) => String(item.subjectId) === String(subject?.id) && normalizeCatalogText(item.classType) === 'normal')
+        const openClasses = hasValidPrice ? subjectClasses.filter((item) =>
+          verifyNormalCourseClass(item, scheduleStates[item.id] ? scheduleStates[item.id].sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules), subject.id).eligible
           && !normalFutureSessionIssue(item, scheduleStates[item.id] ? scheduleStates[item.id].sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules)),
         ) : []
-        bySport.set(row.key, { available: openClasses.length > 0, count: openClasses.length })
+        const loading = classesState.loading || subjectClasses.some((item) => scheduleStates[item.id]?.loading || (!scheduleStates[item.id] && !Array.isArray(item.sessions ?? item.scheduleSessions ?? item.schedules)))
+        bySport.set(row.key, { available: openClasses.length > 0, count: openClasses.length, loading })
         return
       }
       const advancedAvailability = subject?.advancedAvailability
