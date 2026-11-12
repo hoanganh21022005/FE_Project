@@ -431,11 +431,21 @@ export function AdminDashboard() {
         </section>
       </div>
 
-      <section className="rounded-lg border border-border-color bg-bg-card/70 p-4 text-text-primary">
+      <section className="rounded-lg border border-border-color bg-bg-card/70 p-4 text-text-primary space-y-2">
         <h3 className="text-sm leading-5 font-semibold text-text-primary">Chế độ vận hành</h3>
-        <p className="mt-1 text-sm leading-5 text-text-secondary max-w-3xl">
+        <p className="text-sm leading-5 text-text-secondary max-w-3xl">
           Portal quản trị đang hoạt động với đầy đủ quyền quản trị: tạo mới và cập nhật người dùng,
           thay đổi trạng thái tài khoản, cấp lại mật khẩu tạm và điều chỉnh phân quyền vai trò theo đặc tả hệ thống.
+        </p>
+        <p className="text-xs leading-5 text-text-muted">
+          Để dùng các màn vận hành, vai trò Admin cần được gán quyền tương ứng tại{" "}
+          <Link
+            to="/admin/roles"
+            className="font-semibold text-brand-primary underline hover:text-brand-primary-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary rounded"
+          >
+            Vai trò & Quyền
+          </Link>
+          .
         </p>
       </section>
     </div>
