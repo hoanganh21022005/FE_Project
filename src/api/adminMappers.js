@@ -55,7 +55,7 @@ export function mapAdminAuditLog(item = {}) {
   return {
     id: asNumber(item.id),
     actorId,
-    actorLabel: actorId === null ? "System" : `User #${actorId}`,
+    actorLabel: actorId === null ? "Hệ thống" : `User #${actorId}`,
     action: item.action ?? "UNKNOWN",
     targetEntity: item.targetEntity ?? null,
     targetId,

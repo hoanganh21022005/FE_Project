@@ -77,8 +77,27 @@ export const updateRolePermissions = async (roleId, permissionIds = []) => {
 export const getAdminPermissions = async () =>
   mapCollection(await httpClient.get("/api/permissions"), mapAdminPermission)
 
-export const getAdminAuditLogs = async () =>
-  mapCollection(await httpClient.get("/api/audit-logs"), mapAdminAuditLog)
+export const getAdminAuditLogs = async (params = {}) => {
+  const query = new URLSearchParams()
+  if (params.startDate) query.set("startDate", params.startDate)
+  if (params.endDate) query.set("endDate", params.endDate)
+  if (params.action) query.set("action", params.action)
+  if (params.targetEntity) query.set("targetEntity", params.targetEntity)
+  if (params.actorId !== undefined && params.actorId !== null && params.actorId !== "") {
+    query.set("actorId", params.actorId)
+  }
+  if (params.page !== undefined && params.page !== null && params.page !== "") {
+    query.set("page", params.page)
+  }
+  if (params.size !== undefined && params.size !== null && params.size !== "") {
+    query.set("size", params.size)
+  }
+  const qStr = query.toString()
+  return mapCollection(
+    await httpClient.get(`/api/audit-logs${qStr ? `?${qStr}` : ""}`),
+    mapAdminAuditLog,
+  )
+}
 
 export const getSpecializations = async (params = {}) => {
   const query = new URLSearchParams()
