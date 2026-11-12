@@ -8,6 +8,7 @@ export function UserRowActions({
   onChangeStatus,
   onChangeRole,
   onReissuePassword,
+  isCurrentIdValid = true,
 }) {
   const [open, setOpen] = useState(false)
   const menuRef = useRef(null)
@@ -87,11 +88,18 @@ export function UserRowActions({
             <button
               type="button"
               role="menuitem"
+              disabled={!isCurrentIdValid}
+              title={
+                !isCurrentIdValid
+                  ? "Không xác định được tài khoản đang đăng nhập; tải lại trang hoặc đăng nhập lại."
+                  : undefined
+              }
               onClick={() => {
+                if (!isCurrentIdValid) return
                 setOpen(false)
                 onChangeStatus(buttonRef)
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded text-xs text-text-primary hover:bg-bg-secondary transition-colors text-left cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded text-xs text-text-primary hover:bg-bg-secondary transition-colors text-left cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <UserCheck className="w-4 h-4 text-brand-primary shrink-0" />
               <span>Đổi trạng thái</span>
@@ -100,11 +108,18 @@ export function UserRowActions({
             <button
               type="button"
               role="menuitem"
+              disabled={!isCurrentIdValid}
+              title={
+                !isCurrentIdValid
+                  ? "Không xác định được tài khoản đang đăng nhập; tải lại trang hoặc đăng nhập lại."
+                  : undefined
+              }
               onClick={() => {
+                if (!isCurrentIdValid) return
                 setOpen(false)
                 onChangeRole(buttonRef)
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded text-xs text-text-primary hover:bg-bg-secondary transition-colors text-left cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded text-xs text-text-primary hover:bg-bg-secondary transition-colors text-left cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ShieldCheck className="w-4 h-4 text-brand-primary shrink-0" />
               <span>Đổi vai trò</span>

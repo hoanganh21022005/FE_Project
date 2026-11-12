@@ -221,22 +221,37 @@ export function UserFormModal({
     setSubmitting(true)
     setServerError(null)
 
-    const payload = {
-      fullName: formData.fullName.trim(),
-      email: formData.email.trim(),
-      phone: formData.phone.trim() || null,
-      gender: formData.gender || null,
-      dateOfBirth: formData.dateOfBirth || null,
-      address: formData.address.trim() || null,
-      status: formData.status,
-    }
-
-    if (formData.roleId) {
-      payload.roleId = Number(formData.roleId)
-    }
-
-    if (isCoachRole && formData.specializationIds.length > 0) {
-      payload.specializationIds = formData.specializationIds
+    let payload
+    if (isEditMode) {
+      // Chế độ sửa: KHÔNG gửi roleId, roleName, status trong payload PUT
+      // Việc đổi vai trò và trạng thái chỉ đi qua UserRoleDialog và UserStatusDialog có chốt chặn an toàn
+      payload = {
+        fullName: formData.fullName.trim(),
+        phone: formData.phone.trim() || null,
+        gender: formData.gender || null,
+        dateOfBirth: formData.dateOfBirth || null,
+        address: formData.address.trim() || null,
+      }
+      if (isCoachRole && formData.specializationIds.length > 0) {
+        payload.specializationIds = formData.specializationIds
+      }
+    } else {
+      // Chế độ tạo mới: gửi đầy đủ thông tin khởi tạo
+      payload = {
+        fullName: formData.fullName.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim() || null,
+        gender: formData.gender || null,
+        dateOfBirth: formData.dateOfBirth || null,
+        address: formData.address.trim() || null,
+        status: formData.status,
+      }
+      if (formData.roleId) {
+        payload.roleId = Number(formData.roleId)
+      }
+      if (isCoachRole && formData.specializationIds.length > 0) {
+        payload.specializationIds = formData.specializationIds
+      }
     }
 
     try {
@@ -250,7 +265,13 @@ export function UserFormModal({
       onClose()
     } catch (err) {
       const msg = err?.message || ""
-      if (err?.status === 409 || msg.toLowerCase().includes("email already exists") || msg.toLowerCase().includes("trùng")) {
+      const isEmailConflict =
+        err?.status === 409 ||
+        (err?.status === 400 && msg.toLowerCase().includes("email")) ||
+        msg.toLowerCase().includes("email already exists") ||
+        msg.toLowerCase().includes("trùng")
+
+      if (isEmailConflict) {
         setErrors((prev) => ({
           ...prev,
           email: "Địa chỉ email này đã tồn tại trong hệ thống. Vui lòng chọn email khác.",
@@ -350,10 +371,10 @@ export function UserFormModal({
               )}
             </div>
 
-            {/* Email (Bắt buộc) */}
+            {/* Email */}
             <div className="space-y-1">
               <label htmlFor="user-form-email" className="text-xs font-semibold text-text-secondary block">
-                Địa chỉ email <span className="text-status-danger">*</span>
+                Địa chỉ email {!isEditMode && <span className="text-status-danger">*</span>}
               </label>
               <input
                 id="user-form-email"
@@ -362,11 +383,17 @@ export function UserFormModal({
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="user@example.com"
+                readOnly={isEditMode}
                 disabled={submitting}
-                className={`min-h-11 w-full rounded border bg-bg-card px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary ${
-                  errors.email ? "border-status-danger" : "border-border-strong"
-                }`}
+                className={`min-h-11 w-full rounded border px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary ${
+                  isEditMode ? "bg-bg-secondary/80 cursor-not-allowed border-border-color" : "bg-bg-card border-border-strong"
+                } ${errors.email ? "border-status-danger" : ""}`}
               />
+              {isEditMode && (
+                <p className="text-[11px] text-text-muted mt-1 leading-4">
+                  Địa chỉ email không thể thay đổi sau khi tạo tài khoản.
+                </p>
+              )}
               {errors.email && (
                 <p className="text-xs text-status-danger">{errors.email}</p>
               )}
@@ -426,48 +453,64 @@ export function UserFormModal({
               />
             </div>
 
-            {/* Vai trò */}
-            <div className="space-y-1">
-              <label htmlFor="user-form-role" className="text-xs font-semibold text-text-secondary block">
-                Vai trò
-              </label>
-              <select
-                id="user-form-role"
-                name="roleId"
-                value={formData.roleId}
-                onChange={handleChange}
-                disabled={submitting}
-                className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-              >
-                <option value="">Mặc định (Hội viên - Member)</option>
-                {roles.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {ROLE_NAME_LABELS[r.name] ? `${ROLE_NAME_LABELS[r.name]} (${r.name})` : r.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Vai trò (Chỉ hiển thị khi tạo mới) */}
+            {!isEditMode && (
+              <div className="space-y-1">
+                <label htmlFor="user-form-role" className="text-xs font-semibold text-text-secondary block">
+                  Vai trò
+                </label>
+                <select
+                  id="user-form-role"
+                  name="roleId"
+                  value={formData.roleId}
+                  onChange={handleChange}
+                  disabled={submitting}
+                  className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+                >
+                  <option value="">Mặc định (Hội viên - Member)</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {ROLE_NAME_LABELS[r.name] ? `${ROLE_NAME_LABELS[r.name]} (${r.name})` : r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-            {/* Trạng thái */}
-            <div className="space-y-1">
-              <label htmlFor="user-form-status" className="text-xs font-semibold text-text-secondary block">
-                Trạng thái tài khoản
-              </label>
-              <select
-                id="user-form-status"
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                disabled={submitting}
-                className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-              >
-                {STATUS_CHOICES.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Trạng thái (Chỉ hiển thị khi tạo mới) */}
+            {!isEditMode && (
+              <div className="space-y-1">
+                <label htmlFor="user-form-status" className="text-xs font-semibold text-text-secondary block">
+                  Trạng thái tài khoản
+                </label>
+                <select
+                  id="user-form-status"
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  disabled={submitting}
+                  className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+                >
+                  {STATUS_CHOICES.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Gợi ý an toàn cho chế độ sửa */}
+            {isEditMode && (
+              <div className="sm:col-span-2 p-3 rounded-lg bg-bg-secondary/60 border border-border-color text-xs text-text-secondary space-y-1">
+                <p className="font-semibold text-text-primary">
+                  💡 Lưu ý về Vai trò & Trạng thái tài khoản:
+                </p>
+                <p>
+                  Để đảm bảo các chốt chặn an toàn hệ thống, việc <strong>Đổi vai trò</strong> và <strong>Đổi trạng thái</strong> (Khóa / Kích hoạt) được thực hiện riêng biệt thông qua nút thao tác (<strong>⋮</strong>) tại danh sách tài khoản.
+                </p>
+              </div>
+            )}
 
             {/* Địa chỉ */}
             <div className="space-y-1 sm:col-span-2">

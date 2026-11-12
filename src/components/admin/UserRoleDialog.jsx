@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react"
 import { AlertTriangle, LoaderCircle, ShieldAlert, X } from "lucide-react"
 import { updateUserRole } from "../../api/adminApi.js"
 import { ROLE_NAME_LABELS } from "./views/AdminRolesView.jsx"
+import { isValidUserId } from "./UserStatusDialog.jsx"
 
 export function UserRoleDialog({
   isOpen,
@@ -44,7 +45,13 @@ export function UserRoleDialog({
 
   if (!isOpen || !user) return null
 
-  const isSelf = currentUserId && Number(user.id) === Number(currentUserId)
+  const isCurrentIdValid = isValidUserId(currentUserId)
+  // isSelf luôn là boolean, chống rò rỉ số 0 ra JSX
+  const isSelf = Boolean(
+    isCurrentIdValid &&
+    isValidUserId(user?.id) &&
+    Number(user.id) === Number(currentUserId)
+  )
   const isAdminUser = String(user.roleName || "").toLowerCase() === "admin"
   const isLastActiveAdmin =
     isAdminUser &&
@@ -59,7 +66,9 @@ export function UserRoleDialog({
   // Chốt chặn: Không cho hạ vai trò của Admin Active cuối cùng sang vai trò khác Admin
   const isDemotingLastAdmin = isLastActiveAdmin && !isTargetAdmin
 
+  // Fail-closed: Chặn thay đổi nếu không xác định được currentUser, tự đổi vai trò, hoặc hạ Admin Active duy nhất
   const cannotChangeRole =
+    !isCurrentIdValid ||
     isSelf ||
     isDemotingLastAdmin ||
     !selectedRoleId ||
@@ -121,6 +130,16 @@ export function UserRoleDialog({
           </button>
         </div>
 
+        {/* Chốt chặn: Không xác định được người đang đăng nhập */}
+        {!isCurrentIdValid && (
+          <div role="alert" className="p-3 rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger text-xs leading-4 flex items-start gap-2">
+            <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <strong>Chốt chặn an toàn:</strong> Không xác định được tài khoản đang đăng nhập; tải lại trang hoặc đăng nhập lại.
+            </div>
+          </div>
+        )}
+
         {/* Chốt chặn: Tự đổi vai trò */}
         {isSelf && (
           <div role="alert" className="p-3 rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger text-xs leading-4 flex items-start gap-2">
@@ -167,7 +186,7 @@ export function UserRoleDialog({
               id="select-user-role"
               value={selectedRoleId}
               onChange={(e) => setSelectedRoleId(e.target.value)}
-              disabled={loading || isSelf}
+              disabled={loading || !isCurrentIdValid || isSelf}
               className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer disabled:bg-bg-secondary disabled:cursor-not-allowed"
             >
               <option value="">-- Chọn vai trò --</option>

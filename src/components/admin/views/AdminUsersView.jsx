@@ -20,7 +20,7 @@ import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { formatAdminDate } from "../adminDateUtils.js"
 import { getAdminUsers, getUserById } from "../../../api/adminApi.js"
 import { PERMISSION_LABEL_MAP, ROLE_NAME_LABELS } from "./AdminRolesView.jsx"
-import { UserStatusDialog } from "../UserStatusDialog.jsx"
+import { UserStatusDialog, isValidUserId } from "../UserStatusDialog.jsx"
 import { UserRoleDialog } from "../UserRoleDialog.jsx"
 import { UserReissuePasswordDialog } from "../UserReissuePasswordDialog.jsx"
 import { UserRowActions } from "../UserRowActions.jsx"
@@ -38,7 +38,21 @@ const statusLabel = (status) =>
 export function AdminUsersView() {
   const { resources, retry } = useAdminData()
   const { currentUser, authUser } = useSCMS()
-  const currentUserId = Number(currentUser?.id ?? authUser?.id ?? 0)
+
+  // Nguồn ID: Trong chế độ API, currentUser.id lấy từ authUser.userId (qua buildCurrentUser).
+  // Nếu currentUser.id chưa có (ví dụ môi trường mock/test auth), đối chiếu ID từ danh sách người dùng qua email đăng nhập.
+  const matchedCurrentUser = useMemo(() => {
+    if (!currentUser?.email || !Array.isArray(resources.users.data)) return null
+    const emailLower = currentUser.email.trim().toLowerCase()
+    return resources.users.data.find(
+      (u) => u.email && u.email.trim().toLowerCase() === emailLower,
+    )
+  }, [currentUser?.email, resources.users.data])
+
+  const rawCurrentId =
+    currentUser?.id ?? matchedCurrentUser?.id ?? authUser?.userId ?? authUser?.id
+  const isCurrentIdValid = isValidUserId(rawCurrentId)
+  const currentUserId = isCurrentIdValid ? Number(rawCurrentId) : null
 
   const [query, setQuery] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
@@ -291,6 +305,18 @@ export function AdminUsersView() {
         </p>
       </div>
 
+      {!isCurrentIdValid && (
+        <div
+          role="alert"
+          className="p-3.5 rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger flex items-center gap-2 text-xs"
+        >
+          <ShieldAlert className="w-4 h-4 shrink-0" />
+          <span>
+            Không xác định được tài khoản đang đăng nhập; tải lại trang hoặc đăng nhập lại.
+          </span>
+        </div>
+      )}
+
       {actionAlert && (
         <div
           role="alert"
@@ -463,6 +489,7 @@ export function AdminUsersView() {
                       <td className="px-3.5 py-1 align-middle text-sm leading-5 text-text-primary text-right">
                         <UserRowActions
                           user={user}
+                          isCurrentIdValid={isCurrentIdValid}
                           onViewDetails={(event) => handleSelectUser(user, event)}
                           onEditUser={(btnRef) => {
                             setActiveDialogTriggerRef(btnRef)
@@ -633,22 +660,36 @@ export function AdminUsersView() {
                         </button>
                         <button
                           type="button"
+                          disabled={!isCurrentIdValid}
+                          title={
+                            !isCurrentIdValid
+                              ? "Không xác định được tài khoản đang đăng nhập; tải lại trang hoặc đăng nhập lại."
+                              : undefined
+                          }
                           onClick={(e) => {
+                            if (!isCurrentIdValid) return
                             setActiveDialogTriggerRef({ current: e.currentTarget })
                             setStatusTargetUser(detailUser || selectedUserSummary)
                           }}
-                          className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2.5 py-2 rounded text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                          className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2.5 py-2 rounded text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <UserCheck className="w-4 h-4 text-brand-primary" />
                           <span>Trạng thái</span>
                         </button>
                         <button
                           type="button"
+                          disabled={!isCurrentIdValid}
+                          title={
+                            !isCurrentIdValid
+                              ? "Không xác định được tài khoản đang đăng nhập; tải lại trang hoặc đăng nhập lại."
+                              : undefined
+                          }
                           onClick={(e) => {
+                            if (!isCurrentIdValid) return
                             setActiveDialogTriggerRef({ current: e.currentTarget })
                             setRoleTargetUser(detailUser || selectedUserSummary)
                           }}
-                          className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2.5 py-2 rounded text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                          className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2.5 py-2 rounded text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <ShieldCheck className="w-4 h-4 text-brand-primary" />
                           <span>Đổi vai trò</span>

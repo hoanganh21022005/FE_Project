@@ -31,6 +31,12 @@ export const ROLE_NAME_LABELS = {
   MEMBER: "Hội viên",
 }
 
+export const ADMIN_LOCKED_PERMISSIONS = [
+  "MANAGE_RBAC",
+  "MANAGE_USERS",
+  "MANAGE_PERMISSIONS",
+]
+
 export const PERMISSION_LABEL_MAP = {
   MANAGE_USERS: "Quản lý người dùng",
   MANAGE_RBAC: "Quản lý vai trò & quyền",
@@ -102,8 +108,8 @@ export function AdminRolesView() {
 
   const handleTogglePermission = (roleId, permissionId, permissionName, roleName) => {
     const isAdminRole = String(roleName || "").toLowerCase() === "admin"
-    // Chốt chặn: Không cho phép gỡ MANAGE_RBAC hoặc MANAGE_USERS khỏi vai trò Admin
-    if (isAdminRole && (permissionName === "MANAGE_RBAC" || permissionName === "MANAGE_USERS")) {
+    // Chốt chặn: Không cho phép gỡ bất kỳ quyền cốt lõi nào khỏi vai trò Admin
+    if (isAdminRole && ADMIN_LOCKED_PERMISSIONS.includes(permissionName)) {
       return
     }
 
@@ -149,6 +155,30 @@ export function AdminRolesView() {
     if (changedRolesSummary.length === 0) return
     setSaving(true)
     setSaveError(null)
+
+    // Chốt chặn trước khi gọi PUT: kiểm tra danh sách gửi cho vai trò Admin có đủ 3 quyền cốt lõi
+    for (const item of changedRolesSummary) {
+      const isItemAdmin = String(item.role?.name || "").toLowerCase() === "admin"
+      if (isItemAdmin) {
+        const requiredIds = permissionsData
+          .filter((p) => ADMIN_LOCKED_PERMISSIONS.includes(p.name))
+          .map((p) => Number(p.id))
+        const hasAllRequired = requiredIds.every((reqId) =>
+          item.newPermissionIds.includes(reqId),
+        )
+        if (!hasAllRequired) {
+          setSaveError(
+            "Chốt chặn an toàn: Vai trò Quản trị viên (Admin) bắt buộc phải có đầy đủ các quyền cốt lõi: " +
+              ADMIN_LOCKED_PERMISSIONS.join(", ") +
+              ". Không thể lưu thay đổi.",
+          )
+          setIsConfirmOpen(false)
+          setSaving(false)
+          return
+        }
+      }
+    }
+
     try {
       for (const item of changedRolesSummary) {
         await updateRolePermissions(item.role.id, item.newPermissionIds)
@@ -264,7 +294,7 @@ export function AdminRolesView() {
         <div className="p-3 rounded-lg border border-brand-primary/40 bg-brand-primary/5 text-brand-primary text-xs flex items-start gap-2.5">
           <Edit3 className="w-4 h-4 shrink-0 mt-0.5" />
           <div>
-            <strong>Đang ở chế độ chỉnh sửa phân quyền:</strong> Bạn có thể bật hoặc tắt các quyền của từng vai trò bằng cách nhấn vào ô tương ứng trong ma trận. Hai quyền <code>MANAGE_RBAC</code> và <code>MANAGE_USERS</code> được bảo vệ cố định cho vai trò Quản trị viên (Admin).
+            <strong>Đang ở chế độ chỉnh sửa phân quyền:</strong> Bạn có thể bật hoặc tắt các quyền của từng vai trò bằng cách nhấn vào ô tương ứng trong ma trận. Ba quyền <code>MANAGE_RBAC</code>, <code>MANAGE_USERS</code> và <code>MANAGE_PERMISSIONS</code> được bảo vệ cố định cho vai trò Quản trị viên (Admin).
           </div>
         </div>
       )}
@@ -341,8 +371,7 @@ export function AdminRolesView() {
                     {rolesData.map((role) => {
                       const isAdminRole = String(role.name || "").toLowerCase() === "admin"
                       const isMandatoryAdminPerm =
-                        isAdminRole &&
-                        (permission.name === "MANAGE_RBAC" || permission.name === "MANAGE_USERS")
+                        isAdminRole && ADMIN_LOCKED_PERMISSIONS.includes(permission.name)
 
                       let isGranted = false
                       if (isEditing) {

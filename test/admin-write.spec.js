@@ -45,6 +45,7 @@ const mockAdminPermissions = [
   { id: 2, name: 'MANAGE_RBAC', description: 'Quản lý vai trò và phân quyền' },
   { id: 3, name: 'VIEW_AUDIT_LOGS', description: 'Xem nhật ký an toàn' },
   { id: 4, name: 'PROCESS_PAYMENT', description: 'Xử lý và thu phí thanh toán' },
+  { id: 5, name: 'MANAGE_PERMISSIONS', description: 'Quản trị phân quyền hệ thống' },
 ];
 
 const mockAdminRoles = [
@@ -56,6 +57,7 @@ const mockAdminRoles = [
       { id: 1, name: 'MANAGE_USERS' },
       { id: 2, name: 'MANAGE_RBAC' },
       { id: 3, name: 'VIEW_AUDIT_LOGS' },
+      { id: 5, name: 'MANAGE_PERMISSIONS' },
     ],
   },
   {
@@ -204,8 +206,11 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
     const dialog = page.locator('div[role="dialog"][aria-labelledby="user-status-dialog-title"]');
     await expect(dialog).toBeVisible();
 
-    // Kiểm tra chốt chặn: nếu là Admin Active duy nhất, chọn Locked thì nút Lưu thay đổi phải bị disabled
-    await dialog.locator('input[value="Locked"]').click();
+    // Chốt chặn an toàn: hiển thị cảnh báo không thể tự thay đổi trạng thái của chính mình
+    await expect(dialog.locator('text=Bạn không thể tự thay đổi trạng thái tài khoản của chính mình')).toBeVisible();
+
+    // Các input radio và nút Lưu thay đổi phải bị disabled
+    await expect(dialog.locator('input[value="Locked"]')).toBeDisabled();
     const submitBtn = dialog.locator('button[type="submit"]:has-text("Lưu thay đổi")');
     await expect(submitBtn).toBeDisabled();
 
@@ -302,8 +307,8 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
     await expect(dialog).toBeHidden();
   });
 
-  // ADMIN-WRITE-05: Tạo tài khoản (POST /api/users), assert không có ô password, hiển thị lỗi 409 khi email trùng
-  test('ADMIN-WRITE-05: Tạo tài khoản không có trường mật khẩu và hiển thị lỗi 409 khi email trùng', async ({ page }) => {
+  // ADMIN-WRITE-05: Tạo tài khoản (POST /api/users), assert không có ô password, hiển thị lỗi 400 khi email trùng
+  test('ADMIN-WRITE-05: Tạo tài khoản không có trường mật khẩu và hiển thị lỗi 400 khi email trùng', async ({ page }) => {
     let postUserPayload = null;
 
     await page.route((url) => isApiMatch(url, 'users'), (route) => {
@@ -311,8 +316,8 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
         const body = JSON.parse(route.request().postData() || '{}');
         if (body.email === 'duplicate@example.invalid') {
           return route.fulfill({
-            status: 409,
-            json: { message: 'Email already exists' },
+            status: 400,
+            json: { message: 'Email already exists: duplicate@example.invalid' },
           });
         }
         postUserPayload = body;
@@ -346,12 +351,16 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
     const passwordInputs = modal.locator('input[type="password"]');
     await expect(passwordInputs).toHaveCount(0);
 
+    // Form tạo mới có trường vai trò và trạng thái
+    await expect(modal.locator('#user-form-role')).toBeVisible();
+    await expect(modal.locator('#user-form-status')).toBeVisible();
+
     // Điền form với email trùng
     await modal.locator('#user-form-fullname').fill('Nguyễn Văn Trùng');
     await modal.locator('#user-form-email').fill('duplicate@example.invalid');
     await modal.locator('button[type="submit"]:has-text("Tạo tài khoản")').click();
 
-    // Hiển thị lỗi 409 trùng email và không đóng form
+    // Hiển thị lỗi 400 trùng email và không đóng form
     await expect(modal.locator('text=Địa chỉ email này đã tồn tại')).toBeVisible();
 
     // Sửa thành email hợp lệ
@@ -372,7 +381,7 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
   });
 
   // ADMIN-WRITE-06: Sửa tài khoản (PUT /api/users/{id})
-  test('ADMIN-WRITE-06: Sửa thông tin tài khoản điền sẵn dữ liệu và gửi đúng payload PUT', async ({ page }) => {
+  test('ADMIN-WRITE-06: Sửa thông tin tài khoản: không có trường vai trò hay trạng thái, email chỉ đọc, payload PUT không chứa roleId hay status', async ({ page }) => {
     let putUserPayload = null;
 
     await page.route((url) => isApiMatch(url, 'users/2'), (route) => {
@@ -420,6 +429,16 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
     await expect(modal.locator('#user-form-fullname')).toHaveValue('Trần Thị Lễ Tân');
     await expect(modal.locator('#user-form-email')).toHaveValue('receptionist@example.invalid');
 
+    // Chốt chặn Sửa: ô email phải là chỉ đọc (readOnly)
+    await expect(modal.locator('#user-form-email')).toHaveAttribute('readonly', '');
+
+    // Chốt chặn Sửa: không có trường vai trò hay trạng thái trong form sửa
+    await expect(modal.locator('#user-form-role')).toHaveCount(0);
+    await expect(modal.locator('#user-form-status')).toHaveCount(0);
+
+    // Có dòng lưu ý về việc đổi vai trò và trạng thái
+    await expect(modal.locator('text=Lưu ý về Vai trò & Trạng thái tài khoản')).toBeVisible();
+
     // Chỉnh sửa họ tên
     await modal.locator('#user-form-fullname').fill('Trần Thị Lễ Tân Cập Nhật');
     await modal.locator('button[type="submit"]:has-text("Lưu thay đổi")').click();
@@ -427,8 +446,12 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
     await expect(modal).toBeHidden();
     await expect(page.locator('div[role="alert"]:has-text("Đã cập nhật thông tin tài khoản")')).toBeVisible();
 
+    // Chốt chặn payload: không chứa roleId, roleName, status
     expect(putUserPayload).not.toBeNull();
     expect(putUserPayload.fullName).toBe('Trần Thị Lễ Tân Cập Nhật');
+    expect(putUserPayload.roleId).toBeUndefined();
+    expect(putUserPayload.roleName).toBeUndefined();
+    expect(putUserPayload.status).toBeUndefined();
   });
 
   // ADMIN-WRITE-07: Sửa quyền vai trò (PUT /api/roles/{id}/permissions)
@@ -559,5 +582,89 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
     await expect(page.locator('tbody tr')).toHaveCount(3);
     await expect(page.locator('tbody')).toContainText('Nguyễn Văn Admin');
     await expect(page.locator('tbody')).toContainText('Trần Thị Lễ Tân');
+  });
+
+  // ADMIN-WRITE-10: Cả 3 quyền cốt lõi của vai trò Admin (MANAGE_RBAC, MANAGE_USERS, MANAGE_PERMISSIONS) đều bị khóa cứng
+  test('ADMIN-WRITE-10: Cả 3 quyền cốt lõi MANAGE_RBAC, MANAGE_USERS, MANAGE_PERMISSIONS của Admin bị khóa cứng, không thể gỡ', async ({ page }) => {
+    await loginAs(page, 'admin');
+    await page.goto('/admin/roles');
+    await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
+
+    await page.locator('button:has-text("Chỉnh sửa phân quyền")').click();
+
+    // 1. Kiểm tra MANAGE_RBAC bị khóa
+    const rbacRow = page.locator('tbody tr').filter({ hasText: 'Quản lý vai trò & quyền' });
+    await expect(rbacRow.locator('span.sr-only:has-text("Bắt buộc có")').first()).toBeVisible();
+
+    // 2. Kiểm tra MANAGE_USERS bị khóa
+    const usersRow = page.locator('tbody tr').filter({ hasText: 'Quản lý người dùng' });
+    await expect(usersRow.locator('span.sr-only:has-text("Bắt buộc có")').first()).toBeVisible();
+
+    // 3. Kiểm tra MANAGE_PERMISSIONS bị khóa
+    const permsRow = page.locator('tbody tr').filter({ hasText: 'Quản trị phân quyền hệ thống' });
+    await expect(permsRow.locator('span.sr-only:has-text("Bắt buộc có")').first()).toBeVisible();
+  });
+
+  // ADMIN-WRITE-11: Fail-closed khi không xác định được người đang đăng nhập (currentUserId không hợp lệ)
+  test('ADMIN-WRITE-11: currentUserId không hợp lệ vô hiệu hóa thao tác đổi trạng thái và vai trò, không có ký tự 0 rác', async ({ page }) => {
+    let interceptedMutation = false;
+    await page.route((url) => isApiMatch(url, 'users') && (url.pathname.includes('/status') || url.pathname.includes('/role')), (route) => {
+      interceptedMutation = true;
+      return route.fallback();
+    });
+
+    const invalidUser = {
+      id: 0,
+      userId: 0,
+      code: 'ADM-INVALID',
+      name: 'Admin Không ID',
+      email: 'invalid-admin@example.invalid',
+      role: 'admin',
+      status: 'active',
+      authorities: ['ROLE_ADMIN'],
+    };
+
+    let loggedIn = false;
+    await page.route((url) => isApiMatch(url, 'auth/me'), (route) => {
+      if (loggedIn) {
+        return route.fulfill({ status: 200, json: invalidUser });
+      }
+      return route.fulfill({ status: 401, json: { message: 'Unauthenticated' } });
+    });
+
+    await page.route((url) => isApiMatch(url, 'auth/login'), (route) => {
+      loggedIn = true;
+      return route.fulfill({ status: 200, json: invalidUser });
+    });
+
+    await page.goto('/login');
+    await page.locator('#login-email').fill('invalid-admin@example.invalid');
+    await page.locator('#login-password').fill('Password123');
+    await page.locator('button[type="submit"]').click();
+    await expect(page).toHaveURL(/\/admin/, { timeout: 10000 });
+
+    await page.goto('/admin/users');
+    await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
+
+    // Kiểm tra banner cảnh báo không xác định được người đăng nhập
+    await expect(page.locator('div[role="alert"]:has-text("Không xác định được tài khoản đang đăng nhập")')).toBeVisible();
+
+    // Mở menu thao tác của user 2
+    const row = page.locator('tbody tr').filter({ hasText: 'Trần Thị Lễ Tân' });
+    await row.locator('button[aria-label*="Thao tác"]').click();
+
+    // Nút "Đổi trạng thái" và "Đổi vai trò" phải bị disabled
+    const changeStatusItem = page.locator('button[role="menuitem"]:has-text("Đổi trạng thái")');
+    const changeRoleItem = page.locator('button[role="menuitem"]:has-text("Đổi vai trò")');
+    await expect(changeStatusItem).toBeDisabled();
+    await expect(changeRoleItem).toBeDisabled();
+
+    // Thử click: không gửi request
+    await changeStatusItem.click({ force: true });
+    expect(interceptedMutation).toBe(false);
+
+    // Kiểm tra không có ký tự "0" lạc lõng trên toàn bộ trang
+    const zeroSpans = page.locator('span:text-is("0"), div:text-is("0"), p:text-is("0")');
+    await expect(zeroSpans).toHaveCount(0);
   });
 });

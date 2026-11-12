@@ -8,6 +8,17 @@ const STATUS_OPTIONS = [
   { value: "Locked", label: "Khóa tài khoản (Locked)", desc: "Khóa tài khoản do vi phạm chính sách hoặc lý do an toàn." },
 ]
 
+export const isValidUserId = (id) => {
+  if (typeof id === "number") {
+    return Number.isInteger(id) && id > 0
+  }
+  if (typeof id === "string" && id.trim() !== "") {
+    const n = Number(id)
+    return Number.isInteger(n) && n > 0
+  }
+  return false
+}
+
 export function UserStatusDialog({
   isOpen,
   onClose,
@@ -51,15 +62,22 @@ export function UserStatusDialog({
 
   if (!isOpen || !user) return null
 
-  const isSelf = currentUserId && Number(user.id) === Number(currentUserId)
+  const isCurrentIdValid = isValidUserId(currentUserId)
+  // isSelf luôn là boolean, chống rò rỉ số 0 ra JSX
+  const isSelf = Boolean(
+    isCurrentIdValid &&
+    isValidUserId(user?.id) &&
+    Number(user.id) === Number(currentUserId)
+  )
   const isAdminUser = String(user.roleName || "").toLowerCase() === "admin"
   const isLastActiveAdmin =
     isAdminUser &&
     String(user.status || "").toLowerCase() === "active" &&
     activeAdminCount <= 1
 
-  // Chốt chặn: không cho tự khóa/ngừng hoạt động hoặc khóa Admin Active cuối cùng
+  // Chốt chặn fail-closed: vô hiệu hóa nếu không xác định được currentUser, tự khóa, hoặc khóa Admin Active duy nhất
   const cannotChangeStatus =
+    !isCurrentIdValid ||
     isSelf ||
     (isLastActiveAdmin && (selectedStatus === "Locked" || selectedStatus === "Inactive"))
 
@@ -119,6 +137,16 @@ export function UserStatusDialog({
           </button>
         </div>
 
+        {/* Chốt chặn: Không xác định được người đang đăng nhập */}
+        {!isCurrentIdValid && (
+          <div role="alert" className="p-3 rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger text-xs leading-4 flex items-start gap-2">
+            <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <strong>Chốt chặn an toàn:</strong> Không xác định được tài khoản đang đăng nhập; tải lại trang hoặc đăng nhập lại.
+            </div>
+          </div>
+        )}
+
         {/* Chốt chặn: Tự đổi trạng thái */}
         {isSelf && (
           <div role="alert" className="p-3 rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger text-xs leading-4 flex items-start gap-2">
@@ -177,7 +205,7 @@ export function UserStatusDialog({
                     value={opt.value}
                     checked={selectedStatus === opt.value}
                     onChange={(e) => setSelectedStatus(e.target.value)}
-                    disabled={loading || isSelf}
+                    disabled={loading || !isCurrentIdValid || isSelf}
                     className="mt-1 h-4 w-4 text-brand-primary border-border-strong focus:ring-brand-primary"
                   />
                   <div className="flex-1 text-xs">
