@@ -9,8 +9,23 @@ const requireList = (response, name) => {
   return rows
 }
 
+const normalizeAdvancedRegistration = (item) => {
+  const invoice = item?.invoice ?? item?.order?.invoice ?? item?.data?.invoice
+  const order = item?.order ?? item?.data?.order
+  return {
+    ...item,
+    invoiceId: item?.invoiceId ?? item?.invoiceID ?? invoice?.invoiceId ?? invoice?.id ?? order?.invoiceId ?? null,
+    invoiceCode: item?.invoiceCode ?? invoice?.invoiceCode ?? invoice?.code ?? null,
+    amount: item?.amount ?? invoice?.amount ?? order?.amount ?? null,
+    paymentStatus: item?.paymentStatus ?? invoice?.paymentStatus ?? order?.paymentStatus ?? null,
+    orderStatus: item?.orderStatus ?? order?.status ?? invoice?.status ?? null,
+    paymentUrl: item?.paymentUrl ?? invoice?.paymentUrl ?? order?.paymentUrl ?? null,
+    invoiceExpiresAt: item?.invoiceExpiresAt ?? invoice?.expiresAt ?? null,
+  }
+}
+
 export const getMyAdvancedRegistrations = async () =>
-  requireList(await httpClient.get('/api/advanced-registrations'), 'danh sách đăng ký Advanced')
+  requireList(await httpClient.get('/api/advanced-registrations'), 'danh sách đăng ký Advanced').map(normalizeAdvancedRegistration)
 
 export const getSubjectSpecializations = async (subjectId) => {
   if (!isValidNumericId(subjectId)) throw new Error('ID môn học không hợp lệ.')
@@ -22,6 +37,33 @@ export const getCoachesForSpecialization = async (specializationId) => {
   if (!isValidNumericId(specializationId)) throw new Error('ID chuyên môn không hợp lệ.')
   const query = new URLSearchParams({ specializationId: String(specializationId) })
   return requireList(await httpClient.get(`/api/coaches?${query.toString()}`), 'danh sách huấn luyện viên')
+}
+
+const unwrapOrderResponse = (response) => {
+  let payload = response
+  for (let depth = 0; depth < 4; depth += 1) {
+    const nested = ['data', 'result', 'payload', 'order', 'invoice'].find((key) =>
+      payload?.[key] && typeof payload[key] === 'object' && !Array.isArray(payload[key]))
+    if (!nested) break
+    payload = { ...payload, ...payload[nested] }
+  }
+  return payload
+}
+
+export const normalizeAdvancedOrderResponse = (response) => {
+  const payload = unwrapOrderResponse(response)
+  const invoice = response?.invoice ?? response?.data?.invoice ?? response?.order?.invoice ?? payload?.invoice
+  const order = response?.order ?? response?.data?.order ?? payload?.order
+  return {
+    ...payload,
+    invoiceId: payload?.invoiceId ?? payload?.invoiceID ?? invoice?.invoiceId ?? invoice?.id ?? order?.invoiceId ?? null,
+    invoiceCode: payload?.invoiceCode ?? invoice?.invoiceCode ?? invoice?.code ?? null,
+    paymentUrl: payload?.paymentUrl ?? payload?.url ?? payload?.vnpayUrl ?? invoice?.paymentUrl ?? order?.paymentUrl ?? null,
+    amount: payload?.amount ?? payload?.totalAmount ?? payload?.total ?? invoice?.amount ?? null,
+    paymentStatus: payload?.paymentStatus ?? invoice?.paymentStatus ?? null,
+    status: payload?.status ?? order?.status ?? invoice?.status ?? null,
+    expiresAt: payload?.expiresAt ?? payload?.invoiceExpiresAt ?? invoice?.expiresAt ?? null,
+  }
 }
 
 export const getCoachAdmissionCapacity = async (coachId, subjectId) => {
@@ -43,7 +85,7 @@ export const requestAdvancedRegistration = async ({ subjectId, primaryCoachId, r
 export const createAdvancedOrder = async (registrationId, paymentMethod) => {
   if (!isValidNumericId(registrationId)) throw new Error('ID đăng ký Advanced không hợp lệ.')
   if (!['Cash', 'VNPay'].includes(paymentMethod)) throw new Error('Phương thức thanh toán không hợp lệ.')
-  return httpClient.post(`/api/advanced-registrations/${registrationId}/order`, { paymentMethod })
+  return normalizeAdvancedOrderResponse(await httpClient.post(`/api/advanced-registrations/${registrationId}/order`, { paymentMethod }))
 }
 
 export const decideAdvancedRegistration = async (registrationId, { accepted, reason = '' } = {}) => {

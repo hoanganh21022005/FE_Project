@@ -145,11 +145,19 @@ export const payInvoiceOnline = async (id) => {
     throw new Error('ID hóa đơn không hợp lệ.');
   }
   const response = await httpClient.post(`/api/invoices/${id}/pay-online`);
+  let payload = response;
+  for (let depth = 0; depth < 4; depth += 1) {
+    const nested = payload?.data ?? payload?.result ?? payload?.payload;
+    if (!nested || typeof nested !== 'object') break;
+    payload = nested;
+  }
   const paymentUrl =
-    response?.paymentUrl ||
-    response?.url ||
-    response?.vnpayUrl ||
-    (typeof response === 'string' ? response : null);
+    payload?.paymentUrl ||
+    payload?.url ||
+    payload?.vnpayUrl ||
+    payload?.payment?.paymentUrl ||
+    payload?.payment?.url ||
+    (typeof payload === 'string' ? payload : null);
   return {
     paymentUrl: paymentUrl || null,
   };
