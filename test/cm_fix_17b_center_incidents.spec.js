@@ -5,9 +5,9 @@ const fixture = (page, expression) => page.evaluate((code) => Function(`return (
 
 test('center incident list preserves BE values, separates session types, and handles list errors', async ({ page }) => {
   await openPanel(page)
-  await expect(page.getByRole('heading', { name: 'Sự cố trung tâm' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Sự cố cấp trung tâm' })).toBeVisible()
   await expect(page.getByText('Credit phục hồi').first()).toBeVisible()
-  await expect(page.getByText('Member bị ảnh hưởng').first()).toBeVisible()
+  await expect(page.getByText('Học viên bị ảnh hưởng').first()).toBeVisible()
   await expect(page.getByText('0', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('Chưa xác minh loại lớp')).toBeVisible()
   await expect(page.getByText('Advanced', { exact: true })).toBeVisible()
@@ -36,7 +36,7 @@ test('Manager manually confirms compensation, creates Normal makeup, and resolve
   await expect.poll(() => fixture(page, `window.__centerIncidentFixture.requests.filter((request) => request.path.endsWith('/compensate')).length`)).toBe(1)
   const compensationRequest = await fixture(page, `window.__centerIncidentFixture.requests.find((request) => request.path.endsWith('/compensate'))`)
   expect(compensationRequest.body).toEqual({ reason: 'Verified by center manager', verifiedNotHeld: true })
-  await expect(page.locator('article').filter({ hasText: 'Sự cố #9' })).toContainText('Có')
+  await expect(page.locator('article').filter({ hasText: 'Sự cố #9' })).toContainText('Đã xác nhận bù')
 
   const makeup = page.locator('article').filter({ hasText: 'Sự cố #9' }).getByRole('button', { name: 'Tạo buổi bù Normal' })
   await expect(makeup).toBeVisible()
@@ -72,7 +72,7 @@ test('Manager manually confirms compensation, creates Normal makeup, and resolve
 
 test('open creates a hidden stable requestKey and a timeout requires a fresh list read without retry', async ({ page }) => {
   await openPanel(page)
-  await page.getByRole('button', { name: 'Mở sự cố' }).click()
+  await page.getByRole('button', { name: 'Báo cáo sự cố mới' }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Buổi học').selectOption('123')
   await dialog.getByLabel('Thời điểm bắt đầu (giờ Việt Nam)').fill(await fixture(page, 'window.__centerIncidentFixture.pastStart.slice(0, 16)'))
@@ -97,8 +97,8 @@ test('write controls require an active Center Manager with MANAGE_CLASSES and ce
   await page.evaluate(() => window.__setCenterIncidentActor({
     id: 2, role: 'CenterManager', status: 'Inactive', authenticated: true, centerId: 1, authorities: ['MANAGE_CLASSES'],
   }))
-  await expect(page.getByText(/tài khoản Active/)).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Mở sự cố' })).toHaveCount(0)
+  await expect(page.getByText(/Chế độ xem/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Báo cáo sự cố mới' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Xác nhận khắc phục' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Xác nhận buổi không tổ chức' })).toHaveCount(0)
 })
