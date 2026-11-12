@@ -95,17 +95,40 @@ export function coachIsActive(coach) {
   return normalizeCatalogText(coach?.status) === 'active' || coach?.active === true || coach?.isActive === true
 }
 
+// An active coach can be offered even when the optional capacity endpoint is
+// unavailable. Explicit full/unavailable fields still take precedence.
+export function coachCanUseUnknownCapacity(coach) {
+  if (!coachIsActive(coach)) return false
+  if (['inactive', 'unavailable', 'disabled', 'full'].includes(normalizeCatalogStatus(coach?.status))) return false
+  const unavailableFlags = ['available', 'isAvailable', 'canAcceptNewMembers', 'acceptingNewMembers', 'canAccept']
+  if (unavailableFlags.some((key) => coach?.[key] === false)) return false
+  const fullFlags = ['isFull', 'full', 'atCapacity']
+  if (fullFlags.some((key) => coach?.[key] === true)) return false
+  const max = coach?.maxStudents ?? coach?.maxCapacity ?? coach?.capacity
+  const used = coach?.currentStudents ?? coach?.currentMembers ?? coach?.activeMembers ?? coach?.currentMemberCount
+  if (max != null && used != null && max !== '' && used !== '' && Number.isFinite(Number(max)) && Number.isFinite(Number(used)) && Number(max) > 0 && Number(used) >= Number(max)) return false
+  return true
+}
+
 export function readAdmissionCapacity(capacity) {
-  for (const key of ['canAcceptNewMembers', 'acceptingNewMembers', 'canAccept', 'available']) {
-    if (typeof capacity?.[key] === 'boolean') return { verified: true, available: capacity[key] }
+  // API gateways may wrap the payload in one or more conventional envelopes.
+  let payload = capacity
+  for (let depth = 0; depth < 4; depth += 1) {
+    const wrapped = ['data', 'result', 'payload', 'capacity', 'admissionCapacity'].find((key) =>
+      payload?.[key] && typeof payload[key] === 'object' && !Array.isArray(payload[key]))
+    if (!wrapped) break
+    payload = payload[wrapped]
   }
-  for (const key of ['remainingCapacity', 'availableCapacity', 'remainingSeats']) {
-    if (capacity?.[key] !== null && capacity?.[key] !== undefined && Number.isFinite(Number(capacity[key]))) {
-      return { verified: true, available: Number(capacity[key]) > 0, count: Number(capacity[key]) }
+  for (const key of ['canAcceptNewMembers', 'acceptingNewMembers', 'canAccept', 'available']) {
+    if (typeof payload?.[key] === 'boolean') return { verified: true, available: payload[key] }
+  }
+  for (const key of ['remainingCapacity', 'availableCapacity', 'remainingSeats', 'availableSlots', 'remainingSlots', 'remainingStudents']) {
+    if (payload?.[key] !== null && payload?.[key] !== undefined && payload[key] !== '' && Number.isFinite(Number(payload[key]))) {
+      return { verified: true, available: Number(payload[key]) > 0, count: Number(payload[key]) }
     }
   }
-  const maxValue = capacity?.maxCapacity ?? capacity?.capacity
-  const usedValue = capacity?.currentMembers ?? capacity?.activeMembers ?? capacity?.currentMemberCount
+  const maxValue = payload?.maxCapacity ?? payload?.maxStudents ?? payload?.capacity ?? payload?.capacityLimit
+  const usedValue = payload?.currentMembers ?? payload?.activeMembers ?? payload?.currentMemberCount ?? payload?.currentStudents ?? payload?.enrolledCount
   const max = Number(maxValue)
   const used = Number(usedValue)
   if (maxValue !== null && maxValue !== undefined && maxValue !== '' && usedValue !== null && usedValue !== undefined && usedValue !== '' && Number.isFinite(max) && max > 0 && Number.isFinite(used) && used >= 0) {
