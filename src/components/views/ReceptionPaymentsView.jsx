@@ -444,7 +444,7 @@ export function ReceptionPaymentsView() {
 
       {/* Target Invoice Feedback Banners */}
       {targetLoading && (
-        <div className="p-4 bg-sky-50 border border-sky-200 rounded-lg flex items-center gap-3 text-status-info text-sm leading-5">
+        <div className="p-4 bg-status-info-bg border border-status-info-border rounded-lg flex items-center gap-3 text-status-info text-sm leading-5">
           <Loader2 className="w-4 h-4 animate-spin text-status-info shrink-0" />
           <span>
             {language === 'vi'
@@ -455,7 +455,7 @@ export function ReceptionPaymentsView() {
       )}
 
       {targetError && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg flex items-start justify-between gap-3 text-sm leading-5 text-status-danger">
+        <div className="p-4 bg-status-danger-bg border border-status-danger-border rounded-lg flex items-start justify-between gap-3 text-sm leading-5 text-status-danger">
           <div className="flex items-start gap-2.5">
             <AlertTriangle className="w-4 h-4 text-status-danger shrink-0 mt-0.5" />
             <div>
@@ -491,7 +491,7 @@ export function ReceptionPaymentsView() {
       )}
 
       {targetNotice && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start justify-between gap-3 text-sm leading-5 text-status-warning">
+        <div className="p-4 bg-status-warning-bg border border-status-warning-border rounded-lg flex items-start justify-between gap-3 text-sm leading-5 text-status-warning">
           <div className="flex items-start gap-2.5">
             <Info className="w-4 h-4 text-status-warning shrink-0 mt-0.5" />
             <div>
@@ -525,7 +525,7 @@ export function ReceptionPaymentsView() {
                 ? 'Tìm mã hóa đơn, tên thành viên...'
                 : 'Search invoice code, member name...'
             }
-            className="min-h-11 w-full rounded border border-border-color bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+            className="min-h-11 w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
           />
         </div>
 
@@ -535,7 +535,7 @@ export function ReceptionPaymentsView() {
             id={statusSelectId}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="min-h-11 w-full sm:w-auto rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+            className="min-h-11 w-full sm:w-auto rounded border border-border-strong bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
           >
             <option value="all">{language === 'vi' ? 'Tất cả trạng thái' : 'All statuses'}</option>
             <option value="pending">{language === 'vi' ? 'Chờ thu tiền (Pending)' : 'Pending'}</option>
@@ -655,8 +655,8 @@ export function ReceptionPaymentsView() {
                               return (
                                 <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
                                   !rawMethod
-                                    ? 'bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200'
-                                    : 'bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200'
+                                    ? 'bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border'
+                                    : 'bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border'
                                 }`}>
                                   {!rawMethod
                                     ? (language === 'vi' ? 'Chưa xác minh' : 'Unverified')
@@ -707,13 +707,13 @@ export function ReceptionPaymentsView() {
 
             <form onSubmit={handleExecuteCashPayment} className="space-y-4 text-sm leading-5 text-text-primary">
               {confirmError && (
-                <div role="alert" className="p-3 bg-rose-50 border border-rose-200 rounded text-status-danger flex items-start gap-2">
+                <div role="alert" className="p-3 bg-status-danger-bg border border-status-danger-border rounded text-status-danger flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-status-danger shrink-0 mt-0.5" />
                   <div className="flex-1 font-semibold">{confirmError}</div>
                 </div>
               )}
 
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded space-y-2">
+              <div className="p-4 bg-status-success-bg border border-status-success-border rounded space-y-2">
                 <div className="flex justify-between">
                   <span className="text-text-secondary font-medium">Mã Hóa Đơn:</span>
                   <span className="font-mono font-semibold text-text-primary">
@@ -728,7 +728,7 @@ export function ReceptionPaymentsView() {
                   <span className="text-text-secondary font-medium">{language === 'vi' ? 'Dịch Vụ / Lớp Học:' : 'Service / Class:'}</span>
                   <span className="font-semibold text-text-primary">{confirmingInvoice.packageName || confirmingInvoice.className || (language === 'vi' ? 'Lớp học' : 'Class')}</span>
                 </div>
-                <div className="flex justify-between pt-2 border-t border-emerald-200">
+                <div className="flex justify-between pt-2 border-t border-status-success-border">
                   <span className="text-text-primary font-semibold">Số tiền cần thu:</span>
                   <span className="text-lg leading-7 font-semibold font-mono text-status-success tabular-nums">
                     {confirmingInvoice.amount == null ? '—' : formatCurrency(confirmingInvoice.amount, language)}
@@ -746,7 +746,7 @@ export function ReceptionPaymentsView() {
                   onChange={(e) => setCashNotes(e.target.value)}
                   disabled={isConfirming}
                   placeholder={language === 'vi' ? 'Ví dụ: Đã nhận đủ tiền mặt từ hội viên...' : 'Receipt notes...'}
-                  className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                  className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 />
               </div>
 

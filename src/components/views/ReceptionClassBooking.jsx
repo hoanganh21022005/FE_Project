@@ -365,7 +365,7 @@ export function ReceptionClassBooking() {
           value={selectedMemberId}
           onChange={handleSelectMember}
           disabled={isSubmitting}
-          className="min-h-11 w-full rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+          className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
         >
           {members.map((m) => (
             <option key={m.id} value={m.id}>
@@ -407,7 +407,7 @@ export function ReceptionClassBooking() {
       {bookingError && (
         <div
           role="alert"
-          className="p-4 bg-rose-50 border border-rose-200 rounded-lg text-status-danger flex items-start justify-between gap-3"
+          className="p-4 bg-status-danger-bg border border-status-danger-border rounded-lg text-status-danger flex items-start justify-between gap-3"
         >
           <div className="flex items-start gap-2.5">
             <AlertCircle className="w-5 h-5 text-status-danger shrink-0 mt-0.5" />
@@ -435,7 +435,7 @@ export function ReceptionClassBooking() {
       {apiEnabled && enrollmentsError && (
         <div
           role="alert"
-          className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-status-warning flex items-start justify-between gap-3"
+          className="p-4 bg-status-warning-bg border border-status-warning-border rounded-lg text-status-warning flex items-start justify-between gap-3"
         >
           <div className="flex items-start gap-2.5">
             <AlertCircle className="w-5 h-5 text-status-warning shrink-0 mt-0.5" />
@@ -466,10 +466,10 @@ export function ReceptionClassBooking() {
           <div className="border border-border-color rounded-lg overflow-hidden transition-all">
             {latestBookingResult.status === "Pending" &&
             (latestBookingResult.invoiceId || latestBookingResult.invoiceCode) ? (
-              <div className="bg-amber-50 border-amber-200 p-4 space-y-4">
+              <div className="bg-status-warning-bg border-status-warning-border p-4 space-y-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2.5">
-                    <div className="p-2 bg-bg-card text-status-warning rounded border border-amber-200">
+                    <div className="p-2 bg-bg-card text-status-warning rounded border border-status-warning-border">
                       <Receipt className="w-5 h-5 text-status-warning" />
                     </div>
                     <div>
@@ -497,7 +497,7 @@ export function ReceptionClassBooking() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-bg-card p-3.5 rounded border border-amber-200 text-sm leading-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-bg-card p-3.5 rounded border border-status-warning-border text-sm leading-5">
                   <div>
                     <span className="text-text-secondary block text-xs leading-4 font-medium">
                       Lớp học:
@@ -562,9 +562,9 @@ export function ReceptionClassBooking() {
                 </div>
               </div>
             ) : latestBookingResult.status === "Waitlisted" ? (
-              <div className="bg-amber-50 border-amber-200 p-4 flex items-start justify-between gap-3">
+              <div className="bg-status-warning-bg border-status-warning-border p-4 flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-bg-card text-status-warning rounded border border-amber-200">
+                  <div className="p-2 bg-bg-card text-status-warning rounded border border-status-warning-border">
                     <Info className="w-5 h-5 text-status-warning" />
                   </div>
                   <div>
@@ -592,9 +592,9 @@ export function ReceptionClassBooking() {
                 </button>
               </div>
             ) : (
-              <div className="bg-emerald-50 border-emerald-200 p-4 flex items-start justify-between gap-3">
+              <div className="bg-status-success-bg border-status-success-border p-4 flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-bg-card text-status-success rounded border border-emerald-200">
+                  <div className="p-2 bg-bg-card text-status-success rounded border border-status-success-border">
                     <CheckCircle2 className="w-5 h-5 text-status-success" />
                   </div>
                   <div>
@@ -634,7 +634,7 @@ export function ReceptionClassBooking() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="min-h-11 w-full sm:w-auto rounded border border-border-color bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+            className="min-h-11 w-full sm:w-auto rounded border border-border-strong bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
           >
             <option value="all">Tất cả bộ môn</option>
             {categories.map((cat) => (
@@ -707,7 +707,7 @@ export function ReceptionClassBooking() {
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200">
+                    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
                       {cls.category || "Thể thao"}
                     </span>
                     <span className="text-lg leading-7 font-semibold text-text-primary">
@@ -759,7 +759,7 @@ export function ReceptionClassBooking() {
                         </span>
                       </div>
                     ) : enrollmentsError ? (
-                      <div className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200 gap-1">
+                      <div className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border gap-1">
                         <AlertCircle className="w-3.5 h-3.5 text-status-warning" />
                         <span>
                           {language === "vi" ? "Chưa xác minh" : "Unverified"}
@@ -767,7 +767,7 @@ export function ReceptionClassBooking() {
                       </div>
                     ) : isPendingPayment ? (
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200">
+                        <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border">
                           {language === "vi" ? "Chờ thanh toán" : "Pending"}
                         </span>
                         <button
@@ -787,14 +787,14 @@ export function ReceptionClassBooking() {
                         </button>
                       </div>
                     ) : isRegistered ? (
-                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200 gap-1">
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5 text-status-success" />
                         <span>
                           {language === "vi" ? "Đã ghi danh" : "Enrolled"}
                         </span>
                       </span>
                     ) : isWaitlisted ? (
-                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200 gap-1">
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border gap-1">
                         <Info className="w-3.5 h-3.5 text-status-warning" />
                         <span>
                           {language === "vi" ? "Danh sách chờ" : "Waitlisted"}

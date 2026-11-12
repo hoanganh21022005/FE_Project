@@ -74,7 +74,7 @@ export function DaysOffPicker({
           disabled={disabled}
           value={dateInput}
           onChange={(e) => setDateInput(e.target.value)}
-          className="min-h-11 w-full sm:w-48 rounded border border-border-color bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
+          className="min-h-11 w-full sm:w-48 rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
         />
         {dateInput && (
           <span className="text-xs leading-4 font-medium font-mono text-text-secondary">
@@ -93,7 +93,7 @@ export function DaysOffPicker({
       </div>
 
       {conflictingCount > 0 && (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm leading-5 text-status-warning flex items-center gap-2 font-semibold">
+        <div className="p-3 bg-status-warning-bg border border-status-warning-border rounded-lg text-sm leading-5 text-status-warning flex items-center gap-2 font-semibold">
           <AlertTriangle className="w-4 h-4 text-status-warning shrink-0" />
           <span>
             {t("coachDaysOffConflictWarn").replace(

@@ -356,6 +356,11 @@ const AdminAuditLogsView = React.lazy(() =>
     default: m.AdminAuditLogsView,
   })),
 )
+const AdminProfileView = React.lazy(() =>
+  import("./components/admin/views/AdminProfileView").then((m) => ({
+    default: m.AdminProfileView,
+  })),
+)
 
 function MemberDetailWrapper() {
   const { id } = useParams()
@@ -366,6 +371,33 @@ function MemberDetailWrapper() {
       onBack={() => navigate("/manager/members")}
     />
   )
+}
+
+function AdminMemberDetailWrapper() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  return (
+    <MemberDetailView
+      memberId={id}
+      onBack={() => navigate("/admin/ops/members")}
+    />
+  )
+}
+
+function AdminManagerWildcardRedirect() {
+  const location = useLocation()
+  const subPath = location.pathname.replace(/^\/manager\/?/, "")
+  const targetPath = subPath ? `/admin/ops/${subPath}` : "/admin/ops/dashboard"
+  return <Navigate to={`${targetPath}${location.search}`} replace />
+}
+
+function AdminReceptionistWildcardRedirect() {
+  const location = useLocation()
+  const subPath = location.pathname.replace(/^\/receptionist\/?/, "")
+  const targetPath = subPath
+    ? `/admin/ops/reception/${subPath}`
+    : "/admin/ops/reception/dashboard"
+  return <Navigate to={`${targetPath}${location.search}`} replace />
 }
 
 function SCMSApp() {
@@ -468,6 +500,27 @@ function SCMSApp() {
     if (path.startsWith("/admin/users")) return "admin_users"
     if (path.startsWith("/admin/roles")) return "admin_roles"
     if (path.startsWith("/admin/audit-logs")) return "admin_audit_logs"
+
+    // Quản lý trung tâm
+    if (path === "/admin/ops/dashboard") return "ops_manager_dashboard"
+    if (path.startsWith("/admin/ops/staff")) return "ops_staff"
+    if (path.startsWith("/admin/ops/members")) return "ops_members"
+    if (path.startsWith("/admin/ops/packages")) return "ops_packages"
+    if (path.startsWith("/admin/ops/classes")) return "ops_classes"
+    if (path.startsWith("/admin/ops/holidays")) return "ops_holidays"
+    if (path.startsWith("/admin/ops/session-incidents")) return "ops_session_incidents"
+    if (path.startsWith("/admin/ops/resources")) return "ops_resources"
+    if (path.startsWith("/admin/ops/payments")) return "ops_payments"
+    if (path.startsWith("/admin/ops/normal-refunds")) return "ops_refunds"
+    if (path.startsWith("/admin/ops/reports")) return "ops_reports"
+
+    // Lễ tân
+    if (path === "/admin/ops/reception/dashboard") return "ops_reception_dashboard"
+    if (path.startsWith("/admin/ops/reception/checkin")) return "ops_reception_checkin"
+    if (path.startsWith("/admin/ops/reception/search")) return "ops_reception_search"
+    if (path.startsWith("/admin/ops/reception/booking")) return "ops_reception_booking"
+    if (path.startsWith("/admin/ops/reception/payments")) return "ops_reception_payments"
+
     if (path === "/profile") return "profile"
     return "admin_dashboard"
   }
@@ -477,14 +530,33 @@ function SCMSApp() {
     if (path.startsWith("/admin/users")) return "Người dùng"
     if (path.startsWith("/admin/roles")) return "Vai trò & Quyền"
     if (path.startsWith("/admin/audit-logs")) return "Nhật ký hoạt động"
-    if (path === "/profile") return "Hồ sơ cá nhân"
+
+    // Quản lý trung tâm
+    if (path.startsWith("/admin/ops/dashboard")) return "Tổng quan quản lý trung tâm"
+    if (path.startsWith("/admin/ops/staff")) return "Quản lý nhân sự"
+    if (path.startsWith("/admin/ops/members")) return "Quản lý hội viên"
+    if (path.startsWith("/admin/ops/packages")) return "Quản lý gói tập"
+    if (path.startsWith("/admin/ops/classes")) return "Quản lý lớp học"
+    if (path.startsWith("/admin/ops/holidays")) return "Quản lý ngày nghỉ"
+    if (path.startsWith("/admin/ops/session-incidents")) return "Sự cố lịch học"
+    if (path.startsWith("/admin/ops/resources")) return "Bộ môn & Phòng tập"
+    if (path.startsWith("/admin/ops/payments")) return "Quản lý thanh toán"
+    if (path.startsWith("/admin/ops/normal-refunds")) return "Hoàn tiền Normal"
+    if (path.startsWith("/admin/ops/reports")) return "Báo cáo thống kê"
+
+    // Lễ tân
+    if (path.startsWith("/admin/ops/reception/dashboard")) return "Tổng quan lễ tân"
+    if (path.startsWith("/admin/ops/reception/checkin")) return "Điểm danh & Check-in"
+    if (path.startsWith("/admin/ops/reception/search")) return "Tra cứu hội viên"
+    if (path.startsWith("/admin/ops/reception/booking")) return "Đặt lịch lớp học"
+    if (path.startsWith("/admin/ops/reception/payments")) return "Thu ngân & Hóa đơn"
+
+    if (path === "/profile") return "Hồ sơ quản trị viên"
     if (path === "/settings") return "Cài đặt"
     if (path === "/support") return "Hỗ trợ"
     if (
       path === "/403" ||
-      path.startsWith("/manager") ||
       path.startsWith("/coach") ||
-      path.startsWith("/receptionist") ||
       path.startsWith("/member")
     )
       return "403 - Quyền truy cập bị từ chối"
@@ -505,6 +577,59 @@ function SCMSApp() {
       case "admin_audit_logs":
         navigate("/admin/audit-logs")
         break
+
+      // Quản lý trung tâm
+      case "ops_manager_dashboard":
+        navigate("/admin/ops/dashboard")
+        break
+      case "ops_staff":
+        navigate("/admin/ops/staff")
+        break
+      case "ops_members":
+        navigate("/admin/ops/members")
+        break
+      case "ops_packages":
+        navigate("/admin/ops/packages")
+        break
+      case "ops_classes":
+        navigate("/admin/ops/classes")
+        break
+      case "ops_holidays":
+        navigate("/admin/ops/holidays")
+        break
+      case "ops_session_incidents":
+        navigate("/admin/ops/session-incidents")
+        break
+      case "ops_resources":
+        navigate("/admin/ops/resources")
+        break
+      case "ops_payments":
+        navigate("/admin/ops/payments")
+        break
+      case "ops_refunds":
+        navigate("/admin/ops/normal-refunds")
+        break
+      case "ops_reports":
+        navigate("/admin/ops/reports")
+        break
+
+      // Lễ tân
+      case "ops_reception_dashboard":
+        navigate("/admin/ops/reception/dashboard")
+        break
+      case "ops_reception_checkin":
+        navigate("/admin/ops/reception/checkin")
+        break
+      case "ops_reception_search":
+        navigate("/admin/ops/reception/search")
+        break
+      case "ops_reception_booking":
+        navigate("/admin/ops/reception/booking")
+        break
+      case "ops_reception_payments":
+        navigate("/admin/ops/reception/payments")
+        break
+
       case "profile":
         navigate("/profile")
         break
@@ -741,9 +866,108 @@ function SCMSApp() {
                     path="/admin/audit-logs"
                     element={<AdminAuditLogsView />}
                   />
-                  <Route path="/profile" element={<PersonalProfileView />} />
+
+                  {/* Nhóm Quản lý trung tâm */}
+                  <Route
+                    path="/admin/ops"
+                    element={<Navigate to="/admin/ops/dashboard" replace />}
+                  />
+                  <Route
+                    path="/admin/ops/dashboard"
+                    element={<ManagerDashboard />}
+                  />
+                  <Route path="/admin/ops/staff" element={<StaffManagement />} />
+                  <Route
+                    path="/admin/ops/members"
+                    element={
+                      <MemberManagement
+                        onSelectMemberDetail={(id) =>
+                          navigate(`/admin/ops/members/${id}`)
+                        }
+                      />
+                    }
+                  />
+                  <Route
+                    path="/admin/ops/members/:id"
+                    element={<AdminMemberDetailWrapper />}
+                  />
+                  <Route
+                    path="/admin/ops/packages"
+                    element={<PackageManagement />}
+                  />
+                  <Route
+                    path="/admin/ops/classes"
+                    element={<ClassManagement />}
+                  />
+                  <Route
+                    path="/admin/ops/holidays"
+                    element={<ManagerHolidaysView />}
+                  />
+                  <Route
+                    path="/admin/ops/session-incidents"
+                    element={<ManagerSessionIncidentsView />}
+                  />
+                  <Route
+                    path="/admin/ops/resources"
+                    element={<ResourceManagement />}
+                  />
+                  <Route
+                    path="/admin/ops/payments"
+                    element={<PaymentManagement />}
+                  />
+                  <Route
+                    path="/admin/ops/normal-refunds"
+                    element={<NormalRefundManagement />}
+                  />
+                  <Route path="/admin/ops/reports" element={<ReportsView />} />
+                  <Route
+                    path="/admin/ops/audit-logs"
+                    element={<AuditLogView />}
+                  />
+
+                  {/* Nhóm Lễ tân */}
+                  <Route
+                    path="/admin/ops/reception"
+                    element={
+                      <Navigate to="/admin/ops/reception/dashboard" replace />
+                    }
+                  />
+                  <Route
+                    path="/admin/ops/reception/dashboard"
+                    element={<ReceptionistDashboard />}
+                  />
+                  <Route
+                    path="/admin/ops/reception/checkin"
+                    element={<ReceptionCheckinView />}
+                  />
+                  <Route
+                    path="/admin/ops/reception/search"
+                    element={<ReceptionMemberSearch />}
+                  />
+                  <Route
+                    path="/admin/ops/reception/booking"
+                    element={<ReceptionClassBooking />}
+                  />
+                  <Route
+                    path="/admin/ops/reception/payments"
+                    element={<ReceptionPaymentsView />}
+                  />
+
+                  {/* Hồ sơ Admin riêng biệt */}
+                  <Route path="/profile" element={<AdminProfileView />} />
                   <Route path="/settings" element={<SettingsView />} />
                   <Route path="/support" element={<SupportView />} />
+
+                  {/* Chuyển hướng các route /manager/* và /receptionist/* sang cổng Admin Ops */}
+                  <Route
+                    path="/manager/*"
+                    element={<AdminManagerWildcardRedirect />}
+                  />
+                  <Route
+                    path="/receptionist/*"
+                    element={<AdminReceptionistWildcardRedirect />}
+                  />
+
                   <Route
                     path="/403"
                     element={
@@ -755,33 +979,11 @@ function SCMSApp() {
                     }
                   />
                   <Route
-                    path="/manager/*"
-                    element={
-                      <ForbiddenView
-                        currentRole={role}
-                        allowedRoles={[ROLE_MANAGER]}
-                        attemptedPath={location.pathname}
-                        onGoHome={() => navigate("/admin/dashboard")}
-                      />
-                    }
-                  />
-                  <Route
                     path="/coach/*"
                     element={
                       <ForbiddenView
                         currentRole={role}
                         allowedRoles={[ROLE_COACH]}
-                        attemptedPath={location.pathname}
-                        onGoHome={() => navigate("/admin/dashboard")}
-                      />
-                    }
-                  />
-                  <Route
-                    path="/receptionist/*"
-                    element={
-                      <ForbiddenView
-                        currentRole={role}
-                        allowedRoles={[ROLE_RECEPTIONIST]}
                         attemptedPath={location.pathname}
                         onGoHome={() => navigate("/admin/dashboard")}
                       />

@@ -3,10 +3,10 @@ import { useSCMS } from '../../context/SCMSContext';
 import { statusLabel, statusTone } from '../../utils/status';
 
 const TONE_CLASSES = {
-  green: 'bg-emerald-50 text-status-success ring-1 ring-inset ring-emerald-200',
-  amber: 'bg-amber-50 text-status-warning ring-1 ring-inset ring-amber-200',
-  red: 'bg-rose-50 text-status-danger ring-1 ring-inset ring-rose-200',
-  blue: 'bg-sky-50 text-status-info ring-1 ring-inset ring-sky-200',
+  green: 'bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border',
+  amber: 'bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border',
+  red: 'bg-status-danger-bg text-status-danger ring-1 ring-inset ring-status-danger-border',
+  blue: 'bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border',
   slate: 'bg-bg-secondary text-text-secondary ring-1 ring-inset ring-border-color',
 };
 

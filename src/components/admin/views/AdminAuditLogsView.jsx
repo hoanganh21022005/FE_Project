@@ -1,149 +1,446 @@
-import React, { useEffect, useMemo, useState } from "react"
-import { Search } from "lucide-react"
-import { AdminResourceState } from "../AdminResourceState.jsx"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  AlertCircle,
+  AlertTriangle,
+  Calendar,
+  Filter,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  User,
+} from "lucide-react"
 import { useAdminData } from "../AdminDataContext.jsx"
 import { formatAdminDateTime } from "../adminDateUtils.js"
+import { getAdminAuditLogs } from "../../../api/adminApi.js"
 
-const PAGE_SIZE = 25
+// Ghi chú: Quy ước page tính từ 0 hay 1 là CHƯA XÁC NHẬN với Backend.
+// Đặt hằng số AUDIT_PAGE_BASE = 0 ở đây để dễ dàng thay đổi khi Backend chốt hợp đồng.
+export const AUDIT_PAGE_BASE = 0
+export const AUDIT_PAGE_SIZE = 20
+
+// Bảng ánh xạ nhãn tiếng Việt cho mã hành động
+export const AUDIT_ACTION_MAP = {
+  LOGIN: "Đăng nhập",
+  LOGIN_GOOGLE: "Đăng nhập qua Google",
+  REGISTER_MEMBER_GOOGLE: "Đăng ký hội viên (Google)",
+  REGISTER_MEMBER_PENDING: "Đăng ký hội viên (Chờ duyệt)",
+  VERIFY_MEMBER_REGISTRATION: "Xác minh đăng ký hội viên",
+  CREATE_USER: "Tạo tài khoản người dùng",
+  CHANGE_USER_ROLE: "Đổi vai trò người dùng",
+  REISSUE_TEMPORARY_PASSWORD: "Cấp lại mật khẩu tạm",
+  UPDATE_STAFF: "Cập nhật nhân viên",
+  CHANGE_USER_STATUS: "Đổi trạng thái tài khoản",
+  UPDATE_ROLE_PERMISSIONS: "Cập nhật quyền vai trò",
+  CREATE_INVOICE: "Tạo hóa đơn",
+  COLLECT_PAYMENT: "Thu tiền thanh toán",
+  ENROLL_CLASS: "Ghi danh lớp học",
+  ATTENDANCE_CORRECTION: "Điều chỉnh điểm danh",
+}
+
+const KNOWN_ACTIONS = [
+  { value: "LOGIN", label: "Đăng nhập (LOGIN)" },
+  { value: "LOGIN_GOOGLE", label: "Đăng nhập qua Google (LOGIN_GOOGLE)" },
+  { value: "REGISTER_MEMBER_GOOGLE", label: "Đăng ký hội viên Google (REGISTER_MEMBER_GOOGLE)" },
+  { value: "REGISTER_MEMBER_PENDING", label: "Đăng ký chờ duyệt (REGISTER_MEMBER_PENDING)" },
+  { value: "VERIFY_MEMBER_REGISTRATION", label: "Xác minh đăng ký (VERIFY_MEMBER_REGISTRATION)" },
+  { value: "CREATE_USER", label: "Tạo tài khoản (CREATE_USER)" },
+  { value: "CHANGE_USER_ROLE", label: "Đổi vai trò (CHANGE_USER_ROLE)" },
+  { value: "REISSUE_TEMPORARY_PASSWORD", label: "Cấp lại mật khẩu tạm (REISSUE_TEMPORARY_PASSWORD)" },
+  { value: "UPDATE_STAFF", label: "Cập nhật nhân viên (UPDATE_STAFF)" },
+  { value: "CHANGE_USER_STATUS", label: "Đổi trạng thái tài khoản (CHANGE_USER_STATUS)" },
+  { value: "UPDATE_ROLE_PERMISSIONS", label: "Cập nhật quyền vai trò (UPDATE_ROLE_PERMISSIONS)" },
+  { value: "CREATE_INVOICE", label: "Tạo hóa đơn (CREATE_INVOICE)" },
+  { value: "COLLECT_PAYMENT", label: "Thu tiền thanh toán (COLLECT_PAYMENT)" },
+  { value: "ENROLL_CLASS", label: "Ghi danh lớp học (ENROLL_CLASS)" },
+  { value: "ATTENDANCE_CORRECTION", label: "Điều chỉnh điểm danh (ATTENDANCE_CORRECTION)" },
+]
 
 export function AdminAuditLogsView() {
   const { resources, retry } = useAdminData()
+
+  // Bộ lọc gửi lên server
+  const [selectedAction, setSelectedAction] = useState("")
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
+  const [selectedActorId, setSelectedActorId] = useState("")
+
+  // Phân trang
+  const [page, setPage] = useState(1) // UI page bắt đầu từ 1
+  const [serverLogs, setServerLogs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [isForbidden, setIsForbidden] = useState(false)
+
+  // Ô tìm kiếm chữ client trên trang hiện tại
   const [query, setQuery] = useState("")
-  const [currentPage, setCurrentPage] = useState(1)
-  const logs = resources.auditLogs
 
-  const filteredLogs = useMemo(() => {
-    const normalized = query.trim().toLowerCase()
-    if (!normalized) return logs.data
-    return logs.data.filter((log) =>
-      [log.actorLabel, log.action, log.targetLabel, log.detail].some((value) =>
-        String(value || "")
-          .toLowerCase()
-          .includes(normalized),
-      ),
-    )
-  }, [logs.data, query])
-
-  const totalItems = filteredLogs.length
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE))
-  const activePage = Math.min(Math.max(1, currentPage), totalPages)
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages)
+  // Ánh xạ userId -> fullName từ AdminDataContext
+  const userMap = useMemo(() => {
+    const map = new Map()
+    for (const u of resources.users.data || []) {
+      if (u.id !== null && u.id !== undefined) {
+        map.set(Number(u.id), u.fullName || `User #${u.id}`)
+      }
     }
-  }, [currentPage, totalPages])
+    return map
+  }, [resources.users.data])
 
-  const handleQueryChange = (event) => {
-    setQuery(event.target.value)
-    setCurrentPage(1)
+  // Lấy tên người dùng theo id
+  const getUserName = useCallback(
+    (id) => {
+      if (id === null || id === undefined || id === "") return "Hệ thống"
+      const numId = Number(id)
+      if (userMap.has(numId)) {
+        return userMap.get(numId)
+      }
+      return `User #${id}`
+    },
+    [userMap],
+  )
+
+  // Hàm tải dữ liệu nhật ký với bộ lọc và phân trang từ server
+  const fetchAuditLogs = useCallback(
+    async (targetPage = page) => {
+      setLoading(true)
+      setError(null)
+      setIsForbidden(false)
+
+      const serverPage = targetPage - 1 + AUDIT_PAGE_BASE
+
+      const params = {
+        page: serverPage,
+        size: AUDIT_PAGE_SIZE,
+      }
+      if (selectedAction) params.action = selectedAction
+      if (startDate) params.startDate = startDate
+      if (endDate) params.endDate = endDate
+      if (selectedActorId) params.actorId = selectedActorId
+
+      try {
+        const data = await getAdminAuditLogs(params)
+        setServerLogs(data || [])
+      } catch (err) {
+        if (err?.status === 403 || err?.response?.status === 403) {
+          setIsForbidden(true)
+          setError("Bạn không có quyền xem nhật ký hoạt động hệ thống (403 Forbidden).")
+        } else {
+          setError(err?.message || "Không thể tải nhật ký hoạt động từ máy chủ.")
+        }
+      } finally {
+        setLoading(false)
+      }
+    },
+    [page, selectedAction, startDate, endDate, selectedActorId],
+  )
+
+  // Gọi API mỗi khi bộ lọc server hoặc trang thay đổi
+  useEffect(() => {
+    fetchAuditLogs(page)
+  }, [fetchAuditLogs, page])
+
+  // Khi thay đổi bộ lọc server, reset về trang 1
+  const handleActionChange = (e) => {
+    setSelectedAction(e.target.value)
+    setPage(1)
   }
 
-  const paginatedLogs = useMemo(() => {
-    const startIdx = (activePage - 1) * PAGE_SIZE
-    return filteredLogs.slice(startIdx, startIdx + PAGE_SIZE)
-  }, [filteredLogs, activePage])
+  const handleStartDateChange = (e) => {
+    setStartDate(e.target.value)
+    setPage(1)
+  }
 
-  const startItem =
-    totalItems === 0 ? 0 : (activePage - 1) * PAGE_SIZE + 1
-  const endItem =
-    totalItems === 0 ? 0 : Math.min(activePage * PAGE_SIZE, totalItems)
+  const handleEndDateChange = (e) => {
+    setEndDate(e.target.value)
+    setPage(1)
+  }
+
+  const handleActorChange = (e) => {
+    setSelectedActorId(e.target.value)
+    setPage(1)
+  }
+
+  const handleResetFilters = () => {
+    setSelectedAction("")
+    setStartDate("")
+    setEndDate("")
+    setSelectedActorId("")
+    setQuery("")
+    setPage(1)
+  }
+
+  // Lọc client trên danh sách của trang đang xem
+  const filteredLogs = useMemo(() => {
+    const normalized = query.trim().toLowerCase()
+    if (!normalized) return serverLogs
+
+    return serverLogs.filter((log) => {
+      const actorName = getUserName(log.actorId).toLowerCase()
+      const actionLabel = (AUDIT_ACTION_MAP[log.action] || log.action || "").toLowerCase()
+      const actionRaw = String(log.action || "").toLowerCase()
+      const targetStr = String(log.targetLabel || "").toLowerCase()
+      const detailStr = String(log.detail || "").toLowerCase()
+
+      return (
+        actorName.includes(normalized) ||
+        actionLabel.includes(normalized) ||
+        actionRaw.includes(normalized) ||
+        targetStr.includes(normalized) ||
+        detailStr.includes(normalized)
+      )
+    })
+  }, [serverLogs, query, getUserName])
+
+  // "Trang sau" chỉ bật khi số bản ghi trả về bằng AUDIT_PAGE_SIZE (20)
+  const canGoNext = serverLogs.length === AUDIT_PAGE_SIZE
+  const canGoPrev = page > 1
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
-        <div>
-          <h2 className="text-xl leading-7 font-semibold text-text-primary">
-            Nhật ký hoạt động
-          </h2>
-          <p className="mt-1 text-sm leading-5 text-text-secondary">
-            Ghi nhận toàn bộ thao tác bảo mật và sự kiện hệ thống; tài khoản không định danh hiển thị theo ID hoặc Hệ thống.
-          </p>
-        </div>
-        <label className="relative w-full md:w-80">
-          <span className="sr-only">Tìm nhật ký</span>
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-          <input
-            value={query}
-            onChange={handleQueryChange}
-            placeholder="Actor, hành động, đối tượng..."
-            className="min-h-11 w-full rounded border border-border-color bg-bg-card pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
-          />
-        </label>
+    <div className="space-y-4 w-full min-w-0 max-w-full">
+      <div>
+        <h2 className="text-xl leading-7 font-semibold text-text-primary">
+          Nhật ký hoạt động hệ thống
+        </h2>
+        <p className="mt-1 text-sm leading-5 text-text-secondary">
+          Ghi nhận toàn bộ thao tác bảo mật và sự kiện hệ thống; tự động tra cứu danh tính và định dạng chuẩn vận hành (chỉ đọc).
+        </p>
       </div>
 
-      <AdminResourceState
-        resource={logs}
-        onRetry={() => retry("auditLogs")}
-        emptyTitle="Chưa có nhật ký"
-      >
+      {/* Bộ lọc phía server */}
+      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3">
+        <div className="flex items-center justify-between border-b border-border-color/60 pb-2">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-brand-primary" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+              Bộ lọc nâng cao (Server)
+            </span>
+          </div>
+          {(selectedAction || startDate || endDate || selectedActorId) && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="text-xs text-brand-primary hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary rounded"
+            >
+              Đặt lại bộ lọc
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Lọc hành động */}
+          <label className="space-y-1 block">
+            <span className="text-xs font-medium text-text-secondary">Hành động</span>
+            <select
+              value={selectedAction}
+              onChange={handleActionChange}
+              className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+            >
+              <option value="">Tất cả hành động</option>
+              {KNOWN_ACTIONS.map((act) => (
+                <option key={act.value} value={act.value}>
+                  {act.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/* Lọc người thao tác (Actor) */}
+          <label className="space-y-1 block">
+            <span className="text-xs font-medium text-text-secondary">Người thực hiện</span>
+            <select
+              value={selectedActorId}
+              onChange={handleActorChange}
+              className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+            >
+              <option value="">Tất cả người thực hiện</option>
+              {(resources.users.data || []).map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.fullName ? `${u.fullName} (#${u.id})` : `User #${u.id}`}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/* Từ ngày */}
+          <label className="space-y-1 block">
+            <span className="text-xs font-medium text-text-secondary">Từ ngày</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={handleStartDateChange}
+              className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary focus-within:ring-2 focus-within:ring-brand-primary cursor-pointer"
+            />
+          </label>
+
+          {/* Đến ngày */}
+          <label className="space-y-1 block">
+            <span className="text-xs font-medium text-text-secondary">Đến ngày</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={handleEndDateChange}
+              className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary focus-within:ring-2 focus-within:ring-brand-primary cursor-pointer"
+            />
+          </label>
+        </div>
+
+        {/* Ô tìm kiếm chữ FE trên trang hiện tại */}
+        <div className="pt-2 border-t border-border-color/40">
+          <label className="relative block">
+            <span className="sr-only">Tìm kiếm nội dung trên trang</span>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Tìm nhanh trên trang (tên, mã hành động, đối tượng, chi tiết)..."
+              className="min-h-11 w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary"
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* Trạng thái lỗi 403 Forbidden */}
+      {isForbidden ? (
+        <div
+          role="alert"
+          className="min-h-36 flex flex-col items-center justify-center text-center px-5 py-7 bg-status-danger-bg border border-status-danger-border rounded-lg"
+        >
+          <ShieldAlert className="w-8 h-8 text-status-danger" />
+          <p className="mt-3 text-sm leading-5 font-bold text-status-danger">
+            Quyền truy cập bị từ chối (403 Forbidden)
+          </p>
+          <p className="mt-1 max-w-lg text-xs leading-4 text-status-danger">
+            Tài khoản hiện tại không có quyền VIEW_AUDIT_LOGS để xem nhật ký hoạt động hệ thống.
+          </p>
+        </div>
+      ) : error ? (
+        /* Trạng thái lỗi chung kèm nút Thử lại */
+        <div
+          role="alert"
+          className="min-h-36 flex flex-col items-center justify-center text-center px-5 py-7 bg-status-danger-bg border border-status-danger-border rounded-lg"
+        >
+          <AlertTriangle className="w-8 h-8 text-status-danger" />
+          <p className="mt-3 text-sm leading-5 font-semibold text-status-danger">
+            Không thể tải nhật ký hoạt động
+          </p>
+          <p className="mt-1 max-w-lg text-xs leading-4 text-status-danger">
+            {error}
+          </p>
+          <button
+            type="button"
+            onClick={() => fetchAuditLogs(page)}
+            className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 py-2 text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Thử lại
+          </button>
+        </div>
+      ) : loading ? (
+        /* Trạng thái loading skeleton */
+        <div className="space-y-3 py-6" aria-label="Đang tải dữ liệu nhật ký" aria-busy="true">
+          {[1, 2, 3, 4, 5].map((item) => (
+            <div key={item} className="h-11 rounded bg-bg-secondary animate-pulse" />
+          ))}
+        </div>
+      ) : (
+        /* Bảng dữ liệu nhật ký */
         <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
               <tr>
-                <th className="px-3.5 py-2.5 text-left align-middle">Thời gian</th>
-                <th className="px-3.5 py-2.5 text-left align-middle">Actor</th>
-                <th className="px-3.5 py-2.5 text-left align-middle">Hành động</th>
-                <th className="px-3.5 py-2.5 text-left align-middle">Đối tượng</th>
+                <th className="px-3.5 py-2.5 text-left align-middle w-44">Thời gian</th>
+                <th className="px-3.5 py-2.5 text-left align-middle w-48">Actor</th>
+                <th className="px-3.5 py-2.5 text-left align-middle w-56">Hành động</th>
+                <th className="px-3.5 py-2.5 text-left align-middle w-48">Đối tượng</th>
                 <th className="px-3.5 py-2.5 text-left align-middle">Chi tiết</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-color">
-              {paginatedLogs.map((log) => (
-                <tr
-                  key={log.id ?? `${log.action}-${log.createdAt}`}
-                  data-log-id={log.id}
-                  className="transition-colors hover:bg-bg-secondary/70"
-                >
-                  <td className="px-3.5 py-2 align-middle text-sm leading-5 text-text-secondary tabular-nums font-mono whitespace-nowrap">
-                    {formatAdminDateTime(log.createdAt)}
-                  </td>
-                  <td className="px-3.5 py-2 align-middle text-sm leading-5 font-semibold text-text-primary">
-                    {log.actorLabel}
-                  </td>
-                  <td className="px-3.5 py-2 align-middle text-xs">
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded font-mono text-xs font-medium bg-bg-secondary text-brand-primary border border-border-color/60">
-                      {log.action}
-                    </span>
-                  </td>
-                  <td className="px-3.5 py-2 align-middle text-sm leading-5 text-text-primary">
-                    {log.targetLabel}
-                  </td>
-                  <td className="px-3.5 py-2 align-middle text-sm leading-5 text-text-secondary max-w-xl">
-                    {log.detail || "Không có thông tin chi tiết."}
-                  </td>
-                </tr>
-              ))}
+              {filteredLogs.map((log) => {
+                const actorName = getUserName(log.actorId)
+                const actionLabel = AUDIT_ACTION_MAP[log.action] || log.action
+
+                // Đối tượng USER nếu có thì hiện tên
+                let targetDisplay = log.targetLabel
+                if (
+                  log.targetEntity &&
+                  String(log.targetEntity).toUpperCase() === "USER" &&
+                  log.targetId !== null &&
+                  log.targetId !== undefined
+                ) {
+                  const targetUserName = getUserName(log.targetId)
+                  targetDisplay = `${targetUserName} (#${log.targetId})`
+                }
+
+                return (
+                  <tr
+                    key={log.id ?? `${log.action}-${log.createdAt}`}
+                    data-log-id={log.id}
+                    className="transition-colors hover:bg-bg-secondary/70"
+                  >
+                    <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-secondary tabular-nums font-mono whitespace-nowrap">
+                      {formatAdminDateTime(log.createdAt)}
+                    </td>
+                    <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-primary">
+                      <p className="font-semibold text-text-primary" title={`ID: ${log.actorId ?? "Hệ thống"}`}>
+                        {actorName}
+                      </p>
+                      {log.actorId !== null && (
+                        <p className="text-[11px] font-mono text-text-muted">
+                          User #{log.actorId}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-3.5 py-2.5 align-middle text-xs">
+                      <div>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded font-medium text-xs bg-bg-secondary text-brand-primary border border-border-color/60">
+                          {actionLabel}
+                        </span>
+                        <p className="mt-0.5 text-[11px] font-mono text-text-muted" title="Mã hành động gốc">
+                          {log.action}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-primary">
+                      <span className="font-medium">{targetDisplay}</span>
+                    </td>
+                    <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-secondary max-w-xl">
+                      {log.detail || "Không có thông tin chi tiết."}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
+
           {filteredLogs.length === 0 && (
             <p className="p-8 text-center text-sm leading-5 text-text-secondary">
-              Không có nhật ký phù hợp từ khóa.
+              Không có bản ghi phù hợp.
             </p>
           )}
 
+          {/* Phân trang server: kích thước 20, Trang sau chỉ bật khi trả về đúng 20 */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3.5 py-2.5 border-t border-border-color bg-bg-secondary/50">
             <span className="text-xs leading-4 text-text-secondary tabular-nums">
-              Hiển thị {startItem}–{endItem} trong tổng số {totalItems} bản ghi
+              Trang {page} · Hiển thị {filteredLogs.length} bản ghi trên trang
             </span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                disabled={activePage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="inline-flex min-h-11 items-center justify-center rounded px-3 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                disabled={!canGoPrev}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="inline-flex min-h-11 items-center justify-center rounded px-3.5 text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                 aria-label="Trang trước"
               >
                 Trang trước
               </button>
-              <span className="h-8 inline-flex items-center justify-center px-2.5 rounded bg-bg-secondary border border-border-color text-text-primary text-xs font-medium tabular-nums">
-                {activePage} / {totalPages}
+              <span className="min-h-11 min-w-11 inline-flex items-center justify-center px-3 rounded bg-bg-card border border-border-color text-text-primary text-xs font-bold tabular-nums">
+                {page}
               </span>
               <button
                 type="button"
-                disabled={activePage >= totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="inline-flex min-h-11 items-center justify-center rounded px-3 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                disabled={!canGoNext}
+                onClick={() => setPage((p) => p + 1)}
+                className="inline-flex min-h-11 items-center justify-center rounded px-3.5 text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                 aria-label="Trang sau"
               >
                 Trang sau
@@ -151,7 +448,7 @@ export function AdminAuditLogsView() {
             </div>
           </div>
         </div>
-      </AdminResourceState>
+      )}
     </div>
   )
 }

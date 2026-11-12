@@ -25,8 +25,13 @@ test.describe('Kịch bản Điền Form & Thao Tác Tạo Lớp (FORM-01 -> FOR
       return route.fallback();
     });
 
+    const mockRoomsWithActivity = mockRooms.map((r) => ({
+      ...r,
+      activityType: r.sportId === 1 ? 'BADMINTON' : r.sportId === 2 ? 'TABLE_TENNIS' : 'OTHER',
+    }));
+
     await page.route((url) => isApiMatch(url, 'subjects'), (r) => r.fulfill({ status: 200, json: mockSubjects }));
-    await page.route((url) => isApiMatch(url, 'rooms'), (r) => r.fulfill({ status: 200, json: mockRooms }));
+    await page.route((url) => isApiMatch(url, 'rooms'), (r) => r.fulfill({ status: 200, json: mockRoomsWithActivity }));
     await page.route((url) => isApiMatch(url, 'coaches'), (r) => r.fulfill({ status: 200, json: mockCoaches }));
     await page.route((url) => isApiMatch(url, 'sessions'), (r) => r.fulfill({ status: 200, json: mock12Sessions }));
   });
@@ -233,6 +238,9 @@ test.describe('Kịch bản Điền Form & Thao Tác Tạo Lớp (FORM-01 -> FOR
     const modal = page.locator('.fixed.inset-0');
     const nameInput = modal.locator('input[placeholder*="VD:"], input[placeholder*="nâng cao"], input[type="text"]').first();
     await nameInput.fill('Lớp Test Anti Double Submit');
+    await modal.locator('select').nth(0).selectOption('badminton');
+    await modal.locator('select').nth(1).selectOption('2');
+    await modal.locator('select').nth(2).selectOption('1');
 
     const submitBtn = modal.locator('button:has-text("Tạo & mở đăng ký")').first();
     await expect(submitBtn).toBeEnabled({ timeout: 5000 });

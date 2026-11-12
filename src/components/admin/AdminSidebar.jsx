@@ -5,9 +5,14 @@ import {
   LogOut,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext.jsx"
-import { ADMIN_NAV_ITEMS, getAdminNavItems } from "./adminNav.js"
+import {
+  ADMIN_NAV_GROUPS,
+  ADMIN_NAV_ITEMS,
+  getAdminNavGroups,
+  getAdminNavItems,
+} from "./adminNav.js"
 
-export { ADMIN_NAV_ITEMS, getAdminNavItems }
+export { ADMIN_NAV_GROUPS, ADMIN_NAV_ITEMS, getAdminNavGroups, getAdminNavItems }
 
 export function AdminSidebar({
   currentTab,
@@ -17,7 +22,7 @@ export function AdminSidebar({
   onClose,
 }) {
   const { role } = useSCMS()
-  const visibleItems = getAdminNavItems(role)
+  const groups = getAdminNavGroups(role)
 
   const select = (tab) => {
     onSelectTab(tab)
@@ -40,23 +45,25 @@ export function AdminSidebar({
         }`}
       >
         <div className="h-full flex flex-col justify-between">
-          <div>
-            <div className="h-16 px-5 flex items-center justify-between border-b border-brand-dark-hover">
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="h-16 px-5 flex items-center justify-between border-b border-brand-dark-hover shrink-0">
               <button
                 type="button"
                 onClick={() => select("admin_dashboard")}
                 className="flex min-h-11 items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-brand-accent rounded cursor-pointer"
               >
-                <img
-                  src="/images/MainPage/vibe-sport-logo.png?v=4"
-                  alt="Vibe Sport"
-                  className="w-12 h-9 object-contain flex-shrink-0"
-                />
+                <div className="w-12 h-9 rounded bg-white flex items-center justify-center p-1 shrink-0">
+                  <img
+                    src="/images/MainPage/vibe-sport-logo.png?v=4"
+                    alt="Vibe Sport"
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
                 <div>
                   <p className="text-sm leading-5 font-bold text-text-inverse">
                     VIBE Sport Admin
                   </p>
-                  <p className="mt-0.5 text-xs leading-4 font-medium text-text-muted">
+                  <p className="mt-0.5 text-xs leading-4 font-medium text-text-inverse/70">
                     Quản trị hệ thống
                   </p>
                 </div>
@@ -72,32 +79,43 @@ export function AdminSidebar({
             </div>
 
             <nav
-              className="px-3 py-5 space-y-1"
+              className="flex-1 px-3 py-4 space-y-4 overflow-y-auto min-h-0"
               aria-label="Điều hướng Admin"
             >
-              {visibleItems.map(({ id, label, icon: Icon }) => {
-                const active = currentTab === id
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => select(id)}
-                    aria-current={active ? "page" : undefined}
-                    className={`w-full min-h-11 px-3 flex items-center gap-3 rounded text-sm leading-5 font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
-                      active
-                        ? "bg-brand-primary text-text-inverse font-bold border-l-2 border-brand-accent"
-                        : "text-text-inverse/80 hover:text-text-inverse hover:bg-brand-dark-hover"
-                    }`}
-                  >
-                    <Icon className={`w-4 h-4 shrink-0 ${active ? "text-brand-accent" : "text-text-inverse/70"}`} />
-                    <span className="truncate">{label}</span>
-                  </button>
-                )
-              })}
+              {groups.map((group) => (
+                <div key={group.title} className="space-y-1">
+                  <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-text-inverse/60 select-none">
+                    {group.title}
+                  </p>
+                  {group.items.map(({ id, label, icon: Icon }) => {
+                    const active = currentTab === id
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => select(id)}
+                        aria-current={active ? "page" : undefined}
+                        className={`w-full min-h-11 px-3 flex items-center gap-3 rounded text-sm leading-5 font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
+                          active
+                            ? "bg-brand-primary text-text-inverse font-bold border-l-2 border-brand-accent"
+                            : "text-text-inverse/80 hover:text-text-inverse hover:bg-brand-dark-hover"
+                        }`}
+                      >
+                        <Icon
+                          className={`w-4 h-4 shrink-0 ${
+                            active ? "text-white" : "text-text-inverse/70"
+                          }`}
+                        />
+                        <span className="truncate">{label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ))}
             </nav>
           </div>
 
-          <div className="p-3 border-t border-brand-dark-hover space-y-1 bg-bg-sidebar">
+          <div className="p-3 border-t border-brand-dark-hover space-y-1 bg-bg-sidebar shrink-0">
             <button
               type="button"
               onClick={() => select("profile")}
@@ -107,7 +125,13 @@ export function AdminSidebar({
                   : "text-text-inverse/80 hover:text-text-inverse hover:bg-brand-dark-hover"
               }`}
             >
-              <UserCircle className={`w-4 h-4 shrink-0 ${currentTab === "profile" ? "text-brand-accent" : "text-text-inverse/70"}`} />
+              <UserCircle
+                className={`w-4 h-4 shrink-0 ${
+                  currentTab === "profile"
+                    ? "text-white"
+                    : "text-text-inverse/70"
+                }`}
+              />
               Hồ sơ
             </button>
             <button

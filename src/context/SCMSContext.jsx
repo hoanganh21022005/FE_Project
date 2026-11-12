@@ -1526,7 +1526,7 @@ export const SCMSProvider = ({ children }) => {
       ).catch(() => {})
       fetchStaff().catch(() => {})
     }
-    if (authUser.role !== ROLE_MANAGER) {
+    if (authUser.role !== ROLE_MANAGER && authUser.role !== ROLE_ADMIN) {
       Promise.all([
         managerApi.getSubjects({ notifyForbidden: false }).catch(() => []),
         authUser.role === ROLE_MEMBER
@@ -1584,7 +1584,11 @@ export const SCMSProvider = ({ children }) => {
   }, [authUser, fetchMembers, fetchStaff])
 
   useEffect(() => {
-    if (!API_ENABLED || !authUser || authUser.role !== ROLE_MANAGER)
+    if (
+      !API_ENABLED ||
+      !authUser ||
+      (authUser.role !== ROLE_MANAGER && authUser.role !== ROLE_ADMIN)
+    )
       return undefined
 
     let active = true
