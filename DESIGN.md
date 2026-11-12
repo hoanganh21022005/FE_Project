@@ -117,7 +117,7 @@ components:
 ## 1. Trạng thái và phạm vi áp dụng
 
 - **Quyết định:** Owner chọn Palette A (Navy + sport blue + sea teal) ngày 08/11/2026 và yêu cầu ghi vào tài liệu này ngày 11/11/2026 để làm khung quy chuẩn cho các đợt sửa UI/UX tiếp theo. Ngày 11/11/2026 Owner chọn thêm đỏ gạch `#9B2C1F` cho danger, thay umber `#744522` của đề xuất, sau khi xem thử (mục 7). Tài liệu này là **chuẩn thiết kế mục tiêu**.
-- **Runtime chưa đổi:** `src/index.css` vẫn dùng palette cũ (primary `#405BD5`, accent `#24A9D2`, danger đỏ `#B42318`). Chưa có task chuyển token, nên giao diện đang chạy chưa mang màu Palette A. Không sửa `index.css` hay token chung nếu Owner chưa giao task chuyển token riêng (mục 8).
+- **Runtime đã áp dụng:** Các token của Palette A đã được chuyển vào `:root` và `@theme` trong `src/index.css` (task W2, 11/11/2026), bao gồm primary `#2864A8`, accent `#117C87`, danger đỏ gạch `#9B2C1F`, text-muted `#626E84` và viền `border-strong` `#7C8CA1`. Toàn bộ giao diện hiện tại sử dụng hệ token này.
 - **Review:** theo đề xuất ngày 08/11, bộ quy chuẩn cần hai thành viên review. Chưa có xác nhận đủ hai lượt review; Owner chốt trước. Nếu review sau đó đổi giá trị, cập nhật tài liệu này trước rồi mới đổi code.
 - **Nguồn giá trị:** cột "Nguồn" ở mục 2 phân biệt giá trị Owner đã chọn trong đề xuất (`Đề xuất A`) với giá trị bổ sung chưa nằm trong đề xuất (`Dẫn xuất`: suy ra từ màu đã chọn, tương phản đã tính lại bằng WCAG 2.1; chưa qua review) và giá trị `Giữ nguyên` so với runtime.
 - **Khi viết code mới:** dùng tên token (`bg-brand-primary`, `text-text-secondary`, `border-border-color`, `text-status-danger`), không ghi hex. Nhờ vậy giao diện tự theo Palette A khi token được chuyển.
@@ -321,6 +321,6 @@ Bản xem thử dựng ngoài repo (Chromium, route chặn mọi request ngoài,
 7. **Đổi tên token** `brand-cyan` thành tên đúng nghĩa: để sau khi chuyển token, vì ảnh hưởng nhiều file.
 8. **Sidebar mục đang chọn** (`brand-primary` trên nền navy, viền `brand-accent`): bản xem thử đọc được, nhưng cần kiểm trên Sidebar thật khi chuyển token.
 
-## 8. Chuyển token vào runtime (chưa thực hiện)
+## 8. Chuyển token vào runtime (Đã hoàn thành 11/11/2026)
 
-Task riêng, Owner giao mới làm: cập nhật `:root` và `@theme` trong `src/index.css` theo mục 2 và 3, thêm `--border-strong` (và đổi ô nhập sang `border-border-strong`), `status-danger-hover`, `status-*-bg`, `status-*-border`, đổi `--status-danger` từ `#B42318` sang `#9B2C1F`, đổi `--text-muted` và `--brand-cyan-shadow`. Token chung ảnh hưởng cả Manager và Member, nên cần phối hợp chủ sở hữu hai khu vực đó, đo render ở 1280×800 và 375×667, và chạy bộ kiểm tra chuẩn (`git diff --check`, `npm run check:i18n`, `npm run build`, `npm run build:local`, `npm run test:e2e`) trước khi đưa vào PR.
+Task W2 đã hoàn tất việc chuyển các token của Palette A vào `:root` và `@theme` trong `src/index.css` vào ngày 11/11/2026. Các token bao gồm primary `#2864A8`, hover `#22558F`, pressed `#1F4E83`, accent `#117C87`, danger `#9B2C1F` (hover `#7F2419`, nền `#F7EEED`, viền `#E1C0BC`), text-muted `#626E84` và border-strong `#7C8CA1` đã có mặt ở runtime và được ánh xạ qua Tailwind CSS. Giao diện cổng quản trị và các thành phần dùng chung đã đồng bộ theo hệ token này.
