@@ -77,6 +77,7 @@ export function mapSession(item) {
     enrolledCount: asNumber(item.enrolledCount),
     maxCapacity: asNumber(item.maxCapacity),
     isPrivate: typeof item.isPrivate === "boolean" ? item.isPrivate : null,
+    classType: item.classType ?? null,
     makeupForSessionId: asNumber(item.makeupForSessionId),
   }
 }

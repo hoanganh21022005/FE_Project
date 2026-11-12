@@ -9,6 +9,7 @@ import {
   Calendar,
   ClipboardCheck,
   TrendingUp,
+  CalendarPlus,
   CreditCard,
   ReceiptText,
   BarChart3,
@@ -27,7 +28,6 @@ import {
   MessageSquareHeart,
   Bell,
   PauseCircle,
-  HeartPulse,
 } from "lucide-react"
 
 export function Sidebar({ mobileOpen = false, onCloseMobile }) {
@@ -84,23 +84,27 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
         return [
           {
             path: "/coach/dashboard",
-            labelKey: "dashboard",
+            label: language === "vi" ? "Tổng quan" : "Dashboard",
             icon: LayoutDashboard,
           },
-          { path: "/coach/schedule", labelKey: "schedule", icon: Calendar },
+          {
+            path: "/coach/schedule",
+            label: language === "vi" ? "Thời khóa biểu & Lịch dạy" : "Schedule & Timetable",
+            icon: Calendar,
+          },
           {
             path: "/coach/attendance",
-            labelKey: "attendance",
+            label: language === "vi" ? "Điểm danh (Normal & Advanced)" : "Attendance (Normal & PT)",
             icon: ClipboardCheck,
           },
           {
             path: "/coach/assigned-members",
-            labelKey: "assignedMembers",
-            icon: UserCheck,
+            label: language === "vi" ? "Đăng ký sân PT 1:1" : "1:1 Court Booking",
+            icon: CalendarPlus,
           },
           {
             path: "/coach/progress",
-            labelKey: "trainingProgress",
+            label: language === "vi" ? "Đánh giá & Tiến độ" : "Training Progress",
             icon: TrendingUp,
           },
         ]
@@ -193,12 +197,6 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             label:
               language === "vi" ? "Tiến độ tập luyện" : "Training progress",
             icon: Activity,
-          },
-          {
-            path: "/member/body-metrics",
-            label:
-              language === "vi" ? "Chỉ số cơ thể (InBody)" : "Body metrics",
-            icon: HeartPulse,
           },
           {
             path: "/member/feedback",
