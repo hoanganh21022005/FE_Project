@@ -38,6 +38,7 @@ export function UserFormModal({
     roleId: "",
     status: "Active",
     specializationIds: [],
+    centerId: 1,
   })
 
   const [specializations, setSpecializations] = useState([])
@@ -144,6 +145,7 @@ export function UserFormModal({
         roleId: defaultRole ? String(defaultRole.id) : "",
         status: "Active",
         specializationIds: [],
+        centerId: 1,
       })
     }
 
@@ -174,17 +176,23 @@ export function UserFormModal({
 
   if (!isOpen) return null
 
-  // Kiểm tra vai trò đang chọn có phải Coach không
+  // Kiểm tra vai trò đang chọn có phải Coach hoặc Admin không
   const selectedRoleObj = roles.find((r) => String(r.id) === String(formData.roleId))
   const isCoachRole =
     selectedRoleObj &&
     ["coach", "hlv"].includes(String(selectedRoleObj.name || "").toLowerCase())
+  const isAdminRole =
+    selectedRoleObj &&
+    ["admin", "role_admin"].includes(String(selectedRoleObj.name || "").toLowerCase().trim())
 
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: null }))
+    }
+    if (name === "roleId") {
+      setErrors((prev) => ({ ...prev, centerId: null }))
     }
     if (serverError) setServerError(null)
   }
@@ -209,6 +217,15 @@ export function UserFormModal({
       newErrors.email = "Email là bắt buộc."
     } else if (!EMAIL_REGEX.test(formData.email.trim())) {
       newErrors.email = "Email không đúng định dạng."
+    }
+    if (!isEditMode && !isAdminRole) {
+      const rawCenter = String(formData.centerId ?? "").trim()
+      const numCenter = Number(rawCenter)
+      if (!rawCenter) {
+        newErrors.centerId = "Mã cơ sở là bắt buộc đối với vai trò này."
+      } else if (!Number.isInteger(numCenter) || numCenter <= 0) {
+        newErrors.centerId = "Mã cơ sở phải là số nguyên dương."
+      }
     }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -252,6 +269,9 @@ export function UserFormModal({
       if (formData.roleId) {
         payload.roleId = Number(formData.roleId)
       }
+      if (!isAdminRole) {
+        payload.centerId = Number(formData.centerId)
+      }
       if (isCoachRole && formData.specializationIds.length > 0) {
         payload.specializationIds = formData.specializationIds
       }
@@ -278,6 +298,12 @@ export function UserFormModal({
           email: "Địa chỉ email này đã tồn tại trong hệ thống. Vui lòng chọn email khác.",
         }))
         setServerError("Email đã được sử dụng bởi tài khoản khác.")
+      } else if (msg.toLowerCase().includes("center_id")) {
+        setErrors((prev) => ({
+          ...prev,
+          centerId: msg,
+        }))
+        setServerError(msg)
       } else if (err?.status === 403) {
         setServerError("Bạn không có quyền thực hiện thao tác này.")
       } else {
@@ -498,6 +524,35 @@ export function UserFormModal({
                     </option>
                   ))}
                 </select>
+              </div>
+            )}
+
+            {/* Mã cơ sở (Chỉ hiển thị khi tạo mới và vai trò không phải Admin) */}
+            {!isEditMode && !isAdminRole && (
+              <div className="space-y-1">
+                <label htmlFor="user-form-center" className="text-xs font-semibold text-text-secondary block">
+                  Mã cơ sở <span className="text-status-danger">*</span>
+                </label>
+                <input
+                  id="user-form-center"
+                  name="centerId"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={formData.centerId ?? ""}
+                  onChange={handleChange}
+                  placeholder="1"
+                  disabled={submitting}
+                  className={`min-h-11 w-full rounded border bg-bg-card px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary ${
+                    errors.centerId ? "border-status-danger" : "border-border-strong"
+                  }`}
+                />
+                <p className="text-[11px] text-text-muted mt-1 leading-4">
+                  Hệ thống hiện có một cơ sở (mã 1). Bắt buộc với mọi vai trò trừ Quản trị viên.
+                </p>
+                {errors.centerId && (
+                  <p className="text-xs text-status-danger mt-1">{errors.centerId}</p>
+                )}
               </div>
             )}
 

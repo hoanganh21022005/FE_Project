@@ -307,7 +307,7 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
     await expect(dialog).toBeHidden();
   });
 
-  // ADMIN-WRITE-05: Tạo tài khoản (POST /api/users), assert không có ô password, hiển thị lỗi 400 khi email trùng
+  // ADMIN-WRITE-05: Tạo tài khoản (POST /api/users), assert không có ô password, hiển thị lỗi 400 khi email trùng và khi thiếu center_id
   test('ADMIN-WRITE-05: Tạo tài khoản không có trường mật khẩu và hiển thị lỗi 400 khi email trùng', async ({ page }) => {
     let postUserPayload = null;
 
@@ -320,6 +320,12 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
             json: { message: 'Email already exists: duplicate@example.invalid' },
           });
         }
+        if (body.email === 'missing-center@example.invalid') {
+          return route.fulfill({
+            status: 400,
+            json: { message: 'center_id is required when an Admin creates a non-admin account' },
+          });
+        }
         postUserPayload = body;
         return route.fulfill({
           status: 201,
@@ -329,6 +335,7 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
             email: body.email,
             phone: body.phone,
             roleId: body.roleId,
+            centerId: body.centerId,
             status: 'Active',
             emailSent: true,
           },
@@ -351,9 +358,21 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
     const passwordInputs = modal.locator('input[type="password"]');
     await expect(passwordInputs).toHaveCount(0);
 
-    // Form tạo mới có trường vai trò và trạng thái
+    // Form tạo mới có trường vai trò, trạng thái và mã cơ sở (mặc định Member)
     await expect(modal.locator('#user-form-role')).toBeVisible();
     await expect(modal.locator('#user-form-status')).toBeVisible();
+    const centerInput = modal.locator('#user-form-center');
+    await expect(centerInput).toBeVisible();
+    await expect(centerInput).toHaveValue('1');
+    await expect(modal.locator('text=Hệ thống hiện có một cơ sở (mã 1)')).toBeVisible();
+
+    // Khi chọn vai trò Quản trị viên (Admin), ô mã cơ sở bị ẩn
+    await modal.locator('#user-form-role').selectOption('1');
+    await expect(modal.locator('#user-form-center')).toHaveCount(0);
+
+    // Khi chọn lại vai trò Lễ tân (Receptionist), ô mã cơ sở xuất hiện lại
+    await modal.locator('#user-form-role').selectOption('3');
+    await expect(modal.locator('#user-form-center')).toBeVisible();
 
     // Điền form với email trùng
     await modal.locator('#user-form-fullname').fill('Nguyễn Văn Trùng');
@@ -363,21 +382,27 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
     // Hiển thị lỗi 400 trùng email và không đóng form
     await expect(modal.locator('text=Địa chỉ email này đã tồn tại')).toBeVisible();
 
+    // Mock lỗi 400 center_id is required: hiển thị lỗi ở ô Mã cơ sở
+    await modal.locator('#user-form-email').fill('missing-center@example.invalid');
+    await modal.locator('button[type="submit"]:has-text("Tạo tài khoản")').click();
+    await expect(modal.locator('#user-form-center ~ p.text-status-danger')).toContainText('center_id is required');
+
     // Sửa thành email hợp lệ
     await modal.locator('#user-form-email').fill('newvalid@example.invalid');
     await modal.locator('#user-form-phone').fill('0988776655');
-    await modal.locator('#user-form-role').selectOption('3'); // Receptionist
     await modal.locator('button[type="submit"]:has-text("Tạo tài khoản")').click();
 
     // Form đóng và hiển thị alert thành công
     await expect(modal).toBeHidden();
     await expect(page.locator('div[role="alert"]:has-text("Đã tạo tài khoản")')).toBeVisible();
 
-    // Kiểm tra payload không có password
+    // Kiểm tra payload không có password và có centerId: 1
     expect(postUserPayload).not.toBeNull();
     expect(postUserPayload.password).toBeUndefined();
     expect(postUserPayload.fullName).toBe('Nguyễn Văn Trùng');
     expect(postUserPayload.email).toBe('newvalid@example.invalid');
+    expect(postUserPayload.roleId).toBe(3);
+    expect(postUserPayload.centerId).toBe(1);
   });
 
   // ADMIN-WRITE-06: Sửa tài khoản (PUT /api/users/{id})
@@ -446,13 +471,14 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
     await expect(modal).toBeHidden();
     await expect(page.locator('div[role="alert"]:has-text("Đã cập nhật thông tin tài khoản")')).toBeVisible();
 
-    // Chốt chặn payload: giữ email gốc, không chứa roleId, roleName, status
+    // Chốt chặn payload: giữ email gốc, không chứa roleId, roleName, status, centerId
     expect(putUserPayload).not.toBeNull();
     expect(putUserPayload.fullName).toBe('Trần Thị Lễ Tân Cập Nhật');
     expect(putUserPayload.email).toBe('receptionist@example.invalid');
     expect(putUserPayload.roleId).toBeUndefined();
     expect(putUserPayload.roleName).toBeUndefined();
     expect(putUserPayload.status).toBeUndefined();
+    expect(putUserPayload.centerId).toBeUndefined();
   });
 
   // ADMIN-WRITE-07: Sửa quyền vai trò (PUT /api/roles/{id}/permissions)
@@ -698,5 +724,51 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
 
     // KHÔNG hiện lỗi trùng email ở ô email
     await expect(modal.locator('text=Địa chỉ email này đã tồn tại')).toHaveCount(0);
+  });
+
+  // ADMIN-WRITE-13: Tạo tài khoản Quản trị viên không có ô Mã cơ sở và payload không gửi centerId
+  test('ADMIN-WRITE-13: Tạo tài khoản Quản trị viên không có ô Mã cơ sở và payload không gửi centerId', async ({ page }) => {
+    let postAdminPayload = null;
+
+    await page.route((url) => isApiMatch(url, 'users'), (route) => {
+      if (route.request().method() === 'POST') {
+        postAdminPayload = JSON.parse(route.request().postData() || '{}');
+        return route.fulfill({
+          status: 201,
+          json: {
+            id: 11,
+            fullName: postAdminPayload.fullName,
+            email: postAdminPayload.email,
+            roleId: postAdminPayload.roleId,
+            status: 'Active',
+            emailSent: true,
+          },
+        });
+      }
+      return route.fallback();
+    });
+
+    await loginAs(page, 'admin');
+    await page.goto('/admin/users');
+    await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
+
+    await page.locator('button:has-text("Thêm người dùng")').click();
+    const modal = page.locator('div[role="dialog"][aria-labelledby="user-form-modal-title"]');
+    await expect(modal).toBeVisible();
+
+    await modal.locator('#user-form-fullname').fill('Admin Phụ Tuyển');
+    await modal.locator('#user-form-email').fill('subadmin@example.invalid');
+    await modal.locator('#user-form-role').selectOption('1'); // Admin
+
+    // Khẳng định không có ô mã cơ sở
+    await expect(modal.locator('#user-form-center')).toHaveCount(0);
+
+    await modal.locator('button[type="submit"]:has-text("Tạo tài khoản")').click();
+    await expect(modal).toBeHidden();
+    await expect(page.locator('div[role="alert"]:has-text("Đã tạo tài khoản")')).toBeVisible();
+
+    expect(postAdminPayload).not.toBeNull();
+    expect(postAdminPayload.roleId).toBe(1);
+    expect(postAdminPayload.centerId).toBeUndefined();
   });
 });
