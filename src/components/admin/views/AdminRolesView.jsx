@@ -1,7 +1,22 @@
-import React from "react"
-import { Check, Minus, ShieldCheck, KeyRound } from "lucide-react"
+import React, { useMemo, useRef, useState } from "react"
+import {
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  Edit3,
+  KeyRound,
+  Lock,
+  Minus,
+  RefreshCw,
+  Save,
+  ShieldAlert,
+  ShieldCheck,
+  X,
+} from "lucide-react"
 import { AdminResourceState } from "../AdminResourceState.jsx"
 import { useAdminData } from "../AdminDataContext.jsx"
+import { updateRolePermissions } from "../../../api/adminApi.js"
+import { AdminConfirmDialog } from "../AdminConfirmDialog.jsx"
 
 export const ROLE_NAME_LABELS = {
   Admin: "Quản trị viên hệ thống",
@@ -60,16 +75,199 @@ export function AdminRolesView() {
   const rolesData = roles.data || []
   const permissionsData = permissions.data || []
 
+  // Trạng thái chế độ chỉnh sửa phân quyền
+  const [isEditing, setIsEditing] = useState(false)
+  const [draftPermissions, setDraftPermissions] = useState({})
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(null)
+  const [actionAlert, setActionAlert] = useState(null)
+  const saveBtnRef = useRef(null)
+
+  const handleStartEdit = () => {
+    const draft = {}
+    rolesData.forEach((role) => {
+      draft[role.id] = (role.permissions || []).map((p) => Number(p.id)).filter(Boolean)
+    })
+    setDraftPermissions(draft)
+    setSaveError(null)
+    setIsEditing(true)
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    setDraftPermissions({})
+    setSaveError(null)
+  }
+
+  const handleTogglePermission = (roleId, permissionId, permissionName, roleName) => {
+    const isAdminRole = String(roleName || "").toLowerCase() === "admin"
+    // Chốt chặn: Không cho phép gỡ MANAGE_RBAC hoặc MANAGE_USERS khỏi vai trò Admin
+    if (isAdminRole && (permissionName === "MANAGE_RBAC" || permissionName === "MANAGE_USERS")) {
+      return
+    }
+
+    setDraftPermissions((prev) => {
+      const currentList = prev[roleId] || []
+      const numPermId = Number(permissionId)
+      const nextList = currentList.includes(numPermId)
+        ? currentList.filter((id) => id !== numPermId)
+        : [...currentList, numPermId]
+      return { ...prev, [roleId]: nextList }
+    })
+  }
+
+  // Tóm tắt các thay đổi để hiển thị trong modal xác nhận
+  const changedRolesSummary = useMemo(() => {
+    if (!isEditing) return []
+    return rolesData
+      .map((role) => {
+        const originalIds = new Set(
+          (role.permissions || []).map((p) => Number(p.id)).filter(Boolean),
+        )
+        const currentIds = new Set(draftPermissions[role.id] || [])
+
+        const added = permissionsData.filter(
+          (p) => currentIds.has(Number(p.id)) && !originalIds.has(Number(p.id)),
+        )
+        const removed = permissionsData.filter(
+          (p) => !currentIds.has(Number(p.id)) && originalIds.has(Number(p.id)),
+        )
+
+        return {
+          role,
+          hasChange: added.length > 0 || removed.length > 0,
+          added,
+          removed,
+          newPermissionIds: Array.from(currentIds),
+        }
+      })
+      .filter((item) => item.hasChange)
+  }, [isEditing, rolesData, permissionsData, draftPermissions])
+
+  const handleConfirmSave = async () => {
+    if (changedRolesSummary.length === 0) return
+    setSaving(true)
+    setSaveError(null)
+    try {
+      for (const item of changedRolesSummary) {
+        await updateRolePermissions(item.role.id, item.newPermissionIds)
+      }
+      retry("roles")
+      retry("permissions")
+      retry("auditLogs")
+      setIsEditing(false)
+      setIsConfirmOpen(false)
+      setActionAlert({
+        type: "success",
+        message:
+          "Cập nhật phân quyền vai trò thành công! Lưu ý: Người dùng thuộc các vai trò này có thể phải đăng nhập lại mới nhận được quyền mới.",
+      })
+    } catch (err) {
+      if (err?.status === 403) {
+        setSaveError("Bạn không có quyền thực hiện thao tác này.")
+      } else {
+        setSaveError(err?.message || "Không thể lưu cập nhật phân quyền vai trò.")
+      }
+      setIsConfirmOpen(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="space-y-6 w-full min-w-0 max-w-full">
-      <div>
-        <h2 className="text-xl leading-7 font-semibold text-text-primary">
-          Vai trò & Quyền hệ thống
-        </h2>
-        <p className="mt-1 text-sm leading-5 text-text-secondary">
-          Ma trận phân quyền chi tiết và danh mục quyền hạn tương ứng với từng vai trò trong hệ thống SCMS (chỉ đọc).
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-xl leading-7 font-semibold text-text-primary">
+            Vai trò & Quyền hệ thống
+          </h2>
+          <p className="mt-1 text-sm leading-5 text-text-secondary">
+            Ma trận phân quyền chi tiết và danh mục quyền hạn tương ứng với từng vai trò trong hệ thống SCMS.
+          </p>
+        </div>
+        {!isEditing ? (
+          <button
+            type="button"
+            onClick={handleStartEdit}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 py-2 text-xs font-semibold bg-brand-primary text-white hover:bg-brand-primary/90 transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
+          >
+            <Edit3 className="w-4 h-4" />
+            <span>Chỉnh sửa phân quyền</span>
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              disabled={saving}
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3.5 py-2 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+            >
+              <X className="w-4 h-4" />
+              <span>Hủy bỏ</span>
+            </button>
+            <button
+              ref={saveBtnRef}
+              type="button"
+              onClick={() => setIsConfirmOpen(true)}
+              disabled={saving || changedRolesSummary.length === 0}
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 py-2 text-xs font-semibold bg-brand-primary text-white hover:bg-brand-primary/90 transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
+            >
+              <Save className="w-4 h-4" />
+              <span>Lưu thay đổi ({changedRolesSummary.length})</span>
+            </button>
+          </div>
+        )}
       </div>
+
+      {actionAlert && (
+        <div
+          role="alert"
+          className="p-3.5 rounded-lg border border-status-success-border bg-status-success-bg text-status-success flex items-center justify-between gap-3 text-sm animate-in fade-in"
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{actionAlert.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionAlert(null)}
+            className="w-8 h-8 inline-flex items-center justify-center rounded hover:bg-black/5 transition-colors cursor-pointer"
+            aria-label="Đóng thông báo"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {saveError && (
+        <div
+          role="alert"
+          className="p-3.5 rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger flex items-center justify-between gap-3 text-sm animate-in fade-in"
+        >
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{saveError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSaveError(null)}
+            className="w-8 h-8 inline-flex items-center justify-center rounded hover:bg-black/5 transition-colors cursor-pointer"
+            aria-label="Đóng thông báo lỗi"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {isEditing && (
+        <div className="p-3 rounded-lg border border-brand-primary/40 bg-brand-primary/5 text-brand-primary text-xs flex items-start gap-2.5">
+          <Edit3 className="w-4 h-4 shrink-0 mt-0.5" />
+          <div>
+            <strong>Đang ở chế độ chỉnh sửa phân quyền:</strong> Bạn có thể bật hoặc tắt các quyền của từng vai trò bằng cách nhấn vào ô tương ứng trong ma trận. Hai quyền <code>MANAGE_RBAC</code> và <code>MANAGE_USERS</code> được bảo vệ cố định cho vai trò Quản trị viên (Admin).
+          </div>
+        </div>
+      )}
 
       {/* Ma trận vai trò × quyền */}
       <div className="space-y-3">
@@ -77,7 +275,7 @@ export function AdminRolesView() {
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-brand-primary" />
             <h3 className="text-sm leading-5 font-semibold text-text-primary">
-              Ma trận quyền hạn chỉ đọc
+              {isEditing ? "Ma trận phân quyền (Chế độ chỉnh sửa)" : "Ma trận quyền hạn phân hệ"}
             </h3>
           </div>
           <span className="text-xs leading-4 text-text-muted">
@@ -141,20 +339,75 @@ export function AdminRolesView() {
                       </div>
                     </td>
                     {rolesData.map((role) => {
-                      const granted = (role.permissions || []).some(
-                        (item) =>
-                          item.id === permission.id ||
-                          item.name === permission.name,
-                      )
+                      const isAdminRole = String(role.name || "").toLowerCase() === "admin"
+                      const isMandatoryAdminPerm =
+                        isAdminRole &&
+                        (permission.name === "MANAGE_RBAC" || permission.name === "MANAGE_USERS")
+
+                      let isGranted = false
+                      if (isEditing) {
+                        isGranted = (draftPermissions[role.id] || []).includes(Number(permission.id))
+                        if (isMandatoryAdminPerm) isGranted = true
+                      } else {
+                        isGranted = (role.permissions || []).some(
+                          (item) =>
+                            Number(item.id) === Number(permission.id) ||
+                            item.name === permission.name,
+                        )
+                      }
+
                       return (
                         <td
                           key={`${role.id}-${permission.id}`}
-                          className="px-3.5 py-2.5 align-middle text-center"
+                          className="px-2 py-1 align-middle text-center"
                         >
-                          {granted ? (
+                          {isEditing ? (
+                            isMandatoryAdminPerm ? (
+                              <div
+                                className="relative inline-flex min-h-11 min-w-11 items-center justify-center text-status-success"
+                                title="Quyền quản trị tối thiểu bắt buộc của vai trò Admin (không thể gỡ)"
+                              >
+                                <span className="p-1 rounded bg-status-success-bg/80 inline-flex items-center justify-center">
+                                  <Lock className="w-3.5 h-3.5 text-brand-primary mr-0.5" />
+                                  <Check className="w-4 h-4 text-status-success stroke-[2.5]" />
+                                </span>
+                                <span className="sr-only">Bắt buộc có</span>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleTogglePermission(
+                                    role.id,
+                                    permission.id,
+                                    permission.name,
+                                    role.name,
+                                  )
+                                }
+                                aria-label={`${
+                                  isGranted ? "Bỏ quyền" : "Cấp quyền"
+                                } ${getPermissionDisplayName(permission.name)} cho ${getRoleDisplayName(
+                                  role.name,
+                                )}`}
+                                className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded transition-colors cursor-pointer hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                              >
+                                {isGranted ? (
+                                  <span className="p-1 rounded bg-status-success-bg inline-flex items-center justify-center">
+                                    <Check className="w-4 h-4 text-status-success stroke-[2.5]" />
+                                    <span className="sr-only">Đã cấp</span>
+                                  </span>
+                                ) : (
+                                  <span className="p-1 rounded bg-bg-secondary inline-flex items-center justify-center">
+                                    <Minus className="w-4 h-4 text-text-muted/40" />
+                                    <span className="sr-only">Chưa cấp</span>
+                                  </span>
+                                )}
+                              </button>
+                            )
+                          ) : isGranted ? (
                             <span className="relative inline-flex items-center justify-center p-1 rounded bg-status-success-bg/80">
                               <Check
-                                className="w-4 h-4 text-status-success"
+                                className="w-4 h-4 text-status-success stroke-[2.5]"
                                 aria-hidden="true"
                               />
                               <span className="sr-only">Có</span>
@@ -267,6 +520,48 @@ export function AdminRolesView() {
           </AdminResourceState>
         </section>
       </div>
+
+      {/* Modal xác nhận lưu phân quyền */}
+      <AdminConfirmDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleConfirmSave}
+        title="Xác nhận cập nhật phân quyền vai trò"
+        description={
+          <div className="space-y-3">
+            <p className="text-sm leading-5 text-text-secondary">
+              Bạn có chắc chắn muốn cập nhật phân quyền cho{" "}
+              <strong className="text-text-primary">{changedRolesSummary.length} vai trò</strong> sau đây?
+            </p>
+            <div className="max-h-60 overflow-y-auto space-y-2.5 rounded-lg border border-border-color bg-bg-secondary/40 p-3 text-xs">
+              {changedRolesSummary.map((item) => (
+                <div key={item.role.id} className="space-y-1">
+                  <p className="font-semibold text-text-primary">
+                    {getRoleDisplayName(item.role.name)} ({item.role.name}):
+                  </p>
+                  {item.added.length > 0 && (
+                    <div className="text-status-success pl-2">
+                      <span className="font-medium">+ Thêm: </span>
+                      {item.added.map((p) => getPermissionDisplayName(p.name)).join(", ")}
+                    </div>
+                  )}
+                  {item.removed.length > 0 && (
+                    <div className="text-status-danger pl-2">
+                      <span className="font-medium">- Bớt: </span>
+                      {item.removed.map((p) => getPermissionDisplayName(p.name)).join(", ")}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        }
+        warning="Lưu ý: Người dùng thuộc các vai trò này có thể phải đăng nhập lại mới nhận được quyền mới."
+        confirmText="Xác nhận lưu"
+        cancelText="Hủy bỏ"
+        isLoading={saving}
+        triggerRef={saveBtnRef}
+      />
     </div>
   )
 }
