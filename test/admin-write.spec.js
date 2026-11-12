@@ -446,9 +446,10 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
     await expect(modal).toBeHidden();
     await expect(page.locator('div[role="alert"]:has-text("Đã cập nhật thông tin tài khoản")')).toBeVisible();
 
-    // Chốt chặn payload: không chứa roleId, roleName, status
+    // Chốt chặn payload: giữ email gốc, không chứa roleId, roleName, status
     expect(putUserPayload).not.toBeNull();
     expect(putUserPayload.fullName).toBe('Trần Thị Lễ Tân Cập Nhật');
+    expect(putUserPayload.email).toBe('receptionist@example.invalid');
     expect(putUserPayload.roleId).toBeUndefined();
     expect(putUserPayload.roleName).toBeUndefined();
     expect(putUserPayload.status).toBeUndefined();
@@ -666,5 +667,36 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
     // Kiểm tra không có ký tự "0" lạc lõng trên toàn bộ trang
     const zeroSpans = page.locator('span:text-is("0"), div:text-is("0"), p:text-is("0")');
     await expect(zeroSpans).toHaveCount(0);
+  });
+
+  // ADMIN-WRITE-12: Lỗi 400 với thông điệp khác (ví dụ "fullName must not be blank") KHÔNG hiện lỗi "email trùng" ở ô email
+  test('ADMIN-WRITE-12: Lỗi 400 với message khác không hiện lỗi email trùng ở ô email', async ({ page }) => {
+    await page.route((url) => isApiMatch(url, 'users'), (route) => {
+      if (route.request().method() === 'POST') {
+        return route.fulfill({
+          status: 400,
+          json: { message: 'fullName must not be blank' },
+        });
+      }
+      return route.fallback();
+    });
+
+    await loginAs(page, 'admin');
+    await page.goto('/admin/users');
+    await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
+
+    await page.locator('button:has-text("Thêm người dùng")').click();
+    const modal = page.locator('div[role="dialog"][aria-labelledby="user-form-modal-title"]');
+    await expect(modal).toBeVisible();
+
+    await modal.locator('#user-form-fullname').fill('Nguyễn Test');
+    await modal.locator('#user-form-email').fill('other400@example.invalid');
+    await modal.locator('button[type="submit"]:has-text("Tạo tài khoản")').click();
+
+    // Hiển thị lỗi server chung
+    await expect(modal.locator('div[role="alert"]:has-text("fullName must not be blank")')).toBeVisible();
+
+    // KHÔNG hiện lỗi trùng email ở ô email
+    await expect(modal.locator('text=Địa chỉ email này đã tồn tại')).toHaveCount(0);
   });
 });

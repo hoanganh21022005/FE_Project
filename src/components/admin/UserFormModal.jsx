@@ -223,10 +223,13 @@ export function UserFormModal({
 
     let payload
     if (isEditMode) {
-      // Chế độ sửa: KHÔNG gửi roleId, roleName, status trong payload PUT
-      // Việc đổi vai trò và trạng thái chỉ đi qua UserRoleDialog và UserStatusDialog có chốt chặn an toàn
+      // Chế độ sửa: phải giữ email (giá trị gốc của tài khoản, ô vẫn chỉ đọc) vì Backend PUT /api/users/{id}
+      // dùng @Valid UserRequest với email @NotBlank.
+      // KHÔNG gửi roleId, roleName, status trong payload PUT - việc đổi vai trò và trạng thái
+      // chỉ đi qua UserRoleDialog và UserStatusDialog có chốt chặn an toàn.
       payload = {
         fullName: formData.fullName.trim(),
+        email: formData.email.trim(),
         phone: formData.phone.trim() || null,
         gender: formData.gender || null,
         dateOfBirth: formData.dateOfBirth || null,
@@ -267,9 +270,7 @@ export function UserFormModal({
       const msg = err?.message || ""
       const isEmailConflict =
         err?.status === 409 ||
-        (err?.status === 400 && msg.toLowerCase().includes("email")) ||
-        msg.toLowerCase().includes("email already exists") ||
-        msg.toLowerCase().includes("trùng")
+        msg.toLowerCase().includes("email already exists")
 
       if (isEmailConflict) {
         setErrors((prev) => ({
