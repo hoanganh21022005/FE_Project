@@ -71,6 +71,43 @@ const statusText = (status, language) => {
   return (language === 'vi' ? vi : en)[state] || status || (language === 'vi' ? 'Chưa có trạng thái' : 'Status unavailable')
 }
 const sessionDate = (item) => item?.sessionDate || item?.date || item?.startDate || null
+const localCalendarDate = (value) => {
+  if (!value) return null
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : new Date(value.getFullYear(), value.getMonth(), value.getDate())
+  const text = String(value).trim()
+  const dateOnly = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text)
+  const date = dateOnly ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3])) : new Date(text)
+  return Number.isNaN(date.getTime()) ? null : new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+const normalFutureSessionIssue = (courseClass, sessions) => {
+  const today = new Date()
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const classStart = localCalendarDate(courseClass?.startDate || courseClass?.firstSessionDate || courseClass?.startAt)
+  if (classStart && classStart < todayStart) return 'started'
+  const rows = Array.isArray(sessions) ? sessions : []
+  const datedRows = rows.map((session) => {
+    const rawDate = session?.sessionDate || session?.date || session?.startDate || session?.startAt
+    const date = localCalendarDate(rawDate)
+    if (!date) return null
+    const startAt = typeof session?.startAt === 'string' && /T\d{2}:\d{2}/.test(session.startAt) ? session.startAt : null
+    const timestamp = session?.startsAt || session?.startDateTime || session?.scheduledAt || startAt
+    const timedStart = timestamp || (session?.startTime && `${sessionDate(session)}T${session.startTime}`)
+    const timedInstant = timedStart ? new Date(timedStart) : null
+    const future = timedInstant && !Number.isNaN(timedInstant.getTime()) ? timedInstant > today : date >= todayStart
+    return { key: `${date.getTime()}-${timestamp || session?.startTime || ''}`, future, status: normalizeCatalogStatus(session?.status) }
+  }).filter(Boolean)
+  if (datedRows.length) {
+    const futureRows = datedRows.filter((row) => row.future && !['cancelled', 'canceled', 'rejected'].includes(row.status))
+    const uniqueFuture = new Set(futureRows.map((row) => row.key))
+    if (uniqueFuture.size < 12) return 'sessions'
+  }
+  return ''
+}
+const normalSessionIssueMessage = (issue, isVi) => issue === 'started'
+  ? (isVi ? 'Đã qua ngày khai giảng (không đủ 12 buổi)' : 'The class start date has passed (fewer than 12 sessions remain).')
+  : issue === 'sessions'
+    ? (isVi ? 'Lớp học đã bắt đầu hoặc không còn đủ 12 buổi học trong tương lai nên không thể đăng ký mới. Vui lòng chọn lớp khác sắp khai giảng.' : 'The class has started or fewer than 12 future sessions remain. Please choose a class starting soon.')
+    : ''
 
 function InlineState({ loading, error, retry, empty, children, language }) {
   if (loading) return <div className="flex min-h-28 items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600" role="status"><LoaderCircle className="h-5 w-5 animate-spin text-brand-accent-dark" />{language === 'vi' ? 'Đang tải dữ liệu…' : 'Loading…'}</div>
@@ -179,7 +216,8 @@ export function MemberCourseCatalog() {
       if (tier === 'Normal') {
         const openClasses = hasValidPrice ? classes.filter((item) =>
           String(item.subjectId) === String(subject.id)
-          && verifyNormalCourseClass(item, scheduleStates[item.id] ? scheduleStates[item.id].sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules), subject.id).eligible,
+          && verifyNormalCourseClass(item, scheduleStates[item.id] ? scheduleStates[item.id].sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules), subject.id).eligible
+          && !normalFutureSessionIssue(item, scheduleStates[item.id] ? scheduleStates[item.id].sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules)),
         ) : []
         bySport.set(row.key, { available: openClasses.length > 0, count: openClasses.length })
         return
@@ -442,7 +480,13 @@ export function MemberCourseCatalog() {
   }
 
   const findExistingClassEnrollment = (classId) => enrollments.find((item) => String(item.classId) === String(classId) && !['cancelled', 'canceled', 'rejected', 'expired'].includes(normalizeCatalogStatus(item.status)))
-  const classVerification = (item) => verifyNormalCourseClass(item, scheduleStates[item.id]?.sessions, selectedSubject?.id)
+  const classVerification = (item) => {
+    const loadedSessions = scheduleStates[item.id]?.sessions
+    const sessions = loadedSessions?.length ? loadedSessions : item.sessions ?? item.scheduleSessions ?? item.schedules ?? loadedSessions
+    const check = verifyNormalCourseClass(item, sessions, selectedSubject?.id)
+    const issue = normalFutureSessionIssue(item, sessions)
+    return issue ? { ...check, eligible: false, reasons: [normalSessionIssueMessage(issue, isVi), ...check.reasons] } : check
+  }
   const eligibleNormalClasses = selectedClasses.filter((item) => classVerification(item).eligible && hasSellablePrice(selectedSubject?.normalPrice))
 
   const handleNormalEnroll = async () => {
@@ -507,7 +551,10 @@ export function MemberCourseCatalog() {
       }
     } catch (error) {
       closePreparedVnpayPopup(preparedPopup)
-      setSubmittingError(getErrorMessage(error, isVi ? 'Không gửi được đăng ký.' : 'Enrollment request failed.'))
+      const message = getErrorMessage(error, isVi ? 'Không gửi được đăng ký.' : 'Enrollment request failed.')
+      setSubmittingError(/normal registration requires 12 valid future sessions/i.test(message)
+        ? (isVi ? 'Lớp học đã bắt đầu hoặc không còn đủ 12 buổi học trong tương lai nên không thể đăng ký mới. Vui lòng chọn lớp khác sắp khai giảng.' : 'The class has started or fewer than 12 future sessions remain. Please choose a class starting soon.')
+        : message)
       if (!error?.status || error.status >= 500 || error.status === 409) {
         try {
           const refreshed = await refreshEnrollments()
@@ -893,7 +940,8 @@ export function MemberCourseCatalog() {
           <InlineState loading={classesState.loading} error={classesState.error} retry={refreshClasses} empty={selectedSubject && !selectedClasses.length ? (isVi ? 'Hiện chưa có lớp Normal đang mở cho môn thể thao này.' : 'There are no Normal classes open for this sport.') : null} language={language}>
             {!selectedSubject ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">{isVi ? 'Chọn môn đã xác minh để xem lớp.' : 'Select a verified sport to view classes.'}</p> : !normalClassCards.length ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">{isVi ? 'Chưa có lớp Normal nào cho môn học này.' : 'There are no Normal classes for this sport.'}</p> : <div className="space-y-3">{visibleClasses.map((item) => {
               const schedule = scheduleStates[item.id] || { loading: true, error: '', sessions: [] }
-              const check = verifyNormalCourseClass(item, schedule.sessions, selectedSubject.id)
+              const check = classVerification(item)
+              const futureIssue = normalFutureSessionIssue(item, schedule.sessions.length ? schedule.sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules))
               const existing = findExistingClassEnrollment(item.id)
               const uncertain = normalUncertainClassIds.some((id) => String(id) === String(item.id))
               const dates = schedule.sessions.map(sessionDate).filter(Boolean)
@@ -909,6 +957,7 @@ export function MemberCourseCatalog() {
                   {schedule.loading ? <p className="flex items-center gap-2 text-sm text-slate-600"><LoaderCircle size={16} className="animate-spin" />{isVi ? 'Đang xác minh lịch…' : 'Verifying schedule…'}</p> : schedule.error ? <div role="alert" className="text-sm text-rose-800"><p>{schedule.error}</p><button type="button" onClick={() => retrySchedule(item.id)} className="mt-2 inline-flex min-h-9 items-center gap-2 font-semibold underline"><RefreshCw size={14} />{isVi ? 'Thử lại' : 'Retry'}</button></div> : schedule.sessions.length ? <ol className="grid gap-2 sm:grid-cols-2">{schedule.sessions.map((session, index) => <li key={session.id || session.sessionId || (String(sessionDate(session)) + '-' + index)} className="flex items-start gap-2 rounded-lg bg-white p-2 text-sm text-slate-700"><CalendarDays size={15} className="mt-0.5 shrink-0 text-brand-accent-dark" /><span>{formatDate(sessionDate(session), language)} · {formatTime(session.startTime || session.startAt)}–{formatTime(session.endTime || session.endAt)}</span></li>)}</ol> : <p className="text-sm text-slate-600">{isVi ? 'Chưa có thông tin lịch học chi tiết cho lớp này.' : 'Timetable not yet available for this class.'}</p>}
                   {!schedule.loading && !schedule.error && <p className="mt-3 text-[13px] text-slate-600">{check.eligible ? (isVi ? 'Đã xác minh đủ 12 buổi và điều kiện lớp.' : 'All 12 sessions and class conditions are verified.') : check.reasons.join(' ')}</p>}
                 </div>}
+                {futureIssue && !existing && <p className="mt-3 inline-flex rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-800">{normalSessionIssueMessage(futureIssue, isVi)}</p>}
                 {existing ? <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><span>{isVi ? 'Đăng ký hiện có:' : 'Existing enrollment:'} <strong>{statusText(existing.status, language)}</strong></span><div className="flex flex-wrap items-center gap-3">{['pending', 'pending_payment'].includes(normalizeCatalogStatus(existing.status)) && <button type="button" disabled={submitting} onClick={() => handleCancelPendingEnrollment(existing)} className="font-semibold text-rose-700 underline">{isVi ? 'Hủy đơn chờ & Chọn lại phương thức' : 'Cancel pending & re-enroll'}</button>}<button type="button" onClick={refreshEnrollments} className="font-semibold underline">{isVi ? 'Tải lại trạng thái' : 'Refresh status'}</button></div></div> : uncertain ? <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><p>{isVi ? 'Kết quả gửi trước chưa rõ; lớp đang khóa để tránh đăng ký trùng.' : 'Previous submission is unresolved; this class is locked to prevent a duplicate.'}</p><button type="button" onClick={() => reconcileNormalEnrollment(item.id)} className="mt-2 font-semibold underline">{isVi ? 'Đối soát trạng thái' : 'Reconcile status'}</button></div> : <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-600">{check.eligible ? (isVi ? 'Còn ' + (Number(item.maxCapacity) - Number(item.enrolledCount)) + ' chỗ' : (Number(item.maxCapacity) - Number(item.enrolledCount)) + ' seats left') : check.reasons[0] || (isVi ? 'Đang xác minh điều kiện lớp.' : 'Verifying class eligibility.')}</p><div className="flex flex-wrap items-center gap-2"><label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700"><span>{isVi ? 'Thanh toán:' : 'Payment:'}</span><select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} aria-label={isVi ? 'Phương thức thanh toán lớp học' : 'Class payment method'} className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 focus:border-brand-primary focus:outline-none"><option value="Cash">{isVi ? 'Tiền mặt tại quầy (Cash)' : 'Cash at counter'}</option><option value="VNPay">{isVi ? 'VNPay (Trực tuyến)' : 'VNPay (Online)'}</option></select></label><button type="button" disabled={!check.eligible || !hasSellablePrice(selectedSubject?.normalPrice) || !hasSellablePrice(item.tuitionFee)} onClick={() => { setConfirmClass(item); setSubmittingError('') }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-bold text-white hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300">{isVi ? 'Đăng ký lớp' : 'Enroll in class'}<ArrowUpRight size={16} /></button></div></div>}
               </article>
             })}</div>}
@@ -942,7 +991,7 @@ export function MemberCourseCatalog() {
 
       <aside className="space-y-4 xl:sticky xl:top-5">
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-bold text-slate-950">{tier === 'Normal' ? (isVi ? 'Quy trình đăng ký lớp' : 'Class enrollment steps') : (isVi ? 'Quy trình Advanced' : 'Advanced steps')}</h2>{tier === 'Normal' ? <ol className="mt-4 space-y-3 text-sm text-slate-700"><Step n="1" title={isVi ? 'Chọn môn & lớp học' : 'Choose a sport and class'} body={isVi ? 'Kiểm tra lịch học 12 buổi và sĩ số chỗ trống của lớp đang mở.' : 'Review the 12-session schedule and remaining seats in an open class.'} /><Step n="2" title={isVi ? 'Chọn hình thức thanh toán' : 'Choose a payment method'} body={isVi ? 'Thanh toán trực tuyến qua VNPay hoặc đăng ký giữ chỗ thanh toán tiền mặt tại quầy Lễ tân.' : 'Pay online with VNPay or reserve a seat and pay cash at Reception.'} /><Step n="3" title={isVi ? 'Thực hiện thanh toán' : 'Complete payment'} body={isVi ? 'Hoàn tất giao dịch qua cổng VNPay an toàn hoặc nộp phí trực tiếp tại quầy.' : 'Complete payment securely through VNPay or pay at the front desk.'} /><Step n="4" title={isVi ? 'Kích hoạt khóa học' : 'Activate your course'} body={isVi ? 'Hệ thống tự động cấp quyền vào lớp và cập nhật lịch học ngay sau khi xác nhận thanh toán.' : 'Access is activated and your schedule updated once payment is confirmed.'} /></ol> : <ol className="mt-4 space-y-3 text-sm text-slate-700"><Step n="1" title={isVi ? 'Chọn môn và Huấn luyện viên' : 'Choose sport and Coach'} body={isVi ? 'Chọn huấn luyện viên phù hợp với bộ môn và còn khả năng tiếp nhận.' : 'Choose a Coach who matches the sport and can accept a new member.'} /><Step n="2" title={isVi ? 'Chờ Huấn luyện viên xác nhận' : 'Wait for Coach confirmation'} body={isVi ? 'Yêu cầu chỉ tiếp tục sau khi Huấn luyện viên xác nhận tiếp nhận.' : 'The request proceeds only after the Coach accepts.'} /><Step n="3" title={isVi ? 'Tạo đơn và thanh toán' : 'Create order and pay'} body={isVi ? 'Thông tin số tiền và hạn thanh toán sẽ hiển thị trên hóa đơn.' : 'The invoice shows the amount and payment deadline.'} /><Step n="4" title={isVi ? 'Kích hoạt quyền học' : 'Activate course access'} body={isVi ? 'Quyền học được kích hoạt sau khi thanh toán được xác nhận và đối soát.' : 'Course access activates after payment is confirmed and reconciled.'} /></ol>}</section>
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center gap-2"><ShieldCheck size={19} className="text-brand-purple" /><h2 className="text-lg font-bold text-slate-950">{isVi ? 'Chính sách Advanced' : 'Advanced policies'}</h2></div><ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700"><li>{isVi ? 'Cấp 12 buổi tập (12 credit) 1 kèm 1 theo đúng bộ môn đã thanh toán.' : 'Includes 12 one-to-one sessions (12 credits) for the sport purchased.'}</li><li>{isVi ? 'Huấn luyện viên phụ trách (Primary Coach) trực tiếp sắp xếp lịch tập sau khi thống nhất cùng hội viên.' : 'Your Primary Coach arranges sessions after agreeing the schedule with you.'}</li><li>{isVi ? 'Lịch tập từng buổi được tạo trước giờ bắt đầu tối thiểu 12 giờ.' : 'Each session is scheduled at least 12 hours before it starts.'}</li><li>{isVi ? 'Thời hạn sử dụng trọn gói trong vòng 45 ngày kể từ ngày kích hoạt thanh toán.' : 'The package is valid for 45 days from payment activation.'}</li><li>{isVi ? 'Đơn đăng ký chỉ phát sinh thanh toán sau khi Huấn luyện viên xác nhận tiếp nhận.' : 'Payment is requested only after the Coach accepts your request.'}</li></ul></section>
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center gap-2"><ShieldCheck size={19} className="text-brand-purple" /><h2 className="text-lg font-bold text-slate-950">{tier === 'Normal' ? (isVi ? 'Chính sách lớp Normal' : 'Normal class policies') : (isVi ? 'Chính sách Advanced' : 'Advanced policies')}</h2></div>{tier === 'Normal' ? <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700"><li>{isVi ? 'Đăng ký trọn khóa 12 buổi theo lịch cố định của lớp.' : 'Enrollment covers all 12 sessions on the class schedule.'}</li><li>{isVi ? 'Chỉ nhận đăng ký trước buổi học đầu tiên và khi lớp còn chỗ trống.' : 'Registration is available before the first session and while seats remain.'}</li><li>{isVi ? 'Lịch học được kích hoạt tự động sau khi hoàn tất thanh toán.' : 'The class schedule activates automatically after payment is completed.'}</li></ul> : <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700"><li>{isVi ? 'Cấp 12 buổi tập (12 credit) 1 kèm 1 theo đúng bộ môn đã thanh toán.' : 'Includes 12 one-to-one sessions (12 credits) for the sport purchased.'}</li><li>{isVi ? 'Huấn luyện viên phụ trách (Primary Coach) trực tiếp sắp xếp lịch tập sau khi thống nhất cùng hội viên.' : 'Your Primary Coach arranges sessions after agreeing the schedule with you.'}</li><li>{isVi ? 'Lịch tập từng buổi được tạo trước giờ bắt đầu tối thiểu 12 giờ.' : 'Each session is scheduled at least 12 hours before it starts.'}</li><li>{isVi ? 'Thời hạn sử dụng trọn gói trong vòng 45 ngày kể từ ngày kích hoạt thanh toán.' : 'The package is valid for 45 days from payment activation.'}</li><li>{isVi ? 'Đơn đăng ký chỉ phát sinh thanh toán sau khi Huấn luyện viên xác nhận tiếp nhận.' : 'Payment is requested only after the Coach accepts your request.'}</li></ul>}</section>
       </aside>
     </section>
 
