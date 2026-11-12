@@ -80,7 +80,15 @@ export const startOnlinePayment = async (id) => {
   if (!isValidNumericId(id)) {
     throw new Error('ID hóa đơn không hợp lệ.');
   }
-  return httpClient.post(`/api/invoices/${id}/pay-online`);
+  return httpClient.post(`/api/invoices/${id}/pay-online`, getPaymentReturnContext());
+};
+
+const getPaymentReturnContext = () => {
+  if (typeof window === 'undefined') return {};
+  return {
+    returnUrl: `${window.location.origin}/payment-result`,
+    clientOrigin: window.location.origin,
+  };
 };
 
 export const cancelInvoice = async (id) => {
@@ -144,12 +152,20 @@ export const payInvoiceOnline = async (id) => {
   if (!isValidNumericId(id)) {
     throw new Error('ID hóa đơn không hợp lệ.');
   }
-  const response = await httpClient.post(`/api/invoices/${id}/pay-online`);
+  const response = await httpClient.post(`/api/invoices/${id}/pay-online`, getPaymentReturnContext());
+  let payload = response;
+  for (let depth = 0; depth < 4; depth += 1) {
+    const nested = payload?.data ?? payload?.result ?? payload?.payload;
+    if (!nested || typeof nested !== 'object') break;
+    payload = nested;
+  }
   const paymentUrl =
-    response?.paymentUrl ||
-    response?.url ||
-    response?.vnpayUrl ||
-    (typeof response === 'string' ? response : null);
+    payload?.paymentUrl ||
+    payload?.url ||
+    payload?.vnpayUrl ||
+    payload?.payment?.paymentUrl ||
+    payload?.payment?.url ||
+    (typeof payload === 'string' ? payload : null);
   return {
     paymentUrl: paymentUrl || null,
   };

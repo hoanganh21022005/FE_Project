@@ -52,6 +52,11 @@ const LoginView = React.lazy(() =>
     default: module.LoginView,
   })),
 )
+const PaymentResultView = React.lazy(() =>
+  import("./components/views/PaymentResultView").then((module) => ({
+    default: module.PaymentResultView,
+  })),
+)
 const PrivacyPolicyView = React.lazy(() =>
   import("./components/views/PrivacyPolicyView").then((module) => ({
     default: module.PrivacyPolicyView,
@@ -705,6 +710,7 @@ function SCMSApp() {
   // Public Routes (Unauthenticated)
   if (
     !isAuthenticated ||
+    location.pathname === "/payment-result" ||
     ["/", "/about", "/coaches", "/facilities", "/privacy-policy"].includes(
       location.pathname,
     ) ||
@@ -723,6 +729,10 @@ function SCMSApp() {
           >
             <PublicPageScroll />
             <Routes>
+              <Route
+                path="/payment-result"
+                element={<PaymentResultView language={language} isAuthenticated={isAuthenticated} />}
+              />
               <Route path="/about" element={<AboutView />} />
               <Route path="/coaches" element={<CoachesView />} />
               <Route path="/facilities" element={<FacilitiesView />} />
@@ -1432,12 +1442,7 @@ function SCMSApp() {
                   />
                   <Route
                     path="/payment-result"
-                    element={
-                      <Navigate
-                        to={`/member/invoices${location.search || ""}`}
-                        replace
-                      />
-                    }
+                    element={<PaymentResultView language={language} isAuthenticated={isAuthenticated} />}
                   />
                   <Route
                     path="/member/catalog"
