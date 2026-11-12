@@ -1170,6 +1170,16 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
               {nameError && <p id="new-class-name-error" role="alert" className="text-xs text-rose-600 mt-1">{nameError}</p>}
             </div>
 
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-3">
+              <div>
+                <p className="text-xs font-semibold text-stone-800">Loại lớp</p>
+                <p className="mt-0.5 text-xs text-stone-600">Form này tạo lớp Normal.</p>
+              </div>
+              <span className="inline-flex items-center rounded-md border border-sky-200 bg-white px-2 py-1 text-xs font-bold text-sky-700">
+                Normal
+              </span>
+            </div>
+
             {/* Mô tả khóa học (không bắt buộc) */}
             <div>
               <label className="text-sm font-medium text-stone-800 block mb-1.5">

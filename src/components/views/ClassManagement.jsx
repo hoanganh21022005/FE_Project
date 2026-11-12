@@ -2478,6 +2478,21 @@ export function ClassManagement() {
                       const hasMissingSchedule = Boolean(
                         classConflict?.hasMissingSchedule,
                       )
+                      const rawClassType = String(cls.classType || "")
+                        .trim()
+                        .toLowerCase()
+                      const classTypeLabel =
+                        rawClassType === "normal"
+                          ? "Normal"
+                          : rawClassType === "advanced"
+                            ? "Advanced"
+                            : "Chưa xác định"
+                      const classTypeClassName =
+                        rawClassType === "normal"
+                          ? "bg-sky-50 text-sky-700 border-sky-200"
+                          : rawClassType === "advanced"
+                            ? "bg-violet-50 text-violet-700 border-violet-200"
+                            : "bg-stone-50 text-stone-600 border-stone-200"
 
                       return (
                         <tr
@@ -2518,6 +2533,12 @@ export function ClassManagement() {
                                 >
                                   {cls.nameVi || cls.name}
                                 </div>
+                                <span
+                                  className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold leading-none shrink-0 ${classTypeClassName}`}
+                                  title="Loại lớp"
+                                >
+                                  {classTypeLabel}
+                                </span>
                                 {hasConflict && (
                                   <span
                                     className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700 text-[10.5px] font-bold border border-rose-300 shadow-2xs shrink-0 cursor-help"

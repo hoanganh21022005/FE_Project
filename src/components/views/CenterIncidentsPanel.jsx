@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Check, Loader2, Plus, RefreshCw, RotateCw, ShieldAlert, X } from 'lucide-react'
 import { getErrorMessage } from '../../api/apiErrors.js'
-import { getCoaches, getRooms, getSessions } from '../../api/managerApi.js'
+import { getCoaches, getRooms, getSessions, getSubjects } from '../../api/managerApi.js'
 import {
   canManageCenterIncident,
   compensateCenterIncident,
@@ -38,6 +38,7 @@ function CenterIncidentsPanel({ apiEnabled, currentUser, language, showToast }) 
   const [incidentsLoaded, setIncidentsLoaded] = useState(false)
   const [incidentsError, setIncidentsError] = useState('')
   const [sessions, setSessions] = useState([])
+  const [subjects, setSubjects] = useState([])
   const [sessionsLoading, setSessionsLoading] = useState(apiEnabled)
   const [sessionsError, setSessionsError] = useState('')
   const [rooms, setRooms] = useState([])
@@ -93,7 +94,13 @@ function CenterIncidentsPanel({ apiEnabled, currentUser, language, showToast }) 
     setSessionsLoading(true)
     setSessionsError('')
     try {
-      setSessions(await getSessions({}, { notifyForbidden: false }))
+      const [sessionResult, subjectResult] = await Promise.allSettled([
+        getSessions({}, { notifyForbidden: false }),
+        getSubjects({ notifyForbidden: false }),
+      ])
+      if (sessionResult.status === 'rejected') throw sessionResult.reason
+      setSessions(sessionResult.value)
+      setSubjects(subjectResult.status === 'fulfilled' ? subjectResult.value : [])
       return true
     } catch (error) {
       setSessionsError(getErrorMessage(error, vi ? 'Không thể tải danh sách buổi học.' : 'Could not load sessions.'))
@@ -133,6 +140,44 @@ function CenterIncidentsPanel({ apiEnabled, currentUser, language, showToast }) 
   }, [apiEnabled, hasManagerPermission, loadResources])
 
   const sessionById = useMemo(() => new Map(sessions.map((session) => [String(session.id), session])), [sessions])
+  const sessionsBySubject = useMemo(() => {
+    const normalize = (value) => String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/gi, 'd')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+    const subjectList = subjects.length
+      ? subjects
+      : [...new Map(sessions
+          .filter((session) => session.subjectName)
+          .map((session) => [normalize(session.subjectName), { id: session.subjectId || session.subjectName, name: session.subjectName }]))
+          .values()]
+    const groups = subjectList.map((subject) => ({ subject, sessions: [] }))
+    const matchByName = [...groups].sort((a, b) => normalize(b.subject.name).length - normalize(a.subject.name).length)
+
+    sessions.forEach((session) => {
+      let group = session.subjectId == null
+        ? null
+        : groups.find(({ subject }) => subject.id != null && String(subject.id) === String(session.subjectId))
+      const sessionSubjectName = normalize(session.subjectName)
+      if (!group && sessionSubjectName) {
+        group = groups.find(({ subject }) => normalize(subject.name) === sessionSubjectName)
+      }
+      if (!group) {
+        const sessionLabel = normalize(`${session.subjectName || ''} ${session.className || ''}`)
+        group = matchByName.find(({ subject }) => {
+          const subjectName = normalize(subject.name)
+          const subjectSlug = normalize(subject.slug)
+          return (subjectName && sessionLabel.includes(subjectName)) || (subjectSlug && sessionLabel.includes(subjectSlug))
+        })
+      }
+      if (group) group.sessions.push(session)
+    })
+
+    return groups
+  }, [sessions, subjects])
   const canOpenIncident = hasManagerPermission && incidentsLoaded && !incidentsError && !sessionsLoading && !sessionsError && sessions.length > 0 && !needsRefresh
   const selectedActionIncident = action?.incident || null
   const selectedSession = selectedActionIncident ? sessionById.get(String(selectedActionIncident.sessionId)) : null
@@ -350,7 +395,25 @@ function CenterIncidentsPanel({ apiEnabled, currentUser, language, showToast }) 
           <header className="mb-4 flex items-start justify-between gap-3 border-b border-slate-200 pb-3"><div><h2 id="center-incident-dialog-title" className="font-bold">{action.kind === 'open' ? (vi ? 'Mở sự cố trung tâm' : 'Open center incident') : action.kind === 'resolve' ? (vi ? 'Xác nhận khắc phục' : 'Confirm recovery') : action.kind === 'compensate' ? (vi ? 'Xác nhận buổi không tổ chức' : 'Confirm session not held') : (vi ? 'Tạo buổi học bù Normal' : 'Create Normal makeup')}</h2>{action.incident && <p className="mt-1 text-xs text-slate-500">#{action.incident.id} · Session #{action.incident.sessionId}</p>}</div><button type="button" aria-label="Close" onClick={closeAction} disabled={busy} className="rounded p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"><X className="h-5 w-5" /></button></header>
           {action.kind === 'open' && <form onSubmit={submitOpen} className="space-y-3">
             {sessionsError && errorBlock(sessionsError)}
-            <label className="block text-xs font-semibold">{vi ? 'Buổi học' : 'Session'}<select required value={openForm.sessionId} onChange={(event) => { setOpenForm((old) => ({ ...old, sessionId: event.target.value })); setFeedback(null) }} disabled={sessionsLoading || !sessions.length || needsRefresh} className={fieldClass}><option value="">{sessionsLoading ? (vi ? 'Đang tải buổi học…' : 'Loading sessions…') : (vi ? 'Chọn buổi học' : 'Select a session')}</option>{sessions.filter((session) => Number.isInteger(session.id) && session.id > 0).map((session) => <option key={session.id} value={session.id}>#{session.id} · {session.className || (vi ? 'Lớp chưa có tên' : 'Unnamed class')} · {session.sessionDate || '—'} {String(session.startTime || '').slice(0, 5)}{session.isPrivate === false ? ' · Normal' : session.isPrivate === true ? ' · Advanced' : ''}</option>)}</select></label>
+            <label className="block text-xs font-semibold">{vi ? 'Buổi học' : 'Session'}
+  <select required value={openForm.sessionId} onChange={(event) => { setOpenForm((old) => ({ ...old, sessionId: event.target.value })); setFeedback(null) }} disabled={sessionsLoading || !sessions.length || needsRefresh} className={fieldClass}>
+    <option value="">{sessionsLoading ? (vi ? 'Đang tải buổi học…' : 'Loading sessions…') : (vi ? 'Chọn buổi học' : 'Select a session')}</option>
+    {sessionsBySubject.map(({ subject, sessions: subjectSessions }) => {
+      const validSessions = subjectSessions.filter((session) => Number.isInteger(session.id) && session.id > 0)
+      return (
+        <optgroup key={subject.id} label={subject.name}>
+          {validSessions.length > 0
+            ? validSessions.map((session) => (
+              <option key={session.id} value={session.id}>
+                #{session.id} · {session.className || (vi ? 'Lớp chưa có tên' : 'Unnamed class')} · {session.sessionDate || '—'} {String(session.startTime || '').slice(0, 5)}{session.isPrivate === false ? ' · Normal' : session.isPrivate === true ? ' · Advanced' : ''}
+              </option>
+            ))
+            : <option disabled>{vi ? 'Chưa có buổi học' : 'No sessions'}</option>}
+        </optgroup>
+      )
+    })}
+  </select>
+</label>
             <label className="block text-xs font-semibold">{vi ? 'Thời điểm bắt đầu (giờ Việt Nam)' : 'Started at (Vietnam local time)'}<input type="datetime-local" required value={openForm.startedAt} onChange={(event) => setOpenForm((old) => ({ ...old, startedAt: event.target.value }))} className={fieldClass} /></label>
             <label className="block text-xs font-semibold">{vi ? 'Lý do' : 'Reason'}<textarea required maxLength={2000} value={openForm.reason} onChange={(event) => setOpenForm((old) => ({ ...old, reason: event.target.value }))} className="mt-1 min-h-20 w-full rounded border border-slate-300 p-3 text-sm" /></label>
             <label className="block text-xs font-semibold">{vi ? 'Bằng chứng' : 'Evidence'}<textarea required maxLength={2000} value={openForm.evidence} onChange={(event) => setOpenForm((old) => ({ ...old, evidence: event.target.value }))} className="mt-1 min-h-20 w-full rounded border border-slate-300 p-3 text-sm" /></label>
