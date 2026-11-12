@@ -3,11 +3,14 @@ import {
   AlertTriangle,
   CheckCircle2,
   KeyRound,
+  PenLine,
+  Plus,
   RefreshCw,
   Search,
   ShieldAlert,
   ShieldCheck,
   UserCheck,
+  UserPlus,
   UserRound,
   X,
 } from "lucide-react"
@@ -21,6 +24,7 @@ import { UserStatusDialog } from "../UserStatusDialog.jsx"
 import { UserRoleDialog } from "../UserRoleDialog.jsx"
 import { UserReissuePasswordDialog } from "../UserReissuePasswordDialog.jsx"
 import { UserRowActions } from "../UserRowActions.jsx"
+import { UserFormModal } from "../UserFormModal.jsx"
 
 const statusLabel = (status) =>
   ({
@@ -56,6 +60,8 @@ export function AdminUsersView() {
   const [statusTargetUser, setStatusTargetUser] = useState(null)
   const [roleTargetUser, setRoleTargetUser] = useState(null)
   const [reissueTargetUser, setReissueTargetUser] = useState(null)
+  const [formTargetUser, setFormTargetUser] = useState(null)
+  const [isUserFormOpen, setIsUserFormOpen] = useState(false)
   const [activeDialogTriggerRef, setActiveDialogTriggerRef] = useState(null)
 
   // Thông báo phản hồi thao tác
@@ -226,6 +232,35 @@ export function AdminUsersView() {
     }
   }
 
+  const handleUserFormSuccess = (result, isEdit) => {
+    retry("users")
+    retry("auditLogs")
+    if (isEdit) {
+      setActionAlert({
+        type: "success",
+        message: `Đã cập nhật thông tin tài khoản "${result.fullName || result.email}" thành công.`,
+      })
+      if (selectedUserSummary && selectedUserSummary.id === result.id) {
+        setSelectedUserSummary(result)
+        setDetailUser(result)
+      }
+    } else {
+      if (result.emailSent === false) {
+        setActionAlert({
+          type: "warning",
+          message: `Đã tạo tài khoản "${result.fullName || result.email}" thành công, nhưng gửi email thất bại: ${
+            result.warning || "Vui lòng cấp lại mật khẩu sau."
+          }`,
+        })
+      } else {
+        setActionAlert({
+          type: "success",
+          message: `Đã tạo tài khoản "${result.fullName || result.email}" thành công! Mật khẩu tạm đã được gửi tới email.`,
+        })
+      }
+    }
+  }
+
   // Danh sách cơ sở: từ serverUsers nếu đã lọc vai trò qua server, hoặc từ resources.users.data
   const baseUsers = serverUsers !== null ? serverUsers : (resources.users.data || [])
 
@@ -326,6 +361,18 @@ export function AdminUsersView() {
             <option value="locked">Đã khóa</option>
           </select>
         </label>
+        <button
+          type="button"
+          onClick={(e) => {
+            setActiveDialogTriggerRef({ current: e.currentTarget })
+            setFormTargetUser(null)
+            setIsUserFormOpen(true)
+          }}
+          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 py-2 text-xs font-semibold bg-brand-primary text-white hover:bg-brand-primary/90 transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
+        >
+          <UserPlus className="w-4 h-4" />
+          <span>Thêm người dùng</span>
+        </button>
       </div>
 
       {/* Lỗi khi lọc vai trò phía server */}
@@ -417,6 +464,11 @@ export function AdminUsersView() {
                         <UserRowActions
                           user={user}
                           onViewDetails={(event) => handleSelectUser(user, event)}
+                          onEditUser={(btnRef) => {
+                            setActiveDialogTriggerRef(btnRef)
+                            setFormTargetUser(user)
+                            setIsUserFormOpen(true)
+                          }}
                           onChangeStatus={(btnRef) => {
                             setActiveDialogTriggerRef(btnRef)
                             setStatusTargetUser(user)
@@ -566,7 +618,19 @@ export function AdminUsersView() {
                       <p className="text-xs font-semibold text-text-secondary">
                         Thao tác quản trị
                       </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            setActiveDialogTriggerRef({ current: e.currentTarget })
+                            setFormTargetUser(detailUser || selectedUserSummary)
+                            setIsUserFormOpen(true)
+                          }}
+                          className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2.5 py-2 rounded text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                        >
+                          <PenLine className="w-4 h-4 text-brand-primary" />
+                          <span>Sửa hồ sơ</span>
+                        </button>
                         <button
                           type="button"
                           onClick={(e) => {
@@ -637,6 +701,18 @@ export function AdminUsersView() {
         onClose={() => setReissueTargetUser(null)}
         user={reissueTargetUser}
         onSuccess={handleReissueSuccess}
+        triggerRef={activeDialogTriggerRef}
+      />
+
+      <UserFormModal
+        isOpen={isUserFormOpen}
+        onClose={() => {
+          setIsUserFormOpen(false)
+          setFormTargetUser(null)
+        }}
+        initialUser={formTargetUser}
+        roles={resources.roles.data || []}
+        onSuccess={handleUserFormSuccess}
         triggerRef={activeDialogTriggerRef}
       />
     </div>

@@ -46,6 +46,11 @@ export function mapAdminUser(item = {}) {
     permissions: Array.isArray(item.permissions)
       ? item.permissions.filter(Boolean)
       : [],
+    emailSent: item.emailSent !== undefined ? Boolean(item.emailSent) : undefined,
+    warning: item.warning ?? null,
+    specializationIds: Array.isArray(item.specializationIds)
+      ? item.specializationIds.map(asNumber).filter(Boolean)
+      : [],
   }
 }
 

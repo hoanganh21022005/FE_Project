@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from "react"
-import { Eye, KeyRound, MoreVertical, ShieldCheck, UserCheck } from "lucide-react"
+import { Eye, KeyRound, MoreVertical, PenLine, ShieldCheck, UserCheck } from "lucide-react"
 
 export function UserRowActions({
   user,
   onViewDetails,
+  onEditUser,
   onChangeStatus,
   onChangeRole,
   onReissuePassword,
@@ -68,6 +69,21 @@ export function UserRowActions({
             aria-orientation="vertical"
             className="absolute right-0 top-full mt-1 z-30 w-52 rounded-lg border border-border-color bg-bg-card p-1.5 shadow-lg text-text-primary animate-in fade-in duration-100"
           >
+            {onEditUser && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false)
+                  onEditUser(buttonRef)
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded text-xs text-text-primary hover:bg-bg-secondary transition-colors text-left cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+              >
+                <PenLine className="w-4 h-4 text-brand-primary shrink-0" />
+                <span>Chỉnh sửa thông tin</span>
+              </button>
+            )}
+
             <button
               type="button"
               role="menuitem"
