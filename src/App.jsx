@@ -655,12 +655,21 @@ function SCMSApp() {
     if (path.includes("/schedule"))
       return path.startsWith("/member/")
         ? t("schedulePageTitle")
-        : t("schedule")
+        : role === ROLE_COACH
+          ? (language === "vi" ? "Thời khóa biểu & Lịch dạy" : "Schedule & Timetable")
+          : t("schedule")
     if (path.includes("/attendance") || path.includes("/checkin"))
-      return t("attendance")
-    if (path.includes("/assigned-members")) return t("assignedMembers")
+      return role === ROLE_COACH
+        ? (language === "vi" ? "Điểm danh học viên (Normal & Advanced)" : "Attendance (Normal & PT)")
+        : t("attendance")
+    if (path.includes("/assigned-members"))
+      return role === ROLE_COACH
+        ? (language === "vi" ? "Đăng ký sân PT 1:1" : "1:1 Court Booking")
+        : t("assignedMembers")
     if (path.includes("/progress") || path.includes("/training-plan"))
-      return t("trainingProgress")
+      return role === ROLE_COACH
+        ? (language === "vi" ? "Đánh giá & Tiến độ học viên" : "Training Progress")
+        : t("trainingProgress")
     if (path.includes("/search")) return t("memberSearch")
     if (path.includes("/booking")) return t("bookings")
     if (path.includes("/invoices") || path.includes("/payment-result"))

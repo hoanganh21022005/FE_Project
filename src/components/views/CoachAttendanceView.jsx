@@ -28,6 +28,8 @@ import {
   Clock,
   FileText,
   XCircle,
+  Users,
+  UserCheck,
 } from "lucide-react"
 
 export function CoachAttendanceView() {
@@ -70,6 +72,7 @@ export function CoachAttendanceView() {
   })
   const [substituteClassIds, setSubstituteClassIds] = useState(() => new Set())
   const [coachClassesFromSessions, setCoachClassesFromSessions] = useState([])
+  const [coachPtSessions, setCoachPtSessions] = useState([])
 
   // Drop old selection when coach account switches
   useEffect(() => {
@@ -90,7 +93,7 @@ export function CoachAttendanceView() {
     }
   }, [resolvedCoachId])
 
-  // Prefetch coach sessions to discover substitute classes
+  // Prefetch coach sessions to discover substitute classes and PT 1:1 sessions
   useEffect(() => {
     if (!apiEnabled || !resolvedCoachId) return
     let active = true
@@ -100,7 +103,11 @@ export function CoachAttendanceView() {
         if (!active || !Array.isArray(sessions)) return
         const subIds = new Set()
         const classesById = new Map()
+        const ptSessionsList = []
         sessions.forEach((s) => {
+          if (s.isPrivate === true) {
+            ptSessionsList.push(s)
+          }
           const isNormalSession = s.isPrivate === false ||
             String(s.classType || "").trim().toLowerCase() === "normal"
           if (s.classId != null && isNormalSession) {
@@ -130,6 +137,7 @@ export function CoachAttendanceView() {
         })
         setSubstituteClassIds(subIds)
         setCoachClassesFromSessions(Array.from(classesById.values()))
+        setCoachPtSessions(ptSessionsList)
       })
       .catch(() => {})
     return () => {
@@ -223,6 +231,46 @@ export function CoachAttendanceView() {
     prevSelectedClassRef.current = found
     return found
   }, [coachClasses, selectedClassId])
+
+  const normalClasses = useMemo(() => {
+    return coachClasses.filter((c) => String(c.id) !== "PT_1ON1")
+  }, [coachClasses])
+
+  const [attendanceMode, setAttendanceMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("scms_selected_attendance_class_id")
+      if (saved === "PT_1ON1") return "advanced"
+    }
+    return "normal"
+  })
+
+  useEffect(() => {
+    if (selectedClassId === "PT_1ON1") {
+      setAttendanceMode("advanced")
+    } else if (selectedClassId && selectedClassId !== "PT_1ON1") {
+      setAttendanceMode("normal")
+    }
+  }, [selectedClassId])
+
+  const handleModeChange = (mode) => {
+    setAttendanceMode(mode)
+    if (mode === "advanced") {
+      setSelectedClassId("PT_1ON1")
+      setSelectedSessionId("")
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("scms_selected_attendance_class_id", "PT_1ON1")
+      }
+    } else {
+      const firstNormal = normalClasses[0] || null
+      const nextId = firstNormal ? String(firstNormal.id) : ""
+      setSelectedClassId(nextId)
+      setSelectedSessionId("")
+      if (typeof window !== "undefined") {
+        if (nextId) sessionStorage.setItem("scms_selected_attendance_class_id", nextId)
+        else sessionStorage.removeItem("scms_selected_attendance_class_id")
+      }
+    }
+  }
 
   useEffect(() => {
     if (selectedClass?.id && typeof window !== "undefined" && resolvedCoachId) {
@@ -1093,6 +1141,70 @@ export function CoachAttendanceView() {
 
   return (
     <div className="w-full space-y-6">
+      {/* Attendance Mode Switcher: Normal Group Classes vs Advanced 1:1 PT */}
+      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <ClipboardCheck className="w-5 h-5 text-brand-primary" />
+            <h2 className="text-xl font-semibold text-text-primary">
+              {language === "vi" ? "Điểm danh học viên" : "Attendance Tracking"}
+            </h2>
+          </div>
+          <p className="text-sm text-text-secondary mt-0.5">
+            {language === "vi"
+              ? "Tách biệt rõ ràng giữa điểm danh Lớp học thường (Normal) và Buổi tập kèm riêng 1:1 (Advanced)"
+              : "Clear separation between Normal group classes and Advanced 1:1 private sessions"}
+          </p>
+        </div>
+
+        {/* Tab Switcher */}
+        <div role="tablist" className="inline-flex rounded-lg border border-border-color bg-bg-secondary p-1 gap-1.5 self-start md:self-auto">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={attendanceMode === "normal"}
+            onClick={() => handleModeChange("normal")}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 text-xs font-semibold transition-all cursor-pointer ${
+              attendanceMode === "normal"
+                ? "bg-brand-primary text-text-inverse shadow-xs"
+                : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>{language === "vi" ? "Lớp học thường (Normal)" : "Normal Classes"}</span>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              attendanceMode === "normal"
+                ? "bg-white/20 text-white"
+                : "bg-bg-secondary text-text-secondary border border-border-color"
+            }`}>
+              {normalClasses.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={attendanceMode === "advanced"}
+            onClick={() => handleModeChange("advanced")}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 text-xs font-semibold transition-all cursor-pointer ${
+              attendanceMode === "advanced"
+                ? "bg-brand-primary text-text-inverse shadow-xs"
+                : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
+            }`}
+          >
+            <UserCheck className="w-4 h-4" />
+            <span>{language === "vi" ? "Kèm riêng 1:1 (Advanced)" : "1:1 PT (Advanced)"}</span>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              attendanceMode === "advanced"
+                ? "bg-white/20 text-white"
+                : "bg-bg-secondary text-text-secondary border border-border-color"
+            }`}>
+              {coachPtSessions.length}
+            </span>
+          </button>
+        </div>
+      </div>
+
       {/* Class Banner & Selector */}
       <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1.5">
@@ -1105,34 +1217,47 @@ export function CoachAttendanceView() {
                   : resolvedSessionStatus
               }
             />
-            {coachClasses.length > 1 && (
-              <select
-                value={selectedClass?.id || ""}
-                onChange={(e) => {
-                  setSelectedClassId(e.target.value)
-                  setSelectedSessionId("")
-                  if (typeof window !== "undefined") {
-                    sessionStorage.setItem(
-                      "scms_selected_attendance_class_id",
-                      e.target.value,
-                    )
-                  }
-                }}
-                className="min-h-11 w-full sm:w-auto rounded border border-border-strong bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
-              >
-                {selectedClassId && !coachClasses.some((c) => String(c.id) === String(selectedClassId)) && (
-                  <option value="" disabled>
-                    {`Lớp #${selectedClassId} (${language === "vi" ? "Không tồn tại" : "Not found"})`}
-                  </option>
-                )}
-                {coachClasses.map((cls) => (
-                  <option key={cls.id} value={cls.id}>
-                    {cls.nameVi || cls.name}
-                    {cls.isSubstitute ? ` (${language === "vi" ? "Dạy thay" : "Substitute"})` : ""}
-                  </option>
-                ))}
-              </select>
+
+            {attendanceMode === "normal" ? (
+              normalClasses.length > 0 ? (
+                <select
+                  value={selectedClass?.id || ""}
+                  onChange={(e) => {
+                    setSelectedClassId(e.target.value)
+                    setSelectedSessionId("")
+                    if (typeof window !== "undefined") {
+                      sessionStorage.setItem(
+                        "scms_selected_attendance_class_id",
+                        e.target.value,
+                      )
+                    }
+                  }}
+                  className="min-h-11 w-full sm:w-auto rounded border border-border-strong bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+                >
+                  {selectedClassId && !normalClasses.some((c) => String(c.id) === String(selectedClassId)) && (
+                    <option value="" disabled>
+                      {`Lớp #${selectedClassId} (${language === "vi" ? "Không tồn tại" : "Not found"})`}
+                    </option>
+                  )}
+                  {normalClasses.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.nameVi || cls.name}
+                      {cls.isSubstitute ? ` (${language === "vi" ? "Dạy thay" : "Substitute"})` : ""}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-xs font-medium text-text-secondary bg-bg-secondary px-3 py-2 rounded border border-border-color">
+                  {language === "vi" ? "Không có lớp học thường nào" : "No normal classes"}
+                </span>
+              )
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-semibold text-xs">
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>{language === "vi" ? "Ca kèm riêng PT 1:1 (Advanced)" : "1:1 PT Private Session"}</span>
+              </div>
             )}
+
             {classSessions.length > 0 && (
               <select
                 value={selectedSessionId}
@@ -1168,6 +1293,23 @@ export function CoachAttendanceView() {
                   else if (isOtherSub) tag = ` [${language === "vi" ? "HLV khác dạy" : "Reassigned"}]`
                   else if (!isAssignedToMe) tag = ` [${language === "vi" ? "Ngoài quyền" : "Unauthorized"}]`
 
+                  if (attendanceMode === "advanced") {
+                    const studentLabel = ses.bookedMemberName ? `${ses.bookedMemberName} · ` : ""
+                    const subjectLabel = ses.subjectName ? `${ses.subjectName} · ` : ""
+                    return (
+                      <option
+                        key={ses.id || idx}
+                        value={ses.id}
+                        disabled={
+                          isCancel && String(ses.id) !== String(selectedSessionId)
+                        }
+                      >
+                        {studentLabel}{subjectLabel}{formatDate(ses.sessionDate)} ({formatTime(ses.startTime)} - {formatTime(ses.endTime)}){ses.roomName ? ` · ${ses.roomName}` : ""}
+                        {isCancel ? ` — [${t("coachStatusCancelled")}]` : ""}
+                      </option>
+                    )
+                  }
+
                   return (
                     <option
                       key={ses.id || idx}
@@ -1188,7 +1330,13 @@ export function CoachAttendanceView() {
           </div>
 
           <h2 className="text-xl leading-7 font-semibold text-text-primary mt-1">
-            {selectedClass?.nameVi || selectedClass?.name || "Lớp học"}
+            {attendanceMode === "advanced"
+              ? activeSession?.bookedMemberName
+                ? `${language === "vi" ? "Buổi tập PT 1:1 với" : "1:1 Session with"} ${activeSession.bookedMemberName}`
+                : activeSession?.subjectName
+                  ? `${language === "vi" ? "Ca kèm riêng PT 1:1 môn" : "1:1 Session for"} ${activeSession.subjectName}`
+                  : (language === "vi" ? "Ca kèm riêng PT 1:1 (Advanced)" : "1:1 Private Session")
+              : selectedClass?.nameVi || selectedClass?.name || (language === "vi" ? "Lớp học thường" : "Normal Class")}
           </h2>
 
           {(() => {

@@ -101,15 +101,17 @@ function SportTile({ row, tier, language, selected, availability, onClick }) {
   const label = subject?.name || config[language === 'vi' ? 'vi' : 'en']
   const cardStatus = row.ambiguous
     ? (language === 'vi' ? 'Dữ liệu môn bị trùng' : 'Duplicate subject data')
+    : availability?.loading
+      ? (language === 'vi' ? 'Đang kiểm tra lớp mở' : 'Checking open classes')
     : availability?.available
       ? tier === 'Normal'
         ? (language === 'vi' ? `${availability.count} lớp đang mở` : `${availability.count} open ${availability.count === 1 ? 'class' : 'classes'}`)
         : (language === 'vi' ? 'Sẵn sàng đăng ký' : 'Ready to register')
       : (language === 'vi' ? 'Chưa có lớp mở' : 'No open availability')
   return <button type="button" aria-pressed={selected} onClick={onClick} className={'group relative min-h-[210px] overflow-hidden rounded-2xl border text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent ' + (selected ? 'scale-[1.01] border-brand-primary ring-2 ring-brand-primary shadow-md' : 'border-slate-200')}>
-    <img src={media.poster} alt="" loading="lazy" className={'absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-[1.03] ' + (!availability?.available ? 'grayscale-[35%]' : '')} />
-    <span className={'absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/45 to-slate-950/5 ' + (!availability?.available ? 'opacity-80' : '')} />
-    <span className={'absolute left-3 top-3 rounded-full px-3 py-1 text-[13px] font-bold ' + (availability?.available ? 'bg-emerald-50/95 text-emerald-800' : 'bg-slate-100/95 text-slate-600')}>{cardStatus}</span>
+    <img src={media.poster} alt="" loading="lazy" className={'absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-[1.03] ' + (!availability?.available && !availability?.loading ? 'grayscale-[35%]' : '')} />
+    <span className={'absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/45 to-slate-950/5 ' + (!availability?.available && !availability?.loading ? 'opacity-80' : '')} />
+    <span className={'absolute left-3 top-3 rounded-full px-3 py-1 text-[13px] font-bold ' + (availability?.loading ? 'bg-blue-50/95 text-blue-800' : availability?.available ? 'bg-emerald-50/95 text-emerald-800' : 'bg-slate-100/95 text-slate-600')}>{cardStatus}</span>
     {selected && <span className="absolute right-3 top-3 rounded-full bg-brand-primary p-1.5 text-white shadow"><Check size={17} /></span>}
     <span className="absolute inset-x-0 bottom-0 p-4 text-white"><span className="block text-lg font-bold">{label}</span><span className="mt-2 block text-lg font-extrabold tabular-nums">{formatMoney(price, language)}</span></span>
   </button>
@@ -176,11 +178,12 @@ export function MemberCourseCatalog() {
       const subject = row.subject
       const hasValidPrice = Boolean(subject && hasSellablePrice(subject[tier === 'Normal' ? 'normalPrice' : 'advancedPrice']) && !row.ambiguous && !row.invalidId)
       if (tier === 'Normal') {
-        const openClasses = hasValidPrice ? classes.filter((item) =>
-          String(item.subjectId) === String(subject.id)
-          && verifyNormalCourseClass(item, scheduleStates[item.id] ? scheduleStates[item.id].sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules), subject.id).eligible,
+        const subjectClasses = classes.filter((item) => String(item.subjectId) === String(subject?.id) && normalizeCatalogText(item.classType) === 'normal')
+        const openClasses = hasValidPrice ? subjectClasses.filter((item) =>
+          verifyNormalCourseClass(item, scheduleStates[item.id] ? scheduleStates[item.id].sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules), subject.id).eligible,
         ) : []
-        bySport.set(row.key, { available: openClasses.length > 0, count: openClasses.length })
+        const loading = classesState.loading || subjectClasses.some((item) => scheduleStates[item.id]?.loading || (!scheduleStates[item.id] && !Array.isArray(item.sessions ?? item.scheduleSessions ?? item.schedules)))
+        bySport.set(row.key, { available: openClasses.length > 0, count: openClasses.length, loading })
         return
       }
       const advancedAvailability = subject?.advancedAvailability
@@ -192,13 +195,13 @@ export function MemberCourseCatalog() {
       bySport.set(row.key, { available: hasValidPrice && (metadataAvailability || availableCoaches.length > 0), count: availableCoaches.length })
     })
     return bySport
-  }, [resolvedSubjects, tier, classes, scheduleStates, coachAvailabilityBySubject])
+  }, [resolvedSubjects, tier, classes, classesState.loading, scheduleStates, coachAvailabilityBySubject])
   const filteredSubjects = useMemo(() => {
     const normalizedQuery = normalizeCatalogText(query)
     return resolvedSubjects.filter((row) => {
       const label = row.subject?.name || SPORT_LABELS[row.key]?.[isVi ? 'vi' : 'en'] || row.key
       return (!normalizedQuery || normalizeCatalogText(label + ' ' + row.key).includes(normalizedQuery))
-        && (!onlyAvailable || sportAvailability.get(row.key)?.available === true)
+        && (!onlyAvailable || sportAvailability.get(row.key)?.available === true || sportAvailability.get(row.key)?.loading === true)
     })
   }, [resolvedSubjects, query, onlyAvailable, isVi, sportAvailability])
   const selectedClasses = useMemo(() => classes.filter((item) => String(item.subjectId) === String(selectedSubject?.id)), [classes, selectedSubject?.id])
@@ -357,7 +360,7 @@ export function MemberCourseCatalog() {
   }, [onlyAvailable, filteredSubjects, sportKey, tier, changeSelection])
 
   useEffect(() => {
-    const candidates = selectedClasses.filter((item) => normalizeCatalogText(item.classType) === 'normal')
+    const candidates = classes.filter((item) => normalizeCatalogText(item.classType) === 'normal')
     candidates.forEach((item) => {
       if (scheduleStates[item.id]) return
       setScheduleStates((state) => ({ ...state, [item.id]: { loading: true, error: '', sessions: [] } }))
@@ -367,7 +370,7 @@ export function MemberCourseCatalog() {
         setScheduleStates((state) => ({ ...state, [item.id]: { loading: false, error: getErrorMessage(error, isVi ? 'Không xác minh được lịch lớp.' : 'Could not verify class schedule.'), sessions: [] } }))
       })
     })
-  }, [selectedSubject?.id, selectedClasses, isVi])
+  }, [classes, isVi])
 
   const loadCoaches = useCallback(async () => {
     if (!selectedSubject?.id) return

@@ -96,7 +96,7 @@ export function CoachScheduleView() {
   } = useSCMS()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState("schedule") // 'schedule' | 'work_schedule'
-  const [viewMode, setViewMode] = useState("list") // 'list' | 'week'
+  const [viewMode, setViewMode] = useState("week") // 'week' | 'list' (default to visual weekly timetable)
   const [selectedRoom, setSelectedRoom] = useState("all")
   const [scheduleFilter, setScheduleFilter] = useState("all") // all | upcoming | group | pt
   const [showPastSessions, setShowPastSessions] = useState(false)
@@ -862,12 +862,12 @@ export function CoachScheduleView() {
             </div>
             <div>
               <h2 className="text-xl leading-7 font-semibold text-text-primary whitespace-nowrap">
-                {t("schedule")}
+                {language === "vi" ? "Thời khóa biểu & Lịch dạy" : t("schedule")}
               </h2>
               <p className="text-sm leading-5 text-text-secondary">
                 {language === "vi"
-                  ? "Thời khóa biểu từng buổi dạy (Thứ/Ngày, Khung giờ, Sân tập), ca PT 1:1 & cấu hình lịch làm việc"
-                  : "Detailed teaching schedule by session, 1:1 private PT sessions & work schedule configuration"}
+                  ? "Thời khóa biểu tuần trực quan (Thứ/Ca học/Sân tập), danh sách từng ca dạy & cấu hình lịch làm việc"
+                  : "Visual weekly timetable by slot and room, detailed session list & work schedule configuration"}
               </p>
             </div>
           </div>
@@ -958,31 +958,31 @@ export function CoachScheduleView() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {/* View Mode Toggle: List vs Week Grid */}
+                {/* View Mode Toggle: Week Grid vs List */}
                 <div className="inline-flex rounded border border-border-color bg-bg-secondary p-1 gap-1">
                   <button
                     type="button"
-                    onClick={() => setViewMode("list")}
-                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
-                      viewMode === "list"
-                        ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
-                        : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
-                    }`}
-                  >
-                    <LayoutList className="w-3.5 h-3.5" />
-                    <span>{t("coachViewList")}</span>
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setViewMode("week")}
-                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
                       viewMode === "week"
                         ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
                         : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
                     }`}
                   >
                     <CalendarDays className="w-3.5 h-3.5" />
-                    <span>{t("coachViewWeek")}</span>
+                    <span>{language === "vi" ? "Thời khóa biểu tuần" : t("coachViewWeek")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("list")}
+                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+                      viewMode === "list"
+                        ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
+                        : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
+                    }`}
+                  >
+                    <LayoutList className="w-3.5 h-3.5" />
+                    <span>{language === "vi" ? "Danh sách chi tiết" : t("coachViewList")}</span>
                   </button>
                 </div>
 
