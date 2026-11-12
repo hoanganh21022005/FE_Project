@@ -11,7 +11,7 @@ import { invoiceApi } from '../../api/invoiceApi'
 import { getErrorMessage } from '../../api/apiErrors'
 import { getAuthoritativeProfileId } from '../../utils/memberSafetyHelpers'
 import { COURSE_HERO_MEDIA, SPORT_MEDIA } from '../../data/memberCourseCatalog.js'
-import { hasSellablePrice, normalizeCatalogStatus, normalizeCatalogText, readAdmissionCapacity, resolveCatalogSubjects, verifyNormalCourseClass, coachIsActive, coachMatchesSubject } from '../../utils/memberCourseCatalogRules.js'
+import { hasSellablePrice, normalizeCatalogStatus, normalizeCatalogText, readAdmissionCapacity, resolveCatalogSubjects, verifyNormalCourseClass, coachIsActive, coachCanUseUnknownCapacity, coachMatchesSubject } from '../../utils/memberCourseCatalogRules.js'
 
 const SPORT_LABELS = {
   tennis: { vi: 'Quần vợt', en: 'Tennis' },
@@ -163,6 +163,7 @@ export function MemberCourseCatalog() {
   const orderInFlightRef = useRef(new Set())
   const retryGateRef = useRef(false)
   const coachRequestInFlightRef = useRef('')
+  const capacityRequestCoachRef = useRef('')
 
   const resolvedSubjects = useMemo(() => resolveCatalogSubjects(subjects), [subjects])
   const subjectRow = resolvedSubjects.find((row) => row.key === sportKey) || resolvedSubjects[0]
@@ -344,6 +345,7 @@ export function MemberCourseCatalog() {
     setSearchParams(params, { replace: true })
     setClassDetailsId(null)
     setSelectedCoachId('')
+    capacityRequestCoachRef.current = ''
     setCapacityState({ loading: false, error: '', verified: false, available: false, count: null })
     setCoachState({ loading: false, error: '', specializations: [], coaches: [] })
     setNotice('')
@@ -415,13 +417,26 @@ export function MemberCourseCatalog() {
 
   const selectCoach = async (coach) => {
     setSelectedCoachId(String(coach.id))
+    capacityRequestCoachRef.current = String(coach.id)
     setCapacityState({ loading: true, error: '', verified: false, available: false, count: null })
     try {
       const data = await advancedRegistrationApi.getCoachAdmissionCapacity(coach.id, selectedSubject.id)
+      if (capacityRequestCoachRef.current !== String(coach.id)) return
       const parsed = readAdmissionCapacity(data)
-      setCapacityState({ loading: false, error: parsed.verified ? '' : (isVi ? 'Chưa xác định được năng lực tiếp nhận học viên; chưa thể gửi yêu cầu.' : 'Coach capacity is currently unconfirmed; request cannot be sent.'), verified: parsed.verified, available: parsed.available, count: parsed.count })
-    } catch (error) {
-      setCapacityState({ loading: false, error: getErrorMessage(error, isVi ? 'Không kiểm tra được năng lực Coach.' : 'Could not check Coach capacity.'), verified: false, available: false, count: null })
+      if (parsed.verified) {
+        setCapacityState({ loading: false, error: '', ...parsed })
+      } else if (coachCanUseUnknownCapacity(coach)) {
+        setCapacityState({ loading: false, error: '', verified: true, available: true, count: null })
+      } else {
+        setCapacityState({ loading: false, error: isVi ? 'Chưa xác định được năng lực tiếp nhận học viên; chưa thể gửi yêu cầu.' : 'Coach capacity is currently unconfirmed; request cannot be sent.', verified: false, available: false, count: null })
+      }
+    } catch {
+      if (capacityRequestCoachRef.current !== String(coach.id)) return
+      if (coachCanUseUnknownCapacity(coach)) {
+        setCapacityState({ loading: false, error: '', verified: true, available: true, count: null })
+      } else {
+        setCapacityState({ loading: false, error: isVi ? 'Không kiểm tra được năng lực Coach.' : 'Could not check Coach capacity.', verified: false, available: false, count: null })
+      }
     }
   }
 
@@ -889,7 +904,8 @@ export function MemberCourseCatalog() {
           const rejected = normalizeCatalogStatus(item.status) === 'rejected'
           const hasOrder = Boolean(item.invoiceId || item.subscriptionId || orders.some((order) => String(order.registrationId) === String(item.id)))
           const orderLocked = lockedOrderIds.includes(String(item.id)) || orderInFlightRef.current.has(String(item.id))
-          return <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[13px] font-bold uppercase tracking-wide text-brand-purple-dark">Advanced · {isVi ? 'đăng ký theo môn' : 'sport registration'}</p><h3 className="mt-1 font-bold text-slate-900">{item.subjectName || (item.subjectId ? (isVi ? 'Môn #' : 'Subject #') + item.subjectId : isVi ? 'Môn chưa xác định' : 'Unknown subject')}</h3><p className="mt-1 text-sm text-slate-600">{item.primaryCoachName || (item.primaryCoachId ? (isVi ? 'Coach #' : 'Coach #') + item.primaryCoachId : isVi ? 'Coach chưa xác định' : 'Unknown Coach')}</p></div><StatusPill status={item.status} language={language} /></div>{item.reason && <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{item.reason}</p>}{accepted && !hasOrder && orderLocked && <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><p>{isVi ? 'Kết quả tạo đơn chưa thể xác minh. Không gửi lần nữa để tránh hóa đơn trùng.' : 'Order outcome is unresolved. Another order will not be sent to avoid a duplicate invoice.'}</p><button type="button" onClick={() => reconcileAdvancedOrder(item.id)} className="mt-2 font-semibold underline">{isVi ? 'Đối soát đơn' : 'Reconcile order'}</button></div>}{accepted && !hasOrder && !orderLocked && <div className="mt-4 flex flex-wrap items-center gap-2"><select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} aria-label={isVi ? 'Phương thức thanh toán' : 'Payment method'} className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"><option value="VNPay">VNPay</option><option value="Cash">{isVi ? 'Tiền mặt tại quầy' : 'Cash at counter'}</option></select><button type="button" disabled={submitting} onClick={() => createOrder(item)} className="min-h-10 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white disabled:bg-slate-300">{isVi ? 'Tạo đơn từ yêu cầu đã duyệt' : 'Create order for accepted request'}</button></div>}{rejected && <p className="mt-3 text-sm text-slate-600">{isVi ? 'Yêu cầu bị từ chối; không có nút thanh toán.' : 'This request was rejected; payment is unavailable.'}</p>}</article>
+          const approvedAmount = item.amount ?? (String(item.subjectId) === String(selectedSubject?.id) ? selectedSubject?.advancedPrice : null)
+          return <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[13px] font-bold uppercase tracking-wide text-brand-purple-dark">Advanced · {isVi ? 'đăng ký theo môn' : 'sport registration'}</p><h3 className="mt-1 font-bold text-slate-900">{item.subjectName || (item.subjectId ? (isVi ? 'Môn #' : 'Subject #') + item.subjectId : isVi ? 'Môn chưa xác định' : 'Unknown subject')}</h3><p className="mt-1 text-sm text-slate-600">{item.primaryCoachName || (item.primaryCoachId ? (isVi ? 'Coach #' : 'Coach #') + item.primaryCoachId : isVi ? 'Coach chưa xác định' : 'Unknown Coach')}</p></div><StatusPill status={item.status} language={language} /></div>{item.reason && <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{item.reason}</p>}{accepted && !hasOrder && orderLocked && <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><p>{isVi ? 'Kết quả tạo đơn chưa thể xác minh. Không gửi lần nữa để tránh hóa đơn trùng.' : 'Order outcome is unresolved. Another order will not be sent to avoid a duplicate invoice.'}</p><button type="button" onClick={() => reconcileAdvancedOrder(item.id)} className="mt-2 font-semibold underline">{isVi ? 'Đối soát đơn' : 'Reconcile order'}</button></div>}{accepted && !hasOrder && !orderLocked && <div className="mt-4 border-t border-violet-100 pt-4"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div className="grid flex-1 gap-4 sm:grid-cols-[minmax(12rem,1fr)_auto] sm:items-end"><label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-700"><span>{isVi ? 'Phương thức thanh toán' : 'Payment method'}</span><select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} aria-label={isVi ? 'Phương thức thanh toán' : 'Payment method'} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-200"><option value="VNPay">VNPay</option><option value="Cash">{isVi ? 'Tiền mặt tại quầy' : 'Cash at counter'}</option></select></label><div className="sm:pb-1"><p className="text-xs font-semibold text-slate-500">{isVi ? 'Tổng thanh toán' : 'Total due'}</p><p className="mt-0.5 text-lg font-extrabold tracking-tight text-slate-950">{approvedAmount == null ? (isVi ? 'Chưa có thông tin giá' : 'Price unavailable') : formatMoney(approvedAmount, language)}</p></div></div><button type="button" disabled={submitting} onClick={() => createOrder(item)} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-700 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto sm:min-w-64">{submitting ? (isVi ? 'Đang tạo hóa đơn...' : 'Creating invoice...') : paymentMethod === 'Cash' ? (isVi ? 'Xác nhận thanh toán tại quầy' : 'Confirm payment at counter') : (isVi ? 'Tiến hành thanh toán' : 'Proceed to payment')}<ArrowUpRight size={16} /></button></div></div>}{rejected && <p className="mt-3 text-sm text-slate-600">{isVi ? 'Yêu cầu bị từ chối; không có nút thanh toán.' : 'This request was rejected; payment is unavailable.'}</p>}</article>
         })}</div>}
       </InlineState>}
       {enrollmentsState.error && tier === 'Normal' && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900" role="alert"><p>{enrollmentsState.error}</p><button type="button" onClick={refreshEnrollments} className="mt-2 font-semibold underline">{isVi ? 'Thử lại' : 'Retry'}</button></div>}
