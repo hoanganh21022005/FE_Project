@@ -42,6 +42,9 @@ export const ACTION_LABELS = {
   REGISTER_MEMBER_GOOGLE: "Đăng ký hội viên (Google)",
   REGISTER_MEMBER_PENDING: "Đăng ký hội viên (Chờ duyệt)",
   VERIFY_MEMBER_REGISTRATION: "Xác minh đăng ký hội viên",
+  CREATE_USER: "Tạo tài khoản người dùng",
+  CHANGE_USER_ROLE: "Đổi vai trò người dùng",
+  REISSUE_TEMPORARY_PASSWORD: "Cấp lại mật khẩu tạm",
   UPDATE_STAFF: "Cập nhật nhân viên",
   CHANGE_USER_STATUS: "Đổi trạng thái tài khoản",
   UPDATE_ROLE_PERMISSIONS: "Cập nhật quyền vai trò",
@@ -431,8 +434,8 @@ export function AdminDashboard() {
       <section className="rounded-lg border border-border-color bg-bg-card/70 p-4 text-text-primary">
         <h3 className="text-sm leading-5 font-semibold text-text-primary">Chế độ vận hành</h3>
         <p className="mt-1 text-sm leading-5 text-text-secondary max-w-3xl">
-          Portal quản trị đang hoạt động ở chế độ giám sát và tra cứu (chỉ đọc). Các tác vụ
-          thay đổi dữ liệu (tạo, sửa, khóa tài khoản hoặc thay đổi quyền) được quản lý tập trung và phân quyền nghiêm ngặt.
+          Portal quản trị đang hoạt động với đầy đủ quyền quản trị: tạo mới và cập nhật người dùng,
+          thay đổi trạng thái tài khoản, cấp lại mật khẩu tạm và điều chỉnh phân quyền vai trò theo đặc tả hệ thống.
         </p>
       </section>
     </div>

@@ -36,6 +36,7 @@ export function AdminUsersView() {
   const asideRef = useRef(null)
   const closeBtnRef = useRef(null)
   const lastTriggerRef = useRef(null)
+  const roleFilterSeqRef = useRef(0)
 
   const isSmallScreen = () =>
     typeof window !== "undefined" &&
@@ -90,22 +91,32 @@ export function AdminUsersView() {
 
   // Lọc vai trò: gửi tham số role lên server qua getAdminUsers
   // Ghi chú: giá trị role khớp tên vai trò Backend
+  // Sử dụng sequence id để chống race condition: chỉ phản hồi của yêu cầu cuối cùng được áp dụng
   const handleRoleFilterChange = async (newRole) => {
     setRoleFilter(newRole)
     if (newRole === "all") {
+      roleFilterSeqRef.current += 1
       setServerUsers(null)
       setRoleError(null)
+      setRoleLoading(false)
       return
     }
+    const currentSeq = ++roleFilterSeqRef.current
     setRoleLoading(true)
     setRoleError(null)
     try {
       const data = await getAdminUsers({ role: newRole })
-      setServerUsers(data)
+      if (currentSeq === roleFilterSeqRef.current) {
+        setServerUsers(data)
+      }
     } catch (err) {
-      setRoleError(err?.message || "Không thể lọc người dùng theo vai trò từ máy chủ.")
+      if (currentSeq === roleFilterSeqRef.current) {
+        setRoleError(err?.message || "Không thể lọc người dùng theo vai trò từ máy chủ.")
+      }
     } finally {
-      setRoleLoading(false)
+      if (currentSeq === roleFilterSeqRef.current) {
+        setRoleLoading(false)
+      }
     }
   }
 
