@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react"
 import { AlertTriangle, CheckCircle, LoaderCircle, UserPlus, UserRound, X } from "lucide-react"
 import { createUser, getSpecializations, getUserById, updateUser } from "../../api/adminApi.js"
 import { ROLE_NAME_LABELS } from "./views/AdminRolesView.jsx"
+import { useDialogFocus } from "./useDialogFocus.js"
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -156,23 +157,14 @@ export function UserFormModal({
     return () => clearTimeout(timer)
   }, [isOpen, isEditMode, initialUser, roles])
 
-  // Lắng nghe Escape để đóng modal
-  useEffect(() => {
-    if (!isOpen) return
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape" && !submitting) {
-        e.preventDefault()
-        onClose()
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown)
-      if (triggerRef?.current && document.contains(triggerRef.current)) {
-        triggerRef.current.focus({ preventScroll: true })
-      }
-    }
-  }, [isOpen, submitting, onClose, triggerRef])
+  useDialogFocus({
+    isOpen,
+    onClose,
+    dialogRef: modalRef,
+    initialFocusRef: firstInputRef,
+    triggerRef,
+    isLoading: submitting,
+  })
 
   if (!isOpen) return null
 
@@ -327,7 +319,7 @@ export function UserFormModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="user-form-modal-title"
-        className="w-full max-w-2xl rounded-xl border border-border-color bg-bg-card p-6 shadow-xl text-text-primary space-y-4 my-8"
+        className="w-full max-w-2xl rounded-lg border border-border-color bg-bg-card p-6 shadow-lg text-text-primary space-y-4 my-8"
       >
         <div className="flex items-start justify-between gap-3 border-b border-border-color/60 pb-3">
           <div className="flex items-center gap-2.5">
@@ -389,12 +381,14 @@ export function UserFormModal({
                 onChange={handleChange}
                 placeholder="Nguyễn Văn A"
                 disabled={submitting}
+                aria-invalid={Boolean(errors.fullName)}
+                aria-describedby={errors.fullName ? "user-form-fullname-error" : undefined}
                 className={`min-h-11 w-full rounded border bg-bg-card px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary ${
                   errors.fullName ? "border-status-danger" : "border-border-strong"
                 }`}
               />
               {errors.fullName && (
-                <p className="text-xs text-status-danger">{errors.fullName}</p>
+                <p id="user-form-fullname-error" className="text-xs text-status-danger">{errors.fullName}</p>
               )}
             </div>
 
@@ -412,17 +406,26 @@ export function UserFormModal({
                 placeholder="user@example.com"
                 readOnly={isEditMode}
                 disabled={submitting}
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={
+                  [
+                    isEditMode ? "user-form-email-hint" : null,
+                    errors.email ? "user-form-email-error" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || undefined
+                }
                 className={`min-h-11 w-full rounded border px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary ${
-                  isEditMode ? "bg-bg-secondary/80 cursor-not-allowed border-border-color" : "bg-bg-card border-border-strong"
+                  isEditMode ? "bg-bg-secondary/80 cursor-not-allowed border-border-strong" : "bg-bg-card border-border-strong"
                 } ${errors.email ? "border-status-danger" : ""}`}
               />
               {isEditMode && (
-                <p className="text-[11px] text-text-muted mt-1 leading-4">
+                <p id="user-form-email-hint" className="text-xs text-text-muted mt-1 leading-4">
                   Địa chỉ email không thể thay đổi sau khi tạo tài khoản.
                 </p>
               )}
               {errors.email && (
-                <p className="text-xs text-status-danger">{errors.email}</p>
+                <p id="user-form-email-error" className="text-xs text-status-danger">{errors.email}</p>
               )}
             </div>
 
@@ -543,16 +546,22 @@ export function UserFormModal({
                   onChange={handleChange}
                   placeholder="1"
                   disabled={submitting}
+                  aria-invalid={Boolean(errors.centerId)}
+                  aria-describedby={
+                    errors.centerId
+                      ? "user-form-center-error user-form-center-hint"
+                      : "user-form-center-hint"
+                  }
                   className={`min-h-11 w-full rounded border bg-bg-card px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary ${
                     errors.centerId ? "border-status-danger" : "border-border-strong"
                   }`}
                 />
-                <p className="text-[11px] text-text-muted mt-1 leading-4">
+                {errors.centerId && (
+                  <p id="user-form-center-error" className="text-xs text-status-danger mt-1">{errors.centerId}</p>
+                )}
+                <p id="user-form-center-hint" className="text-xs text-text-muted mt-1 leading-4">
                   Hệ thống hiện có một cơ sở (mã 1). Bắt buộc với mọi vai trò trừ Quản trị viên.
                 </p>
-                {errors.centerId && (
-                  <p className="text-xs text-status-danger mt-1">{errors.centerId}</p>
-                )}
               </div>
             )}
 
@@ -594,7 +603,7 @@ export function UserFormModal({
                   Chuyên môn huấn luyện (Tùy chọn cho HLV):
                 </label>
                 {loadingSpecs && (
-                  <span className="text-[11px] text-text-muted flex items-center gap-1">
+                  <span className="text-xs text-text-muted flex items-center gap-1">
                     <LoaderCircle className="w-3 h-3 animate-spin" />
                     Đang tải chuyên môn...
                   </span>

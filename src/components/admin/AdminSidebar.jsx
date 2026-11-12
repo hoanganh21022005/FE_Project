@@ -46,7 +46,7 @@ export function AdminSidebar({
       >
         <div className="h-full flex flex-col justify-between">
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="h-16 px-5 flex items-center justify-between border-b border-brand-dark-hover shrink-0">
+            <div className="h-14 px-5 flex items-center justify-between border-b border-brand-dark-hover shrink-0">
               <button
                 type="button"
                 onClick={() => select("admin_dashboard")}
@@ -84,7 +84,7 @@ export function AdminSidebar({
             >
               {groups.map((group) => (
                 <div key={group.title} className="space-y-1">
-                  <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-text-inverse/60 select-none">
+                  <p className="px-3 text-xs leading-4 font-bold uppercase tracking-wider text-text-inverse/70 select-none">
                     {group.title}
                   </p>
                   {group.items.map(({ id, label, icon: Icon }) => {
@@ -103,7 +103,7 @@ export function AdminSidebar({
                       >
                         <Icon
                           className={`w-4 h-4 shrink-0 ${
-                            active ? "text-white" : "text-text-inverse/70"
+                            active ? "text-brand-accent" : "text-text-inverse/70"
                           }`}
                         />
                         <span className="truncate">{label}</span>
@@ -119,6 +119,7 @@ export function AdminSidebar({
             <button
               type="button"
               onClick={() => select("profile")}
+              aria-current={currentTab === "profile" ? "page" : undefined}
               className={`w-full min-h-11 px-3 flex items-center gap-3 rounded text-sm leading-5 font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
                 currentTab === "profile"
                   ? "bg-brand-primary text-text-inverse font-bold border-l-2 border-brand-accent"
@@ -128,7 +129,7 @@ export function AdminSidebar({
               <UserCircle
                 className={`w-4 h-4 shrink-0 ${
                   currentTab === "profile"
-                    ? "text-white"
+                    ? "text-brand-accent"
                     : "text-text-inverse/70"
                 }`}
               />

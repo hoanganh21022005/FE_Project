@@ -15,6 +15,7 @@ globalThis.sessionStorage = {
 };
 globalThis.window = {
   sessionStorage: globalThis.sessionStorage,
+  location: { origin: 'http://localhost:5173' },
 };
 
 import {

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react"
 import { AlertTriangle, LoaderCircle, ShieldAlert, X } from "lucide-react"
 import { updateUserStatus } from "../../api/adminApi.js"
+import { useDialogFocus } from "./useDialogFocus.js"
 
 const STATUS_OPTIONS = [
   { value: "Active", label: "Hoạt động (Active)", desc: "Cho phép người dùng đăng nhập và sử dụng hệ thống bình thường." },
@@ -43,22 +44,13 @@ export function UserStatusDialog({
     }
   }, [isOpen, user])
 
-  useEffect(() => {
-    if (!isOpen) return
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape" && !loading) {
-        e.preventDefault()
-        onClose()
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown)
-      if (triggerRef?.current && document.contains(triggerRef.current)) {
-        triggerRef.current.focus({ preventScroll: true })
-      }
-    }
-  }, [isOpen, loading, onClose, triggerRef])
+  useDialogFocus({
+    isOpen,
+    onClose,
+    dialogRef,
+    triggerRef,
+    isLoading: loading,
+  })
 
   if (!isOpen || !user) return null
 
@@ -115,7 +107,7 @@ export function UserStatusDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="user-status-dialog-title"
-        className="w-full max-w-lg rounded-xl border border-border-color bg-bg-card p-6 shadow-xl text-text-primary space-y-4"
+        className="w-full max-w-lg rounded-lg border border-border-color bg-bg-card p-6 shadow-lg text-text-primary space-y-4"
       >
         <div className="flex items-start justify-between gap-3 border-b border-border-color/60 pb-3">
           <div>
