@@ -1,10 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { AlertTriangle, RefreshCw, Search, ShieldCheck, UserRound, X } from "lucide-react"
+import {
+  AlertTriangle,
+  CheckCircle2,
+  KeyRound,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
+  UserCheck,
+  UserRound,
+  X,
+} from "lucide-react"
 import { AdminResourceState } from "../AdminResourceState.jsx"
 import { useAdminData } from "../AdminDataContext.jsx"
+import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { formatAdminDate } from "../adminDateUtils.js"
 import { getAdminUsers, getUserById } from "../../../api/adminApi.js"
 import { PERMISSION_LABEL_MAP, ROLE_NAME_LABELS } from "./AdminRolesView.jsx"
+import { UserStatusDialog } from "../UserStatusDialog.jsx"
+import { UserRoleDialog } from "../UserRoleDialog.jsx"
+import { UserReissuePasswordDialog } from "../UserReissuePasswordDialog.jsx"
+import { UserRowActions } from "../UserRowActions.jsx"
 
 const statusLabel = (status) =>
   ({
@@ -17,6 +33,9 @@ const statusLabel = (status) =>
 
 export function AdminUsersView() {
   const { resources, retry } = useAdminData()
+  const { currentUser, authUser } = useSCMS()
+  const currentUserId = Number(currentUser?.id ?? authUser?.id ?? 0)
+
   const [query, setQuery] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -32,6 +51,15 @@ export function AdminUsersView() {
   const [detailUser, setDetailUser] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState(null)
+
+  // Dialog targets cho các thao tác ghi
+  const [statusTargetUser, setStatusTargetUser] = useState(null)
+  const [roleTargetUser, setRoleTargetUser] = useState(null)
+  const [reissueTargetUser, setReissueTargetUser] = useState(null)
+  const [activeDialogTriggerRef, setActiveDialogTriggerRef] = useState(null)
+
+  // Thông báo phản hồi thao tác
+  const [actionAlert, setActionAlert] = useState(null)
 
   const asideRef = useRef(null)
   const closeBtnRef = useRef(null)
@@ -128,6 +156,76 @@ export function AdminUsersView() {
     return [...new Set([...fromRoles, ...fromUsers])].sort()
   }, [resources.roles.data, resources.users.data])
 
+  // Số lượng quản trị viên Active hiện tại trong hệ thống
+  const activeAdminCount = useMemo(() => {
+    return (resources.users.data || []).filter(
+      (u) =>
+        String(u.roleName || "").toLowerCase() === "admin" &&
+        String(u.status || "").toLowerCase() === "active",
+    ).length
+  }, [resources.users.data])
+
+  const handleStatusSuccess = (res, newStatus) => {
+    const updatedStatus = newStatus.toLowerCase()
+    setActionAlert({
+      type: "success",
+      message: `Đã cập nhật trạng thái tài khoản sang "${statusLabel(updatedStatus)}".`,
+    })
+    retry("users")
+    retry("auditLogs")
+    if (selectedUserSummary && selectedUserSummary.id === statusTargetUser?.id) {
+      setSelectedUserSummary((prev) => (prev ? { ...prev, status: updatedStatus } : null))
+      setDetailUser((prev) => (prev ? { ...prev, status: updatedStatus } : null))
+    }
+  }
+
+  const handleRoleSuccess = (res, targetRole) => {
+    setActionAlert({
+      type: "success",
+      message: `Đã đổi vai trò tài khoản sang "${ROLE_NAME_LABELS[targetRole.name] || targetRole.name}".`,
+    })
+    retry("users")
+    retry("roles")
+    retry("auditLogs")
+    if (selectedUserSummary && selectedUserSummary.id === roleTargetUser?.id) {
+      setSelectedUserSummary((prev) =>
+        prev
+          ? {
+              ...prev,
+              roleId: targetRole.id,
+              roleName: targetRole.name,
+            }
+          : null,
+      )
+      setDetailUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              roleId: targetRole.id,
+              roleName: targetRole.name,
+            }
+          : null,
+      )
+    }
+  }
+
+  const handleReissueSuccess = (res) => {
+    retry("auditLogs")
+    if (res?.emailSent === false) {
+      setActionAlert({
+        type: "warning",
+        message:
+          res.warning ||
+          "Đã cấp lại mật khẩu tạm nhưng gửi email thất bại. Vui lòng kiểm tra lại cấu hình email.",
+      })
+    } else {
+      setActionAlert({
+        type: "success",
+        message: "Đã cấp lại mật khẩu tạm thành công và gửi thông tin qua email.",
+      })
+    }
+  }
+
   // Danh sách cơ sở: từ serverUsers nếu đã lọc vai trò qua server, hoặc từ resources.users.data
   const baseUsers = serverUsers !== null ? serverUsers : (resources.users.data || [])
 
@@ -154,9 +252,39 @@ export function AdminUsersView() {
           Danh sách người dùng
         </h2>
         <p className="mt-1 text-sm leading-5 text-text-secondary">
-          Danh sách tài khoản được đồng bộ trực tiếp từ hệ thống quản trị trung tâm; hỗ trợ tìm kiếm và phân loại nhanh (chỉ đọc).
+          Danh sách tài khoản được đồng bộ trực tiếp từ hệ thống quản trị trung tâm; hỗ trợ tìm kiếm, phân loại và quản trị tài khoản an toàn.
         </p>
       </div>
+
+      {actionAlert && (
+        <div
+          role="alert"
+          className={`p-3.5 rounded-lg border flex items-center justify-between gap-3 text-sm animate-in fade-in ${
+            actionAlert.type === "success"
+              ? "border-status-success-border bg-status-success-bg text-status-success"
+              : actionAlert.type === "warning"
+                ? "border-status-warning-border bg-status-warning-bg text-status-warning"
+                : "border-status-danger-border bg-status-danger-bg text-status-danger"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {actionAlert.type === "success" ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+            )}
+            <span>{actionAlert.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionAlert(null)}
+            className="w-8 h-8 inline-flex items-center justify-center rounded hover:bg-black/5 transition-colors cursor-pointer"
+            aria-label="Đóng thông báo"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       <div className="rounded-lg border border-border-color bg-bg-card p-3 text-text-primary flex flex-col md:flex-row gap-2.5">
         <label className="relative flex-1 min-w-0">
@@ -286,13 +414,22 @@ export function AdminUsersView() {
                         {formatAdminDate(user.createdAt)}
                       </td>
                       <td className="px-3.5 py-1 align-middle text-sm leading-5 text-text-primary text-right">
-                        <button
-                          type="button"
-                          onClick={(event) => handleSelectUser(user, event)}
-                          className="inline-flex min-h-11 items-center justify-center rounded px-3 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary hover:text-brand-primary transition-colors cursor-pointer scroll-mt-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
-                        >
-                          Xem
-                        </button>
+                        <UserRowActions
+                          user={user}
+                          onViewDetails={(event) => handleSelectUser(user, event)}
+                          onChangeStatus={(btnRef) => {
+                            setActiveDialogTriggerRef(btnRef)
+                            setStatusTargetUser(user)
+                          }}
+                          onChangeRole={(btnRef) => {
+                            setActiveDialogTriggerRef(btnRef)
+                            setRoleTargetUser(user)
+                          }}
+                          onReissuePassword={(btnRef) => {
+                            setActiveDialogTriggerRef(btnRef)
+                            setReissueTargetUser(user)
+                          }}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -423,6 +560,48 @@ export function AdminUsersView() {
                         </p>
                       )}
                     </div>
+
+                    {/* Thao tác quản trị tài khoản trên panel chi tiết */}
+                    <div className="pt-3 border-t border-border-color/60 space-y-2.5">
+                      <p className="text-xs font-semibold text-text-secondary">
+                        Thao tác quản trị
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            setActiveDialogTriggerRef({ current: e.currentTarget })
+                            setStatusTargetUser(detailUser || selectedUserSummary)
+                          }}
+                          className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2.5 py-2 rounded text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                        >
+                          <UserCheck className="w-4 h-4 text-brand-primary" />
+                          <span>Trạng thái</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            setActiveDialogTriggerRef({ current: e.currentTarget })
+                            setRoleTargetUser(detailUser || selectedUserSummary)
+                          }}
+                          className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2.5 py-2 rounded text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                        >
+                          <ShieldCheck className="w-4 h-4 text-brand-primary" />
+                          <span>Đổi vai trò</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            setActiveDialogTriggerRef({ current: e.currentTarget })
+                            setReissueTargetUser(detailUser || selectedUserSummary)
+                          }}
+                          className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2.5 py-2 rounded text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                        >
+                          <KeyRound className="w-4 h-4 text-status-warning" />
+                          <span>Cấp MK</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </aside>
@@ -430,6 +609,36 @@ export function AdminUsersView() {
           </div>
         </AdminResourceState>
       )}
+
+      {/* Các Dialog thao tác ghi */}
+      <UserStatusDialog
+        isOpen={!!statusTargetUser}
+        onClose={() => setStatusTargetUser(null)}
+        user={statusTargetUser}
+        currentUserId={currentUserId}
+        activeAdminCount={activeAdminCount}
+        onSuccess={handleStatusSuccess}
+        triggerRef={activeDialogTriggerRef}
+      />
+
+      <UserRoleDialog
+        isOpen={!!roleTargetUser}
+        onClose={() => setRoleTargetUser(null)}
+        user={roleTargetUser}
+        roles={resources.roles.data || []}
+        currentUserId={currentUserId}
+        activeAdminCount={activeAdminCount}
+        onSuccess={handleRoleSuccess}
+        triggerRef={activeDialogTriggerRef}
+      />
+
+      <UserReissuePasswordDialog
+        isOpen={!!reissueTargetUser}
+        onClose={() => setReissueTargetUser(null)}
+        user={reissueTargetUser}
+        onSuccess={handleReissueSuccess}
+        triggerRef={activeDialogTriggerRef}
+      />
     </div>
   )
 }
