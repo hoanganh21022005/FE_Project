@@ -1,5 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CalendarClock, Check, Clock3, Loader2, MapPin, RefreshCw, UserRound, UserRoundCog, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  CalendarClock,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Filter,
+  Loader2,
+  MapPin,
+  RefreshCw,
+  RotateCcw,
+  ShieldAlert,
+  UserRound,
+  UserRoundCog,
+  X,
+} from 'lucide-react'
 import { useSCMS } from '../../context/SCMSContext'
 import { getErrorMessage } from '../../api/apiErrors.js'
 import {
@@ -52,6 +68,10 @@ function SessionIncidentsView() {
   const [timeSlots, setTimeSlots] = useState([])
   const [formError, setFormError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [activeTab, setActiveTab] = useState('sessions')
+  const [incidentStats, setIncidentStats] = useState({ total: 0, pending: 0 })
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
   const requestId = useRef(0)
   const mutationLock = useRef(false)
   const mockSessions = useRef(null)
@@ -341,39 +361,381 @@ function SessionIncidentsView() {
   const rescheduleOutdoor = rescheduleSessionItem ? isOutdoorSession(rescheduleSessionItem, rescheduleForm.newRoomId) : false
   const rescheduleCoachCandidates = substituteSessionItem ? coachesForSession(coachList, substituteSessionItem) : { coaches: [], specializationMatched: null }
 
+  const defaultStartDate = useMemo(() => localDateString(), [])
+  const defaultEndDate = useMemo(() => addDays(localDateString(), 30), [])
+  const isFiltered = Boolean(
+    filters.classId ||
+    filters.coachId ||
+    filters.roomId ||
+    filters.status !== 'Scheduled' ||
+    filters.startDate !== defaultStartDate ||
+    filters.endDate !== defaultEndDate
+  )
+
+  const handleResetFilters = () => {
+    setFilters({
+      classId: '',
+      coachId: '',
+      roomId: '',
+      startDate: defaultStartDate,
+      endDate: defaultEndDate,
+      status: 'Scheduled',
+    })
+    setCurrentPage(1)
+  }
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filters])
+
+  const totalPages = Math.max(1, Math.ceil(filteredSessions.length / pageSize))
+  const paginatedSessions = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredSessions.slice(start, start + pageSize)
+  }, [filteredSessions, currentPage, pageSize])
+
   return (
-    <div className="space-y-6 text-slate-900">
-      <header className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-xs">
-        <div className="flex items-center gap-3"><div className="rounded border border-blue-200 bg-blue-50 p-2.5 text-blue-800"><CalendarClock className="h-5 w-5" /></div><div><h1 className="text-base font-bold">{vi ? 'Sự cố lịch học' : 'Session incidents'}</h1><p className="mt-1 text-xs text-slate-500">{vi ? 'Xử lý dời lịch và thay Coach cho từng buổi.' : 'Reschedule or substitute the coach for an individual session.'}</p></div></div>
-        <button type="button" onClick={loadSessions} disabled={loading} className="inline-flex min-h-11 items-center gap-2 rounded border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />{vi ? 'Tải lại' : 'Refresh'}</button>
+    <div className="space-y-5 text-slate-900">
+      {/* Header */}
+      <header className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs">
+        <div className="flex items-center gap-3.5">
+          <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-2.5 text-brand-primary shadow-2xs">
+            <CalendarClock className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-base sm:text-lg font-bold text-slate-900">
+              {vi ? 'Sự cố & Điều phối lịch học' : 'Session Incidents & Scheduling'}
+            </h1>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {vi ? 'Xử lý dời lịch, thay thế HLV và giải quyết các sự cố vận hành của trung tâm.' : 'Reschedule sessions, substitute coaches, and manage center incidents.'}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={loadSessions}
+          disabled={loading}
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 disabled:opacity-50 transition"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
+          {vi ? 'Tải lại' : 'Refresh'}
+        </button>
       </header>
 
-      <CenterIncidentsPanel apiEnabled={apiEnabled} currentUser={currentUser} language={language} showToast={showToast} />
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b border-slate-200">
+        <button
+          type="button"
+          onClick={() => setActiveTab('sessions')}
+          className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs sm:text-sm font-bold transition-all ${
+            activeTab === 'sessions'
+              ? 'border-brand-primary text-brand-primary'
+              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800'
+          }`}
+        >
+          <CalendarClock className="h-4 w-4" />
+          <span>{vi ? 'Điều phối & Dời lịch buổi học' : 'Session Scheduling'}</span>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+            activeTab === 'sessions' ? 'bg-brand-blue-soft text-brand-primary' : 'bg-slate-100 text-slate-600'
+          }`}>
+            {filteredSessions.length}
+          </span>
+        </button>
 
-      {!canManage && <p className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{vi ? 'Bạn có thể xem lịch; thao tác dời lịch/thay Coach yêu cầu MANAGE_CLASSES.' : 'You can view the schedule; rescheduling and coach changes require MANAGE_CLASSES.'}</p>}
-      {lookupsError && <p role="alert" className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{lookupsError}</p>}
-      {listError && <div role="alert" className="flex items-center gap-2 rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800"><AlertTriangle className="h-4 w-4 shrink-0" />{listError}</div>}
+        <button
+          type="button"
+          onClick={() => setActiveTab('center-incidents')}
+          className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs sm:text-sm font-bold transition-all ${
+            activeTab === 'center-incidents'
+              ? 'border-brand-primary text-brand-primary'
+              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800'
+          }`}
+        >
+          <AlertTriangle className="h-4 w-4" />
+          <span>{vi ? 'Sự cố cấp trung tâm' : 'Center Incidents'}</span>
+          {incidentStats.total > 0 && (
+            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+              incidentStats.pending > 0
+                ? 'border border-amber-200 bg-amber-100 text-amber-800'
+                : activeTab === 'center-incidents'
+                  ? 'bg-brand-blue-soft text-brand-primary'
+                  : 'bg-slate-100 text-slate-600'
+            }`}>
+              {incidentStats.total}
+            </span>
+          )}
+          {incidentStats.pending > 0 && (
+            <span className="h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white" title={vi ? 'Có sự cố chờ xử lý' : 'Pending incidents'} />
+          )}
+        </button>
+      </div>
 
-      <section className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-xs sm:grid-cols-2 lg:grid-cols-4">
-        <label className="text-xs font-semibold text-slate-700">{vi ? 'Lớp' : 'Class'}<select value={filters.classId} onChange={(event) => setFilters((old) => ({ ...old, classId: event.target.value }))} className="mt-1 min-h-11 w-full rounded border border-slate-300 bg-slate-50 px-2"><option value="">{vi ? 'Tất cả lớp' : 'All classes'}</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.name || `#${item.id}`}</option>)}</select></label>
-        <label className="text-xs font-semibold text-slate-700">Coach<select value={filters.coachId} onChange={(event) => setFilters((old) => ({ ...old, coachId: event.target.value }))} className="mt-1 min-h-11 w-full rounded border border-slate-300 bg-slate-50 px-2"><option value="">{vi ? 'Tất cả Coach' : 'All coaches'}</option>{coachList.map((coach) => <option key={coach.id} value={coach.id}>{coach.name}</option>)}</select></label>
-        <label className="text-xs font-semibold text-slate-700">{vi ? 'Phòng' : 'Room'}<select value={filters.roomId} onChange={(event) => setFilters((old) => ({ ...old, roomId: event.target.value }))} className="mt-1 min-h-11 w-full rounded border border-slate-300 bg-slate-50 px-2"><option value="">{vi ? 'Tất cả phòng' : 'All rooms'}</option>{rooms.map((room) => <option key={room.id} value={room.id}>{room.roomCode ? `${String(room.roomCode).trim()} - ${room.name}` : room.name}</option>)}</select></label>
-        <label className="text-xs font-semibold text-slate-700">{vi ? 'Trạng thái' : 'Status'}<select value={filters.status} onChange={(event) => setFilters((old) => ({ ...old, status: event.target.value }))} className="mt-1 min-h-11 w-full rounded border border-slate-300 bg-slate-50 px-2"><option value="">{vi ? 'Tất cả' : 'All'}</option><option value="Scheduled">Scheduled</option><option value="Completed">Completed</option><option value="Cancelled">Cancelled</option></select></label>
-        <label className="text-xs font-semibold text-slate-700">{vi ? 'Từ ngày' : 'From'}<input type="date" value={filters.startDate} onChange={(event) => setFilters((old) => ({ ...old, startDate: event.target.value }))} className="mt-1 min-h-11 w-full rounded border border-slate-300 bg-slate-50 px-2" /></label>
-        <label className="text-xs font-semibold text-slate-700">{vi ? 'Đến ngày' : 'To'}<input type="date" value={filters.endDate} onChange={(event) => setFilters((old) => ({ ...old, endDate: event.target.value }))} className="mt-1 min-h-11 w-full rounded border border-slate-300 bg-slate-50 px-2" /></label>
-      </section>
+      {activeTab === 'center-incidents' ? (
+        <CenterIncidentsPanel
+          apiEnabled={apiEnabled}
+          currentUser={currentUser}
+          language={language}
+          showToast={showToast}
+          onIncidentsChange={setIncidentStats}
+        />
+      ) : (
+        <div className="space-y-4">
+          {!canManage && (
+            <div className="flex items-center gap-2.5 rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900">
+              <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600" />
+              <span>{vi ? 'Tài khoản của bạn có quyền xem lịch; các thao tác dời lịch hoặc thay Coach yêu cầu quyền quản lý lớp học.' : 'You can view the schedule; rescheduling and coach substitution require class management permissions.'}</span>
+            </div>
+          )}
+          {lookupsError && <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">{lookupsError}</p>}
+          {listError && (
+            <div role="alert" className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>{listError}</span>
+            </div>
+          )}
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between"><h2 className="text-sm font-bold">{vi ? 'Buổi học' : 'Sessions'}</h2><span className="text-xs text-slate-500">{filteredSessions.length}</span></div>
-        {loading && <div className="rounded-lg border border-slate-200 bg-white p-8 text-center text-sm text-slate-500"><Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />{vi ? 'Đang tải lịch…' : 'Loading sessions…'}</div>}
-        {!loading && listError && filteredSessions.length === 0 && <p className="rounded-lg border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">{vi ? 'Không có dữ liệu mới; lịch cũ nếu đã tải vẫn được giữ.' : 'No new data; previously loaded sessions are retained when available.'}</p>}
-        {!loading && !listError && filteredSessions.length === 0 && <p className="rounded-lg border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">{vi ? 'Không có buổi học trong bộ lọc này.' : 'No sessions match these filters.'}</p>}
-        {!loading && filteredSessions.map((session) => {
-          const completed = String(session.status).toLowerCase() === 'completed'
-          const cancelled = String(session.status).toLowerCase() === 'cancelled'
-          return <article key={session.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-xs"><div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0 space-y-2"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold">{session.className || (vi ? 'Buổi học' : 'Session')}</h3>{session.subjectName && <span className="rounded bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-800">{session.subjectName}</span>}<span className="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">{session.status || '—'}</span></div><div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-600"><span className="inline-flex items-center gap-1"><CalendarClock className="h-3.5 w-3.5" />{session.sessionDate || '—'}</span><span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{String(session.startTime || '').slice(0, 5) || '—'}–{String(session.endTime || '').slice(0, 5) || '—'}</span><span className="inline-flex items-center gap-1"><UserRound className="h-3.5 w-3.5" />{session.coachName || '—'}</span><span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{session.roomName || '—'}</span></div></div><div className="flex flex-wrap gap-2">{canManage && !completed && <button type="button" onClick={() => openReschedule(session)} className="inline-flex min-h-10 items-center gap-2 rounded border border-slate-300 px-3 text-xs font-bold hover:bg-slate-50"><CalendarClock className="h-4 w-4" />{vi ? 'Dời lịch' : 'Reschedule'}</button>}{canManage && !completed && !cancelled && <button type="button" onClick={() => openSubstitute(session)} disabled={apiEnabled && !coachList.length} className="inline-flex min-h-10 items-center gap-2 rounded border border-slate-300 px-3 text-xs font-bold hover:bg-slate-50 disabled:opacity-50"><UserRoundCog className="h-4 w-4" />{vi ? 'Thay Coach' : 'Substitute coach'}</button>}</div></div>{session.enrolledCount != null && session.maxCapacity != null && <p className="mt-3 text-xs text-slate-500">{vi ? 'Số học viên' : 'Enrolled'}: {session.enrolledCount}/{session.maxCapacity}</p>}</article>
-        })}
-      </section>
+          {/* Filter Bar */}
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <Filter className="h-3.5 w-3.5 text-slate-500" />
+                <span>{vi ? 'Bộ lọc tìm kiếm buổi học' : 'Filter sessions'}</span>
+              </div>
+              {isFiltered && (
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-brand-primary hover:text-brand-primary/80 transition"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  {vi ? 'Đặt lại bộ lọc' : 'Reset filters'}
+                </button>
+              )}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <label className="text-xs font-semibold text-slate-700">
+                {vi ? 'Lớp học' : 'Class'}
+                <select
+                  value={filters.classId}
+                  onChange={(event) => setFilters((old) => ({ ...old, classId: event.target.value }))}
+                  className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 text-xs text-slate-800 focus:border-brand-primary focus:bg-white focus:outline-hidden"
+                >
+                  <option value="">{vi ? 'Tất cả lớp' : 'All classes'}</option>
+                  {classes.map((item) => <option key={item.id} value={item.id}>{item.name || `#${item.id}`}</option>)}
+                </select>
+              </label>
+
+              <label className="text-xs font-semibold text-slate-700">
+                Coach
+                <select
+                  value={filters.coachId}
+                  onChange={(event) => setFilters((old) => ({ ...old, coachId: event.target.value }))}
+                  className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 text-xs text-slate-800 focus:border-brand-primary focus:bg-white focus:outline-hidden"
+                >
+                  <option value="">{vi ? 'Tất cả Coach' : 'All coaches'}</option>
+                  {coachList.map((coach) => <option key={coach.id} value={coach.id}>{coach.name}</option>)}
+                </select>
+              </label>
+
+              <label className="text-xs font-semibold text-slate-700">
+                {vi ? 'Phòng / Sân' : 'Room'}
+                <select
+                  value={filters.roomId}
+                  onChange={(event) => setFilters((old) => ({ ...old, roomId: event.target.value }))}
+                  className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 text-xs text-slate-800 focus:border-brand-primary focus:bg-white focus:outline-hidden"
+                >
+                  <option value="">{vi ? 'Tất cả phòng' : 'All rooms'}</option>
+                  {rooms.map((room) => <option key={room.id} value={room.id}>{room.roomCode ? `${String(room.roomCode).trim()} - ${room.name}` : room.name}</option>)}
+                </select>
+              </label>
+
+              <label className="text-xs font-semibold text-slate-700">
+                {vi ? 'Trạng thái' : 'Status'}
+                <select
+                  value={filters.status}
+                  onChange={(event) => setFilters((old) => ({ ...old, status: event.target.value }))}
+                  className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 text-xs text-slate-800 focus:border-brand-primary focus:bg-white focus:outline-hidden"
+                >
+                  <option value="">{vi ? 'Tất cả' : 'All'}</option>
+                  <option value="Scheduled">{vi ? 'Đã lên lịch (Scheduled)' : 'Scheduled'}</option>
+                  <option value="Completed">{vi ? 'Hoàn thành (Completed)' : 'Completed'}</option>
+                  <option value="Cancelled">{vi ? 'Đã hủy (Cancelled)' : 'Cancelled'}</option>
+                </select>
+              </label>
+
+              <label className="text-xs font-semibold text-slate-700">
+                {vi ? 'Từ ngày' : 'From'}
+                <input
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(event) => setFilters((old) => ({ ...old, startDate: event.target.value }))}
+                  className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50/70 px-2 text-xs text-slate-800 focus:border-brand-primary focus:bg-white focus:outline-hidden"
+                />
+              </label>
+
+              <label className="text-xs font-semibold text-slate-700">
+                {vi ? 'Đến ngày' : 'To'}
+                <input
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(event) => setFilters((old) => ({ ...old, endDate: event.target.value }))}
+                  className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50/70 px-2 text-xs text-slate-800 focus:border-brand-primary focus:bg-white focus:outline-hidden"
+                />
+              </label>
+            </div>
+          </section>
+
+          {/* Sessions List */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                {vi ? 'Danh sách buổi học' : 'Sessions list'}
+              </h2>
+              <span className="text-xs text-slate-500 font-medium">
+                {vi ? `Tổng số: ${filteredSessions.length} buổi` : `Total: ${filteredSessions.length} sessions`}
+              </span>
+            </div>
+
+            {loading && (
+              <div className="rounded-xl border border-slate-200 bg-white p-12 text-center text-xs text-slate-500 shadow-xs">
+                <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-brand-primary" />
+                {vi ? 'Đang tải danh sách lịch học…' : 'Loading sessions…'}
+              </div>
+            )}
+            {!loading && listError && filteredSessions.length === 0 && (
+              <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-500 shadow-xs">
+                {vi ? 'Không có dữ liệu mới; lịch cũ nếu đã tải vẫn được giữ.' : 'No new data; previously loaded sessions are retained when available.'}
+              </div>
+            )}
+            {!loading && !listError && filteredSessions.length === 0 && (
+              <div className="rounded-xl border border-slate-200 bg-white p-12 text-center text-xs text-slate-500 shadow-xs">
+                <p className="font-semibold text-slate-700">{vi ? 'Không tìm thấy buổi học phù hợp' : 'No sessions match these filters'}</p>
+                <p className="mt-1 text-slate-400">{vi ? 'Hãy thử điều chỉnh lại bộ lọc thời gian hoặc lớp học.' : 'Try adjusting the date range or filters.'}</p>
+              </div>
+            )}
+
+            {!loading && paginatedSessions.map((session) => {
+              const status = String(session.status || '').toLowerCase()
+              const completed = status === 'completed'
+              const cancelled = status === 'cancelled' || status === 'canceled'
+
+              return (
+                <article
+                  key={session.id}
+                  className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs transition hover:border-slate-300 hover:shadow-sm"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-bold text-slate-900 text-sm">
+                          {session.className || (vi ? 'Buổi học' : 'Session')}
+                        </h3>
+                        {session.subjectName && (
+                          <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-200">
+                            {session.subjectName}
+                          </span>
+                        )}
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
+                          completed
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : cancelled
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : 'bg-brand-blue-soft text-brand-primary border-blue-200'
+                        }`}>
+                          {session.status || '—'}
+                        </span>
+                        {session.enrolledCount != null && session.maxCapacity != null && (
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 border border-slate-200">
+                            {vi ? `Học viên: ${session.enrolledCount}/${session.maxCapacity}` : `Enrolled: ${session.enrolledCount}/${session.maxCapacity}`}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-600">
+                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                          <CalendarClock className="h-3.5 w-3.5 text-slate-400" />
+                          {session.sessionDate || '—'}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                          <Clock3 className="h-3.5 w-3.5 text-slate-400" />
+                          {String(session.startTime || '').slice(0, 5) || '—'} – {String(session.endTime || '').slice(0, 5) || '—'}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                          <UserRound className="h-3.5 w-3.5 text-slate-400" />
+                          {session.coachName || (vi ? 'Chưa phân công Coach' : 'No Coach assigned')}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                          <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                          {session.roomName || (vi ? 'Chưa xếp phòng' : 'No room assigned')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+                      {canManage && !completed && (
+                        <button
+                          type="button"
+                          onClick={() => openReschedule(session)}
+                          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition"
+                        >
+                          <CalendarClock className="h-3.5 w-3.5 text-slate-500" />
+                          {vi ? 'Dời lịch' : 'Reschedule'}
+                        </button>
+                      )}
+                      {canManage && !completed && !cancelled && (
+                        <button
+                          type="button"
+                          onClick={() => openSubstitute(session)}
+                          disabled={apiEnabled && !coachList.length}
+                          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 disabled:opacity-50 transition"
+                        >
+                          <UserRoundCog className="h-3.5 w-3.5 text-slate-500" />
+                          {vi ? 'Thay Coach' : 'Substitute coach'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
+
+            {/* Pagination Controls */}
+            {!loading && filteredSessions.length > pageSize && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xs">
+                <span className="text-xs text-slate-500">
+                  {vi
+                    ? `Hiển thị ${(currentPage - 1) * pageSize + 1} - ${Math.min(currentPage * pageSize, filteredSessions.length)} trên tổng số ${filteredSessions.length} buổi`
+                    : `Showing ${(currentPage - 1) * pageSize + 1} - ${Math.min(currentPage * pageSize, filteredSessions.length)} of ${filteredSessions.length} sessions`}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    <span>{vi ? 'Trước' : 'Prev'}</span>
+                  </button>
+                  <span className="px-2 text-xs font-semibold text-slate-700">
+                    {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <span>{vi ? 'Sau' : 'Next'}</span>
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
 
       {rescheduleSessionItem && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4"><section className="w-full max-w-xl rounded-lg bg-white p-5 shadow-xl"><header className="mb-4 flex items-center justify-between border-b border-slate-200 pb-3"><div><h2 className="font-bold">{vi ? 'Dời lịch buổi học' : 'Reschedule session'}</h2><p className="mt-1 text-xs text-slate-500">{rescheduleSessionItem.className} · {rescheduleSessionItem.sessionDate} · {String(rescheduleSessionItem.startTime || '').slice(0, 5)}–{String(rescheduleSessionItem.endTime || '').slice(0, 5)}</p></div><button type="button" onClick={() => !busy && setRescheduleSessionItem(null)} disabled={busy} aria-label="Close" className="rounded p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"><X className="h-5 w-5" /></button></header><form onSubmit={submitReschedule} className="space-y-3"><label className="block text-xs font-semibold">{vi ? 'Ngày mới' : 'New date'}<input type="date" required min={localDateString()} value={rescheduleForm.newDate} onChange={(event) => { setRescheduleForm((old) => ({ ...old, newDate: event.target.value })); setFormError('') }} className="mt-1 min-h-11 w-full rounded border border-slate-300 px-3" /></label><label className="block text-xs font-semibold">{vi ? 'Ca học chuẩn' : 'Standard time slot'}<select required value={rescheduleForm.slot} onChange={(event) => { setRescheduleForm((old) => ({ ...old, slot: event.target.value })); setFormError('') }} className="mt-1 min-h-11 w-full rounded border border-slate-300 px-3"><option value="">{vi ? 'Chọn ca' : 'Select a slot'}</option>{timeSlots.map((slot) => <option key={slot.slotNumber} value={`${slot.startTime}|${slot.endTime}`}>{slot.displayName || `${slot.name} (${String(slot.startTime).slice(0, 5)}–${String(slot.endTime).slice(0, 5)})`}</option>)}</select>{rescheduleOutdoor && <span className="mt-1 block text-xs text-slate-500">{vi ? 'Các ca học ngoài trời đã được tự động giới hạn khung giờ phù hợp.' : 'Time slots for outdoor sessions have been automatically adjusted.'}</span>}</label><label className="block text-xs font-semibold">{vi ? 'Phòng mới (không bắt buộc)' : 'New room (optional)'}<select value={rescheduleForm.newRoomId} onChange={(event) => { setRescheduleForm((old) => ({ ...old, newRoomId: event.target.value })); setFormError('') }} className="mt-1 min-h-11 w-full rounded border border-slate-300 px-3"><option value="">{vi ? `Giữ phòng hiện tại: ${rescheduleSessionItem.roomName || '—'}` : `Keep current room: ${rescheduleSessionItem.roomName || '—'}`}</option>{rescheduleForm.newRoomId && !rooms.some((r) => String(r.id) === String(rescheduleForm.newRoomId) && String(r.status || '').trim().toLowerCase() === 'available') && <option key={rescheduleForm.newRoomId} value={rescheduleForm.newRoomId} disabled>{vi ? `Phòng #${rescheduleForm.newRoomId} (không còn khả dụng)` : `Room #${rescheduleForm.newRoomId} (not available)`}</option>}{rooms.filter((room) => String(room.status || '').trim().toLowerCase() === 'available' && String(room.id) !== String(rescheduleSessionItem.roomId)).map((room) => { const roomLabel = room.roomCode ? `${String(room.roomCode).trim()} - ${room.name}` : room.name; return <option key={room.id} value={room.id}>{roomLabel}{room.location ? ` · ${room.location}` : ''}</option> })}</select></label><label className="block text-xs font-semibold">{vi ? 'Lý do sự cố' : 'Incident reason'}<textarea required maxLength={500} value={rescheduleForm.reason} onChange={(event) => { setRescheduleForm((old) => ({ ...old, reason: event.target.value })); setFormError('') }} className="mt-1 min-h-20 w-full rounded border border-slate-300 p-3" /></label>{rescheduleSessionItem.isPrivate && <p className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">{vi ? 'Đối với gói kèm riêng, thời hạn gói có thể được hệ thống tự động gia hạn nếu ngày học mới vượt quá hạn dùng hiện tại.' : 'For private packages, package validity may be automatically extended by the system if the new date exceeds the current package expiry.'}</p>}{formError && <p role="alert" className="rounded bg-rose-50 p-3 text-xs text-rose-800">{formError}</p>}<footer className="flex justify-end gap-2 border-t border-slate-200 pt-3"><button type="button" disabled={busy} onClick={() => setRescheduleSessionItem(null)} className="min-h-11 rounded border border-slate-300 px-4 text-xs font-bold">{vi ? 'Hủy' : 'Cancel'}</button><button type="submit" disabled={busy || !timeSlots.length || !canManage} className="inline-flex min-h-11 items-center gap-2 rounded bg-brand-primary px-4 text-xs font-bold text-white disabled:opacity-50">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}{vi ? 'Xác nhận dời lịch' : 'Confirm reschedule'}</button></footer></form></section></div>}
 
