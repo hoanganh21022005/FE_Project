@@ -47,16 +47,18 @@ export function AdminSidebar({
                 onClick={() => select("admin_dashboard")}
                 className="flex min-h-11 items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-brand-accent rounded cursor-pointer"
               >
-                <img
-                  src="/images/MainPage/vibe-sport-logo.png?v=2"
-                  alt="Vibe Sport"
-                  className="w-12 h-9 object-contain flex-shrink-0"
-                />
+                <div className="w-12 h-9 rounded bg-white flex items-center justify-center p-1 shrink-0">
+                  <img
+                    src="/images/MainPage/vibe-sport-logo.png?v=2"
+                    alt="Vibe Sport"
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
                 <div>
                   <p className="text-sm leading-5 font-bold text-text-inverse">
                     VIBE Sport Admin
                   </p>
-                  <p className="mt-0.5 text-xs leading-4 font-medium text-text-muted">
+                  <p className="mt-0.5 text-xs leading-4 font-medium text-text-inverse/70">
                     Quản trị hệ thống
                   </p>
                 </div>
@@ -89,7 +91,7 @@ export function AdminSidebar({
                         : "text-text-inverse/80 hover:text-text-inverse hover:bg-brand-dark-hover"
                     }`}
                   >
-                    <Icon className={`w-4 h-4 shrink-0 ${active ? "text-brand-accent" : "text-text-inverse/70"}`} />
+                    <Icon className={`w-4 h-4 shrink-0 ${active ? "text-white" : "text-text-inverse/70"}`} />
                     <span className="truncate">{label}</span>
                   </button>
                 )
@@ -107,7 +109,7 @@ export function AdminSidebar({
                   : "text-text-inverse/80 hover:text-text-inverse hover:bg-brand-dark-hover"
               }`}
             >
-              <UserCircle className={`w-4 h-4 shrink-0 ${currentTab === "profile" ? "text-brand-accent" : "text-text-inverse/70"}`} />
+              <UserCircle className={`w-4 h-4 shrink-0 ${currentTab === "profile" ? "text-white" : "text-text-inverse/70"}`} />
               Hồ sơ
             </button>
             <button
