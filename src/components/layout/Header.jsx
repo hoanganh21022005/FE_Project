@@ -188,18 +188,18 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
         <button
           type="button"
           onClick={onOpenMobileMenu}
-          className="p-1.5 -ml-1 text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-md md:hidden cursor-pointer"
+          className="h-11 w-11 shrink-0 -ml-1.5 inline-flex items-center justify-center text-text-primary hover:bg-bg-secondary rounded-md md:hidden cursor-pointer"
           aria-label={
             language === "vi" ? "Mở menu điều hướng" : "Open navigation menu"
           }
         >
           <Menu className="w-5 h-5" />
         </button>
-        <span className="hidden sm:inline text-slate-400 font-medium">
+        <span className="hidden sm:inline text-text-secondary font-medium">
           VIBE Athletic Club
         </span>
-        <ChevronRight className="hidden sm:inline w-3.5 h-3.5 text-slate-300" />
-        <span className="text-slate-900 font-bold truncate">
+        <ChevronRight className="hidden sm:inline w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
+        <span className="text-text-primary font-bold truncate">
           {currentTitle}
         </span>
       </div>
@@ -207,26 +207,26 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
       {/* Right Controls */}
       <div className="flex items-center gap-3 sm:gap-4">
         {/* Language Switcher (VI | EN) */}
-        <div className="flex items-center gap-1.5 text-xs font-medium">
+        <div className="flex items-center gap-1 text-xs font-medium">
           <button
             type="button"
             onClick={() => setLanguage("vi")}
-            className={`px-1 py-0.5 transition-colors cursor-pointer ${
+            className={`min-h-11 min-w-11 inline-flex items-center justify-center px-1.5 transition-colors cursor-pointer ${
               language === "vi"
                 ? "text-brand-primary font-bold underline underline-offset-4 decoration-brand-accent decoration-2"
-                : "text-slate-400 hover:text-slate-700"
+                : "text-text-secondary hover:text-text-primary"
             }`}
           >
             VI
           </button>
-          <span className="text-slate-300">|</span>
+          <span className="text-text-muted select-none" aria-hidden="true">|</span>
           <button
             type="button"
             onClick={() => setLanguage("en")}
-            className={`px-1 py-0.5 transition-colors cursor-pointer ${
+            className={`min-h-11 min-w-11 inline-flex items-center justify-center px-1.5 transition-colors cursor-pointer ${
               language === "en"
                 ? "text-brand-primary font-bold underline underline-offset-4 decoration-brand-accent decoration-2"
-                : "text-slate-400 hover:text-slate-700"
+                : "text-text-secondary hover:text-text-primary"
             }`}
           >
             EN
@@ -236,33 +236,37 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
         {/* Notification Bell & Dropdown Popover */}
         <div className="relative" ref={popoverRef}>
           <button
+            type="button"
             onClick={() => setIsNotifOpen(!isNotifOpen)}
-            className={`p-1.5 rounded border transition-colors relative ${
+            className={`h-11 w-11 shrink-0 rounded-md border inline-flex items-center justify-center transition-colors relative cursor-pointer ${
               isNotifOpen
-                ? "bg-slate-100 text-slate-900 border-slate-300"
-                : "text-slate-500 hover:text-slate-800 hover:bg-slate-100 border-transparent hover:border-slate-200"
+                ? "bg-bg-secondary text-text-primary border-border-color"
+                : "text-text-secondary hover:text-text-primary hover:bg-bg-secondary border-transparent hover:border-border-color"
             }`}
             title={
+              language === "vi" ? "Thông báo hệ thống" : "System notifications"
+            }
+            aria-label={
               language === "vi" ? "Thông báo hệ thống" : "System notifications"
             }
           >
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-[#24A9D2] rounded-full ring-2 ring-white" />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-brand-accent rounded-full ring-2 ring-bg-card" />
             )}
           </button>
 
           {/* Notifications Panel */}
           {isNotifOpen && (
-            <div className="absolute top-full right-0 mt-2 w-80 sm:w-96 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="absolute top-full right-0 mt-2 w-80 sm:w-96 bg-bg-card border border-border-color rounded-lg shadow-lg z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
               {/* Header */}
-              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div className="px-4 py-2.5 bg-bg-secondary border-b border-border-color flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
                     {language === "vi" ? "Thông báo hệ thống" : "Notifications"}
                   </h3>
                   {unreadCount > 0 && (
-                    <span className="px-1.5 py-0.5 bg-brand-accent-soft text-brand-accent-dark text-[10px] font-bold rounded font-mono">
+                    <span className="px-1.5 py-0.5 bg-brand-accent-soft text-brand-accent-dark text-xs leading-4 font-bold rounded font-mono">
                       {unreadCount}
                     </span>
                   )}
@@ -270,10 +274,11 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
 
                 {unreadCount > 0 && (
                   <button
+                    type="button"
                     onClick={markAllAsRead}
-                    className="text-[11px] text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 hover:underline"
+                    className="min-h-11 px-2.5 inline-flex items-center gap-1 text-xs leading-4 text-brand-primary hover:text-brand-primary-hover font-bold hover:underline cursor-pointer"
                   >
-                    <Check className="w-3 h-3" />
+                    <Check className="w-3.5 h-3.5" />
                     <span>
                       {language === "vi" ? "Đánh dấu đã đọc" : "Mark all read"}
                     </span>
@@ -282,9 +287,9 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
               </div>
 
               {/* Notification Items */}
-              <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+              <div className="max-h-80 overflow-y-auto divide-y divide-border-color">
                 {notifications.length === 0 ? (
-                  <div className="py-8 text-center text-xs text-slate-500">
+                  <div className="py-8 text-center text-xs text-text-muted">
                     {language === "vi"
                       ? "Không có thông báo mới"
                       : "No notifications"}
@@ -296,23 +301,23 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
 
                     const icon =
                       n.type === "warning" ? (
-                        <AlertTriangle className="w-4 h-4 text-amber-600" />
+                        <AlertTriangle className="w-4 h-4 text-status-warning" />
                       ) : n.type === "payment" ? (
-                        <CreditCard className="w-4 h-4 text-emerald-600" />
+                        <CreditCard className="w-4 h-4 text-status-success" />
                       ) : n.type === "info" ? (
-                        <Users className="w-4 h-4 text-blue-600" />
+                        <Users className="w-4 h-4 text-brand-primary" />
                       ) : (
-                        <CheckCircle2 className="w-4 h-4 text-slate-600" />
+                        <CheckCircle2 className="w-4 h-4 text-text-secondary" />
                       )
 
                     const iconBg =
                       n.type === "warning"
-                        ? "bg-amber-50 border-amber-200"
+                        ? "bg-status-warning-bg border-status-warning-border"
                         : n.type === "payment"
-                          ? "bg-emerald-50 border-emerald-200"
+                          ? "bg-status-success-bg border-status-success-border"
                           : n.type === "info"
-                            ? "bg-blue-50 border-blue-200"
-                            : "bg-slate-100 border-slate-200"
+                            ? "bg-bg-secondary border-border-color"
+                            : "bg-bg-secondary border-border-color"
 
                     return (
                       <div
@@ -320,8 +325,8 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
                         onClick={() => markAsRead(n.id)}
                         className={`p-3.5 flex items-start gap-3 transition-colors cursor-pointer ${
                           n.unread
-                            ? "bg-blue-50/40 hover:bg-blue-50/70"
-                            : "hover:bg-slate-50"
+                            ? "bg-brand-primary/5 hover:bg-brand-primary/10"
+                            : "hover:bg-bg-secondary"
                         }`}
                       >
                         <div
@@ -334,21 +339,21 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
                           <div className="flex items-center justify-between gap-2">
                             <span
                               className={`text-xs font-bold ${
-                                n.unread ? "text-slate-900" : "text-slate-700"
+                                n.unread ? "text-text-primary" : "text-text-secondary"
                               }`}
                             >
                               {title}
                             </span>
                             {n.unread && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 flex-shrink-0" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-brand-primary flex-shrink-0" />
                             )}
                           </div>
 
-                          <p className="text-xs text-slate-600 mt-0.5 leading-relaxed line-clamp-2">
+                          <p className="text-xs text-text-secondary mt-0.5 leading-relaxed line-clamp-2">
                             {desc}
                           </p>
 
-                          <span className="text-[11px] text-slate-400 mt-1 block">
+                          <span className="text-xs leading-4 text-text-muted mt-1 block">
                             {language === "vi" ? n.timeVi : n.timeEn}
                           </span>
                         </div>
@@ -359,7 +364,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
               </div>
 
               {/* Footer */}
-              <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
+              <div className="px-4 py-2 bg-bg-secondary border-t border-border-color flex items-center justify-between text-xs">
                 {currentUser?.role === "member" ? (
                   <button
                     type="button"
@@ -367,17 +372,17 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
                       setIsNotifOpen(false)
                       navigate("/member/notifications")
                     }}
-                    className="w-full py-1 text-center font-bold text-brand-primary hover:text-brand-primary-hover transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                    className="w-full min-h-11 py-2 text-center font-bold text-xs leading-4 text-brand-primary hover:text-brand-primary-hover transition-colors flex items-center justify-center gap-1 cursor-pointer"
                   >
                     <span>
                       {language === "vi"
                         ? "Xem tất cả thông báo"
                         : "View all notifications"}
                     </span>
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
                   </button>
                 ) : (
-                  <span className="w-full text-center text-[11px] text-slate-500 font-medium">
+                  <span className="w-full min-h-11 inline-flex items-center justify-center text-center text-xs leading-4 text-text-muted font-medium">
                     {language === "vi"
                       ? "Hệ thống tự động lưu nhật ký hoạt động"
                       : "Activity is recorded automatically"}
@@ -389,29 +394,31 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
         </div>
 
         {/* User Info & Avatar (Clickable to /profile) */}
-        <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-slate-200">
+        <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-border-color">
           <button
             type="button"
             onClick={() => navigate("/profile")}
-            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer text-left bg-transparent border-0 p-0 focus:outline-hidden"
+            className="min-h-11 inline-flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer text-left bg-transparent border-0 p-0 focus:outline-hidden"
             title={language === "vi" ? "Xem hồ sơ cá nhân" : "View profile"}
           >
-            {canUseAvatar && <div className="w-8 h-8 rounded-full border border-border-color bg-brand-accent-soft text-brand-primary flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
-              {headerAvatar ? (
-                <img
-                  src={headerAvatar}
-                  alt="Avatar"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                (currentUser?.name || "B").charAt(0)
-              )}
-            </div>}
+            {canUseAvatar && (
+              <div className="w-8 h-8 rounded-full border border-border-color bg-brand-accent-soft text-brand-primary flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
+                {headerAvatar ? (
+                  <img
+                    src={headerAvatar}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  (currentUser?.name || "B").charAt(0)
+                )}
+              </div>
+            )}
             <div className="hidden sm:block text-left">
-              <div className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[140px]">
+              <div className="text-xs font-bold text-text-primary leading-tight truncate max-w-[140px]">
                 {currentUser?.name || "Bùi Văn Phúc"}
               </div>
-              <div className="text-[10px] text-slate-500 font-normal leading-tight truncate max-w-[140px]">
+              <div className="text-xs leading-4 text-text-secondary font-normal truncate max-w-[140px]">
                 {(currentUser?.email || "phuc.bui@vibeathletic.com")
                   .replace("@fitzone.vn", "@vibeathletic.com")
                   .replace("@scms.com", "@vibeathletic.com")}
@@ -421,8 +428,9 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
           {onLogout && (
             <button
               id="header-logout-btn"
+              type="button"
               onClick={onLogout}
-              className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors cursor-pointer ml-0.5"
+              className="h-11 w-11 shrink-0 inline-flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-bg-secondary rounded-md transition-colors cursor-pointer ml-0.5"
               title={t("logout")}
               aria-label={t("logout")}
             >
