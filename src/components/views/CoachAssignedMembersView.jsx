@@ -450,6 +450,12 @@ export function CoachAssignedMembersView() {
   const [loadingRooms, setLoadingRooms] = useState(false)
   const [roomsError, setRoomsError] = useState(null)
 
+  const modalSubjectRooms = useMemo(() => {
+    if (!bookingReg) return roomsList
+    const matched = roomsList.filter((r) => isRoomForSubject(r, bookingReg))
+    return matched.length > 0 ? matched : roomsList
+  }, [roomsList, bookingReg])
+
   const [availableSlots, setAvailableSlots] = useState([])
   const [selectedSlot, setSelectedSlot] = useState(null)
   const [loadingSlots, setLoadingSlots] = useState(false)
@@ -1606,18 +1612,22 @@ export function CoachAssignedMembersView() {
                   ) || recommendedPkg
 
                 const formatPkgName = (pkg) => {
-                  const subName =
-                    pkg.subjectName ||
-                    (pkg.subjectId ? `Môn #${pkg.subjectId}` : "PT 1:1")
-                  const codeNum = pkg.subscriptionId || pkg.id
-                  const baseTitle =
-                    pkg.packageName ||
-                    (pkg.subscriptionId
-                      ? `${subName} PT`
-                      : `${subName} (${t("coachPtAwaitingPackagePayment")})`)
-                  return codeNum
-                    ? `Gói #${codeNum} · ${baseTitle}`
-                    : baseTitle
+                  const subjectName = String(pkg.subjectName || pkg.subject?.name || "").trim()
+                  const packageName = String(pkg.packageName || "")
+                    .replace(/^g[oó]i\s*#?\d+\s*[·:-]?\s*/i, "")
+                    .trim()
+                  if (subjectName && packageName) {
+                    return packageName.toLocaleLowerCase().includes(subjectName.toLocaleLowerCase())
+                      ? packageName
+                      : `${subjectName} · ${packageName}`
+                  }
+                  if (packageName) return packageName
+                  if (subjectName) {
+                    return pkg.subscriptionId
+                      ? `${subjectName} · PT 1:1`
+                      : `${subjectName} (${t("coachPtAwaitingPackagePayment")})`
+                  }
+                  return "PT 1:1"
                 }
 
                 return (
@@ -2225,7 +2235,7 @@ export function CoachAssignedMembersView() {
                         const isLocked =
                           currentAttempt?.status === "uncertain" ||
                           currentAttempt?.status === "pending"
-                        const hasMatchInAvailable = roomsList.some(
+                        const hasMatchInAvailable = modalSubjectRooms.some(
                           (r) => String(r.id) === String(selectedRoomId),
                         )
 
@@ -2238,14 +2248,20 @@ export function CoachAssignedMembersView() {
                             </option>
                           ) : null
 
-                        if (roomsList.length === 0 && !orphanSnapshotOption) {
-                          return <option value="">Không có sân tập khả dụng</option>
+                        if (modalSubjectRooms.length === 0 && !orphanSnapshotOption) {
+                          return (
+                            <option value="">
+                              {language === "vi"
+                                ? `Không có sân tập khả dụng cho môn ${bookingReg?.subjectName || ""}`
+                                : "No available rooms for this subject"}
+                            </option>
+                          )
                         }
 
                         return (
                           <>
                             {orphanSnapshotOption}
-                            {roomsList.map((r) => (
+                            {modalSubjectRooms.map((r) => (
                               <option key={r.id} value={r.id}>
                                 {formatRoomOptionLabel(r)}
                               </option>
