@@ -9,6 +9,7 @@ import {
 import { extractList, isValidNumericId } from "./schemaValidators.js"
 import { inProgressTransactionCache } from "./paymentSession.js"
 import { invoiceApi } from "./invoiceApi.js"
+import { getVnpayReturnContext, startVnpayCheckout } from "../utils/vnpayCheckout.js"
 
 const isValidPositiveInt = (n) =>
   typeof n === "number" && Number.isInteger(n) && n > 0
@@ -85,7 +86,10 @@ export const subscribePackage = async (memberId, data) => {
   if (!isValidNumericId(memberId)) {
     throw new Error("ID hội viên không hợp lệ.")
   }
-  const payload = toMemberPackageRequest(data)
+  const payload = {
+    ...toMemberPackageRequest(data),
+    ...(String(data?.paymentMethod || '').toLowerCase() === 'vnpay' || String(data?.paymentMethod || '').toLowerCase() === 'online' ? getVnpayReturnContext() : {}),
+  }
   const response = await httpClient.post(
     `/api/members/${memberId}/packages`,
     payload,
@@ -113,7 +117,10 @@ export const subscribePackage = async (memberId, data) => {
 }
 
 export const subscribeMe = async (data) => {
-  const payload = toMemberPackageRequest(data)
+  const payload = {
+    ...toMemberPackageRequest(data),
+    ...(String(data?.paymentMethod || '').toLowerCase() === 'vnpay' || String(data?.paymentMethod || '').toLowerCase() === 'online' ? getVnpayReturnContext() : {}),
+  }
   const response = await httpClient.post(
     "/api/members/me/subscriptions",
     payload,
@@ -443,7 +450,12 @@ export async function executePaymentModalSubmit({
       const payment = await invoiceApiInstance.startOnlinePayment(invId)
       const paymentUrl = payment?.paymentUrl || payment?.url
       if (paymentUrl && typeof window !== "undefined")
-        window.location.assign(paymentUrl)
+        startVnpayCheckout({
+          paymentUrl,
+          invoiceId: invId,
+          invoiceCode: payment?.invoiceCode,
+          onVerified: callbacks.onSuccess,
+        })
     }
     callbacks.showToast?.(
       language === "vi"

@@ -1,5 +1,6 @@
 import { httpClient } from "./httpClient.js"
 import { extractList } from "./schemaValidators.js"
+import { getVnpayReturnContext } from "../utils/vnpayCheckout.js"
 import {
   getMemberEnrollments,
   getMemberEnrolledClasses,
@@ -328,7 +329,10 @@ export const confirmAlternativeCoach = async (id, payload = {}) => {
 }
 
 export const orderAdvancedRegistration = async (id, payload) => {
-  return httpClient.post(`/api/advanced-registrations/${id}/order`, payload)
+  const body = String(payload?.paymentMethod || '').toLowerCase() === 'vnpay'
+    ? { ...payload, ...getVnpayReturnContext() }
+    : payload
+  return httpClient.post(`/api/advanced-registrations/${id}/order`, body)
 }
 
 export {

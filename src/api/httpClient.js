@@ -3,10 +3,7 @@ import { createApiError } from "./apiErrors.js"
 export const UNAUTHORIZED_EVENT = "scms:unauthorized"
 export const FORBIDDEN_EVENT = "scms:forbidden"
 
-const API_BASE_URL = String(
-  import.meta?.env?.VITE_API_BASE_URL ||
-    (import.meta?.env?.DEV ? "" : "https://scms-app-p1gy.onrender.com"),
-).replace(/\/+$/, "")
+const API_BASE_URL = String(import.meta?.env?.VITE_API_BASE_URL || "").replace(/\/+$/, "")
 
 function resolveUrl(path) {
   if (/^https?:\/\//i.test(path)) return path

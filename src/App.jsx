@@ -17,6 +17,7 @@ import { RequireAuth, RequireRole } from "./components/auth/RouteGuard"
 import { AdminDataProvider } from "./components/admin/AdminDataContext"
 import { AdminLayout } from "./components/admin/AdminLayout"
 import { ErrorBoundary } from "./components/common/ErrorBoundary"
+import { VnpayCheckoutHost } from "./components/common/VnpayCheckoutHost"
 import {
   ROLE_ADMIN,
   ROLE_MANAGER,
@@ -1637,9 +1638,13 @@ function SCMSApp() {
 }
 
 export default function App() {
+  const { language } = useSCMS()
   return (
     <ErrorBoundary>
-      <SCMSApp />
+      <>
+        <SCMSApp />
+        <VnpayCheckoutHost language={language} />
+      </>
     </ErrorBoundary>
   )
 }

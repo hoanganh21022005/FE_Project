@@ -7,6 +7,7 @@ import { membershipApi } from "../api/membershipApi.js"
 import { invoiceApi } from "../api/invoiceApi.js"
 import { getErrorMessage } from "../api/apiErrors.js"
 import { createMockPendingPayment } from "./mockFixtureSettlement.js"
+import { startVnpayCheckout } from "./vnpayCheckout.js"
 
 /**
  * Extracts a verified positive integer profile ID (memberId or profileId) from an object.
@@ -994,7 +995,12 @@ export const executeDirectSubscriptionSubmit = async ({
           paymentMethod: result?.paymentMethod || "VNPAY",
           paymentUrl,
         })
-        if (typeof window !== "undefined") window.location.assign(paymentUrl)
+        startVnpayCheckout({
+          paymentUrl,
+          invoiceId: result?.invoiceId,
+          invoiceCode: result?.invoiceCode,
+          onVerified: callbacks.fetchMemberData,
+        })
         return { executed: true, success: true, redirected: true, result }
       }
 

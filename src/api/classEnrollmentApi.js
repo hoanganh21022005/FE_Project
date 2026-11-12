@@ -1,5 +1,6 @@
 import { httpClient } from "./httpClient.js"
 import { extractList } from "./schemaValidators.js"
+import { getVnpayReturnContext } from "../utils/vnpayCheckout.js"
 
 export const getEnrollmentsByClass = async (classId, { strict = false, ...options } = {}) => {
   if (!classId) return []
@@ -49,7 +50,8 @@ export const enrollCurrentMemberInClass = async (classId, paymentMethod = 'VNPay
   if (!['VNPay', 'Cash'].includes(paymentMethod)) {
     throw new Error('Phương thức thanh toán lớp học không hợp lệ.');
   }
-  return httpClient.post(`/api/classes/${Number(classId)}/enroll`, { paymentMethod });
+  const payload = { paymentMethod, ...(paymentMethod === 'VNPay' ? getVnpayReturnContext() : {}) }
+  return httpClient.post(`/api/classes/${Number(classId)}/enroll`, payload);
 }
 
 export const cancelMemberEnrollment = async (classId, memberId) => {

@@ -8,6 +8,7 @@ import { advancedRegistrationApi } from '../../api/advancedRegistrationApi'
 import { classEnrollmentApi } from '../../api/classEnrollmentApi'
 import { getClassCatalogSessions } from '../../api/memberPortalApi'
 import { invoiceApi } from '../../api/invoiceApi'
+import { closePreparedVnpayPopup, prepareVnpayCheckoutPopup, startVnpayCheckout } from '../../utils/vnpayCheckout'
 import { getErrorMessage } from '../../api/apiErrors'
 import { getAuthoritativeProfileId } from '../../utils/memberSafetyHelpers'
 import { COURSE_HERO_MEDIA, SPORT_MEDIA } from '../../data/memberCourseCatalog.js'
@@ -37,7 +38,7 @@ const formatTime = (value) => typeof value === 'string' ? value.slice(0, 5) : ''
 const paymentUrlIsSafe = (value) => {
   try {
     const parsed = new URL(value)
-    return parsed.protocol === 'https:' || (parsed.protocol === 'http:' && (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1'))
+    return parsed.protocol === 'https:' || (parsed.protocol === 'http:' && typeof window !== 'undefined' && parsed.origin === window.location.origin)
   } catch { return false }
 }
 const readMemberOrders = (memberId) => {
@@ -460,6 +461,8 @@ export function MemberCourseCatalog() {
       setSubmittingError(isVi ? 'Đã có yêu cầu đăng ký lớp này. Hãy tải lại trạng thái thay vì gửi trùng.' : 'An enrollment already exists for this class. Refresh its status instead of submitting again.')
       return
     }
+    const preparedPopup = paymentMethod === 'VNPay' ? prepareVnpayCheckoutPopup() : null
+    let checkoutStarted = false
     pendingSubmitRef.current = true
     setSubmitting(true)
     setSubmittingError('')
@@ -499,9 +502,11 @@ export function MemberCourseCatalog() {
         : isVi ? 'Đã nhận yêu cầu đăng ký. Quyền học sẽ được kích hoạt sau khi hoàn tất thanh toán.' : 'Registration received. Course access will activate after payment.')
       await refreshEnrollments()
       if (paymentMethod === 'VNPay' && paymentUrlIsSafe(redirectUrl) && !['registered', 'paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || status))) {
-        window.location.assign(redirectUrl)
+        startVnpayCheckout({ paymentUrl: redirectUrl, invoiceId: order.invoiceId, invoiceCode: order.invoiceCode, onVerified: async () => { await Promise.all([refreshEnrollments(), refreshClasses()]) }, popup: preparedPopup })
+        checkoutStarted = true
       }
     } catch (error) {
+      closePreparedVnpayPopup(preparedPopup)
       setSubmittingError(getErrorMessage(error, isVi ? 'Không gửi được đăng ký.' : 'Enrollment request failed.'))
       if (!error?.status || error.status >= 500 || error.status === 409) {
         try {
@@ -517,6 +522,7 @@ export function MemberCourseCatalog() {
         }
       }
     } finally {
+      if (!checkoutStarted) closePreparedVnpayPopup(preparedPopup)
       pendingSubmitRef.current = false
       setSubmitting(false)
     }
@@ -589,6 +595,8 @@ export function MemberCourseCatalog() {
     if (normalizeCatalogStatus(registration.status) !== 'accepted' || !registration.id || pendingSubmitRef.current || orderInFlightRef.current.has(String(registration.id))) return
     if (orders.some((order) => String(order.registrationId) === String(registration.id))) return
     const registrationKey = String(registration.id)
+    const preparedPopup = paymentMethod === 'VNPay' ? prepareVnpayCheckoutPopup() : null
+    let checkoutStarted = false
     orderInFlightRef.current.add(registrationKey)
     pendingSubmitRef.current = true
     let keepOrderLocked = false
@@ -635,9 +643,11 @@ export function MemberCourseCatalog() {
       setNotice(isVi ? 'Đơn đăng ký đã được tạo. Quyền học sẽ được kích hoạt sau khi thanh toán thành công.' : 'Order created successfully. Course access will activate after payment is verified.')
       await refreshRegistrations().catch(() => {})
       if (paymentMethod === 'VNPay' && paymentUrlIsSafe(redirectUrl) && !['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status))) {
-        window.location.assign(redirectUrl)
+        startVnpayCheckout({ paymentUrl: redirectUrl, invoiceId: order.invoiceId, invoiceCode: order.invoiceCode, onVerified: refreshRegistrations, popup: preparedPopup })
+        checkoutStarted = true
       }
     } catch (error) {
+      closePreparedVnpayPopup(preparedPopup)
       setSubmittingError(getErrorMessage(error, isVi ? 'Không tạo được đơn hàng.' : 'Could not create the order.'))
       if (!orderCreated && (!error?.status || error.status >= 500 || error.status === 409)) {
         setLockedOrderIds((current) => current.includes(registrationKey) ? current : [...current, registrationKey])
@@ -661,6 +671,7 @@ export function MemberCourseCatalog() {
         if (orderCreated) setSubmittingError(getErrorMessage(error, isVi ? 'Đơn đã được tạo nhưng chưa thể bắt đầu thanh toán. Bạn có thể tiếp tục từ đơn hàng bên dưới.' : 'The order was created, but payment could not be started. Continue from the order below.'))
       }
     } finally {
+      if (!checkoutStarted) closePreparedVnpayPopup(preparedPopup)
       setSubmitting(false)
       pendingSubmitRef.current = false
       if (!keepOrderLocked) orderInFlightRef.current.delete(registrationKey)
@@ -702,6 +713,8 @@ export function MemberCourseCatalog() {
       setNotice(isVi ? 'Đơn tiền mặt đang chờ thu ngân xác nhận tại quầy.' : 'Cash orders await cashier confirmation at the front desk.')
       return
     }
+    const preparedPopup = prepareVnpayCheckoutPopup()
+    let checkoutStarted = false
     try {
       let url = null
       if (order.invoiceId) {
@@ -714,9 +727,13 @@ export function MemberCourseCatalog() {
         url = order.paymentUrl
       }
       if (!paymentUrlIsSafe(url)) throw new Error(isVi ? 'Không nhận được liên kết thanh toán hợp lệ từ hệ thống.' : 'Did not receive a valid payment URL from the system.')
-      window.location.assign(url)
+      startVnpayCheckout({ paymentUrl: url, invoiceId: order.invoiceId, invoiceCode: order.invoiceCode, onVerified: () => checkOrderStatus(order), popup: preparedPopup })
+      checkoutStarted = true
     } catch (error) {
+      closePreparedVnpayPopup(preparedPopup)
       setSubmittingError(getErrorMessage(error, isVi ? 'Không khởi tạo được thanh toán.' : 'Could not start payment.'))
+    } finally {
+      if (!checkoutStarted) closePreparedVnpayPopup(preparedPopup)
     }
   }
 

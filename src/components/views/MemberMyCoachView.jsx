@@ -27,6 +27,7 @@ import { useSCMS } from "../../context/SCMSContext"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { membershipApi } from "../../api/membershipApi"
 import { invoiceApi } from "../../api/invoiceApi"
+import { startVnpayCheckout } from "../../utils/vnpayCheckout"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { getErrorMessage } from "../../api/apiErrors"
 import { resolveCoachAvatar } from "../../data/publicCoaches"
@@ -344,7 +345,15 @@ export function MemberMyCoachView() {
           paymentUrl = checkout?.paymentUrl || null
         }
         if (paymentUrl && typeof window !== "undefined") {
-          window.location.assign(paymentUrl)
+          startVnpayCheckout({
+            paymentUrl,
+            invoiceId: orderRes?.invoiceId,
+            invoiceCode: orderRes?.invoiceCode,
+            onVerified: async () => {
+              await fetchAdvancedRegistrations()
+              if (memberProfileId) await membershipApi.getMemberSubscriptions(memberProfileId)
+            },
+          })
         }
       }
     } catch (err) {

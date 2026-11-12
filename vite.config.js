@@ -5,7 +5,7 @@ import { fileURLToPath, URL } from "node:url"
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "")
-  const apiProxyTarget = env.VITE_API_PROXY_TARGET || "https://scms-app-p1gy.onrender.com"
+  const apiProxyTarget = env.VITE_API_PROXY_TARGET?.trim()
 
   return {
     plugins: [react(), tailwindcss()],
@@ -16,12 +16,12 @@ export default defineConfig(({ mode }) => {
       dedupe: ["react", "react-dom"],
     },
     server: {
-      host: "localhost",
+      host: true,
       port: 5173,
       strictPort: false,
-      proxy: {
+      proxy: apiProxyTarget ? {
         "/api": {
-          target: (apiProxyTarget || "https://scms-app-p1gy.onrender.com").trim(),
+          target: apiProxyTarget,
           changeOrigin: true,
           secure: false,
           configure: (proxy) => {
@@ -56,10 +56,10 @@ export default defineConfig(({ mode }) => {
             })
           },
         },
-      },
+      } : undefined,
     },
     preview: {
-      host: "localhost",
+      host: true,
       port: 4173,
     },
   }

@@ -7,6 +7,7 @@ import {
 } from './invoiceMappers.js';
 import { extractList, isValidNumericId } from './schemaValidators.js';
 import { VNPAY_VERIFY_TIMEOUT_MS } from '../utils/paymentVerification.js';
+import { getVnpayReturnContext } from '../utils/vnpayCheckout.js';
 
 export const getInvoices = async (filters = {}, options = {}) => {
   const query = new URLSearchParams();
@@ -77,18 +78,7 @@ export const confirmCashPayment = async (id, options = {}) => {
 };
 
 export const startOnlinePayment = async (id) => {
-  if (!isValidNumericId(id)) {
-    throw new Error('ID hóa đơn không hợp lệ.');
-  }
-  return httpClient.post(`/api/invoices/${id}/pay-online`, getPaymentReturnContext());
-};
-
-const getPaymentReturnContext = () => {
-  if (typeof window === 'undefined') return {};
-  return {
-    returnUrl: `${window.location.origin}/payment-result`,
-    clientOrigin: window.location.origin,
-  };
+  return payInvoiceOnline(id);
 };
 
 export const cancelInvoice = async (id) => {
@@ -152,7 +142,7 @@ export const payInvoiceOnline = async (id) => {
   if (!isValidNumericId(id)) {
     throw new Error('ID hóa đơn không hợp lệ.');
   }
-  const response = await httpClient.post(`/api/invoices/${id}/pay-online`, getPaymentReturnContext());
+  const response = await httpClient.post(`/api/invoices/${id}/pay-online`, getVnpayReturnContext());
   let payload = response;
   for (let depth = 0; depth < 4; depth += 1) {
     const nested = payload?.data ?? payload?.result ?? payload?.payload;

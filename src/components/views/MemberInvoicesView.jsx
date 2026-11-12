@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { invoiceApi } from "../../api/invoiceApi"
+import { closePreparedVnpayPopup, prepareVnpayCheckoutPopup, startVnpayCheckout } from "../../utils/vnpayCheckout"
 import { formatInvoiceCode } from "../../api/invoiceMappers"
 import { getErrorMessage } from "../../api/apiErrors"
 import { applyMockPaymentSettlements } from "../../utils/mockFixtureSettlement"
@@ -721,7 +722,8 @@ export function MemberInvoicesView() {
       if (parsed.protocol === "https:") return true
       if (
         parsed.protocol === "http:" &&
-        (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1")
+        typeof window !== "undefined" &&
+        parsed.origin === window.location.origin
       ) {
         return true
       }
@@ -750,6 +752,7 @@ export function MemberInvoicesView() {
       )
       return
     }
+    const preparedPopup = prepareVnpayCheckoutPopup()
     setPayingId(invoice.id)
     setError("")
     try {
@@ -761,8 +764,16 @@ export function MemberInvoicesView() {
             : "The server did not return a valid VNPay payment link.",
         )
       }
-      window.location.assign(result.paymentUrl)
+      startVnpayCheckout({
+        paymentUrl: result.paymentUrl,
+        invoiceId: invoice.id,
+        invoiceCode: invoice.invoiceCode,
+        onVerified: refresh,
+        popup: preparedPopup,
+      })
+      setPayingId(null)
     } catch (err) {
+      closePreparedVnpayPopup(preparedPopup)
       setError(
         getErrorMessage(
           err,

@@ -88,7 +88,7 @@ export function sanitizeBackendMessage(rawMessage, status = 0) {
     /\b(?:from|to|on)\s+backend\b/i,
     /\bapi\s+(?:error|failure|call|request|response|route)\b/i,
     /\bexpected\s+(?:http\s*)?\d{3}\b/i,
-    /\b(exception|nullpointer|sql|sqlexception|stacktrace|servlet|traceparent|controller|repository|jdbc|postgres|postgresql|database|hibernate|jpa|localhost|onrender\.com)\b/i,
+    /\b(exception|nullpointer|sql|sqlexception|stacktrace|servlet|traceparent|controller|repository|jdbc|postgres|postgresql|database|hibernate|jpa)\b/i,
     /^http\s*\d+/i,
     /\bhttp\s+[45]\d{2}\b/i,
     /\bstatus\s*code\s*\d+/i,
