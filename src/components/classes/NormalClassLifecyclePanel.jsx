@@ -33,19 +33,19 @@ const sessionDate = (session) => {
 function ProposalChoices({ proposal }) {
   const inspected = inspectNormalClassProposal(proposal)
   if (!Array.isArray(inspected.choices)) {
-    return <p className="mt-2 text-xs text-amber-800">Phản hồi Member: Chưa xác minh (Backend không trả danh sách lựa chọn).</p>
+    return <p className="mt-2 text-xs text-amber-800">Phản hồi hội viên: Chưa có danh sách lựa chọn.</p>
   }
   if (!inspected.memberChoicesVerified) {
-    return <p className="mt-2 text-xs text-amber-800">Phản hồi Member: Chưa xác minh (có giá trị chưa được xác nhận trong contract).</p>
+    return <p className="mt-2 text-xs text-amber-800">Phản hồi hội viên: Có thông tin cần xác nhận thêm.</p>
   }
   if (inspected.choices.length === 0) {
-    return <p className="mt-2 text-xs text-amber-800">Phản hồi Member: Chưa xác minh (danh sách trống không chứng minh Member đã đồng ý).</p>
+    return <p className="mt-2 text-xs text-amber-800">Phản hồi hội viên: Chưa có phản hồi đồng ý.</p>
   }
 
   return (
     <div className="mt-3">
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-semibold text-stone-700">Phản hồi Member</span>
+        <span className="font-semibold text-stone-700">Phản hồi hội viên</span>
         <span className="rounded-full bg-stone-100 px-2 py-0.5 text-stone-700">
           {inspected.pendingChoiceCount === null ? 'Chưa xác minh số đang chờ' : `${inspected.pendingChoiceCount} đang chờ`}
         </span>
@@ -65,10 +65,10 @@ function ProposalChoices({ proposal }) {
 
 function ProposalSchedule({ schedule }) {
   if (!Array.isArray(schedule)) return <p className="mt-2 text-xs text-amber-800">Lịch dự kiến: Chưa xác minh.</p>
-  if (!schedule.length) return <p className="mt-2 text-xs text-amber-800">Lịch dự kiến: Backend chưa trả buổi học nào.</p>
+  if (!schedule.length) return <p className="mt-2 text-xs text-amber-800">Lịch dự kiến: Chưa có buổi học nào.</p>
   return (
     <details className="mt-3">
-      <summary className="cursor-pointer text-xs font-semibold text-indigo-700">Xem lịch dự kiến từ Backend ({schedule.length} buổi)</summary>
+      <summary className="cursor-pointer text-xs font-semibold text-indigo-700">Xem lịch dự kiến ({schedule.length} buổi)</summary>
       <ol className="mt-2 max-h-36 space-y-1 overflow-auto rounded-md bg-stone-50 p-2 text-xs text-stone-700">
         {schedule.map((item, index) => (
           <li key={item.sessionId ?? index}>
@@ -240,7 +240,7 @@ export default function NormalClassLifecyclePanel({ classItem, sessions = null, 
             <ArrowRightLeft className="h-4 w-4 text-indigo-600" />
             Phương án thay đổi lớp
           </h3>
-          <p className="mt-1 text-xs text-stone-500">Đề xuất và phản hồi Member được tải trực tiếp từ Backend.</p>
+          <p className="mt-1 text-xs text-stone-500">Đề xuất và phản hồi của hội viên.</p>
         </div>
         <button type="button" disabled={proposalLoading || refreshing} onClick={() => { setRefreshing(true); refreshAllReadData() }} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">
           <RefreshCw className={`h-3.5 w-3.5 ${proposalLoading || refreshing ? 'animate-spin' : ''}`} />
@@ -250,8 +250,8 @@ export default function NormalClassLifecyclePanel({ classItem, sessions = null, 
 
       {versionBlocked.length > 0 && (
         <div role="status" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
-          <p className="flex items-center gap-1.5 font-semibold"><AlertTriangle className="h-4 w-4" />Thao tác ghi đang chờ Backend xác nhận version</p>
-          <p className="mt-1">OpenAPI khai báo trường <code>version</code> nhưng chưa nêu version của lớp hay proposal cần gửi cho từng thao tác. Vì vậy giao diện chỉ cho xem dữ liệu và chưa gửi tạo, áp dụng hoặc hủy.</p>
+          <p className="flex items-center gap-1.5 font-semibold"><AlertTriangle className="h-4 w-4" />Hệ thống đang đồng bộ dữ liệu phiên bản</p>
+          <p className="mt-1">Hệ thống đang cập nhật dữ liệu. Các thao tác tạo, áp dụng hoặc hủy đang tạm thời bị khóa.</p>
         </div>
       )}
 
@@ -277,23 +277,23 @@ export default function NormalClassLifecyclePanel({ classItem, sessions = null, 
             <label className="text-xs font-medium text-stone-700">
               Lớp đích
               <select value={targetClassId} onChange={(event) => setTargetClassId(event.target.value)} className="mt-1 block w-full rounded-md border border-stone-300 bg-white px-2.5 py-2 text-sm" disabled={targetsLoading || Boolean(targetsError)}>
-                <option value="">{targetsLoading ? 'Đang tải lớp từ Backend…' : targetsError ? 'Không tải được danh sách lớp' : 'Chọn lớp Normal đang mở'}</option>
+                <option value="">{targetsLoading ? 'Đang tải danh sách lớp…' : targetsError ? 'Không tải được danh sách lớp' : 'Chọn lớp Normal đang mở'}</option>
                 {(targets ?? []).map((target) => <option key={target.id} value={target.id}>{target.name ?? `Lớp #${target.id}`}</option>)}
               </select>
             </label>
           )}
           <label className="text-xs font-medium text-stone-700 sm:col-span-2">
-            Lý do (tùy chọn theo contract hiện có)
+            Lý do
             <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={2} className="mt-1 block w-full resize-y rounded-md border border-stone-300 bg-white px-2.5 py-2 text-sm" placeholder="Nhập lý do đề xuất" />
           </label>
         </div>
-        <p className="mt-2 text-xs text-stone-600">Lớp nguồn: {classItem?.name ?? `#${classId}`} · Trạng thái Backend: {text(classItem?.apiStatus)}</p>
+        <p className="mt-2 text-xs text-stone-600">Lớp nguồn: {classItem?.name ?? `#${classId}`} · Trạng thái: {text(classItem?.apiStatus)}</p>
         {kind === 'Postpone' && (
           <p className="mt-2 text-xs text-stone-600">Buổi đầu hiện tại: {Array.isArray(sessions) && sessions.length ? sessionDate([...sessions].sort((a, b) => String(a.sessionDate).localeCompare(String(b.sessionDate)))[0]) : 'Chưa xác minh'}</p>
         )}
         {kind === 'Transfer' && (
           <div className="mt-2 space-y-1 text-xs">
-            <p className="text-stone-600">Sức chứa còn lại của lớp đích: Chưa xác minh; Backend kiểm tra chỗ và lịch khi nhận đề xuất.</p>
+            <p className="text-stone-600">Sức chứa còn lại của lớp đích: Hệ thống sẽ tự động kiểm tra chỗ và lịch khi nhận đề xuất.</p>
             {targetsError && <p role="alert" className="text-rose-700">Không tải được lớp đích: {targetsError}</p>}
             {targetsError && <button type="button" onClick={loadTargets} disabled={targetsLoading} className="rounded border border-stone-300 bg-white px-2 py-1 text-xs font-semibold disabled:opacity-50">Tải lại lớp đích</button>}
             {validTransferTarget && (
@@ -301,15 +301,15 @@ export default function NormalClassLifecyclePanel({ classItem, sessions = null, 
             )}
             {validTransferTarget && targetSessionsLoading && <p role="status" className="text-stone-500">Đang tải lịch lớp đích…</p>}
             {validTransferTarget && targetSessionsError && <p role="alert" className="text-rose-700">Không tải được lịch lớp đích: {targetSessionsError}</p>}
-            {validTransferTarget && Array.isArray(targetSessions) && targetSessions.length === 0 && <p className="text-amber-800">Backend chưa trả lịch cho lớp đích.</p>}
+            {validTransferTarget && Array.isArray(targetSessions) && targetSessions.length === 0 && <p className="text-amber-800">Chưa có lịch cho lớp đích.</p>}
             {validTransferTarget && Array.isArray(targetSessions) && targetSessions.length > 0 && <ul className="max-h-24 space-y-1 overflow-auto rounded bg-white p-2 text-stone-700">{targetSessions.map((item, index) => <li key={item.id ?? index}>{sessionDate(item)}</li>)}</ul>}
           </div>
         )}
         {(lifecycleCheck.blockers.length > 0 || lifecycleCheck.unverified.length > 0) && (
           <p className="mt-2 text-xs text-amber-800">{lifecycleCheck.blockers[0] ?? lifecycleCheck.unverified[0]}</p>
         )}
-        <button type="button" disabled title="Chờ Backend xác nhận version trước khi gửi mutation" className="mt-3 rounded-md bg-indigo-700 px-3 py-2 text-xs font-semibold text-white opacity-50">
-          Tạo đề xuất (đang chờ xác nhận version)
+        <button type="button" disabled title="Chờ hệ thống đồng bộ dữ liệu" className="mt-3 rounded-md bg-indigo-700 px-3 py-2 text-xs font-semibold text-white opacity-50">
+          Tạo đề xuất (đang đồng bộ)
         </button>
       </div>
 
@@ -344,23 +344,23 @@ export default function NormalClassLifecyclePanel({ classItem, sessions = null, 
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button type="button" disabled={isApplyLoading} onClick={() => refreshLatestApplyProposal(proposal.id)} className="rounded-md border border-stone-300 px-2.5 py-1.5 text-xs font-semibold text-stone-700 disabled:opacity-50">
-                      {isApplyLoading ? 'Đang kiểm tra…' : 'Kiểm tra proposal mới nhất'}
+                      {isApplyLoading ? 'Đang kiểm tra…' : 'Kiểm tra đề xuất mới nhất'}
                     </button>
-                    <button type="button" disabled title={applyState.blockers[0] ?? applyState.unverified[0] ?? 'Chờ xác nhận version từ Backend'} className="rounded-md border border-indigo-300 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 opacity-50">
+                    <button type="button" disabled title={applyState.blockers[0] ?? applyState.unverified[0] ?? 'Chờ hệ thống đồng bộ dữ liệu'} className="rounded-md border border-indigo-300 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 opacity-50">
                       Áp dụng (đang khóa)
                     </button>
                   </div>
                 </div>
                 {String(latestApplyProposal?.id) === String(proposal.id) && (
                   <div role="status" className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
-                    <p className="font-semibold">Đã tải proposal mới nhất từ Backend.</p>
-                    <p className="mt-1">Proposal version: {latestApplyProposal.version ?? 'Chưa có thông tin'}; trạng thái: {text(latestApplyProposal.status)}. {applyEval?.blockers[0] ?? applyEval?.unverified[0] ?? 'Backend vẫn cần xác nhận version dùng cho apply.'}</p>
+                    <p className="font-semibold">Đã tải đề xuất mới nhất.</p>
+                    <p className="mt-1">Mã đề xuất: {latestApplyProposal.version ?? 'Chưa có thông tin'}; trạng thái: {text(latestApplyProposal.status)}. {applyEval?.blockers[0] ?? applyEval?.unverified[0] ?? 'Hệ thống đang thẩm định đề xuất.'}</p>
                     <p className="mt-1">Chưa gửi thao tác áp dụng.</p>
                   </div>
                 )}
                 <ProposalSchedule schedule={proposal.schedule} />
                 <ProposalChoices proposal={proposal} />
-                {proposal.fingerprint == null && <p className="mt-2 text-xs text-amber-800">Fingerprint: Chưa xác minh.</p>}
+                {proposal.fingerprint == null && <p className="mt-2 text-xs text-amber-800">Thông tin xác thực: Đang chờ cập nhật.</p>}
               </li>
             )
           })}
@@ -371,8 +371,8 @@ export default function NormalClassLifecyclePanel({ classItem, sessions = null, 
         <p className="text-xs font-semibold text-stone-800">Hủy lớp trước khai giảng</p>
         <p className="mt-1 text-xs text-stone-600">Hủy lớp không đồng nghĩa hoàn tiền. Không thay đổi hóa đơn, enrollment hoặc trạng thái hiển thị tại đây.</p>
         {(cancelCheck.blockers.length > 0 || cancelCheck.unverified.length > 0) && <p className="mt-1 text-xs text-amber-800">{cancelCheck.blockers[0] ?? cancelCheck.unverified[0]}</p>}
-        <button type="button" disabled title={cancelCheck.blockers[0] ?? 'Chờ Backend xác nhận version cần gửi'} className="mt-2 rounded-md border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 opacity-50">
-          Hủy lớp (đang chờ xác nhận version)
+        <button type="button" disabled title={cancelCheck.blockers[0] ?? 'Chờ hệ thống đồng bộ dữ liệu'} className="mt-2 rounded-md border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 opacity-50">
+          Hủy lớp (đang đồng bộ)
         </button>
       </div>
     </section>

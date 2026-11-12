@@ -547,10 +547,8 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                   {sessionNeedsReconciliation && (
                     <p className="font-semibold text-rose-800">
                       • {language === 'vi'
-                          ? (!createdSubscriptionId && !createdInvoiceId
-                              ? 'Đơn hàng đang cần đối soát với máy chủ do phản hồi trước đó thiếu định danh. Vui lòng không gửi lại yêu cầu để tránh tạo trùng lặp.'
-                              : 'Đơn hàng đang cần đối soát với máy chủ do phản hồi trước đó chưa hoàn chỉnh. Vui lòng không gửi lại yêu cầu để tránh tạo trùng lặp.')
-                          : 'Order requires server reconciliation due to incomplete registration response. Do not resubmit to prevent duplicates.'}
+                          ? 'Đơn hàng đang chờ hệ thống đối chiếu. Vui lòng không gửi lại yêu cầu để tránh tạo trùng lặp.'
+                          : 'Order is awaiting system reconciliation. Please do not resubmit to prevent duplicates.'}
                     </p>
                   )}
                 </div>
@@ -615,8 +613,8 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
                 </div>
                 <p className="text-[11px] text-rose-800 leading-relaxed">
                   {language === 'vi'
-                    ? 'Yêu cầu đăng ký gói chưa được đối soát với phiên hiện tại. Để đảm bảo an toàn và tránh phát sinh trùng lặp, giao dịch tạm dừng trước bước gửi mới.'
-                    : 'Pending subscription request has not been reconciled with the current session. Transaction paused to prevent duplicates.'}
+                    ? 'Yêu cầu đăng ký gói đang được xử lý. Để đảm bảo an toàn và tránh phát sinh trùng lặp, giao dịch tạm dừng trước bước gửi mới.'
+                    : 'Pending subscription request is being processed. Transaction paused to prevent duplicates.'}
                 </p>
                 {ambiguousPendingSubInfo.matchingSessionRef && (
                   <div className="pt-1 flex items-center justify-between bg-white/60 p-2 rounded border border-rose-200">

@@ -44,7 +44,7 @@ export function FacilitiesExperience() {
         <div className="facility-hero-grid" aria-hidden="true" />
         <div className="facility-hero-content">
           <span className="facility-kicker">VIBE SPORT · FACILITIES</span>
-          <h1 id="facilities-title">{isVi ? <>CƠ SỞ <span>VẬT CHẤT</span></> : <>OUR <span>FACILITIES</span></>}</h1>
+          <h1 id="facilities-title">{isVi ? <>CƠ SỞ<br /><span>VẬT CHẤT</span></> : <>OUR<br /><span>FACILITIES</span></>}</h1>
           <p>{isVi
             ? "Không gian tập luyện đa dạng, được bố trí theo từng bộ môn để bạn rèn luyện kỹ năng và tiến bộ qua mỗi buổi tập."
             : "Purposeful training spaces for every sport, helping you build skills and progress with every session."}</p>
@@ -70,11 +70,7 @@ export function FacilitiesExperience() {
         <div className="facility-details-heading">
           <div>
             <p className="facility-section-kicker">{isVi ? "KHÔNG GIAN THEO BỘ MÔN" : "SPACES BY SPORT"}</p>
-            <h2>{isVi ? "Mỗi môn học, một" : "A space for"} <span>{isVi ? "không gian riêng" : "every sport"}</span></h2>
           </div>
-          <p>{isVi
-            ? "Thông tin phòng và sức chứa được lấy từ dữ liệu cơ sở vật chất của trung tâm."
-            : "Room names and capacities come from the center’s facility records."}</p>
         </div>
 
         <div className="facility-detail-list">
@@ -95,7 +91,6 @@ export function FacilitiesExperience() {
                   <span className="facility-detail-number">{String(index + 1).padStart(2, "0")}</span>
                 </div>
                 <div className="facility-detail-copy">
-                  <p className="facility-section-kicker">{isVi ? "KHÔNG GIAN TẬP LUYỆN" : "TRAINING SPACE"} · {String(index + 1).padStart(2, "0")}</p>
                   <h3>{courseTitle}</h3>
                   <p className="facility-detail-description">{isVi ? course.space : course.spaceEn}</p>
                   <div className="facility-detail-facts">

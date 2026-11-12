@@ -1401,8 +1401,8 @@ export function LoginView({
               SPORT_ONBOARDING_OPTIONS[0]
 
             return (
-              <div className="relative z-10 my-auto max-w-xl py-8">
-                <h1 className="font-display text-[clamp(3rem,4.6vw,4.75rem)] font-extrabold uppercase leading-[0.96] tracking-tight text-white transition-all duration-300">
+              <div className="relative z-10 my-auto max-w-2xl py-8">
+                <h1 className="font-display text-[clamp(3rem,4vw,4.25rem)] font-extrabold uppercase leading-[1.1] tracking-normal text-white transition-all duration-300">
                   {adminEntry ? (
                     isVi ? (
                       <>
@@ -1437,15 +1437,13 @@ export function LoginView({
                     )
                   ) : isVi ? (
                     <>
-                      LỚN LÊN CÙNG
-                      <br />
-                      <span className="text-mlc-red">THỂ THAO.</span>
+                      <span className="block whitespace-nowrap">LỚN LÊN CÙNG</span>
+                      <span className="mt-3 block text-white">THỂ THAO.</span>
                     </>
                   ) : (
                     <>
-                      GROW STRONGER
-                      <br />
-                      <span className="text-mlc-red">THROUGH SPORT.</span>
+                      <span className="block whitespace-nowrap">GROW STRONGER</span>
+                      <span className="mt-3 block text-white">THROUGH SPORT.</span>
                     </>
                   )}
                 </h1>

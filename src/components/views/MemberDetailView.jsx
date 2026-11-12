@@ -279,8 +279,10 @@ export function MemberDetailView({ memberId, onBack }) {
       {/* Member Header Profile Card */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-brand-dark text-slate-200 border border-brand-dark-hover flex items-center justify-center text-xl font-bold shrink-0 shadow-xs">
-            {(member.name || 'M').charAt(0)}
+          <div className="w-14 h-14 rounded-full bg-brand-dark text-slate-200 border border-brand-dark-hover flex items-center justify-center text-xl font-bold shrink-0 shadow-xs overflow-hidden">
+            {member.avatar
+              ? <img src={member.avatar} alt="" className="h-full w-full object-cover" />
+              : (member.name || 'M').charAt(0)}
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">

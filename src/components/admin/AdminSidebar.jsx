@@ -54,7 +54,7 @@ export function AdminSidebar({
               >
                 <div className="w-12 h-9 rounded bg-white flex items-center justify-center p-1 shrink-0">
                   <img
-                    src="/images/MainPage/vibe-sport-logo.png?v=2"
+                    src="/images/MainPage/vibe-sport-logo.png?v=4"
                     alt="Vibe Sport"
                     className="max-h-full max-w-full object-contain"
                   />

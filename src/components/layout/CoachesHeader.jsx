@@ -77,18 +77,18 @@ export function CoachesHeader({ showRegister = true }) {
     <header ref={headerRef} className="sticky top-0 z-50 border-b border-mlc-border bg-white/95 text-mlc-ink backdrop-blur-md">
       <div className="mx-auto flex h-[76px] max-w-[1440px] items-center justify-between gap-5 px-5 sm:px-8 lg:px-12">
         <Link to="/" aria-label={isVi ? "VIBE Sport, trang chủ" : "VIBE Sport, home"} className="shrink-0">
-          <img src="/images/MainPage/vibe-sport-logo.png?v=2" alt="VIBE Sport" className="h-14 w-24 object-contain sm:h-16 sm:w-28" />
+          <img src="/images/MainPage/vibe-sport-logo.png?v=4" alt="VIBE Sport" className="h-11 w-auto object-contain sm:h-14" />
         </Link>
         <nav aria-label={isVi ? "Điều hướng chính" : "Main navigation"} className="hidden items-center gap-4 xl:flex">
           {renderLinks()}
         </nav>
         <div className="flex items-center gap-3 sm:gap-5">
-          <div className="flex items-center gap-1 text-xs font-bold" aria-label={isVi ? "Ngôn ngữ" : "Language"}>
+          <div className="flex items-center gap-1 text-[1.0625rem] font-bold" aria-label={isVi ? "Ngôn ngữ" : "Language"}>
             <button type="button" onClick={() => setLanguage("vi")} aria-pressed={isVi} className={`p-1.5 ${isVi ? "text-mlc-red" : "text-mlc-muted"}`}>VI</button>
             <span aria-hidden="true" className="text-mlc-border">/</span>
             <button type="button" onClick={() => setLanguage("en")} aria-pressed={!isVi} className={`p-1.5 ${!isVi ? "text-mlc-red" : "text-mlc-muted"}`}>EN</button>
           </div>
-          <Link to="/login" className="hidden text-xs font-bold hover:text-mlc-red sm:block">{isVi ? "Đăng nhập" : "Login"}</Link>
+          <Link to="/login" className="hidden text-[1.0625rem] font-bold hover:text-mlc-red sm:block">{isVi ? "Đăng nhập" : "Login"}</Link>
           {showRegister && (
             <Link to="/register" className="hidden rounded-full bg-mlc-red px-5 py-3 text-xs font-bold text-white shadow-mlc transition hover:bg-brand-primary-hover sm:block">
               {isVi ? "Đăng ký ngay" : "Join now"}

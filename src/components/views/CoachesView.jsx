@@ -117,9 +117,6 @@ export function CoachesView() {
                 ><span>{isVi ? sport.title : sport.titleEn}</span></button>
               ))}
             </div>
-            <p role="status" aria-live="polite" aria-atomic="true" className="mb-5 mt-6 text-xs text-white/50">
-              {isVi ? `${visibleCoaches.length} huấn luyện viên${activeSport === "all" ? " · 9 môn thể thao" : ` · ${publicSports.find((sport) => sport.id === activeSport).title}`}` : `${visibleCoaches.length} ${visibleCoaches.length === 1 ? "coach" : "coaches"}${activeSport === "all" ? " · 9 sports" : ` · ${publicSports.find((sport) => sport.id === activeSport).titleEn}`}`}
-            </p>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 xl:gap-4" data-coach-grid>
               {visibleCoaches.map((coach) => (
                 <button
@@ -143,7 +140,6 @@ export function CoachesView() {
               ))}
             </div>
             <div className="mt-8 flex flex-wrap items-center justify-between gap-5 border-t border-white/10 pt-6">
-              <p className="text-xs leading-6 text-white/45">{isVi ? "Hình ảnh huấn luyện viên mang tính minh họa." : "Coach images are illustrative."}</p>
               <Link to="#contact-info" className="inline-flex items-center gap-2 text-sm font-semibold transition hover:text-mlc-red">{isVi ? "Liên hệ với chúng tôi" : "Contact us"}<ArrowUpRight className="h-4 w-4" /></Link>
             </div>
           </div>
@@ -187,7 +183,6 @@ export function CoachesView() {
               <a href="#contact-info" className="coaches-profile-cta" onClick={() => setSelectedCoach(null)}>
                 {isVi ? "Tư vấn khóa học" : "Ask about classes"}<ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               </a>
-              <p className="coaches-profile-note">{isVi ? "Ảnh huấn luyện viên mang tính minh họa." : "Coach photo is illustrative."}</p>
             </div>
           </section>
         </div>

@@ -55,12 +55,13 @@
   font-family: var(--font-display);
   font-size: clamp(3.4rem, 8vw, 7.6rem);
   font-weight: 900;
-  line-height: 0.92;
+  line-height: 1.02;
   letter-spacing: -0.035em;
   text-transform: uppercase;
 }
-.facility-hero-content :is(h1, h2) span,
-.facility-details-heading h2 span { color: var(--brand-accent-dark); }
+.facility-hero-content h1,
+.facility-hero-content h1 span { color: white; }
+.facility-hero-content h2 span { color: var(--brand-accent-dark); }
 .facility-hero-content > p {
   max-width: 590px;
   margin-top: 1.75rem;
@@ -103,12 +104,12 @@
 }
 .facility-stat:last-child { border-right: 0; }
 .facility-stat-icon,
-.facility-stat-lucide { flex: 0 0 auto; color: var(--brand-accent-dark); }
+.facility-stat-lucide { flex: 0 0 auto; color: white; }
 .facility-stat-icon { font-family: var(--font-display); font-size: 1.1rem; font-weight: 900; }
 .facility-stat-lucide { width: 1.35rem; height: 1.35rem; }
 .facility-stat div { display: flex; flex-direction: column; gap: 0.3rem; }
-.facility-stat strong { color: var(--brand-accent-dark); font-family: var(--font-display); font-size: clamp(1.8rem, 3vw, 2.7rem); font-weight: 900; line-height: 1; }
-.facility-stat div span { color: rgb(255 255 255 / 76%); font-size: 0.61rem; font-weight: 800; letter-spacing: 0.08em; }
+.facility-stat strong { color: white; font-family: var(--font-display); font-size: clamp(1.8rem, 3vw, 2.7rem); font-weight: 900; line-height: 1; }
+.facility-stat div span { color: white; font-size: 0.61rem; font-weight: 800; letter-spacing: 0.08em; }
 .facility-details {
   width: min(100% - 2.5rem, 1120px);
   margin: 0 auto;
@@ -121,19 +122,10 @@
   gap: 2rem;
   margin-bottom: 2.5rem;
 }
-.facility-details-heading h2 {
-  margin-top: 0.75rem;
-  font-family: var(--font-display);
+.facility-details-heading .facility-section-kicker {
   font-size: clamp(2rem, 4.5vw, 3.8rem);
-  font-weight: 900;
-  line-height: 1;
-  text-transform: uppercase;
-}
-.facility-details-heading > p {
-  max-width: 340px;
-  color: #697180;
-  font-size: 0.8rem;
-  line-height: 1.7;
+  line-height: 1.14;
+  letter-spacing: 0.015em;
 }
 .facility-detail-list { display: grid; gap: 2rem; }
 .facility-detail-card {
@@ -144,9 +136,9 @@
 }
 .facility-detail-card-reverse { grid-template-columns: minmax(0, 0.96fr) minmax(0, 1.04fr); }
 .facility-detail-card-reverse .facility-detail-image-wrap { order: 2; }
-.facility-detail-image-wrap { position: relative; min-height: 330px; overflow: hidden; background: #d9dee2; }
+.facility-detail-image-wrap { position: relative; align-self: center; width: 100%; aspect-ratio: 16 / 9; min-height: 0; overflow: hidden; background: #d9dee2; }
 .facility-detail-image-wrap::after { position: absolute; inset: 0; background: linear-gradient(0deg, rgb(32 43 70 / 28%), transparent 45%); content: ""; }
-.facility-detail-image-wrap img { width: 100%; height: 100%; min-height: 330px; object-fit: cover; transition: transform 700ms cubic-bezier(.2,.7,.2,1); }
+.facility-detail-image-wrap img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 700ms cubic-bezier(.2,.7,.2,1); }
 .facility-detail-card:hover .facility-detail-image-wrap img { transform: scale(1.035); }
 .facility-detail-number { position: absolute; z-index: 1; top: 1.25rem; left: 1.25rem; display: grid; width: 48px; height: 48px; place-items: center; transform: skewX(-6deg); background: var(--brand-primary); color: white; font-family: var(--font-display); font-size: 1rem; font-weight: 900; }
 .facility-detail-copy { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: clamp(1.75rem, 4vw, 3.5rem); }
@@ -173,12 +165,9 @@
   .facility-stat div span { font-size: 0.5rem; }
   .facility-details { width: min(100% - 2rem, 1120px); }
   .facility-details-heading { align-items: flex-start; flex-direction: column; gap: 0.8rem; }
-  .facility-details-heading > p { max-width: 520px; }
   .facility-detail-card,
   .facility-detail-card-reverse { grid-template-columns: 1fr; }
   .facility-detail-card-reverse .facility-detail-image-wrap { order: initial; }
-  .facility-detail-image-wrap,
-  .facility-detail-image-wrap img { min-height: 0; aspect-ratio: 16 / 10; }
   .facility-detail-copy { padding: 1.5rem; }
 }
 @media (max-width: 420px) {

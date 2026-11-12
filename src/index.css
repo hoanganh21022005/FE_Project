@@ -202,19 +202,19 @@ h1, h2, h3, h4, h5, h6 {
   0% {
     opacity: 0;
     filter: blur(12px);
-    transform: translate3d(0.12em, 0.3em, 0) skewX(-10deg);
+    transform: translate3d(0.08em, 0.2em, 0) skewX(-4deg);
   }
   5%,
   20% {
     opacity: 1;
     filter: blur(0);
-    transform: translate3d(0, 0, 0) skewX(-8deg);
+    transform: translate3d(0, 0, 0) skewX(-3deg);
   }
   25%,
   100% {
     opacity: 0;
     filter: blur(8px);
-    transform: translate3d(-0.08em, -0.24em, 0) skewX(-8deg);
+    transform: translate3d(-0.05em, -0.15em, 0) skewX(-3deg);
   }
 }
 
@@ -242,7 +242,8 @@ h1, h2, h3, h4, h5, h6 {
   white-space: nowrap;
   text-transform: uppercase;
   color: #fff;
-  line-height: 1.12;
+  line-height: 1.15;
+  letter-spacing: 0.03em;
   opacity: 0;
   animation: vibe-slogan-cycle 12s cubic-bezier(0.2, 0.75, 0.25, 1) infinite both;
   will-change: opacity, filter, transform;
@@ -255,7 +256,7 @@ h1, h2, h3, h4, h5, h6 {
 .vibe-slogan-word::after {
   content: "";
   position: absolute;
-  bottom: -0.025em;
+  bottom: -0.07em;
   left: 0.04em;
   width: 1.1em;
   height: 0.045em;
@@ -279,7 +280,7 @@ h1, h2, h3, h4, h5, h6 {
   visibility: visible;
   opacity: 1 !important;
   filter: none !important;
-  transform: skewX(-8deg) !important;
+  transform: skewX(-3deg) !important;
 }
 
 .sports-marquee-track {

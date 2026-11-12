@@ -69,7 +69,7 @@ export function PersonalProfileView() {
 
   // Avatar state (strictly from Backend, no localStorage fallback)
   const [avatarUrl, setAvatarUrl] = useState(
-    () => currentUser?.avatarUrl || null,
+    () => currentUser?.avatarUrl || currentUser?.avatar || null,
   )
   const [avatarLoading, setAvatarLoading] = useState(false)
   const [avatarNotice, setAvatarNotice] = useState("")
@@ -254,7 +254,7 @@ export function PersonalProfileView() {
 
     try {
       const res = await authApi.uploadMyAvatar(file)
-      const remoteUrl = res?.avatarUrl || res?.url || null
+      const remoteUrl = res?.avatarUrl || res?.avatar || res?.url || null
       if (!remoteUrl) {
         throw new Error(
           isVi
@@ -265,6 +265,7 @@ export function PersonalProfileView() {
       setAvatarUrl(remoteUrl)
       if (currentUser) {
         currentUser.avatarUrl = remoteUrl
+        currentUser.avatar = remoteUrl
       }
       if (typeof window !== "undefined") {
         window.dispatchEvent(
@@ -306,6 +307,7 @@ export function PersonalProfileView() {
       setAvatarUrl(null)
       if (currentUser) {
         currentUser.avatarUrl = null
+        currentUser.avatar = null
       }
       if (typeof window !== "undefined") {
         window.dispatchEvent(

@@ -245,7 +245,7 @@ export function ClassDetailDrawer({
         confirmationAcceptedButUnrefreshed.delete(String(classId))
         setConfirmationAccepted(false)
       } else if (confirmingRequestWasAccepted) {
-        errors.push("Backend đã nhận xác nhận nhưng dữ liệu chi tiết chưa phản ánh trạng thái mới.")
+        errors.push("Hệ thống đã nhận xác nhận, đang cập nhật dữ liệu mới nhất.")
       }
     } else {
       const message = getErrorMessage(results[0].reason)
@@ -349,7 +349,7 @@ export function ClassDetailDrawer({
       setConfirmationAccepted(true)
       setOpeningDialogOpen(false)
       setOpeningReason("")
-      showToast("Backend đã xác nhận khai giảng lớp học.", "success")
+      showToast("Khai giảng lớp học thành công.", "success")
       await refreshOpeningData({ afterConfirmation: true })
     } catch (error) {
       const normalized = getNormalClassOpeningError(error)
@@ -710,7 +710,7 @@ export function ClassDetailDrawer({
                     </div>
                     {confirmationAccepted && (
                       <p role="status" className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-medium text-amber-900">
-                        Backend đã nhận yêu cầu xác nhận nhưng chưa đồng bộ được dữ liệu mới. Không gửi lại yêu cầu; hãy tải lại dữ liệu.
+                        Hệ thống đã ghi nhận yêu cầu. Vui lòng tải lại dữ liệu nếu trạng thái chưa cập nhật.
                       </p>
                     )}
                   </>
@@ -789,8 +789,8 @@ export function ClassDetailDrawer({
                       ) : (
                         <p className="mt-3 text-stone-600">
                           {openingEvaluation.unverified.length > 0
-                            ? "Chưa xác minh toàn bộ điều kiện. Backend sẽ kiểm tra điều kiện cuối cùng khi gửi yêu cầu."
-                            : "Backend vẫn là nơi xác nhận điều kiện khai giảng cuối cùng."}
+                            ? "Hệ thống sẽ thẩm định và hoàn tất điều kiện khi gửi yêu cầu."
+                            : "Hệ thống sẽ xác nhận điều kiện khi gửi yêu cầu."}
                         </p>
                       )}
                       {sessionsError && <p role="alert" className="mt-2 text-rose-700">Không tải được lịch học: {sessionsError}</p>}
@@ -807,7 +807,7 @@ export function ClassDetailDrawer({
 
                       {confirmationAccepted && (
                         <p role="status" className="mt-3 font-medium text-emerald-800">
-                          Backend đã nhận yêu cầu xác nhận. Đang chờ đồng bộ trạng thái mới; không gửi lại yêu cầu.
+                          Hệ thống đã nhận yêu cầu xác nhận và đang cập nhật trạng thái mới.
                         </p>
                       )}
 
@@ -1157,8 +1157,8 @@ export function ClassDetailDrawer({
 
             {openingEvaluation.unverified.length > 0 && (
               <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
-                <p className="font-semibold">Còn điều kiện chưa xác minh</p>
-                <p className="mt-1">Dữ liệu FE chưa đủ để kết luận lớp đủ điều kiện. Backend sẽ kiểm tra quyết định cuối cùng.</p>
+                <p className="font-semibold">Còn điều kiện cần xác minh</p>
+                <p className="mt-1">Hệ thống sẽ thẩm định điều kiện khi bạn gửi yêu cầu.</p>
               </div>
             )}
             {openingEvaluation.blockers.length > 0 && (
@@ -1203,7 +1203,7 @@ export function ClassDetailDrawer({
                 Hủy
               </button>
               <button type="button" disabled={openingSubmitting || !openingEvaluation.canSubmit || (openingEvaluation.reasonRequired === true && !openingReason.trim())} onClick={submitOpeningConfirmation} className="rounded-lg bg-indigo-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50">
-                {openingSubmitting ? "Đang xác nhận…" : "Xác nhận với Backend"}
+                {openingSubmitting ? "Đang xác nhận…" : "Xác nhận khai giảng"}
               </button>
             </div>
           </div>
