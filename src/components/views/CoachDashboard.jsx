@@ -63,24 +63,24 @@ export function CoachDashboard() {
   const [dashError, setDashError] = useState(null)
 
   const myClasses = useMemo(() => {
-    const resolvedCoachId = currentUser.coachId || currentUser.id
+    const resolvedCoachId = currentUser.coachId || (!apiEnabled ? currentUser.id : null)
     const coachNameLower = String(currentUser.name || "").trim().toLowerCase()
     return classes.filter(
       (c) =>
         (resolvedCoachId && String(c.coachId) === String(resolvedCoachId)) ||
-        (currentUser.id && String(c.coachId) === String(currentUser.id)) ||
+        (!apiEnabled && currentUser.id && String(c.coachId) === String(currentUser.id)) ||
         (coachNameLower &&
           String(c.coachName || "")
             .trim()
             .toLowerCase()
             .includes(coachNameLower)),
     )
-  }, [classes, currentUser.coachId, currentUser.id, currentUser.name])
+  }, [apiEnabled, classes, currentUser.coachId, currentUser.id, currentUser.name])
 
   useEffect(() => {
     if (!apiEnabled) return
     let active = true
-    const resolvedCoachId = currentUser.coachId || currentUser.id
+    const resolvedCoachId = currentUser.coachId || (!apiEnabled ? currentUser.id : null)
     setDashLoading(true)
     setDashError(null)
     Promise.all([
@@ -249,6 +249,46 @@ export function CoachDashboard() {
       return dA.localeCompare(dB)
     })
   }, [sessionsByClassId, coachSessions, myClasses])
+
+  const displayClasses = useMemo(() => {
+    const byId = new Map(myClasses.map((cls) => [String(cls.id), cls]))
+    if (apiEnabled) {
+      const sessionsByClassId = new Map()
+      coachSessions.forEach((session) => {
+        const isNormalSession = session.isPrivate === false ||
+          String(session.classType || "").trim().toLowerCase() === "normal"
+        if (!isNormalSession || session.classId == null) return
+        const key = String(session.classId)
+        const list = sessionsByClassId.get(key) || []
+        list.push(session)
+        sessionsByClassId.set(key, list)
+      })
+      sessionsByClassId.forEach((sessions, classId) => {
+        if (byId.has(classId)) return
+        const first = sessions[0]
+        const name = first.className || `Lớp #${classId}`
+        byId.set(classId, {
+          id: first.classId,
+          name,
+          nameVi: name,
+          category: first.subjectName || "Thể thao",
+          classType: "Normal",
+          coachId: first.coachId ?? currentUser.coachId ?? null,
+          coachName: first.coachName || currentUser.name || "",
+          capacity: first.maxCapacity ?? null,
+          enrolledCount: first.enrolledCount ?? 0,
+          date: first.sessionDate,
+          startDate: first.sessionDate,
+          startTime: first.startTime,
+          endTime: first.endTime,
+          room: first.roomName || "Sân tập trung tâm",
+          roomVi: first.roomName || "Sân tập trung tâm",
+          sessionCount: sessions.length,
+        })
+      })
+    }
+    return Array.from(byId.values())
+  }, [apiEnabled, coachSessions, currentUser.coachId, currentUser.name, myClasses])
 
   // R5.1: Today's sessions (both group class + PT 1:1) & unchecked count
   const todaySessionsInfo = useMemo(() => {
@@ -479,7 +519,7 @@ export function CoachDashboard() {
     return sum > 0 ? (sum / feedbackItems.length).toFixed(1) : "—"
   }, [coachFeedbackSummary.averageCoachRating, feedbackItems])
 
-  const chartData = myClasses.map((c) => {
+  const chartData = displayClasses.map((c) => {
     const label = language === "vi" ? c.nameVi || c.name : c.name
     return {
       name:
@@ -733,7 +773,7 @@ export function CoachDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
           label={language === "vi" ? "Lớp phụ trách" : "Assigned classes"}
-          value={myClasses.length}
+          value={displayClasses.length}
           icon={<Calendar className="w-4 h-4" />}
           iconBg="bg-bg-secondary"
           iconColor="text-brand-primary"
@@ -821,9 +861,9 @@ export function CoachDashboard() {
             </div>
           </div>
 
-          {myClasses.length < 2 ? (
+          {displayClasses.length < 2 ? (
             <div className="space-y-4 py-2">
-              {myClasses.map((cls) => {
+              {displayClasses.map((cls) => {
                 const enrolled = cls.enrolledCount ?? 0
                 const capacity = cls.capacity ?? 12
                 const fillPct =
@@ -1194,8 +1234,8 @@ export function CoachDashboard() {
                   </div>
                 )
               })
-            : myClasses.map((cls) => {
-                const clsSessions = sessionsByClassId[String(cls.id)] || []
+            : displayClasses.map((cls) => {
+                const clsSessions = sessionsByClassId[String(cls.id)] || coachSessions.filter((session) => String(session.classId) === String(cls.id))
                 const activeSession =
                   clsSessions.find((s) => !isSessionCancelled(s)) ||
                   clsSessions[0] ||

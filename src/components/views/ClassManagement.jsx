@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from "react"
+import { useLocation } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import { SkeletonBlock, SkeletonRow, ErrorState } from "../ui/Skeleton"
 import { getSessions } from "../../api/managerApi.js"
@@ -1259,6 +1260,8 @@ const DEFAULT_COLUMN_VISIBILITY = {
 
 export function ClassManagement() {
   const {
+    role,
+    currentUser,
     classes,
     setClasses,
     reloadClasses,
@@ -1274,6 +1277,9 @@ export function ClassManagement() {
     showToast,
     language,
   } = useSCMS()
+
+  const location = useLocation()
+  const isManager = role === 'manager' || currentUser?.role === 'manager' || location.pathname.startsWith('/manager')
 
   // Mode: 'table' (Mặc định chuẩn) | 'calendar' (Lịch tháng)
   const [viewMode, setViewMode] = useState("table")
@@ -2068,14 +2074,16 @@ export function ClassManagement() {
               </button>
 
               {/* Xuất Excel đã chọn */}
-              <button
-                type="button"
-                onClick={handleBulkExport}
-                className="h-8 px-3 bg-white hover:bg-stone-50 border border-stone-200/90 rounded-lg text-xs font-semibold text-stone-700 flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
-              >
-                <Download className="w-3.5 h-3.5 text-stone-500" />
-                <span>Xuất Excel ({selectedClassIds.length})</span>
-              </button>
+              {!isManager && (
+                <button
+                  type="button"
+                  onClick={handleBulkExport}
+                  className="h-8 px-3 bg-white hover:bg-stone-50 border border-stone-200/90 rounded-lg text-xs font-semibold text-stone-700 flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                >
+                  <Download className="w-3.5 h-3.5 text-stone-500" />
+                  <span>Xuất Excel ({selectedClassIds.length})</span>
+                </button>
+              )}
 
               {!apiEnabled && (
                 <button
@@ -2250,33 +2258,36 @@ export function ClassManagement() {
                 )}
               </div>
 
-              {/* Nhập dữ liệu hàng loạt (Bulk Import Excel) */}
-              <button
-                type="button"
-                onClick={() => setIsImportModalOpen(true)}
-                className="h-9 px-3.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
-                title="Nhập danh sách lớp học từ tệp Excel/CSV"
-              >
-                <Upload className="w-3.5 h-3.5 text-stone-600" />
-                <span>Nhập Excel</span>
-              </button>
+              {/* Nhập dữ liệu hàng loạt (Bulk Import Excel) & Xuất Excel toàn bộ danh sách đang hiển thị */}
+              {!isManager && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsImportModalOpen(true)}
+                    className="h-9 px-3.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                    title="Nhập danh sách lớp học từ tệp Excel/CSV"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-stone-600" />
+                    <span>Nhập Excel</span>
+                  </button>
 
-              {/* Xuất Excel toàn bộ danh sách đang hiển thị */}
-              <button
-                type="button"
-                onClick={() =>
-                  exportClassesToCsv(
-                    filteredAndSortedClasses,
-                    "danh_sach_lop_hoc",
-                    { apiMode: apiEnabled },
-                  )
-                }
-                className="h-9 px-3.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
-                title="Xuất dữ liệu lớp học ra tệp Excel (CSV)"
-              >
-                <Download className="w-3.5 h-3.5 text-stone-600" />
-                <span>Xuất Excel</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      exportClassesToCsv(
+                        filteredAndSortedClasses,
+                        "danh_sach_lop_hoc",
+                        { apiMode: apiEnabled },
+                      )
+                    }
+                    className="h-9 px-3.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                    title="Xuất dữ liệu lớp học ra tệp Excel (CSV)"
+                  >
+                    <Download className="w-3.5 h-3.5 text-stone-600" />
+                    <span>Xuất Excel</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}

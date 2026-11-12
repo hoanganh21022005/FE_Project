@@ -1489,25 +1489,87 @@ export const SCMSProvider = ({ children }) => {
     if (authUser.coachId && Number.isInteger(Number(authUser.coachId)) && Number(authUser.coachId) > 0) {
       return
     }
-    const emailLower = String(authUser.email || "").trim().toLowerCase()
-    const nameLower = String(authUser.fullName || "").trim().toLowerCase()
-    const matchedCoach = staff.find((s) => {
-      const r = String(s.role || s.beRole || "").toLowerCase()
-      if (!r.includes("coach") && !r.includes("huấn luyện")) return false
-      if (emailLower && String(s.email || "").trim().toLowerCase() === emailLower) {
-        return true
+
+    let active = true
+
+    const resolveAuthoritativeCoach = async () => {
+      // 1. Try GET /api/coaches/me
+      try {
+        const myProfile = await memberPortalApi.getCoachProfileMe()
+        const cId = Number(myProfile?.id ?? myProfile?.coachId)
+        if (active && Number.isInteger(cId) && cId > 0) {
+          setAuthUser((prev) =>
+            prev && !prev.coachId ? { ...prev, coachId: cId } : prev,
+          )
+          return
+        }
+      } catch {
+        // Fallback to /api/coaches
       }
-      if (nameLower && String(s.name || "").trim().toLowerCase() === nameLower) {
-        return true
+
+      // 2. Try GET /api/coaches
+      try {
+        const coachList = await memberPortalApi.getCoaches()
+        if (active && Array.isArray(coachList) && coachList.length > 0) {
+          const emailLower = String(authUser.email || "").trim().toLowerCase()
+          const nameLower = String(authUser.fullName || "").trim().toLowerCase()
+          const userIdStr = String(authUser.userId || "")
+
+          const matched = coachList.find((c) => {
+            if (userIdStr && String(c.userId || c.user?.id || "") === userIdStr) {
+              return true
+            }
+            if (emailLower && String(c.email || "").trim().toLowerCase() === emailLower) {
+              return true
+            }
+            if (nameLower && String(c.name || "").trim().toLowerCase() === nameLower) {
+              return true
+            }
+            return false
+          })
+
+          if (matched && Number.isInteger(Number(matched.id)) && Number(matched.id) > 0) {
+            setAuthUser((prev) =>
+              prev && !prev.coachId
+                ? { ...prev, coachId: Number(matched.id) }
+                : prev,
+            )
+            return
+          }
+        }
+      } catch {
+        // Fallback to staff
       }
-      return false
-    })
-    if (matchedCoach && Number.isInteger(Number(matchedCoach.id)) && Number(matchedCoach.id) > 0) {
-      setAuthUser((prev) =>
-        prev && !prev.coachId
-          ? { ...prev, coachId: Number(matchedCoach.id) }
-          : prev,
-      )
+
+      // 3. Fallback to staff list if available
+      if (Array.isArray(staff) && staff.length > 0) {
+        const emailLower = String(authUser.email || "").trim().toLowerCase()
+        const nameLower = String(authUser.fullName || "").trim().toLowerCase()
+        const matchedCoach = staff.find((s) => {
+          const r = String(s.role || s.beRole || "").toLowerCase()
+          if (!r.includes("coach") && !r.includes("huấn luyện")) return false
+          if (emailLower && String(s.email || "").trim().toLowerCase() === emailLower) {
+            return true
+          }
+          if (nameLower && String(s.name || "").trim().toLowerCase() === nameLower) {
+            return true
+          }
+          return false
+        })
+        if (matchedCoach && Number.isInteger(Number(matchedCoach.id)) && Number(matchedCoach.id) > 0) {
+          setAuthUser((prev) =>
+            prev && !prev.coachId
+              ? { ...prev, coachId: Number(matchedCoach.id) }
+              : prev,
+          )
+        }
+      }
+    }
+
+    void resolveAuthoritativeCoach()
+
+    return () => {
+      active = false
     }
   }, [authUser, staff])
 

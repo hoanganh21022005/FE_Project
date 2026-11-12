@@ -163,6 +163,142 @@ export function isRoomAvailable(room, isApi = true) {
   return s === "available"
 }
 
+export function isRoomForSubject(room, regItem) {
+  if (!room || !regItem) return true
+
+  const targetSubjectId = regItem.subjectId ? String(regItem.subjectId).trim() : null
+  const targetSubjectName = String(
+    regItem.subjectName ||
+    regItem.subject?.name ||
+    regItem.specialty ||
+    regItem.specialization ||
+    "",
+  ).trim().toLowerCase()
+
+  // 1. Direct subjectId matching if room provides subject association
+  if (targetSubjectId) {
+    if (room.subjectId != null && String(room.subjectId).trim() === targetSubjectId) return true
+    if (room.subject_id != null && String(room.subject_id).trim() === targetSubjectId) return true
+    if (room.subject?.id != null && String(room.subject.id).trim() === targetSubjectId) return true
+    if (Array.isArray(room.subjectIds) && room.subjectIds.some((id) => String(id).trim() === targetSubjectId)) return true
+    if (Array.isArray(room.subjects) && room.subjects.some((s) => String(s?.id ?? s).trim() === targetSubjectId)) return true
+  }
+
+  // 2. Direct room subject / sport / activity name matching
+  const roomSubjectName = String(
+    room.subjectName ||
+    room.subject?.name ||
+    room.sport ||
+    room.sportName ||
+    room.activityType ||
+    "",
+  ).trim().toLowerCase()
+  if (roomSubjectName && targetSubjectName) {
+    if (roomSubjectName.includes(targetSubjectName) || targetSubjectName.includes(roomSubjectName)) {
+      return true
+    }
+  }
+
+  // 3. Normalized string matching on roomCode, name, and location
+  const roomName = String(room.name || "").toLowerCase()
+  const roomLocation = String(room.location || "").toLowerCase()
+  const roomCode = String(room.roomCode || "").toUpperCase()
+  const roomCombined = `${roomCode} ${roomName} ${roomLocation}`
+
+  const SPORT_DICTIONARY = [
+    {
+      keys: ["quần vợt", "tennis"],
+      roomTerms: ["quần vợt", "tennis"],
+      codes: ["TEN", "TNS"],
+    },
+    {
+      keys: ["bắn cung", "archery"],
+      roomTerms: ["bắn cung", "archery"],
+      codes: ["ARC"],
+    },
+    {
+      keys: ["bơi", "swimming", "swim"],
+      roomTerms: ["bơi", "swimming", "swim", "hồ bơi", "bể bơi", "pool"],
+      codes: ["SWM", "SWI"],
+    },
+    {
+      keys: ["cầu lông", "badminton"],
+      roomTerms: ["cầu lông", "badminton"],
+      codes: ["BAD", "BDM"],
+    },
+    {
+      keys: ["bóng bàn", "table tennis", "ping pong", "pingpong"],
+      roomTerms: ["bóng bàn", "table tennis", "ping pong", "pingpong"],
+      codes: ["TTN", "TAB"],
+    },
+    {
+      keys: ["bóng rổ", "basketball"],
+      roomTerms: ["bóng rổ", "basketball"],
+      codes: ["BKB", "BSK"],
+    },
+    {
+      keys: ["bóng chuyền", "volleyball"],
+      roomTerms: ["bóng chuyền", "volleyball"],
+      codes: ["VLB", "VOL"],
+    },
+    {
+      keys: ["bóng đá", "football", "soccer"],
+      roomTerms: ["bóng đá", "sân cỏ", "football", "soccer"],
+      codes: ["FTB", "SOC"],
+    },
+    {
+      keys: ["bắn súng", "shooting"],
+      roomTerms: ["bắn súng", "shooting", "súng hơi", "laser 10m"],
+      codes: ["SHT", "GUN"],
+    },
+    {
+      keys: ["pickleball"],
+      roomTerms: ["pickleball"],
+      codes: ["PCK", "PKB"],
+    },
+    {
+      keys: ["gym", "fitness", "thể hình"],
+      roomTerms: ["gym", "fitness", "thể hình"],
+      codes: ["GYM", "FIT"],
+    },
+    {
+      keys: ["yoga", "pilates"],
+      roomTerms: ["yoga", "pilates"],
+      codes: ["YOG", "PIL"],
+    },
+    {
+      keys: ["boxing", "vovinam", "quyền anh", "võ thuật", "võ"],
+      roomTerms: ["boxing", "vovinam", "quyền anh", "võ thuật", "đối kháng"],
+      codes: ["BOX", "VOV"],
+    },
+  ]
+
+  for (const item of SPORT_DICTIONARY) {
+    const isTargetSport = item.keys.some((k) => targetSubjectName.includes(k))
+    if (isTargetSport) {
+      const hasTerm = item.roomTerms.some((t) => roomCombined.includes(t))
+      const hasCode = item.codes.some((c) => roomCode.includes(c))
+      if (hasTerm || hasCode) {
+        return true
+      }
+    }
+  }
+
+  // 4. Token-level matching (e.g., "Tennis", "Quần vợt")
+  if (targetSubjectName) {
+    const tokens = targetSubjectName
+      .replace(/[()[\]{}_-]/g, " ")
+      .split(/\s+/)
+      .map((t) => t.trim())
+      .filter((t) => t.length >= 3)
+    if (tokens.some((token) => roomCombined.includes(token))) {
+      return true
+    }
+  }
+
+  return false
+}
+
 export function formatRoomOptionLabel(room) {
   if (!room || typeof room !== "object") return ""
   const code = room.roomCode ? String(room.roomCode).trim() : ""
@@ -314,6 +450,12 @@ export function CoachAssignedMembersView() {
   const [loadingRooms, setLoadingRooms] = useState(false)
   const [roomsError, setRoomsError] = useState(null)
 
+  const modalSubjectRooms = useMemo(() => {
+    if (!bookingReg) return roomsList
+    const matched = roomsList.filter((r) => isRoomForSubject(r, bookingReg))
+    return matched.length > 0 ? matched : roomsList
+  }, [roomsList, bookingReg])
+
   const [availableSlots, setAvailableSlots] = useState([])
   const [selectedSlot, setSelectedSlot] = useState(null)
   const [loadingSlots, setLoadingSlots] = useState(false)
@@ -448,7 +590,16 @@ export function CoachAssignedMembersView() {
         }
       } catch (err) {
         if (reqId !== slotsRequestIdRef.current || currentModalSession !== modalSessionRef.current) return
-        setSlotsError(getErrorMessage(err, "Không thể tải danh sách ca trống."))
+        const rawMsg = String(err?.message || err || "")
+        if (rawMsg.toLowerCase().includes("does not serve")) {
+          setSlotsError(
+            language === "vi"
+              ? "Sân tập này không phục vụ bộ môn đã chọn. Vui lòng chọn sân phù hợp."
+              : "This room does not serve the selected subject. Please select a suitable court.",
+          )
+        } else {
+          setSlotsError(getErrorMessage(err, "Không thể tải danh sách ca trống."))
+        }
         setAvailableSlots([])
         setSelectedSlot(null)
       } finally {
@@ -606,7 +757,9 @@ export function CoachAssignedMembersView() {
       currentRooms = fetched
     }
 
-    const initialRoomId = currentRooms && currentRooms.length > 0 ? String(currentRooms[0].id) : ""
+    const matchingRooms = currentRooms.filter((r) => isRoomForSubject(r, regItem))
+    const eligibleRooms = matchingRooms.length > 0 ? matchingRooms : currentRooms
+    const initialRoomId = eligibleRooms && eligibleRooms.length > 0 ? String(eligibleRooms[0].id) : ""
     setSelectedRoomId(initialRoomId)
 
     if (initialRoomId) {
@@ -655,11 +808,13 @@ export function CoachAssignedMembersView() {
       return
     }
 
-    const stillAvailable = valid.some((r) => String(r.id) === String(selectedRoomId))
+    const matchingRooms = valid.filter((r) => isRoomForSubject(r, targetReg))
+    const pool = matchingRooms.length > 0 ? matchingRooms : valid
+    const stillAvailable = pool.some((r) => String(r.id) === String(selectedRoomId))
     if (stillAvailable && selectedRoomId) {
       fetchAvailableSlots(targetDate, selectedRoomId, targetReg)
-    } else if (valid.length > 0) {
-      const firstRoomId = String(valid[0].id)
+    } else if (pool.length > 0) {
+      const firstRoomId = String(pool[0].id)
       setSelectedRoomId(firstRoomId)
       fetchAvailableSlots(targetDate, firstRoomId, targetReg)
     } else {
@@ -1179,21 +1334,21 @@ export function CoachAssignedMembersView() {
   }, [filteredCandidates])
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       {/* Header */}
       <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-bg-secondary text-brand-primary rounded border border-border-color">
-            <Users className="w-5 h-5" />
+            <CalendarPlus className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-xl leading-7 font-semibold text-text-primary whitespace-nowrap">
-              {t("assignedMembers")}
+              {language === "vi" ? "Đăng ký sân & Đặt lịch PT 1:1" : "1:1 Court Booking & Assigned Members"}
             </h2>
             <p className="text-sm leading-5 text-text-secondary whitespace-nowrap">
               {language === "vi"
-                ? "Danh sách học viên Personal Training (PT) được phân công trực tiếp"
-                : "Directly assigned Personal Training (PT) students"}
+                ? "Chọn học viên cá nhân để đăng ký sân tập, chọn ca học trống và theo dõi các gói tập 1:1"
+                : "Select 1:1 students to book sports courts, reserve available slots & track active packages"}
             </p>
           </div>
         </div>
@@ -1340,9 +1495,11 @@ export function CoachAssignedMembersView() {
       <div className="space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 rounded-lg border border-border-color bg-bg-card p-4 text-text-primary">
             <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
-              <Award className="w-4 h-4 text-brand-primary" />
+              <CalendarPlus className="w-4 h-4 text-brand-primary" />
               <span>
-                Học viên &amp; gói PT 1:1 được phân công ({groupedStudentCards.length} học viên)
+                {language === "vi"
+                  ? `Danh sách học viên & Đăng ký sân PT 1:1 (${groupedStudentCards.length} học viên)`
+                  : `1:1 PT Students & Court Booking (${groupedStudentCards.length} members)`}
               </span>
             </h3>
 
@@ -1455,18 +1612,22 @@ export function CoachAssignedMembersView() {
                   ) || recommendedPkg
 
                 const formatPkgName = (pkg) => {
-                  const subName =
-                    pkg.subjectName ||
-                    (pkg.subjectId ? `Môn #${pkg.subjectId}` : "PT 1:1")
-                  const codeNum = pkg.subscriptionId || pkg.id
-                  const baseTitle =
-                    pkg.packageName ||
-                    (pkg.subscriptionId
-                      ? `${subName} PT`
-                      : `${subName} (${t("coachPtAwaitingPackagePayment")})`)
-                  return codeNum
-                    ? `Gói #${codeNum} · ${baseTitle}`
-                    : baseTitle
+                  const subjectName = String(pkg.subjectName || pkg.subject?.name || "").trim()
+                  const packageName = String(pkg.packageName || "")
+                    .replace(/^g[oó]i\s*#?\d+\s*[·:-]?\s*/i, "")
+                    .trim()
+                  if (subjectName && packageName) {
+                    return packageName.toLocaleLowerCase().includes(subjectName.toLocaleLowerCase())
+                      ? packageName
+                      : `${subjectName} · ${packageName}`
+                  }
+                  if (packageName) return packageName
+                  if (subjectName) {
+                    return pkg.subscriptionId
+                      ? `${subjectName} · PT 1:1`
+                      : `${subjectName} (${t("coachPtAwaitingPackagePayment")})`
+                  }
+                  return "PT 1:1"
                 }
 
                 return (
@@ -1787,7 +1948,7 @@ export function CoachAssignedMembersView() {
                                 className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active whitespace-nowrap cursor-pointer"
                               >
                                 <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
-                                <span>Đặt lịch PT 1:1</span>
+                                <span>{language === "vi" ? "Đăng ký sân PT 1:1" : "Book PT Court"}</span>
                               </button>
                             )}
                           </div>
@@ -1922,7 +2083,7 @@ export function CoachAssignedMembersView() {
             <div className="flex items-center justify-between border-b border-border-color pb-3">
               <div>
                 <h3 className="text-lg leading-7 font-semibold text-text-primary">
-                  Đặt buổi tập PT 1:1
+                  {language === "vi" ? "Đăng ký sân & Đặt buổi tập PT 1:1" : "Book Court for 1:1 PT Session"}
                 </h3>
                 <p className="text-sm leading-5 text-text-secondary mt-0.5">
                   Học viên: <strong className="text-text-primary">{bookingReg.memberName || `Học viên #${bookingReg.memberId}`}</strong> &bull; Gói:{" "}
@@ -2074,7 +2235,7 @@ export function CoachAssignedMembersView() {
                         const isLocked =
                           currentAttempt?.status === "uncertain" ||
                           currentAttempt?.status === "pending"
-                        const hasMatchInAvailable = roomsList.some(
+                        const hasMatchInAvailable = modalSubjectRooms.some(
                           (r) => String(r.id) === String(selectedRoomId),
                         )
 
@@ -2087,14 +2248,20 @@ export function CoachAssignedMembersView() {
                             </option>
                           ) : null
 
-                        if (roomsList.length === 0 && !orphanSnapshotOption) {
-                          return <option value="">Không có sân tập khả dụng</option>
+                        if (modalSubjectRooms.length === 0 && !orphanSnapshotOption) {
+                          return (
+                            <option value="">
+                              {language === "vi"
+                                ? `Không có sân tập khả dụng cho môn ${bookingReg?.subjectName || ""}`
+                                : "No available rooms for this subject"}
+                            </option>
+                          )
                         }
 
                         return (
                           <>
                             {orphanSnapshotOption}
-                            {roomsList.map((r) => (
+                            {modalSubjectRooms.map((r) => (
                               <option key={r.id} value={r.id}>
                                 {formatRoomOptionLabel(r)}
                               </option>
@@ -2236,7 +2403,7 @@ export function CoachAssignedMembersView() {
                     currentAttempt?.status === "pending" ? (
                     <span>Thử lại cùng giao dịch</span>
                   ) : (
-                    <span>Xác nhận đặt lịch PT 1:1</span>
+                    <span>{language === "vi" ? "Xác nhận đăng ký sân PT 1:1" : "Confirm PT Court Booking"}</span>
                   )}
                 </button>
               </div>

@@ -48,11 +48,11 @@ export function CoachTrainingProgress() {
   } = useSCMS()
 
   const resolvedCoachId = useMemo(() => {
-    const raw = currentUser?.coachId ?? currentUser?.id
+    const raw = currentUser?.coachId ?? (apiEnabled ? null : currentUser?.id)
     const match = String(raw || "").match(/(\d+)$/)
     const parsed = match ? Number(match[1]) : Number(raw)
-    return !Number.isNaN(parsed) && parsed > 0 ? parsed : 1
-  }, [currentUser?.coachId, currentUser?.id])
+    return !Number.isNaN(parsed) && parsed > 0 ? parsed : null
+  }, [apiEnabled, currentUser?.coachId, currentUser?.id])
 
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== "undefined") {
@@ -130,7 +130,9 @@ export function CoachTrainingProgress() {
           evaluationApi.getEvaluations().catch(() => []),
           memberPortalApi.getTrainingPlans().catch(() => []),
           memberPortalApi.getTrainingResults().catch(() => []),
-          memberPortalApi.getClassSessions().catch(() => []),
+          resolvedCoachId
+            ? memberPortalApi.getClassSessions({ coachId: resolvedCoachId }).catch(() => [])
+            : Promise.resolve([]),
           memberPortalApi.getAdvancedRegistrations().catch(() => []),
           attendanceApi.searchAttendances().catch(() => []),
         ])
@@ -148,7 +150,7 @@ export function CoachTrainingProgress() {
     } finally {
       setLoadingData(false)
     }
-  }, [apiEnabled, selectedSessionId])
+  }, [apiEnabled, resolvedCoachId, selectedSessionId])
 
   useEffect(() => {
     loadAllProgressData()
@@ -538,7 +540,7 @@ export function CoachTrainingProgress() {
   const displayPercent = scoreToBarWidthPercent(latestEvaluationScore10)
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       {/* Sticky Student Selector + 4 Horizontal Tabs */}
       <div className="sticky top-0 z-10 rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">

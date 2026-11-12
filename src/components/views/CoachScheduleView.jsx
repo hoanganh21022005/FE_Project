@@ -96,16 +96,119 @@ export function CoachScheduleView() {
   } = useSCMS()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState("schedule") // 'schedule' | 'work_schedule'
-  const [viewMode, setViewMode] = useState("list") // 'list' | 'week'
+  const [viewMode, setViewMode] = useState("week") // 'week' | 'list' (default to visual weekly timetable)
   const [selectedRoom, setSelectedRoom] = useState("all")
   const [scheduleFilter, setScheduleFilter] = useState("all") // all | upcoming | group | pt
   const [showPastSessions, setShowPastSessions] = useState(false)
+  const [detectedCoachId, setDetectedCoachId] = useState(null)
 
   const resolvedCoachId = useMemo(() => {
-    const raw = currentUser?.coachId ?? currentUser?.id
-    const num = Number(raw)
-    return Number.isInteger(num) && num > 0 ? num : null
-  }, [currentUser?.coachId, currentUser?.id])
+    // 1. Authoritative coachId from currentUser
+    const userCoachId = Number(currentUser?.coachId)
+    if (Number.isInteger(userCoachId) && userCoachId > 0) {
+      return userCoachId
+    }
+    // 2. Detected coachId from /api/coaches or /api/coaches/me
+    const detected = Number(detectedCoachId)
+    if (Number.isInteger(detected) && detected > 0) {
+      return detected
+    }
+    // 3. In mock mode only (!apiEnabled), fall back to currentUser.id
+    if (!apiEnabled && currentUser?.id) {
+      const num = Number(currentUser.id)
+      return Number.isInteger(num) && num > 0 ? num : 1
+    }
+    // In API mode, NEVER fall back to userId (currentUser.id) to prevent 403 Forbidden
+    return null
+  }, [currentUser?.coachId, currentUser?.id, detectedCoachId, apiEnabled])
+
+  // Auto-resolve coachId from /api/coaches or /api/coaches/me when in API mode and coachId is missing
+  useEffect(() => {
+    if (!apiEnabled) return
+    if (currentUser?.coachId && Number(currentUser.coachId) > 0) return
+    let active = true
+
+    const lookupCoach = async () => {
+      // Step A: Check if any class taught by this coach already has coachId
+      if (classes.length > 0) {
+        const nameLower = String(currentUser?.name || "").trim().toLowerCase()
+        const matchedClass = classes.find((c) => {
+          const cNameLower = String(c.coachName || "").trim().toLowerCase()
+          return (
+            nameLower &&
+            cNameLower &&
+            (cNameLower === nameLower ||
+              cNameLower.includes(nameLower) ||
+              nameLower.includes(cNameLower))
+          )
+        })
+        const classCoachId = Number(matchedClass?.coachId)
+        if (Number.isInteger(classCoachId) && classCoachId > 0) {
+          if (active) setDetectedCoachId(classCoachId)
+          return
+        }
+      }
+
+      // Step B: Try GET /api/coaches/me
+      try {
+        const me = await memberPortalApi.getCoachProfileMe()
+        const cId = Number(me?.id ?? me?.coachId)
+        if (active && Number.isInteger(cId) && cId > 0) {
+          setDetectedCoachId(cId)
+          return
+        }
+      } catch {
+        // Fallback to GET /api/coaches
+      }
+
+      // Step C: Try GET /api/coaches
+      try {
+        const list = await memberPortalApi.getCoaches()
+        if (!active || !Array.isArray(list) || list.length === 0) return
+
+        const emailLower = String(currentUser?.email || "").trim().toLowerCase()
+        const nameLower = String(currentUser?.name || "").trim().toLowerCase()
+        const userIdStr = String(currentUser?.id || "")
+
+        const found = list.find((c) => {
+          if (userIdStr && String(c.userId || c.user?.id || "") === userIdStr) {
+            return true
+          }
+          if (
+            emailLower &&
+            String(c.email || "").trim().toLowerCase() === emailLower
+          ) {
+            return true
+          }
+          if (
+            nameLower &&
+            String(c.name || "").trim().toLowerCase() === nameLower
+          ) {
+            return true
+          }
+          return false
+        })
+
+        if (active && found && Number(found.id) > 0) {
+          setDetectedCoachId(Number(found.id))
+        }
+      } catch (err) {
+        console.warn("Could not auto-resolve coach ID:", err)
+      }
+    }
+
+    void lookupCoach()
+    return () => {
+      active = false
+    }
+  }, [
+    apiEnabled,
+    currentUser?.coachId,
+    currentUser?.id,
+    currentUser?.name,
+    currentUser?.email,
+    classes,
+  ])
 
   const myClasses = useMemo(() => {
     const coachNameLower = String(currentUser.name || "").trim().toLowerCase()
@@ -113,14 +216,14 @@ export function CoachScheduleView() {
       (c) =>
         (resolvedCoachId &&
           String(c.coachId) === String(resolvedCoachId)) ||
-        (currentUser.id && String(c.coachId) === String(currentUser.id)) ||
+        (!apiEnabled && currentUser.id && String(c.coachId) === String(currentUser.id)) ||
         (coachNameLower &&
           String(c.coachName || "")
             .trim()
             .toLowerCase()
             .includes(coachNameLower)),
     )
-  }, [classes, resolvedCoachId, currentUser.id, currentUser.name])
+  }, [apiEnabled, classes, resolvedCoachId, currentUser.id, currentUser.name])
 
   const [apiSessions, setApiSessions] = useState([])
   const [apiTimeSlots, setApiTimeSlots] = useState(DEFAULT_TIME_SLOTS)
@@ -189,7 +292,9 @@ export function CoachScheduleView() {
         resultsList,
         slotsList,
       ] = await Promise.all([
-        memberPortalApi.getClassSessions().catch(() => []),
+        resolvedCoachId
+          ? memberPortalApi.getClassSessions({ coachId: resolvedCoachId }).catch(() => [])
+          : Promise.resolve([]),
         Promise.all(catalogPromises),
         Promise.all(classSessionPromises),
         resolvedCoachId
@@ -271,9 +376,10 @@ export function CoachScheduleView() {
       if (Array.isArray(generalSessions)) {
         generalSessions.forEach((s) => {
           const belongsToCoach =
-            (resolvedCoachId &&
+            (resolvedCoachId && s.coachId != null &&
               String(s.coachId) === String(resolvedCoachId)) ||
-            String(s.coachId) === String(currentUser?.id) ||
+            (resolvedCoachId && s.coachId == null) ||
+            (!apiEnabled && String(s.coachId) === String(currentUser?.id)) ||
             (nameLower &&
               String(s.coachName || "")
                 .trim()
@@ -333,6 +439,7 @@ export function CoachScheduleView() {
     rooms,
     currentUser?.id,
     currentUser?.name,
+    apiEnabled,
   ])
 
   useEffect(() => {
@@ -359,7 +466,12 @@ export function CoachScheduleView() {
       return
     }
     if (!resolvedCoachId) {
-      showToast?.("Không xác định được mã HLV để cập nhật lịch làm việc.", "warning")
+      showToast?.(
+        language === "vi"
+          ? "Đang xác thực thông tin Huấn luyện viên, vui lòng thử lại sau giây lát."
+          : "Verifying Coach profile, please try again in a moment.",
+        "warning",
+      )
       return
     }
     setSavingWorkSchedule(true)
@@ -430,8 +542,48 @@ export function CoachScheduleView() {
     return { today, upcoming, past }
   }, [filteredSessions, todayIso])
 
+  const coachClassesForDisplay = useMemo(() => {
+    const byClassId = new Map(myClasses.map((cls) => [String(cls.id), cls]))
+    const sessionsByClassId = new Map()
+    apiSessions.forEach((session) => {
+      const isNormalSession = session.isPrivate === false ||
+        String(session.classType || "").trim().toLowerCase() === "normal"
+      if (!isNormalSession || session.classId == null) return
+      const key = String(session.classId)
+      const list = sessionsByClassId.get(key) || []
+      list.push(session)
+      sessionsByClassId.set(key, list)
+    })
+
+    sessionsByClassId.forEach((classSessions, classId) => {
+      if (byClassId.has(classId)) return
+      const firstSession = classSessions[0]
+      const className = firstSession.className || `Lớp #${classId}`
+      byClassId.set(classId, {
+        id: firstSession.classId,
+        name: className,
+        nameVi: className,
+        category: firstSession.subjectName || "Thể thao",
+        classType: "Normal",
+        coachId: firstSession.coachId ?? resolvedCoachId,
+        coachName: firstSession.coachName || currentUser?.name || "",
+        room: firstSession.roomName || "Sân tập trung tâm",
+        roomVi: firstSession.roomName || "Sân tập trung tâm",
+        capacity: firstSession.maxCapacity ?? null,
+        enrolledCount: firstSession.enrolledCount ?? 0,
+        date: firstSession.sessionDate,
+        startDate: firstSession.sessionDate,
+        startTime: firstSession.startTime,
+        endTime: firstSession.endTime,
+        sessionCount: classSessions.length,
+      })
+    })
+
+    return Array.from(byClassId.values())
+  }, [apiSessions, currentUser?.name, myClasses, resolvedCoachId])
+
   const filteredClasses = useMemo(() => {
-    return myClasses
+    return coachClassesForDisplay
       .map((cls) => {
         const clsSessions = apiSessions.filter(
           (s) => String(s.classId) === String(cls.id),
@@ -455,7 +607,7 @@ export function CoachScheduleView() {
       .filter((cls) =>
         selectedRoom === "all" ? true : cls.resolvedRoom === selectedRoom,
       )
-  }, [myClasses, apiSessions, selectedRoom])
+  }, [coachClassesForDisplay, apiSessions, selectedRoom])
 
   const handleGoToAttendance = (clsOrSession) => {
     if (typeof window !== "undefined") {
@@ -700,7 +852,7 @@ export function CoachScheduleView() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       {/* Header + Top-level Tabs */}
       <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -710,12 +862,12 @@ export function CoachScheduleView() {
             </div>
             <div>
               <h2 className="text-xl leading-7 font-semibold text-text-primary whitespace-nowrap">
-                {t("schedule")}
+                {language === "vi" ? "Thời khóa biểu & Lịch dạy" : t("schedule")}
               </h2>
               <p className="text-sm leading-5 text-text-secondary">
                 {language === "vi"
-                  ? "Thời khóa biểu từng buổi dạy (Thứ/Ngày, Khung giờ, Sân tập), ca PT 1:1 & cấu hình lịch làm việc"
-                  : "Detailed teaching schedule by session, 1:1 private PT sessions & work schedule configuration"}
+                  ? "Thời khóa biểu tuần trực quan (Thứ/Ca học/Sân tập), danh sách từng ca dạy & cấu hình lịch làm việc"
+                  : "Visual weekly timetable by slot and room, detailed session list & work schedule configuration"}
               </p>
             </div>
           </div>
@@ -806,31 +958,31 @@ export function CoachScheduleView() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {/* View Mode Toggle: List vs Week Grid */}
+                {/* View Mode Toggle: Week Grid vs List */}
                 <div className="inline-flex rounded border border-border-color bg-bg-secondary p-1 gap-1">
                   <button
                     type="button"
-                    onClick={() => setViewMode("list")}
-                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
-                      viewMode === "list"
-                        ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
-                        : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
-                    }`}
-                  >
-                    <LayoutList className="w-3.5 h-3.5" />
-                    <span>{t("coachViewList")}</span>
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setViewMode("week")}
-                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
                       viewMode === "week"
                         ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
                         : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
                     }`}
                   >
                     <CalendarDays className="w-3.5 h-3.5" />
-                    <span>{t("coachViewWeek")}</span>
+                    <span>{language === "vi" ? "Thời khóa biểu tuần" : t("coachViewWeek")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("list")}
+                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+                      viewMode === "list"
+                        ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
+                        : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
+                    }`}
+                  >
+                    <LayoutList className="w-3.5 h-3.5" />
+                    <span>{language === "vi" ? "Danh sách chi tiết" : t("coachViewList")}</span>
                   </button>
                 </div>
 

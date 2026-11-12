@@ -251,11 +251,6 @@ const MemberMyCoachView = React.lazy(() =>
     default: module.MemberMyCoachView,
   })),
 )
-const MemberBodyMetricsView = React.lazy(() =>
-  import("./components/views/MemberBodyMetricsView").then((module) => ({
-    default: module.MemberBodyMetricsView,
-  })),
-)
 const MemberFreezeRequestView = React.lazy(() =>
   import("./components/views/MemberFreezeRequestView").then((module) => ({
     default: module.MemberFreezeRequestView,
@@ -661,12 +656,21 @@ function SCMSApp() {
     if (path.includes("/schedule"))
       return path.startsWith("/member/")
         ? t("schedulePageTitle")
-        : t("schedule")
+        : role === ROLE_COACH
+          ? (language === "vi" ? "Thời khóa biểu & Lịch dạy" : "Schedule & Timetable")
+          : t("schedule")
     if (path.includes("/attendance") || path.includes("/checkin"))
-      return t("attendance")
-    if (path.includes("/assigned-members")) return t("assignedMembers")
+      return role === ROLE_COACH
+        ? (language === "vi" ? "Điểm danh học viên (Normal & Advanced)" : "Attendance (Normal & PT)")
+        : t("attendance")
+    if (path.includes("/assigned-members"))
+      return role === ROLE_COACH
+        ? (language === "vi" ? "Đăng ký sân PT 1:1" : "1:1 Court Booking")
+        : t("assignedMembers")
     if (path.includes("/progress") || path.includes("/training-plan"))
-      return t("trainingProgress")
+      return role === ROLE_COACH
+        ? (language === "vi" ? "Đánh giá & Tiến độ học viên" : "Training Progress")
+        : t("trainingProgress")
     if (path.includes("/search")) return t("memberSearch")
     if (path.includes("/booking")) return t("bookings")
     if (path.includes("/invoices") || path.includes("/payment-result"))
@@ -682,7 +686,6 @@ function SCMSApp() {
     if (path.includes("/notifications")) return t("memberNotificationsTitle")
     if (path.includes("/freeze-request")) return t("memberFreezeTitle")
     if (path.includes("/my-coach")) return t("memberMyCoachTitle")
-    if (path.includes("/body-metrics")) return t("memberBodyMetricsTitle")
     if (path.includes("/settings")) return t("settings")
     if (path.includes("/support")) return t("support")
     if (path.includes("/profile")) return t("profile")
@@ -1049,7 +1052,9 @@ function SCMSApp() {
               location.pathname.startsWith("/profile") ||
               location.pathname.startsWith("/settings")
                 ? "min-w-0 overflow-y-auto w-full bg-bg-main"
-                : location.pathname.startsWith("/manager")
+                : location.pathname.startsWith("/manager") ||
+                  location.pathname.startsWith("/coach") ||
+                  role === ROLE_COACH
                   ? "min-w-0 p-3 sm:p-4 md:p-6 overflow-y-auto w-full"
                   : "p-3 sm:p-4 md:p-6 overflow-y-auto max-w-[1440px] w-full mx-auto"
             }`}
@@ -1587,20 +1592,6 @@ function SCMSApp() {
                       </RequireRole>
                     }
                   />
-                  <Route
-                    path="/member/body-metrics"
-                    element={
-                      <RequireRole
-                        allowedRoles={[ROLE_MEMBER]}
-                        currentRole={role}
-                        attemptedPath={location.pathname}
-                        onForbidden={() => navigate(`/${role}/dashboard`)}
-                      >
-                        <MemberBodyMetricsView />
-                      </RequireRole>
-                    }
-                  />
-
                   {/* Common Routes */}
                   <Route path="/settings" element={<SettingsView />} />
                   <Route path="/support" element={<SupportView />} />
