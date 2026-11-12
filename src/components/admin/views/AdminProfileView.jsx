@@ -112,9 +112,9 @@ export function AdminProfileView() {
     <div className="space-y-6 max-w-4xl mx-auto py-2">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-bold tracking-tight text-text-primary">
+        <h2 className="text-xl font-bold tracking-tight text-text-primary">
           Hồ sơ Quản trị viên
-        </h1>
+        </h2>
         <p className="mt-1 text-xs text-text-secondary">
           Thông tin định danh tài khoản, phạm vi quyền hạn và quản lý mật khẩu an toàn.
         </p>
@@ -159,7 +159,7 @@ export function AdminProfileView() {
                   Quyền hệ thống được cấp
                 </h2>
               </div>
-              <span className="text-[11px] font-mono text-text-muted">
+              <span className="text-xs font-mono text-text-muted">
                 {authorities.length} quyền
               </span>
             </div>
@@ -169,7 +169,7 @@ export function AdminProfileView() {
                 {authorities.map((auth) => (
                   <span
                     key={auth}
-                    className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono bg-bg-secondary text-text-secondary border border-border-color"
+                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-bg-secondary text-text-secondary border border-border-color"
                   >
                     {auth}
                   </span>
@@ -233,13 +233,15 @@ export function AdminProfileView() {
                   onChange={handleChange}
                   autoComplete="current-password"
                   disabled={submitting}
+                  aria-invalid={Boolean(errors.oldPassword)}
+                  aria-describedby={errors.oldPassword ? "admin-old-password-error" : undefined}
                   className={`min-h-11 w-full rounded border bg-bg-card px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary ${
                     errors.oldPassword ? "border-status-danger" : "border-border-strong"
                   }`}
                 />
               </div>
               {errors.oldPassword && (
-                <p className="text-xs text-status-danger">{errors.oldPassword}</p>
+                <p id="admin-old-password-error" className="text-xs text-status-danger">{errors.oldPassword}</p>
               )}
             </div>
 
@@ -259,13 +261,15 @@ export function AdminProfileView() {
                   onChange={handleChange}
                   autoComplete="new-password"
                   disabled={submitting}
+                  aria-invalid={Boolean(errors.newPassword)}
+                  aria-describedby={errors.newPassword ? "admin-new-password-error" : undefined}
                   className={`min-h-11 w-full rounded border bg-bg-card px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary ${
                     errors.newPassword ? "border-status-danger" : "border-border-strong"
                   }`}
                 />
               </div>
               {errors.newPassword && (
-                <p className="text-xs text-status-danger">{errors.newPassword}</p>
+                <p id="admin-new-password-error" className="text-xs text-status-danger">{errors.newPassword}</p>
               )}
             </div>
 
@@ -285,13 +289,15 @@ export function AdminProfileView() {
                   onChange={handleChange}
                   autoComplete="new-password"
                   disabled={submitting}
+                  aria-invalid={Boolean(errors.confirmPassword)}
+                  aria-describedby={errors.confirmPassword ? "admin-confirm-password-error" : undefined}
                   className={`min-h-11 w-full rounded border bg-bg-card px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary ${
                     errors.confirmPassword ? "border-status-danger" : "border-border-strong"
                   }`}
                 />
               </div>
               {errors.confirmPassword && (
-                <p className="text-xs text-status-danger">{errors.confirmPassword}</p>
+                <p id="admin-confirm-password-error" className="text-xs text-status-danger">{errors.confirmPassword}</p>
               )}
             </div>
 

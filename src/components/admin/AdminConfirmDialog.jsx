@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from "react"
+import React, { useRef } from "react"
 import { AlertTriangle, LoaderCircle, X } from "lucide-react"
+import { useDialogFocus } from "./useDialogFocus.js"
 
 export function AdminConfirmDialog({
   isOpen,
@@ -18,31 +19,14 @@ export function AdminConfirmDialog({
   const dialogRef = useRef(null)
   const confirmBtnRef = useRef(null)
 
-  useEffect(() => {
-    if (!isOpen) return
-
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault()
-        if (!isLoading) onClose()
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    // Auto-focus confirm or cancel button when opened
-    const timer = setTimeout(() => {
-      confirmBtnRef.current?.focus()
-    }, 50)
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown)
-      clearTimeout(timer)
-      // Return focus to trigger
-      if (triggerRef?.current && document.contains(triggerRef.current)) {
-        triggerRef.current.focus({ preventScroll: true })
-      }
-    }
-  }, [isOpen, isLoading, onClose, triggerRef])
+  useDialogFocus({
+    isOpen,
+    onClose,
+    dialogRef,
+    initialFocusRef: confirmBtnRef,
+    triggerRef,
+    isLoading,
+  })
 
   if (!isOpen) return null
 
@@ -60,7 +44,7 @@ export function AdminConfirmDialog({
         aria-modal="true"
         aria-labelledby="admin-confirm-title"
         aria-describedby="admin-confirm-desc"
-        className="w-full max-w-md rounded-xl border border-border-color bg-bg-card p-6 shadow-xl text-text-primary space-y-4"
+        className="w-full max-w-md rounded-lg border border-border-color bg-bg-card p-6 shadow-lg text-text-primary space-y-4"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5">

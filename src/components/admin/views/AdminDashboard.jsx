@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { useAdminData } from "../AdminDataContext.jsx"
 import { formatAdminDateTime } from "../adminDateUtils.js"
+import { getAdminBadgeClass } from "../adminBadge.js"
 
 const metrics = [
   { key: "users", label: "Người dùng", source: "Tài khoản người dùng & nhân sự", icon: Users },
@@ -70,17 +71,17 @@ export const ROLE_LABELS = {
 const STATUS_CONFIG = {
   active: {
     label: "Hoạt động",
-    badgeClass: "bg-status-success-bg text-status-success ring-status-success-border",
+    badgeVariant: "success",
     barClass: "bg-status-success",
   },
   inactive: {
     label: "Không hoạt động",
-    badgeClass: "bg-bg-secondary text-text-secondary ring-border-color",
+    badgeVariant: "neutral",
     barClass: "bg-border-strong",
   },
   locked: {
     label: "Đã khóa",
-    badgeClass: "bg-status-danger-bg text-status-danger ring-status-danger-border",
+    badgeVariant: "danger",
     barClass: "bg-status-danger",
   },
 }
@@ -210,7 +211,7 @@ export function AdminDashboard() {
         label: cfg.label,
         count,
         percent,
-        badgeClass: cfg.badgeClass,
+        badgeVariant: cfg.badgeVariant,
         barClass: cfg.barClass,
       }
     })
@@ -293,7 +294,7 @@ export function AdminDashboard() {
                     <div className="flex items-center justify-between text-xs leading-4">
                       <span className="font-medium text-text-primary">
                         {item.label}
-                        <span className="ml-1 text-text-muted font-normal font-mono text-[11px]">
+                        <span className="ml-1 text-text-muted font-normal font-mono text-xs">
                           ({item.roleName})
                         </span>
                       </span>
@@ -331,9 +332,7 @@ export function AdminDashboard() {
                       <span className="text-xs font-medium text-text-secondary">
                         {st.label}
                       </span>
-                      <span
-                        className={`inline-flex items-center rounded-full px-1.5 py-0.2 text-[11px] font-medium ring-1 ring-inset ${st.badgeClass}`}
-                      >
+                      <span className={getAdminBadgeClass(st.badgeVariant, "tabular-nums")}>
                         {st.percent}%
                       </span>
                     </div>
@@ -403,12 +402,12 @@ export function AdminDashboard() {
                             )}
                           </p>
                         </div>
-                        <span className="text-[11px] leading-4 text-text-muted tabular-nums whitespace-nowrap font-mono">
+                        <span className="text-xs leading-4 text-text-muted tabular-nums whitespace-nowrap font-mono">
                           {formatAdminDateTime(log.createdAt)}
                         </span>
                       </div>
                       {log.detail && (
-                        <p className="text-[11px] leading-4 text-text-muted line-clamp-1">
+                        <p className="text-xs leading-4 text-text-muted line-clamp-1">
                           {log.detail}
                         </p>
                       )}

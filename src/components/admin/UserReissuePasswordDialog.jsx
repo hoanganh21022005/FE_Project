@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react"
 import { AlertTriangle, CheckCircle, KeyRound, LoaderCircle, Mail, ShieldAlert, X } from "lucide-react"
 import { reissuePassword } from "../../api/authApi.js"
+import { useDialogFocus } from "./useDialogFocus.js"
 
 export function UserReissuePasswordDialog({
   isOpen,
@@ -22,22 +23,13 @@ export function UserReissuePasswordDialog({
     }
   }, [isOpen])
 
-  useEffect(() => {
-    if (!isOpen) return
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape" && !loading) {
-        e.preventDefault()
-        onClose()
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown)
-      if (triggerRef?.current && document.contains(triggerRef.current)) {
-        triggerRef.current.focus({ preventScroll: true })
-      }
-    }
-  }, [isOpen, loading, onClose, triggerRef])
+  useDialogFocus({
+    isOpen,
+    onClose,
+    dialogRef,
+    triggerRef,
+    isLoading: loading,
+  })
 
   if (!isOpen || !user) return null
 
@@ -73,7 +65,7 @@ export function UserReissuePasswordDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="user-reissue-pwd-title"
-        className="w-full max-w-md rounded-xl border border-border-color bg-bg-card p-6 shadow-xl text-text-primary space-y-4"
+        className="w-full max-w-md rounded-lg border border-border-color bg-bg-card p-6 shadow-lg text-text-primary space-y-4"
       >
         <div className="flex items-start justify-between gap-3 border-b border-border-color/60 pb-3">
           <div className="flex items-center gap-2.5">

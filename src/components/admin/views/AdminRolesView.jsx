@@ -262,7 +262,7 @@ export function AdminRolesView() {
           <button
             type="button"
             onClick={() => setActionAlert(null)}
-            className="w-8 h-8 inline-flex items-center justify-center rounded hover:bg-black/5 transition-colors cursor-pointer"
+            className="h-11 w-11 shrink-0 inline-flex items-center justify-center rounded hover:bg-black/5 transition-colors cursor-pointer"
             aria-label="Đóng thông báo"
           >
             <X className="w-4 h-4" />
@@ -282,7 +282,7 @@ export function AdminRolesView() {
           <button
             type="button"
             onClick={() => setSaveError(null)}
-            className="w-8 h-8 inline-flex items-center justify-center rounded hover:bg-black/5 transition-colors cursor-pointer"
+            className="h-11 w-11 shrink-0 inline-flex items-center justify-center rounded hover:bg-black/5 transition-colors cursor-pointer"
             aria-label="Đóng thông báo lỗi"
           >
             <X className="w-4 h-4" />
@@ -337,7 +337,7 @@ export function AdminRolesView() {
                       <p className="text-xs leading-4 text-text-primary font-bold">
                         {getRoleDisplayName(role.name)}
                       </p>
-                      <p className="mt-0.5 text-[11px] font-mono text-text-muted font-normal">
+                      <p className="mt-0.5 text-xs font-mono text-text-muted font-normal">
                         {role.name}
                       </p>
                     </th>
@@ -357,7 +357,7 @@ export function AdminRolesView() {
                           <p className="font-medium text-text-primary text-sm leading-5">
                             {getPermissionDisplayName(permission.name)}
                           </p>
-                          <p className="mt-0.5 text-[11px] font-mono text-text-secondary">
+                          <p className="mt-0.5 text-xs font-mono text-text-secondary">
                             {permission.name}
                           </p>
                           {permission.description && (
