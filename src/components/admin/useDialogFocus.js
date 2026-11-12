@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -7,8 +7,10 @@ const FOCUSABLE_SELECTOR =
  * Hook quản lý focus cho modal / dialog theo chuẩn WCAG 2.1 & DESIGN.md:
  * 1. Bẫy Tab / Shift+Tab để focus chỉ luân chuyển bên trong container của dialog.
  * 2. Lắng nghe phím Escape để đóng dialog khi không bận (isLoading === false).
- * 3. Tự động focus phần tử đầu tiên (hoặc initialFocusRef) khi mở.
- * 4. Trả focus về phần tử kích hoạt (triggerRef) khi đóng.
+ * 3. Tự động focus phần tử đầu tiên (hoặc initialFocusRef) MỘT LẦN khi mở (isOpen chuyển sang true).
+ * 4. Trả focus về phần tử kích hoạt (triggerRef) CHỈ KHI ĐÓNG (isOpen chuyển sang false hoặc unmount).
+ * 5. Giữ onClose và isLoading trong useRef để handler keydown luôn đọc giá trị mới nhất mà không
+ *    làm chạy lại effect khi màn cha render lại hoặc khi trạng thái submitting thay đổi.
  */
 export function useDialogFocus({
   isOpen,
@@ -18,15 +20,28 @@ export function useDialogFocus({
   triggerRef = null,
   isLoading = false,
 }) {
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
+  const isLoadingRef = useRef(isLoading)
+  isLoadingRef.current = isLoading
+
+  const initialFocusRefHolder = useRef(initialFocusRef)
+  initialFocusRefHolder.current = initialFocusRef
+
+  const triggerRefHolder = useRef(triggerRef)
+  triggerRefHolder.current = triggerRef
+
   useEffect(() => {
     if (!isOpen) return
 
     const container = dialogRef?.current
 
-    // Auto-focus phần tử đầu tiên hoặc initialFocusRef sau khi render
+    // Auto-focus phần tử đầu tiên hoặc initialFocusRef CHỈ MỘT LẦN khi dialog mở
     const timer = setTimeout(() => {
-      if (initialFocusRef?.current && document.contains(initialFocusRef.current)) {
-        initialFocusRef.current.focus({ preventScroll: true })
+      const customInitial = initialFocusRefHolder.current?.current
+      if (customInitial && document.contains(customInitial)) {
+        customInitial.focus({ preventScroll: true })
       } else if (container) {
         const focusables = Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR)).filter(
           (el) => el.offsetParent !== null || el.getClientRects().length > 0
@@ -41,9 +56,9 @@ export function useDialogFocus({
 
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
-        if (!isLoading && typeof onClose === "function") {
+        if (!isLoadingRef.current && typeof onCloseRef.current === "function") {
           e.preventDefault()
-          onClose()
+          onCloseRef.current()
         }
         return
       }
@@ -80,9 +95,10 @@ export function useDialogFocus({
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
       clearTimeout(timer)
-      if (triggerRef?.current && document.contains(triggerRef.current)) {
-        triggerRef.current.focus({ preventScroll: true })
+      const triggerEl = triggerRefHolder.current?.current
+      if (triggerEl && document.contains(triggerEl)) {
+        triggerEl.focus({ preventScroll: true })
       }
     }
-  }, [isOpen, onClose, dialogRef, initialFocusRef, triggerRef, isLoading])
+  }, [isOpen, dialogRef])
 }
