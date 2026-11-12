@@ -667,6 +667,7 @@ export function CoachAttendanceView() {
   const enrolledMembers = useMemo(() => {
     if (rosterError || (selectedClassId && !selectedClass)) return []
     const rosterMap = new Map()
+    const isPtMode = String(selectedClass?.id) === "PT_1ON1"
     const upsertMember = (id, name, code) => {
       if (id == null) return
       const key = String(id)
@@ -733,9 +734,9 @@ export function CoachAttendanceView() {
         (a) =>
           (selectedSessionId &&
             String(a.sessionId) === String(selectedSessionId)) ||
-          (selectedClass?.id &&
+          (!isPtMode && selectedClass?.id &&
             String(a.classId) === String(selectedClass.id)) ||
-          classSessions.some((cs) => String(cs.id) === String(a.sessionId)),
+          (!isPtMode && classSessions.some((cs) => String(cs.id) === String(a.sessionId))),
       )
       .forEach((att) =>
         upsertMember(att.memberId, att.memberName, att.memberCode),
