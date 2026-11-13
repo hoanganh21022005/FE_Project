@@ -106,6 +106,11 @@
   --color-sc-border-soft: var(--bg-secondary);
 }
 
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
 :root {
   --brand-dark: #202B46;
   --brand-dark-hover: #303B58;
