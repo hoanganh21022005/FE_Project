@@ -6,12 +6,22 @@ import { AdminSidebar } from "./AdminSidebar.jsx"
 const STORAGE_LANG_KEY = "scms_admin_lang"
 
 const TITLES = {
-  admin_dashboard: "Tổng quan",
-  admin_users: "Người dùng",
-  admin_roles: "Vai trò & Quyền",
-  admin_audit_logs: "Nhật ký",
-  profile: "Hồ sơ cá nhân",
-  forbidden: "Quyền truy cập bị từ chối",
+  vi: {
+    admin_dashboard: "Tổng quan",
+    admin_users: "Người dùng",
+    admin_roles: "Vai trò & Quyền",
+    admin_audit_logs: "Nhật ký",
+    profile: "Hồ sơ cá nhân",
+    forbidden: "Quyền truy cập bị từ chối",
+  },
+  en: {
+    admin_dashboard: "Dashboard",
+    admin_users: "Users",
+    admin_roles: "Roles & Permissions",
+    admin_audit_logs: "Audit Logs",
+    profile: "Profile",
+    forbidden: "Access Denied",
+  },
 }
 
 export function AdminLayout({
@@ -47,6 +57,13 @@ export function AdminLayout({
     setLanguage(nextLang)
   }
 
+  const lang = language === "en" ? "en" : "vi"
+  const resolvedTitle =
+    (lang === "en" && TITLES.en[currentTab]) ||
+    currentTitle ||
+    TITLES[lang][currentTab] ||
+    "Admin Portal"
+
   return (
     <div className="admin-shell min-h-screen bg-bg-main text-text-primary flex font-sans antialiased">
       <AdminSidebar
@@ -58,7 +75,7 @@ export function AdminLayout({
       />
       <div className="min-w-0 flex-1 flex flex-col">
         <AdminHeader
-          title={currentTitle || TITLES[currentTab] || "Admin Portal"}
+          title={resolvedTitle}
           onMenu={() => setSidebarOpen(true)}
           onLogout={onLogout}
           onChangeLanguage={handleChangeLanguage}

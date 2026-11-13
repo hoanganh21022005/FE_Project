@@ -11,7 +11,9 @@ import {
   User,
 } from "lucide-react"
 import { useAdminData } from "../AdminDataContext.jsx"
+import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { formatAdminDateTime } from "../adminDateUtils.js"
+import { getAdminAuditActionLabel, getAdminText } from "../adminI18n.js"
 import { getAdminAuditLogs } from "../../../api/adminApi.js"
 
 // Ghi chú: Quy ước page tính từ 0 hay 1 là CHƯA XÁC NHẬN với Backend.
@@ -71,6 +73,8 @@ const getTodayVnDate = () => {
 
 export function AdminAuditLogsView() {
   const { resources, retry } = useAdminData()
+  const { language } = useSCMS()
+  const isEn = language === "en"
   const [searchParams, setSearchParams] = useSearchParams()
 
   const initialRangeToday = searchParams.get("range") === "today" ? getTodayVnDate() : ""
@@ -109,14 +113,14 @@ export function AdminAuditLogsView() {
   // Lấy tên người dùng theo id
   const getUserName = useCallback(
     (id) => {
-      if (id === null || id === undefined || id === "") return "Hệ thống"
+      if (id === null || id === undefined || id === "") return getAdminText(language, "common.system")
       const numId = Number(id)
       if (userMap.has(numId)) {
         return userMap.get(numId)
       }
       return `User #${id}`
     },
-    [userMap],
+    [language, userMap],
   )
 
   // Hàm tải dữ liệu nhật ký với bộ lọc và phân trang từ server
@@ -143,15 +147,15 @@ export function AdminAuditLogsView() {
       } catch (err) {
         if (err?.status === 403 || err?.response?.status === 403) {
           setIsForbidden(true)
-          setError("Bạn không có quyền xem nhật ký hoạt động hệ thống (403 Forbidden).")
+          setError(getAdminText(language, "audit.forbiddenMsg"))
         } else {
-          setError(err?.message || "Không thể tải nhật ký hoạt động từ máy chủ.")
+          setError(err?.message || getAdminText(language, "audit.loadErrorFallback"))
         }
       } finally {
         setLoading(false)
       }
     },
-    [page, selectedAction, startDate, endDate, selectedActorId],
+    [page, selectedAction, startDate, endDate, selectedActorId, language],
   )
 
   // Gọi API mỗi khi bộ lọc server hoặc trang thay đổi
@@ -250,10 +254,10 @@ export function AdminAuditLogsView() {
     <div className="space-y-4 w-full min-w-0 max-w-full">
       <div>
         <h2 className="text-xl leading-7 font-semibold text-text-primary">
-          Nhật ký hoạt động hệ thống
+          {getAdminText(language, "audit.title")}
         </h2>
         <p className="mt-1 text-sm leading-5 text-text-secondary">
-          Ghi nhận toàn bộ thao tác bảo mật và sự kiện hệ thống; tự động tra cứu danh tính và định dạng chuẩn vận hành (chỉ đọc).
+          {getAdminText(language, "audit.subtitle")}
         </p>
       </div>
 
@@ -263,7 +267,7 @@ export function AdminAuditLogsView() {
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-brand-primary" />
             <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-              Bộ lọc nâng cao (Server)
+              {isEn ? "Server Filters" : "Bộ lọc nâng cao (Server)"}
             </span>
           </div>
           {(selectedAction || startDate || endDate || selectedActorId) && (
@@ -272,7 +276,7 @@ export function AdminAuditLogsView() {
               onClick={handleResetFilters}
               className="inline-flex min-h-11 items-center px-2 text-xs font-semibold text-brand-primary hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary rounded"
             >
-              Đặt lại bộ lọc
+              {getAdminText(language, "audit.clearFilters")}
             </button>
           )}
         </div>
@@ -280,30 +284,37 @@ export function AdminAuditLogsView() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Lọc hành động */}
           <label className="space-y-1 block">
-            <span className="text-xs font-medium text-text-secondary">Hành động</span>
+            <span className="text-xs font-medium text-text-secondary">
+              {getAdminText(language, "audit.colAction")}
+            </span>
             <select
               value={selectedAction}
               onChange={handleActionChange}
               className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
             >
-              <option value="">Tất cả hành động</option>
-              {KNOWN_ACTIONS.map((act) => (
-                <option key={act.value} value={act.value}>
-                  {act.label}
-                </option>
-              ))}
+              <option value="">{getAdminText(language, "audit.allActions")}</option>
+              {KNOWN_ACTIONS.map((act) => {
+                const actionLabel = getAdminAuditActionLabel(act.value, language)
+                return (
+                  <option key={act.value} value={act.value}>
+                    {isEn ? `${actionLabel} (${act.value})` : act.label}
+                  </option>
+                )
+              })}
             </select>
           </label>
 
           {/* Lọc người thao tác (Actor) */}
           <label className="space-y-1 block">
-            <span className="text-xs font-medium text-text-secondary">Người thực hiện</span>
+            <span className="text-xs font-medium text-text-secondary">
+              {getAdminText(language, "audit.colActor")}
+            </span>
             <select
               value={selectedActorId}
               onChange={handleActorChange}
               className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
             >
-              <option value="">Tất cả người thực hiện</option>
+              <option value="">{getAdminText(language, "audit.allActors")}</option>
               {(resources.users.data || []).map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.fullName ? `${u.fullName} (#${u.id})` : `User #${u.id}`}
@@ -314,7 +325,9 @@ export function AdminAuditLogsView() {
 
           {/* Từ ngày */}
           <label className="space-y-1 block">
-            <span className="text-xs font-medium text-text-secondary">Từ ngày</span>
+            <span className="text-xs font-medium text-text-secondary">
+              {getAdminText(language, "audit.startDate")}
+            </span>
             <input
               type="date"
               value={startDate}
@@ -325,7 +338,9 @@ export function AdminAuditLogsView() {
 
           {/* Đến ngày */}
           <label className="space-y-1 block">
-            <span className="text-xs font-medium text-text-secondary">Đến ngày</span>
+            <span className="text-xs font-medium text-text-secondary">
+              {getAdminText(language, "audit.endDate")}
+            </span>
             <input
               type="date"
               value={endDate}
@@ -338,12 +353,12 @@ export function AdminAuditLogsView() {
         {/* Ô tìm kiếm chữ FE trên trang hiện tại */}
         <div className="pt-2 border-t border-border-color/40">
           <label className="relative block">
-            <span className="sr-only">Tìm kiếm nội dung trên trang</span>
+            <span className="sr-only">{getAdminText(language, "audit.searchLabel")}</span>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Tìm nhanh trên trang (tên, mã hành động, đối tượng, chi tiết)..."
+              placeholder={getAdminText(language, "audit.searchPlaceholder")}
               className="min-h-11 w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary"
             />
           </label>
@@ -358,10 +373,10 @@ export function AdminAuditLogsView() {
         >
           <ShieldAlert className="w-8 h-8 text-status-danger" />
           <p className="mt-3 text-sm leading-5 font-bold text-status-danger">
-            Quyền truy cập bị từ chối (403 Forbidden)
+            {getAdminText(language, "audit.forbiddenTitle")}
           </p>
           <p className="mt-1 max-w-lg text-xs leading-4 text-status-danger">
-            Tài khoản hiện tại không có quyền VIEW_AUDIT_LOGS để xem nhật ký hoạt động hệ thống.
+            {getAdminText(language, "audit.forbiddenMsg")}
           </p>
         </div>
       ) : error ? (
@@ -372,7 +387,7 @@ export function AdminAuditLogsView() {
         >
           <AlertTriangle className="w-8 h-8 text-status-danger" />
           <p className="mt-3 text-sm leading-5 font-semibold text-status-danger">
-            Không thể tải nhật ký hoạt động
+            {getAdminText(language, "audit.loadErrorTitle")}
           </p>
           <p className="mt-1 max-w-lg text-xs leading-4 text-status-danger">
             {error}
@@ -383,12 +398,12 @@ export function AdminAuditLogsView() {
             className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 py-2 text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            Thử lại
+            {getAdminText(language, "common.retry")}
           </button>
         </div>
       ) : loading ? (
         /* Trạng thái loading skeleton */
-        <div className="space-y-3 py-6" aria-label="Đang tải dữ liệu nhật ký" aria-busy="true">
+        <div className="space-y-3 py-6" aria-label={getAdminText(language, "audit.loadingAria")} aria-busy="true">
           {[1, 2, 3, 4, 5].map((item) => (
             <div key={item} className="h-11 rounded bg-bg-secondary animate-pulse" />
           ))}
@@ -399,17 +414,17 @@ export function AdminAuditLogsView() {
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
               <tr>
-                <th className="px-3.5 py-2.5 text-left align-middle w-44">Thời gian</th>
-                <th className="px-3.5 py-2.5 text-left align-middle w-48">Actor</th>
-                <th className="px-3.5 py-2.5 text-left align-middle w-56">Hành động</th>
-                <th className="px-3.5 py-2.5 text-left align-middle w-48">Đối tượng</th>
-                <th className="px-3.5 py-2.5 text-left align-middle">Chi tiết</th>
+                <th className="px-3.5 py-2.5 text-left align-middle w-44">{getAdminText(language, "audit.colTime")}</th>
+                <th className="px-3.5 py-2.5 text-left align-middle w-48">{getAdminText(language, "audit.colActor")}</th>
+                <th className="px-3.5 py-2.5 text-left align-middle w-56">{getAdminText(language, "audit.colAction")}</th>
+                <th className="px-3.5 py-2.5 text-left align-middle w-48">{getAdminText(language, "audit.colTarget")}</th>
+                <th className="px-3.5 py-2.5 text-left align-middle">{getAdminText(language, "audit.colDetail")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-color">
               {filteredLogs.map((log) => {
                 const actorName = getUserName(log.actorId)
-                const actionLabel = AUDIT_ACTION_MAP[log.action] || log.action
+                const actionLabel = getAdminAuditActionLabel(log.action, language)
 
                 // Đối tượng USER nếu có thì hiện tên
                 let targetDisplay = log.targetLabel
@@ -430,10 +445,10 @@ export function AdminAuditLogsView() {
                     className="transition-colors hover:bg-bg-secondary/70"
                   >
                     <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-secondary tabular-nums font-mono whitespace-nowrap">
-                      {formatAdminDateTime(log.createdAt)}
+                      {formatAdminDateTime(log.createdAt, undefined, undefined, language)}
                     </td>
                     <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-primary">
-                      <p className="font-semibold text-text-primary" title={`ID: ${log.actorId ?? "Hệ thống"}`}>
+                      <p className="font-semibold text-text-primary" title={`ID: ${log.actorId ?? getAdminText(language, "common.system")}`}>
                         {actorName}
                       </p>
                       {log.actorId !== null && (
@@ -447,7 +462,7 @@ export function AdminAuditLogsView() {
                         <span className="inline-flex items-center px-2 py-0.5 rounded font-medium text-xs bg-bg-secondary text-brand-primary border border-border-color/60">
                           {actionLabel}
                         </span>
-                        <p className="mt-0.5 text-xs font-mono text-text-muted" title="Mã hành động gốc">
+                        <p className="mt-0.5 text-xs font-mono text-text-muted" title={log.action}>
                           {log.action}
                         </p>
                       </div>
@@ -456,7 +471,7 @@ export function AdminAuditLogsView() {
                       <span className="font-medium">{targetDisplay}</span>
                     </td>
                     <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-secondary max-w-xl">
-                      {log.detail || "Không có thông tin chi tiết."}
+                      {log.detail || (isEn ? "No additional details." : "Không có thông tin chi tiết.")}
                     </td>
                   </tr>
                 )
@@ -466,14 +481,17 @@ export function AdminAuditLogsView() {
 
           {filteredLogs.length === 0 && (
             <p className="p-8 text-center text-sm leading-5 text-text-secondary">
-              Không có bản ghi phù hợp.
+              {getAdminText(language, "audit.emptyPageTitle")}
             </p>
           )}
 
           {/* Phân trang server: kích thước 20, Trang sau chỉ bật khi trả về đúng 20 */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3.5 py-2.5 border-t border-border-color bg-bg-secondary/50">
             <span className="text-xs leading-4 text-text-secondary tabular-nums">
-              Trang {page} · Hiển thị {filteredLogs.length} bản ghi trên trang
+              {getAdminText(language, "audit.pageIndicator", {
+                page,
+                count: filteredLogs.length,
+              })}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -481,9 +499,9 @@ export function AdminAuditLogsView() {
                 disabled={!canGoPrev}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 className="inline-flex min-h-11 items-center justify-center rounded px-3.5 text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
-                aria-label="Trang trước"
+                aria-label={getAdminText(language, "audit.prevPage")}
               >
-                Trang trước
+                {getAdminText(language, "audit.prevPage")}
               </button>
               <span className="min-h-11 min-w-11 inline-flex items-center justify-center px-3 rounded bg-bg-card border border-border-color text-text-primary text-xs font-bold tabular-nums">
                 {page}
@@ -493,9 +511,9 @@ export function AdminAuditLogsView() {
                 disabled={!canGoNext}
                 onClick={() => setPage((p) => p + 1)}
                 className="inline-flex min-h-11 items-center justify-center rounded px-3.5 text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
-                aria-label="Trang sau"
+                aria-label={getAdminText(language, "audit.nextPage")}
               >
-                Trang sau
+                {getAdminText(language, "audit.nextPage")}
               </button>
             </div>
           </div>

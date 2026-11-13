@@ -3,6 +3,7 @@ import { Bell, ChevronRight, LogOut, Menu } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext.jsx"
 import { useAdminData } from "./AdminDataContext.jsx"
+import { getAdminAuditActionLabel, getAdminText } from "./adminI18n.js"
 
 const STORAGE_SEEN_KEY = "scms_admin_notif_seen_at"
 
@@ -13,14 +14,6 @@ const NOTIF_ACTIONS = new Set([
   "REISSUE_TEMPORARY_PASSWORD",
   "CREATE_USER",
 ])
-
-const NOTIF_ACTION_LABELS = {
-  CHANGE_USER_STATUS: "Đổi trạng thái tài khoản",
-  CHANGE_USER_ROLE: "Đổi vai trò người dùng",
-  UPDATE_ROLE_PERMISSIONS: "Cập nhật quyền vai trò",
-  REISSUE_TEMPORARY_PASSWORD: "Cấp lại mật khẩu tạm",
-  CREATE_USER: "Tạo tài khoản người dùng",
-}
 
 function getLastWordInitial(fullName) {
   const cleaned = String(fullName || "").trim()
@@ -48,17 +41,18 @@ function writeSeenAt(ms) {
   }
 }
 
-function formatRelativeTime(createdAt) {
+function formatRelativeTime(createdAt, language = "vi") {
   if (!createdAt) return ""
   const ms = new Date(createdAt).getTime()
   if (!Number.isFinite(ms)) return ""
+  const isEn = language === "en"
   const diffMin = Math.floor((Date.now() - ms) / 60000)
-  if (diffMin < 1) return "Vừa xong"
-  if (diffMin < 60) return `${diffMin} phút trước`
+  if (diffMin < 1) return isEn ? "Just now" : "Vừa xong"
+  if (diffMin < 60) return isEn ? `${diffMin}m ago` : `${diffMin} phút trước`
   const diffHour = Math.floor(diffMin / 60)
-  if (diffHour < 24) return `${diffHour} giờ trước`
+  if (diffHour < 24) return isEn ? `${diffHour}h ago` : `${diffHour} giờ trước`
   const diffDay = Math.floor(diffHour / 24)
-  return `${diffDay} ngày trước`
+  return isEn ? `${diffDay}d ago` : `${diffDay} ngày trước`
 }
 
 export function AdminHeader({ title, onMenu, onLogout, onChangeLanguage }) {
@@ -169,7 +163,11 @@ export function AdminHeader({ title, onMenu, onLogout, onChangeLanguage }) {
   }
 
   const bellAriaLabel =
-    newCount > 0 ? `Thông báo, ${newCount} mục mới` : "Thông báo"
+    newCount > 0
+      ? language === "en"
+        ? `Notifications, ${newCount} new`
+        : `Thông báo, ${newCount} mục mới`
+      : getAdminText(language, "shell.notifications")
 
   return (
     <header className="h-14 shrink-0 border-b border-border-color bg-bg-card px-3 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-20">
@@ -178,13 +176,13 @@ export function AdminHeader({ title, onMenu, onLogout, onChangeLanguage }) {
           type="button"
           onClick={onMenu}
           className="inline-flex w-11 h-11 -ml-1.5 items-center justify-center rounded-md text-text-primary transition-colors hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary lg:hidden cursor-pointer shrink-0"
-          aria-label="Mở menu Admin"
+          aria-label={getAdminText(language, "shell.openMenu")}
         >
           <Menu className="w-5 h-5" />
         </button>
 
         <nav
-          aria-label="Vị trí"
+          aria-label={language === "en" ? "Breadcrumb" : "Vị trí"}
           className="flex items-center gap-2 text-sm leading-5 min-w-0"
         >
           <span className="hidden sm:inline text-text-secondary font-medium whitespace-nowrap">
@@ -258,28 +256,28 @@ export function AdminHeader({ title, onMenu, onLogout, onChangeLanguage }) {
           {notifOpen && (
             <div
               role="dialog"
-              aria-label="Thông báo thay đổi"
+              aria-label={getAdminText(language, "shell.notifications")}
               className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-xl border border-border-color bg-bg-card shadow-lg z-40 overflow-hidden"
             >
               <div className="px-4 py-3 border-b border-border-color flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-text-primary">
-                  Thay đổi gần đây
+                  {getAdminText(language, "shell.recentChanges")}
                 </h2>
                 <span className="text-xs text-text-muted">
-                  {notifItems.length} mục
+                  {language === "en" ? `${notifItems.length} items` : `${notifItems.length} mục`}
                 </span>
               </div>
 
               {notifItems.length === 0 ? (
                 <p className="p-6 text-center text-sm text-text-secondary">
-                  Chưa có thay đổi mới
+                  {getAdminText(language, "shell.noRecentChanges")}
                 </p>
               ) : (
                 <div className="max-h-80 overflow-y-auto divide-y divide-border-color">
                   {notifItems.map((item) => {
                     const actorName =
                       item.actorId === null || item.actorId === undefined
-                        ? "Hệ thống"
+                        ? getAdminText(language, "common.system")
                         : userMap.get(Number(item.actorId)) ||
                           item.actorLabel ||
                           `User #${item.actorId}`
@@ -302,10 +300,10 @@ export function AdminHeader({ title, onMenu, onLogout, onChangeLanguage }) {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-sm font-semibold text-text-primary">
-                            {NOTIF_ACTION_LABELS[item.action] || item.action}
+                            {getAdminAuditActionLabel(item.action, language)}
                           </span>
                           <span className="text-xs text-text-muted whitespace-nowrap shrink-0">
-                            {formatRelativeTime(item.createdAt)}
+                            {formatRelativeTime(item.createdAt, language)}
                           </span>
                         </div>
                         <p className="mt-0.5 text-xs text-text-secondary truncate">
@@ -327,7 +325,7 @@ export function AdminHeader({ title, onMenu, onLogout, onChangeLanguage }) {
                   }}
                   className="w-full min-h-[44px] rounded-lg text-sm font-semibold text-brand-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                 >
-                  Xem tất cả trong nhật ký
+                  {getAdminText(language, "shell.viewAllLogs")}
                 </button>
               </div>
             </div>
@@ -360,8 +358,8 @@ export function AdminHeader({ title, onMenu, onLogout, onChangeLanguage }) {
           <button
             type="button"
             onClick={onLogout}
-            title="Đăng xuất"
-            aria-label="Đăng xuất"
+            title={getAdminText(language, "shell.logout")}
+            aria-label={getAdminText(language, "shell.logout")}
             className="inline-flex w-11 h-11 shrink-0 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
           >
             <LogOut className="w-5 h-5" />

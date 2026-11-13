@@ -10,9 +10,17 @@ import {
 } from "lucide-react"
 import { getAdminAuditLogs } from "../../../api/adminApi.js"
 import { getErrorMessage } from "../../../api/apiErrors.js"
+import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { useAdminData } from "../AdminDataContext.jsx"
 import { AdminPageHeader } from "../AdminPageHeader.jsx"
 import { formatAdminDateTime, parseToVietnamDate, VIETNAM_TIMEZONE } from "../adminDateUtils.js"
+import {
+  formatAdminNumber,
+  getAdminAuditActionLabel,
+  getAdminRoleShortLabel,
+  getAdminStatusLabel,
+  getAdminText,
+} from "../adminI18n.js"
 
 export const ACTION_LABELS = {
   LOGIN: "Đăng nhập",
@@ -68,20 +76,21 @@ function getVietnamDateKey(dateInput) {
   return `${map.year}-${map.month}-${map.day}`
 }
 
-function buildLast7Days() {
+function buildLast7Days(language = "vi") {
   const days = []
   const now = new Date()
+  const locale = language === "en" ? "en-US" : "vi-VN"
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 86400000)
     const key = getVietnamDateKey(d)
-    const label = new Intl.DateTimeFormat("vi-VN", {
+    const label = new Intl.DateTimeFormat(locale, {
       timeZone: VIETNAM_TIMEZONE,
       day: "2-digit",
       month: "2-digit",
     }).format(d)
     days.push({
       key,
-      label: i === 0 ? "Hôm nay" : label,
+      label: i === 0 ? (language === "en" ? "Today" : "Hôm nay") : label,
       shortLabel: label.slice(0, 2),
       isToday: i === 0,
       count: 0,
@@ -91,6 +100,7 @@ function buildLast7Days() {
 }
 
 export function AdminDashboard() {
+  const { language } = useSCMS()
   const { resources, retry, retryAll, apiEnabled } = useAdminData()
 
   const usersList = useMemo(() => resources.users.data || [], [resources.users.data])
@@ -104,7 +114,7 @@ export function AdminDashboard() {
   const [weeklyLoading, setWeeklyLoading] = useState(false)
   const [weeklyError, setWeeklyError] = useState(null)
 
-  const last7DaysTemplate = useMemo(() => buildLast7Days(), [])
+  const last7DaysTemplate = useMemo(() => buildLast7Days(language), [language])
   const startDate7d = last7DaysTemplate[0]?.key || ""
   const endDate7d = last7DaysTemplate[last7DaysTemplate.length - 1]?.key || ""
 
@@ -127,12 +137,12 @@ export function AdminDashboard() {
       setWeeklyLogs(Array.isArray(data) ? data : [])
     } catch (err) {
       setWeeklyError(
-        getErrorMessage(err, "Không thể tải dữ liệu biểu đồ nhật ký 7 ngày."),
+        getErrorMessage(err, getAdminText(language, "dash.chartError")),
       )
     } finally {
       setWeeklyLoading(false)
     }
-  }, [apiEnabled, auditLogsList, endDate7d, startDate7d])
+  }, [apiEnabled, auditLogsList, endDate7d, language, startDate7d])
 
   useEffect(() => {
     loadWeeklyLogs()
@@ -167,12 +177,12 @@ export function AdminDashboard() {
   }, [usersList])
 
   const roleSummaryText = useMemo(() => {
-    if (rolesList.length === 0) return "Phân quyền hệ thống"
+    if (rolesList.length === 0) return getAdminText(language, "dash.rolesCount")
     return rolesList
-      .map((r) => ROLE_LABELS[r.name] || r.name)
+      .map((r) => getAdminRoleShortLabel(r.name, language))
       .slice(0, 5)
       .join(", ")
-  }, [rolesList])
+  }, [language, rolesList])
 
   const weeklySeries = useMemo(() => {
     const buckets = last7DaysTemplate.map((d) => ({ ...d, count: 0 }))
@@ -194,7 +204,7 @@ export function AdminDashboard() {
     if (total === 0) return []
     const counts = new Map()
     for (const u of usersList) {
-      const roleKey = u.roleName || (u.roleId ? `Role #${u.roleId}` : "Khác")
+      const roleKey = u.roleName || (u.roleId ? `Role #${u.roleId}` : (language === "en" ? "Other" : "Khác"))
       counts.set(roleKey, (counts.get(roleKey) || 0) + 1)
     }
     for (const r of rolesList) {
@@ -206,7 +216,7 @@ export function AdminDashboard() {
       const percent = total > 0 ? Math.round((count / total) * 100) : 0
       items.push({
         roleName,
-        label: ROLE_LABELS[roleName] || roleName,
+        label: getAdminRoleShortLabel(roleName, language),
         count,
         percent,
         color: ROLE_CHART_COLORS[colorIdx % ROLE_CHART_COLORS.length],
@@ -214,7 +224,7 @@ export function AdminDashboard() {
       colorIdx++
     }
     return items.sort((a, b) => b.count - a.count)
-  }, [usersList, rolesList])
+  }, [language, usersList, rolesList])
 
   const donutSegments = useMemo(() => {
     const circumference = 2 * Math.PI * 60 // ~377
@@ -252,11 +262,13 @@ export function AdminDashboard() {
     resources.auditLogs.status === "loading" ||
     resources.auditLogs.status === "idle"
 
+  const isEn = language === "en"
+
   return (
     <div className="space-y-5 font-sans">
       <AdminPageHeader
-        eyebrow="QUẢN TRỊ HỆ THỐNG"
-        title="Toàn cảnh hệ thống"
+        eyebrow={getAdminText(language, "dash.eyebrow")}
+        title={getAdminText(language, "dash.title")}
         actions={
           <button
             type="button"
@@ -264,7 +276,7 @@ export function AdminDashboard() {
             className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-border-color bg-bg-card px-4 text-sm font-semibold text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
           >
             <RefreshCw className="w-4 h-4 text-text-secondary" />
-            <span>Làm mới dữ liệu</span>
+            <span>{getAdminText(language, "common.refresh")}</span>
           </button>
         }
       />
@@ -275,7 +287,7 @@ export function AdminDashboard() {
           className="rounded-xl border border-status-danger-border bg-status-danger-bg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
         >
           <p className="text-sm text-status-danger font-medium">
-            {resources.users.error || "Không thể tải dữ liệu người dùng."}
+            {resources.users.error || getAdminText(language, "dash.loadErrorTitle")}
           </p>
           <button
             type="button"
@@ -283,21 +295,21 @@ export function AdminDashboard() {
             className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-border-color bg-bg-card px-4 text-sm font-semibold text-text-primary hover:bg-bg-secondary cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary shrink-0"
           >
             <RefreshCw className="w-4 h-4" />
-            <span>Thử lại</span>
+            <span>{getAdminText(language, "common.retry")}</span>
           </button>
         </div>
       )}
 
       {/* Hàng 4 ô trên cùng: Việc cần chú ý (2 ô) | Tổng quan tài khoản (2 ô) */}
-      <section aria-label="Tổng quan nhanh" className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)] gap-4 items-stretch">
+      <section aria-label={getAdminText(language, "dash.eyebrow")} className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)] gap-4 items-stretch">
         <div className="space-y-3">
           <h2 className="text-base leading-6 font-semibold text-text-primary">
-            Việc cần chú ý
+            {getAdminText(language, "dash.attentionHeading")}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <Link
               to="/admin/users?status=locked"
-              aria-label={`${statusCounts.locked} tài khoản đang bị khóa. Mở Người dùng, lọc trạng thái Đã khóa`}
+              aria-label={`${statusCounts.locked} ${getAdminText(language, "dash.lockedAccounts")}`}
               className="min-h-[44px] flex flex-col justify-between gap-2.5 p-4 rounded-xl bg-status-danger-bg/60 border border-status-danger-border shadow-[inset_4px_0_0_var(--status-danger)] text-text-primary hover:bg-status-danger-bg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
             >
               <div className="flex items-center justify-between">
@@ -308,21 +320,21 @@ export function AdminDashboard() {
                   <span className="h-8 w-10 rounded bg-bg-secondary animate-pulse" />
                 ) : (
                   <strong className="text-[28px] leading-8 font-bold text-status-danger tabular-nums">
-                    {statusCounts.locked}
+                    {formatAdminNumber(statusCounts.locked, language)}
                   </strong>
                 )}
               </div>
               <div>
                 <p className="text-sm leading-5 font-semibold text-text-primary">
-                  Tài khoản đang bị khóa
+                  {getAdminText(language, "dash.lockedAccounts")}
                 </p>
                 {statusCounts.locked === 0 ? (
                   <p className="mt-1 text-[13px] leading-[18px] text-text-secondary">
-                    Không có
+                    {isEn ? "None" : "Không có"}
                   </p>
                 ) : (
                   <p className="mt-1 inline-flex items-center gap-1 text-[13px] leading-[18px] font-semibold text-brand-primary">
-                    <span>Xem và mở khóa</span>
+                    <span>{isEn ? "Review & unlock" : "Xem và mở khóa"}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </p>
                 )}
@@ -331,7 +343,7 @@ export function AdminDashboard() {
 
             <Link
               to="/admin/users?status=inactive"
-              aria-label={`${statusCounts.inactive} tài khoản không hoạt động. Mở Người dùng, lọc trạng thái Không hoạt động`}
+              aria-label={`${statusCounts.inactive} ${getAdminText(language, "dash.inactiveAccounts")}`}
               className="min-h-[44px] flex flex-col justify-between gap-2.5 p-4 rounded-xl bg-bg-secondary/75 border border-border-color shadow-[inset_4px_0_0_var(--text-secondary)] text-text-primary hover:bg-bg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
             >
               <div className="flex items-center justify-between">
@@ -342,21 +354,21 @@ export function AdminDashboard() {
                   <span className="h-8 w-10 rounded bg-bg-secondary animate-pulse" />
                 ) : (
                   <strong className="text-[28px] leading-8 font-bold text-text-secondary tabular-nums">
-                    {statusCounts.inactive}
+                    {formatAdminNumber(statusCounts.inactive, language)}
                   </strong>
                 )}
               </div>
               <div>
                 <p className="text-sm leading-5 font-semibold text-text-primary">
-                  Tài khoản không hoạt động
+                  {getAdminText(language, "dash.inactiveAccounts")}
                 </p>
                 {statusCounts.inactive === 0 ? (
                   <p className="mt-1 text-[13px] leading-[18px] text-text-secondary">
-                    Không có
+                    {isEn ? "None" : "Không có"}
                   </p>
                 ) : (
                   <p className="mt-1 inline-flex items-center gap-1 text-[13px] leading-[18px] font-semibold text-brand-primary">
-                    <span>Xem danh sách</span>
+                    <span>{isEn ? "View list" : "Xem danh sách"}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </p>
                 )}
@@ -369,7 +381,7 @@ export function AdminDashboard() {
 
         <div className="space-y-3">
           <h2 className="text-base leading-6 font-semibold text-text-primary">
-            Tổng quan tài khoản
+            {isEn ? "Account Summary" : "Tổng quan tài khoản"}
           </h2>
           <div className="grid grid-cols-2 gap-3.5">
             <div className="rounded-xl border border-border-color bg-bg-card p-4 flex flex-col justify-between gap-2.5">
@@ -381,16 +393,16 @@ export function AdminDashboard() {
                   <span className="h-8 w-12 rounded bg-bg-secondary animate-pulse" />
                 ) : (
                   <strong className="text-[28px] leading-8 font-bold text-text-primary tabular-nums">
-                    {statusCounts.total}
+                    {formatAdminNumber(statusCounts.total, language)}
                   </strong>
                 )}
               </div>
               <div>
                 <p className="text-sm leading-5 font-semibold text-text-primary">
-                  Người dùng
+                  {getAdminText(language, "dash.totalUsers")}
                 </p>
                 <p className="mt-1 text-[13px] leading-[18px] text-text-secondary tabular-nums">
-                  {statusCounts.active} đang hoạt động
+                  {formatAdminNumber(statusCounts.active, language)} {getAdminText(language, "dash.activeUsers").toLowerCase()}
                 </p>
               </div>
             </div>
@@ -404,13 +416,13 @@ export function AdminDashboard() {
                   <span className="h-8 w-10 rounded bg-bg-secondary animate-pulse" />
                 ) : (
                   <strong className="text-[28px] leading-8 font-bold text-text-primary tabular-nums">
-                    {rolesList.length}
+                    {formatAdminNumber(rolesList.length, language)}
                   </strong>
                 )}
               </div>
               <div>
                 <p className="text-sm leading-5 font-semibold text-text-primary">
-                  Vai trò
+                  {getAdminText(language, "dash.rolesCount")}
                 </p>
                 {resources.roles.status === "error" ? (
                   <button
@@ -418,7 +430,7 @@ export function AdminDashboard() {
                     onClick={() => retry("roles")}
                     className="mt-1 inline-flex min-h-[44px] items-center text-xs font-semibold text-brand-primary hover:underline cursor-pointer"
                   >
-                    Thử lại
+                    {getAdminText(language, "common.retry")}
                   </button>
                 ) : (
                   <p className="mt-1 text-[13px] leading-[18px] text-text-secondary truncate">
@@ -437,12 +449,14 @@ export function AdminDashboard() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-base leading-6 font-semibold text-text-primary">
-                Thao tác trong 7 ngày qua
+                {getAdminText(language, "dash.chartHeading")}
               </h2>
               <p className="mt-0.5 text-xs leading-4 text-text-muted">
                 {weeklySeries.fetchedCount >= AUDIT_7D_FETCH_SIZE
-                  ? `Tính trên ${weeklySeries.fetchedCount} bản ghi gần nhất`
-                  : `Số bản ghi nhật ký mỗi ngày · tổng ${weeklySeries.totalCount}`}
+                  ? getAdminText(language, "dash.chartLimited")
+                  : getAdminText(language, "dash.chartTotal", {
+                      count: formatAdminNumber(weeklySeries.totalCount, language),
+                    })}
               </p>
             </div>
           </div>
@@ -456,15 +470,15 @@ export function AdminDashboard() {
                 className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-border-color bg-bg-card px-4 text-sm font-semibold text-text-primary hover:bg-bg-secondary cursor-pointer"
               >
                 <RefreshCw className="w-4 h-4" />
-                <span>Thử lại</span>
+                <span>{getAdminText(language, "common.retry")}</span>
               </button>
             </div>
           ) : weeklyLoading ? (
-            <div className="mt-5 h-56 rounded-lg bg-bg-secondary animate-pulse" aria-label="Đang tải biểu đồ" />
+            <div className="mt-5 h-56 rounded-lg bg-bg-secondary animate-pulse" aria-label={getAdminText(language, "common.loadingData")} />
           ) : (
             <div
               role="img"
-              aria-label={`Thao tác trong 7 ngày qua: ${weeklySeries.buckets
+              aria-label={`${getAdminText(language, "dash.chartAria")}: ${weeklySeries.buckets
                 .map((b) => `${b.label} ${b.count}`)
                 .join(", ")}`}
               className="mt-5 h-56 flex items-end gap-2 sm:gap-4 pt-6 border-b border-border-color px-1 sm:px-3"
@@ -513,10 +527,10 @@ export function AdminDashboard() {
         <div className="rounded-xl border border-border-color bg-bg-card p-5 flex flex-col justify-between gap-4">
           <div>
             <h2 className="text-base leading-6 font-semibold text-text-primary">
-              Người dùng theo vai trò
+              {getAdminText(language, "dash.roleDistHeading")}
             </h2>
             <p className="mt-0.5 text-xs leading-4 text-text-muted tabular-nums">
-              Tổng {usersList.length} tài khoản
+              {getAdminText(language, "dash.roleDistSub")} · {formatAdminNumber(usersList.length, language)}
             </p>
           </div>
 
@@ -524,7 +538,7 @@ export function AdminDashboard() {
             <div className="h-36 rounded-lg bg-bg-secondary animate-pulse" />
           ) : roleDistribution.length === 0 ? (
             <p className="py-6 text-sm text-text-muted text-center">
-              Chưa có dữ liệu người dùng.
+              {getAdminText(language, "common.noData")}
             </p>
           ) : (
             <div className="flex items-center gap-5">
@@ -533,7 +547,7 @@ export function AdminDashboard() {
                   viewBox="0 0 160 160"
                   className="w-full h-full"
                   role="img"
-                  aria-label={`Biểu đồ tròn phân bố người dùng theo vai trò: ${roleDistribution
+                  aria-label={`${getAdminText(language, "dash.roleDistHeading")}: ${roleDistribution
                     .map((r) => `${r.label} ${r.percent}%`)
                     .join(", ")}`}
                 >
@@ -562,9 +576,11 @@ export function AdminDashboard() {
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-xl font-bold text-text-primary tabular-nums">
-                    {usersList.length}
+                    {formatAdminNumber(usersList.length, language)}
                   </span>
-                  <span className="text-xs text-text-muted">tài khoản</span>
+                  <span className="text-xs text-text-muted">
+                    {getAdminText(language, "dash.totalShort")}
+                  </span>
                 </div>
               </div>
 
@@ -583,7 +599,7 @@ export function AdminDashboard() {
                       <span className="text-text-primary truncate">{item.label}</span>
                     </span>
                     <strong className="font-semibold text-text-primary tabular-nums shrink-0">
-                      {item.count}
+                      {formatAdminNumber(item.count, language)}
                     </strong>
                   </div>
                 ))}
@@ -593,7 +609,7 @@ export function AdminDashboard() {
 
           <div className="border-t border-border-color pt-3.5 space-y-2">
             <div className="flex items-center justify-between text-xs leading-4 font-semibold text-text-secondary">
-              <span>Trạng thái tài khoản</span>
+              <span>{getAdminText(language, "dash.statusDistHeading")}</span>
               <span className="tabular-nums">
                 {statusCounts.active} · {statusCounts.inactive} · {statusCounts.locked}
               </span>
@@ -623,9 +639,9 @@ export function AdminDashboard() {
               )}
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs leading-4 text-text-secondary">
-              <span>Hoạt động ({statusCounts.active})</span>
-              <span>Không hoạt động ({statusCounts.inactive})</span>
-              <span>Đã khóa ({statusCounts.locked})</span>
+              <span>{getAdminStatusLabel("active", language)} ({statusCounts.active})</span>
+              <span>{getAdminStatusLabel("inactive", language)} ({statusCounts.inactive})</span>
+              <span>{getAdminStatusLabel("locked", language)} ({statusCounts.locked})</span>
             </div>
           </div>
         </div>
@@ -636,15 +652,17 @@ export function AdminDashboard() {
         <div className="px-5 py-3.5 flex items-center justify-between gap-3 border-b border-border-color">
           <div>
             <h2 className="text-base leading-6 font-semibold text-text-primary">
-              Hoạt động gần đây
+              {getAdminText(language, "dash.recentHeading")}
             </h2>
-            <p className="text-xs leading-4 text-text-muted">5 thao tác mới nhất</p>
+            <p className="text-xs leading-4 text-text-muted">
+              {isEn ? "Latest 5 actions" : "5 thao tác mới nhất"}
+            </p>
           </div>
           <Link
             to="/admin/audit-logs"
             className="inline-flex min-h-[44px] items-center gap-1.5 px-2 text-sm font-semibold text-brand-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary rounded"
           >
-            <span>Mở nhật ký</span>
+            <span>{getAdminText(language, "dash.viewAll")}</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
@@ -652,7 +670,7 @@ export function AdminDashboard() {
         {resources.auditLogs.status === "error" ? (
           <div role="alert" className="p-6 text-center space-y-3">
             <p className="text-sm text-status-danger">
-              {resources.auditLogs.error || "Không thể tải nhật ký hoạt động."}
+              {resources.auditLogs.error || getAdminText(language, "audit.loadErrorFallback")}
             </p>
             <button
               type="button"
@@ -660,7 +678,7 @@ export function AdminDashboard() {
               className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-border-color bg-bg-card px-4 text-sm font-semibold text-text-primary hover:bg-bg-secondary cursor-pointer"
             >
               <RefreshCw className="w-4 h-4" />
-              <span>Thử lại</span>
+              <span>{getAdminText(language, "common.retry")}</span>
             </button>
           </div>
         ) : logsLoading ? (
@@ -671,7 +689,7 @@ export function AdminDashboard() {
           </div>
         ) : recentActivities.length === 0 ? (
           <p className="p-8 text-center text-sm text-text-secondary">
-            Chưa có bản ghi nhật ký hoạt động nào.
+            {getAdminText(language, "dash.recentEmpty")}
           </p>
         ) : (
           <>
@@ -684,9 +702,9 @@ export function AdminDashboard() {
                     : null
                 const actorName =
                   log.actorId === null || log.actorId === undefined
-                    ? "Hệ thống"
+                    ? getAdminText(language, "common.system")
                     : actorUser?.fullName || log.actorLabel || `User #${log.actorId}`
-                const actionText = ACTION_LABELS[log.action] || log.action
+                const actionText = getAdminAuditActionLabel(log.action, language)
                 let targetText = log.targetLabel || "—"
                 if (
                   log.targetEntity &&
@@ -708,11 +726,13 @@ export function AdminDashboard() {
                       </p>
                       <p className="text-xs text-text-muted truncate">
                         {actorName}
-                        {targetText && targetText !== "—" ? ` · Áp dụng cho: ${targetText}` : ""}
+                        {targetText && targetText !== "—"
+                          ? ` · ${getAdminText(language, "dash.colTarget")}: ${targetText}`
+                          : ""}
                       </p>
                     </div>
                     <span className="text-xs text-text-secondary tabular-nums whitespace-nowrap shrink-0">
-                      {formatAdminDateTime(log.createdAt)}
+                      {formatAdminDateTime(log.createdAt, undefined, undefined, language)}
                     </span>
                   </div>
                 )
@@ -724,11 +744,11 @@ export function AdminDashboard() {
               <table className="w-full min-w-[760px] text-left border-collapse">
                 <thead className="bg-bg-main text-xs leading-4 font-semibold text-text-secondary">
                   <tr>
-                    <th className="px-5 py-2.5">Thời gian</th>
-                    <th className="px-5 py-2.5">Người thực hiện</th>
-                    <th className="px-5 py-2.5">Vai trò</th>
-                    <th className="px-5 py-2.5">Thao tác</th>
-                    <th className="px-5 py-2.5">Áp dụng cho</th>
+                    <th className="px-5 py-2.5">{getAdminText(language, "dash.colTime")}</th>
+                    <th className="px-5 py-2.5">{getAdminText(language, "dash.colActor")}</th>
+                    <th className="px-5 py-2.5">{getAdminText(language, "dash.colRole")}</th>
+                    <th className="px-5 py-2.5">{getAdminText(language, "dash.colAction")}</th>
+                    <th className="px-5 py-2.5">{getAdminText(language, "dash.colTarget")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-color text-sm leading-5">
@@ -739,13 +759,13 @@ export function AdminDashboard() {
                         : null
                     const actorName =
                       log.actorId === null || log.actorId === undefined
-                        ? "Hệ thống"
+                        ? getAdminText(language, "common.system")
                         : actorUser?.fullName || log.actorLabel || `User #${log.actorId}`
                     const actorRole =
                       actorUser?.roleName
-                        ? ROLE_LABELS[actorUser.roleName] || actorUser.roleName
+                        ? getAdminRoleShortLabel(actorUser.roleName, language)
                         : "—"
-                    const actionText = ACTION_LABELS[log.action] || log.action
+                    const actionText = getAdminAuditActionLabel(log.action, language)
                     let targetText = log.targetLabel || "—"
                     if (
                       log.targetEntity &&
@@ -762,7 +782,7 @@ export function AdminDashboard() {
                         className="h-12 hover:bg-bg-secondary/60 transition-colors"
                       >
                         <td className="px-5 text-[13px] font-mono text-text-secondary tabular-nums whitespace-nowrap">
-                          {formatAdminDateTime(log.createdAt)}
+                          {formatAdminDateTime(log.createdAt, undefined, undefined, language)}
                         </td>
                         <td className="px-5 font-medium text-text-primary whitespace-nowrap">
                           {actorName}

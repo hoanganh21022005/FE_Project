@@ -1,5 +1,7 @@
 import React, { useMemo } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import { useSCMS } from "../../context/SCMSContext.jsx"
+import { getAdminText } from "./adminI18n.js"
 
 function buildPageNumbers(currentPage, totalPages) {
   if (totalPages <= 7) {
@@ -24,14 +26,20 @@ export function AdminPagination({
   pageSize,
   onPageChange,
   summaryText,
-  prevLabel = "Trang trước",
-  nextLabel = "Trang sau",
-  navLabel = "Phân trang",
+  prevLabel,
+  nextLabel,
+  navLabel,
+  itemLabel,
 }) {
+  const { language } = useSCMS()
   const safeTotalPages = Math.max(1, totalPages)
   const safePage = Math.min(Math.max(1, page), safeTotalPages)
   const startItem = totalItems === 0 ? 0 : (safePage - 1) * pageSize + 1
   const endItem = Math.min(totalItems, safePage * pageSize)
+  const resolvedPrev = prevLabel || getAdminText(language, "pagination.prev")
+  const resolvedNext = nextLabel || getAdminText(language, "pagination.next")
+  const resolvedNav = navLabel || getAdminText(language, "pagination.navLabel")
+  const resolvedUnit = itemLabel || getAdminText(language, "pagination.usersUnit")
 
   const pageNumbers = useMemo(
     () => buildPageNumbers(safePage, safeTotalPages),
@@ -43,20 +51,20 @@ export function AdminPagination({
       <p className="text-sm leading-5 text-text-secondary tabular-nums">
         {summaryText || (
           <>
-            Hiển thị{" "}
+            {language === "en" ? "Showing " : "Hiển thị "}
             <strong className="font-semibold text-text-primary">
               {startItem}–{endItem}
             </strong>{" "}
-            trên {totalItems}
+            {language === "en" ? `of ${totalItems} ${resolvedUnit}` : `trên ${totalItems} ${resolvedUnit}`}
           </>
         )}
       </p>
-      <nav aria-label={navLabel} className="flex items-center gap-1.5">
+      <nav aria-label={resolvedNav} className="flex items-center gap-1.5">
         <button
           type="button"
           onClick={() => onPageChange(safePage - 1)}
           disabled={safePage <= 1}
-          aria-label={prevLabel}
+          aria-label={resolvedPrev}
           className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-lg border border-border-color bg-bg-card text-brand-primary hover:bg-bg-secondary disabled:opacity-50 disabled:text-text-muted disabled:bg-bg-main disabled:cursor-not-allowed transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -92,7 +100,7 @@ export function AdminPagination({
           type="button"
           onClick={() => onPageChange(safePage + 1)}
           disabled={safePage >= safeTotalPages}
-          aria-label={nextLabel}
+          aria-label={resolvedNext}
           className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-lg border border-border-color bg-bg-card text-brand-primary hover:bg-bg-secondary disabled:opacity-50 disabled:text-text-muted disabled:bg-bg-main disabled:cursor-not-allowed transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
         >
           <ChevronRight className="w-4 h-4" />

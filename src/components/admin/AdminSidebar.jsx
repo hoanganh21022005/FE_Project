@@ -8,6 +8,7 @@ import {
   X,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext.jsx"
+import { getAdminText } from "./adminI18n.js"
 import {
   ADMIN_NAV_GROUPS,
   ADMIN_NAV_ITEMS,
@@ -58,7 +59,8 @@ export function AdminSidebar({
   isOpen,
   onClose,
 }) {
-  const { role } = useSCMS()
+  const { role, language } = useSCMS()
+  const isEn = language === "en"
   const groups = getAdminNavGroups(role)
 
   const activeGroupKey =
@@ -118,7 +120,7 @@ export function AdminSidebar({
       {isOpen && (
         <button
           type="button"
-          aria-label="Đóng menu Admin"
+          aria-label={getAdminText(language, "shell.closeMenu")}
           onClick={onClose}
           className="fixed inset-0 z-30 bg-stone-950/40 lg:hidden cursor-pointer"
         />
@@ -139,7 +141,7 @@ export function AdminSidebar({
                 type="button"
                 onClick={() => select("admin_dashboard")}
                 title="VIBE Sport System"
-                aria-label="VIBE Sport System - Tổng quan"
+                aria-label={`VIBE Sport System - ${getAdminText(language, "dash.title")}`}
                 className={`flex min-h-[44px] items-center gap-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded cursor-pointer min-w-0 ${
                   collapsed ? "lg:hidden" : "flex-1 pr-3"
                 }`}
@@ -163,11 +165,15 @@ export function AdminSidebar({
                 type="button"
                 onClick={toggleCollapsed}
                 aria-label={
-                  collapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"
+                  collapsed
+                    ? getAdminText(language, "shell.expandSidebar")
+                    : getAdminText(language, "shell.collapseSidebar")
                 }
                 aria-expanded={!collapsed}
                 title={
-                  collapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"
+                  collapsed
+                    ? getAdminText(language, "shell.expandSidebar")
+                    : getAdminText(language, "shell.collapseSidebar")
                 }
                 className="hidden lg:inline-flex w-11 h-11 shrink-0 items-center justify-center rounded text-text-inverse focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent cursor-pointer"
               >
@@ -184,7 +190,7 @@ export function AdminSidebar({
                 type="button"
                 onClick={onClose}
                 className="inline-flex w-11 h-11 shrink-0 items-center justify-center rounded text-text-inverse transition-colors hover:bg-brand-dark-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary lg:hidden cursor-pointer"
-                aria-label="Đóng menu"
+                aria-label={getAdminText(language, "shell.closeMenu")}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -194,12 +200,13 @@ export function AdminSidebar({
               className={`flex-1 py-3 space-y-1.5 overflow-y-auto min-h-0 ${
                 collapsed ? "px-3 lg:px-2" : "px-3"
               }`}
-              aria-label="Điều hướng Admin"
+              aria-label={getAdminText(language, "shell.navAria")}
             >
               {groups.map((group) => {
                 const hasActive = group.items.some((i) => i.id === currentTab)
                 const isExpanded = Boolean(expandedGroups[group.key]) || hasActive
                 const panelId = `admin-nav-group-${group.key}`
+                const groupTitle = isEn ? group.titleEn || group.title : group.title
 
                 return (
                   <div key={group.key} className="space-y-1">
@@ -211,7 +218,7 @@ export function AdminSidebar({
                         aria-controls={panelId}
                         className="w-full min-h-[44px] px-3 flex items-center justify-between gap-2 rounded text-xs leading-4 font-bold uppercase tracking-wider text-text-inverse/75 hover:text-text-inverse hover:bg-brand-dark-hover/60 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
                       >
-                        <span className="truncate">{group.title}</span>
+                        <span className="truncate">{groupTitle}</span>
                         {isExpanded ? (
                           <ChevronDown className="w-4 h-4 shrink-0" />
                         ) : (
@@ -226,7 +233,7 @@ export function AdminSidebar({
                         aria-controls={panelId}
                         className="lg:hidden w-full min-h-[44px] px-3 flex items-center justify-between gap-2 rounded text-xs leading-4 font-bold uppercase tracking-wider text-text-inverse/75 hover:text-text-inverse hover:bg-brand-dark-hover/60 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
                       >
-                        <span className="truncate">{group.title}</span>
+                        <span className="truncate">{groupTitle}</span>
                         {isExpanded ? (
                           <ChevronDown className="w-4 h-4 shrink-0" />
                         ) : (
@@ -241,16 +248,17 @@ export function AdminSidebar({
                         isExpanded ? "block" : collapsed ? "hidden lg:block" : "hidden"
                       } ${collapsed ? "lg:pt-1 lg:border-t lg:border-brand-dark-hover/60 lg:first:border-t-0" : ""}`}
                     >
-                      {group.items.map(({ id, label, icon: Icon }) => {
+                      {group.items.map(({ id, label, labelEn, icon: Icon }) => {
                         const active = currentTab === id
+                        const itemLabel = isEn ? labelEn || label : label
                         return (
                           <button
                             key={id}
                             type="button"
                             onClick={() => select(id)}
                             aria-current={active ? "page" : undefined}
-                            aria-label={label}
-                            title={collapsed ? label : undefined}
+                            aria-label={itemLabel}
+                            title={collapsed ? itemLabel : undefined}
                             className={`w-full min-h-[44px] flex items-center rounded-md text-sm leading-5 font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent ${
                               collapsed
                                 ? "px-3 gap-3 lg:w-11 lg:h-11 lg:mx-auto lg:px-0 lg:justify-center"
@@ -267,7 +275,7 @@ export function AdminSidebar({
                               }`}
                             />
                             <span className={`truncate ${collapsed ? "lg:hidden" : ""}`}>
-                              {label}
+                              {itemLabel}
                             </span>
                           </button>
                         )
@@ -288,8 +296,8 @@ export function AdminSidebar({
               type="button"
               onClick={() => select("profile")}
               aria-current={currentTab === "profile" ? "page" : undefined}
-              aria-label="Hồ sơ"
-              title={collapsed ? "Hồ sơ" : undefined}
+              aria-label={getAdminText(language, "shell.profileTitle")}
+              title={collapsed ? getAdminText(language, "shell.profileTitle") : undefined}
               className={`w-full min-h-[44px] flex items-center rounded-md text-sm leading-5 font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent ${
                 collapsed
                   ? "px-3 gap-3 lg:w-11 lg:h-11 lg:mx-auto lg:px-0 lg:justify-center"
@@ -307,13 +315,15 @@ export function AdminSidebar({
                     : "text-text-inverse/75"
                 }`}
               />
-              <span className={collapsed ? "lg:hidden" : ""}>Hồ sơ</span>
+              <span className={collapsed ? "lg:hidden" : ""}>
+                {getAdminText(language, "shell.profileTitle")}
+              </span>
             </button>
             <button
               type="button"
               onClick={onLogout}
-              aria-label="Đăng xuất"
-              title={collapsed ? "Đăng xuất" : undefined}
+              aria-label={getAdminText(language, "shell.logout")}
+              title={collapsed ? getAdminText(language, "shell.logout") : undefined}
               className={`w-full min-h-[44px] flex items-center rounded-md text-sm leading-5 font-semibold text-text-inverse/85 hover:text-text-inverse hover:bg-brand-dark-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent transition-colors cursor-pointer ${
                 collapsed
                   ? "px-3 gap-3 lg:w-11 lg:h-11 lg:mx-auto lg:px-0 lg:justify-center"
@@ -321,7 +331,9 @@ export function AdminSidebar({
               }`}
             >
               <LogOut className="w-4 h-4 shrink-0" />
-              <span className={collapsed ? "lg:hidden" : ""}>Đăng xuất</span>
+              <span className={collapsed ? "lg:hidden" : ""}>
+                {getAdminText(language, "shell.logout")}
+              </span>
             </button>
           </div>
         </div>

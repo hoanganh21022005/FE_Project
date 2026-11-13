@@ -1,22 +1,23 @@
 import React, { useEffect, useRef, useState } from "react"
 import { AlertTriangle, CheckCircle, LoaderCircle, UserPlus, UserRound, X } from "lucide-react"
 import { createUser, getSpecializations, getUserById, updateUser } from "../../api/adminApi.js"
-import { ROLE_NAME_LABELS } from "./views/AdminRolesView.jsx"
+import { useSCMS } from "../../context/SCMSContext.jsx"
+import { getAdminRoleLabel, getAdminStatusLabel, getAdminText } from "./adminI18n.js"
 import { useDialogFocus } from "./useDialogFocus.js"
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const GENDER_OPTIONS = [
-  { value: "", label: "-- Chọn giới tính (Tùy chọn) --" },
-  { value: "MALE", label: "Nam" },
-  { value: "FEMALE", label: "Nữ" },
-  { value: "OTHER", label: "Khác" },
+const getGenderOptions = (language) => [
+  { value: "", label: getAdminText(language, "userForm.genderEmpty") },
+  { value: "MALE", label: getAdminText(language, "userForm.genderMale") },
+  { value: "FEMALE", label: getAdminText(language, "userForm.genderFemale") },
+  { value: "OTHER", label: getAdminText(language, "userForm.genderOther") },
 ]
 
-const STATUS_CHOICES = [
-  { value: "Active", label: "Hoạt động (Active)" },
-  { value: "Inactive", label: "Không hoạt động (Inactive)" },
-  { value: "Locked", label: "Đã khóa (Locked)" },
+const getStatusChoices = (language) => [
+  { value: "Active", label: getAdminText(language, "userForm.statusActive") },
+  { value: "Inactive", label: getAdminText(language, "userForm.statusInactive") },
+  { value: "Locked", label: getAdminStatusLabel("locked", language) },
 ]
 
 export function UserFormModal({
@@ -27,7 +28,10 @@ export function UserFormModal({
   onSuccess,
   triggerRef,
 }) {
+  const { language } = useSCMS()
   const isEditMode = Boolean(initialUser && initialUser.id)
+  const genderOptions = getGenderOptions(language)
+  const statusChoices = getStatusChoices(language)
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -203,20 +207,20 @@ export function UserFormModal({
   const validate = () => {
     const newErrors = {}
     if (!formData.fullName.trim()) {
-      newErrors.fullName = "Họ và tên là bắt buộc."
+      newErrors.fullName = getAdminText(language, "userForm.errNameRequired")
     }
     if (!formData.email.trim()) {
-      newErrors.email = "Email là bắt buộc."
+      newErrors.email = getAdminText(language, "userForm.errEmailRequired")
     } else if (!EMAIL_REGEX.test(formData.email.trim())) {
-      newErrors.email = "Email không đúng định dạng."
+      newErrors.email = getAdminText(language, "userForm.errEmailInvalid")
     }
     if (!isEditMode && !isAdminRole) {
       const rawCenter = String(formData.centerId ?? "").trim()
       const numCenter = Number(rawCenter)
       if (!rawCenter) {
-        newErrors.centerId = "Mã cơ sở là bắt buộc đối với vai trò này."
+        newErrors.centerId = getAdminText(language, "userForm.errCenterRequired")
       } else if (!Number.isInteger(numCenter) || numCenter <= 0) {
-        newErrors.centerId = "Mã cơ sở phải là số nguyên dương."
+        newErrors.centerId = getAdminText(language, "userForm.errCenterPositive")
       }
     }
     setErrors(newErrors)
@@ -287,9 +291,9 @@ export function UserFormModal({
       if (isEmailConflict) {
         setErrors((prev) => ({
           ...prev,
-          email: "Địa chỉ email này đã tồn tại trong hệ thống. Vui lòng chọn email khác.",
+          email: getAdminText(language, "userForm.errEmailExistsField"),
         }))
-        setServerError("Email đã được sử dụng bởi tài khoản khác.")
+        setServerError(getAdminText(language, "userForm.errEmailExistsBanner"))
       } else if (msg.toLowerCase().includes("center_id")) {
         setErrors((prev) => ({
           ...prev,
@@ -297,9 +301,9 @@ export function UserFormModal({
         }))
         setServerError(msg)
       } else if (err?.status === 403) {
-        setServerError("Bạn không có quyền thực hiện thao tác này.")
+        setServerError(getAdminText(language, "common.noPermission"))
       } else {
-        setServerError(msg || "Không thể lưu thông tin tài khoản. Vui lòng thử lại sau.")
+        setServerError(msg || getAdminText(language, "userForm.errSaveFallback"))
       }
     } finally {
       setSubmitting(false)
@@ -328,12 +332,16 @@ export function UserFormModal({
             </div>
             <div>
               <h3 id="user-form-modal-title" className="text-base font-semibold text-text-primary">
-                {isEditMode ? "Chỉnh sửa tài khoản người dùng" : "Tạo tài khoản người dùng mới"}
+                {isEditMode
+                  ? getAdminText(language, "userForm.editTitle")
+                  : getAdminText(language, "userForm.createTitle")}
               </h3>
               <p className="text-xs text-text-secondary mt-0.5">
                 {isEditMode
-                  ? `Cập nhật thông tin cho tài khoản ID #${initialUser.id}`
-                  : "Mật khẩu tạm sẽ được hệ thống tự động sinh và gửi qua email chào mừng."}
+                  ? getAdminText(language, "userForm.editSub", {
+                      name: initialUser.fullName || initialUser.email || `#${initialUser.id}`,
+                    })
+                  : getAdminText(language, "userForm.createSub")}
               </p>
             </div>
           </div>
@@ -342,7 +350,7 @@ export function UserFormModal({
             onClick={onClose}
             disabled={submitting}
             className="w-11 h-11 inline-flex items-center justify-center rounded text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary shrink-0"
-            aria-label="Đóng form"
+            aria-label={getAdminText(language, "common.close")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -351,7 +359,7 @@ export function UserFormModal({
         {detailedLoading && (
           <div className="p-2 text-xs text-brand-primary flex items-center gap-2">
             <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
-            <span>Đang đồng bộ chi tiết mới nhất từ máy chủ...</span>
+            <span>{getAdminText(language, "userForm.loadingDetail")}</span>
           </div>
         )}
 
@@ -370,7 +378,7 @@ export function UserFormModal({
             {/* Họ và tên (Bắt buộc) */}
             <div className="space-y-1">
               <label htmlFor="user-form-fullname" className="text-xs font-semibold text-text-secondary block">
-                Họ và tên <span className="text-status-danger">*</span>
+                {getAdminText(language, "userForm.fullName")} <span className="text-status-danger">*</span>
               </label>
               <input
                 ref={firstInputRef}
@@ -379,7 +387,7 @@ export function UserFormModal({
                 type="text"
                 value={formData.fullName}
                 onChange={handleChange}
-                placeholder="Nguyễn Văn A"
+                placeholder={getAdminText(language, "userForm.fullNamePlaceholder")}
                 disabled={submitting}
                 aria-invalid={Boolean(errors.fullName)}
                 aria-describedby={errors.fullName ? "user-form-fullname-error" : undefined}
@@ -395,7 +403,7 @@ export function UserFormModal({
             {/* Email */}
             <div className="space-y-1">
               <label htmlFor="user-form-email" className="text-xs font-semibold text-text-secondary block">
-                Địa chỉ email {!isEditMode && <span className="text-status-danger">*</span>}
+                {getAdminText(language, "userForm.email")} {!isEditMode && <span className="text-status-danger">*</span>}
               </label>
               <input
                 id="user-form-email"
@@ -421,7 +429,7 @@ export function UserFormModal({
               />
               {isEditMode && (
                 <p id="user-form-email-hint" className="text-xs text-text-muted mt-1 leading-4">
-                  Địa chỉ email không thể thay đổi sau khi tạo tài khoản.
+                  {getAdminText(language, "userForm.emailReadonlyHint")}
                 </p>
               )}
               {errors.email && (
@@ -432,7 +440,7 @@ export function UserFormModal({
             {/* Số điện thoại */}
             <div className="space-y-1">
               <label htmlFor="user-form-phone" className="text-xs font-semibold text-text-secondary block">
-                Số điện thoại
+                {getAdminText(language, "userForm.phone")}
               </label>
               <input
                 id="user-form-phone"
@@ -449,7 +457,7 @@ export function UserFormModal({
             {/* Giới tính */}
             <div className="space-y-1">
               <label htmlFor="user-form-gender" className="text-xs font-semibold text-text-secondary block">
-                Giới tính
+                {getAdminText(language, "userForm.gender")}
               </label>
               <select
                 id="user-form-gender"
@@ -459,7 +467,7 @@ export function UserFormModal({
                 disabled={submitting}
                 className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
               >
-                {GENDER_OPTIONS.map((g) => (
+                {genderOptions.map((g) => (
                   <option key={g.value} value={g.value}>
                     {g.label}
                   </option>
@@ -470,7 +478,7 @@ export function UserFormModal({
             {/* Ngày sinh */}
             <div className="space-y-1">
               <label htmlFor="user-form-dob" className="text-xs font-semibold text-text-secondary block">
-                Ngày sinh
+                {getAdminText(language, "userForm.dob")}
               </label>
               <input
                 id="user-form-dob"
@@ -487,7 +495,7 @@ export function UserFormModal({
             {!isEditMode && (
               <div className="space-y-1">
                 <label htmlFor="user-form-role" className="text-xs font-semibold text-text-secondary block">
-                  Vai trò
+                  {getAdminText(language, "userForm.role")}
                 </label>
                 <select
                   id="user-form-role"
@@ -497,12 +505,15 @@ export function UserFormModal({
                   disabled={submitting}
                   className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
                 >
-                  <option value="">Mặc định (Hội viên - Member)</option>
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {ROLE_NAME_LABELS[r.name] ? `${ROLE_NAME_LABELS[r.name]} (${r.name})` : r.name}
-                    </option>
-                  ))}
+                  <option value="">{getAdminText(language, "userForm.roleEmpty")}</option>
+                  {roles.map((r) => {
+                    const label = getAdminRoleLabel(r.name, language)
+                    return (
+                      <option key={r.id} value={r.id}>
+                        {label !== r.name ? `${label} (${r.name})` : r.name}
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
             )}
@@ -511,7 +522,7 @@ export function UserFormModal({
             {!isEditMode && (
               <div className="space-y-1">
                 <label htmlFor="user-form-status" className="text-xs font-semibold text-text-secondary block">
-                  Trạng thái tài khoản
+                  {getAdminText(language, "userForm.status")}
                 </label>
                 <select
                   id="user-form-status"
@@ -521,7 +532,7 @@ export function UserFormModal({
                   disabled={submitting}
                   className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
                 >
-                  {STATUS_CHOICES.map((s) => (
+                  {statusChoices.map((s) => (
                     <option key={s.value} value={s.value}>
                       {s.label}
                     </option>
@@ -534,7 +545,7 @@ export function UserFormModal({
             {!isEditMode && !isAdminRole && (
               <div className="space-y-1">
                 <label htmlFor="user-form-center" className="text-xs font-semibold text-text-secondary block">
-                  Mã cơ sở <span className="text-status-danger">*</span>
+                  {getAdminText(language, "userForm.centerId")} <span className="text-status-danger">*</span>
                 </label>
                 <input
                   id="user-form-center"
@@ -560,27 +571,22 @@ export function UserFormModal({
                   <p id="user-form-center-error" className="text-xs text-status-danger mt-1">{errors.centerId}</p>
                 )}
                 <p id="user-form-center-hint" className="text-xs text-text-muted mt-1 leading-4">
-                  Hệ thống hiện có một cơ sở (mã 1). Bắt buộc với mọi vai trò trừ Quản trị viên.
+                  {getAdminText(language, "userForm.centerIdHint")}
                 </p>
               </div>
             )}
 
             {/* Gợi ý an toàn cho chế độ sửa */}
             {isEditMode && (
-              <div className="sm:col-span-2 p-3 rounded-lg bg-bg-secondary/60 border border-border-color text-xs text-text-secondary space-y-1">
-                <p className="font-semibold text-text-primary">
-                  💡 Lưu ý về Vai trò & Trạng thái tài khoản:
-                </p>
-                <p>
-                  Để đảm bảo các chốt chặn an toàn hệ thống, việc <strong>Đổi vai trò</strong> và <strong>Đổi trạng thái</strong> (Khóa / Kích hoạt) được thực hiện riêng biệt thông qua nút thao tác (<strong>⋮</strong>) tại danh sách tài khoản.
-                </p>
+              <div className="sm:col-span-2 p-3 rounded-lg bg-bg-secondary/60 border border-border-color text-xs text-text-secondary">
+                <p>{getAdminText(language, "userForm.editNotice")}</p>
               </div>
             )}
 
             {/* Địa chỉ */}
             <div className="space-y-1 sm:col-span-2">
               <label htmlFor="user-form-address" className="text-xs font-semibold text-text-secondary block">
-                Địa chỉ
+                {getAdminText(language, "userForm.address")}
               </label>
               <input
                 id="user-form-address"
@@ -588,7 +594,7 @@ export function UserFormModal({
                 type="text"
                 value={formData.address}
                 onChange={handleChange}
-                placeholder="Số nhà, đường, quận/huyện, tỉnh/thành phố..."
+                placeholder={getAdminText(language, "userForm.addressPlaceholder")}
                 disabled={submitting}
                 className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary"
               />
@@ -600,18 +606,18 @@ export function UserFormModal({
             <div className="pt-2 border-t border-border-color/60 space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-text-secondary block">
-                  Chuyên môn huấn luyện (Tùy chọn cho HLV):
+                  {getAdminText(language, "userForm.specs")}
                 </label>
                 {loadingSpecs && (
                   <span className="text-xs text-text-muted flex items-center gap-1">
                     <LoaderCircle className="w-3 h-3 animate-spin" />
-                    Đang tải chuyên môn...
+                    {getAdminText(language, "common.loadingData")}
                   </span>
                 )}
               </div>
               {specializations.length === 0 ? (
                 <p className="text-xs text-text-muted italic">
-                  Chưa có chuyên môn nào trong hệ thống.
+                  {getAdminText(language, "common.noData")}
                 </p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto p-2 border border-border-color rounded-lg bg-bg-secondary/40">
@@ -644,13 +650,8 @@ export function UserFormModal({
 
           {/* Ghi chú về mật khẩu */}
           {!isEditMode && (
-            <div className="p-3 rounded-lg bg-bg-secondary/70 border border-border-color/80 text-xs text-text-secondary space-y-1">
-              <p className="font-semibold text-text-primary">
-                🔒 Chính sách bảo mật & mật khẩu:
-              </p>
-              <p>
-                Biểu mẫu không yêu cầu mật khẩu. Máy chủ sẽ tự sinh mật khẩu tạm bảo mật và gửi email chào mừng kèm hướng dẫn đăng nhập trực tiếp tới hòm thư của người dùng.
-              </p>
+            <div className="p-3 rounded-lg bg-bg-secondary/70 border border-border-color/80 text-xs text-text-secondary">
+              <p>{getAdminText(language, "userForm.createSub")}</p>
             </div>
           )}
 
@@ -661,7 +662,7 @@ export function UserFormModal({
               disabled={submitting}
               className="min-h-11 inline-flex items-center justify-center rounded px-4 py-2 text-sm font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
             >
-              Hủy bỏ
+              {getAdminText(language, "common.cancel")}
             </button>
             <button
               type="submit"
@@ -669,7 +670,11 @@ export function UserFormModal({
               className="min-h-11 inline-flex items-center justify-center gap-2 rounded px-5 py-2 text-sm font-semibold bg-brand-primary text-white hover:bg-brand-primary/90 transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
             >
               {submitting && <LoaderCircle className="w-4 h-4 animate-spin" />}
-              <span>{isEditMode ? "Lưu thay đổi" : "Tạo tài khoản"}</span>
+              <span>
+                {isEditMode
+                  ? getAdminText(language, "userForm.submitSave")
+                  : getAdminText(language, "userForm.submitCreate")}
+              </span>
             </button>
           </div>
         </form>

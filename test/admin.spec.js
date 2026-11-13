@@ -391,4 +391,178 @@ test.describe('Kịch bản Admin Chỉ Đọc (ADMIN-01 -> ADMIN-06)', () => {
     // Khẳng định không phát sinh mutation request nào
     expect(mutationRequests).toEqual([]);
   });
+
+  test('ADMIN-07: Chuyển sang tiếng Anh (EN) hiển thị đầy đủ UI tiếng Anh và không còn dấu tiếng Việt trên /admin/dashboard và /admin/users', async ({ page }) => {
+    const enMockUsers = [
+      {
+        id: 1,
+        code: 'USR-001',
+        fullName: 'John Admin',
+        email: 'admin@example.invalid',
+        phone: '0901234567',
+        status: 'active',
+        roleId: 1,
+        roleName: 'Admin',
+        createdAt: '2026-01-15T08:00:00Z',
+        permissions: ['MANAGE_USERS', 'MANAGE_RBAC', 'VIEW_AUDIT_LOGS'],
+      },
+      {
+        id: 2,
+        code: 'USR-002',
+        fullName: 'Jane Receptionist',
+        email: 'receptionist@example.invalid',
+        phone: '0907654321',
+        status: 'active',
+        roleId: 3,
+        roleName: 'Receptionist',
+        createdAt: '2026-02-10T09:30:00Z',
+        permissions: ['PROCESS_PAYMENT'],
+      },
+      {
+        id: 3,
+        code: 'USR-003',
+        fullName: 'Alex Member',
+        email: 'member@example.invalid',
+        phone: '0911223344',
+        status: 'locked',
+        roleId: 5,
+        roleName: 'Member',
+        createdAt: '2026-03-01T10:00:00Z',
+        permissions: [],
+      },
+    ];
+    const enMockAuditLogs = [
+      {
+        id: 901,
+        actorId: 1,
+        actorName: 'John Admin',
+        action: 'LOGIN_GOOGLE',
+        targetType: 'USER',
+        targetId: 3,
+        details: 'Signed in via Google OAuth2',
+        createdAt: '2026-11-12T07:15:00Z',
+      },
+    ];
+
+    await loginAs(page, 'admin');
+
+    await page.route((url) => isApiMatch(url, 'users'), (route) => {
+      if (route.request().method() === 'GET') {
+        return route.fulfill({ status: 200, json: enMockUsers });
+      }
+      return route.fallback();
+    });
+    await page.route((url) => isApiMatch(url, 'audit-logs'), (route) => {
+      if (route.request().method() === 'GET') {
+        return route.fulfill({ status: 200, json: enMockAuditLogs });
+      }
+      return route.fallback();
+    });
+
+    await page.goto('/admin/dashboard');
+    await expect(page.locator('main')).toBeVisible({ timeout: 10000 });
+
+    // Bấm nút chuyển ngôn ngữ sang EN trên header
+    const enBtn = page.locator('header button:has-text("EN")');
+    await expect(enBtn).toBeVisible();
+    await enBtn.click();
+
+    await expect(page.locator('main')).toContainText('Admin Dashboard');
+    await expect(page.locator('main')).toContainText('Recent activity');
+
+    const viDiacritics = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i;
+    for (const sel of ['header', 'aside', 'main']) {
+      const txt = await page.locator(sel).innerText();
+      expect(txt, `${sel} trên /admin/dashboard ở chế độ EN không được chứa dấu tiếng Việt`).not.toMatch(viDiacritics);
+    }
+
+    // Điều hướng sang /admin/users và giữ chế độ EN
+    await page.goto('/admin/users');
+    await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('main')).toContainText('User Management');
+    await expect(page.locator('thead')).toContainText('Email');
+    await expect(page.locator('thead')).toContainText('Role');
+
+    for (const sel of ['header', 'aside', 'main']) {
+      const txt = await page.locator(sel).innerText();
+      expect(txt, `${sel} trên /admin/users ở chế độ EN không được chứa dấu tiếng Việt`).not.toMatch(viDiacritics);
+    }
+  });
+
+  test('ADMIN-08: Card chú ý trên Dashboard điều hướng sang /admin/users?status=locked và lọc đúng user bị khóa', async ({ page }) => {
+    await page.route((url) => isApiMatch(url, 'audit-logs'), (route) => {
+      if (route.request().method() === 'GET') {
+        return route.fulfill({ status: 200, json: createMockAuditLogs(2) });
+      }
+      return route.fallback();
+    });
+
+    await loginAs(page, 'admin');
+    await page.goto('/admin/dashboard');
+
+    const lockedCard = page.locator('main a, main button').filter({ hasText: 'Tài khoản đang bị khóa' }).first();
+    await expect(lockedCard).toBeVisible({ timeout: 10000 });
+    await lockedCard.click();
+
+    await expect(page).toHaveURL(/\/admin\/users\?status=locked/);
+    await expect(page.locator('tbody tr')).toHaveCount(1);
+    await expect(page.locator('tbody')).toContainText('Lê Hoàng Hội Viên');
+    await expect(page.locator('tbody')).not.toContainText('Trần Thị Lễ Tân');
+  });
+
+  test('ADMIN-09: Chuông thông báo hiển thị chấm chưa đọc, đánh dấu đã đọc khi mở, đóng bằng Escape và không phát sinh request ghi', async ({ page }) => {
+    const mutationRequests = [];
+    page.on('request', (req) => {
+      const u = new URL(req.url());
+      if (u.pathname.startsWith('/api/') && req.method() !== 'GET' && !u.pathname.includes('/api/auth/login')) {
+        mutationRequests.push(`${req.method()} ${u.pathname}`);
+      }
+    });
+
+    await loginAs(page, 'admin');
+
+    const recentCreatedAt = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    await page.route((url) => isApiMatch(url, 'audit-logs'), (route) => {
+      if (route.request().method() === 'GET') {
+        return route.fulfill({
+          status: 200,
+          json: [
+            {
+              id: 999,
+              actorId: 1,
+              actorName: 'Nguyễn Văn Admin',
+              action: 'CHANGE_USER_STATUS',
+              targetType: 'USER',
+              targetId: 3,
+              details: 'Khóa tài khoản thử nghiệm',
+              createdAt: recentCreatedAt,
+            },
+          ],
+        });
+      }
+      return route.fallback();
+    });
+
+    await page.evaluate(() => localStorage.removeItem('scms_admin_notif_seen_at'));
+    await page.goto('/admin/dashboard');
+
+    const bellBtn = page.locator('header button[aria-label*="Thông báo"]');
+    await expect(bellBtn).toBeVisible({ timeout: 10000 });
+    await expect(bellBtn).toHaveAttribute('aria-label', /\d+ mục mới/i);
+
+    await bellBtn.click();
+    const popover = page.locator('header [role="dialog"], header [aria-label*="Thông báo"]');
+    await expect(popover.first()).toBeVisible();
+
+    const seenAt = await page.evaluate(() => localStorage.getItem('scms_admin_notif_seen_at'));
+    expect(seenAt).toBeTruthy();
+
+    await page.keyboard.press('Escape');
+    await expect(bellBtn).toBeFocused();
+
+    await page.reload();
+    await expect(bellBtn).toBeVisible({ timeout: 10000 });
+    await expect(bellBtn).not.toHaveAttribute('aria-label', /mục mới/i);
+    expect(mutationRequests).toEqual([]);
+  });
 });

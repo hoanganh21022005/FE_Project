@@ -24,8 +24,14 @@ import { AdminPagination } from "../AdminPagination.jsx"
 import { useAdminData } from "../AdminDataContext.jsx"
 import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { formatAdminDate } from "../adminDateUtils.js"
+import {
+  formatAdminNumber,
+  getAdminPermissionLabel,
+  getAdminRoleLabel,
+  getAdminStatusLabel,
+  getAdminText,
+} from "../adminI18n.js"
 import { getAdminUsers, getUserById } from "../../../api/adminApi.js"
-import { PERMISSION_LABEL_MAP, ROLE_NAME_LABELS } from "./AdminRolesView.jsx"
 import { UserStatusDialog, isValidUserId } from "../UserStatusDialog.jsx"
 import { UserRoleDialog } from "../UserRoleDialog.jsx"
 import { UserReissuePasswordDialog } from "../UserReissuePasswordDialog.jsx"
@@ -61,7 +67,7 @@ const statusLabel = (status) =>
 
 export function AdminUsersView() {
   const { resources, retry } = useAdminData()
-  const { currentUser, authUser } = useSCMS()
+  const { currentUser, authUser, language } = useSCMS()
   const [searchParams, setSearchParams] = useSearchParams()
 
   // Nguồn ID: Trong chế độ API, currentUser.id lấy từ authUser.userId (qua buildCurrentUser).
@@ -276,9 +282,13 @@ export function AdminUsersView() {
 
   const handleStatusSuccess = (res, newStatus) => {
     const updatedStatus = newStatus.toLowerCase()
+    const targetName = statusTargetUser?.fullName || statusTargetUser?.email || ""
     setActionAlert({
       type: "success",
-      message: `Đã cập nhật trạng thái tài khoản sang "${statusLabel(updatedStatus)}".`,
+      message: getAdminText(language, "users.alertStatusUpdated", {
+        name: targetName,
+        status: getAdminStatusLabel(updatedStatus, language),
+      }),
     })
     retry("users")
     retry("auditLogs")
@@ -289,9 +299,13 @@ export function AdminUsersView() {
   }
 
   const handleRoleSuccess = (res, targetRole) => {
+    const targetName = roleTargetUser?.fullName || roleTargetUser?.email || ""
     setActionAlert({
       type: "success",
-      message: `Đã đổi vai trò tài khoản sang "${ROLE_NAME_LABELS[targetRole.name] || targetRole.name}".`,
+      message: getAdminText(language, "users.alertRoleUpdated", {
+        name: targetName,
+        role: getAdminRoleLabel(targetRole.name, language),
+      }),
     })
     retry("users")
     retry("roles")
@@ -320,17 +334,21 @@ export function AdminUsersView() {
 
   const handleReissueSuccess = (res) => {
     retry("auditLogs")
+    const targetName = reissueTargetUser?.fullName || reissueTargetUser?.email || ""
     if (res?.emailSent === false) {
       setActionAlert({
         type: "warning",
         message:
           res.warning ||
-          "Đã cấp lại mật khẩu tạm nhưng gửi email thất bại. Vui lòng kiểm tra lại cấu hình email.",
+          getAdminText(language, "users.alertReissueFailed", { name: targetName }),
       })
     } else {
       setActionAlert({
         type: "success",
-        message: "Đã cấp lại mật khẩu tạm thành công và gửi thông tin qua email.",
+        message: getAdminText(language, "users.alertReissueSuccess", {
+          name: targetName,
+          email: reissueTargetUser?.email || "",
+        }),
       })
     }
   }
@@ -338,10 +356,11 @@ export function AdminUsersView() {
   const handleUserFormSuccess = (result, isEdit) => {
     retry("users")
     retry("auditLogs")
+    const name = result.fullName || result.email
     if (isEdit) {
       setActionAlert({
         type: "success",
-        message: `Đã cập nhật thông tin tài khoản "${result.fullName || result.email}" thành công.`,
+        message: getAdminText(language, "users.alertUpdated", { name }),
       })
       if (selectedUserSummary && selectedUserSummary.id === result.id) {
         setSelectedUserSummary(result)
@@ -351,14 +370,14 @@ export function AdminUsersView() {
       if (result.emailSent === false) {
         setActionAlert({
           type: "warning",
-          message: `Đã tạo tài khoản "${result.fullName || result.email}" thành công, nhưng gửi email thất bại: ${
-            result.warning || "Vui lòng cấp lại mật khẩu sau."
-          }`,
+          message:
+            result.warning ||
+            getAdminText(language, "users.alertReissueFailed", { name }),
         })
       } else {
         setActionAlert({
           type: "success",
-          message: `Đã tạo tài khoản "${result.fullName || result.email}" thành công! Mật khẩu tạm đã được gửi tới email.`,
+          message: getAdminText(language, "users.alertCreated", { name }),
         })
       }
     }
@@ -382,11 +401,12 @@ export function AdminUsersView() {
       return matchesQuery && matchesStatus
     })
 
+    const sortLocale = language === "en" ? "en" : "vi"
     const sorted = [...filtered]
     if (sortOrder === "name_asc") {
-      sorted.sort((a, b) => compareVietnameseNames(a, b, "vi"))
+      sorted.sort((a, b) => compareVietnameseNames(a, b, sortLocale))
     } else if (sortOrder === "name_desc") {
-      sorted.sort((a, b) => compareVietnameseNames(b, a, "vi"))
+      sorted.sort((a, b) => compareVietnameseNames(b, a, sortLocale))
     } else if (sortOrder === "newest") {
       sorted.sort((a, b) => {
         const tA = a?.createdAt ? new Date(a.createdAt).getTime() : 0
@@ -395,7 +415,7 @@ export function AdminUsersView() {
       })
     }
     return sorted
-  }, [baseUsers, query, statusFilter, sortOrder])
+  }, [baseUsers, language, query, statusFilter, sortOrder])
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
@@ -418,8 +438,8 @@ export function AdminUsersView() {
   return (
     <div className="space-y-4">
       <AdminPageHeader
-        eyebrow="NGƯỜI DÙNG"
-        title="Quản lý người dùng"
+        eyebrow={getAdminText(language, "users.eyebrow")}
+        title={getAdminText(language, "users.title")}
         actions={
           <button
             type="button"
@@ -431,7 +451,7 @@ export function AdminUsersView() {
             className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded px-4 py-2 text-xs font-semibold bg-brand-primary text-white hover:bg-brand-primary/90 transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
           >
             <UserPlus className="w-4 h-4" />
-            <span>Thêm người dùng</span>
+            <span>{getAdminText(language, "users.add")}</span>
           </button>
         }
       />
@@ -442,9 +462,7 @@ export function AdminUsersView() {
           className="p-3.5 rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger flex items-center gap-2 text-xs"
         >
           <ShieldAlert className="w-4 h-4 shrink-0" />
-          <span>
-            Không xác định được tài khoản đang đăng nhập; tải lại trang hoặc đăng nhập lại.
-          </span>
+          <span>{getAdminText(language, "users.invalidSession")}</span>
         </div>
       )}
 
@@ -471,7 +489,7 @@ export function AdminUsersView() {
             type="button"
             onClick={() => setActionAlert(null)}
             className="h-11 w-11 shrink-0 inline-flex items-center justify-center rounded hover:bg-black/5 transition-colors cursor-pointer"
-            aria-label="Đóng thông báo"
+            aria-label={getAdminText(language, "common.closeAlert")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -480,7 +498,7 @@ export function AdminUsersView() {
 
       {/* Loading khi lọc vai trò */}
       {roleLoading ? (
-        <div className="space-y-3 py-4" aria-label="Đang tải người dùng theo vai trò" aria-busy="true">
+        <div className="space-y-3 py-4" aria-label={getAdminText(language, "users.loadingByRole")} aria-busy="true">
           {[1, 2, 3].map((item) => (
             <div key={item} className="h-10 rounded bg-bg-secondary animate-pulse" />
           ))}
@@ -489,7 +507,7 @@ export function AdminUsersView() {
         <AdminResourceState
           resource={resources.users}
           onRetry={() => retry("users")}
-          emptyTitle="Chưa có người dùng"
+          emptyTitle={getAdminText(language, "users.emptyTitle")}
         >
           {roleError && (
             <div
@@ -506,7 +524,7 @@ export function AdminUsersView() {
                 className="inline-flex min-h-[44px] items-center gap-1.5 px-3 py-1.5 rounded font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer text-xs"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                Thử lại
+                {getAdminText(language, "common.retry")}
               </button>
             </div>
           )}
@@ -520,7 +538,7 @@ export function AdminUsersView() {
               {/* Toolbar 1 hàng */}
               <div className="p-3 border-b border-border-color flex flex-col lg:flex-row lg:items-center gap-2.5 text-text-primary">
                 <label className="relative flex-1 min-w-0">
-                  <span className="sr-only">Tìm người dùng</span>
+                  <span className="sr-only">{getAdminText(language, "users.searchLabel")}</span>
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                   <input
                     value={query}
@@ -528,42 +546,45 @@ export function AdminUsersView() {
                       setQuery(event.target.value)
                       setPage(1)
                     }}
-                    placeholder="Tên, email, mã hoặc số điện thoại..."
+                    placeholder={getAdminText(language, "users.searchPlaceholder")}
                     className="min-h-[44px] w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                   />
                 </label>
                 <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                   <label className="flex-1 sm:flex-none sm:w-44">
-                    <span className="sr-only">Lọc theo vai trò</span>
+                    <span className="sr-only">{getAdminText(language, "users.filterRoleLabel")}</span>
                     <select
                       value={roleFilter}
                       onChange={(event) => handleRoleFilterChange(event.target.value)}
                       disabled={roleLoading}
                       className="min-h-[44px] w-full rounded border border-border-strong bg-bg-card px-2.5 text-sm text-text-primary focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
                     >
-                      <option value="all">Tất cả vai trò</option>
-                      {roleOptions.map((role) => (
-                        <option key={role} value={role}>
-                          {ROLE_NAME_LABELS[role] ? `${ROLE_NAME_LABELS[role]} (${role})` : role}
-                        </option>
-                      ))}
+                      <option value="all">{getAdminText(language, "users.allRoles")}</option>
+                      {roleOptions.map((role) => {
+                        const label = getAdminRoleLabel(role, language)
+                        return (
+                          <option key={role} value={role}>
+                            {label !== role ? `${label} (${role})` : role}
+                          </option>
+                        )
+                      })}
                     </select>
                   </label>
                   <label className="flex-1 sm:flex-none sm:w-40">
-                    <span className="sr-only">Lọc theo trạng thái</span>
+                    <span className="sr-only">{getAdminText(language, "users.filterStatusLabel")}</span>
                     <select
                       value={statusFilter}
                       onChange={(event) => handleStatusFilterChange(event.target.value)}
                       className="min-h-[44px] w-full rounded border border-border-strong bg-bg-card px-2.5 text-sm text-text-primary focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
                     >
-                      <option value="all">Tất cả trạng thái</option>
-                      <option value="active">Hoạt động</option>
-                      <option value="inactive">Không hoạt động</option>
-                      <option value="locked">Đã khóa</option>
+                      <option value="all">{getAdminText(language, "users.allStatuses")}</option>
+                      <option value="active">{getAdminStatusLabel("active", language)}</option>
+                      <option value="inactive">{getAdminStatusLabel("inactive", language)}</option>
+                      <option value="locked">{getAdminStatusLabel("locked", language)}</option>
                     </select>
                   </label>
                   <label className="flex-1 sm:flex-none sm:w-40">
-                    <span className="sr-only">Sắp xếp</span>
+                    <span className="sr-only">{getAdminText(language, "users.sortLabel")}</span>
                     <select
                       value={sortOrder}
                       onChange={(event) => {
@@ -572,13 +593,15 @@ export function AdminUsersView() {
                       }}
                       className="min-h-[44px] w-full rounded border border-border-strong bg-bg-card px-2.5 text-sm text-text-primary focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 cursor-pointer"
                     >
-                      <option value="name_asc">Tên A → Z</option>
-                      <option value="name_desc">Tên Z → A</option>
-                      <option value="newest">Mới nhất</option>
+                      <option value="name_asc">{getAdminText(language, "users.sortNameAsc")}</option>
+                      <option value="name_desc">{getAdminText(language, "users.sortNameDesc")}</option>
+                      <option value="newest">{getAdminText(language, "users.sortNewest")}</option>
                     </select>
                   </label>
                   <span className="text-xs font-medium text-text-secondary tabular-nums whitespace-nowrap px-1">
-                    {filteredUsers.length} kết quả
+                    {getAdminText(language, "users.resultsCount", {
+                      count: formatAdminNumber(filteredUsers.length, language),
+                    })}
                   </span>
                   <button
                     type="button"
@@ -589,8 +612,8 @@ export function AdminUsersView() {
                         retry("users")
                       }
                     }}
-                    aria-label="Tải lại danh sách"
-                    title="Tải lại danh sách"
+                    aria-label={getAdminText(language, "users.reloadList")}
+                    title={getAdminText(language, "users.reloadList")}
                     className="w-11 h-11 shrink-0 inline-flex items-center justify-center rounded border border-border-color bg-bg-card text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                   >
                     <RefreshCw className="w-4 h-4" />
@@ -617,7 +640,7 @@ export function AdminUsersView() {
                           onClick={handleToggleNameSort}
                           className="inline-flex items-center gap-1 font-semibold text-text-secondary hover:text-text-primary cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary rounded"
                         >
-                          <span>Họ tên</span>
+                          <span>{getAdminText(language, "users.colName")}</span>
                           {sortOrder === "name_asc" ? (
                             <ArrowUp className="w-3.5 h-3.5 text-brand-primary" />
                           ) : sortOrder === "name_desc" ? (
@@ -627,11 +650,11 @@ export function AdminUsersView() {
                           )}
                         </button>
                       </th>
-                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">Email</th>
-                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">Vai trò</th>
-                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">Trạng thái</th>
-                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">Ngày tạo</th>
-                      <th className="px-3.5 py-2.5 text-right align-middle whitespace-nowrap">Thao tác</th>
+                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colEmail")}</th>
+                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colRole")}</th>
+                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colStatus")}</th>
+                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colCreatedAt")}</th>
+                      <th className="px-3.5 py-2.5 text-right align-middle whitespace-nowrap">{getAdminText(language, "users.colActions")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border-color">
@@ -642,7 +665,7 @@ export function AdminUsersView() {
                       >
                         <td className="px-3.5 py-0 align-middle text-sm text-text-primary whitespace-nowrap max-w-[200px] truncate">
                           <span className="font-semibold text-text-primary">
-                            {user.fullName || "Chưa có tên"}
+                            {user.fullName || getAdminText(language, "users.noName")}
                           </span>
                         </td>
                         <td className="px-3.5 py-0 align-middle text-sm text-text-secondary whitespace-nowrap max-w-[220px] truncate">
@@ -650,7 +673,7 @@ export function AdminUsersView() {
                         </td>
                         <td className="px-3.5 py-0 align-middle text-sm text-text-primary whitespace-nowrap">
                           <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
-                            {ROLE_NAME_LABELS[user.roleName] || user.roleName || `Role #${user.roleId ?? "?"}`}
+                            {getAdminRoleLabel(user.roleName, language) || `Role #${user.roleId ?? "?"}`}
                           </span>
                         </td>
                         <td className="px-3.5 py-0 align-middle text-sm text-text-primary whitespace-nowrap">
@@ -663,11 +686,11 @@ export function AdminUsersView() {
                                   : "bg-bg-secondary text-text-secondary ring-1 ring-inset ring-border-color"
                             }`}
                           >
-                            {statusLabel(user.status)}
+                            {getAdminStatusLabel(user.status, language)}
                           </span>
                         </td>
                         <td className="px-3.5 py-0 align-middle text-sm text-text-secondary tabular-nums font-mono whitespace-nowrap">
-                          {formatAdminDate(user.createdAt)}
+                          {formatAdminDate(user.createdAt, undefined, undefined, language)}
                         </td>
                         <td className="px-3.5 py-0 align-middle text-sm text-text-primary text-right whitespace-nowrap">
                           <UserRowActions
@@ -699,7 +722,7 @@ export function AdminUsersView() {
                 </table>
                 {filteredUsers.length === 0 && (
                   <p className="p-8 text-center text-sm leading-5 text-text-secondary">
-                    Không có người dùng phù hợp bộ lọc.
+                    {getAdminText(language, "users.noMatches")}
                   </p>
                 )}
               </div>
@@ -722,7 +745,7 @@ export function AdminUsersView() {
               <aside
                 ref={asideRef}
                 className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary h-fit scroll-mt-20 shadow-xs"
-                aria-label="Chi tiết người dùng"
+                aria-label={getAdminText(language, "users.detailTitle")}
               >
                 <div className="flex items-start justify-between gap-3 border-b border-border-color pb-3">
                   <div className="flex items-center gap-2.5">
@@ -731,10 +754,10 @@ export function AdminUsersView() {
                     </div>
                     <div>
                       <h3 className="text-sm leading-5 font-semibold text-text-primary">
-                        {(detailUser || selectedUserSummary).fullName || "Chưa có tên"}
+                        {(detailUser || selectedUserSummary).fullName || getAdminText(language, "users.noName")}
                       </h3>
                       <p className="text-xs leading-4 text-text-secondary font-mono">
-                        ID #{(detailUser || selectedUserSummary).id ?? "N/A"} · {(detailUser || selectedUserSummary).code || "Chưa có mã"}
+                        ID #{(detailUser || selectedUserSummary).id ?? "N/A"} · {(detailUser || selectedUserSummary).code || getAdminText(language, "common.notSet")}
                       </p>
                     </div>
                   </div>
@@ -743,18 +766,20 @@ export function AdminUsersView() {
                     type="button"
                     onClick={handleCloseDetails}
                     className="w-11 h-11 inline-flex items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer shrink-0"
-                    aria-label="Đóng chi tiết"
+                    aria-label={getAdminText(language, "users.detailClose")}
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
                 {detailLoading ? (
-                  <div className="py-6 space-y-3" aria-label="Đang tải chi tiết người dùng" aria-busy="true">
+                  <div className="py-6 space-y-3" aria-label={getAdminText(language, "users.detailLoading")} aria-busy="true">
                     <div className="h-4 bg-bg-secondary rounded animate-pulse w-3/4" />
                     <div className="h-4 bg-bg-secondary rounded animate-pulse w-1/2" />
                     <div className="h-4 bg-bg-secondary rounded animate-pulse w-5/6" />
-                    <p className="text-xs text-text-muted text-center pt-2">Đang tải thông tin chi tiết...</p>
+                    <p className="text-xs text-text-muted text-center pt-2">
+                      {getAdminText(language, "users.detailLoading")}
+                    </p>
                   </div>
                 ) : detailError ? (
                   <div role="alert" className="py-4 space-y-3 text-center">
@@ -770,30 +795,29 @@ export function AdminUsersView() {
                       className="inline-flex min-h-11 items-center justify-center gap-1.5 px-3 py-1.5 rounded border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
-                      Thử lại
+                      {getAdminText(language, "common.retry")}
                     </button>
                   </div>
                 ) : (
                   <div className="mt-3.5 space-y-4">
                     <dl className="space-y-2.5 text-xs leading-4 font-normal text-text-primary">
                       {[
-                        ["Mã tài khoản", (detailUser || selectedUserSummary).code || "Chưa có mã"],
-                        ["Họ tên", (detailUser || selectedUserSummary).fullName || "Chưa có"],
-                        ["Email", (detailUser || selectedUserSummary).email || "Chưa có"],
-                        ["Điện thoại", (detailUser || selectedUserSummary).phone || "Chưa có"],
+                        [getAdminText(language, "users.detailRoleCode"), (detailUser || selectedUserSummary).code || getAdminText(language, "common.notSet")],
+                        [getAdminText(language, "users.colName"), (detailUser || selectedUserSummary).fullName || getAdminText(language, "common.notSet")],
+                        [getAdminText(language, "users.colEmail"), (detailUser || selectedUserSummary).email || getAdminText(language, "common.notSet")],
+                        [getAdminText(language, "users.detailPhone"), (detailUser || selectedUserSummary).phone || getAdminText(language, "common.notSet")],
                         [
-                          "Vai trò",
-                          ROLE_NAME_LABELS[(detailUser || selectedUserSummary).roleName] ||
-                            (detailUser || selectedUserSummary).roleName ||
+                          getAdminText(language, "users.colRole"),
+                          getAdminRoleLabel((detailUser || selectedUserSummary).roleName, language) ||
                             `Role #${(detailUser || selectedUserSummary).roleId ?? "?"}`,
                         ],
                         [
-                          "Trạng thái",
-                          statusLabel((detailUser || selectedUserSummary).status),
+                          getAdminText(language, "users.colStatus"),
+                          getAdminStatusLabel((detailUser || selectedUserSummary).status, language),
                         ],
-                        ["Địa chỉ", (detailUser || selectedUserSummary).address || "Chưa có"],
-                        ["Ngày sinh", formatAdminDate((detailUser || selectedUserSummary).dateOfBirth)],
-                        ["Ngày tạo", formatAdminDate((detailUser || selectedUserSummary).createdAt)],
+                        [getAdminText(language, "users.detailAddress"), (detailUser || selectedUserSummary).address || getAdminText(language, "common.notSet")],
+                        [getAdminText(language, "users.detailDob"), formatAdminDate((detailUser || selectedUserSummary).dateOfBirth, undefined, undefined, language)],
+                        [getAdminText(language, "users.detailCreatedAt"), formatAdminDate((detailUser || selectedUserSummary).createdAt, undefined, undefined, language)],
                       ].map(([label, value]) => (
                         <div key={label} className="flex flex-col sm:flex-row sm:justify-between py-1 border-b border-border-color/50 last:border-0">
                           <dt className="text-xs leading-4 text-text-secondary">
@@ -810,14 +834,14 @@ export function AdminUsersView() {
                     <div className="pt-2 border-t border-border-color/60 space-y-2">
                       <div className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary">
                         <ShieldCheck className="w-3.5 h-3.5 text-brand-primary" />
-                        <span>Quyền hạn được cấp</span>
+                        <span>{getAdminText(language, "users.detailRolesSection")}</span>
                       </div>
                       {(detailUser || selectedUserSummary).permissions &&
                       (detailUser || selectedUserSummary).permissions.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5 pt-1">
                           {(detailUser || selectedUserSummary).permissions.map((perm) => {
                             const permName = typeof perm === "string" ? perm : perm.name
-                            const label = PERMISSION_LABEL_MAP[permName] || permName
+                            const label = getAdminPermissionLabel(permName, language)
                             return (
                               <span
                                 key={permName}
@@ -831,7 +855,7 @@ export function AdminUsersView() {
                         </div>
                       ) : (
                         <p className="text-xs leading-4 text-text-muted italic">
-                          Áp dụng theo vai trò mặc định (không có quyền gán riêng).
+                          {getAdminText(language, "users.detailNoPerms")}
                         </p>
                       )}
                     </div>
@@ -839,7 +863,7 @@ export function AdminUsersView() {
                     {/* Thao tác quản trị tài khoản trên panel chi tiết */}
                     <div className="pt-3 border-t border-border-color/60 space-y-2.5">
                       <p className="text-xs font-semibold text-text-secondary">
-                        Thao tác quản trị
+                        {getAdminText(language, "users.colActions")}
                       </p>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <button
@@ -852,14 +876,14 @@ export function AdminUsersView() {
                           className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2.5 py-2 rounded text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                         >
                           <PenLine className="w-4 h-4 text-brand-primary" />
-                          <span>Sửa hồ sơ</span>
+                          <span>{getAdminText(language, "users.detailEdit")}</span>
                         </button>
                         <button
                           type="button"
                           disabled={!isCurrentIdValid}
                           title={
                             !isCurrentIdValid
-                              ? "Không xác định được tài khoản đang đăng nhập; tải lại trang hoặc đăng nhập lại."
+                              ? getAdminText(language, "users.invalidSession")
                               : undefined
                           }
                           onClick={(e) => {
@@ -870,14 +894,14 @@ export function AdminUsersView() {
                           className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2.5 py-2 rounded text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <UserCheck className="w-4 h-4 text-brand-primary" />
-                          <span>Trạng thái</span>
+                          <span>{getAdminText(language, "users.detailChangeStatus")}</span>
                         </button>
                         <button
                           type="button"
                           disabled={!isCurrentIdValid}
                           title={
                             !isCurrentIdValid
-                              ? "Không xác định được tài khoản đang đăng nhập; tải lại trang hoặc đăng nhập lại."
+                              ? getAdminText(language, "users.invalidSession")
                               : undefined
                           }
                           onClick={(e) => {
@@ -888,7 +912,7 @@ export function AdminUsersView() {
                           className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2.5 py-2 rounded text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <ShieldCheck className="w-4 h-4 text-brand-primary" />
-                          <span>Đổi vai trò</span>
+                          <span>{getAdminText(language, "users.detailChangeRole")}</span>
                         </button>
                         <button
                           type="button"
@@ -899,7 +923,7 @@ export function AdminUsersView() {
                           className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2.5 py-2 rounded text-xs font-semibold border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                         >
                           <KeyRound className="w-4 h-4 text-status-warning" />
-                          <span>Cấp MK</span>
+                          <span>{language === "en" ? "Reset PWD" : "Cấp MK"}</span>
                         </button>
                       </div>
                     </div>
