@@ -88,16 +88,21 @@ export const getHolidays = async (options) => mapListResponse(
     active: item.active === true,
   }),
 );
-export const createHoliday = async (data, options) => httpClient.post('/api/holidays', {
+export const previewHoliday = async (data, options) => httpClient.post('/api/holidays/preview', data, options);
+const holidayPreviewOptions = (previewToken, options = {}) => ({
+  ...options,
+  headers: { ...options.headers, 'X-Preview-Token': previewToken },
+});
+export const createHoliday = async (data, previewToken, options) => httpClient.post('/api/holidays', {
   holidayDate: data.holidayDate,
   holidayName: data.holidayName,
   ...(data.tag ? { tag: data.tag } : {}),
   active: data.active,
-}, options);
-export const toggleHoliday = async (id, active, options) => httpClient.patch(
+}, holidayPreviewOptions(previewToken, options));
+export const toggleHoliday = async (id, previewToken, options) => httpClient.patch(
   `/api/holidays/${id}/toggle`,
-  { active },
-  options,
+  null,
+  holidayPreviewOptions(previewToken, options),
 );
 export const getSessions = async (filters = {}, options) => {
   const query = new URLSearchParams();
