@@ -21,6 +21,7 @@ import { ROLE_ADMIN } from "../../utils/navigation.js"
 
 export const ADMIN_NAV_GROUPS = Object.freeze([
   {
+    key: "system",
     title: "Quản trị hệ thống",
     items: [
       {
@@ -50,6 +51,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
     ],
   },
   {
+    key: "management",
     title: "Quản lý trung tâm",
     items: [
       {
@@ -121,6 +123,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
     ],
   },
   {
+    key: "reception",
     title: "Lễ tân",
     items: [
       {
