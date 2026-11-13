@@ -5,6 +5,7 @@ import { memberPortalApi } from "../../api/memberPortalApi"
 import { attendanceApi } from "../../api/attendanceApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import { canLogResult } from "../../utils/permissions"
+import { normalizeRole, ROLE_COACH } from "../../utils/navigation"
 import { formatDate, formatTime } from "../../utils/datetime"
 import { formatMemberCode } from "../../utils/formatMember"
 import {
@@ -110,6 +111,7 @@ export function CoachTrainingProgress() {
   })
   const [resultContent, setResultContent] = useState("")
   const [savingResult, setSavingResult] = useState(false)
+  const [editingResultId, setEditingResultId] = useState(null)
 
   const [showAllPlans, setShowAllPlans] = useState(false)
   const [showAllResults, setShowAllResults] = useState(false)
@@ -364,6 +366,16 @@ export function CoachTrainingProgress() {
     if (!memberIdStr) return apiResults
     return apiResults.filter((res) => String(res.memberId) === memberIdStr)
   }, [apiResults, selectedMemberId, selectedStudent?.id])
+  const selectedSessionResult = studentResults.find(
+    (result) => String(result.sessionId) === String(selectedSessionId),
+  ) || null
+
+  const editingResult = studentResults.find(
+    (result) => String(result.resultId ?? result.id) === String(editingResultId),
+  ) || null
+  const canEditTrainingResult = apiEnabled &&
+    normalizeRole(currentUser?.role, { isApiMode: true }) === ROLE_COACH &&
+    currentUser?.authorities?.includes("RECORD_RESULT")
 
   const latestEvaluationScore10 = useMemo(() => {
     if (studentEvaluations.length > 0) {
@@ -459,35 +471,39 @@ export function CoachTrainingProgress() {
 
   const handleSaveTrainingResult = async (e) => {
     if (e) e.preventDefault()
-    if (apiEnabled && !selectedSessionId) {
+    if (!canEditTrainingResult) {
       showToast(
-        "Vui lòng chọn một buổi học đã hoàn thành để ghi nhận kết quả.",
+        language === "vi"
+          ? "Chỉ Coach có quyền RECORD_RESULT mới được sửa nhận xét."
+          : "Only a Coach with RECORD_RESULT may edit session comments.",
         "warning",
       )
       return
     }
-    if (!resultContent.trim()) {
-      showToast(t("coachEmptyFieldValidationError"), "warning")
+    if (!editingResultId || !editingResult) {
+      showToast(
+        language === "vi"
+          ? "Chưa có kết quả để sửa cho học viên và buổi học đã chọn."
+          : "There is no existing result to edit for the selected member and session.",
+        "warning",
+      )
       return
     }
     setSavingResult(true)
     try {
-      const memberIdNum = parseNumericId(
-        selectedMemberId || selectedStudent?.id,
-        1,
+      await memberPortalApi.updateTrainingResultContent(
+        editingResult.resultId ?? editingResult.id,
+        resultContent,
       )
-      if (apiEnabled) {
-        await memberPortalApi.createTrainingResult({
-          sessionId: Number(selectedSessionId),
-          memberId: memberIdNum,
-          coachId: resolvedCoachId,
-          attendanceStatus: readOnlyAttendanceStatus,
-          content: resultContent.trim(),
-        })
-        setResultContent("")
-        await loadAllProgressData()
-        showToast("Đã ghi nhận kết quả buổi tập thành công!", "success")
-      }
+      setEditingResultId(null)
+      setResultContent("")
+      await loadAllProgressData()
+      showToast(
+        language === "vi"
+          ? resultContent === "" ? "Đã xóa nhận xét sau buổi học." : "Đã cập nhật nhận xét sau buổi học."
+          : resultContent === "" ? "The post-session comment was cleared." : "The post-session comment was updated.",
+        "success",
+      )
     } catch (err) {
       showToast(
         getErrorMessage(err, "Không thể ghi nhận kết quả buổi tập."),
@@ -496,6 +512,22 @@ export function CoachTrainingProgress() {
     } finally {
       setSavingResult(false)
     }
+  }
+
+  const beginEditingTrainingResult = (result) => {
+    const resultId = result?.resultId ?? result?.id
+    if (resultId == null || String(resultId).trim() === "") {
+      showToast(
+        language === "vi"
+          ? "Chưa có kết quả để sửa cho học viên và buổi học đã chọn."
+          : "There is no existing result to edit for the selected member and session.",
+        "warning",
+      )
+      return
+    }
+    setEditingResultId(String(resultId))
+    setSelectedSessionId(String(result.sessionId ?? ""))
+    setResultContent(typeof result.content === "string" ? result.content : "")
   }
 
   const handleSaveEvaluation = async () => {
@@ -582,6 +614,8 @@ export function CoachTrainingProgress() {
                   value={selectedMemberId}
                   onChange={(e) => {
                     setSelectedMemberId(e.target.value)
+                    setEditingResultId(null)
+                    setResultContent("")
                     if (typeof window !== "undefined") {
                       sessionStorage.setItem(
                         "scms_selected_progress_member_id",
@@ -979,6 +1013,7 @@ export function CoachTrainingProgress() {
                 </label>
                 <select
                   value={selectedSessionId}
+                  disabled={Boolean(editingResultId)}
                   onChange={(e) => setSelectedSessionId(e.target.value)}
                   className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 >
@@ -1015,29 +1050,59 @@ export function CoachTrainingProgress() {
 
             <div>
               <label className="text-xs leading-4 font-medium text-text-secondary block mb-1">
-                Nhận xét kỹ thuật &amp; kết quả thực hiện trong buổi *
+                {language === "vi" ? "Nhận xét sau buổi học" : "Post-session comment"}
               </label>
               <textarea
                 rows={4}
-                required
                 value={resultContent}
                 onChange={(e) => setResultContent(e.target.value)}
-                placeholder="Nhập nhận xét thực tế về khối lượng bài tập, kỹ thuật động tác và thể lực của học viên trong buổi..."
+                disabled={!editingResult || savingResult}
+                placeholder={language === "vi" ? "Chọn một nhận xét đã lưu để sửa hoặc xóa." : "Select a saved comment to edit or clear it."}
                 className="w-full rounded border border-border-strong bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
               />
+              {!editingResult && (
+                <p role="status" className="mt-1 text-xs text-text-secondary">
+                  {!selectedSessionResult
+                    ? language === "vi"
+                      ? "Chưa có kết quả để sửa cho buổi học đã chọn. Không thể tạo kết quả mới sau buổi học."
+                      : "There is no result to edit for the selected session. A new result cannot be created after the session."
+                    : language === "vi"
+                      ? "Chọn “Sửa nhận xét” ở kết quả đã lưu bên dưới."
+                      : "Choose “Edit comment” on the saved result below."}
+                </p>
+              )}
+              {editingResult && resultContent === "" && (
+                <p className="mt-1 text-xs text-text-secondary">
+                  {language === "vi" ? "Để trống rồi lưu để xóa nhận xét." : "Save an empty field to clear the comment."}
+                </p>
+              )}
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              {editingResultId && (
+                <button
+                  type="button"
+                  disabled={savingResult}
+                  onClick={() => { setEditingResultId(null); setResultContent("") }}
+                  className="inline-flex min-h-11 items-center justify-center rounded border border-border-color bg-bg-card px-4 text-xs font-semibold text-text-primary hover:bg-bg-secondary disabled:opacity-50"
+                >
+                  {language === "vi" ? "Hủy sửa" : "Cancel"}
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={
-                  savingResult || (apiEnabled && completedSessions.length === 0)
+                  savingResult || !editingResult || !canEditTrainingResult
                 }
                 className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
               >
                 <Save className="w-4 h-4" />
                 <span>
-                  {savingResult ? "Đang lưu..." : "Ghi nhận kết quả buổi tập"}
+                  {savingResult
+                    ? language === "vi" ? "Đang lưu..." : "Saving..."
+                    : resultContent === ""
+                      ? language === "vi" ? "Lưu và xóa nhận xét" : "Save and clear comment"
+                      : language === "vi" ? "Lưu nhận xét" : "Save comment"}
                 </span>
               </button>
             </div>
@@ -1072,6 +1137,15 @@ export function CoachTrainingProgress() {
                       domain="attendance"
                       value={r.attendanceStatus || "Present"}
                     />
+                    {canEditTrainingResult && (
+                      <button
+                        type="button"
+                        onClick={() => beginEditingTrainingResult(r)}
+                        className="shrink-0 rounded border border-border-color px-2.5 py-1.5 text-xs font-semibold text-brand-primary hover:bg-bg-card"
+                      >
+                        {language === "vi" ? "Sửa nhận xét" : "Edit comment"}
+                      </button>
+                    )}
                   </div>
                 )
               })}

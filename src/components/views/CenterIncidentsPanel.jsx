@@ -179,6 +179,7 @@ function CenterIncidentsPanel({ apiEnabled, currentUser, language, showToast, on
     const groups = subjectList.map((subject) => ({ subject, sessions: [] }))
     const matchByName = [...groups].sort((a, b) => normalize(b.subject.name).length - normalize(a.subject.name).length)
 
+    const unmatchedSessions = []
     sessions.forEach((session) => {
       let group = session.subjectId == null
         ? null
@@ -196,10 +197,18 @@ function CenterIncidentsPanel({ apiEnabled, currentUser, language, showToast, on
         })
       }
       if (group) group.sessions.push(session)
+      else unmatchedSessions.push(session)
     })
 
+    if (unmatchedSessions.length) {
+      groups.push({
+        subject: { id: '__unmatched_sessions__', name: vi ? 'Khác' : 'Other' },
+        sessions: unmatchedSessions,
+      })
+    }
+
     return groups
-  }, [sessions, subjects])
+  }, [sessions, subjects, vi])
   const canOpenIncident = hasManagerPermission && incidentsLoaded && !incidentsError && !sessionsLoading && !sessionsError && sessions.length > 0 && !needsRefresh
   const selectedActionIncident = action?.incident || null
   const selectedSession = selectedActionIncident ? sessionById.get(String(selectedActionIncident.sessionId)) : null
@@ -395,7 +404,21 @@ function CenterIncidentsPanel({ apiEnabled, currentUser, language, showToast, on
       {apiEnabled && !hasManagerPermission && (
         <div role="status" className="flex items-center gap-2.5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
           <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600" />
-          <p>{vi ? 'Chế độ xem: Bạn có quyền xem thông tin các sự cố của trung tâm.' : 'View mode: You have read-only access to center incidents.'}</p>
+          <p>{vi
+            ? `Chế độ xem: ${!actorActive || currentUser?.isActive === false || currentUser?.enabled === false
+              ? 'Tài khoản chưa ở trạng thái hoạt động. Nhờ quản trị viên kiểm tra tài khoản.'
+              : !validCenter
+                ? 'Tài khoản chưa được gán cơ sở hợp lệ. Nhờ quản trị viên kiểm tra cơ sở.'
+                : currentUser?.authenticated !== true
+                  ? 'Phiên đăng nhập chưa được xác thực. Vui lòng đăng nhập lại.'
+                  : 'Tài khoản chưa có vai trò hoặc quyền quản lý sự cố trung tâm.'}`
+            : `View mode: ${!actorActive || currentUser?.isActive === false || currentUser?.enabled === false
+              ? 'This account is not active. Ask an administrator to check the account.'
+              : !validCenter
+                ? 'This account has no valid center assigned. Ask an administrator to check the center.'
+                : currentUser?.authenticated !== true
+                  ? 'The session is not authenticated. Please sign in again.'
+                  : 'This account is missing the role or permission to manage center incidents.'}`}</p>
         </div>
       )}
       {needsRefresh && (
@@ -574,12 +597,12 @@ function CenterIncidentsPanel({ apiEnabled, currentUser, language, showToast, on
               </div>
 
               {/* Deadline & credit chips only when present */}
-              {(incident.originalDeadline || incident.deadlineBefore || incident.deadlineAfter || (incident.recoveredCredits != null && incident.recoveredCredits > 0)) && (
+              {(incident.originalDeadline || incident.deadlineBefore || incident.deadlineAfter || incident.recoveredCredits != null) && (
                 <div className="flex flex-wrap gap-4 rounded-lg bg-slate-50 p-2.5 text-xs text-slate-700 border border-slate-100">
                   {incident.originalDeadline && <div><span className="text-slate-500">{vi ? 'Hạn gốc: ' : 'Original: '}</span><span className="font-semibold">{localDateTime(incident.originalDeadline)}</span></div>}
                   {incident.deadlineBefore && <div><span className="text-slate-500">{vi ? 'Hạn trước: ' : 'Before: '}</span><span className="font-semibold">{localDateTime(incident.deadlineBefore)}</span></div>}
                   {incident.deadlineAfter && <div><span className="text-slate-500">{vi ? 'Hạn sau: ' : 'After: '}</span><span className="font-semibold text-emerald-700">{localDateTime(incident.deadlineAfter)}</span></div>}
-                  {incident.recoveredCredits != null && incident.recoveredCredits > 0 && <div><span className="text-slate-500">{vi ? 'Credit phục hồi: ' : 'Credits: '}</span><span className="font-bold text-brand-primary">+{incident.recoveredCredits}</span></div>}
+                  {incident.recoveredCredits != null && <div><span className="text-slate-500">{vi ? 'Credit phục hồi: ' : 'Credits: '}</span><span className="font-bold text-brand-primary">{incident.recoveredCredits > 0 ? `+${incident.recoveredCredits}` : incident.recoveredCredits}</span></div>}
                 </div>
               )}
 

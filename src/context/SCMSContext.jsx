@@ -1863,7 +1863,11 @@ export const SCMSProvider = ({ children }) => {
 
   const addMember = async (data) => {
     if (API_ENABLED) {
-      const created = await memberApi.createMember(data)
+      const isReceptionist =
+        normalizeRole(currentUser?.role, { isApiMode: true }) === ROLE_RECEPTIONIST
+      const created = isReceptionist
+        ? await memberApi.registerMemberProfile(data)
+        : await memberApi.createMember(data)
       setMembers((prev) => [
         created,
         ...prev.filter((m) => m.id !== created.id),
@@ -2164,16 +2168,32 @@ export const SCMSProvider = ({ children }) => {
     // The member portal does not have manager-only class/member lists in context.
     if (API_ENABLED) {
       try {
+        const isReceptionist =
+          normalizeRole(currentUser?.role, { isApiMode: true }) === ROLE_RECEPTIONIST
         const result = await classEnrollmentApi.enrollMemberInClass(
           classId,
           effectiveMemberId,
+          isReceptionist ? "Cash" : undefined,
         )
-        showToast(
-          language === "vi"
+        if (isReceptionist) {
+          const enrollmentStatus = String(result?.status || "").trim().toLowerCase()
+          const paymentStatus = String(result?.paymentStatus || "").trim().toLowerCase()
+          if (enrollmentStatus !== "registered" || paymentStatus !== "paid") {
+            const message = language === "vi"
+              ? "Chưa xác nhận được cả trạng thái đã thanh toán và đã ghi danh. Hãy tải lại trạng thái đăng ký trước khi thử lại."
+              : "Payment and enrollment are not both confirmed. Reload the enrollment status before trying again."
+            showToast(message, "error")
+            return { success: false, data: result, message }
+          }
+        }
+        const successMessage = isReceptionist
+          ? language === "vi"
+            ? "Đã thu tiền mặt và ghi danh học viên thành công."
+            : "Cash payment and class enrollment confirmed."
+          : language === "vi"
             ? "Đã gửi đăng ký khóa học."
-            : "Course enrollment submitted.",
-          "success",
-        )
+            : "Course enrollment submitted."
+        showToast(successMessage, "success")
         return { success: true, data: result }
       } catch (err) {
         const errMsg = getErrorMessage(

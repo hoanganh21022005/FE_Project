@@ -41,8 +41,7 @@ export const recordSessionAttendance = async ({
     memberId: numericMemberId,
     coachId: numericCoachId,
     attendanceStatus: normalizedStatus,
-    content: notes || `Điểm danh buổi tập: ${normalizedStatus}`,
-    reason: notes || undefined,
+    note: notes || undefined,
   }, { notifyForbidden: false })
   if (!matchesSessionAttendance(result, numericSessionId, numericMemberId, normalizedStatus)) {
     throw new Error("Chưa xác nhận được kết quả điểm danh. Hãy làm mới danh sách trước khi thử lại.")
