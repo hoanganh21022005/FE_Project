@@ -301,9 +301,10 @@ test.describe('Kịch bản Admin Chỉ Đọc (ADMIN-01 -> ADMIN-06)', () => {
     await page.goto('/admin/users');
     await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
 
-    // Bấm nút "Xem" của user ID 2
+    // Bấm nút "Xem chi tiết" trong menu thao tác của user ID 2
     const userRow = page.locator('tbody tr').filter({ hasText: 'Trần Thị Lễ Tân' });
-    await userRow.locator('button:has-text("Xem")').click();
+    await userRow.locator('button[aria-label*="Thao tác"]').click();
+    await page.locator('button[role="menuitem"]:has-text("Xem chi tiết")').click();
 
     // Xác nhận đã gọi GET /api/users/2
     expect(detailCalled).toBe(true);
@@ -377,7 +378,8 @@ test.describe('Kịch bản Admin Chỉ Đọc (ADMIN-01 -> ADMIN-06)', () => {
     await page.waitForTimeout(500);
 
     // Bấm xem chi tiết
-    await page.locator('tbody tr button:has-text("Xem")').first().click();
+    await page.locator('tbody tr button[aria-label*="Thao tác"]').first().click();
+    await page.locator('button[role="menuitem"]:has-text("Xem chi tiết")').click();
     await page.waitForTimeout(500);
 
     await page.goto('/admin/roles');

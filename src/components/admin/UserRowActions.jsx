@@ -91,15 +91,7 @@ export function UserRowActions({
   }, [open])
 
   return (
-    <div className="relative inline-flex items-center gap-1.5">
-      <button
-        type="button"
-        onClick={onViewDetails}
-        className="inline-flex min-h-11 items-center justify-center rounded px-3 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary hover:text-brand-primary transition-colors cursor-pointer scroll-mt-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
-      >
-        Xem
-      </button>
-
+    <div className="relative inline-flex items-center justify-end">
       <div className="relative">
         <button
           ref={buttonRef}
@@ -108,9 +100,9 @@ export function UserRowActions({
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label={`Thao tác tài khoản ${user.fullName || user.email}`}
-          className="w-11 h-11 inline-flex items-center justify-center rounded border border-border-color bg-bg-card text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+          className="w-11 h-11 inline-flex items-center justify-center rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
         >
-          <MoreVertical className="w-4 h-4" />
+          <MoreVertical className="w-5 h-5" />
         </button>
 
         {open && (
@@ -120,6 +112,21 @@ export function UserRowActions({
             aria-orientation="vertical"
             className="absolute right-0 top-full mt-1 z-30 w-52 rounded-lg border border-border-color bg-bg-card p-1.5 shadow-lg text-text-primary animate-in fade-in duration-100"
           >
+            {onViewDetails && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={(e) => {
+                  setOpen(false)
+                  onViewDetails(e)
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded text-xs text-text-primary hover:bg-bg-secondary transition-colors text-left cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+              >
+                <Eye className="w-4 h-4 text-brand-primary shrink-0" />
+                <span>Xem chi tiết</span>
+              </button>
+            )}
+
             {onEditUser && (
               <button
                 type="button"

@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   CheckCircle2,
   KeyRound,
   PenLine,
@@ -15,6 +19,8 @@ import {
   X,
 } from "lucide-react"
 import { AdminResourceState } from "../AdminResourceState.jsx"
+import { AdminPageHeader } from "../AdminPageHeader.jsx"
+import { AdminPagination } from "../AdminPagination.jsx"
 import { useAdminData } from "../AdminDataContext.jsx"
 import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { formatAdminDate } from "../adminDateUtils.js"
@@ -25,6 +31,24 @@ import { UserRoleDialog } from "../UserRoleDialog.jsx"
 import { UserReissuePasswordDialog } from "../UserReissuePasswordDialog.jsx"
 import { UserRowActions } from "../UserRowActions.jsx"
 import { UserFormModal } from "../UserFormModal.jsx"
+
+const PAGE_SIZE = 10
+const VALID_STATUS_FILTERS = new Set(["all", "active", "inactive", "locked"])
+
+const getLastWord = (fullName) => {
+  const parts = String(fullName || "").trim().split(/\s+/).filter(Boolean)
+  return parts.length ? parts[parts.length - 1] : ""
+}
+
+const compareVietnameseNames = (a, b, locale = "vi") => {
+  const nameA = String(a?.fullName || "").trim()
+  const nameB = String(b?.fullName || "").trim()
+  const lastCmp = getLastWord(nameA).localeCompare(getLastWord(nameB), locale, {
+    sensitivity: "base",
+  })
+  if (lastCmp !== 0) return lastCmp
+  return nameA.localeCompare(nameB, locale, { sensitivity: "base" })
+}
 
 const statusLabel = (status) =>
   ({
@@ -38,6 +62,7 @@ const statusLabel = (status) =>
 export function AdminUsersView() {
   const { resources, retry } = useAdminData()
   const { currentUser, authUser } = useSCMS()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   // Nguồn ID: Trong chế độ API, currentUser.id lấy từ authUser.userId (qua buildCurrentUser).
   // Nếu currentUser.id chưa có (ví dụ môi trường mock/test auth), đối chiếu ID từ danh sách người dùng qua email đăng nhập.
@@ -54,9 +79,16 @@ export function AdminUsersView() {
   const isCurrentIdValid = isValidUserId(rawCurrentId)
   const currentUserId = isCurrentIdValid ? Number(rawCurrentId) : null
 
+  const initialStatusParam = searchParams.get("status")
+  const initialRoleParam = searchParams.get("role")
+
   const [query, setQuery] = useState("")
-  const [roleFilter, setRoleFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [roleFilter, setRoleFilter] = useState(initialRoleParam || "all")
+  const [statusFilter, setStatusFilter] = useState(
+    VALID_STATUS_FILTERS.has(initialStatusParam) ? initialStatusParam : "all",
+  )
+  const [sortOrder, setSortOrder] = useState("name_asc")
+  const [page, setPage] = useState(1)
 
   // State lọc vai trò phía server
   // Ghi chú: Giá trị tham số role gửi lên server khớp chính xác với tên vai trò Backend (ví dụ: 'Admin', 'Member', ...)
@@ -137,11 +169,28 @@ export function AdminUsersView() {
     }
   }, [selectedUserSummary])
 
+  const syncSearchParams = useCallback(
+    (nextRole, nextStatus) => {
+      const next = new URLSearchParams(searchParams)
+      if (nextRole && nextRole !== "all") {
+        next.set("role", nextRole)
+      } else {
+        next.delete("role")
+      }
+      if (nextStatus && nextStatus !== "all") {
+        next.set("status", nextStatus)
+      } else {
+        next.delete("status")
+      }
+      setSearchParams(next, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
+
   // Lọc vai trò: gửi tham số role lên server qua getAdminUsers
   // Ghi chú: giá trị role khớp tên vai trò Backend
   // Sử dụng sequence id để chống race condition: chỉ phản hồi của yêu cầu cuối cùng được áp dụng
-  const handleRoleFilterChange = async (newRole) => {
-    setRoleFilter(newRole)
+  const fetchUsersByRole = useCallback(async (newRole) => {
     if (newRole === "all") {
       roleFilterSeqRef.current += 1
       setServerUsers(null)
@@ -166,7 +215,47 @@ export function AdminUsersView() {
         setRoleLoading(false)
       }
     }
+  }, [])
+
+  const handleRoleFilterChange = async (newRole) => {
+    setRoleFilter(newRole)
+    setPage(1)
+    syncSearchParams(newRole, statusFilter)
+    await fetchUsersByRole(newRole)
   }
+
+  const handleStatusFilterChange = (newStatus) => {
+    setStatusFilter(newStatus)
+    setPage(1)
+    syncSearchParams(roleFilter, newStatus)
+  }
+
+  // Đồng bộ khi URL thay đổi từ bên ngoài (ví dụ bấm card Dashboard hoặc Back/Forward)
+  useEffect(() => {
+    const urlStatus = searchParams.get("status")
+    const nextStatus = VALID_STATUS_FILTERS.has(urlStatus) ? urlStatus : "all"
+    if (nextStatus !== statusFilter) {
+      setStatusFilter(nextStatus)
+      setPage(1)
+    }
+
+    const urlRole = searchParams.get("role") || "all"
+    if (urlRole !== roleFilter) {
+      setRoleFilter(urlRole)
+      setPage(1)
+      fetchUsersByRole(urlRole)
+    }
+  }, [searchParams, statusFilter, roleFilter, fetchUsersByRole])
+
+  // Nếu trang mở sẵn với ?role=..., tải ngay danh sách lọc theo vai trò
+  const initialRoleFetchedRef = useRef(false)
+  useEffect(() => {
+    if (initialRoleFetchedRef.current) return
+    initialRoleFetchedRef.current = true
+    if (initialRoleParam && initialRoleParam !== "all") {
+      fetchUsersByRole(initialRoleParam)
+    }
+  }, [initialRoleParam, fetchUsersByRole])
 
   const roleOptions = useMemo(() => {
     const fromRoles = (resources.roles.data || []).map((role) => role.name)
@@ -280,7 +369,7 @@ export function AdminUsersView() {
 
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
-    return baseUsers.filter((user) => {
+    const filtered = baseUsers.filter((user) => {
       const matchesQuery =
         !normalizedQuery ||
         [user.fullName, user.email, user.code, user.phone].some((value) =>
@@ -292,18 +381,60 @@ export function AdminUsersView() {
         statusFilter === "all" || user.status === statusFilter
       return matchesQuery && matchesStatus
     })
-  }, [baseUsers, query, statusFilter])
+
+    const sorted = [...filtered]
+    if (sortOrder === "name_asc") {
+      sorted.sort((a, b) => compareVietnameseNames(a, b, "vi"))
+    } else if (sortOrder === "name_desc") {
+      sorted.sort((a, b) => compareVietnameseNames(b, a, "vi"))
+    } else if (sortOrder === "newest") {
+      sorted.sort((a, b) => {
+        const tA = a?.createdAt ? new Date(a.createdAt).getTime() : 0
+        const tB = b?.createdAt ? new Date(b.createdAt).getTime() : 0
+        return tB - tA
+      })
+    }
+    return sorted
+  }, [baseUsers, query, statusFilter, sortOrder])
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const paginatedUsers = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE
+    return filteredUsers.slice(start, start + PAGE_SIZE)
+  }, [filteredUsers, safePage])
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages)
+    }
+  }, [page, totalPages])
+
+  const handleToggleNameSort = () => {
+    setSortOrder((prev) => (prev === "name_asc" ? "name_desc" : "name_asc"))
+    setPage(1)
+  }
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-xl leading-7 font-semibold text-text-primary">
-          Danh sách người dùng
-        </h2>
-        <p className="mt-1 text-sm leading-5 text-text-secondary">
-          Danh sách tài khoản được đồng bộ trực tiếp từ hệ thống quản trị trung tâm; hỗ trợ tìm kiếm, phân loại và quản trị tài khoản an toàn.
-        </p>
-      </div>
+      <AdminPageHeader
+        eyebrow="NGƯỜI DÙNG"
+        title="Quản lý người dùng"
+        actions={
+          <button
+            type="button"
+            onClick={(e) => {
+              setActiveDialogTriggerRef({ current: e.currentTarget })
+              setFormTargetUser(null)
+              setIsUserFormOpen(true)
+            }}
+            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded px-4 py-2 text-xs font-semibold bg-brand-primary text-white hover:bg-brand-primary/90 transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Thêm người dùng</span>
+          </button>
+        }
+      />
 
       {!isCurrentIdValid && (
         <div
@@ -347,81 +478,6 @@ export function AdminUsersView() {
         </div>
       )}
 
-      <div className="rounded-lg border border-border-color bg-bg-card p-3 text-text-primary flex flex-col md:flex-row gap-2.5">
-        <label className="relative flex-1 min-w-0">
-          <span className="sr-only">Tìm người dùng</span>
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Tên, email, mã hoặc số điện thoại..."
-            className="min-h-11 w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
-          />
-        </label>
-        <label className="w-full md:w-56">
-          <span className="sr-only">Lọc theo vai trò</span>
-          <select
-            value={roleFilter}
-            onChange={(event) => handleRoleFilterChange(event.target.value)}
-            disabled={roleLoading}
-            className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
-          >
-            <option value="all">Tất cả vai trò</option>
-            {roleOptions.map((role) => (
-              <option key={role} value={role}>
-                {ROLE_NAME_LABELS[role] ? `${ROLE_NAME_LABELS[role]} (${role})` : role}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="w-full md:w-44">
-          <span className="sr-only">Lọc theo trạng thái</span>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="active">Hoạt động</option>
-            <option value="inactive">Không hoạt động</option>
-            <option value="locked">Đã khóa</option>
-          </select>
-        </label>
-        <button
-          type="button"
-          onClick={(e) => {
-            setActiveDialogTriggerRef({ current: e.currentTarget })
-            setFormTargetUser(null)
-            setIsUserFormOpen(true)
-          }}
-          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 py-2 text-xs font-semibold bg-brand-primary text-white hover:bg-brand-primary/90 transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Thêm người dùng</span>
-        </button>
-      </div>
-
-      {/* Lỗi khi lọc vai trò phía server */}
-      {roleError && (
-        <div
-          role="alert"
-          className="p-3 rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger flex items-center justify-between gap-3 text-sm"
-        >
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>{roleError}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => handleRoleFilterChange(roleFilter)}
-            className="inline-flex min-h-11 items-center gap-1.5 px-3 py-1.5 rounded font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer text-xs"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Thử lại
-          </button>
-        </div>
-      )}
-
       {/* Loading khi lọc vai trò */}
       {roleLoading ? (
         <div className="space-y-3 py-4" aria-label="Đang tải người dùng theo vai trò" aria-busy="true">
@@ -435,89 +491,229 @@ export function AdminUsersView() {
           onRetry={() => retry("users")}
           emptyTitle="Chưa có người dùng"
         >
+          {roleError && (
+            <div
+              role="alert"
+              className="mb-3 p-3 rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger flex items-center justify-between gap-3 text-sm"
+            >
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{roleError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleRoleFilterChange(roleFilter)}
+                className="inline-flex min-h-[44px] items-center gap-1.5 px-3 py-1.5 rounded font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer text-xs"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Thử lại
+              </button>
+            </div>
+          )}
+
           <div
             className={`grid gap-4 ${
               selectedUserSummary ? "xl:grid-cols-[minmax(0,1fr)_360px]" : ""
             }`}
           >
-            <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
-                  <tr>
-                    <th className="px-3.5 py-2.5 text-left align-middle">Người dùng</th>
-                    <th className="px-3.5 py-2.5 text-left align-middle">Vai trò</th>
-                    <th className="px-3.5 py-2.5 text-left align-middle">Trạng thái</th>
-                    <th className="px-3.5 py-2.5 text-left align-middle">Ngày tạo</th>
-                    <th className="px-3.5 py-2.5 text-right align-middle">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-color">
-                  {filteredUsers.map((user) => (
-                    <tr
-                      key={user.id ?? user.email}
-                      className="transition-colors hover:bg-bg-secondary/70"
+            <div className="w-full rounded-lg border border-border-color bg-bg-card overflow-hidden">
+              {/* Toolbar 1 hàng */}
+              <div className="p-3 border-b border-border-color flex flex-col lg:flex-row lg:items-center gap-2.5 text-text-primary">
+                <label className="relative flex-1 min-w-0">
+                  <span className="sr-only">Tìm người dùng</span>
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                  <input
+                    value={query}
+                    onChange={(event) => {
+                      setQuery(event.target.value)
+                      setPage(1)
+                    }}
+                    placeholder="Tên, email, mã hoặc số điện thoại..."
+                    className="min-h-[44px] w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                  />
+                </label>
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                  <label className="flex-1 sm:flex-none sm:w-44">
+                    <span className="sr-only">Lọc theo vai trò</span>
+                    <select
+                      value={roleFilter}
+                      onChange={(event) => handleRoleFilterChange(event.target.value)}
+                      disabled={roleLoading}
+                      className="min-h-[44px] w-full rounded border border-border-strong bg-bg-card px-2.5 text-sm text-text-primary focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
                     >
-                      <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-primary">
-                        <p className="font-semibold text-text-primary">
-                          {user.fullName || "Chưa có tên"}
-                        </p>
-                        <p className="text-xs leading-4 text-text-secondary">
-                          {user.email}
-                        </p>
-                      </td>
-                      <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-primary">
-                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
-                          {ROLE_NAME_LABELS[user.roleName] || user.roleName || `Role #${user.roleId ?? "?"}`}
-                        </span>
-                      </td>
-                      <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-primary">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                            user.status === "active"
-                              ? "bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border"
-                              : user.status === "locked"
-                                ? "bg-status-danger-bg text-status-danger ring-1 ring-inset ring-status-danger-border"
-                                : "bg-bg-secondary text-text-secondary ring-1 ring-inset ring-border-color"
-                          }`}
+                      <option value="all">Tất cả vai trò</option>
+                      {roleOptions.map((role) => (
+                        <option key={role} value={role}>
+                          {ROLE_NAME_LABELS[role] ? `${ROLE_NAME_LABELS[role]} (${role})` : role}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex-1 sm:flex-none sm:w-40">
+                    <span className="sr-only">Lọc theo trạng thái</span>
+                    <select
+                      value={statusFilter}
+                      onChange={(event) => handleStatusFilterChange(event.target.value)}
+                      className="min-h-[44px] w-full rounded border border-border-strong bg-bg-card px-2.5 text-sm text-text-primary focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+                    >
+                      <option value="all">Tất cả trạng thái</option>
+                      <option value="active">Hoạt động</option>
+                      <option value="inactive">Không hoạt động</option>
+                      <option value="locked">Đã khóa</option>
+                    </select>
+                  </label>
+                  <label className="flex-1 sm:flex-none sm:w-40">
+                    <span className="sr-only">Sắp xếp</span>
+                    <select
+                      value={sortOrder}
+                      onChange={(event) => {
+                        setSortOrder(event.target.value)
+                        setPage(1)
+                      }}
+                      className="min-h-[44px] w-full rounded border border-border-strong bg-bg-card px-2.5 text-sm text-text-primary focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 cursor-pointer"
+                    >
+                      <option value="name_asc">Tên A → Z</option>
+                      <option value="name_desc">Tên Z → A</option>
+                      <option value="newest">Mới nhất</option>
+                    </select>
+                  </label>
+                  <span className="text-xs font-medium text-text-secondary tabular-nums whitespace-nowrap px-1">
+                    {filteredUsers.length} kết quả
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (roleFilter !== "all") {
+                        fetchUsersByRole(roleFilter)
+                      } else {
+                        retry("users")
+                      }
+                    }}
+                    aria-label="Tải lại danh sách"
+                    title="Tải lại danh sách"
+                    className="w-11 h-11 shrink-0 inline-flex items-center justify-center rounded border border-border-color bg-bg-card text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="w-full overflow-x-auto">
+                <table className="w-full min-w-[760px] text-left text-sm">
+                  <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary border-b border-border-color">
+                    <tr>
+                      <th
+                        className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap"
+                        aria-sort={
+                          sortOrder === "name_asc"
+                            ? "ascending"
+                            : sortOrder === "name_desc"
+                              ? "descending"
+                              : "none"
+                        }
+                      >
+                        <button
+                          type="button"
+                          onClick={handleToggleNameSort}
+                          className="inline-flex items-center gap-1 font-semibold text-text-secondary hover:text-text-primary cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary rounded"
                         >
-                          {statusLabel(user.status)}
-                        </span>
-                      </td>
-                      <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-secondary tabular-nums font-mono">
-                        {formatAdminDate(user.createdAt)}
-                      </td>
-                      <td className="px-3.5 py-1 align-middle text-sm leading-5 text-text-primary text-right">
-                        <UserRowActions
-                          user={user}
-                          isCurrentIdValid={isCurrentIdValid}
-                          onViewDetails={(event) => handleSelectUser(user, event)}
-                          onEditUser={(btnRef) => {
-                            setActiveDialogTriggerRef(btnRef)
-                            setFormTargetUser(user)
-                            setIsUserFormOpen(true)
-                          }}
-                          onChangeStatus={(btnRef) => {
-                            setActiveDialogTriggerRef(btnRef)
-                            setStatusTargetUser(user)
-                          }}
-                          onChangeRole={(btnRef) => {
-                            setActiveDialogTriggerRef(btnRef)
-                            setRoleTargetUser(user)
-                          }}
-                          onReissuePassword={(btnRef) => {
-                            setActiveDialogTriggerRef(btnRef)
-                            setReissueTargetUser(user)
-                          }}
-                        />
-                      </td>
+                          <span>Họ tên</span>
+                          {sortOrder === "name_asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-brand-primary" />
+                          ) : sortOrder === "name_desc" ? (
+                            <ArrowDown className="w-3.5 h-3.5 text-brand-primary" />
+                          ) : (
+                            <ArrowUpDown className="w-3.5 h-3.5 text-text-muted" />
+                          )}
+                        </button>
+                      </th>
+                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">Email</th>
+                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">Vai trò</th>
+                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">Trạng thái</th>
+                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">Ngày tạo</th>
+                      <th className="px-3.5 py-2.5 text-right align-middle whitespace-nowrap">Thao tác</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filteredUsers.length === 0 && (
-                <p className="p-8 text-center text-sm leading-5 text-text-secondary">
-                  Không có người dùng phù hợp bộ lọc.
-                </p>
+                  </thead>
+                  <tbody className="divide-y divide-border-color">
+                    {paginatedUsers.map((user) => (
+                      <tr
+                        key={user.id ?? user.email}
+                        className="h-11 transition-colors hover:bg-bg-secondary/70"
+                      >
+                        <td className="px-3.5 py-0 align-middle text-sm text-text-primary whitespace-nowrap max-w-[200px] truncate">
+                          <span className="font-semibold text-text-primary">
+                            {user.fullName || "Chưa có tên"}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-0 align-middle text-sm text-text-secondary whitespace-nowrap max-w-[220px] truncate">
+                          {user.email || "—"}
+                        </td>
+                        <td className="px-3.5 py-0 align-middle text-sm text-text-primary whitespace-nowrap">
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
+                            {ROLE_NAME_LABELS[user.roleName] || user.roleName || `Role #${user.roleId ?? "?"}`}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-0 align-middle text-sm text-text-primary whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              user.status === "active"
+                                ? "bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border"
+                                : user.status === "locked"
+                                  ? "bg-status-danger-bg text-status-danger ring-1 ring-inset ring-status-danger-border"
+                                  : "bg-bg-secondary text-text-secondary ring-1 ring-inset ring-border-color"
+                            }`}
+                          >
+                            {statusLabel(user.status)}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-0 align-middle text-sm text-text-secondary tabular-nums font-mono whitespace-nowrap">
+                          {formatAdminDate(user.createdAt)}
+                        </td>
+                        <td className="px-3.5 py-0 align-middle text-sm text-text-primary text-right whitespace-nowrap">
+                          <UserRowActions
+                            user={user}
+                            isCurrentIdValid={isCurrentIdValid}
+                            onViewDetails={(event) => handleSelectUser(user, event)}
+                            onEditUser={(btnRef) => {
+                              setActiveDialogTriggerRef(btnRef)
+                              setFormTargetUser(user)
+                              setIsUserFormOpen(true)
+                            }}
+                            onChangeStatus={(btnRef) => {
+                              setActiveDialogTriggerRef(btnRef)
+                              setStatusTargetUser(user)
+                            }}
+                            onChangeRole={(btnRef) => {
+                              setActiveDialogTriggerRef(btnRef)
+                              setRoleTargetUser(user)
+                            }}
+                            onReissuePassword={(btnRef) => {
+                              setActiveDialogTriggerRef(btnRef)
+                              setReissueTargetUser(user)
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredUsers.length === 0 && (
+                  <p className="p-8 text-center text-sm leading-5 text-text-secondary">
+                    Không có người dùng phù hợp bộ lọc.
+                  </p>
+                )}
+              </div>
+
+              {filteredUsers.length > 0 && (
+                <div className="px-3.5 pb-3">
+                  <AdminPagination
+                    page={safePage}
+                    totalPages={totalPages}
+                    totalItems={filteredUsers.length}
+                    pageSize={PAGE_SIZE}
+                    onPageChange={setPage}
+                  />
+                </div>
               )}
             </div>
 

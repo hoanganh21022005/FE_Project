@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   AlertCircle,
   AlertTriangle,
@@ -55,14 +56,34 @@ const KNOWN_ACTIONS = [
   { value: "ATTENDANCE_CORRECTION", label: "Điều chỉnh điểm danh (ATTENDANCE_CORRECTION)" },
 ]
 
+const getTodayVnDate = () => {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date())
+  } catch {
+    return ""
+  }
+}
+
 export function AdminAuditLogsView() {
   const { resources, retry } = useAdminData()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const initialRangeToday = searchParams.get("range") === "today" ? getTodayVnDate() : ""
 
   // Bộ lọc gửi lên server
-  const [selectedAction, setSelectedAction] = useState("")
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
-  const [selectedActorId, setSelectedActorId] = useState("")
+  const [selectedAction, setSelectedAction] = useState(searchParams.get("action") || "")
+  const [startDate, setStartDate] = useState(
+    searchParams.get("startDate") || initialRangeToday || "",
+  )
+  const [endDate, setEndDate] = useState(
+    searchParams.get("endDate") || initialRangeToday || "",
+  )
+  const [selectedActorId, setSelectedActorId] = useState(searchParams.get("actorId") || "")
 
   // Phân trang
   const [page, setPage] = useState(1) // UI page bắt đầu từ 1
@@ -138,25 +159,55 @@ export function AdminAuditLogsView() {
     fetchAuditLogs(page)
   }, [fetchAuditLogs, page])
 
+  const syncAuditParams = useCallback(
+    (nextValues) => {
+      const next = new URLSearchParams(searchParams)
+      next.delete("range")
+      const entries = {
+        action: nextValues.action ?? selectedAction,
+        startDate: nextValues.startDate ?? startDate,
+        endDate: nextValues.endDate ?? endDate,
+        actorId: nextValues.actorId ?? selectedActorId,
+      }
+      for (const [key, value] of Object.entries(entries)) {
+        if (value) {
+          next.set(key, value)
+        } else {
+          next.delete(key)
+        }
+      }
+      setSearchParams(next, { replace: true })
+    },
+    [searchParams, setSearchParams, selectedAction, startDate, endDate, selectedActorId],
+  )
+
   // Khi thay đổi bộ lọc server, reset về trang 1
   const handleActionChange = (e) => {
-    setSelectedAction(e.target.value)
+    const val = e.target.value
+    setSelectedAction(val)
     setPage(1)
+    syncAuditParams({ action: val })
   }
 
   const handleStartDateChange = (e) => {
-    setStartDate(e.target.value)
+    const val = e.target.value
+    setStartDate(val)
     setPage(1)
+    syncAuditParams({ startDate: val })
   }
 
   const handleEndDateChange = (e) => {
-    setEndDate(e.target.value)
+    const val = e.target.value
+    setEndDate(val)
     setPage(1)
+    syncAuditParams({ endDate: val })
   }
 
   const handleActorChange = (e) => {
-    setSelectedActorId(e.target.value)
+    const val = e.target.value
+    setSelectedActorId(val)
     setPage(1)
+    syncAuditParams({ actorId: val })
   }
 
   const handleResetFilters = () => {
@@ -166,6 +217,7 @@ export function AdminAuditLogsView() {
     setSelectedActorId("")
     setQuery("")
     setPage(1)
+    syncAuditParams({ action: "", startDate: "", endDate: "", actorId: "" })
   }
 
   // Lọc client trên danh sách của trang đang xem
