@@ -130,6 +130,7 @@ export const rescheduleSession = async (sessionId, request, options) => mapSessi
     newEndTime: request.newEndTime,
     newRoomId: request.newRoomId ?? null,
     reason: request.reason?.trim() || null,
+    ...(request.requestKey ? { requestKey: request.requestKey } : {}),
   }, options),
 );
 export const substituteSessionCoach = async (sessionId, request, options) => mapSession(

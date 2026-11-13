@@ -34,6 +34,7 @@ import {
   makeMockSessions,
   MOCK_TIME_SLOTS,
   normalizeTime,
+  createRescheduleRequestKey,
   validateRescheduleForm,
 } from '../../api/sessionIncidentUtils.js'
 import { canManageClasses } from '../../api/holidayUtils.js'
@@ -75,6 +76,7 @@ function SessionIncidentsView() {
   const requestId = useRef(0)
   const mutationLock = useRef(false)
   const mockSessions = useRef(null)
+  const rescheduleRequestsRef = useRef(new Map())
 
   const loadSessions = useCallback(async () => {
     const currentRequest = ++requestId.current
@@ -262,9 +264,20 @@ function SessionIncidentsView() {
         newRoomId,
         reason: rescheduleForm.reason.trim(),
       }
+      let requestPayload = payload
+      if (apiEnabled) {
+        const fingerprint = JSON.stringify({ sessionId: rescheduleSessionItem.id, ...payload })
+        let requestKey = rescheduleRequestsRef.current.get(fingerprint)
+        if (!requestKey) {
+          requestKey = createRescheduleRequestKey(rescheduleSessionItem.id)
+          rescheduleRequestsRef.current.set(fingerprint, requestKey)
+        }
+        requestPayload = { ...payload, requestKey }
+      }
       const updated = apiEnabled
-        ? await rescheduleSession(rescheduleSessionItem.id, payload, { notifyForbidden: false })
+        ? await rescheduleSession(rescheduleSessionItem.id, requestPayload, { notifyForbidden: false })
         : { ...rescheduleSessionItem, sessionDate: payload.newDate, startTime: payload.newStartTime, endTime: payload.newEndTime, ...(newRoomId ? { roomId: newRoomId, roomName: targetRoom?.name || null } : {}) }
+      rescheduleRequestsRef.current.clear()
       if (!apiEnabled && mockSessions.current) {
         mockSessions.current = mockSessions.current.map((item) => String(item.id) === String(updated.id) ? updated : item)
       }

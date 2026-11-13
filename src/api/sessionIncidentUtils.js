@@ -26,6 +26,22 @@ export function normalizeTime(value) {
   return `${match[1]}:${match[2]}:${String(seconds).padStart(2, '0')}`
 }
 
+export function createRescheduleRequestKey(sessionId) {
+  const cryptoApi = globalThis.crypto
+  let uuid = cryptoApi?.randomUUID?.()
+  if (!uuid && cryptoApi?.getRandomValues) {
+    const bytes = cryptoApi.getRandomValues(new Uint8Array(16))
+    bytes[6] = (bytes[6] & 0x0f) | 0x40
+    bytes[8] = (bytes[8] & 0x3f) | 0x80
+    const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('')
+    uuid = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+  }
+  if (!uuid) throw new Error('A secure request key could not be created.')
+  const key = `reschedule:${sessionId}:${uuid}`
+  if (!/^[A-Za-z0-9_.:-]{1,80}$/.test(key)) throw new Error('The reschedule request key is invalid.')
+  return key
+}
+
 export function timeMinutes(value) {
   const normalized = normalizeTime(value)
   if (!normalized) return null
