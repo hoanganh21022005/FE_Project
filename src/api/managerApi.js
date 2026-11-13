@@ -128,19 +128,23 @@ export const getSessionTimeSlots = async (isOutdoor = false, options) => mapList
     displayName: item.displayName ?? null,
   }),
 );
+const sessionActionRequestKey = (action, sessionId) => `${action}_${String(sessionId).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40)}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 export const rescheduleSession = async (sessionId, request, options) => mapSession(
   await httpClient.post(`/api/sessions/${sessionId}/reschedule`, {
     newDate: request.newDate,
     newStartTime: request.newStartTime,
     newEndTime: request.newEndTime,
-    newRoomId: request.newRoomId ?? null,
-    reason: request.reason?.trim() || null,
+    ...(request.newRoomId != null && request.newRoomId !== '' ? { newRoomId: Number(request.newRoomId) } : {}),
+    ...(request.reason?.trim() ? { reason: request.reason.trim() } : {}),
+    cause: request.cause,
+    requestKey: request.requestKey || sessionActionRequestKey('resched', sessionId),
   }, options),
 );
 export const substituteSessionCoach = async (sessionId, request, options) => mapSession(
   await httpClient.post(`/api/sessions/${sessionId}/substitute-coach`, {
     newCoachId: Number(request.newCoachId),
     reason: request.reason?.trim() || null,
+    requestKey: request.requestKey || sessionActionRequestKey('substitute', sessionId),
   }, options),
 );
 export const getCoaches = async (options) => mapListResponse(
