@@ -10,6 +10,21 @@ const MOCK_HOLIDAYS = [
 ]
 
 const EMPTY_FORM = { holidayDate: '', holidayName: '', tag: 'CENTER_EVENT', active: true }
+const localTodayKey = () => {
+  const today = new Date()
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+}
+const localizeHolidayError = (error, fallback, vi) => {
+  const message = getErrorMessage(error, fallback)
+  if (!vi) return message
+  if (/past closure evidence cannot be created by a toggle/i.test(message)) return 'Không thể tạo bằng chứng đóng cửa cho ngày đã qua bằng thao tác bật/tắt.'
+  if (/preview the exact change first/i.test(message)) return 'Vui lòng xem trước chính xác thay đổi trước khi tiếp tục.'
+  if (/holiday already exists|duplicate holiday/i.test(message)) return 'Ngày nghỉ này đã tồn tại.'
+  if (/invalid holiday date/i.test(message)) return 'Ngày nghỉ không hợp lệ.'
+  if (/holiday name is required/i.test(message)) return 'Vui lòng nhập tên ngày nghỉ.'
+  if (/forbidden|access denied|not authorized/i.test(message)) return 'Tài khoản không có quyền thực hiện thao tác này.'
+  return fallback
+}
 
 function formatDate(value, language) {
   if (!value) return '—'
@@ -30,6 +45,8 @@ export function ManagerHolidaysView() {
   const [saving, setSaving] = useState(false)
   const [busyHolidayId, setBusyHolidayId] = useState(null)
   const [sessionsOnDate, setSessionsOnDate] = useState(null)
+  const [preview, setPreview] = useState(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
   const submitLock = useRef(false)
   const toggleLock = useRef(false)
   const loadId = useRef(0)
@@ -45,7 +62,7 @@ export function ManagerHolidaysView() {
       if (requestId === loadId.current) setHolidays(data)
     } catch (err) {
       if (requestId === loadId.current) {
-        setError(getErrorMessage(err, language === 'vi' ? 'Không thể tải ngày nghỉ.' : 'Could not load holidays.'))
+        setError(localizeHolidayError(err, language === 'vi' ? 'Không thể tải ngày nghỉ.' : 'Could not load holidays.', language === 'vi'))
       }
     } finally {
       if (requestId === loadId.current) setLoading(false)
@@ -76,55 +93,79 @@ export function ManagerHolidaysView() {
     if (submitLock.current || saving) return
     const validation = validateHolidayForm(form, holidays)
     if (validation) {
-      setFormError(validation)
+      setFormError(language === 'vi'
+        ? /valid holiday date/i.test(validation) ? 'Vui lòng chọn ngày nghỉ hợp lệ.' : /name is required/i.test(validation) ? 'Vui lòng nhập tên ngày nghỉ.' : /already exists/i.test(validation) ? 'Ngày nghỉ này đã tồn tại.' : 'Thông tin ngày nghỉ không hợp lệ.'
+        : validation)
       return
     }
     if (!canManage) {
       setFormError(language === 'vi' ? 'Tài khoản không có quyền MANAGE_CLASSES.' : 'This account does not have MANAGE_CLASSES permission.')
       return
     }
-    submitLock.current = true
-    setSaving(true)
     setFormError('')
+    const holiday = holidayRequestFromForm(form)
+    setPreviewLoading(true)
     try {
-      const payload = holidayRequestFromForm(form)
-      if (apiEnabled) {
-        const created = await createHoliday(payload, { notifyForbidden: false })
-        setHolidays((previous) => [...previous, created].sort((a, b) => String(a.holidayDate).localeCompare(String(b.holidayDate))))
-      } else {
-        setHolidays((previous) => [...previous, { ...payload, id: `mock-holiday-${Date.now()}`, tag: payload.tag || 'CENTER_EVENT' }]
-          .sort((a, b) => String(a.holidayDate).localeCompare(String(b.holidayDate))))
-      }
-      showToast?.(language === 'vi' ? 'Đã tạo ngày nghỉ.' : 'Holiday created.', 'success')
-      setForm(EMPTY_FORM)
-      setSessionsOnDate(null)
+      const sessions = apiEnabled ? await getSessions({ startDate: holiday.holidayDate, endDate: holiday.holidayDate }, { notifyForbidden: false }) : []
+      setSessionsOnDate(sessions.length)
+      setPreview({ type: 'create', holiday, sessions: sessions.length })
     } catch (err) {
-      setFormError(getErrorMessage(err, language === 'vi' ? 'Không thể tạo ngày nghỉ.' : 'Could not create holiday.'))
+      setFormError(localizeHolidayError(err, language === 'vi' ? 'Không thể xem trước ngày nghỉ.' : 'Could not preview holiday.', language === 'vi'))
     } finally {
-      submitLock.current = false
-      setSaving(false)
+      setPreviewLoading(false)
     }
   }
 
   const changeHolidayStatus = async (holiday) => {
     if (toggleLock.current || busyHolidayId != null || !canManage) return
-    const confirmText = language === 'vi'
-      ? `Xác nhận ${holiday.active ? 'tắt' : 'bật'} ngày nghỉ ${holiday.holidayName}?`
-      : `Confirm ${holiday.active ? 'deactivating' : 'activating'} ${holiday.holidayName}?`
-    if (typeof window !== 'undefined' && !window.confirm(confirmText)) return
-    toggleLock.current = true
+    const holidayDate = String(holiday.holidayDate || '').slice(0, 10)
+    if (holidayDate < localTodayKey()) return
     setBusyHolidayId(holiday.id)
+    setPreviewLoading(true)
+    try {
+      const sessions = apiEnabled ? await getSessions({ startDate: holidayDate, endDate: holidayDate }, { notifyForbidden: false }) : []
+      setPreview({ type: 'toggle', holiday, active: !holiday.active, sessions: sessions.length })
+    } catch (err) {
+      setError(localizeHolidayError(err, language === 'vi' ? 'Không thể xem trước thay đổi ngày nghỉ.' : 'Could not preview holiday change.', language === 'vi'))
+    } finally {
+      setPreviewLoading(false)
+      setBusyHolidayId(null)
+    }
+  }
+
+  const confirmPreview = async () => {
+    if (!preview || submitLock.current || toggleLock.current) return
+    const action = preview
+    if (action.type === 'create') {
+      submitLock.current = true
+      setSaving(true)
+    } else {
+      toggleLock.current = true
+      setBusyHolidayId(action.holiday.id)
+    }
     setError(null)
     try {
-      const updated = apiEnabled
-        ? await toggleHoliday(holiday.id, !holiday.active, { notifyForbidden: false })
-        : { ...holiday, active: !holiday.active }
-      setHolidays((previous) => previous.map((item) => String(item.id) === String(holiday.id) ? updated : item))
-      showToast?.(language === 'vi' ? 'Đã cập nhật trạng thái ngày nghỉ.' : 'Holiday status updated.', 'success')
+      if (action.type === 'create') {
+        const payload = action.holiday
+        const created = apiEnabled ? await createHoliday(payload, { notifyForbidden: false }) : { ...payload, id: `mock-holiday-${Date.now()}`, tag: payload.tag || 'CENTER_EVENT' }
+        setHolidays((previous) => [...previous, created].sort((a, b) => String(a.holidayDate).localeCompare(String(b.holidayDate))))
+        showToast?.(language === 'vi' ? 'Đã tạo ngày nghỉ.' : 'Holiday created.', 'success')
+        setForm(EMPTY_FORM)
+        setSessionsOnDate(null)
+      } else {
+        const updated = apiEnabled ? await toggleHoliday(action.holiday.id, action.active, { notifyForbidden: false }) : { ...action.holiday, active: action.active }
+        setHolidays((previous) => previous.map((item) => String(item.id) === String(action.holiday.id) ? updated : item))
+        showToast?.(language === 'vi' ? 'Đã cập nhật trạng thái ngày nghỉ.' : 'Holiday status updated.', 'success')
+      }
+      setPreview(null)
     } catch (err) {
-      setError(getErrorMessage(err, language === 'vi' ? 'Không thể cập nhật ngày nghỉ.' : 'Could not update holiday.'))
+      const message = localizeHolidayError(err, language === 'vi' ? (action.type === 'create' ? 'Không thể tạo ngày nghỉ.' : 'Không thể cập nhật ngày nghỉ.') : (action.type === 'create' ? 'Could not create holiday.' : 'Could not update holiday.'), language === 'vi')
+      if (action.type === 'create') setFormError(message)
+      else setError(message)
     } finally {
+      submitLock.current = false
       toggleLock.current = false
+      setSaving(false)
       setBusyHolidayId(null)
     }
   }
@@ -155,7 +196,7 @@ export function ManagerHolidaysView() {
             <div className="sm:col-span-2 lg:col-span-5">
               {formError && <p role="alert" className="mb-2 text-xs font-medium text-rose-700">{formError}</p>}
               {sessionsOnDate > 0 && <p role="status" className="mb-2 rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">{vi ? `Ngày này hiện có ${sessionsOnDate} buổi học. Tạo ngày nghỉ không tự dời lịch; hãy xử lý từng buổi tại trang sự cố lịch học.` : `${sessionsOnDate} sessions currently fall on this date. Creating a holiday will not reschedule them; handle each session on the incidents page.`}</p>}
-              <button type="submit" disabled={saving} className="inline-flex min-h-11 items-center gap-2 rounded bg-brand-primary px-4 text-xs font-bold text-white disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}{vi ? 'Tạo ngày nghỉ' : 'Create holiday'}</button>
+              <button type="submit" disabled={saving || previewLoading} className="inline-flex min-h-11 items-center gap-2 rounded bg-brand-primary px-4 text-xs font-bold text-white disabled:opacity-50">{saving || previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}{vi ? 'Tạo ngày nghỉ' : 'Create holiday'}</button>
             </div>
           </form>
         )}
@@ -166,8 +207,9 @@ export function ManagerHolidaysView() {
         {loading && <div className="p-8 text-center text-sm text-slate-500"><Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />{vi ? 'Đang tải…' : 'Loading…'}</div>}
         {!loading && error && holidays.length === 0 && <div className="p-8 text-center text-sm text-slate-500">{vi ? 'Không có dữ liệu mới để hiển thị.' : 'No current data to display.'}</div>}
         {!loading && holidays.length === 0 && !error && <div className="p-8 text-center text-sm text-slate-500">{vi ? 'Chưa có ngày nghỉ.' : 'No holidays yet.'}</div>}
-        {holidays.length > 0 && <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-5 py-3">{vi ? 'Ngày' : 'Date'}</th><th className="px-5 py-3">{vi ? 'Tên' : 'Name'}</th><th className="px-5 py-3">Tag</th><th className="px-5 py-3">{vi ? 'Trạng thái' : 'Status'}</th><th className="px-5 py-3 text-right">{vi ? 'Thao tác' : 'Action'}</th></tr></thead><tbody className="divide-y divide-slate-100">{holidays.map((holiday) => <tr key={holiday.id}><td className="px-5 py-3 font-medium">{formatDate(holiday.holidayDate, language)}</td><td className="px-5 py-3">{holiday.holidayName || '—'}</td><td className="px-5 py-3 font-mono text-xs text-slate-600">{holiday.tag || '—'}</td><td className="px-5 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${holiday.active ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>{holiday.active ? (vi ? 'Đang bật' : 'Active') : (vi ? 'Đã tắt' : 'Inactive')}</span></td><td className="px-5 py-3 text-right">{canManage && <button type="button" disabled={busyHolidayId != null} onClick={() => changeHolidayStatus(holiday)} className="inline-flex min-h-10 items-center gap-2 rounded border border-slate-300 px-3 text-xs font-bold disabled:opacity-50" aria-label={vi ? `Đổi trạng thái ${holiday.holidayName}` : `Toggle ${holiday.holidayName}`}>{busyHolidayId === holiday.id ? <Loader2 className="h-4 w-4 animate-spin" /> : holiday.active ? <ToggleRight className="h-4 w-4 text-emerald-700" /> : <ToggleLeft className="h-4 w-4" />}{vi ? (holiday.active ? 'Tắt' : 'Bật') : (holiday.active ? 'Deactivate' : 'Activate')}</button>}</td></tr>)}</tbody></table></div>}
+        {holidays.length > 0 && <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-5 py-3">{vi ? 'Ngày' : 'Date'}</th><th className="px-5 py-3">{vi ? 'Tên' : 'Name'}</th><th className="px-5 py-3">Tag</th><th className="px-5 py-3">{vi ? 'Trạng thái' : 'Status'}</th><th className="px-5 py-3 text-right">{vi ? 'Thao tác' : 'Action'}</th></tr></thead><tbody className="divide-y divide-slate-100">{holidays.map((holiday) => <tr key={holiday.id}><td className="px-5 py-3 font-medium">{formatDate(holiday.holidayDate, language)}</td><td className="px-5 py-3">{holiday.holidayName || '—'}</td><td className="px-5 py-3 font-mono text-xs text-slate-600">{holiday.tag || '—'}</td><td className="px-5 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${holiday.active ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>{holiday.active ? (vi ? 'Đang bật' : 'Active') : (vi ? 'Đã tắt' : 'Inactive')}</span></td><td className="px-5 py-3 text-right">{canManage && <button type="button" disabled={busyHolidayId != null || String(holiday.holidayDate || '').slice(0, 10) < localTodayKey()} onClick={() => changeHolidayStatus(holiday)} className="inline-flex min-h-10 items-center gap-2 rounded border border-slate-300 px-3 text-xs font-bold disabled:opacity-50" aria-label={vi ? `Đổi trạng thái ${holiday.holidayName}` : `Toggle ${holiday.holidayName}`}>{busyHolidayId === holiday.id ? <Loader2 className="h-4 w-4 animate-spin" /> : holiday.active ? <ToggleRight className="h-4 w-4 text-emerald-700" /> : <ToggleLeft className="h-4 w-4" />}{vi ? (holiday.active ? 'Tắt' : 'Bật') : (holiday.active ? 'Deactivate' : 'Activate')}</button>}</td></tr>)}</tbody></table></div>}
       </section>
+      {preview && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"><section role="dialog" aria-modal="true" aria-labelledby="holiday-preview-title" className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl"><h2 id="holiday-preview-title" className="text-base font-bold">{vi ? 'Xem trước thay đổi ngày nghỉ' : 'Preview holiday change'}</h2><p className="mt-3 text-sm font-semibold">{formatDate(preview.holiday.holidayDate, language)} · {preview.holiday.holidayName}</p><p className="mt-2 text-sm text-slate-600">{preview.type === 'create' ? (vi ? 'Ngày nghỉ mới sẽ được thêm vào lịch trung tâm.' : 'This holiday will be added to the center calendar.') : vi ? `Ngày nghỉ sẽ ${preview.active ? 'được bật' : 'được tắt'} cho các lịch được tạo sau này.` : `This holiday will be ${preview.active ? 'activated' : 'deactivated'} for future scheduling.`}</p>{preview.sessions != null && <p className="mt-2 rounded bg-amber-50 p-3 text-sm text-amber-900">{vi ? `Hiện có ${preview.sessions} buổi học trong ngày này. Thay đổi ngày nghỉ không tự dời các buổi đã lên lịch.` : `${preview.sessions} sessions currently fall on this date. This change will not reschedule existing sessions.`}</p>}<div className="mt-5 flex justify-end gap-2"><button type="button" disabled={saving || busyHolidayId != null} onClick={() => setPreview(null)} className="min-h-10 rounded border border-slate-300 px-3 text-xs font-bold">{vi ? 'Hủy' : 'Cancel'}</button><button type="button" disabled={saving || busyHolidayId != null || previewLoading} onClick={confirmPreview} className="min-h-10 rounded bg-brand-primary px-3 text-xs font-bold text-white disabled:opacity-50">{saving || busyHolidayId != null ? (vi ? 'Đang lưu…' : 'Saving…') : vi ? 'Xác nhận thay đổi' : 'Confirm change'}</button></div></section></div>}
     </div>
   )
 }
