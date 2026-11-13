@@ -9,6 +9,7 @@ import {
   getNormalClassOpeningError,
 } from "../../api/normalClassOpening"
 import NormalClassLifecyclePanel from "./NormalClassLifecyclePanel"
+import { hasValidScheduleData } from "./hooks/useScheduleConflict"
 import {
   getEnrollmentsByClass,
   enrollMemberInClass,
@@ -304,6 +305,11 @@ export function ClassDetailDrawer({
     ? openingEvaluation.blockers.slice(0, -1)
     : openingEvaluation.blockers
   const firstOpeningSession = getFirstNormalClassSession(sessions)?.session || null
+  const scheduleClassItem = classDetail ?? cls
+  const detailScheduleIsValid = hasValidScheduleData({ ...scheduleClassItem, sessions })
+  const showMissingScheduleWarning = apiEnabled
+    ? !sessionsLoading && !sessionsError && !detailScheduleIsValid
+    : Boolean(conflictInfo?.hasMissingSchedule)
   const normalClass = String(classDetail?.classType ?? cls?.classType ?? "").trim().toLowerCase() === "normal"
   const lifecycleStatus = String(classDetail?.apiStatus ?? classDetail?.status ?? "").trim().toLowerCase()
   const canShowOpeningAction = apiEnabled && hasManagerRole && hasManageClasses && normalClass &&
@@ -591,7 +597,25 @@ export function ClassDetailDrawer({
           )}
 
           {/* MISSING SCHEDULE / INSUFFICIENT DATA BANNER (Nếu thiếu lịch) */}
-          {conflictInfo?.hasMissingSchedule && (
+          {sessionsError && (
+            <div role="alert" className="mx-6 mt-4 p-3.5 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-900 flex items-start gap-2.5 shadow-2xs shrink-0">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div className="space-y-1 flex-1">
+                <p className="font-bold">Không xác minh được lịch học</p>
+                <p className="text-xs leading-relaxed font-medium">{sessionsError}</p>
+              </div>
+            </div>
+          )}
+          {apiEnabled && !sessionsLoading && !sessionsError && conflictInfo?.hasScheduleCheckError && (
+            <div role="status" className="mx-6 mt-4 p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex items-start gap-2.5 shadow-2xs shrink-0">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-1 flex-1">
+                <p className="font-bold">Chưa kiểm tra được trùng lịch với các lớp khác</p>
+                <p className="text-xs leading-relaxed font-medium">Lịch riêng của lớp đã được tải; tải lại danh sách lớp để kiểm tra xung đột toàn trung tâm.</p>
+              </div>
+            </div>
+          )}
+          {showMissingScheduleWarning && (
             <div className="mx-6 mt-4 p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex items-start gap-2.5 shadow-2xs shrink-0">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div className="space-y-1 flex-1">
@@ -599,8 +623,9 @@ export function ClassDetailDrawer({
                   Chưa đủ dữ liệu lịch học
                 </p>
                 <p className="text-xs text-amber-700 leading-relaxed font-medium">
-                  {conflictInfo.message ||
-                    "Lớp học chưa đủ dữ liệu lịch các buổi học thực tế để kiểm tra trùng lặp."}
+                  {apiEnabled && String(scheduleClassItem?.classType ?? "").trim().toLowerCase() === "normal"
+                    ? `Lớp Normal cần đủ ${scheduleClassItem?.totalSessions ?? 12} buổi học hợp lệ; dữ liệu hiện tại chưa đạt điều kiện.`
+                    : conflictInfo.message || "Lớp học chưa đủ dữ liệu lịch các buổi học thực tế để kiểm tra trùng lặp."}
                 </p>
                 <p className="text-[11px] text-amber-600 italic">
                   Vui lòng cập nhật hoặc khởi tạo danh sách các buổi học cho lớp này.
@@ -831,6 +856,8 @@ export function ClassDetailDrawer({
             <NormalClassLifecyclePanel
               classItem={classDetail ?? cls}
               sessions={sessions}
+              sessionsLoading={sessionsLoading}
+              sessionsError={sessionsError}
               onRefreshClassDetail={() => refreshOpeningData()}
             />
 

@@ -62,7 +62,7 @@ export function hasValidScheduleData(cls) {
   const sessions = getClassSessions(cls)
   if (!sessions || sessions.length === 0) return false
 
-  return sessions.some((s) => {
+  const validSessions = sessions.filter((s) => {
     if (!s || s.centerInvalidated === true) return false
     if (s.status && String(s.status).toLowerCase() === "cancelled") return false
     const d = normalizeDateStr(s.date || s.sessionDate)
@@ -83,6 +83,17 @@ export function hasValidScheduleData(cls) {
     )
     return Boolean(d && start !== null && end !== null && (hasCoach || hasRoom))
   })
+
+  if (String(cls.classType ?? "").trim().toLowerCase() === "normal") {
+    const expectedCount = Number(cls.totalSessions ?? cls.sessionCount ?? 12)
+    const activeSessions = sessions.filter((session) => session && session.centerInvalidated !== true &&
+      String(session.status ?? "").trim().toLowerCase() !== "cancelled")
+    const distinctIds = new Set(validSessions.map((session) => session.id ?? session.sessionId).filter((id) => id != null).map(String))
+    return Number.isInteger(expectedCount) && expectedCount > 0 &&
+      activeSessions.length === expectedCount && validSessions.length === expectedCount && distinctIds.size === expectedCount
+  }
+
+  return validSessions.length > 0
 }
 
 /**

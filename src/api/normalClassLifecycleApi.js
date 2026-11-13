@@ -185,8 +185,12 @@ export const evaluateNormalClassLifecycle = (classItem, { action = 'proposal', k
   if (!status) unverified.push('Backend class status is unavailable.')
   else if (status !== 'open') blockers.push('The class is not Open; this operation is only for before-opening lifecycle.')
 
-  if (classItem.changePending === true) blockers.push('A class change proposal is already pending.')
-  else if (classItem.changePending !== false) unverified.push('Pending-change state is unavailable.')
+  if (action === 'proposal' && classItem.changePending === true) blockers.push('A class change proposal is already pending.')
+  else if (action === 'proposal' && classItem.changePending !== false) unverified.push('Pending-change state is unavailable.')
+
+  if (!validVersion(classItem.lifecycleVersion)) {
+    unverified.push('Class lifecycleVersion is unavailable or invalid; reload the class before continuing.')
+  }
 
   const kindType = proposalKind(kind)
   if (action === 'proposal' && kindType === 'postpone') {
@@ -227,7 +231,7 @@ export const inspectNormalClassProposal = (proposal) => {
       choices: null,
       pendingChoiceCount: null,
       hasWaitingChoices: null,
-      versionSemantics: 'NEED_BE_CONFIRMATION',
+      versionSemantics: 'Apply uses the current proposal version.',
     }
   }
 
@@ -258,18 +262,27 @@ export const inspectNormalClassProposal = (proposal) => {
     pendingChoiceCount,
     hasWaitingChoices,
     memberChoicesVerified: choicesWellFormed && !unknownChoiceExists,
-    versionSemantics: 'NEED_BE_CONFIRMATION',
+    versionSemantics: 'Apply uses the current proposal version.',
   }
 }
 
-export const evaluateNormalProposalApply = (proposal) => {
+export const evaluateNormalProposalApply = (proposal, classItem = null) => {
   const inspected = inspectNormalClassProposal(proposal)
   const blockers = []
   const unverified = []
-  if (inspected.state === 'unverified') unverified.push('Proposal status is unavailable or not verified by the current contract.')
+  if (normalize(inspected.status) !== 'pending') blockers.push('Only a Pending proposal can be applied.')
+  if (!validVersion(inspected.proposalVersion)) unverified.push('Proposal version is unavailable or invalid.')
 
   if (inspected.hasWaitingChoices === true) blockers.push('At least one Member is still waiting to decide.')
   else if (inspected.hasWaitingChoices === null) unverified.push('Member choices are unavailable or incomplete.')
+
+  if (classItem) {
+    if (!validVersion(classItem.lifecycleVersion)) {
+      unverified.push('Class lifecycleVersion is unavailable; reload the class before applying.')
+    } else if (validVersion(inspected.proposalVersion) && inspected.proposalVersion !== classItem.lifecycleVersion) {
+      blockers.push('The proposal version is stale; reload the current proposal and class.')
+    }
+  }
 
   return {
     canAttempt: blockers.length === 0 && unverified.length === 0,
@@ -278,7 +291,7 @@ export const evaluateNormalProposalApply = (proposal) => {
     unverified,
     proposalVersion: inspected.proposalVersion,
     fingerprint: inspected.fingerprint,
-    versionSemantics: 'NEED_BE_CONFIRMATION',
+    versionSemantics: 'The apply request version is the selected proposal version.',
     backendIsFinalAuthority: true,
   }
 }
@@ -291,9 +304,20 @@ export const getNormalLifecycleError = (error) => ({
 })
 
 export const normalLifecycleVersionSemantics = Object.freeze({
-  proposalInput: 'NEED_BE_CONFIRMATION: OpenAPI types version as int64 but does not identify the versioned resource.',
-  applyDecision: 'NEED_BE_CONFIRMATION: OpenAPI does not state whether version is proposal or class lifecycle version.',
-  cancelDecision: 'NEED_BE_CONFIRMATION: OpenAPI does not state whether version is proposal or class lifecycle version.',
+  proposalInput: 'Use lifecycleVersion from the latest GET /api/classes/{id}.',
+  applyDecision: 'Use version from the selected proposal in GET /api/classes/{id}/normal-proposals.',
+  cancelDecision: 'Use lifecycleVersion from the latest GET /api/classes/{id}.',
   fingerprint: 'Proposal view/member choice response value; do not generate or send in Manager apply/cancel bodies.',
 })
+
+export const isNormalLifecycleStaleError = (error, expectedCode) => {
+  const status = Number(error?.status ?? error?.response?.status) || 0
+  if (status !== 409) return false
+  const details = error?.details ?? error?.response?.data
+  const raw = [error?.code, error?.message, details?.code, details?.message]
+    .filter((value) => typeof value === 'string')
+    .join(' ')
+    .toUpperCase()
+  return raw.includes(expectedCode)
+}
 

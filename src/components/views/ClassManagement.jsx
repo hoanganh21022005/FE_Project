@@ -1409,9 +1409,17 @@ export function ClassManagement() {
   const classConflictsMap = useMemo(() => {
     if (!apiEnabled) return computeAllClassConflicts(classes)
 
-    const sessions = conflictSchedule?.classes === classes
-      ? conflictSchedule.sessions
-      : []
+    if (conflictSchedule?.classes !== classes) return {}
+    if (conflictSchedule.error) {
+      return Object.fromEntries(classes.filter(Boolean).map((cls) => [cls.id, {
+        hasConflict: false,
+        hasMissingSchedule: false,
+        hasScheduleCheckError: true,
+        status: "unverified",
+        message: "Không tải được dữ liệu lịch học để kiểm tra. Vui lòng tải lại.",
+      }]))
+    }
+    const sessions = conflictSchedule.sessions
     return computeAllClassConflicts(classes, sessions)
   }, [apiEnabled, classes, conflictSchedule])
 
