@@ -203,6 +203,7 @@ export function MemberCourseCatalog() {
   const [classesState, setClassesState] = useState({ loading: true, error: '' })
   const [enrollmentsState, setEnrollmentsState] = useState({ loading: true, error: '' })
   const [registrationsState, setRegistrationsState] = useState({ loading: true, error: '' })
+  const [orderChecks, setOrderChecks] = useState({})
   const [scheduleStates, setScheduleStates] = useState({})
   const [coachState, setCoachState] = useState({ loading: false, error: '', specializations: [], coaches: [] })
   const [coachAvailabilityBySubject, setCoachAvailabilityBySubject] = useState({})
@@ -253,14 +254,16 @@ export function MemberCourseCatalog() {
     })
     return bySport
   }, [resolvedSubjects, tier, classes, classesState.loading, scheduleStates, coachAvailabilityBySubject])
+  const availableSports = useMemo(() => resolvedSubjects.filter((row) =>
+    sportAvailability.get(row.key)?.available === true || sportAvailability.get(row.key)?.loading === true,
+  ), [resolvedSubjects, sportAvailability])
   const filteredSubjects = useMemo(() => {
     const normalizedQuery = normalizeCatalogText(query)
-    return resolvedSubjects.filter((row) => {
+    return (onlyAvailable ? availableSports : resolvedSubjects).filter((row) => {
       const label = row.subject?.name || SPORT_LABELS[row.key]?.[isVi ? 'vi' : 'en'] || row.key
-      return (!normalizedQuery || normalizeCatalogText(label + ' ' + row.key).includes(normalizedQuery))
-        && (!onlyAvailable || sportAvailability.get(row.key)?.available === true || sportAvailability.get(row.key)?.loading === true)
+      return !normalizedQuery || normalizeCatalogText(label + ' ' + row.key).includes(normalizedQuery)
     })
-  }, [resolvedSubjects, query, onlyAvailable, isVi, sportAvailability])
+  }, [resolvedSubjects, availableSports, query, onlyAvailable, isVi])
   const selectedClasses = useMemo(() => classes.filter((item) => String(item.subjectId) === String(selectedSubject?.id)), [classes, selectedSubject?.id])
   const visibleRegistrations = useMemo(() => registrations.filter((item) => {
     const ownerId = item.memberId ?? item.ownerMemberId ?? item.member?.id
@@ -397,24 +400,36 @@ export function MemberCourseCatalog() {
   }, [searchParams, tier, sportKey])
 
   const changeSelection = useCallback((nextTier, nextSport) => {
-    setTier(nextTier)
-    setSportKey(nextSport)
+    const selectionChanged = nextTier !== tier || nextSport !== sportKey
+    if (nextTier !== tier) setTier(nextTier)
+    if (nextSport !== sportKey) setSportKey(nextSport)
     const params = new URLSearchParams(searchParams)
     params.set('tier', nextTier.toLowerCase())
     params.set('sport', nextSport)
-    setSearchParams(params, { replace: true })
+    if (params.toString() !== searchParams.toString()) setSearchParams(params, { replace: true })
+    if (!selectionChanged) return
     setClassDetailsId(null)
     setSelectedCoachId('')
     capacityRequestCoachRef.current = ''
     setCapacityState({ loading: false, error: '', verified: false, available: false, count: null })
     setCoachState({ loading: false, error: '', specializations: [], coaches: [] })
     setNotice('')
-  }, [searchParams, setSearchParams])
+  }, [searchParams, setSearchParams, tier, sportKey])
 
-  useEffect(() => {
-    if (!onlyAvailable || filteredSubjects.some((row) => row.key === sportKey) || !filteredSubjects.length) return
-    changeSelection(tier, filteredSubjects[0].key)
-  }, [onlyAvailable, filteredSubjects, sportKey, tier, changeSelection])
+  const handleOnlyAvailableChange = (checked) => {
+    setOnlyAvailable(checked)
+    if (!checked) return
+    const normalizedQuery = normalizeCatalogText(query)
+    const target = availableSports.find((row) => {
+      const label = row.subject?.name || SPORT_LABELS[row.key]?.[isVi ? 'vi' : 'en'] || row.key
+      return !normalizedQuery || normalizeCatalogText(label + ' ' + row.key).includes(normalizedQuery)
+    })
+    const selectedVisible = availableSports.some((row) => {
+      const label = row.subject?.name || SPORT_LABELS[row.key]?.[isVi ? 'vi' : 'en'] || row.key
+      return row.key === sportKey && (!normalizedQuery || normalizeCatalogText(label + ' ' + row.key).includes(normalizedQuery))
+    })
+    if (target && !selectedVisible && target.key !== sportKey) changeSelection(tier, target.key)
+  }
 
   useEffect(() => {
     const candidates = classes.filter((item) => normalizeCatalogText(item.classType) === 'normal')
@@ -754,25 +769,32 @@ export function MemberCourseCatalog() {
   }
 
   const checkOrderStatus = async (order) => {
-    if (!order.invoiceId) {
-      setNotice(isVi ? 'Phản hồi chưa có invoiceId; chưa thể xác minh thanh toán.' : 'The response has no invoiceId; payment cannot be verified.')
-      return
-    }
+    const checkedAt = () => new Date().toLocaleTimeString('vi-VN', { hour12: false })
+    setOrderChecks((current) => ({ ...current, [order.key]: { loading: true, message: '' } }))
     try {
+      if (!order.invoiceId) throw new Error('Thiếu mã hóa đơn.')
       const invoice = await invoiceApi.getMemberOwnInvoiceById(order.invoiceId)
-      if (!invoice) throw new Error(isVi ? 'Không tìm thấy hóa đơn của hội viên.' : 'The member invoice was not found.')
+      if (!invoice) throw new Error('Không tìm thấy hóa đơn của hội viên.')
+      const [normalRows, advancedRows] = await Promise.all([refreshEnrollments(), refreshRegistrations()])
+      const sourceRows = order.type === 'Advanced' ? advancedRows : normalRows
+      const entitlement = sourceRows?.find((item) => String(item.invoiceId) === String(order.invoiceId))
+      const entitlementStatus = normalizeCatalogStatus(entitlement?.status || entitlement?.orderStatus || entitlement?.subscriptionStatus)
+      const active = ['registered', 'active', 'activated'].includes(entitlementStatus)
+        || entitlement?.active === true || entitlement?.packageActive === true || entitlement?.creditsActive === true
       setOrders((current) => current.map((item) => item.key === order.key ? {
         ...item,
         paymentStatus: invoice?.paymentStatus ?? item.paymentStatus,
+        ...(active ? { status: 'active' } : entitlement ? { status: entitlement.status ?? entitlement.orderStatus ?? entitlement.subscriptionStatus ?? item.status } : {}),
         reconciliationRequired: invoice?.reconciliationRequired === true,
         expiresAt: item.expiresAt ?? invoice?.expiresAt ?? null,
       } : item))
-      await Promise.all([refreshEnrollments(), refreshRegistrations()])
-      setNotice(invoice?.reconciliationRequired
-        ? (isVi ? 'Hóa đơn đã thanh toán nhưng đang chờ hệ thống đối soát; quyền học sẽ được cập nhật sau khi xác nhận.' : 'Payment is awaiting system reconciliation; course access will update after confirmation.')
-        : isVi ? 'Đã cập nhật lại trạng thái hóa đơn từ hệ thống.' : 'Invoice status was refreshed from the system.')
-    } catch (error) {
-      setSubmittingError(getErrorMessage(error, isVi ? 'Không đọc lại được hóa đơn.' : 'Could not reload invoice.'))
+      setOrderChecks((current) => ({ ...current, [order.key]: {
+        loading: false,
+        tone: active ? 'success' : 'pending',
+        message: `Đã kiểm tra lúc ${checkedAt()} — ${active ? 'Thanh toán hợp lệ, gói học đã kích hoạt' : 'Đang chờ hệ thống đồng bộ quyền học'}`,
+      } }))
+    } catch {
+      setOrderChecks((current) => ({ ...current, [order.key]: { loading: false, tone: 'error', message: `Đã kiểm tra lúc ${checkedAt()} — Không thể cập nhật trạng thái. Vui lòng thử lại.` } }))
     }
   }
 
@@ -948,7 +970,7 @@ export function MemberCourseCatalog() {
 
     <section className="space-y-4" aria-labelledby="sport-grid-title">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><h2 id="sport-grid-title" className="text-2xl font-bold text-slate-950">{isVi ? 'Chọn môn thể thao' : 'Choose a sport'}</h2><p className="mt-1 text-sm text-slate-600">{isVi ? 'Thông tin bộ môn và học phí được đồng bộ trực tuyến.' : 'Sports information and tuition fees are updated online.'}</p></div><label className="relative block w-full sm:w-80 sm:min-w-[280px]"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={isVi ? 'Tìm môn hoặc lớp…' : 'Search sports or classes…'} className="min-h-11 w-full rounded-xl border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none focus:border-brand-accent focus:ring-2 focus:ring-brand-blue-soft" /></label></div>
-      <div className="flex flex-wrap items-center gap-3"><label className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"><input type="checkbox" checked={onlyAvailable} onChange={(event) => setOnlyAvailable(event.target.checked)} className="h-4 w-4 accent-brand-primary" />{isVi ? 'Chỉ hiển thị môn đang mở đăng ký' : 'Show only sports open for registration'}</label>{onlyAvailable && <span aria-live="polite" className="inline-flex min-h-9 items-center rounded-full bg-emerald-50 px-3 text-sm font-semibold text-emerald-800">{isVi ? `Hiển thị ${filteredSubjects.length}/${resolvedSubjects.length} môn` : `Showing ${filteredSubjects.length}/${resolvedSubjects.length} sports`}</span>}<span className="inline-flex min-h-10 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600">{isVi ? 'Giá đang xem:' : 'Price shown:'} <strong className="ml-1 text-slate-900">{tier}</strong></span></div>
+      <div className="flex flex-wrap items-center gap-3"><label className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"><input type="checkbox" checked={onlyAvailable} onChange={(event) => handleOnlyAvailableChange(event.target.checked)} className="h-4 w-4 accent-brand-primary" />{isVi ? 'Chỉ hiển thị môn đang mở đăng ký' : 'Show only sports open for registration'}</label>{onlyAvailable && <span aria-live="polite" className="inline-flex min-h-9 items-center rounded-full bg-emerald-50 px-3 text-sm font-semibold text-emerald-800">{isVi ? `Hiển thị ${filteredSubjects.length}/${resolvedSubjects.length} môn` : `Showing ${filteredSubjects.length}/${resolvedSubjects.length} sports`}</span>}<span className="inline-flex min-h-10 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600">{isVi ? 'Giá đang xem:' : 'Price shown:'} <strong className="ml-1 text-slate-900">{tier}</strong></span></div>
       <InlineState loading={subjectsState.loading} error={subjectsState.error} retry={refreshSubjects} empty={null} language={language}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{filteredSubjects.map((row) => <SportTile key={row.key} row={row} tier={tier} language={language} availability={sportAvailability.get(row.key)} selected={row.key === sportKey} onClick={() => changeSelection(tier, row.key)} />)}</div>
         {filteredSubjects.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-600">{onlyAvailable && !normalizeCatalogText(query) ? (isVi ? 'Hiện chưa có môn nào được xác minh còn chỗ và mở đăng ký ở hình thức này.' : 'No sports are currently verified as open with availability for this course type.') : (isVi ? 'Không tìm thấy môn phù hợp.' : 'No matching sports.')}</div>}
@@ -1037,7 +1059,7 @@ export function MemberCourseCatalog() {
       </InlineState>}
       {enrollmentsState.error && tier === 'Normal' && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900" role="alert"><p>{enrollmentsState.error}</p><button type="button" onClick={refreshEnrollments} className="mt-2 font-semibold underline">{isVi ? 'Thử lại' : 'Retry'}</button></div>}
       {tier === 'Normal' && !enrollmentsState.loading && !enrollmentsState.error && displayedOrders.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-5 text-sm text-slate-600">{isVi ? 'Chưa có yêu cầu hoặc đơn hàng. Các đăng ký đã gửi sẽ xuất hiện tại đây.' : 'No requests or orders yet. Your submitted enrollments will appear here.'}</div>}
-      {displayedOrders.length > 0 && <div className="space-y-3">{displayedOrders.map((order) => <article key={order.key} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[13px] font-bold uppercase tracking-wide text-slate-500">{order.type} · {order.invoiceCode || (order.invoiceId ? (isVi ? 'Hóa đơn #' : 'Invoice #') + order.invoiceId : isVi ? 'Đơn chờ xử lý' : 'Order pending')} · {order.paymentMethod === 'Cash' ? (isVi ? 'Tiền mặt tại quầy' : 'Cash at counter') : 'VNPay'}</p><h3 className="mt-1 font-bold text-slate-900">{order.className || order.subjectName || (isVi ? 'Đăng ký khóa học' : 'Course enrollment')}</h3><p className="mt-1 text-sm text-slate-600">{order.amount == null ? (isVi ? 'Chưa có thông tin số tiền' : 'Amount not available') : formatMoney(order.amount, language)}{order.expiresAt ? ' · ' + (isVi ? 'Hạn thanh toán ' : 'Invoice deadline ') + formatDate(order.expiresAt, language) : ''}</p></div><StatusPill status={order.paymentStatus || order.status} language={language} /></div>{order.reconciliationRequired && <p className="mt-3 text-sm font-semibold text-amber-800">{isVi ? 'Đã ghi nhận Paid nhưng đang cần đối soát; chưa xác nhận quyền.' : 'Paid is recorded but reconciliation is required; entitlement is not confirmed.'}</p>}{['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus)) && !['registered', 'active'].includes(normalizeCatalogStatus(order.status)) && <p className="mt-3 text-sm text-slate-700">{isVi ? 'Đã ghi nhận thanh toán thành công. Quyền học đang được hệ thống kích hoạt chính thức.' : 'Payment confirmed. Course access is being officially activated by the system.'}</p>}<div className="mt-4 flex flex-wrap gap-2">{order.paymentMethod !== 'Cash' && ['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" onClick={() => beginPayment(order)} className="min-h-10 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white">{isVi ? 'Tiếp tục thanh toán VNPay' : 'Continue to VNPay'}</button>}{['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" disabled={submitting} onClick={() => handleCancelPendingEnrollment(order)} className="min-h-10 rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100">{isVi ? 'Hủy đơn chờ & Đăng ký lại' : 'Cancel pending & re-enroll'}</button>}<button type="button" onClick={() => checkOrderStatus(order)} className="min-h-10 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">{isVi ? 'Kiểm tra trạng thái' : 'Check status'}</button></div></article>)}</div>}
+      {displayedOrders.length > 0 && <div className="space-y-3">{displayedOrders.map((order) => <article key={order.key} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[13px] font-bold uppercase tracking-wide text-slate-500">{order.type} · {order.invoiceCode || (order.invoiceId ? (isVi ? 'Hóa đơn #' : 'Invoice #') + order.invoiceId : isVi ? 'Đơn chờ xử lý' : 'Order pending')} · {order.paymentMethod === 'Cash' ? (isVi ? 'Tiền mặt tại quầy' : 'Cash at counter') : 'VNPay'}</p><h3 className="mt-1 font-bold text-slate-900">{order.className || order.subjectName || (isVi ? 'Đăng ký khóa học' : 'Course enrollment')}</h3><p className="mt-1 text-sm text-slate-600">{order.amount == null ? (isVi ? 'Chưa có thông tin số tiền' : 'Amount not available') : formatMoney(order.amount, language)}{order.expiresAt ? ' · ' + (isVi ? 'Hạn thanh toán ' : 'Invoice deadline ') + formatDate(order.expiresAt, language) : ''}</p></div><StatusPill status={order.paymentStatus || order.status} language={language} /></div>{order.reconciliationRequired && <p className="mt-3 text-sm font-semibold text-amber-800">{isVi ? 'Đã ghi nhận Paid nhưng đang cần đối soát; chưa xác nhận quyền.' : 'Paid is recorded but reconciliation is required; entitlement is not confirmed.'}</p>}{['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <p className="mt-3 text-sm text-slate-700">{isVi ? 'Đã ghi nhận thanh toán thành công và kích hoạt quyền học chính thức.' : 'Payment confirmed and official course access activated.'}</p>}<div className="mt-4 flex flex-wrap gap-2">{order.paymentMethod !== 'Cash' && ['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" onClick={() => beginPayment(order)} className="min-h-10 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white">{isVi ? 'Tiếp tục thanh toán VNPay' : 'Continue to VNPay'}</button>}{['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" disabled={submitting} onClick={() => handleCancelPendingEnrollment(order)} className="min-h-10 rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100">{isVi ? 'Hủy đơn chờ & Đăng ký lại' : 'Cancel pending & re-enroll'}</button>}{['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" disabled={orderChecks[order.key]?.loading} onClick={() => checkOrderStatus(order)} className="min-h-10 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">{orderChecks[order.key]?.loading ? (isVi ? "Đang kiểm tra..." : "Checking...") : (isVi ? "Kiểm tra trạng thái" : "Check status")}</button>}{!['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && orderChecks[order.key]?.message && <p role="status" className={"mt-3 w-full rounded-lg p-3 text-sm " + (orderChecks[order.key].tone === "success" ? "bg-emerald-50 text-emerald-800" : orderChecks[order.key].tone === "error" ? "bg-rose-50 text-rose-800" : "bg-blue-50 text-blue-800")}>{orderChecks[order.key].message}</p>}</div></article>)}</div>}
       </div>
     </section>
 
