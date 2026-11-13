@@ -218,7 +218,7 @@ export function AdminAuditLogsView() {
             <button
               type="button"
               onClick={handleResetFilters}
-              className="text-xs text-brand-primary hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary rounded"
+              className="inline-flex min-h-11 items-center px-2 text-xs font-semibold text-brand-primary hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary rounded"
             >
               Đặt lại bộ lọc
             </button>
@@ -385,7 +385,7 @@ export function AdminAuditLogsView() {
                         {actorName}
                       </p>
                       {log.actorId !== null && (
-                        <p className="text-[11px] font-mono text-text-muted">
+                        <p className="text-xs font-mono text-text-muted">
                           User #{log.actorId}
                         </p>
                       )}
@@ -395,7 +395,7 @@ export function AdminAuditLogsView() {
                         <span className="inline-flex items-center px-2 py-0.5 rounded font-medium text-xs bg-bg-secondary text-brand-primary border border-border-color/60">
                           {actionLabel}
                         </span>
-                        <p className="mt-0.5 text-[11px] font-mono text-text-muted" title="Mã hành động gốc">
+                        <p className="mt-0.5 text-xs font-mono text-text-muted" title="Mã hành động gốc">
                           {log.action}
                         </p>
                       </div>

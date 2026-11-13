@@ -3,6 +3,7 @@ import { AlertTriangle, LoaderCircle, ShieldAlert, X } from "lucide-react"
 import { updateUserRole } from "../../api/adminApi.js"
 import { ROLE_NAME_LABELS } from "./views/AdminRolesView.jsx"
 import { isValidUserId } from "./UserStatusDialog.jsx"
+import { useDialogFocus } from "./useDialogFocus.js"
 
 export function UserRoleDialog({
   isOpen,
@@ -26,22 +27,13 @@ export function UserRoleDialog({
     }
   }, [isOpen, user])
 
-  useEffect(() => {
-    if (!isOpen) return
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape" && !loading) {
-        e.preventDefault()
-        onClose()
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown)
-      if (triggerRef?.current && document.contains(triggerRef.current)) {
-        triggerRef.current.focus({ preventScroll: true })
-      }
-    }
-  }, [isOpen, loading, onClose, triggerRef])
+  useDialogFocus({
+    isOpen,
+    onClose,
+    dialogRef,
+    triggerRef,
+    isLoading: loading,
+  })
 
   if (!isOpen || !user) return null
 
@@ -108,7 +100,7 @@ export function UserRoleDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="user-role-dialog-title"
-        className="w-full max-w-lg rounded-xl border border-border-color bg-bg-card p-6 shadow-xl text-text-primary space-y-4"
+        className="w-full max-w-lg rounded-lg border border-border-color bg-bg-card p-6 shadow-lg text-text-primary space-y-4"
       >
         <div className="flex items-start justify-between gap-3 border-b border-border-color/60 pb-3">
           <div>
@@ -196,7 +188,7 @@ export function UserRoleDialog({
                 </option>
               ))}
             </select>
-            <p className="text-[11px] text-text-muted mt-1 leading-4">
+            <p className="text-xs text-text-muted mt-1 leading-4">
               Lưu ý từ hệ thống: Khi đổi vai trò, Backend sẽ khởi tạo bản ghi phụ tương ứng nếu chưa có và không tự xóa các dữ liệu liên kết cũ.
             </p>
           </div>

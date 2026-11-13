@@ -339,7 +339,7 @@ export function AdminUsersView() {
           <button
             type="button"
             onClick={() => setActionAlert(null)}
-            className="w-8 h-8 inline-flex items-center justify-center rounded hover:bg-black/5 transition-colors cursor-pointer"
+            className="h-11 w-11 shrink-0 inline-flex items-center justify-center rounded hover:bg-black/5 transition-colors cursor-pointer"
             aria-label="Đóng thông báo"
           >
             <X className="w-4 h-4" />
@@ -625,7 +625,7 @@ export function AdminUsersView() {
                             return (
                               <span
                                 key={permName}
-                                className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-mono bg-bg-secondary text-brand-primary border border-border-color/60"
+                                className="inline-flex items-center rounded px-2 py-0.5 text-xs font-mono bg-bg-secondary text-brand-primary border border-border-color/60"
                                 title={permName}
                               >
                                 {label}
@@ -634,7 +634,7 @@ export function AdminUsersView() {
                           })}
                         </div>
                       ) : (
-                        <p className="text-[11px] leading-4 text-text-muted italic">
+                        <p className="text-xs leading-4 text-text-muted italic">
                           Áp dụng theo vai trò mặc định (không có quyền gán riêng).
                         </p>
                       )}

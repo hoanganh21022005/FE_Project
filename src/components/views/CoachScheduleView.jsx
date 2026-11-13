@@ -95,7 +95,7 @@ export function CoachScheduleView() {
     language,
   } = useSCMS()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState("schedule") // 'schedule' | 'work_schedule'
+  const activeTab = "schedule"
   const [viewMode, setViewMode] = useState("week") // 'week' | 'list' (default to visual weekly timetable)
   const [selectedRoom, setSelectedRoom] = useState("all")
   const [scheduleFilter, setScheduleFilter] = useState("all") // all | upcoming | group | pt
@@ -853,7 +853,7 @@ export function CoachScheduleView() {
 
   return (
     <div className="w-full space-y-6">
-      {/* Header + Top-level Tabs */}
+      {/* Coach schedule header */}
       <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -866,8 +866,8 @@ export function CoachScheduleView() {
               </h2>
               <p className="text-sm leading-5 text-text-secondary">
                 {language === "vi"
-                  ? "Thời khóa biểu tuần trực quan (Thứ/Ca học/Sân tập), danh sách từng ca dạy & cấu hình lịch làm việc"
-                  : "Visual weekly timetable by slot and room, detailed session list & work schedule configuration"}
+                  ? "Thời khóa biểu tuần trực quan (Thứ/Ca học/Sân tập), danh sách từng ca dạy"
+                  : "Visual weekly timetable by slot and room, with a detailed session list"}
               </p>
             </div>
           </div>
@@ -908,38 +908,6 @@ export function CoachScheduleView() {
           </div>
         </div>
 
-        {/* Top-level Tabs (P2.1) */}
-        <div
-          role="tablist"
-          className="flex flex-wrap items-center gap-2 border-t border-border-color pt-3"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "schedule"}
-            onClick={() => setActiveTab("schedule")}
-            className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
-              activeTab === "schedule"
-                ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
-                : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
-            }`}
-          >
-            {t("coachTabScheduleClasses")}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "work_schedule"}
-            onClick={() => setActiveTab("work_schedule")}
-            className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
-              activeTab === "work_schedule"
-                ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
-                : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
-            }`}
-          >
-            {t("coachTabWorkSchedule")}
-          </button>
-        </div>
       </div>
 
       {activeTab === "schedule" ? (
