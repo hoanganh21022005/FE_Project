@@ -135,8 +135,8 @@ export const rescheduleSession = async (sessionId, request, options) => mapSessi
     newStartTime: request.newStartTime,
     newEndTime: request.newEndTime,
     ...(request.newRoomId != null && request.newRoomId !== '' ? { newRoomId: Number(request.newRoomId) } : {}),
-    ...(request.reason?.trim() ? { reason: request.reason.trim() } : {}),
-    cause: request.cause,
+    reason: String(request.reason ?? '').trim(),
+    cause: request.cause ?? 'CENTER_INCIDENT',
     requestKey: request.requestKey || sessionActionRequestKey('resched', sessionId),
   }, options),
 );

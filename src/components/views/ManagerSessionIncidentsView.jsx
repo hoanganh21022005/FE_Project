@@ -283,6 +283,7 @@ function SessionIncidentsView() {
         newStartTime: selectedSlot.startTime,
         newEndTime: selectedSlot.endTime,
         newRoomId,
+        cause: rescheduleForm.cause,
         reason: rescheduleForm.reason.trim(),
       }
       const updated = apiEnabled
