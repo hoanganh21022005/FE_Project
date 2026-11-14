@@ -99,6 +99,7 @@ export function MemberMyCoachView() {
   const [absenceReason, setAbsenceReason] = useState("")
   const [submittingAbsence, setSubmittingAbsence] = useState(false)
   const [absenceMsg, setAbsenceMsg] = useState("")
+  const [absenceError, setAbsenceError] = useState("")
 
   // Member ID
   const memberProfileId = useMemo(() => {
@@ -701,40 +702,119 @@ export function MemberMyCoachView() {
     }
   }
 
+  // Helper: check 12-hour advance notice rule before session start
+  const checkAdvance12Hours = (session) => {
+    if (!session) return { allowed: true, hoursLeft: null }
+    const dateStr = session.sessionDate || session.date
+    const timeStr = session.startTime || session.sessionStartTime || "00:00"
+    if (!dateStr) return { allowed: true, hoursLeft: null }
+
+    const cleanDate = String(dateStr).slice(0, 10)
+    const cleanTime = String(timeStr).slice(0, 5)
+    let startMs = null
+    if (
+      session.sessionStartTime &&
+      !Number.isNaN(Date.parse(session.sessionStartTime))
+    ) {
+      startMs = Date.parse(session.sessionStartTime)
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
+      const timePart = /^\d{2}:\d{2}$/.test(cleanTime) ? cleanTime : "00:00"
+      startMs = new Date(`${cleanDate}T${timePart}:00+07:00`).getTime()
+    }
+
+    if (!startMs || Number.isNaN(startMs)) {
+      return { allowed: true, hoursLeft: null }
+    }
+
+    const nowMs = Date.now()
+    const hoursLeft = (startMs - nowMs) / (1000 * 60 * 60)
+    return {
+      allowed: hoursLeft >= 12,
+      hoursLeft,
+    }
+  }
+
   // 7. Request Absence (POST /api/sessions/{sessionId}/absence)
   const handleAbsenceSubmit = async (e) => {
-    e.preventDefault()
-    if (!selectedSessionForAbsence || !absenceReason.trim()) return
-    setSubmittingAbsence(true)
+    if (e && typeof e.preventDefault === "function") {
+      e.preventDefault()
+    }
+    if (submittingAbsence) return
+
+    setAbsenceError("")
     setAbsenceMsg("")
+
+    if (!selectedSessionForAbsence) {
+      const msg = isVi
+        ? "Không tìm thấy thông tin buổi tập."
+        : "Session not found."
+      setAbsenceError(msg)
+      showToast?.(msg, "error")
+      return
+    }
+
+    const trimmedReason = String(absenceReason || "").trim()
+    if (!trimmedReason) {
+      const msg = isVi
+        ? "Vui lòng nhập lý do xin vắng mặt."
+        : "Please enter a reason for absence."
+      setAbsenceError(msg)
+      showToast?.(msg, "error")
+      return
+    }
+
+    // 12-hour advance cancellation rule check
+    const { allowed, hoursLeft } = checkAdvance12Hours(selectedSessionForAbsence)
+    if (!allowed && hoursLeft !== null) {
+      const msg = isVi
+        ? `Quy định: Chỉ được xin vắng mặt/hủy buổi trước giờ học tối thiểu 12 tiếng${
+            hoursLeft > 0
+              ? ` (buổi tập sẽ diễn ra sau ${hoursLeft.toFixed(1)} tiếng nữa)`
+              : ""
+          }.`
+        : "Rule: Absence requests must be submitted at least 12 hours before session start."
+      setAbsenceError(msg)
+      showToast?.(msg, "error")
+      return
+    }
+
+    setSubmittingAbsence(true)
     try {
+      const targetSessionId =
+        selectedSessionForAbsence.id ??
+        selectedSessionForAbsence.sessionId ??
+        selectedSessionForAbsence.rawId
+
       if (apiEnabled) {
-        await memberPortalApi.requestAbsence(
-          selectedSessionForAbsence.id,
-          absenceReason.trim(),
-        )
+        await memberPortalApi.requestAbsence(targetSessionId, trimmedReason)
       }
-      setAbsenceMsg(
-        isVi
-          ? "Đã gửi đơn xin vắng mặt thành công!"
-          : "Absence request submitted!",
-      )
+
+      const successMsg = isVi
+        ? "Đã gửi đơn xin vắng mặt thành công!"
+        : "Absence request submitted successfully!"
+      setAbsenceMsg(successMsg)
+      showToast?.(successMsg, "success")
+
       setTimeout(() => {
         setAbsenceModalOpen(false)
         setSelectedSessionForAbsence(null)
         setAbsenceReason("")
         setAbsenceMsg("")
+        setAbsenceError("")
         fetchPrivateSessions()
-      }, 1500)
+        if (apiEnabled && memberProfileId) {
+          fetchMemberCredits?.()
+        }
+      }, 1200)
     } catch (err) {
-      alert(
-        getErrorMessage(
-          err,
-          isVi
-            ? "Không thể gửi đơn xin vắng mặt."
-            : "Could not submit absence.",
-        ),
+      const errorMsg = getErrorMessage(
+        err,
+        isVi
+          ? "Không thể gửi đơn xin vắng mặt. Vui lòng thử lại sau."
+          : "Could not submit absence.",
       )
+      setAbsenceError(errorMsg)
+      showToast?.(errorMsg, "error")
     } finally {
       setSubmittingAbsence(false)
     }
@@ -1181,6 +1261,9 @@ export function MemberMyCoachView() {
                         type="button"
                         onClick={() => {
                           setSelectedSessionForAbsence(s)
+                          setAbsenceReason("")
+                          setAbsenceError("")
+                          setAbsenceMsg("")
                           setAbsenceModalOpen(true)
                         }}
                         className="px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-xs font-bold hover:bg-amber-100 transition-colors cursor-pointer"
@@ -1778,21 +1861,91 @@ export function MemberMyCoachView() {
               </h3>
               <button
                 type="button"
-                onClick={() => setAbsenceModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 p-1 rounded-md"
+                onClick={() => {
+                  setAbsenceModalOpen(false)
+                  setAbsenceError("")
+                  setAbsenceMsg("")
+                }}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-md cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-600">
-              {isVi
-                ? `Buổi tập với HLV ${selectedSessionForAbsence.coachName} ngày ${selectedSessionForAbsence.sessionDate}.`
-                : `Session with ${selectedSessionForAbsence.coachName} on ${selectedSessionForAbsence.sessionDate}.`}
-            </p>
+            {/* Session Info */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-semibold">
+                  {isVi ? "Huấn luyện viên:" : "Coach:"}
+                </span>
+                <span className="font-bold text-slate-900">
+                  {selectedSessionForAbsence.coachName ||
+                    selectedSessionForAbsence.coach?.name ||
+                    (isVi ? "Huấn luyện viên" : "Coach")}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-semibold">
+                  {isVi ? "Ngày tập:" : "Date:"}
+                </span>
+                <span className="font-bold text-slate-900">
+                  {selectedSessionForAbsence.sessionDate ||
+                    selectedSessionForAbsence.date ||
+                    "—"}
+                </span>
+              </div>
+              {(selectedSessionForAbsence.startTime ||
+                selectedSessionForAbsence.timeSlot) && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-semibold">
+                    {isVi ? "Khung giờ:" : "Time:"}
+                  </span>
+                  <span className="font-mono font-semibold text-slate-800">
+                    {selectedSessionForAbsence.startTime &&
+                    selectedSessionForAbsence.endTime
+                      ? `${String(selectedSessionForAbsence.startTime).slice(0, 5)} - ${String(selectedSessionForAbsence.endTime).slice(0, 5)}`
+                      : selectedSessionForAbsence.timeSlot}
+                  </span>
+                </div>
+              )}
+              {selectedSessionForAbsence.roomName && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-semibold">
+                    {isVi ? "Phòng tập:" : "Room:"}
+                  </span>
+                  <span className="text-slate-800 font-semibold">
+                    {selectedSessionForAbsence.roomName}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* 12-hour rule info notice */}
+            <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-start gap-2">
+              <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>
+                {isVi
+                  ? "Quy định: Đơn xin vắng mặt chỉ được chấp nhận khi gửi trước giờ tập tối thiểu 12 tiếng."
+                  : "Notice: Absence requests must be submitted at least 12 hours before the session start time."}
+              </span>
+            </div>
+
+            {/* In-modal alerts */}
+            {absenceError && (
+              <div
+                role="alert"
+                className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs font-bold text-rose-800 flex items-center gap-2"
+              >
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{absenceError}</span>
+              </div>
+            )}
 
             {absenceMsg && (
-              <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2">
+              <div
+                role="status"
+                className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2"
+              >
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>{absenceMsg}</span>
               </div>
@@ -1807,36 +1960,47 @@ export function MemberMyCoachView() {
                   required
                   rows={3}
                   value={absenceReason}
-                  onChange={(e) => setAbsenceReason(e.target.value)}
+                  onChange={(e) => {
+                    setAbsenceReason(e.target.value)
+                    if (absenceError) setAbsenceError("")
+                  }}
                   placeholder={
                     isVi
                       ? "Ví dụ: Em có việc đột xuất / Bị ốm..."
                       : "Explain your reason..."
                   }
                   className="w-full rounded-xl border border-slate-300 p-3 text-xs outline-none focus:border-brand-primary resize-none"
+                  data-testid="absence-reason-input"
                 />
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setAbsenceModalOpen(false)}
-                  className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg"
+                  onClick={() => {
+                    setAbsenceModalOpen(false)
+                    setAbsenceError("")
+                    setAbsenceMsg("")
+                  }}
+                  className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 cursor-pointer"
                 >
                   {isVi ? "Đóng" : "Close"}
                 </button>
                 <button
                   type="submit"
-                  disabled={submittingAbsence || !absenceReason.trim()}
-                  className="px-5 py-2 bg-brand-primary hover:bg-brand-primary-hover disabled:opacity-50 text-white text-xs font-bold rounded-lg"
+                  onClick={handleAbsenceSubmit}
+                  disabled={submittingAbsence}
+                  className="px-5 py-2 bg-brand-primary hover:bg-brand-primary-hover disabled:opacity-50 text-white text-xs font-bold rounded-lg inline-flex items-center gap-1.5 cursor-pointer"
+                  data-testid="absence-submit-button"
                 >
-                  {submittingAbsence
-                    ? isVi
-                      ? "Đang gửi..."
-                      : "Submitting..."
-                    : isVi
-                      ? "Gửi đơn"
-                      : "Submit"}
+                  {submittingAbsence ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>{isVi ? "Đang gửi..." : "Submitting..."}</span>
+                    </>
+                  ) : (
+                    <span>{isVi ? "Gửi đơn" : "Submit"}</span>
+                  )}
                 </button>
               </div>
             </form>

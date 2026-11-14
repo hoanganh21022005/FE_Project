@@ -203,12 +203,50 @@ export const getEvaluationById = (id) =>
 
 export const getTrainingPlanById = (planId) =>
   httpClient.get(`/api/training-plans/${planId}`)
-export const requestAbsence = (sessionId, reason) =>
-  httpClient.post(`/api/sessions/${sessionId}/absence`, { reason })
+export const requestAbsence = async (sessionId, reason) => {
+  const sid =
+    typeof sessionId === "object" && sessionId !== null
+      ? sessionId.sessionId ?? sessionId.id
+      : sessionId
+  const reasonText =
+    typeof reason === "object" && reason !== null ? reason.reason : reason
+  const payload = {
+    sessionId: Number(sid) || sid,
+    reason: String(reasonText ?? "").trim(),
+  }
+  const cleanSid = encodeURIComponent(sid)
+  try {
+    return await httpClient.post(`/api/sessions/${cleanSid}/absence`, payload)
+  } catch (err) {
+    if (err?.status === 404 || err?.response?.status === 404) {
+      return await httpClient.post(`/api/sessions/${cleanSid}/absent`, payload)
+    }
+    throw err
+  }
+}
+export const requestSessionAbsence = requestAbsence
 export const getSessionAbsenceNotices = (sessionId) =>
   list(`/api/sessions/${sessionId}/absence-notices`)
-export const cancelPrivateSession = async (sessionId) => {
-  return httpClient.post(`/api/sessions/${sessionId}/cancel-private`)
+export const cancelPrivateSession = async (sessionId, reason = "") => {
+  const sid =
+    typeof sessionId === "object" && sessionId !== null
+      ? sessionId.sessionId ?? sessionId.id
+      : sessionId
+  const reasonText =
+    typeof reason === "object" && reason !== null ? reason.reason : reason
+  const payload = {
+    sessionId: Number(sid) || sid,
+    ...(reasonText ? { reason: String(reasonText).trim() } : {}),
+  }
+  const cleanSid = encodeURIComponent(sid)
+  try {
+    return await httpClient.post(`/api/sessions/${cleanSid}/cancel-private`, payload)
+  } catch (err) {
+    if (err?.status === 404 || err?.response?.status === 404) {
+      return await httpClient.post(`/api/sessions/${cleanSid}/cancel`, payload)
+    }
+    throw err
+  }
 }
 export const submitClassFeedback = (classId, payload) =>
   httpClient.post(`/api/classes/${classId}/feedback`, {
@@ -447,6 +485,7 @@ export const memberPortalApi = {
   getEvaluationById,
   getTrainingPlanById,
   requestAbsence,
+  requestSessionAbsence,
   getSessionAbsenceNotices,
   cancelPrivateSession,
   submitClassFeedback,
