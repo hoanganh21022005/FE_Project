@@ -703,7 +703,7 @@ function SCMSApp() {
         : t("attendance")
     if (path.includes("/assigned-members"))
       return role === ROLE_COACH
-        ? (language === "vi" ? "Đăng ký sân PT 1:1" : "1:1 Court Booking")
+        ? (language === "vi" ? "Đăng ký sân" : "Court Booking")
         : t("assignedMembers")
     if (path.includes("/progress") || path.includes("/training-plan"))
       return role === ROLE_COACH
