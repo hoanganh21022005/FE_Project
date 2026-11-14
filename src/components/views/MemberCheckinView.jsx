@@ -28,6 +28,7 @@ import {
   getMemberAttendances,
   getMemberClasses,
   getClassSessions,
+  getMyMemberProfile,
 } from "../../api/memberPortalApi"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import {
@@ -413,11 +414,46 @@ export function MemberCheckinView() {
     [t],
   )
 
-  const resolvedProfileId =
-    getAuthoritativeProfileId(currentUser) ??
-    currentUser?.memberId ??
-    currentUser?.id
-  const memberId = Number(resolvedProfileId)
+  const [fetchedMemberId, setFetchedMemberId] = useState(null)
+  const [resolvingProfile, setResolvingProfile] = useState(false)
+
+  const contextMemberId = useMemo(() => {
+    const authId = getAuthoritativeProfileId(currentUser)
+    if (authId) return authId
+    if (!apiEnabled) {
+      const raw = currentUser?.memberId ?? currentUser?.id
+      const num = Number(raw)
+      return Number.isInteger(num) && num > 0 ? num : null
+    }
+    return null
+  }, [apiEnabled, currentUser])
+
+  useEffect(() => {
+    setFetchedMemberId(null)
+    if (!apiEnabled || contextMemberId || !currentUser) {
+      setResolvingProfile(false)
+      return undefined
+    }
+    let active = true
+    setResolvingProfile(true)
+    getMyMemberProfile()
+      .then((profile) => {
+        if (!active) return
+        const pId = Number(profile?.id ?? profile?.memberId)
+        if (Number.isInteger(pId) && pId > 0) {
+          setFetchedMemberId(pId)
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setResolvingProfile(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [apiEnabled, contextMemberId, currentUser])
+
+  const memberId = contextMemberId ?? fetchedMemberId
   const validMember = Number.isInteger(memberId) && memberId > 0
 
   // Trạng thái mã QR
@@ -619,6 +655,8 @@ export function MemberCheckinView() {
     } catch (err) {
       logAttendanceError(`/api/members/${memberId}/enrollments`, err)
       if (mountedRef.current) {
+        setActiveEnrollmentsCount(0)
+        setAllNormalizedSessions([])
         setScheduleError(t("checkinScheduleLoadError"))
         setScheduleFailed(true)
       }
@@ -640,9 +678,13 @@ export function MemberCheckinView() {
     setHistoryFailed(false)
     try {
       const records = await getMemberAttendances(memberId)
+      const ownRecords = (Array.isArray(records) ? records : []).filter(
+        (rec) =>
+          rec?.memberId == null || String(rec.memberId) === String(memberId),
+      )
       if (mountedRef.current) {
         setAttendanceRows(
-          (Array.isArray(records) ? records : []).slice().sort((a, b) => {
+          ownRecords.slice().sort((a, b) => {
             const dateA = String(a.sessionDate || a.checkInTime || "")
             const dateB = String(b.sessionDate || b.checkInTime || "")
             return dateB.localeCompare(dateA)
@@ -652,6 +694,7 @@ export function MemberCheckinView() {
     } catch (err) {
       logAttendanceError(`/api/attendances?memberId=${memberId}`, err)
       if (mountedRef.current) {
+        setAttendanceRows([])
         setHistoryError(t("checkinHistoryLoadError"))
         setHistoryFailed(true)
       }
@@ -1295,11 +1338,13 @@ export function MemberCheckinView() {
     for (const row of enrichedAttendanceRows) {
       if (row.stateKey in counts) counts[row.stateKey] += 1
     }
-    const total = counts.present + counts.late + counts.absent + counts.excused
+    const checkedInTotal = counts.present + counts.late
+    const total = checkedInTotal + counts.absent + counts.excused
     return {
       ...counts,
+      checkedInTotal,
       total,
-      rate: total > 0 ? Math.round((counts.present / total) * 100) : null,
+      rate: total > 0 ? Math.round((checkedInTotal / total) * 100) : 0,
     }
   }, [enrichedAttendanceRows])
 
@@ -1569,7 +1614,7 @@ export function MemberCheckinView() {
         }
       />
 
-      {!validMember && (
+      {!validMember && !resolvingProfile && (
         <div
           role="status"
           className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
@@ -1582,20 +1627,33 @@ export function MemberCheckinView() {
         <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
           <div className="flex items-center gap-3">
             <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><CheckCircle2 className="h-5 w-5" /></span>
-            <div><p className="text-xs font-bold text-slate-500">{isVi ? "Tỷ lệ chuyên cần" : "Attendance rate"}</p><p className="text-2xl font-extrabold tracking-tight text-slate-900">92%</p></div>
+            <div>
+              <p className="text-xs font-bold text-slate-500">{isVi ? "Tỷ lệ chuyên cần" : "Attendance rate"}</p>
+              <p className="text-2xl font-extrabold tracking-tight text-slate-900">{attendanceSummary.rate}%</p>
+            </div>
           </div>
         </article>
         <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
           <div className="flex items-center gap-3">
             <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700"><ClipboardCheck className="h-5 w-5" /></span>
-            <div><p className="text-xs font-bold text-slate-500">{isVi ? "Đã điểm danh" : "Checked in"}</p><p className="text-2xl font-extrabold tracking-tight text-slate-900">24 <span className="text-sm font-bold">{isVi ? "buổi" : "sessions"}</span></p></div>
+            <div>
+              <p className="text-xs font-bold text-slate-500">{isVi ? "Đã điểm danh" : "Checked in"}</p>
+              <p className="text-2xl font-extrabold tracking-tight text-slate-900">
+                {attendanceSummary.checkedInTotal} <span className="text-sm font-bold">{isVi ? "buổi" : "sessions"}</span>
+              </p>
+            </div>
           </div>
           <p className="mt-3 text-xs font-medium text-slate-600">{isVi ? "Đúng giờ" : "On time"} {attendanceSummary.present} · {isVi ? "Muộn" : "Late"} {attendanceSummary.late}</p>
         </article>
         <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
           <div className="flex items-center gap-3">
             <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-700"><AlertCircle className="h-5 w-5" /></span>
-            <div><p className="text-xs font-bold text-slate-500">{isVi ? "Vắng mặt" : "Absent"}</p><p className="text-2xl font-extrabold tracking-tight text-slate-900">2 <span className="text-sm font-bold">{isVi ? "buổi" : "sessions"}</span></p></div>
+            <div>
+              <p className="text-xs font-bold text-slate-500">{isVi ? "Vắng mặt" : "Absent"}</p>
+              <p className="text-2xl font-extrabold tracking-tight text-slate-900">
+                {attendanceSummary.absent} <span className="text-sm font-bold">{isVi ? "buổi" : "sessions"}</span>
+              </p>
+            </div>
           </div>
           {attendanceSummary.excused > 0 && <p className="mt-3 text-xs font-medium text-slate-600">{isVi ? "Có phép" : "Excused"} {attendanceSummary.excused}</p>}
         </article>
@@ -2317,9 +2375,23 @@ export function MemberCheckinView() {
                 </button>
               </>
             ) : (
-              <p className="text-sm font-medium text-slate-600">
-                {t("checkinEmptyHistoryAll")}
-              </p>
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-slate-600">
+                  {activeEnrollmentsCount === 0
+                    ? isVi
+                      ? "Chưa có dữ liệu điểm danh. Hãy đăng ký khóa học để bắt đầu theo dõi chuyên cần."
+                      : t("checkinEmptyHistoryAll")
+                    : t("checkinEmptyHistoryAll")}
+                </p>
+                {activeEnrollmentsCount === 0 && (
+                  <Link
+                    to="/member/catalog"
+                    className="min-h-[40px] inline-flex items-center justify-center rounded-lg bg-brand-primary hover:bg-brand-primary-hover px-4 py-2 text-xs font-bold text-white shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                  >
+                    {t("checkinBtnRegisterCourse")}
+                  </Link>
+                )}
+              </div>
             )}
           </div>
         )}

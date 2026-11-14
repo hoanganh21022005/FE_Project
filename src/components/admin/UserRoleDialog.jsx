@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react"
 import { AlertTriangle, LoaderCircle, ShieldAlert, X } from "lucide-react"
 import { updateUserRole } from "../../api/adminApi.js"
-import { ROLE_NAME_LABELS } from "./views/AdminRolesView.jsx"
+import { useSCMS } from "../../context/SCMSContext.jsx"
+import { getAdminRoleLabel, getAdminText } from "./adminI18n.js"
 import { isValidUserId } from "./UserStatusDialog.jsx"
 import { useDialogFocus } from "./useDialogFocus.js"
 
@@ -15,6 +16,7 @@ export function UserRoleDialog({
   onSuccess,
   triggerRef,
 }) {
+  const { language } = useSCMS()
   const [selectedRoleId, setSelectedRoleId] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -78,9 +80,9 @@ export function UserRoleDialog({
       onClose()
     } catch (err) {
       if (err?.status === 403) {
-        setError("Bạn không có quyền thực hiện thao tác này.")
+        setError(getAdminText(language, "common.noPermission"))
       } else {
-        setError(err?.message || "Không thể cập nhật vai trò người dùng.")
+        setError(err?.message || getAdminText(language, "roleDialog.errUpdate"))
       }
     } finally {
       setLoading(false)
@@ -105,10 +107,11 @@ export function UserRoleDialog({
         <div className="flex items-start justify-between gap-3 border-b border-border-color/60 pb-3">
           <div>
             <h3 id="user-role-dialog-title" className="text-base font-semibold text-text-primary">
-              Thay đổi vai trò người dùng
+              {getAdminText(language, "roleDialog.title")}
             </h3>
             <p className="text-xs text-text-secondary mt-0.5">
-              Người dùng: <strong className="text-text-primary">{user.fullName || user.email}</strong> (ID #{user.id})
+              {getAdminText(language, "roleDialog.userLabel")}{" "}
+              <strong className="text-text-primary">{user.fullName || user.email}</strong> (ID #{user.id})
             </p>
           </div>
           <button
@@ -116,7 +119,7 @@ export function UserRoleDialog({
             onClick={onClose}
             disabled={loading}
             className="w-11 h-11 inline-flex items-center justify-center rounded text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary shrink-0"
-            aria-label="Đóng"
+            aria-label={getAdminText(language, "common.close")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -127,7 +130,8 @@ export function UserRoleDialog({
           <div role="alert" className="p-3 rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger text-xs leading-4 flex items-start gap-2">
             <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
             <div>
-              <strong>Chốt chặn an toàn:</strong> Không xác định được tài khoản đang đăng nhập; tải lại trang hoặc đăng nhập lại.
+              <strong>{getAdminText(language, "statusDialog.guardPrefix")}</strong>{" "}
+              {getAdminText(language, "statusDialog.guardInvalidId")}
             </div>
           </div>
         )}
@@ -137,7 +141,8 @@ export function UserRoleDialog({
           <div role="alert" className="p-3 rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger text-xs leading-4 flex items-start gap-2">
             <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
             <div>
-              <strong>Chốt chặn an toàn:</strong> Bạn không thể tự thay đổi vai trò tài khoản của chính mình.
+              <strong>{getAdminText(language, "statusDialog.guardPrefix")}</strong>{" "}
+              {getAdminText(language, "roleDialog.guardSelf")}
             </div>
           </div>
         )}
@@ -147,7 +152,8 @@ export function UserRoleDialog({
           <div role="alert" className="p-3 rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger text-xs leading-4 flex items-start gap-2">
             <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
             <div>
-              <strong>Chốt chặn an toàn:</strong> Không thể hạ vai trò Quản trị viên (Admin) đang hoạt động duy nhất trong hệ thống sang vai trò khác.
+              <strong>{getAdminText(language, "statusDialog.guardPrefix")}</strong>{" "}
+              {getAdminText(language, "roleDialog.guardLastAdmin")}
             </div>
           </div>
         )}
@@ -157,7 +163,8 @@ export function UserRoleDialog({
           <div role="alert" className="p-3 rounded-lg border border-status-warning-border bg-status-warning-bg text-status-warning text-xs leading-4 flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
             <div>
-              <strong>Cảnh báo quản trị:</strong> Bạn đang thay đổi vai trò của tài khoản Quản trị viên hệ thống (Admin). Hành động này có thể thu hồi quyền quản trị của tài khoản này.
+              <strong>{getAdminText(language, "statusDialog.warnPrefix")}</strong>{" "}
+              {getAdminText(language, "roleDialog.warnAdmin")}
             </div>
           </div>
         )}
@@ -172,7 +179,7 @@ export function UserRoleDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="select-user-role" className="text-xs font-semibold text-text-secondary block">
-              Chọn vai trò mới:
+              {getAdminText(language, "roleDialog.selectLabel")}
             </label>
             <select
               id="select-user-role"
@@ -181,15 +188,18 @@ export function UserRoleDialog({
               disabled={loading || !isCurrentIdValid || isSelf}
               className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer disabled:bg-bg-secondary disabled:cursor-not-allowed"
             >
-              <option value="">-- Chọn vai trò --</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {ROLE_NAME_LABELS[r.name] ? `${ROLE_NAME_LABELS[r.name]} (${r.name})` : r.name}
-                </option>
-              ))}
+              <option value="">{getAdminText(language, "roleDialog.selectPlaceholder")}</option>
+              {roles.map((r) => {
+                const label = getAdminRoleLabel(r.name, language)
+                return (
+                  <option key={r.id} value={r.id}>
+                    {label !== r.name ? `${label} (${r.name})` : r.name}
+                  </option>
+                )
+              })}
             </select>
             <p className="text-xs text-text-muted mt-1 leading-4">
-              Lưu ý từ hệ thống: Khi đổi vai trò, Backend sẽ khởi tạo bản ghi phụ tương ứng nếu chưa có và không tự xóa các dữ liệu liên kết cũ.
+              {getAdminText(language, "roleDialog.note")}
             </p>
           </div>
 
@@ -200,7 +210,7 @@ export function UserRoleDialog({
               disabled={loading}
               className="min-h-11 inline-flex items-center justify-center rounded px-4 py-2 text-sm font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
             >
-              Hủy bỏ
+              {getAdminText(language, "common.cancel")}
             </button>
             <button
               type="submit"
@@ -208,7 +218,7 @@ export function UserRoleDialog({
               className="min-h-11 inline-flex items-center justify-center gap-2 rounded px-4 py-2 text-sm font-semibold bg-brand-primary text-white hover:bg-brand-primary/90 transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
             >
               {loading && <LoaderCircle className="w-4 h-4 animate-spin" />}
-              <span>Lưu vai trò</span>
+              <span>{getAdminText(language, "roleDialog.submit")}</span>
             </button>
           </div>
         </form>
