@@ -83,16 +83,21 @@ export const hasScheduledClassSession = (classId, sessions = []) =>
       session.isPrivate !== true,
   )
 export const getMemberAttendances = async (memberId, params = {}) => {
-  const query = new URLSearchParams()
-  if (memberId !== undefined && memberId !== null && memberId !== "") {
-    query.set("memberId", String(memberId))
+  const numId = Number(memberId)
+  if (!Number.isInteger(numId) || numId <= 0) {
+    return []
   }
+  const query = new URLSearchParams()
+  query.set("memberId", String(numId))
   if (params.sessionId) query.set("sessionId", String(params.sessionId))
   if (params.state) query.set("state", String(params.state))
   if (params.startDate) query.set("startDate", String(params.startDate))
   if (params.endDate) query.set("endDate", String(params.endDate))
   const qStr = query.toString() ? `?${query.toString()}` : ""
-  return list(`/api/attendances${qStr}`)
+  const rows = await list(`/api/attendances${qStr}`)
+  return (Array.isArray(rows) ? rows : []).filter(
+    (r) => r?.memberId == null || String(r.memberId) === String(numId),
+  )
 }
 export const getMemberCheckinCode = async () => {
   try {
@@ -114,8 +119,55 @@ export const getTrainingPlans = (params = {}) => {
   const qStr = query.toString() ? `?${query.toString()}` : ""
   return list(`/api/training-plans${qStr}`)
 }
-export const createTrainingPlan = (payload) =>
-  httpClient.post("/api/training-plans", payload)
+export const createTrainingPlan = (payload = {}) => {
+  const coachId = Number(payload.coachId)
+  const rawClassId =
+    payload.classId !== undefined &&
+    payload.classId !== null &&
+    String(payload.classId).trim() !== ""
+      ? Number(payload.classId)
+      : null
+  const rawMemberId =
+    payload.memberId !== undefined &&
+    payload.memberId !== null &&
+    String(payload.memberId).trim() !== ""
+      ? Number(payload.memberId)
+      : null
+  const hasValidClassId =
+    rawClassId !== null && Number.isInteger(rawClassId) && rawClassId > 0
+  const hasValidMemberId =
+    rawMemberId !== null && Number.isInteger(rawMemberId) && rawMemberId > 0
+
+  const cleanPayload = {
+    ...(Number.isInteger(coachId) && coachId > 0 ? { coachId } : {}),
+    ...(hasValidMemberId && !hasValidClassId
+      ? { memberId: rawMemberId }
+      : hasValidClassId && !hasValidMemberId
+        ? { classId: rawClassId }
+        : {}),
+    title: String(payload.title || "").trim(),
+  }
+
+  const trimmedGoal = String(payload.goal ?? "").trim()
+  if (trimmedGoal) cleanPayload.goal = trimmedGoal
+
+  const trimmedContent = String(payload.content ?? "").trim()
+  if (trimmedContent) cleanPayload.content = trimmedContent
+
+  const trimmedStartDate = String(payload.startDate ?? "").trim().slice(0, 10)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmedStartDate)) {
+    cleanPayload.startDate = trimmedStartDate
+  }
+
+  const trimmedEndDate = String(payload.endDate ?? "").trim().slice(0, 10)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmedEndDate)) {
+    cleanPayload.endDate = trimmedEndDate
+  }
+
+  return httpClient.post("/api/training-plans", cleanPayload, {
+    notifyForbidden: false,
+  })
+}
 export const updateTrainingPlanById = (id, payload) =>
   httpClient.put(`/api/training-plans/${encodeURIComponent(id)}`, payload)
 export const deleteTrainingPlanById = (id) =>

@@ -9,7 +9,10 @@ import {
 import { LeaveRequestModal } from "../modals/LeaveRequestModal"
 import { SportTargetVisual } from "../common/SportTargetVisual"
 import { memberPortalApi } from "../../api/memberPortalApi"
-import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
+import {
+  getAuthoritativeProfileId,
+  resolveCurrentMemberProfile,
+} from "../../utils/memberSafetyHelpers"
 import { QRCodeSVG } from "qrcode.react"
 import { motion, AnimatePresence } from "motion/react"
 import {
@@ -767,18 +770,12 @@ export function MemberAttendanceView() {
 
   // Current member profile
   const member = useMemo(() => {
-    return (
-      (members || []).find(
-        (m) =>
-          String(m.id) === String(currentUser?.id) ||
-          (m.email &&
-            currentUser?.email &&
-            m.email.toLowerCase() === currentUser.email.toLowerCase()),
-      ) ||
-      currentUser ||
-      members?.[0] || { id: "mem-1", name: "Bùi Văn Phúc", code: "MEM-001" }
-    )
-  }, [members, currentUser])
+    return resolveCurrentMemberProfile({
+      currentUser,
+      contextMembers: members,
+      apiEnabled,
+    })
+  }, [members, currentUser, apiEnabled])
 
   // Member package & VIP privilege status (Truth check)
   const memberPkg = useMemo(() => {
@@ -1131,14 +1128,41 @@ export function MemberAttendanceView() {
   }
 
   // Real Backend API loader when apiEnabled === true
-  const memberProfileId = useMemo(
+  const [fetchedProfileId, setFetchedProfileId] = useState(null)
+
+  const contextProfileId = useMemo(
     () =>
-      getAuthoritativeProfileId(currentUser) || currentUser?.id || member?.id,
-    [currentUser, member],
+      getAuthoritativeProfileId(currentUser) ??
+      (apiEnabled ? null : currentUser?.id || member?.id),
+    [apiEnabled, currentUser, member?.id],
   )
 
+  useEffect(() => {
+    setFetchedProfileId(null)
+    if (!apiEnabled || contextProfileId || !currentUser) return undefined
+    let active = true
+    memberPortalApi
+      .getMyMemberProfile()
+      .then((profile) => {
+        if (!active) return
+        const pId = Number(profile?.id ?? profile?.memberId)
+        if (Number.isInteger(pId) && pId > 0) {
+          setFetchedProfileId(pId)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [apiEnabled, contextProfileId, currentUser])
+
+  const memberProfileId = contextProfileId ?? fetchedProfileId
+
   const loadLiveQrCode = useCallback(async () => {
-    if (!apiEnabled) return
+    if (!apiEnabled || !memberProfileId) {
+      setLiveQrPayload("")
+      return
+    }
     setLiveQrLoading(true)
     try {
       const res = await memberPortalApi.getMemberCheckinCode()
@@ -1154,7 +1178,7 @@ export function MemberAttendanceView() {
         setLiveQrSeconds(ttl)
       }
     } catch {
-      setLiveQrPayload(`SCMS:${memberProfileId || 1}:0:OFFLINE`)
+      setLiveQrPayload("")
       setLiveQrSeconds(30)
     } finally {
       setLiveQrLoading(false)
@@ -1163,20 +1187,31 @@ export function MemberAttendanceView() {
 
   const loadApiAttendanceData = useCallback(async () => {
     if (!apiEnabled) return
+    if (!memberProfileId) {
+      setApiAttendances([])
+      setApiEnrollments([])
+      setApiLoading(false)
+      return
+    }
     setApiLoading(true)
     try {
       const [attRes, enrRes] = await Promise.all([
-        memberProfileId
-          ? memberPortalApi
-              .getMemberAttendances(memberProfileId)
-              .catch(() => [])
-          : Promise.resolve([]),
-        memberProfileId
-          ? memberPortalApi.getMemberClasses(memberProfileId).catch(() => [])
-          : Promise.resolve([]),
+        memberPortalApi.getMemberAttendances(memberProfileId).catch(() => []),
+        memberPortalApi.getMemberClasses(memberProfileId).catch(() => []),
       ])
-      setApiAttendances(Array.isArray(attRes) ? attRes : [])
-      setApiEnrollments(Array.isArray(enrRes) ? enrRes : [])
+      const activeEnr = (Array.isArray(enrRes) ? enrRes : []).filter(
+        (row) =>
+          !["cancelled", "canceled", "dropped", "rejected"].includes(
+            String(row?.status || "").toLowerCase(),
+          ),
+      )
+      const ownAtt = (Array.isArray(attRes) ? attRes : []).filter(
+        (a) =>
+          a?.memberId == null ||
+          String(a.memberId) === String(memberProfileId),
+      )
+      setApiEnrollments(activeEnr)
+      setApiAttendances(activeEnr.length > 0 || ownAtt.length > 0 ? ownAtt : [])
     } finally {
       setApiLoading(false)
     }
@@ -1241,8 +1276,8 @@ export function MemberAttendanceView() {
             </h1>
             <p className="text-xs text-slate-500 mt-1">
               Hội viên:{" "}
-              <strong className="text-slate-900">{member?.name}</strong> (
-              {member?.code || "MB-1001"}) &bull; Đồng bộ trực tiếp từ hệ thống
+              <strong className="text-slate-900">{member?.name || currentUser?.name || "Hội viên"}</strong>
+              {member?.code ? ` (${member.code})` : ""} &bull; Đồng bộ trực tiếp từ hệ thống
               điểm danh CLB
             </p>
           </div>
@@ -1332,7 +1367,7 @@ export function MemberAttendanceView() {
                 <span>Mã QR Check-in Động</span>
               </div>
               <div className="font-mono text-lg font-black text-slate-900 tracking-wider break-all">
-                {liveQrPayload || member?.code || "MB-1001"}
+                {liveQrPayload || member?.code || "—"}
               </div>
               <p className="text-xs text-slate-500">
                 Tự động làm mới sau{" "}
@@ -1408,14 +1443,26 @@ export function MemberAttendanceView() {
                 <QrCode className="w-6 h-6" />
               </div>
               <p className="text-xs text-slate-500 font-medium">
-                Chưa có bản ghi điểm danh nào phù hợp với bộ lọc hiện tại.
+                {apiAttendances.length === 0 && apiEnrollments.length === 0
+                  ? "Chưa có dữ liệu điểm danh. Hãy đăng ký khóa học để bắt đầu theo dõi chuyên cần."
+                  : "Chưa có bản ghi điểm danh nào phù hợp với bộ lọc hiện tại."}
               </p>
               <button
                 type="button"
-                onClick={() => navigate("/member/schedule")}
+                onClick={() =>
+                  navigate(
+                    apiAttendances.length === 0 && apiEnrollments.length === 0
+                      ? "/member/catalog"
+                      : "/member/schedule",
+                  )
+                }
                 className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
               >
-                <span>Xem lịch học & báo vắng</span>
+                <span>
+                  {apiAttendances.length === 0 && apiEnrollments.length === 0
+                    ? "Đăng ký khóa học"
+                    : "Xem lịch học & báo vắng"}
+                </span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
