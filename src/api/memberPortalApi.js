@@ -249,6 +249,35 @@ export const bookPrivateSession = async (payload) => {
   return httpClient.post("/api/sessions/book-private", payload)
 }
 
+export const createPrivateSessionProposal = async (payload) => {
+  const requiredPositiveId = (value) => typeof value === "number" && Number.isInteger(value) && value > 0
+  const standardSlots = [
+    ["06:00", "07:30"], ["07:45", "09:15"], ["09:30", "11:00"],
+    ["13:00", "14:30"], ["14:45", "16:15"], ["16:30", "18:00"], ["18:15", "19:45"],
+  ]
+  if (!payload || !requiredPositiveId(payload.subscriptionId) || !requiredPositiveId(payload.subjectId)
+    || !requiredPositiveId(payload.coachId) || !requiredPositiveId(payload.roomId)) {
+    throw new Error("A valid subscription, subject, coach, and room are required to propose a session.")
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(payload.sessionDate || ""))) {
+    throw new Error("A valid session date is required to propose a session.")
+  }
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(payload.startTime || ""))
+    || !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(payload.endTime || ""))) {
+    throw new Error("A valid standard session time is required to propose a session.")
+  }
+  if (!standardSlots.some(([start, end]) => start === payload.startTime && end === payload.endTime)) {
+    throw new Error("The proposed time must match one of the seven standard 90-minute session slots.")
+  }
+  if (payload.agreementConfirmed !== true) {
+    throw new Error("Coach agreement confirmation is required to propose a session.")
+  }
+  if (typeof payload.requestKey !== "string" || !/^[A-Za-z0-9_.:-]{1,80}$/.test(payload.requestKey)) {
+    throw new Error("A valid request key is required to propose a session.")
+  }
+  return httpClient.post("/api/private-session-proposals", payload, { expectedStatus: 201 })
+}
+
 export const getCoachFeedback = async (params = {}) => {
   const query = new URLSearchParams()
   if (params.classId) query.set("classId", params.classId)
@@ -381,6 +410,7 @@ export const memberPortalApi = {
   getActiveHolidays,
   getCenterIncidents,
   bookPrivateSession,
+  createPrivateSessionProposal,
   getCoachFeedback,
   getCoachProfileMe,
   getCoachWorkSchedule,
