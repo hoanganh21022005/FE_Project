@@ -53,7 +53,7 @@ assert.equal(calls.length, 3, "invalid response inputs must not make a request")
 const view = fs.readFileSync(new URL("../src/components/views/MemberMyCoachView.jsx", import.meta.url), "utf8")
 const rejectHandler = view.split("const handleRejectProposal = async (proposal) => {")[1]?.split("\n  useEffect(() => {", 1)[0]
 assert.ok(rejectHandler, "Member reject handler exists")
-assert.match(rejectHandler, /rejectingProposalId != null/)
+assert.match(rejectHandler, /proposalDecisionInFlightRef\.current/)
 assert.match(rejectHandler, /respondToPrivateSessionProposal\(proposal\.id, false\)/)
 assert.match(rejectHandler, /await fetchPrivateSessionProposals\(\)/)
 assert.match(view, /status \|\| ""\)\.toLowerCase\(\) === "pending" && proposal\.sessionId == null/)
