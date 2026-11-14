@@ -125,12 +125,13 @@ export const ADMIN_AUDIT_ACTION_LABELS = {
   vi: {
     LOGIN: "Đăng nhập",
     LOGIN_GOOGLE: "Đăng nhập qua Google",
-    REGISTER_MEMBER_GOOGLE: "Đăng ký hội viên (Google)",
-    REGISTER_MEMBER_PENDING: "Đăng ký hội viên (Chờ duyệt)",
+    REGISTER_MEMBER_GOOGLE: "Đăng ký hội viên qua Google",
+    REGISTER_MEMBER_PENDING: "Đăng ký hội viên",
     VERIFY_MEMBER_REGISTRATION: "Xác minh đăng ký hội viên",
     CREATE_USER: "Tạo tài khoản người dùng",
     CHANGE_USER_ROLE: "Đổi vai trò người dùng",
     REISSUE_TEMPORARY_PASSWORD: "Cấp lại mật khẩu tạm",
+    UPDATE_STAFF: "Cập nhật nhân viên",
     CHANGE_USER_STATUS: "Đổi trạng thái tài khoản",
     UPDATE_USER: "Cập nhật thông tin người dùng",
     UPDATE_ROLE_PERMISSIONS: "Cập nhật phân quyền vai trò",
@@ -140,19 +141,22 @@ export const ADMIN_AUDIT_ACTION_LABELS = {
     CANCEL_CLASS: "Hủy lớp học",
     ATTENDANCE_CORRECTION: "Điều chỉnh điểm danh",
     ENROLL_MEMBER: "Ghi danh hội viên",
+    ENROLL_CLASS: "Ghi danh lớp học",
     CREATE_INVOICE: "Tạo hóa đơn",
+    COLLECT_PAYMENT: "Thu tiền thanh toán",
     CONFIRM_PAYMENT: "Xác nhận thanh toán",
     CREATE_REFUND: "Tạo yêu cầu hoàn tiền",
   },
   en: {
     LOGIN: "Sign in",
-    LOGIN_GOOGLE: "Sign in with Google",
-    REGISTER_MEMBER_GOOGLE: "Member registration (Google)",
-    REGISTER_MEMBER_PENDING: "Member registration (Pending)",
+    LOGIN_GOOGLE: "Sign in via Google",
+    REGISTER_MEMBER_GOOGLE: "Member sign-up via Google",
+    REGISTER_MEMBER_PENDING: "Member sign-up",
     VERIFY_MEMBER_REGISTRATION: "Verify member registration",
     CREATE_USER: "Create user account",
     CHANGE_USER_ROLE: "Change user role",
     REISSUE_TEMPORARY_PASSWORD: "Reissue temporary password",
+    UPDATE_STAFF: "Update staff",
     CHANGE_USER_STATUS: "Change user status",
     UPDATE_USER: "Update user profile",
     UPDATE_ROLE_PERMISSIONS: "Update role permissions",
@@ -162,7 +166,9 @@ export const ADMIN_AUDIT_ACTION_LABELS = {
     CANCEL_CLASS: "Cancel class",
     ATTENDANCE_CORRECTION: "Adjust attendance",
     ENROLL_MEMBER: "Enroll member",
+    ENROLL_CLASS: "Enroll in class",
     CREATE_INVOICE: "Create invoice",
+    COLLECT_PAYMENT: "Collect payment",
     CONFIRM_PAYMENT: "Confirm payment",
     CREATE_REFUND: "Create refund request",
   },
@@ -252,9 +258,9 @@ const ADMIN_TEXT = {
     "dash.inactiveSub": "Đang ngừng hoạt động",
     "dash.chartHeading": "Hoạt động 7 ngày gần nhất",
     "dash.chartSub": "Số lượt thao tác quản trị theo ngày (giờ VN)",
-    "dash.chartLimited": "Hiển thị 500 bản ghi gần nhất",
+    "dash.chartLimited": "Tính trên 1.000 bản ghi gần nhất",
     "dash.chartAria": "Biểu đồ cột hoạt động 7 ngày gần nhất",
-    "dash.chartError": "Không thể tải biểu đồ 7 ngày.",
+    "dash.chartError": "Không tải được dữ liệu biểu đồ.",
     "dash.chartEmpty": "Chưa có hoạt động trong 7 ngày qua",
     "dash.chartTotal": "Tổng 7 ngày: {count} lượt",
     "dash.chartTooltip": "{day} ({date}): {count} lượt",
@@ -430,7 +436,7 @@ const ADMIN_TEXT = {
     "roles.editBtn": "Chỉnh sửa phân quyền",
     "roles.saveBtn": "Lưu thay đổi ({count})",
     "roles.editingBannerPrefix": "Đang ở chế độ chỉnh sửa phân quyền:",
-    "roles.editingBannerBody": "Bạn có thể bật hoặc tắt các quyền của từng vai trò bằng cách nhấn vào ô tương ứng trong ma trận. Ba quyền MANAGE_RBAC, MANAGE_USERS và MANAGE_PERMISSIONS được bảo vệ cố định cho vai trò Quản trị viên (Admin).",
+    "roles.editingBannerBody": "Bạn có thể bật hoặc tắt các quyền của từng vai trò bằng cách nhấn vào ô tương ứng trong ma trận. Ba quyền Quản lý vai trò & quyền, Quản lý người dùng và Quản trị phân quyền được bảo vệ cố định cho vai trò Quản trị viên.",
     "roles.matrixTitleEdit": "Ma trận phân quyền (Chế độ chỉnh sửa)",
     "roles.matrixTitle": "Ma trận quyền hạn phân hệ",
     "roles.matrixSummary": "{perms} quyền × {roles} vai trò",
@@ -481,8 +487,12 @@ const ADMIN_TEXT = {
     "audit.colTime": "Thời gian",
     "audit.colActor": "Người thực hiện",
     "audit.colAction": "Hành động",
-    "audit.colTarget": "Đối tượng",
+    "audit.colTarget": "Áp dụng cho",
     "audit.colDetail": "Chi tiết",
+    "audit.showingAllTime": "Đang xem: tất cả thời gian",
+    "audit.showingRange": "Đang xem: {start} – {end}",
+    "audit.showingFrom": "Đang xem: từ {start}",
+    "audit.showingUntil": "Đang xem: đến {end}",
     "audit.noFilteredMatches": "Không có dòng nào trên trang này khớp với từ khóa \"{query}\".",
     "audit.pageIndicator": "Trang {page} • Hiển thị {count} bản ghi",
     "audit.prevPage": "Trang trước",
@@ -588,9 +598,9 @@ const ADMIN_TEXT = {
     "dash.inactiveSub": "Needs activation or verification",
     "dash.chartHeading": "Last 7 days activity",
     "dash.chartSub": "Daily admin actions (VN time)",
-    "dash.chartLimited": "Showing latest 500 records",
+    "dash.chartLimited": "Based on the latest 1,000 records",
     "dash.chartAria": "7-day activity bar chart",
-    "dash.chartError": "Unable to load 7-day chart.",
+    "dash.chartError": "Could not load chart data.",
     "dash.chartEmpty": "No activity in the last 7 days",
     "dash.chartTotal": "7-day total: {count}",
     "dash.chartTooltip": "{day} ({date}): {count} actions",
@@ -766,7 +776,7 @@ const ADMIN_TEXT = {
     "roles.editBtn": "Edit permissions",
     "roles.saveBtn": "Save changes ({count})",
     "roles.editingBannerPrefix": "Permission editing mode active:",
-    "roles.editingBannerBody": "Toggle permissions for each role using the matrix cells. Core permissions MANAGE_RBAC, MANAGE_USERS, and MANAGE_PERMISSIONS remain locked for Administrator.",
+    "roles.editingBannerBody": "Toggle permissions for each role using the matrix cells. Core permissions Manage roles & permissions, Manage users, and Manage permissions remain locked for System Administrator.",
     "roles.matrixTitleEdit": "Permission Matrix (Editing)",
     "roles.matrixTitle": "Module Permission Matrix",
     "roles.matrixSummary": "{perms} permissions × {roles} roles",
@@ -817,8 +827,12 @@ const ADMIN_TEXT = {
     "audit.colTime": "Time",
     "audit.colActor": "Actor",
     "audit.colAction": "Action",
-    "audit.colTarget": "Target",
+    "audit.colTarget": "Applied to",
     "audit.colDetail": "Details",
+    "audit.showingAllTime": "Showing: all time",
+    "audit.showingRange": "Showing: {start} – {end}",
+    "audit.showingFrom": "Showing: from {start}",
+    "audit.showingUntil": "Showing: until {end}",
     "audit.noFilteredMatches": "No entries on this page match \"{query}\".",
     "audit.pageIndicator": "Page {page} • Showing {count} records",
     "audit.prevPage": "Previous page",
@@ -882,12 +896,19 @@ export function getAdminRoleShortLabel(roleName, language = "vi") {
 
 export function getAdminPermissionLabel(permName, language = "vi") {
   const lang = normalizeAdminLanguage(language)
-  return ADMIN_PERMISSION_LABELS[lang]?.[permName] || permName || (lang === "en" ? "Permission" : "Quyền hạn")
+  return (
+    ADMIN_PERMISSION_LABELS[lang]?.[permName] ||
+    (lang === "en" ? "System permission" : "Quyền hệ thống")
+  )
 }
 
 export function getAdminAuditActionLabel(action, language = "vi") {
   const lang = normalizeAdminLanguage(language)
-  return ADMIN_AUDIT_ACTION_LABELS[lang]?.[action] || action || getAdminText(lang, "common.dash")
+  if (ADMIN_AUDIT_ACTION_LABELS[lang]?.[action]) {
+    return ADMIN_AUDIT_ACTION_LABELS[lang][action]
+  }
+  if (!action) return getAdminText(lang, "common.dash")
+  return lang === "en" ? "Other action" : "Thao tác khác"
 }
 
 export function getAdminStatusLabel(status, language = "vi") {

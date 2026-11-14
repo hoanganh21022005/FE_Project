@@ -12,8 +12,9 @@ import {
 } from "lucide-react"
 import { useAdminData } from "../AdminDataContext.jsx"
 import { useSCMS } from "../../../context/SCMSContext.jsx"
-import { formatAdminDateTime } from "../adminDateUtils.js"
-import { getAdminAuditActionLabel, getAdminRoleLabel, getAdminText } from "../adminI18n.js"
+import { formatAdminDate, formatAdminDateTime } from "../adminDateUtils.js"
+import { formatAuditTarget } from "../adminAuditFormat.js"
+import { getAdminAuditActionLabel, getAdminText } from "../adminI18n.js"
 import { getAdminAuditLogs } from "../../../api/adminApi.js"
 
 // Ghi chú: Quy ước page tính từ 0 hay 1 là CHƯA XÁC NHẬN với Backend.
@@ -25,8 +26,8 @@ export const AUDIT_PAGE_SIZE = 20
 export const AUDIT_ACTION_MAP = {
   LOGIN: "Đăng nhập",
   LOGIN_GOOGLE: "Đăng nhập qua Google",
-  REGISTER_MEMBER_GOOGLE: "Đăng ký hội viên (Google)",
-  REGISTER_MEMBER_PENDING: "Đăng ký hội viên (Chờ duyệt)",
+  REGISTER_MEMBER_GOOGLE: "Đăng ký hội viên qua Google",
+  REGISTER_MEMBER_PENDING: "Đăng ký hội viên",
   VERIFY_MEMBER_REGISTRATION: "Xác minh đăng ký hội viên",
   CREATE_USER: "Tạo tài khoản người dùng",
   CHANGE_USER_ROLE: "Đổi vai trò người dùng",
@@ -41,21 +42,21 @@ export const AUDIT_ACTION_MAP = {
 }
 
 const KNOWN_ACTIONS = [
-  { value: "LOGIN", label: "Đăng nhập (LOGIN)" },
-  { value: "LOGIN_GOOGLE", label: "Đăng nhập qua Google (LOGIN_GOOGLE)" },
-  { value: "REGISTER_MEMBER_GOOGLE", label: "Đăng ký hội viên Google (REGISTER_MEMBER_GOOGLE)" },
-  { value: "REGISTER_MEMBER_PENDING", label: "Đăng ký chờ duyệt (REGISTER_MEMBER_PENDING)" },
-  { value: "VERIFY_MEMBER_REGISTRATION", label: "Xác minh đăng ký (VERIFY_MEMBER_REGISTRATION)" },
-  { value: "CREATE_USER", label: "Tạo tài khoản (CREATE_USER)" },
-  { value: "CHANGE_USER_ROLE", label: "Đổi vai trò (CHANGE_USER_ROLE)" },
-  { value: "REISSUE_TEMPORARY_PASSWORD", label: "Cấp lại mật khẩu tạm (REISSUE_TEMPORARY_PASSWORD)" },
-  { value: "UPDATE_STAFF", label: "Cập nhật nhân viên (UPDATE_STAFF)" },
-  { value: "CHANGE_USER_STATUS", label: "Đổi trạng thái tài khoản (CHANGE_USER_STATUS)" },
-  { value: "UPDATE_ROLE_PERMISSIONS", label: "Cập nhật quyền vai trò (UPDATE_ROLE_PERMISSIONS)" },
-  { value: "CREATE_INVOICE", label: "Tạo hóa đơn (CREATE_INVOICE)" },
-  { value: "COLLECT_PAYMENT", label: "Thu tiền thanh toán (COLLECT_PAYMENT)" },
-  { value: "ENROLL_CLASS", label: "Ghi danh lớp học (ENROLL_CLASS)" },
-  { value: "ATTENDANCE_CORRECTION", label: "Điều chỉnh điểm danh (ATTENDANCE_CORRECTION)" },
+  "LOGIN",
+  "LOGIN_GOOGLE",
+  "REGISTER_MEMBER_GOOGLE",
+  "REGISTER_MEMBER_PENDING",
+  "VERIFY_MEMBER_REGISTRATION",
+  "CREATE_USER",
+  "CHANGE_USER_ROLE",
+  "REISSUE_TEMPORARY_PASSWORD",
+  "UPDATE_STAFF",
+  "CHANGE_USER_STATUS",
+  "UPDATE_ROLE_PERMISSIONS",
+  "CREATE_INVOICE",
+  "COLLECT_PAYMENT",
+  "ENROLL_CLASS",
+  "ATTENDANCE_CORRECTION",
 ]
 
 const getTodayVnDate = () => {
@@ -99,12 +100,26 @@ export function AdminAuditLogsView() {
   // Ô tìm kiếm chữ client trên trang hiện tại
   const [query, setQuery] = useState("")
 
+  // Đồng bộ bộ lọc khi URL query (?startDate=&endDate=&action=&actorId=) thay đổi từ bên ngoài
+  useEffect(() => {
+    const rangeToday = searchParams.get("range") === "today" ? getTodayVnDate() : ""
+    const nextAction = searchParams.get("action") || ""
+    const nextStart = searchParams.get("startDate") || rangeToday || ""
+    const nextEnd = searchParams.get("endDate") || rangeToday || ""
+    const nextActor = searchParams.get("actorId") || ""
+    setSelectedAction(nextAction)
+    setStartDate(nextStart)
+    setEndDate(nextEnd)
+    setSelectedActorId(nextActor)
+    setPage(1)
+  }, [searchParams])
+
   // Ánh xạ userId -> fullName từ AdminDataContext
   const userMap = useMemo(() => {
     const map = new Map()
     for (const u of resources.users.data || []) {
-      if (u.id !== null && u.id !== undefined) {
-        map.set(Number(u.id), u.fullName || `User #${u.id}`)
+      if (u.id !== null && u.id !== undefined && u.fullName) {
+        map.set(Number(u.id), u.fullName)
       }
     }
     return map
@@ -120,15 +135,20 @@ export function AdminAuditLogsView() {
     return map
   }, [resources.roles.data])
 
-  // Lấy tên người dùng theo id
+  // Lấy tên người dùng theo id; không tra được thì hiển thị Hệ thống / System
   const getUserName = useCallback(
-    (id) => {
-      if (id === null || id === undefined || id === "") return getAdminText(language, "common.system")
+    (id, fallbackLabel) => {
+      if (id === null || id === undefined || id === "") {
+        return getAdminText(language, "common.system")
+      }
       const numId = Number(id)
       if (userMap.has(numId)) {
         return userMap.get(numId)
       }
-      return `User #${id}`
+      if (fallbackLabel && !/^User #\d+$/i.test(fallbackLabel)) {
+        return fallbackLabel
+      }
+      return getAdminText(language, "common.system")
     },
     [language, userMap],
   )
@@ -240,8 +260,8 @@ export function AdminAuditLogsView() {
     if (!normalized) return serverLogs
 
     return serverLogs.filter((log) => {
-      const actorName = getUserName(log.actorId).toLowerCase()
-      const actionLabel = (AUDIT_ACTION_MAP[log.action] || log.action || "").toLowerCase()
+      const actorName = getUserName(log.actorId, log.actorLabel).toLowerCase()
+      const actionLabel = getAdminAuditActionLabel(log.action, language).toLowerCase()
       const actionRaw = String(log.action || "").toLowerCase()
       const targetStr = String(log.targetLabel || "").toLowerCase()
       const detailStr = String(log.detail || "").toLowerCase()
@@ -254,7 +274,27 @@ export function AdminAuditLogsView() {
         detailStr.includes(normalized)
       )
     })
-  }, [serverLogs, query, getUserName])
+  }, [serverLogs, query, getUserName, language])
+
+  const dateRangeSummary = useMemo(() => {
+    if (startDate && endDate) {
+      return getAdminText(language, "audit.showingRange", {
+        start: formatAdminDate(startDate, undefined, undefined, language),
+        end: formatAdminDate(endDate, undefined, undefined, language),
+      })
+    }
+    if (startDate) {
+      return getAdminText(language, "audit.showingFrom", {
+        start: formatAdminDate(startDate, undefined, undefined, language),
+      })
+    }
+    if (endDate) {
+      return getAdminText(language, "audit.showingUntil", {
+        end: formatAdminDate(endDate, undefined, undefined, language),
+      })
+    }
+    return getAdminText(language, "audit.showingAllTime")
+  }, [startDate, endDate, language])
 
   // "Trang sau" chỉ bật khi số bản ghi trả về bằng AUDIT_PAGE_SIZE (20)
   const canGoNext = serverLogs.length === AUDIT_PAGE_SIZE
@@ -303,14 +343,11 @@ export function AdminAuditLogsView() {
               className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
             >
               <option value="">{getAdminText(language, "audit.allActions")}</option>
-              {KNOWN_ACTIONS.map((act) => {
-                const actionLabel = getAdminAuditActionLabel(act.value, language)
-                return (
-                  <option key={act.value} value={act.value}>
-                    {isEn ? `${actionLabel} (${act.value})` : act.label}
-                  </option>
-                )
-              })}
+              {KNOWN_ACTIONS.map((actionCode) => (
+                <option key={actionCode} value={actionCode}>
+                  {getAdminAuditActionLabel(actionCode, language)}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -325,11 +362,13 @@ export function AdminAuditLogsView() {
               className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
             >
               <option value="">{getAdminText(language, "audit.allActors")}</option>
-              {(resources.users.data || []).map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.fullName ? `${u.fullName} (#${u.id})` : `User #${u.id}`}
-                </option>
-              ))}
+              {(resources.users.data || [])
+                .filter((u) => Boolean(u.fullName))
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.fullName}
+                  </option>
+                ))}
             </select>
           </label>
 
@@ -372,6 +411,12 @@ export function AdminAuditLogsView() {
               className="min-h-11 w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary"
             />
           </label>
+        </div>
+
+        {/* Dòng trạng thái khoảng ngày đang xem phía trên bảng */}
+        <div className="flex items-center gap-2 pt-1 text-xs font-medium text-text-secondary" data-testid="audit-date-range-summary">
+          <Calendar className="w-3.5 h-3.5 text-text-muted shrink-0" aria-hidden="true" />
+          <span>{dateRangeSummary}</span>
         </div>
       </div>
 
@@ -433,29 +478,13 @@ export function AdminAuditLogsView() {
             </thead>
             <tbody className="divide-y divide-border-color">
               {filteredLogs.map((log) => {
-                const actorName = getUserName(log.actorId)
+                const actorName = getUserName(log.actorId, log.actorLabel)
                 const actionLabel = getAdminAuditActionLabel(log.action, language)
-
-                // Đối tượng USER hoặc ROLE nếu có thì hiện tên
-                let targetDisplay = log.targetLabel && log.targetLabel !== "N/A" ? log.targetLabel : "—"
-                const entityUpper = String(log.targetEntity || "").toUpperCase()
-                if (
-                  (entityUpper === "USER" || entityUpper === "USERS") &&
-                  log.targetId !== null &&
-                  log.targetId !== undefined
-                ) {
-                  const targetUserName = getUserName(log.targetId)
-                  targetDisplay = `${targetUserName} (#${log.targetId})`
-                } else if (
-                  (entityUpper === "ROLE" || entityUpper === "ROLES") &&
-                  log.targetId !== null &&
-                  log.targetId !== undefined
-                ) {
-                  const matchedRole = roleMap.get(Number(log.targetId))
-                  if (matchedRole?.name) {
-                    targetDisplay = getAdminRoleLabel(matchedRole.name, language)
-                  }
-                }
+                const targetDisplay = formatAuditTarget(log, {
+                  userMap,
+                  roleMap,
+                  language,
+                })
 
                 return (
                   <tr
@@ -467,24 +496,14 @@ export function AdminAuditLogsView() {
                       {formatAdminDateTime(log.createdAt, undefined, undefined, language)}
                     </td>
                     <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-primary">
-                      <p className="font-semibold text-text-primary" title={`ID: ${log.actorId ?? getAdminText(language, "common.system")}`}>
+                      <p className="font-semibold text-text-primary">
                         {actorName}
                       </p>
-                      {log.actorId !== null && (
-                        <p className="text-xs font-mono text-text-muted">
-                          User #{log.actorId}
-                        </p>
-                      )}
                     </td>
                     <td className="px-3.5 py-2.5 align-middle text-xs">
-                      <div>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded font-medium text-xs bg-bg-secondary text-brand-primary border border-border-color/60">
-                          {actionLabel}
-                        </span>
-                        <p className="mt-0.5 text-xs font-mono text-text-muted" title={log.action}>
-                          {log.action}
-                        </p>
-                      </div>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded font-medium text-xs bg-bg-secondary text-brand-primary border border-border-color/60">
+                        {actionLabel}
+                      </span>
                     </td>
                     <td className="px-3.5 py-2.5 align-middle text-sm leading-5 text-text-primary">
                       <span className="font-medium">{targetDisplay}</span>

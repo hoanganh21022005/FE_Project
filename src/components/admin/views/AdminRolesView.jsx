@@ -9,8 +9,6 @@ import {
   Minus,
   RefreshCw,
   Save,
-  ShieldAlert,
-  ShieldCheck,
   X,
 } from "lucide-react"
 import { AdminResourceState } from "../AdminResourceState.jsx"
@@ -221,9 +219,6 @@ export function AdminRolesView() {
           <h2 className="text-xl leading-7 font-semibold text-text-primary">
             {getAdminText(language, "roles.title")}
           </h2>
-          <p className="mt-1 text-sm leading-5 text-text-secondary">
-            {getAdminText(language, "roles.subtitle")}
-          </p>
         </div>
         {!isEditing ? (
           <button
@@ -315,23 +310,6 @@ export function AdminRolesView() {
 
       {/* Ma trận vai trò × quyền */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3 border-b border-border-color/60 pb-2">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-brand-primary" />
-            <h3 className="text-sm leading-5 font-semibold text-text-primary">
-              {isEditing
-                ? getAdminText(language, "roles.matrixTitleEdit")
-                : getAdminText(language, "roles.matrixTitle")}
-            </h3>
-          </div>
-          <span className="text-xs leading-4 text-text-muted">
-            {getAdminText(language, "roles.matrixSummary", {
-              perms: permissionsData.length,
-              roles: rolesData.length,
-            })}
-          </span>
-        </div>
-
         <AdminResourceState
           resource={roles}
           onRetry={() => {
@@ -356,9 +334,6 @@ export function AdminRolesView() {
                       <p className="text-xs leading-4 text-text-primary font-bold">
                         {getRoleDisplayName(role.name)}
                       </p>
-                      <p className="mt-0.5 text-xs font-mono text-text-muted font-normal">
-                        {role.name}
-                      </p>
                     </th>
                   ))}
                 </tr>
@@ -372,19 +347,9 @@ export function AdminRolesView() {
                     <td className="px-3.5 py-2 align-middle text-sm leading-5 text-text-primary">
                       <div className="flex items-center gap-2">
                         <KeyRound className="w-3.5 h-3.5 text-brand-primary shrink-0 opacity-80" />
-                        <div>
-                          <p className="font-medium text-text-primary text-sm leading-5">
-                            {getPermissionDisplayName(permission.name)}
-                          </p>
-                          <p className="mt-0.5 text-xs font-mono text-text-secondary">
-                            {permission.name}
-                          </p>
-                          {permission.description && (
-                            <p className="mt-0.5 text-xs leading-4 text-text-muted line-clamp-1">
-                              {permission.description}
-                            </p>
-                          )}
-                        </div>
+                        <p className="font-medium text-text-primary text-sm leading-5">
+                          {getPermissionDisplayName(permission.name)}
+                        </p>
                       </div>
                     </td>
                     {rolesData.map((role) => {
@@ -489,96 +454,6 @@ export function AdminRolesView() {
       </AdminResourceState>
       </div>
 
-      {/* Danh mục chi tiết vai trò và quyền */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full min-w-0 max-w-full">
-        <section
-          className="w-full min-w-0 max-w-full rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3"
-          aria-label={isEn ? "Role list" : "Danh sách vai trò"}
-        >
-          <div className="flex items-center justify-between border-b border-border-color/60 pb-2.5">
-            <h3 className="text-sm leading-5 font-semibold text-text-primary">
-              {isEn ? `Roles (${rolesData.length})` : `Danh mục vai trò (${rolesData.length})`}
-            </h3>
-            <span className="text-xs leading-4 text-text-muted">
-              {isEn ? "Synced from Backend" : "Đồng bộ từ Backend"}
-            </span>
-          </div>
-
-          <AdminResourceState
-            resource={roles}
-            onRetry={() => retry("roles")}
-            emptyTitle={getAdminText(language, "roles.emptyTitle")}
-          >
-            <div className="divide-y divide-border-color/60">
-              {rolesData.map((role) => (
-                <div
-                  key={role.id ?? role.name}
-                  className="py-3 first:pt-1 last:pb-1 space-y-1"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm leading-5 font-semibold text-text-primary">
-                        {getRoleDisplayName(role.name)}
-                      </p>
-                      <p className="text-xs font-mono text-text-secondary">
-                        {role.name || `Role #${role.id}`}
-                      </p>
-                    </div>
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
-                      {getAdminText(language, "roles.permCount", {
-                        count: (role.permissions || []).length,
-                      })}
-                    </span>
-                  </div>
-                  <p className="text-xs leading-4 text-text-muted">
-                    {role.description || (isEn ? "No description." : "Chưa có thông tin mô tả.")}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </AdminResourceState>
-        </section>
-
-        <section
-          className="w-full min-w-0 max-w-full rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3"
-          aria-label={getAdminText(language, "roles.catalogTitle")}
-        >
-          <div className="flex items-center justify-between border-b border-border-color/60 pb-2.5">
-            <h3 className="text-sm leading-5 font-semibold text-text-primary">
-              {getAdminText(language, "roles.catalogTitle")} ({permissionsData.length})
-            </h3>
-            <span className="text-xs leading-4 text-text-muted">
-              {getAdminText(language, "roles.catalogColCode")}
-            </span>
-          </div>
-
-          <AdminResourceState
-            resource={permissions}
-            onRetry={() => retry("permissions")}
-            emptyTitle={getAdminText(language, "roles.catalogEmpty")}
-          >
-            <div className="divide-y divide-border-color/60 max-h-[460px] overflow-y-auto pr-1">
-              {permissionsData.map((permission) => (
-                <div
-                  key={permission.id ?? permission.name}
-                  className="py-2.5 first:pt-1 last:pb-1"
-                >
-                  <p className="text-sm leading-5 font-semibold text-text-primary">
-                    {getPermissionDisplayName(permission.name)}
-                  </p>
-                  <p className="text-xs leading-4 font-mono text-text-secondary mt-0.5 break-all">
-                    {permission.name}
-                  </p>
-                  <p className="mt-0.5 text-xs leading-4 text-text-muted">
-                    {permission.description || (isEn ? "No description." : "Chưa có thông tin mô tả.")}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </AdminResourceState>
-        </section>
-      </div>
-
       {/* Modal xác nhận lưu phân quyền */}
       <AdminConfirmDialog
         isOpen={isConfirmOpen}
@@ -596,7 +471,7 @@ export function AdminRolesView() {
               {changedRolesSummary.map((item) => (
                 <div key={item.role.id} className="space-y-1">
                   <p className="font-semibold text-text-primary">
-                    {getRoleDisplayName(item.role.name)} ({item.role.name}):
+                    {getRoleDisplayName(item.role.name)}:
                   </p>
                   {item.added.length > 0 && (
                     <div className="text-status-success pl-2">

@@ -628,7 +628,7 @@ test.describe('Kịch bản Admin Thao Tác Ghi (ADMIN-WRITE-01 -> ADMIN-WRITE-0
     await expect(usersRow.locator('span.sr-only:has-text("Bắt buộc có")').first()).toBeVisible();
 
     // 3. Kiểm tra MANAGE_PERMISSIONS bị khóa
-    const permsRow = page.locator('tbody tr').filter({ hasText: 'Quản trị phân quyền hệ thống' });
+    const permsRow = page.locator('tbody tr').filter({ hasText: 'Quản trị phân quyền' });
     await expect(permsRow.locator('span.sr-only:has-text("Bắt buộc có")').first()).toBeVisible();
   });
 
