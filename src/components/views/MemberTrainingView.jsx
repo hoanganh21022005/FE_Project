@@ -92,7 +92,7 @@ export function MemberTrainingView() {
   };
 
   return (
-    <main className="w-full space-y-6 px-6 py-6">
+    <div className="w-full space-y-6">
       <PageHeader
         title={isVi ? 'Tiến độ tập luyện' : 'Training progress'}
         description={isVi ? 'Kế hoạch từ huấn luyện viên, kết quả từng buổi tập và đánh giá định kỳ.' : 'Coach plans, session results, and periodic evaluations.'}
@@ -236,7 +236,7 @@ export function MemberTrainingView() {
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }
 

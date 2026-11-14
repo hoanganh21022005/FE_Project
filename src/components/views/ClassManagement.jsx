@@ -273,42 +273,6 @@ function exportClassesToCsv(
 }
 
 // Deterministic Ultra-Soft Pastel Avatars for Coaches (Calm & Non-clashing)
-const COACH_CHAR_PALETTES = {
-  P: { bg: "bg-[#F0F4F8]", text: "text-[#475467]", border: "border-[#E2E8F0]" }, // Cô Lan (P)
-  T: { bg: "bg-[#F2F4F7]", text: "text-[#344054]", border: "border-[#E4E7EC]" }, // Cô Hương (T)
-  L: { bg: "bg-[#F0F5FA]", text: "text-[#344054]", border: "border-[#DFE7F2]" }, // Thầy Khoa (L)
-  N: { bg: "bg-[#F4F3F7]", text: "text-[#475467]", border: "border-[#E8E6ED]" }, // Thầy Hoàng (N)
-  H: { bg: "bg-[#F8F4F2]", text: "text-[#5E4E47]", border: "border-[#EDE4E0]" }, // Cô My (H)
-  D: { bg: "bg-[#EFF4F7]", text: "text-[#364A57]", border: "border-[#DEE7ED]" }, // Thầy Dũng (D)
-  M: { bg: "bg-[#F1F5F3]", text: "text-[#3D5A4C]", border: "border-[#DFEAE3]" }, // Mai (M)
-  B: { bg: "bg-[#F6F4F0]", text: "text-[#5C5346]", border: "border-[#EDE7DF]" }, // Bình (B)
-}
-
-const PASTEL_FALLBACK_PALETTES = [
-  { bg: "bg-[#F0F4F8]", text: "text-[#475467]", border: "border-[#E2E8F0]" },
-  { bg: "bg-[#F2F4F7]", text: "text-[#344054]", border: "border-[#E4E7EC]" },
-  { bg: "bg-[#F0F5FA]", text: "text-[#344054]", border: "border-[#DFE7F2]" },
-  { bg: "bg-[#F1F5F3]", text: "text-[#3D5A4C]", border: "border-[#DFEAE3]" },
-  { bg: "bg-[#F4F3F7]", text: "text-[#475467]", border: "border-[#E8E6ED]" },
-]
-
-function getCoachAvatarPalette(name) {
-  if (!name || typeof name !== "string") return PASTEL_FALLBACK_PALETTES[0]
-  const trimmed = name.trim()
-  const firstChar = trimmed[0]?.toUpperCase() || "H"
-  if (COACH_CHAR_PALETTES[firstChar]) {
-    return COACH_CHAR_PALETTES[firstChar]
-  }
-  let hash = 0
-  for (let i = 0; i < trimmed.length; i++) {
-    hash = (hash << 5) - hash + trimmed.charCodeAt(i)
-    hash |= 0
-  }
-  return PASTEL_FALLBACK_PALETTES[
-    Math.abs(hash) % PASTEL_FALLBACK_PALETTES.length
-  ]
-}
-
 // Normalized status configuration matching Semantic UI specification
 const STATUS_CONFIG = {
   open: {
@@ -1268,6 +1232,7 @@ export function ClassManagement() {
     apiEnabled,
     classesLoading,
     subjects,
+    rooms,
     staff,
     coaches,
     addClassSession,
@@ -1914,7 +1879,7 @@ export function ClassManagement() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
-            Lớp học
+            Lớp Normal
           </h1>
           <p className="text-xs text-stone-500 mt-1">
             Quản lý lớp nhóm, phân công huấn luyện viên, theo dõi sĩ số và trạng
@@ -2236,7 +2201,7 @@ export function ClassManagement() {
                     </div>
                     <div className="space-y-1.5">
                       {[
-                        { id: "schedule", label: "Lịch học" },
+                        { id: "schedule", label: isManager ? "Ngày khai giảng" : "Lịch học" },
                         { id: "room", label: "Sân tập" },
                         { id: "coach", label: "Huấn luyện viên" },
                         { id: "enrollment", label: "Đăng ký (Sĩ số)" },
@@ -2387,7 +2352,7 @@ export function ClassManagement() {
                                 : ""
                             }
                           >
-                            Lớp
+                            Tên Lớp
                           </span>
                           <SortIcon sortKey="name" currentConfig={sortConfig} />
                         </div>
@@ -2397,7 +2362,7 @@ export function ClassManagement() {
                         <th
                           onClick={() => handleSort("date")}
                           className="py-3.5 px-4 min-w-[190px] cursor-pointer select-none group/th hover:text-stone-900 transition-colors"
-                          title="Nhấp để sắp xếp theo Lịch học / Ngày khai giảng"
+                          title={isManager ? "Sắp xếp theo ngày khai giảng" : "Nhấp để sắp xếp theo Lịch học / Ngày khai giảng"}
                         >
                           <div className="flex items-center gap-1.5">
                             <span
@@ -2407,7 +2372,7 @@ export function ClassManagement() {
                                   : ""
                               }
                             >
-                              Lịch học
+                              {isManager ? "Ngày khai giảng" : "Lịch học"}
                             </span>
                             <SortIcon
                               sortKey="date"
@@ -2483,6 +2448,36 @@ export function ClassManagement() {
                   <tbody className="divide-y divide-[#F1F3F5]">
                     {paginatedClasses.map((cls, idx) => {
                       const capacity = cls.capacity ?? (apiEnabled ? null : 8)
+                      const scheduledSessions =
+                        conflictSchedule?.classes === classes
+                          ? (conflictSchedule.sessions || []).filter(
+                              (session) => String(session.classId) === String(cls.id),
+                            )
+                          : []
+                      const assignedRooms = Array.from(
+                        new Map(
+                          scheduledSessions
+                            .map((session) => {
+                              const room = (rooms || []).find(
+                                (entry) => String(entry.id) === String(session.roomId),
+                              )
+                              const name = session.roomName || room?.name || room?.roomCode || ""
+                              return name ? [name, room || { name, capacity: null }] : null
+                            })
+                            .filter(Boolean),
+                        ).values(),
+                      )
+                      const roomNames = assignedRooms.length
+                        ? assignedRooms.map((room) => room.name)
+                        : [cls.roomVi || cls.room].filter(Boolean)
+                      const roomLabel = roomNames.join(", ") || "Chưa xếp phòng"
+                      const roomCapacities = Array.from(
+                        new Set(
+                          assignedRooms
+                            .map((room) => room.capacity)
+                            .filter((roomCapacity) => roomCapacity != null),
+                        ),
+                      )
                       const enrolled = cls.enrolledCount ?? (apiEnabled ? null : 0)
                       const minCap = cls.minCapacity ?? (apiEnabled ? null : 4)
                       const percent = capacity > 0 && enrolled !== null
@@ -2582,20 +2577,19 @@ export function ClassManagement() {
                               </div>
                               <div
                                 className="text-xs text-stone-500 flex items-center gap-1.5 flex-wrap"
-                                title={`${cls.category || (apiEnabled ? "—" : "Thể thao")} • ${sessionCount ?? "—"} buổi`}
+                                title={`${sessionCount ?? "—"} buổi`}
                               >
-                                <span>{cls.category || (apiEnabled ? "—" : "Thể thao")}</span>
-                                <span>&bull;</span>
                                 <span>{sessionCount ?? "—"} buổi</span>
                               </div>
                             </div>
                           </td>
 
-                          {/* Cột 2: Lịch học (Thẻ badge ngày trong tuần + Giờ học + Khai giảng) */}
+                          {/* Cột 2: Ngày khai giảng cho Manager */}
                           {columnVisibility.schedule !== false && (
                             <td className="py-4 px-4 align-middle">
                               <div className="space-y-1">
-                                <div className="flex items-center gap-1 flex-wrap">
+                                {!isManager && (
+                                  <div className="flex items-center gap-1 flex-wrap">
                                   {getWeekdaysArray(
                                     cls.selectedDays,
                                     cls.category,
@@ -2608,29 +2602,27 @@ export function ClassManagement() {
                                       {day}
                                     </span>
                                   ))}
-                                  <span
-                                    className="text-xs font-semibold text-stone-800 ml-0.5"
-                                    title={`Khung giờ học: ${formatScheduleTime(cls, apiEnabled)}`}
-                                  >
-                                    {formatScheduleTime(cls, apiEnabled)}
-                                  </span>
-                                </div>
-                                <div
-                                  className="text-xs text-stone-500"
-                                  title={
-                                    isOngoing
-                                      ? `Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`
-                                      : `Khai giảng: ${formatViDate(cls.startDate || cls.date)}`
-                                  }
-                                >
-                                  {isOngoing ? (
-                                    <span className="text-emerald-700 font-medium">
-                                      {`Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`}
+                                  {(!apiEnabled || (cls.startTime && cls.endTime)) && (
+                                    <span
+                                      className="text-xs font-semibold text-stone-800 ml-0.5"
+                                      title={`Khung giờ học: ${formatScheduleTime(cls, apiEnabled)}`}
+                                    >
+                                      {formatScheduleTime(cls, apiEnabled)}
                                     </span>
+                                  )}
+                                </div>
+                                )}
+                                <div className={isManager ? "text-sm font-semibold text-stone-900" : "text-xs text-stone-500"}>
+                                  {isManager ? (
+                                    formatViDate(cls.startDate || cls.date)
+                                  ) : isOngoing && rawClassType === "normal" ? (
+                                    <span className="text-sm font-semibold text-emerald-700">Đang diễn ra</span>
+                                  ) : isOngoing ? (
+                                    <span className="text-emerald-700 font-medium">{`Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`}</span>
                                   ) : (
                                     <span>
-                                      Khai giảng:{" "}
-                                      {formatViDate(cls.startDate || cls.date)}
+                                      {rawClassType !== "normal" && <>Khai giảng: </>}
+                                      <span className="text-sm font-semibold text-stone-900">{formatViDate(cls.startDate || cls.date)}</span>
                                     </span>
                                   )}
                                 </div>
@@ -2643,46 +2635,26 @@ export function ClassManagement() {
                             <td className="py-4 px-4 align-middle">
                               <div className="space-y-0.5">
                                 <div
-                                  className="font-medium text-stone-800 line-clamp-1 truncate"
-                                  title={
-                                    cls.roomVi || cls.room || (apiEnabled ? "—" : "Sân tiêu chuẩn")
-                                  }
+                                  className="text-sm font-semibold text-stone-800 line-clamp-1 truncate"
+                                  title={roomLabel}
                                 >
-                                  {cls.roomVi || cls.room || (apiEnabled ? "—" : "Sân tiêu chuẩn")}
+                                  {roomLabel}
                                 </div>
-                                <div
-                                  className="text-xs text-stone-500 line-clamp-1 truncate"
-                                  title={`Sức chứa ${capacity ?? "—"} • ${cls.roomSpec || (apiEnabled ? "—" : "Thảm PVC tiêu chuẩn")}`}
-                                >
-                                  Sức chứa {capacity ?? "—"} &bull;{" "}
-                                  {cls.roomSpec || (apiEnabled ? "—" : "Thảm PVC")}
-                                </div>
+                                {roomCapacities.length > 0 && (
+                                  <div className="text-xs text-stone-500 line-clamp-1 truncate">
+                                    Sức chứa {roomCapacities.join(", ")}
+                                  </div>
+                                )}
                               </div>
                             </td>
                           )}
-
-                          {/* Cột 4: Huấn luyện viên (Deterministic Soft Pastel Color Avatar + Tooltip) */}
+                          {/* Cột 4: Huấn luyện viên */}
                           {columnVisibility.coach !== false && (
                             <td className="py-4 px-4 align-middle">
-                              <div className="flex items-center gap-2.5">
-                                {(() => {
-                                  const palette = getCoachAvatarPalette(
-                                    cls.coachName,
-                                  )
-                                  const initial = (cls.coachName ||
-                                    "H")[0]?.toUpperCase()
-                                  return (
-                                    <div
-                                      className={`w-7 h-7 rounded-full ${palette.bg} border ${palette.border} ${palette.text} font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs`}
-                                      title={`HLV: ${cls.coachName || "Chưa phân công"}`}
-                                    >
-                                      {initial}
-                                    </div>
-                                  )
-                                })()}
+                              <div>
                                 <div className="space-y-0.5 min-w-0">
                                   <div
-                                    className="font-medium text-stone-800 line-clamp-1 truncate flex items-center gap-1.5"
+                                    className="text-sm font-semibold text-stone-800 line-clamp-1 truncate flex items-center gap-1.5"
                                     title={cls.coachName || "Chưa phân công"}
                                   >
                                     <span>{cls.coachName || "Chưa phân công"}</span>
@@ -2704,39 +2676,6 @@ export function ClassManagement() {
                                       return null
                                     })()}
                                   </div>
-                                  {(() => {
-                                    const isMismatch =
-                                      cls.coachName &&
-                                      cls.coachSpecialty &&
-                                      cls.coachName !== "Chưa phân công" &&
-                                      !isCoachMatchingSport(
-                                        {
-                                          specialization: cls.coachSpecialty,
-                                          specializationVi: cls.coachSpecialty,
-                                        },
-                                        cls.category,
-                                      )
-                                    return (
-                                      <div
-                                        className="text-xs text-stone-500 line-clamp-1 truncate flex items-center gap-1.5"
-                                        title={`Chuyên môn: ${cls.coachSpecialty || (apiEnabled ? "—" : cls.category || "HLV")}${
-                                          isMismatch
-                                            ? " (Khác với bộ môn của lớp)"
-                                            : ""
-                                        }`}
-                                      >
-                                        <span>
-                                          Chuyên môn:{" "}
-                                          {cls.coachSpecialty || (apiEnabled ? "—" : cls.category || "HLV")}
-                                        </span>
-                                        {isMismatch && (
-                                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-xs bg-amber-50 text-amber-700 border border-amber-200/80 font-medium shrink-0">
-                                            ⚠️ Khác môn
-                                          </span>
-                                        )}
-                                      </div>
-                                    )
-                                  })()}
                                 </div>
                               </div>
                             </td>

@@ -1117,10 +1117,10 @@ export function MemberCourseCatalog() {
   const retryAll = () => { refresh(); setScheduleStates({}); setCoachState({ loading: false, error: '', specializations: [], coaches: [] }) }
   const displayedOrders = orders
 
-  return <main className="w-full space-y-6 px-4 py-5 sm:px-6 lg:px-8" aria-labelledby="course-catalog-title">
+  return <div className="w-full space-y-6" aria-labelledby="course-catalog-title">
     <header className="relative isolate overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-r from-white via-white/95 to-blue-50 p-5 shadow-sm sm:p-7">
       <img src={COURSE_HERO_MEDIA.poster} alt="" className="absolute inset-y-0 right-0 -z-10 hidden h-full w-3/5 object-cover opacity-35 lg:block" /><div className="absolute inset-y-0 right-0 -z-10 hidden w-3/5 bg-gradient-to-r from-white via-white/80 to-transparent lg:block" />
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div className="max-w-3xl"><p className="text-[13px] font-bold uppercase tracking-[0.18em] text-brand-accent-dark">VIBE SPORT · MEMBER</p><h1 id="course-catalog-title" className="mt-2 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">{isVi ? 'Đăng ký khóa học' : 'Course registration'}</h1><p className="mt-2 max-w-2xl text-base leading-6 text-slate-600">{isVi ? 'Chọn môn thể thao, xem học phí và đăng ký lớp nhóm hoặc gửi yêu cầu huấn luyện 1:1.' : 'Choose a sport, review its listed price, then enroll in a group class or request 1:1 coaching.'}</p></div><button type="button" onClick={retryAll} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50"><RefreshCw size={17} />{isVi ? 'Tải lại dữ liệu' : 'Refresh data'}</button></div>
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div className="max-w-3xl"><p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-accent-dark">VIBE SPORT · MEMBER</p><h1 id="course-catalog-title" className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-900 leading-snug">{isVi ? 'Đăng ký khóa học' : 'Course registration'}</h1><p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500">{isVi ? 'Chọn môn thể thao, xem học phí và đăng ký lớp nhóm hoặc gửi yêu cầu huấn luyện 1:1.' : 'Choose a sport, review its listed price, then enroll in a group class or request 1:1 coaching.'}</p></div><button type="button" onClick={retryAll} className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm cursor-pointer"><RefreshCw size={16} />{isVi ? 'Tải lại dữ liệu' : 'Refresh data'}</button></div>
     </header>
 
     {!apiEnabled && <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">{isVi ? 'Danh mục khóa học yêu cầu kết nối mạng trực tuyến để tải học phí và đăng ký.' : 'Course catalog requires network connection to view prices and enroll.'}</div>}
@@ -1238,7 +1238,7 @@ export function MemberCourseCatalog() {
     </CatalogDialog>}
 
     <footer className="flex items-start gap-2 rounded-xl bg-slate-100 p-4 text-[13px] leading-5 text-slate-700"><FileText size={16} className="mt-0.5 shrink-0 text-slate-500" />{isVi ? 'Giá học phí, trạng thái lớp, lịch học, HLV và kết quả thanh toán được cập nhật từ hệ thống. Các đơn ở trạng thái Chờ xử lý chưa được xem là đã thanh toán.' : 'Course prices, class statuses, schedules, coaches, and payment results are updated from the system. Pending orders are not considered paid.'}</footer>
-  </main>
+  </div>
 }
 
 function Step({ n, title, body }) {

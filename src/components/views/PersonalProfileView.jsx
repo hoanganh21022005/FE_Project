@@ -407,9 +407,9 @@ export function PersonalProfileView() {
   const formattedMemberId = valid ? String(memberId).padStart(4, "0") : null
 
   return (
-    <main className="w-full space-y-6 px-4 py-5 sm:px-6 lg:px-8 font-['Be_Vietnam_Pro',sans-serif]">
+    <div className="w-full space-y-6 font-sans">
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div><h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{isVi ? "Thông tin cá nhân" : "Personal information"}</h1><p className="mt-1 text-sm text-slate-500">{isVi ? "Quản lý hồ sơ hội viên, ảnh đại diện và bảo mật tài khoản." : "Manage your member profile, avatar, and account security."}</p></div>
+        <div><h1 className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug">{isVi ? "Thông tin cá nhân" : "Personal information"}</h1><p className="mt-1 text-sm text-slate-500 leading-relaxed">{isVi ? "Quản lý hồ sơ hội viên, ảnh đại diện và bảo mật tài khoản." : "Manage your member profile, avatar, and account security."}</p></div>
       </header>
 
       {!valid && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{isVi ? "Tài khoản chưa được liên kết với hồ sơ hội viên. Hãy liên hệ lễ tân để đồng bộ thông tin." : "No member profile is linked to this account. Contact reception to link it."}</div>}
@@ -479,7 +479,7 @@ export function PersonalProfileView() {
           </section>
         </div>
       </div>
-    </main>
+    </div>
   )
 }
 

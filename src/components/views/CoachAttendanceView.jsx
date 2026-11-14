@@ -1143,32 +1143,34 @@ export function CoachAttendanceView() {
   return (
     <div className="w-full space-y-6">
       {/* Attendance Mode Switcher: Normal Group Classes vs Advanced 1:1 PT */}
-      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <ClipboardCheck className="w-5 h-5 text-brand-primary" />
-            <h2 className="text-xl font-semibold text-text-primary">
-              {language === "vi" ? "Điểm danh học viên" : "Attendance Tracking"}
-            </h2>
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-brand-blue-soft p-2.5 text-brand-primary shrink-0">
+            <ClipboardCheck className="w-5 h-5" />
           </div>
-          <p className="text-sm text-text-secondary mt-0.5">
-            {language === "vi"
-              ? "Tách biệt rõ ràng giữa điểm danh Lớp học thường (Normal) và Buổi tập kèm riêng 1:1 (Advanced)"
-              : "Clear separation between Normal group classes and Advanced 1:1 private sessions"}
-          </p>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug">
+              {language === "vi" ? "Điểm danh học viên" : "Attendance Tracking"}
+            </h1>
+            <p className="mt-1 text-sm text-slate-500 leading-relaxed">
+              {language === "vi"
+                ? "Tách biệt rõ ràng giữa điểm danh Lớp học thường (Normal) và Buổi tập kèm riêng 1:1 (Advanced)"
+                : "Clear separation between Normal group classes and Advanced 1:1 private sessions"}
+            </p>
+          </div>
         </div>
 
         {/* Tab Switcher */}
-        <div role="tablist" className="inline-flex rounded-lg border border-border-color bg-bg-secondary p-1 gap-1.5 self-start md:self-auto">
+        <div role="tablist" className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1 gap-1 self-start shrink-0">
           <button
             type="button"
             role="tab"
             aria-selected={attendanceMode === "normal"}
             onClick={() => handleModeChange("normal")}
-            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 text-xs font-semibold transition-all cursor-pointer ${
+            className={`inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3.5 text-xs font-semibold transition-all cursor-pointer ${
               attendanceMode === "normal"
-                ? "bg-brand-primary text-text-inverse shadow-xs"
-                : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
+                ? "bg-brand-primary text-white shadow-sm"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
             }`}
           >
             <Users className="w-4 h-4" />

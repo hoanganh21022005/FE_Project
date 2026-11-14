@@ -1589,7 +1589,7 @@ export function MemberCheckinView() {
   )
 
   return (
-    <main className="mx-auto w-full space-y-6 px-4 py-6 sm:px-7 sm:py-8">
+    <div className="w-full space-y-6">
       {/* 4.1 Header */}
       <PageHeader
         title={t("checkinPageTitle")}
@@ -2691,6 +2691,6 @@ export function MemberCheckinView() {
           </motion.div>
         )}
       </AnimatePresence>
-    </main>
+    </div>
   )
 }

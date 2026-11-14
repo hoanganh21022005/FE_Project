@@ -77,16 +77,16 @@ export function ReceptionMemberSearch() {
   return (
     <div className="space-y-6 font-sans">
       {/* Header */}
-      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-brand-dark text-brand-accent rounded border border-border-color">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-brand-blue-soft p-2.5 text-brand-primary shrink-0">
             <Search className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl leading-7 font-semibold text-text-primary">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug">
               {t("memberSearch")}
-            </h2>
-            <p className="text-sm leading-5 text-text-secondary">
+            </h1>
+            <p className="mt-1 text-sm text-slate-500 leading-relaxed">
               {language === "vi"
                 ? "Tra cứu chi tiết hồ sơ hội viên, kiểm tra hạn gói tập & gỡ chặn đặt lịch"
                 : "Look up member profiles, package status and lift booking blocks"}
@@ -96,7 +96,7 @@ export function ReceptionMemberSearch() {
 
         <button
           onClick={() => setIsNewMemberOpen(true)}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer w-full md:w-auto"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer w-full sm:w-auto shrink-0"
         >
           <UserPlus className="w-4 h-4" />
           <span>Tạo Thành Viên Mới</span>
@@ -104,25 +104,25 @@ export function ReceptionMemberSearch() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Nhập tên, số điện thoại, email hoặc mã hội viên..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="min-h-11 w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+              className="h-10 w-full rounded-xl border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-text-secondary shrink-0" />
+            <Filter className="w-4 h-4 text-slate-500 shrink-0" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="min-h-11 w-full sm:w-auto rounded border border-border-strong bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+              className="h-10 w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
             >
               <option value="all">Tất cả trạng thái (All Statuses)</option>
               <option value="active">Hoạt động (Active)</option>
@@ -139,7 +139,7 @@ export function ReceptionMemberSearch() {
           {membersLoading ? (
             <div aria-busy="true" aria-label={language === "vi" ? "Đang tải danh sách hội viên..." : "Loading members..."} className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-2">
+                <div key={i} className="rounded-xl border border-slate-200 bg-white p-4 text-slate-900 space-y-2">
                   <div className="flex items-center gap-3">
                     <SkeletonBlock className="h-4 w-32" />
                     <SkeletonBlock className="h-5 w-16 rounded-full" />
@@ -155,15 +155,15 @@ export function ReceptionMemberSearch() {
             </div>
           ) : filteredMembers.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-10 text-center">
-              <div className="p-3 bg-bg-secondary rounded-lg">
-                <Users className="w-5 h-5 text-text-muted" />
+              <div className="p-3 bg-slate-100 rounded-xl">
+                <Users className="w-5 h-5 text-slate-400" />
               </div>
-              <p className="text-lg leading-7 font-semibold text-text-primary">
+              <p className="text-base font-semibold text-slate-900">
                 {searchTerm || statusFilter !== "all"
                   ? (language === "vi" ? "Không tìm thấy hội viên phù hợp" : "No matching members found")
                   : (language === "vi" ? "Chưa có hội viên nào trong hệ thống" : "No members in the system yet")}
               </p>
-              <p className="text-sm leading-5 text-text-secondary max-w-xs">
+              <p className="text-sm text-slate-500 max-w-xs">
                 {searchTerm || statusFilter !== "all"
                   ? (language === "vi" ? "Thử thay đổi từ khóa hoặc bộ lọc trạng thái." : "Try different keywords or status filter.")
                   : (language === "vi" ? "Nhấn \"Tạo Thành Viên Mới\" để thêm hội viên đầu tiên." : "Click \"Create New Member\" to add the first member.")}
@@ -173,11 +173,11 @@ export function ReceptionMemberSearch() {
             filteredMembers.map((m) => (
               <div
                 key={m.id}
-                className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-bg-secondary/50 transition-colors"
+                className="rounded-xl border border-slate-200 bg-white p-4 text-slate-900 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors"
               >
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-3">
-                    <span className="text-lg leading-7 font-semibold text-text-primary">
+                    <span className="text-base font-semibold text-slate-900">
                       {m.name}
                     </span>
                     <StatusBadge
@@ -186,29 +186,29 @@ export function ReceptionMemberSearch() {
                     />
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-4 text-sm leading-5 text-text-secondary">
-                    <span className="font-mono font-semibold text-text-primary tabular-nums">
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                    <span className="font-semibold text-slate-900 tabular-nums">
                       Mã: {m.code}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Phone className="w-3.5 h-3.5 text-text-muted" />{" "}
+                      <Phone className="w-3.5 h-3.5 text-slate-400" />{" "}
                       {m.phone || "—"}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Mail className="w-3.5 h-3.5 text-text-muted" />{" "}
+                      <Mail className="w-3.5 h-3.5 text-slate-400" />{" "}
                       {m.email || "—"}
                     </span>
                   </div>
 
-                  <div className="text-xs leading-4 font-medium text-text-secondary flex items-center gap-2 pt-0.5">
+                  <div className="text-xs font-medium text-slate-500 flex items-center gap-2 pt-0.5">
                     <Award className="w-3.5 h-3.5 text-status-warning" />
                     <span>
                       Gói:{" "}
-                      <strong className="text-text-primary">{m.currentPackageName || "Chưa có gói"}</strong>
+                      <strong className="text-slate-900">{m.currentPackageName || "Chưa có gói"}</strong>
                     </span>
                     <span>
                       &bull; Ngày gia nhập:{" "}
-                      <span className="font-mono tabular-nums">
+                      <span className="tabular-nums">
                         {m.joinDate}
                       </span>
                     </span>
@@ -220,7 +220,7 @@ export function ReceptionMemberSearch() {
                     type="button"
                     onClick={() => handleLiftBookingBlock(m)}
                     disabled={actionBusyKey === `lift-${m.id}`}
-                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded border border-border-color bg-bg-card px-3 text-xs font-medium text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer"
+                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
                     title="Gỡ khóa đặt lịch do vắng mặt quá số buổi"
                   >
                     <Unlock className="w-3.5 h-3.5" />
