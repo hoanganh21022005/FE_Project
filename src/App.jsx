@@ -53,6 +53,16 @@ const LoginView = React.lazy(() =>
     default: module.LoginView,
   })),
 )
+const AdminLoginView = React.lazy(() =>
+  import("./components/admin/AdminLoginView").then((module) => ({
+    default: module.AdminLoginView,
+  })),
+)
+const AdminHostDeniedView = React.lazy(() =>
+  import("./components/admin/AdminLoginView").then((module) => ({
+    default: module.AdminHostDeniedView,
+  })),
+)
 const PaymentResultView = React.lazy(() =>
   import("./components/views/PaymentResultView").then((module) => ({
     default: module.PaymentResultView,
@@ -805,24 +815,18 @@ function SCMSApp() {
               <Route
                 path="/admin/login"
                 element={
-                  <LoginView
+                  <AdminLoginView
                     key={location.pathname}
                     onLoginSuccess={handleLoginSuccess}
-                    onBackToHome={() => navigate("/")}
-                    initialMode="login"
-                    adminEntry={true}
                   />
                 }
               />
               <Route
                 path="/admin/*"
                 element={
-                  <LoginView
+                  <AdminLoginView
                     key={location.pathname}
                     onLoginSuccess={handleLoginSuccess}
-                    onBackToHome={() => navigate("/")}
-                    initialMode="login"
-                    adminEntry={true}
                   />
                 }
               />
@@ -1028,6 +1032,18 @@ function SCMSApp() {
   }
 
   // Authenticated: Manager, Coach, Receptionist, Member
+  if (location.pathname === "/admin" || location.pathname.startsWith("/admin/")) {
+    return (
+      <Suspense fallback={null}>
+        <AdminHostDeniedView
+          onReturnToLogin={() =>
+            navigate("/admin/login", { state: { adminDenied: true }, replace: true })
+          }
+        />
+      </Suspense>
+    )
+  }
+
   return (
     <RequireAuth
       isAuthenticated={isAuthenticated}
