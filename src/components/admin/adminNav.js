@@ -78,7 +78,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
       },
       {
         id: "ops_classes",
-        label: "Lớp học",
+        label: "Lớp Normal",
         icon: Calendar,
         path: "/admin/ops/classes",
       },
@@ -93,6 +93,12 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         label: "Sự cố lịch học",
         icon: Activity,
         path: "/admin/ops/session-incidents",
+      },
+      {
+        id: "ops_advanced_schedule",
+        label: "Lớp Advanced",
+        icon: CalendarDays,
+        path: "/admin/ops/advanced-schedule",
       },
       {
         id: "ops_resources",

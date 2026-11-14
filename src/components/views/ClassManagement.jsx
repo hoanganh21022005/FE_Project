@@ -1914,7 +1914,7 @@ export function ClassManagement() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
-            Lớp học
+            Lớp Normal
           </h1>
           <p className="text-xs text-stone-500 mt-1">
             Quản lý lớp nhóm, phân công huấn luyện viên, theo dõi sĩ số và trạng
@@ -2387,7 +2387,7 @@ export function ClassManagement() {
                                 : ""
                             }
                           >
-                            Lớp
+                            Tên Lớp
                           </span>
                           <SortIcon sortKey="name" currentConfig={sortConfig} />
                         </div>
@@ -2582,10 +2582,8 @@ export function ClassManagement() {
                               </div>
                               <div
                                 className="text-xs text-stone-500 flex items-center gap-1.5 flex-wrap"
-                                title={`${cls.category || (apiEnabled ? "—" : "Thể thao")} • ${sessionCount ?? "—"} buổi`}
+                                title={`${sessionCount ?? "—"} buổi`}
                               >
-                                <span>{cls.category || (apiEnabled ? "—" : "Thể thao")}</span>
-                                <span>&bull;</span>
                                 <span>{sessionCount ?? "—"} buổi</span>
                               </div>
                             </div>
@@ -2608,29 +2606,39 @@ export function ClassManagement() {
                                       {day}
                                     </span>
                                   ))}
-                                  <span
-                                    className="text-xs font-semibold text-stone-800 ml-0.5"
-                                    title={`Khung giờ học: ${formatScheduleTime(cls, apiEnabled)}`}
-                                  >
-                                    {formatScheduleTime(cls, apiEnabled)}
-                                  </span>
+                                  {(!apiEnabled || (cls.startTime && cls.endTime)) && (
+                                    <span
+                                      className="text-xs font-semibold text-stone-800 ml-0.5"
+                                      title={`Khung giờ học: ${formatScheduleTime(cls, apiEnabled)}`}
+                                    >
+                                      {formatScheduleTime(cls, apiEnabled)}
+                                    </span>
+                                  )}
                                 </div>
                                 <div
                                   className="text-xs text-stone-500"
                                   title={
-                                    isOngoing
+                                    isOngoing && rawClassType === "normal"
+                                      ? "Đang diễn ra"
+                                      : isOngoing
                                       ? `Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`
                                       : `Khai giảng: ${formatViDate(cls.startDate || cls.date)}`
                                   }
                                 >
-                                  {isOngoing ? (
+                                  {isOngoing && rawClassType === "normal" ? (
+                                    <span className="text-sm font-semibold text-emerald-700">
+                                      Đang diễn ra
+                                    </span>
+                                  ) : isOngoing ? (
                                     <span className="text-emerald-700 font-medium">
                                       {`Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`}
                                     </span>
                                   ) : (
                                     <span>
-                                      Khai giảng:{" "}
-                                      {formatViDate(cls.startDate || cls.date)}
+                                      {rawClassType !== "normal" && <>Khai giảng:{" "}</>}
+                                      <span className="text-sm font-semibold text-stone-900">
+                                        {formatViDate(cls.startDate || cls.date)}
+                                      </span>
                                     </span>
                                   )}
                                 </div>

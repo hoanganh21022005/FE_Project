@@ -130,6 +130,11 @@ const ManagerSessionIncidentsView = React.lazy(() =>
     default: module.default,
   })),
 )
+const ManagerAdvancedScheduleView = React.lazy(() =>
+  import("./components/views/ManagerAdvancedScheduleView").then((module) => ({
+    default: module.default,
+  })),
+)
 
 // Coach Views
 const CoachDashboard = React.lazy(() =>
@@ -510,6 +515,7 @@ function SCMSApp() {
     if (path.startsWith("/admin/ops/classes")) return "ops_classes"
     if (path.startsWith("/admin/ops/holidays")) return "ops_holidays"
     if (path.startsWith("/admin/ops/session-incidents")) return "ops_session_incidents"
+    if (path.startsWith("/admin/ops/advanced-schedule")) return "ops_advanced_schedule"
     if (path.startsWith("/admin/ops/resources")) return "ops_resources"
     if (path.startsWith("/admin/ops/payments")) return "ops_payments"
     if (path.startsWith("/admin/ops/normal-refunds")) return "ops_refunds"
@@ -537,9 +543,10 @@ function SCMSApp() {
     if (path.startsWith("/admin/ops/staff")) return "Quản lý nhân sự"
     if (path.startsWith("/admin/ops/members")) return "Quản lý hội viên"
     if (path.startsWith("/admin/ops/packages")) return "Quản lý gói tập"
-    if (path.startsWith("/admin/ops/classes")) return "Quản lý lớp học"
+    if (path.startsWith("/admin/ops/classes")) return "Lớp Normal"
     if (path.startsWith("/admin/ops/holidays")) return "Quản lý ngày nghỉ"
     if (path.startsWith("/admin/ops/session-incidents")) return "Sự cố lịch học"
+    if (path.startsWith("/admin/ops/advanced-schedule")) return "Lớp Advanced"
     if (path.startsWith("/admin/ops/resources")) return "Bộ môn & Phòng tập"
     if (path.startsWith("/admin/ops/payments")) return "Quản lý thanh toán"
     if (path.startsWith("/admin/ops/normal-refunds")) return "Hoàn tiền Normal"
@@ -601,6 +608,9 @@ function SCMSApp() {
       case "ops_session_incidents":
         navigate("/admin/ops/session-incidents")
         break
+      case "ops_advanced_schedule":
+        navigate("/admin/ops/advanced-schedule")
+        break
       case "ops_resources":
         navigate("/admin/ops/resources")
         break
@@ -645,11 +655,14 @@ function SCMSApp() {
     if (path.includes("/staff")) return t("staff")
     if (path.includes("/members")) return t("members")
     if (path.includes("/packages")) return t("packages")
-    if (path.includes("/classes")) return t("classes")
+    if (path.includes("/classes"))
+      return language === "vi" ? "Lớp Normal" : "Normal Classes"
     if (path.includes("/holidays"))
       return language === "vi" ? "Ngày nghỉ" : "Holidays"
     if (path.includes("/session-incidents"))
       return language === "vi" ? "Sự cố lịch học" : "Session incidents"
+    if (path.includes("/advanced-schedule"))
+      return language === "vi" ? "Lớp Advanced" : "Advanced Classes"
     if (path.includes("/resources"))
       return language === "vi" ? "Bộ môn & phòng tập" : "Subjects & Rooms"
     if (path.includes("/enrollments")) return t("myEnrollments")
@@ -922,6 +935,10 @@ function SCMSApp() {
                     element={<ManagerSessionIncidentsView />}
                   />
                   <Route
+                    path="/admin/ops/advanced-schedule"
+                    element={<ManagerAdvancedScheduleView />}
+                  />
+                  <Route
                     path="/admin/ops/resources"
                     element={<ResourceManagement />}
                   />
@@ -1191,6 +1208,19 @@ function SCMSApp() {
                         onForbidden={() => navigate(`/${role}/dashboard`)}
                       >
                         <ManagerSessionIncidentsView />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/manager/advanced-schedule"
+                    element={
+                      <RequireRole
+                        allowedRoles={[ROLE_MANAGER]}
+                        currentRole={role}
+                        attemptedPath={location.pathname}
+                        onForbidden={() => navigate(`/${role}/dashboard`)}
+                      >
+                        <ManagerAdvancedScheduleView />
                       </RequireRole>
                     }
                   />

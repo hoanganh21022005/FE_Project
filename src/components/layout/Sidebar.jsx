@@ -7,6 +7,7 @@ import {
   UserCheck,
   Package,
   Calendar,
+  CalendarDays,
   ClipboardCheck,
   TrendingUp,
   CalendarPlus,
@@ -53,7 +54,16 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           { path: "/manager/staff", labelKey: "staff", icon: Users },
           { path: "/manager/members", labelKey: "members", icon: UserCheck },
           { path: "/manager/packages", labelKey: "packages", icon: Package },
-          { path: "/manager/classes", labelKey: "classes", icon: Calendar },
+          {
+            path: "/manager/classes",
+            label: language === "vi" ? "Lớp Normal" : "Normal Classes",
+            icon: Calendar,
+          },
+          {
+            path: "/manager/advanced-schedule",
+            label: language === "vi" ? "Lớp Advanced" : "Advanced Classes",
+            icon: CalendarDays,
+          },
           {
             path: "/manager/holidays",
             label: language === "vi" ? "Ngày nghỉ" : "Holidays",
