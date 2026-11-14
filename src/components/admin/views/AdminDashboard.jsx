@@ -9,10 +9,10 @@ import {
   Users,
 } from "lucide-react"
 import { getAdminAuditLogs } from "../../../api/adminApi.js"
-import { getErrorMessage } from "../../../api/apiErrors.js"
 import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { useAdminData } from "../AdminDataContext.jsx"
 import { AdminPageHeader } from "../AdminPageHeader.jsx"
+import { AUDIT_PAGE_BASE } from "./AdminAuditLogsView.jsx"
 import { formatAdminDateTime, parseToVietnamDate, VIETNAM_TIMEZONE } from "../adminDateUtils.js"
 import {
   formatAdminNumber,
@@ -26,8 +26,8 @@ import {
 export const ACTION_LABELS = {
   LOGIN: "Đăng nhập",
   LOGIN_GOOGLE: "Đăng nhập qua Google",
-  REGISTER_MEMBER_GOOGLE: "Đăng ký hội viên (Google)",
-  REGISTER_MEMBER_PENDING: "Đăng ký hội viên (Chờ duyệt)",
+  REGISTER_MEMBER_GOOGLE: "Đăng ký hội viên qua Google",
+  REGISTER_MEMBER_PENDING: "Đăng ký hội viên",
   VERIFY_MEMBER_REGISTRATION: "Xác minh đăng ký hội viên",
   CREATE_USER: "Tạo tài khoản người dùng",
   CHANGE_USER_ROLE: "Đổi vai trò người dùng",
@@ -62,7 +62,8 @@ const ROLE_CHART_COLORS = [
   "var(--brand-purple)",
 ]
 
-const AUDIT_7D_FETCH_SIZE = 500
+const AUDIT_7D_PAGE_SIZE = 100
+const AUDIT_7D_MAX_PAGES = 10
 
 function getVietnamDateKey(dateInput) {
   const parsed = parseToVietnamDate(dateInput)
@@ -115,7 +116,7 @@ function formatAuditTarget(log, userMap, roleMap, language) {
     if (matchedRole?.name) return getAdminRoleLabel(matchedRole.name, language)
   }
 
-  if (log?.targetLabel && log.targetLabel !== "N/A") {
+  if (log?.targetLabel && log.targetLabel !== "N/A" && !/^User #\d+$/i.test(log.targetLabel)) {
     return log.targetLabel
   }
 
@@ -135,7 +136,8 @@ export function AdminDashboard() {
 
   const [weeklyLogs, setWeeklyLogs] = useState([])
   const [weeklyLoading, setWeeklyLoading] = useState(false)
-  const [weeklyError, setWeeklyError] = useState(null)
+  const [weeklyError, setWeeklyError] = useState(false)
+  const [weeklyTruncated, setWeeklyTruncated] = useState(false)
 
   const last7DaysTemplate = useMemo(() => buildLast7Days(language), [language])
   const startDate7d = last7DaysTemplate[0]?.key || ""
@@ -144,28 +146,41 @@ export function AdminDashboard() {
   const loadWeeklyLogs = useCallback(async () => {
     if (!apiEnabled) {
       setWeeklyLogs(auditLogsList)
-      setWeeklyError(null)
+      setWeeklyTruncated(false)
+      setWeeklyError(false)
       setWeeklyLoading(false)
       return
     }
     setWeeklyLoading(true)
-    setWeeklyError(null)
+    setWeeklyError(false)
+    setWeeklyTruncated(false)
     try {
-      const data = await getAdminAuditLogs({
-        startDate: startDate7d,
-        endDate: endDate7d,
-        page: 0,
-        size: AUDIT_7D_FETCH_SIZE,
-      })
-      setWeeklyLogs(Array.isArray(data) ? data : [])
-    } catch (err) {
-      setWeeklyError(
-        getErrorMessage(err, getAdminText(language, "dash.chartError")),
-      )
+      const collected = []
+      let reachedPageLimit = false
+      for (let offset = 0; offset < AUDIT_7D_MAX_PAGES; offset++) {
+        const data = await getAdminAuditLogs({
+          startDate: startDate7d,
+          endDate: endDate7d,
+          page: AUDIT_PAGE_BASE + offset,
+          size: AUDIT_7D_PAGE_SIZE,
+        })
+        const rows = Array.isArray(data) ? data : []
+        collected.push(...rows)
+        if (rows.length < AUDIT_7D_PAGE_SIZE) {
+          break
+        }
+        if (offset === AUDIT_7D_MAX_PAGES - 1) {
+          reachedPageLimit = true
+        }
+      }
+      setWeeklyLogs(collected)
+      setWeeklyTruncated(reachedPageLimit)
+    } catch {
+      setWeeklyError(true)
     } finally {
       setWeeklyLoading(false)
     }
-  }, [apiEnabled, auditLogsList, endDate7d, language, startDate7d])
+  }, [apiEnabled, auditLogsList, endDate7d, startDate7d])
 
   useEffect(() => {
     loadWeeklyLogs()
@@ -485,7 +500,7 @@ export function AdminDashboard() {
                 {getAdminText(language, "dash.chartHeading")}
               </h2>
               <p className="mt-0.5 text-xs leading-4 text-text-muted">
-                {weeklySeries.fetchedCount >= AUDIT_7D_FETCH_SIZE
+                {weeklyTruncated
                   ? getAdminText(language, "dash.chartLimited")
                   : getAdminText(language, "dash.chartTotal", {
                       count: formatAdminNumber(weeklySeries.totalCount, language),
@@ -496,7 +511,7 @@ export function AdminDashboard() {
 
           {weeklyError ? (
             <div role="alert" className="py-8 flex flex-col items-center justify-center text-center gap-3">
-              <p className="text-sm text-status-danger">{weeklyError}</p>
+              <p className="text-sm text-status-danger">{getAdminText(language, "dash.chartError")}</p>
               <button
                 type="button"
                 onClick={loadWeeklyLogs}
@@ -736,7 +751,11 @@ export function AdminDashboard() {
                 const actorName =
                   log.actorId === null || log.actorId === undefined
                     ? getAdminText(language, "common.system")
-                    : actorUser?.fullName || log.actorLabel || `User #${log.actorId}`
+                    : actorUser?.fullName ||
+                      (log.actorLabel && !/^User #\d+$/i.test(log.actorLabel)
+                        ? log.actorLabel
+                        : null) ||
+                      getAdminText(language, "common.system")
                 const actionText = getAdminAuditActionLabel(log.action, language)
                 const targetText = formatAuditTarget(log, userMap, roleMap, language)
 
@@ -785,7 +804,11 @@ export function AdminDashboard() {
                     const actorName =
                       log.actorId === null || log.actorId === undefined
                         ? getAdminText(language, "common.system")
-                        : actorUser?.fullName || log.actorLabel || `User #${log.actorId}`
+                        : actorUser?.fullName ||
+                          (log.actorLabel && !/^User #\d+$/i.test(log.actorLabel)
+                            ? log.actorLabel
+                            : null) ||
+                          getAdminText(language, "common.system")
                     const actorRole =
                       actorUser?.roleName
                         ? getAdminRoleShortLabel(actorUser.roleName, language)

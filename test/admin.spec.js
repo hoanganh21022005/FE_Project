@@ -181,8 +181,11 @@ test.describe('Kịch bản Admin Chỉ Đọc (ADMIN-01 -> ADMIN-06)', () => {
     await expect(tbody).toContainText('Đăng nhập qua Google');
     await expect(tbody).toContainText('Đổi trạng thái tài khoản');
 
-    // Kiểm tra tên đối tượng USER hiển thị họ tên
-    await expect(tbody).toContainText('Lê Hoàng Hội Viên (#3)');
+    // Kiểm tra tên đối tượng USER hiển thị họ tên (không còn (#3), User #1, LOGIN_GOOGLE)
+    await expect(tbody).toContainText('Lê Hoàng Hội Viên');
+    await expect(tbody).not.toContainText('(#3)');
+    await expect(tbody).not.toContainText('User #');
+    await expect(tbody).not.toContainText('LOGIN_GOOGLE');
   });
 
   // ADMIN-02: Bộ lọc nhật ký gửi đúng query và Trang sau gửi page kế tiếp
@@ -256,9 +259,11 @@ test.describe('Kịch bản Admin Chỉ Đọc (ADMIN-01 -> ADMIN-06)', () => {
     await expect(page.locator('table')).toContainText('Quản lý người dùng');
     await expect(page.locator('table')).toContainText('Quản trị viên hệ thống');
 
-    // Tìm dòng quyền MANAGE_USERS (Admin có, Member không có)
-    const rowManageUsers = page.locator('tbody tr').filter({ hasText: 'MANAGE_USERS' });
+    // Tìm dòng quyền Quản lý người dùng (Admin có, Member không có), không lộ mã quyền/vai trò
+    const rowManageUsers = page.locator('tbody tr').filter({ hasText: 'Quản lý người dùng' });
     await expect(rowManageUsers).toBeVisible();
+    await expect(page.locator('main')).not.toContainText('MANAGE_USERS');
+    await expect(page.locator('main')).not.toContainText('CenterManager');
 
     // Có nhãn ẩn trợ năng "Có" và "Không"
     await expect(rowManageUsers.locator('span.sr-only:has-text("Có")').first()).toBeAttached();
@@ -564,5 +569,186 @@ test.describe('Kịch bản Admin Chỉ Đọc (ADMIN-01 -> ADMIN-06)', () => {
     await expect(bellBtn).toBeVisible({ timeout: 10000 });
     await expect(bellBtn).not.toHaveAttribute('aria-label', /mục mới/i);
     expect(mutationRequests).toEqual([]);
+  });
+
+  test('ADMIN-10: Biểu đồ 7 ngày phân trang size <= 100, tải đúng 2 trang dữ liệu và chặn size > 100', async ({ page }) => {
+    const requestedAuditQueries = [];
+    const todayIso = new Date().toISOString();
+
+    await page.route((url) => isApiMatch(url, 'audit-logs'), (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+
+      const u = new URL(route.request().url());
+      const size = Number(u.searchParams.get('size') || '0');
+      const pageNum = Number(u.searchParams.get('page') || '0');
+      const startDate = u.searchParams.get('startDate');
+      const endDate = u.searchParams.get('endDate');
+
+      requestedAuditQueries.push({ size, page: pageNum, startDate, endDate });
+
+      if (size > 100) {
+        return route.fulfill({
+          status: 400,
+          json: { message: 'Use a valid date range, page >= 0, size 1..100' },
+        });
+      }
+
+      // Query của biểu đồ 7 ngày có startDate & endDate
+      if (startDate && endDate) {
+        if (pageNum === 0) {
+          return route.fulfill({
+            status: 200,
+            json: Array.from({ length: 100 }, (_, i) => ({
+              id: 1000 + i,
+              actorId: 1,
+              action: 'LOGIN',
+              targetEntity: 'USER',
+              targetId: 2,
+              detail: `Log #${i}`,
+              createdAt: todayIso,
+            })),
+          });
+        }
+        if (pageNum === 1) {
+          return route.fulfill({
+            status: 200,
+            json: Array.from({ length: 5 }, (_, i) => ({
+              id: 2000 + i,
+              actorId: 1,
+              action: 'LOGIN',
+              targetEntity: 'USER',
+              targetId: 2,
+              detail: `Log page 2 #${i}`,
+              createdAt: todayIso,
+            })),
+          });
+        }
+        return route.fulfill({ status: 200, json: [] });
+      }
+
+      return route.fulfill({ status: 200, json: createMockAuditLogs(3) });
+    });
+
+    await loginAs(page, 'admin');
+    requestedAuditQueries.length = 0;
+    await page.goto('/admin/dashboard');
+
+    const chart = page.locator('[role="img"][aria-label*="Biểu đồ cột hoạt động 7 ngày gần nhất"]');
+    await expect(chart).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('main')).toContainText('Tổng 7 ngày: 105 lượt');
+
+    const chartRequests = requestedAuditQueries.filter((q) => q.startDate && q.endDate);
+    expect(chartRequests.length).toBeGreaterThanOrEqual(2);
+    expect(chartRequests.every((q) => q.size > 0 && q.size <= 100)).toBe(true);
+    expect(Array.from(new Set(chartRequests.map((q) => q.page))).sort((a, b) => a - b)).toEqual([0, 1]);
+  });
+
+  test('ADMIN-11: Biểu đồ 7 ngày hiện thông báo thân thiện theo ngôn ngữ và nút Thử lại khi lỗi Backend', async ({ page }) => {
+    let shouldFailChart = true;
+    const todayIso = new Date().toISOString();
+
+    await page.route((url) => isApiMatch(url, 'audit-logs'), (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      const u = new URL(route.request().url());
+      if (u.searchParams.get('startDate') && u.searchParams.get('endDate')) {
+        if (shouldFailChart) {
+          return route.fulfill({
+            status: 400,
+            json: { message: 'Use a valid date range, page >= 0, size 1..100' },
+          });
+        }
+        return route.fulfill({
+          status: 200,
+          json: [
+            {
+              id: 3001,
+              actorId: 1,
+              action: 'LOGIN',
+              targetEntity: 'USER',
+              targetId: 2,
+              detail: 'Recovered',
+              createdAt: todayIso,
+            },
+          ],
+        });
+      }
+      return route.fulfill({ status: 200, json: createMockAuditLogs(2) });
+    });
+
+    await loginAs(page, 'admin');
+    await page.goto('/admin/dashboard');
+
+    await expect(page.locator('main')).toContainText('Không tải được dữ liệu biểu đồ.');
+    await expect(page.locator('main')).not.toContainText('Use a valid date range');
+
+    // Chuyển sang EN và kiểm tra thông báo lỗi tiếng Anh thân thiện
+    await page.locator('header button:has-text("EN")').click();
+    await expect(page.locator('main')).toContainText('Could not load chart data.');
+
+    shouldFailChart = false;
+    await page.locator('main button:has-text("Retry")').click();
+    await expect(page.locator('[role="img"][aria-label*="7-day activity bar chart"]')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('ADMIN-12: Nhật ký và Vai trò không lộ mã, không dùng ngoặc ở nhãn hành động và hiển thị khoảng ngày đang xem', async ({ page }) => {
+    await page.route((url) => isApiMatch(url, 'audit-logs'), (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      return route.fulfill({
+        status: 200,
+        json: [
+          {
+            id: 401,
+            actorId: 1,
+            action: 'REGISTER_MEMBER_GOOGLE',
+            targetEntity: 'USER',
+            targetId: 3,
+            detail: 'Google signup',
+            createdAt: '2026-11-12T07:15:00Z',
+          },
+          {
+            id: 402,
+            actorId: null,
+            action: 'REGISTER_MEMBER_PENDING',
+            targetEntity: 'ROLE',
+            targetId: 2,
+            detail: 'Pending signup',
+            createdAt: '2026-11-12T06:15:00Z',
+          },
+        ],
+      });
+    });
+
+    await loginAs(page, 'admin');
+    await page.goto('/admin/audit-logs?startDate=2026-11-07&endDate=2026-11-14');
+    await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
+
+    const rangeSummary = page.getByTestId('audit-date-range-summary');
+    await expect(rangeSummary).toContainText('Đang xem:');
+    await expect(rangeSummary).not.toContainText('tất cả thời gian');
+
+    const mainTextVi = await page.locator('main').innerText();
+    expect(mainTextVi).not.toMatch(/User #|\(#|[A-Z]{2,}_[A-Z_]+/);
+    await expect(page.locator('thead')).toContainText('Áp dụng cho');
+    await expect(page.locator('tbody')).toContainText('Đăng ký hội viên qua Google');
+    await expect(page.locator('tbody')).toContainText('Đăng ký hội viên');
+    await expect(page.locator('tbody')).toContainText('Quản lý trung tâm');
+
+    // Kiểm tra các ô hành động không chứa dấu ngoặc '('
+    const actionCells = await page.locator('tbody tr td:nth-child(3)').allInnerTexts();
+    for (const cellText of actionCells) {
+      expect(cellText).not.toContain('(');
+    }
+
+    // Chuyển sang EN và kiểm tra
+    await page.locator('header button:has-text("EN")').click();
+    await expect(page.locator('thead')).toContainText('Applied to');
+    await expect(rangeSummary).toContainText('Showing:');
+    await expect(page.locator('tbody')).toContainText('Member sign-up via Google');
+    await expect(page.locator('tbody')).toContainText('Member sign-up');
+    await expect(page.locator('tbody')).toContainText('Center Manager');
+
+    // Xóa bộ lọc -> hiển thị "Showing: all time"
+    await page.locator('button:has-text("Clear filters")').click();
+    await expect(rangeSummary).toContainText('Showing: all time');
   });
 });

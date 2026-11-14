@@ -73,8 +73,8 @@ export function AdminHeader({ title, onMenu, onLogout, onChangeLanguage }) {
   const userMap = useMemo(() => {
     const map = new Map()
     for (const u of resources?.users?.data || []) {
-      if (u.id !== null && u.id !== undefined) {
-        map.set(Number(u.id), u.fullName || `User #${u.id}`)
+      if (u.id !== null && u.id !== undefined && u.fullName) {
+        map.set(Number(u.id), u.fullName)
       }
     }
     return map
@@ -279,8 +279,10 @@ export function AdminHeader({ title, onMenu, onLogout, onChangeLanguage }) {
                       item.actorId === null || item.actorId === undefined
                         ? getAdminText(language, "common.system")
                         : userMap.get(Number(item.actorId)) ||
-                          item.actorLabel ||
-                          `User #${item.actorId}`
+                          (item.actorLabel && !/^User #\d+$/i.test(item.actorLabel)
+                            ? item.actorLabel
+                            : null) ||
+                          getAdminText(language, "common.system")
                     let targetName = item.targetLabel
                     if (
                       item.targetEntity &&
