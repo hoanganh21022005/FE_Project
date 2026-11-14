@@ -27,15 +27,15 @@ import {
   reopenConversation,
 } from "./chatApi.js"
 
-const list = async (path) => {
-  const data = await httpClient.get(path)
+const list = async (path, options) => {
+  const data = await httpClient.get(path, options)
   return extractList(data) || []
 }
 
 // The member enrollment history is the documented source for enrolled Normal classes.
 // /api/sessions is a general schedule lookup and is not member-scoped by the API contract.
 export const getMemberClasses = (memberId) => getMemberEnrollments(memberId)
-export const getClassSessions = (params = {}) => {
+export const getClassSessions = (params = {}, options) => {
   const query = new URLSearchParams()
   for (const [key, val] of Object.entries(params || {})) {
     if (val !== undefined && val !== null && val !== "") {
@@ -43,7 +43,7 @@ export const getClassSessions = (params = {}) => {
     }
   }
   const qStr = query.toString() ? `?${query.toString()}` : ""
-  return list(`/api/sessions${qStr}`)
+  return list(`/api/sessions${qStr}`, options)
 }
 export const getSessionById = (sessionId) =>
   httpClient.get(`/api/sessions/${encodeURIComponent(sessionId)}`)
@@ -327,13 +327,13 @@ export const getClassFeedbacks = async (classId) => {
   }
 }
 
-export const getCoaches = async (params = {}) => {
+export const getCoaches = async (params = {}, options) => {
   const query = new URLSearchParams()
   if (params.specializationId)
     query.set("specializationId", params.specializationId)
   if (params.keyword) query.set("keyword", params.keyword)
   const qStr = query.toString()
-  return list(`/api/coaches${qStr ? `?${qStr}` : ""}`)
+  return list(`/api/coaches${qStr ? `?${qStr}` : ""}`, options)
 }
 
 export const getCoachAvailableSlots = async (
@@ -369,8 +369,8 @@ export const getTimeSlots = async (isOutdoor) => {
   return list(`/api/sessions/time-slots${q}`)
 }
 
-export const getRooms = async () => {
-  return list("/api/rooms")
+export const getRooms = async (options) => {
+  return list("/api/rooms", options)
 }
 
 export const getActiveHolidays = async () => {
@@ -392,7 +392,7 @@ export const getCenterIncidents = async () => {
 export const createPrivateSessionProposal = async (payload) =>
   httpClient.post("/api/private-session-proposals", payload)
 
-export const fetchSessionProposals = async (params = {}) => {
+export const fetchSessionProposals = async (params = {}, options) => {
   const query = new URLSearchParams()
   for (const [key, val] of Object.entries(params || {})) {
     if (val !== undefined && val !== null && val !== "") {
@@ -400,7 +400,7 @@ export const fetchSessionProposals = async (params = {}) => {
     }
   }
   const qStr = query.toString() ? `?${query.toString()}` : ""
-  return list(`/api/private-session-proposals${qStr}`)
+  return list(`/api/private-session-proposals${qStr}`, options)
 }
 export const getPrivateSessionProposals = fetchSessionProposals
 

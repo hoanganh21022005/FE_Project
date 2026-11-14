@@ -29,7 +29,7 @@ import {
   fetchSessionProposals,
   respondSessionProposal,
 } from "../../api/memberPortalApi"
-import { httpClient, UNAUTHORIZED_EVENT } from "../../api/httpClient"
+import { UNAUTHORIZED_EVENT } from "../../api/httpClient"
 import { membershipApi } from "../../api/membershipApi"
 import { invoiceApi } from "../../api/invoiceApi"
 import { startVnpayCheckout } from "../../utils/vnpayCheckout"
@@ -149,17 +149,14 @@ export function MemberMyCoachView() {
   }, [apiEnabled, isVi, keyword])
 
   useEffect(() => {
-    fetchCoaches()
-  }, [fetchCoaches])
+    if (activeTab === "coaches") fetchCoaches()
+  }, [activeTab, fetchCoaches])
 
   // 2. Fetch Rooms & Subscriptions (for private booking)
   const fetchMemberCredits = useCallback(async () => {
     if (!memberProfileId) return []
     try {
-      const [subs] = await Promise.all([
-        membershipApi.getMemberSubscriptions(memberProfileId).catch(() => []),
-        httpClient.get("/api/member-packages").catch(() => null),
-      ])
+      const subs = await membershipApi.getMemberSubscriptions(memberProfileId, { notifyForbidden: false }).catch(() => [])
       const valid = (Array.isArray(subs) ? subs : []).filter((s) => {
         const st = String(s?.status || "").toLowerCase()
         return st === "active" || st === "grace_period"
@@ -183,7 +180,7 @@ export function MemberMyCoachView() {
     }
 
     memberPortalApi
-      .getRooms()
+      .getRooms({ notifyForbidden: false })
       .then((res) => setRooms(Array.isArray(res) ? res : []))
       .catch((err) => console.warn("Could not fetch rooms:", err))
 
@@ -195,7 +192,14 @@ export function MemberMyCoachView() {
     setLoadingSessions(true)
     try {
       if (apiEnabled) {
-        const allSessions = await memberPortalApi.getClassSessions()
+        if (!memberProfileId) {
+          setPrivateSessions([])
+          return []
+        }
+        const allSessions = await memberPortalApi.getClassSessions(
+          { memberId: memberProfileId },
+          { notifyForbidden: false },
+        )
         const privates = (Array.isArray(allSessions) ? allSessions : []).filter(
           (s) =>
             (s.isPrivate === true ||
@@ -225,12 +229,13 @@ export function MemberMyCoachView() {
       return []
     }
     try {
-      const rows = await memberPortalApi.fetchSessionProposals()
+      const rows = await memberPortalApi.fetchSessionProposals({}, { notifyForbidden: false })
       const list = Array.isArray(rows) ? rows : []
       setProposals(list)
       return list
     } catch (err) {
       console.warn("Could not fetch session proposals:", err)
+      setProposals([])
       return []
     }
   }, [apiEnabled])
@@ -242,10 +247,6 @@ export function MemberMyCoachView() {
       fetchMemberCredits(),
     ])
   }, [fetchProposals, fetchPrivateSessions, fetchMemberCredits])
-
-  useEffect(() => {
-    refreshProposalView()
-  }, [refreshProposalView])
 
   useEffect(() => {
     if (activeTab === "my_sessions") {
