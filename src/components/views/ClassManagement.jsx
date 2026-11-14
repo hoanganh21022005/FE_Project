@@ -2201,7 +2201,7 @@ export function ClassManagement() {
                     </div>
                     <div className="space-y-1.5">
                       {[
-                        { id: "schedule", label: "Lịch học" },
+                        { id: "schedule", label: isManager ? "Ngày khai giảng" : "Lịch học" },
                         { id: "room", label: "Sân tập" },
                         { id: "coach", label: "Huấn luyện viên" },
                         { id: "enrollment", label: "Đăng ký (Sĩ số)" },
@@ -2362,7 +2362,7 @@ export function ClassManagement() {
                         <th
                           onClick={() => handleSort("date")}
                           className="py-3.5 px-4 min-w-[190px] cursor-pointer select-none group/th hover:text-stone-900 transition-colors"
-                          title="Nhấp để sắp xếp theo Lịch học / Ngày khai giảng"
+                          title={isManager ? "Sắp xếp theo ngày khai giảng" : "Nhấp để sắp xếp theo Lịch học / Ngày khai giảng"}
                         >
                           <div className="flex items-center gap-1.5">
                             <span
@@ -2372,7 +2372,7 @@ export function ClassManagement() {
                                   : ""
                               }
                             >
-                              Lịch học
+                              {isManager ? "Ngày khai giảng" : "Lịch học"}
                             </span>
                             <SortIcon
                               sortKey="date"
@@ -2584,11 +2584,12 @@ export function ClassManagement() {
                             </div>
                           </td>
 
-                          {/* Cột 2: Lịch học (Thẻ badge ngày trong tuần + Giờ học + Khai giảng) */}
+                          {/* Cột 2: Ngày khai giảng cho Manager */}
                           {columnVisibility.schedule !== false && (
                             <td className="py-4 px-4 align-middle">
                               <div className="space-y-1">
-                                <div className="flex items-center gap-1 flex-wrap">
+                                {!isManager && (
+                                  <div className="flex items-center gap-1 flex-wrap">
                                   {getWeekdaysArray(
                                     cls.selectedDays,
                                     cls.category,
@@ -2610,30 +2611,18 @@ export function ClassManagement() {
                                     </span>
                                   )}
                                 </div>
-                                <div
-                                  className="text-xs text-stone-500"
-                                  title={
-                                    isOngoing && rawClassType === "normal"
-                                      ? "Đang diễn ra"
-                                      : isOngoing
-                                      ? `Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`
-                                      : `Khai giảng: ${formatViDate(cls.startDate || cls.date)}`
-                                  }
-                                >
-                                  {isOngoing && rawClassType === "normal" ? (
-                                    <span className="text-sm font-semibold text-emerald-700">
-                                      Đang diễn ra
-                                    </span>
+                                )}
+                                <div className={isManager ? "text-sm font-semibold text-stone-900" : "text-xs text-stone-500"}>
+                                  {isManager ? (
+                                    formatViDate(cls.startDate || cls.date)
+                                  ) : isOngoing && rawClassType === "normal" ? (
+                                    <span className="text-sm font-semibold text-emerald-700">Đang diễn ra</span>
                                   ) : isOngoing ? (
-                                    <span className="text-emerald-700 font-medium">
-                                      {`Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`}
-                                    </span>
+                                    <span className="text-emerald-700 font-medium">{`Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`}</span>
                                   ) : (
                                     <span>
-                                      {rawClassType !== "normal" && <>Khai giảng:{" "}</>}
-                                      <span className="text-sm font-semibold text-stone-900">
-                                        {formatViDate(cls.startDate || cls.date)}
-                                      </span>
+                                      {rawClassType !== "normal" && <>Khai giảng: </>}
+                                      <span className="text-sm font-semibold text-stone-900">{formatViDate(cls.startDate || cls.date)}</span>
                                     </span>
                                   )}
                                 </div>
