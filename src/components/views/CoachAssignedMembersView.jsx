@@ -449,6 +449,9 @@ export function CoachAssignedMembersView() {
   const [coachTrainingResults, setCoachTrainingResults] = useState([])
   const [loadingRequests, setLoadingRequests] = useState(false)
   const [requestsError, setRequestsError] = useState(null)
+  const [privateSessionProposals, setPrivateSessionProposals] = useState([])
+  const [loadingProposals, setLoadingProposals] = useState(false)
+  const [proposalsError, setProposalsError] = useState(null)
   const [decidingId, setDecidingId] = useState(null)
   const [rejectModalTarget, setRejectModalTarget] = useState(null)
   const [rejectReason, setRejectReason] = useState("")
@@ -505,6 +508,27 @@ export function CoachAssignedMembersView() {
     }
   }, [apiEnabled])
 
+  const loadPrivateSessionProposals = useCallback(async () => {
+    if (!apiEnabled) {
+      setPrivateSessionProposals([])
+      setProposalsError(null)
+      return []
+    }
+    setLoadingProposals(true)
+    setProposalsError(null)
+    try {
+      const rows = await memberPortalApi.getPrivateSessionProposals()
+      const list = Array.isArray(rows) ? rows : []
+      setPrivateSessionProposals(list)
+      return list
+    } catch (err) {
+      setProposalsError(getErrorMessage(err, language === "vi" ? "Không thể tải danh sách đề xuất lịch." : "Could not load schedule proposals."))
+      throw err
+    } finally {
+      setLoadingProposals(false)
+    }
+  }, [apiEnabled, language])
+
   // Load rooms with validation & return valid list
   const loadRooms = useCallback(async () => {
     if (!apiEnabled) {
@@ -554,11 +578,12 @@ export function CoachAssignedMembersView() {
       })
       .catch(() => {})
     loadAdvancedRequests().catch(() => {})
+    loadPrivateSessionProposals().catch(() => {})
     loadRooms().catch(() => {})
     return () => {
       active = false
     }
-  }, [apiEnabled, loadAdvancedRequests, loadRooms, currentUser?.coachId, currentUser?.id])
+  }, [apiEnabled, loadAdvancedRequests, loadPrivateSessionProposals, loadRooms, currentUser?.coachId, currentUser?.id])
 
   // Fetch slots for modal with strict token check
   const fetchAvailableSlots = useCallback(
@@ -901,6 +926,7 @@ export function CoachAssignedMembersView() {
         throw new Error("The server response did not match a Pending private-session proposal.")
       }
       setProposalResponse(response)
+      loadPrivateSessionProposals().catch(() => {})
       showToast?.(language === "vi" ? "Đã gửi lịch, chờ học viên xác nhận." : "Schedule proposal sent; waiting for Member confirmation.", "success")
     } catch (error) {
       let message = getErrorMessage(error, language === "vi" ? "Không gửi được đề xuất lịch." : "Could not send the schedule proposal.")
@@ -908,6 +934,7 @@ export function CoachAssignedMembersView() {
       if (!error?.status || error.status >= 500) {
         try {
           const rows = await memberPortalApi.getPrivateSessionProposals()
+          setPrivateSessionProposals(Array.isArray(rows) ? rows : [])
           const matchingProposal = (Array.isArray(rows) ? rows : []).find((item) =>
             String(item.status || "").toLowerCase() === "pending"
             && item.sessionId == null
@@ -1076,13 +1103,16 @@ export function CoachAssignedMembersView() {
           {apiEnabled && (
             <button
               type="button"
-              disabled={loadingRequests}
-              onClick={() => loadAdvancedRequests().catch(() => {})}
+              disabled={loadingRequests || loadingProposals}
+              onClick={() => {
+                loadAdvancedRequests().catch(() => {})
+                loadPrivateSessionProposals().catch(() => {})
+              }}
               title={t("coachBtnRefresh")}
               aria-label={t("coachBtnRefresh")}
               className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded border border-border-color bg-bg-card text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
             >
-              <RefreshCw className={`w-4 h-4 ${loadingRequests ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-4 h-4 ${loadingRequests || loadingProposals ? "animate-spin" : ""}`} />
             </button>
           )}
           <div className="text-xs leading-4 font-mono font-semibold bg-bg-secondary border border-border-color px-3 py-2 rounded text-text-primary">
@@ -1163,6 +1193,90 @@ export function CoachAssignedMembersView() {
             })}
           </div>
         </div>
+      )}
+
+      {apiEnabled && (
+        <section className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3" aria-labelledby="sent-proposals-heading">
+          <div className="flex flex-col gap-2 border-b border-border-color pb-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 id="sent-proposals-heading" className="text-lg leading-7 font-semibold">
+                {language === "vi" ? "Đề xuất lịch đã gửi" : "Sent schedule proposals"}
+                <span className="ml-2 inline-flex items-center rounded-full bg-bg-secondary px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ring-border-color">
+                  {privateSessionProposals.length}
+                </span>
+              </h3>
+              <p className="mt-1 text-xs text-text-secondary">
+                {language === "vi" ? "Đề xuất đang chờ không giữ phòng và không trừ Credit." : "Pending proposals do not reserve a room or consume a credit."}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={loadingProposals}
+              onClick={() => loadPrivateSessionProposals().catch(() => {})}
+              className="inline-flex min-h-9 items-center justify-center gap-2 rounded border border-border-color px-3 text-xs font-semibold hover:bg-bg-secondary disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loadingProposals ? "animate-spin" : ""}`} />
+              {language === "vi" ? "Tải lại" : "Refresh"}
+            </button>
+          </div>
+
+          {proposalsError && (
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded border border-status-danger-border bg-status-danger-bg p-3 text-sm text-status-danger">
+              <span>{proposalsError}</span>
+              <button type="button" onClick={() => loadPrivateSessionProposals().catch(() => {})} className="font-semibold underline">
+                {language === "vi" ? "Thử lại" : "Retry"}
+              </button>
+            </div>
+          )}
+
+          {loadingProposals && privateSessionProposals.length === 0 ? (
+            <div className="flex items-center gap-2 py-4 text-sm text-text-secondary">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {language === "vi" ? "Đang tải đề xuất lịch..." : "Loading proposals..."}
+            </div>
+          ) : privateSessionProposals.length === 0 ? (
+            <p className="py-3 text-sm text-text-secondary">
+              {language === "vi" ? "Chưa có đề xuất lịch nào." : "No schedule proposals yet."}
+            </p>
+          ) : (
+            <div className="divide-y divide-border-color">
+              {privateSessionProposals.map((proposal) => {
+                const registration = advancedRequests.find((item) =>
+                  String(item.memberId) === String(proposal.memberId)
+                  && String(item.subscriptionId || item.id) === String(proposal.subscriptionId),
+                ) || advancedRequests.find((item) => String(item.memberId) === String(proposal.memberId))
+                const memberName = proposal.memberName || registration?.memberName || registration?.fullName
+                  || (proposal.memberId ? `${language === "vi" ? "Học viên" : "Member"} #${proposal.memberId}` : (language === "vi" ? "Học viên" : "Member"))
+                const subject = proposal.subjectName || registration?.subjectName
+                  || (proposal.subjectId ? `${language === "vi" ? "Môn" : "Subject"} #${proposal.subjectId}` : "—")
+                const room = roomsList.find((item) => String(item.id) === String(proposal.roomId))
+                const status = String(proposal.status || "Unknown")
+                const normalizedStatus = status.toLowerCase()
+                const statusLabel = normalizedStatus === "pending" ? (language === "vi" ? "Đang chờ" : "Pending")
+                  : normalizedStatus === "accepted" ? (language === "vi" ? "Đã xác nhận" : "Accepted")
+                    : normalizedStatus === "rejected" ? (language === "vi" ? "Đã từ chối" : "Rejected")
+                      : normalizedStatus === "expired" ? (language === "vi" ? "Đã hết hạn" : "Expired") : status
+                return (
+                  <article key={proposal.id} className="grid gap-2 py-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center">
+                    <div className="space-y-1">
+                      <p className="font-semibold">{memberName} <span className="font-normal text-text-secondary">· {subject}</span></p>
+                      <p className="text-text-secondary">
+                        {proposal.sessionDate || "—"} · {String(proposal.startTime || "").slice(0, 5)}–{String(proposal.endTime || "").slice(0, 5)} · {room?.name || (proposal.roomId ? `Room #${proposal.roomId}` : "—")}
+                      </p>
+                      <p className="text-xs text-text-secondary">
+                        {language === "vi" ? "Hạn phản hồi: " : "Respond by: "}{proposal.respondBy ? formatVietnamDateTime(proposal.respondBy) : "—"}
+                        {proposal.sessionId != null && <> · {language === "vi" ? "Buổi tập #" : "Session #"}{proposal.sessionId}</>}
+                      </p>
+                    </div>
+                    <span className={`inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-semibold ${normalizedStatus === "pending" ? "bg-status-warning-bg text-status-warning" : normalizedStatus === "accepted" ? "bg-status-success-bg text-status-success" : normalizedStatus === "rejected" || normalizedStatus === "expired" ? "bg-status-danger-bg text-status-danger" : "bg-bg-secondary text-text-secondary"}`}>
+                      {statusLabel}
+                    </span>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </section>
       )}
 
       {/* Main Content Area: API Candidates */}

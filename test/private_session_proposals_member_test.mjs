@@ -60,5 +60,8 @@ assert.match(view, /status \|\| ""\)\.toLowerCase\(\) === "pending" && proposal\
 assert.match(view, /isPositiveSessionId\(s\.id\)/)
 assert.match(view, /scheduledStatuses\.has\(status\)/)
 assert.doesNotMatch(view, /memberPortalApi\.bookPrivateSession/)
+assert.doesNotMatch(view, /isBookingModalOpen|handleOpenBookingModal|handleBookingSubmit|MODAL 1: CHECK COACH AVAILABILITY/)
+assert.match(view, /onClick=\{\(\) => setActiveTab\("my_sessions"\)\}/)
+assert.match(view, /Schedule & proposals/)
 
-console.log("Member private-session proposal checks passed: scoped list endpoint, Reject payload, reload, and session separation.")
+console.log("Member private-session proposal checks passed: scoped list endpoint, Reject payload, reload, session separation, and no legacy self-book flow.")
