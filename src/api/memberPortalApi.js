@@ -278,6 +278,30 @@ export const createPrivateSessionProposal = async (payload) => {
   return httpClient.post("/api/private-session-proposals", payload, { expectedStatus: 201 })
 }
 
+export const getPrivateSessionProposals = async () =>
+  list("/api/private-session-proposals")
+
+export const getPrivateSessionProposalById = async (proposalId) => {
+  if (!Number.isInteger(Number(proposalId)) || Number(proposalId) <= 0) {
+    throw new Error("Invalid private-session proposal ID.")
+  }
+  return httpClient.get(`/api/private-session-proposals/${Number(proposalId)}`)
+}
+
+export const respondToPrivateSessionProposal = async (proposalId, accepted) => {
+  if (!Number.isInteger(Number(proposalId)) || Number(proposalId) <= 0) {
+    throw new Error("Invalid private-session proposal ID.")
+  }
+  if (typeof accepted !== "boolean") {
+    throw new Error("A Member proposal decision is required.")
+  }
+  return httpClient.post(
+    `/api/private-session-proposals/${Number(proposalId)}/respond`,
+    { accepted },
+    { expectedStatus: 200 },
+  )
+}
+
 export const getCoachFeedback = async (params = {}) => {
   const query = new URLSearchParams()
   if (params.classId) query.set("classId", params.classId)
@@ -411,6 +435,9 @@ export const memberPortalApi = {
   getCenterIncidents,
   bookPrivateSession,
   createPrivateSessionProposal,
+  getPrivateSessionProposals,
+  getPrivateSessionProposalById,
+  respondToPrivateSessionProposal,
   getCoachFeedback,
   getCoachProfileMe,
   getCoachWorkSchedule,

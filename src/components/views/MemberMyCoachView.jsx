@@ -33,6 +33,18 @@ import { getErrorMessage } from "../../api/apiErrors"
 import { resolveCoachAvatar } from "../../data/publicCoaches"
 import { PageHeader } from "../ui/PageHeader"
 
+const isPositiveSessionId = (value) => Number.isInteger(Number(value)) && Number(value) > 0
+const formatProposalDeadline = (value, isVi) => {
+  if (!value) return isVi ? "Chưa có dữ liệu" : "Not provided"
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return String(value)
+  return parsed.toLocaleString(isVi ? "vi-VN" : "en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Ho_Chi_Minh",
+  })
+}
+
 export function MemberMyCoachView() {
   const { language, currentUser, subjects, apiEnabled, showToast, t } = useSCMS()
   const isVi = language === "vi"
@@ -66,6 +78,10 @@ export function MemberMyCoachView() {
   // Booked private sessions
   const [privateSessions, setPrivateSessions] = useState([])
   const [loadingSessions, setLoadingSessions] = useState(false)
+  const [privateSessionProposals, setPrivateSessionProposals] = useState([])
+  const [loadingProposals, setLoadingProposals] = useState(false)
+  const [proposalsError, setProposalsError] = useState("")
+  const [rejectingProposalId, setRejectingProposalId] = useState(null)
 
   // Booking Modal State
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
@@ -99,6 +115,12 @@ export function MemberMyCoachView() {
 
   const coachSports = useMemo(() => [...new Set(coaches.flatMap((coach) => Array.isArray(coach.specializations) && coach.specializations.length ? coach.specializations : coach.specialization ? [coach.specialization] : []).filter(Boolean))], [coaches])
   const upcomingPrivateSessions = privateSessions.filter((session) => String(session.sessionDate || "") >= new Date().toISOString().slice(0, 10)).length
+  const pendingSessionProposals = privateSessionProposals.filter((proposal) =>
+    String(proposal.status || "").toLowerCase() === "pending" && proposal.sessionId == null,
+  )
+  const closedSessionProposals = privateSessionProposals.filter((proposal) =>
+    proposal.sessionId == null && ["rejected", "expired"].includes(String(proposal.status || "").toLowerCase()),
+  )
 
   // 1. Fetch Coaches from BE (GET /api/coaches)
   const fetchCoaches = useCallback(async () => {
@@ -167,16 +189,16 @@ export function MemberMyCoachView() {
   const fetchPrivateSessions = useCallback(async () => {
     setLoadingSessions(true)
     try {
-      if (apiEnabled) {
-        const allSessions = await memberPortalApi.getClassSessions()
-        const privates = (Array.isArray(allSessions) ? allSessions : []).filter(
-          (s) =>
-            (s.isPrivate === true ||
-              String(s.type || "").toUpperCase() === "PRIVATE") &&
-            (!memberProfileId ||
-              !s.bookedMemberId ||
-              String(s.bookedMemberId) === String(memberProfileId)),
-        )
+      if (apiEnabled && memberProfileId) {
+        const allSessions = await memberPortalApi.getClassSessions({ memberId: memberProfileId })
+        const scheduledStatuses = new Set(["scheduled", "confirmed", "ongoing", "completed", "cancelled", "canceled", "absent"])
+        const privates = (Array.isArray(allSessions) ? allSessions : []).filter((s) => {
+          const status = String(s.status || "").toLowerCase()
+          return isPositiveSessionId(s.id)
+            && scheduledStatuses.has(status)
+            && (s.isPrivate === true || String(s.type || "").toUpperCase() === "PRIVATE")
+            && String(s.bookedMemberId) === String(memberProfileId)
+        })
         setPrivateSessions(privates)
       } else {
         setPrivateSessions([])
@@ -188,11 +210,58 @@ export function MemberMyCoachView() {
     }
   }, [apiEnabled, memberProfileId])
 
+  const fetchPrivateSessionProposals = useCallback(async () => {
+    if (!apiEnabled) {
+      setPrivateSessionProposals([])
+      setProposalsError("")
+      return []
+    }
+    setLoadingProposals(true)
+    setProposalsError("")
+    try {
+      const rows = await memberPortalApi.getPrivateSessionProposals()
+      const proposals = Array.isArray(rows) ? rows : []
+      setPrivateSessionProposals(proposals)
+      return proposals
+    } catch (error) {
+      setProposalsError(getErrorMessage(error, isVi ? "Không tải được đề xuất lịch." : "Could not load schedule proposals."))
+      throw error
+    } finally {
+      setLoadingProposals(false)
+    }
+  }, [apiEnabled, isVi])
+
+  const handleRejectProposal = async (proposal) => {
+    if (!isPositiveSessionId(proposal?.id) || rejectingProposalId != null) return
+    setRejectingProposalId(proposal.id)
+    setProposalsError("")
+    try {
+      const response = await memberPortalApi.respondToPrivateSessionProposal(proposal.id, false)
+      if (String(response?.status || "").toLowerCase() !== "rejected" || response?.sessionId != null) {
+        throw new Error(isVi ? "Backend chưa xác nhận trạng thái Từ chối." : "The server did not confirm the Rejected state.")
+      }
+      setPrivateSessionProposals((current) => current.map((item) =>
+        String(item.id) === String(response.id) ? response : item,
+      ))
+      try {
+        await fetchPrivateSessionProposals()
+      } catch {
+        // Keep the authoritative Rejected response visible if the follow-up read fails.
+      }
+      showToast?.(isVi ? "Đã từ chối đề xuất lịch." : "Schedule proposal rejected.", "info")
+    } catch (error) {
+      setProposalsError(getErrorMessage(error, isVi ? "Không thể từ chối đề xuất lịch." : "Could not reject the schedule proposal."))
+    } finally {
+      setRejectingProposalId(null)
+    }
+  }
+
   useEffect(() => {
     if (activeTab === "my_sessions") {
       fetchPrivateSessions()
+      fetchPrivateSessionProposals().catch(() => {})
     }
-  }, [activeTab, fetchPrivateSessions])
+  }, [activeTab, fetchPrivateSessions, fetchPrivateSessionProposals])
 
   const fetchAdvancedRegistrations = useCallback(async () => {
     if (!apiEnabled) return
@@ -515,7 +584,9 @@ export function MemberMyCoachView() {
                 : "This slot or room has a schedule conflict."),
           )
         }
-        await memberPortalApi.bookPrivateSession(payload)
+        throw new Error(isVi
+          ? "Huấn luyện viên cần gửi đề xuất lịch để bạn xác nhận."
+          : "Your coach must send a schedule proposal for you to confirm.")
       }
       setBookingSuccess(
         isVi
@@ -650,7 +721,7 @@ export function MemberMyCoachView() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              {isVi ? "Lịch 1:1 đã đặt" : "Booked 1:1"} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">{privateSessions.length}</span>
+              {isVi ? "Lịch 1:1 & đề xuất" : "1:1 schedule & proposals"} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">{privateSessions.length + privateSessionProposals.filter((proposal) => String(proposal.status || "").toLowerCase() === "pending" && proposal.sessionId == null).length}</span>
             </button>
             <button
               type="button"
@@ -837,13 +908,58 @@ export function MemberMyCoachView() {
             </h2>
             <button
               type="button"
-              onClick={fetchPrivateSessions}
+              onClick={() => {
+                fetchPrivateSessions()
+                fetchPrivateSessionProposals().catch(() => {})
+              }}
               className="text-xs font-bold text-brand-accent-dark hover:underline inline-flex items-center gap-1"
             >
               <Clock className="w-3.5 h-3.5" />
               <span>{isVi ? "Tải lại" : "Refresh"}</span>
             </button>
           </div>
+
+          <section aria-labelledby="pending-proposals-title" className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 id="pending-proposals-title" className="text-sm font-extrabold text-slate-900">
+                {isVi ? "Chờ xác nhận" : "Waiting for your response"}
+              </h3>
+              {loadingProposals && <Loader2 className="h-4 w-4 animate-spin text-brand-primary" aria-label={isVi ? "Đang tải" : "Loading"} />}
+            </div>
+            {proposalsError && <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800"><span>{proposalsError}</span><button type="button" onClick={() => fetchPrivateSessionProposals().catch(() => {})} className="shrink-0 font-bold underline">{isVi ? "Thử lại" : "Retry"}</button></div>}
+            {!loadingProposals && !proposalsError && pendingSessionProposals.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500">{isVi ? "Không có đề xuất lịch nào đang chờ." : "No schedule proposals are waiting for your response."}</p>}
+            {pendingSessionProposals.map((proposal) => {
+              const coach = coaches.find((item) => String(item.id) === String(proposal.coachId))
+              const subject = subjects.find((item) => String(item.id) === String(proposal.subjectId))
+              const room = rooms.find((item) => String(item.id) === String(proposal.roomId))
+              return <article key={proposal.id} className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-slate-900">{coach?.name || (isVi ? `HLV #${proposal.coachId}` : `Coach #${proposal.coachId}`)} · {subject?.name || (isVi ? `Môn #${proposal.subjectId}` : `Subject #${proposal.subjectId}`)}</p>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                      <span className="inline-flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" />{proposal.sessionDate || "—"}</span>
+                      <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{String(proposal.startTime || "").slice(0, 5)}–{String(proposal.endTime || "").slice(0, 5)}</span>
+                      <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{room?.name || (isVi ? `Phòng #${proposal.roomId}` : `Room #${proposal.roomId}`)}{room?.location ? ` · ${room.location}` : ""}</span>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-600">{isVi ? "Hạn phản hồi: " : "Respond by: "}{formatProposalDeadline(proposal.respondBy, isVi)}</p>
+                  </div>
+                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-extrabold uppercase text-amber-800">{proposal.status}</span>
+                </div>
+                <div className="mt-4 flex flex-wrap justify-end gap-2">
+                  <button type="button" disabled title={isVi ? "Chức năng xác nhận sẽ được bổ sung ở bước tiếp theo." : "Accepting proposals will be added in the next step."} className="min-h-10 cursor-not-allowed rounded-lg bg-emerald-700 px-4 text-xs font-bold text-white opacity-50">{isVi ? "Đồng ý" : "Accept"}</button>
+                  <button type="button" disabled={rejectingProposalId != null} onClick={() => handleRejectProposal(proposal)} className="min-h-10 rounded-lg border border-rose-300 bg-white px-4 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60">{rejectingProposalId != null && String(rejectingProposalId) === String(proposal.id) ? (isVi ? "Đang gửi..." : "Sending...") : (isVi ? "Từ chối" : "Reject")}</button>
+                </div>
+              </article>
+            })}
+          </section>
+
+          {closedSessionProposals.length > 0 && <section aria-labelledby="closed-proposals-title" className="space-y-2">
+            <h3 id="closed-proposals-title" className="text-sm font-extrabold text-slate-900">{isVi ? "Đề xuất đã phản hồi" : "Responded proposals"}</h3>
+            {closedSessionProposals.map((proposal) => <div key={proposal.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
+              <span className="font-semibold text-slate-700">{proposal.sessionDate} · {String(proposal.startTime || "").slice(0, 5)}–{String(proposal.endTime || "").slice(0, 5)}</span>
+              <span className="font-bold text-slate-600">{proposal.status}</span>
+            </div>)}
+          </section>}
 
           {loadingSessions ? (
             <div className="py-12 text-center text-xs text-slate-500 flex flex-col items-center gap-2">
@@ -1262,7 +1378,7 @@ export function MemberMyCoachView() {
         </div>
       )}
 
-      {/* MODAL 1: BOOK PRIVATE 1-ON-1 SESSION (POST /api/sessions/book-private) */}
+      {/* MODAL 1: CHECK COACH AVAILABILITY (demo booking is local-only) */}
       {isBookingModalOpen && selectedCoach && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
           <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
