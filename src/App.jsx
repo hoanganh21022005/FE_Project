@@ -16,6 +16,10 @@ import { ForbiddenView } from "./components/views/ForbiddenView"
 import { RequireAuth, RequireRole } from "./components/auth/RouteGuard"
 import { AdminDataProvider } from "./components/admin/AdminDataContext"
 import { AdminLayout } from "./components/admin/AdminLayout"
+import {
+  getMainHostAdminRedirectUrl,
+  isAdminHost,
+} from "./components/admin/adminHost"
 import { ErrorBoundary } from "./components/common/ErrorBoundary"
 import { VnpayCheckoutHost } from "./components/common/VnpayCheckoutHost"
 import {
@@ -51,6 +55,16 @@ const AboutView = React.lazy(() =>
 const LoginView = React.lazy(() =>
   import("./components/views/LoginView").then((module) => ({
     default: module.LoginView,
+  })),
+)
+const AdminLoginView = React.lazy(() =>
+  import("./components/admin/AdminLoginView").then((module) => ({
+    default: module.AdminLoginView,
+  })),
+)
+const AdminHostDeniedView = React.lazy(() =>
+  import("./components/admin/AdminLoginView").then((module) => ({
+    default: module.AdminHostDeniedView,
   })),
 )
 const PaymentResultView = React.lazy(() =>
@@ -417,6 +431,17 @@ function SCMSApp() {
   const [targetPackageId, setTargetPackageId] = useState(null)
   const location = useLocation()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const adminHost = isAdminHost()
+  const mainHostRedirectUrl = getMainHostAdminRedirectUrl(
+    location.pathname,
+    location.search,
+  )
+
+  useEffect(() => {
+    if (mainHostRedirectUrl && typeof window !== "undefined") {
+      window.location.replace(mainHostRedirectUrl)
+    }
+  }, [mainHostRedirectUrl])
 
   useEffect(() => {
     setMobileSidebarOpen(false)
@@ -711,15 +736,74 @@ function SCMSApp() {
     )
   }
 
+  if (mainHostRedirectUrl) {
+    return null
+  }
+
+  if (adminHost && !isAuthenticated) {
+    return (
+      <>
+        <ErrorBoundary>
+          <Suspense
+            fallback={
+              <div className="flex-1 flex items-center justify-center p-6">
+                <div className="w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            }
+          >
+            <Routes>
+              <Route
+                path="/admin/login"
+                element={
+                  <AdminLoginView
+                    key={location.pathname}
+                    onLoginSuccess={handleLoginSuccess}
+                  />
+                }
+              />
+              <Route
+                path="/admin/*"
+                element={
+                  <AdminLoginView
+                    key={location.pathname}
+                    onLoginSuccess={handleLoginSuccess}
+                  />
+                }
+              />
+              <Route
+                path="*"
+                element={<Navigate to="/admin/login" replace />}
+              />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
+        <Toast />
+      </>
+    )
+  }
+
+  if (adminHost && isAuthenticated && role !== ROLE_ADMIN) {
+    return (
+      <Suspense fallback={null}>
+        <AdminHostDeniedView
+          onReturnToLogin={() =>
+            navigate("/admin/login", { state: { adminDenied: true }, replace: true })
+          }
+        />
+      </Suspense>
+    )
+  }
+
   // Public Routes (Unauthenticated)
   if (
-    !isAuthenticated ||
-    location.pathname === "/payment-result" ||
-    ["/", "/about", "/coaches", "/facilities", "/privacy-policy"].includes(
-      location.pathname,
-    ) ||
-    location.pathname.startsWith("/courses/") ||
-    location.pathname.startsWith("/discipline/")
+    !adminHost &&
+    (!isAuthenticated ||
+      location.pathname === "/payment-result" ||
+      ["/", "/about", "/coaches", "/facilities", "/privacy-policy"].includes(
+        location.pathname,
+      ) ||
+      location.pathname.startsWith("/courses/") ||
+      location.pathname.startsWith("/discipline/"))
   ) {
     return (
       <>
@@ -805,24 +889,18 @@ function SCMSApp() {
               <Route
                 path="/admin/login"
                 element={
-                  <LoginView
+                  <AdminLoginView
                     key={location.pathname}
                     onLoginSuccess={handleLoginSuccess}
-                    onBackToHome={() => navigate("/")}
-                    initialMode="login"
-                    adminEntry={true}
                   />
                 }
               />
               <Route
                 path="/admin/*"
                 element={
-                  <LoginView
+                  <AdminLoginView
                     key={location.pathname}
                     onLoginSuccess={handleLoginSuccess}
-                    onBackToHome={() => navigate("/")}
-                    initialMode="login"
-                    adminEntry={true}
                   />
                 }
               />
@@ -1028,6 +1106,18 @@ function SCMSApp() {
   }
 
   // Authenticated: Manager, Coach, Receptionist, Member
+  if (location.pathname === "/admin/login") {
+    return (
+      <Suspense fallback={null}>
+        <AdminHostDeniedView
+          onReturnToLogin={() =>
+            navigate("/admin/login", { state: { adminDenied: true }, replace: true })
+          }
+        />
+      </Suspense>
+    )
+  }
+
   return (
     <RequireAuth
       isAuthenticated={isAuthenticated}

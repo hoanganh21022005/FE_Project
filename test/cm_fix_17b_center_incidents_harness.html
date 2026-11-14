@@ -13,6 +13,7 @@
         hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
       })
       const pastStart = localTime.format(new Date(Date.now() - 60 * 60 * 1000)).replace(' ', 'T').slice(0, 16) + ':00'
+      const futureSessionDate = localTime.format(new Date(Date.now() + 48 * 60 * 60 * 1000)).slice(0, 10)
       const fixture = {
         pastStart,
         incidents: [{
@@ -27,10 +28,11 @@
           id: 12, sessionId: 125, status: 'Resolved', startedAt: pastStart, endedAt: pastStart,
           recoveredCredits: null, sessionCompensated: true, affectedMemberIds: null, reason: 'Unverified type', evidence: null,
         }],
+        subjects: [{ id: 1, name: 'Tennis', slug: 'tennis' }],
         sessions: [
-          { id: 123, classId: 4, className: 'Tennis Normal', sessionDate: '2026-11-11', startTime: '09:00:00', endTime: '10:30:00', isPrivate: false, makeupForSessionId: null },
-          { id: 124, classId: 5, className: 'Tennis Advanced', sessionDate: '2026-11-11', startTime: '11:00:00', endTime: '12:30:00', isPrivate: true, makeupForSessionId: null },
-          { id: 125, classId: 6, className: 'Unverified type', sessionDate: '2026-11-11', startTime: '13:00:00', endTime: '14:30:00', isPrivate: null, makeupForSessionId: null },
+          { id: 123, classId: 4, subjectId: 1, subjectName: 'Tennis', className: 'Tennis Normal', sessionDate: futureSessionDate, startTime: '09:00:00', endTime: '10:30:00', isPrivate: false, makeupForSessionId: null },
+          { id: 124, classId: 5, subjectId: 1, subjectName: 'Tennis', className: 'Tennis Advanced', sessionDate: futureSessionDate, startTime: '11:00:00', endTime: '12:30:00', isPrivate: true, makeupForSessionId: null },
+          { id: 125, classId: 6, subjectId: 1, subjectName: 'Tennis', className: 'Unverified type', sessionDate: futureSessionDate, startTime: '13:00:00', endTime: '14:30:00', isPrivate: null, makeupForSessionId: null },
         ],
         rooms: [{ id: 2, roomCode: 'R2', name: 'Court 2', capacity: 12, status: 'Available' }],
         coaches: [{ id: 7, name: 'Coach Seven', specializations: ['Tennis'] }],
@@ -45,6 +47,7 @@
         fixture.requests.push({ path, method, body })
         if (method === 'GET' && path === '/api/center-incidents') return fixture.failList ? jsonResponse({ code: 'FORBIDDEN', message: 'Fixture denied' }, 403) : jsonResponse(fixture.incidents)
         if (method === 'GET' && path === '/api/sessions') return jsonResponse(fixture.sessions)
+        if (method === 'GET' && path === '/api/subjects') return jsonResponse(fixture.subjects)
         if (method === 'GET' && path === '/api/rooms') return jsonResponse(fixture.rooms)
         if (method === 'GET' && path === '/api/coaches') return jsonResponse(fixture.coaches)
         if (method === 'POST' && path === '/api/center-incidents' && fixture.timeoutNextOpen) {

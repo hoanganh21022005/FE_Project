@@ -14,8 +14,6 @@ const normalizeAdvancedRegistration = (item) => {
   const order = item?.order ?? item?.data?.order
   return {
     ...item,
-    acceptedAt: item?.acceptedAt ?? item?.accepted_at ?? null,
-    confirmationDeadline: item?.confirmationDeadline ?? item?.confirmation_deadline ?? null,
     invoiceId: item?.invoiceId ?? item?.invoiceID ?? invoice?.invoiceId ?? invoice?.id ?? order?.invoiceId ?? null,
     invoiceCode: item?.invoiceCode ?? invoice?.invoiceCode ?? invoice?.code ?? null,
     amount: item?.amount ?? invoice?.amount ?? order?.amount ?? null,
@@ -87,15 +85,16 @@ export const requestAdvancedRegistration = async ({ subjectId, primaryCoachId, r
 export const createAdvancedOrder = async (registrationId, paymentMethod) => {
   if (!isValidNumericId(registrationId)) throw new Error('ID đăng ký Advanced không hợp lệ.')
   if (!['Cash', 'VNPay'].includes(paymentMethod)) throw new Error('Phương thức thanh toán không hợp lệ.')
-  return normalizeAdvancedOrderResponse(await httpClient.post(`/api/advanced-registrations/${registrationId}/order`, { paymentMethod }))
+  const response = await httpClient.post(`/api/advanced-registrations/${registrationId}/order`, { paymentMethod })
+  return normalizeAdvancedOrderResponse(response)
 }
 
 export const decideAdvancedRegistration = async (registrationId, { accepted, reason = '' } = {}) => {
   if (!isValidNumericId(registrationId)) throw new Error('ID đăng ký Advanced không hợp lệ.')
-  return httpClient.post(`/api/advanced-registrations/${registrationId}/decision`, {
-    accepted: Boolean(accepted),
-    reason: String(reason || '').trim(),
-  })
+  const normalizedReason = String(reason || '').trim()
+  const payload = { accepted: Boolean(accepted) }
+  if (normalizedReason) payload.reason = normalizedReason
+  return httpClient.post(`/api/advanced-registrations/${registrationId}/decision`, payload)
 }
 
 export const getCoachWorkSchedule = async (coachId) => {

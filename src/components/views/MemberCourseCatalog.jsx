@@ -8,11 +8,11 @@ import { advancedRegistrationApi } from '../../api/advancedRegistrationApi'
 import { classEnrollmentApi } from '../../api/classEnrollmentApi'
 import { getClassCatalogSessions } from '../../api/memberPortalApi'
 import { invoiceApi } from '../../api/invoiceApi'
-import { getMyMemberProfile } from '../../api/memberApi'
-import { getMemberSubscriptions } from '../../api/membershipApi'
+import { membershipApi } from '../../api/membershipApi'
 import { closePreparedVnpayPopup, prepareVnpayCheckoutPopup, startVnpayCheckout } from '../../utils/vnpayCheckout'
 import { getErrorMessage } from '../../api/apiErrors'
-import { getAuthoritativeProfileId } from '../../utils/memberSafetyHelpers'
+import { getAuthoritativeProfileId, parseVietnamDateTime } from '../../utils/memberSafetyHelpers'
+import { isValidNumericId } from '../../api/schemaValidators.js'
 import { COURSE_HERO_MEDIA, SPORT_MEDIA } from '../../data/memberCourseCatalog.js'
 import { hasSellablePrice, normalizeCatalogStatus, normalizeCatalogText, readAdmissionCapacity, resolveCatalogSubjects, verifyNormalCourseClass, coachIsActive, coachCanUseUnknownCapacity, coachMatchesSubject } from '../../utils/memberCourseCatalogRules.js'
 
@@ -42,6 +42,25 @@ const paymentUrlIsSafe = (value) => {
     const parsed = new URL(value)
     return parsed.protocol === 'https:' || (parsed.protocol === 'http:' && typeof window !== 'undefined' && parsed.origin === window.location.origin)
   } catch { return false }
+}
+const confirmationDeadlineTimestamp = (value) => {
+  const timestamp = parseVietnamDateTime(value)
+  return Number.isFinite(timestamp) ? timestamp : null
+}
+const isConfirmationExpiredError = (error) => {
+  const details = error?.details ?? error?.response?.data
+  const text = [error?.code, error?.message, details?.code, details?.message, details?.error, details?.detail]
+    .filter((value) => typeof value === 'string')
+    .join(' ')
+    .toUpperCase()
+  return Number(error?.status ?? error?.response?.status) === 409 && text.includes('REGISTRATION_CONFIRMATION_EXPIRED')
+}
+const formatDeadline = (value, language) => {
+  const timestamp = confirmationDeadlineTimestamp(value)
+  if (timestamp == null) return language === 'vi' ? 'Chưa có thông tin hạn xác nhận' : 'Confirmation deadline unavailable'
+  return new Date(timestamp).toLocaleString(language === 'vi' ? 'vi-VN' : 'en-US', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh',
+  })
 }
 const readMemberOrders = (memberId) => {
   if (!memberId || typeof sessionStorage === 'undefined') return []
@@ -149,6 +168,44 @@ function StatusPill({ status, language }) {
   return <span className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-semibold ' + tone}><span className={'h-1.5 w-1.5 rounded-full ' + dot} />{statusText(status, language)}</span>
 }
 
+function AdvancedInvoiceDetails({ order, language, now }) {
+  const isVi = language === 'vi'
+  const expiry = confirmationDeadlineTimestamp(order.expiresAt)
+  const paymentStatus = normalizeCatalogStatus(order.paymentStatus || order.status)
+  const remainingMs = expiry == null ? null : Math.max(0, expiry - now)
+  const countdown = remainingMs == null
+    ? null
+    : `${String(Math.floor(remainingMs / 60000)).padStart(2, '0')}:${String(Math.floor((remainingMs % 60000) / 1000)).padStart(2, '0')}`
+  const paymentMethod = String(order.paymentMethod || '').toLowerCase()
+  const isVnpay = paymentMethod === 'vnpay' || paymentMethod === 'online'
+  const subscription = order.subscription
+  const subscriptionActive = String(subscription?.status || '').toLowerCase() === 'active'
+
+  return <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+    <p><strong>{isVi ? 'Mã hóa đơn:' : 'Invoice code:'}</strong> {order.invoiceCode || (isVi ? 'Chưa có' : 'Not available')}</p>
+    <p className="mt-1"><strong>{isVi ? 'ID hóa đơn:' : 'Invoice ID:'}</strong> {order.invoiceId ?? (isVi ? 'Chưa có' : 'Not available')}</p>
+    <p className="mt-1"><strong>{isVi ? 'Số tiền:' : 'Amount:'}</strong> {order.amount == null ? (isVi ? 'Chưa có' : 'Not available') : formatMoney(order.amount, language)}</p>
+    <p className="mt-1"><strong>{isVi ? 'Phương thức:' : 'Payment method:'}</strong> {order.paymentMethod || (isVi ? 'Chưa có' : 'Not available')}</p>
+    <div className="mt-1 flex flex-wrap items-center gap-2"><strong>{isVi ? 'Trạng thái hóa đơn:' : 'Invoice status:'}<StatusPill status={order.paymentStatus || order.status} language={language} /></strong></div>
+    <p className="mt-1"><strong>{isVi ? 'Hạn thanh toán:' : 'Payment deadline:'}</strong> {expiry == null ? (isVi ? 'BE chưa trả về hạn thanh toán' : 'No payment deadline returned by the server') : formatDeadline(order.expiresAt, language)}</p>
+    {paymentStatus === 'pending' && countdown != null && (remainingMs > 0
+      ? <p className="mt-1 font-semibold tabular-nums">{isVi ? 'Còn lại:' : 'Time remaining:'} {countdown}</p>
+      : <p className="mt-1 text-amber-800">{isVi ? 'Đã đến hạn; đang chờ trạng thái hóa đơn từ hệ thống.' : 'Deadline reached; awaiting the invoice status from the server.'}</p>)}
+    {isVnpay && <p className="mt-2 break-all">{isVi ? 'Liên kết VNPay:' : 'VNPay payment URL:'} {paymentUrlIsSafe(order.paymentUrl)
+      ? <a href={order.paymentUrl} target="_blank" rel="noreferrer" className="font-semibold text-brand-primary underline">{order.paymentUrl}</a>
+      : (isVi ? 'Chưa có liên kết hợp lệ' : 'No valid payment URL available')}</p>}
+    {subscription && <div className="mt-3 border-t border-slate-200 pt-3" aria-live="polite">
+      <p><strong>{isVi ? 'Trạng thái gói:' : 'Subscription status:'}</strong> {subscription.status || (isVi ? 'Chưa có dữ liệu' : 'Not provided')}</p>
+      {subscriptionActive && <>
+        {subscription.remainingCredit != null && <p className="mt-1"><strong>{isVi ? 'Credits còn lại:' : 'Remaining credits:'}</strong> {subscription.remainingCredit}</p>}
+        {subscription.validityDays != null && <p className="mt-1"><strong>{isVi ? 'Thời hạn gói:' : 'Package validity:'}</strong> {subscription.validityDays} {isVi ? 'ngày' : 'days'}</p>}
+        {(subscription.startDate || subscription.activatedAt) && <p className="mt-1"><strong>{isVi ? 'Ngày bắt đầu:' : 'Start date:'}</strong> {formatDate(subscription.startDate || subscription.activatedAt, language)}</p>}
+        {(subscription.endDate || subscription.expiresAt) && <p className="mt-1"><strong>{isVi ? 'Ngày kết thúc:' : 'End date:'}</strong> {formatDate(subscription.endDate || subscription.expiresAt, language)}</p>}
+      </>}
+    </div>}
+  </div>
+}
+
 function SportTile({ row, tier, language, selected, availability, onClick }) {
   const config = SPORT_LABELS[row.key]
   const subject = row.subject
@@ -189,9 +246,7 @@ function CatalogDialog({ title, onClose, children, language }) {
 export function MemberCourseCatalog() {
   const { currentUser, apiEnabled, language } = useSCMS()
   const isVi = language === 'vi'
-  const authMemberId = getAuthoritativeProfileId(currentUser)
-  const [resolvedMemberId, setResolvedMemberId] = useState(authMemberId)
-  const memberId = authMemberId ?? resolvedMemberId
+  const memberId = getAuthoritativeProfileId(currentUser)
   const [searchParams, setSearchParams] = useSearchParams()
   const initialTier = searchParams.get('tier')?.toLowerCase() === 'advanced' ? 'Advanced' : 'Normal'
   const initialSport = SPORT_LABELS[searchParams.get('sport')] ? searchParams.get('sport') : 'tennis'
@@ -203,8 +258,6 @@ export function MemberCourseCatalog() {
   const [classes, setClasses] = useState([])
   const [enrollments, setEnrollments] = useState([])
   const [registrations, setRegistrations] = useState([])
-  const [memberSubscriptions, setMemberSubscriptions] = useState([])
-  const [memberInvoices, setMemberInvoices] = useState([])
   const [subjectsState, setSubjectsState] = useState({ loading: true, error: '' })
   const [classesState, setClassesState] = useState({ loading: true, error: '' })
   const [enrollmentsState, setEnrollmentsState] = useState({ loading: true, error: '' })
@@ -219,9 +272,10 @@ export function MemberCourseCatalog() {
   const [confirmClass, setConfirmClass] = useState(null)
   const [normalUncertainClassIds, setNormalUncertainClassIds] = useState([])
   const [lockedOrderIds, setLockedOrderIds] = useState([])
+  const [expiredConfirmationIds, setExpiredConfirmationIds] = useState([])
+  const [clockNow, setClockNow] = useState(() => Date.now())
   const [paymentMethod, setPaymentMethod] = useState('Cash')
   const [submitting, setSubmitting] = useState(false)
-  const isSubmitting = submitting
   const [submittingError, setSubmittingError] = useState('')
   const [notice, setNotice] = useState('')
   const [orders, setOrders] = useState(() => readMemberOrders(memberId))
@@ -232,24 +286,8 @@ export function MemberCourseCatalog() {
   const retryGateRef = useRef(false)
   const coachRequestInFlightRef = useRef('')
   const capacityRequestCoachRef = useRef('')
-
-  useEffect(() => {
-    if (authMemberId) {
-      setResolvedMemberId(authMemberId)
-      return
-    }
-    if (!apiEnabled) return
-    let active = true
-    getMyMemberProfile()
-      .then((profile) => {
-        const fetchedId = Number(profile?.id ?? profile?.memberId)
-        if (active && Number.isInteger(fetchedId) && fetchedId > 0) {
-          setResolvedMemberId(fetchedId)
-        }
-      })
-      .catch(() => {})
-    return () => { active = false }
-  }, [authMemberId, apiEnabled])
+  const invoiceStatusChecksInFlightRef = useRef(new Set())
+  const expiredInvoiceChecksRef = useRef(new Set())
 
   const resolvedSubjects = useMemo(() => resolveCatalogSubjects(subjects), [subjects])
   const subjectRow = resolvedSubjects.find((row) => row.key === sportKey) || resolvedSubjects[0]
@@ -292,63 +330,8 @@ export function MemberCourseCatalog() {
   const selectedClasses = useMemo(() => classes.filter((item) => String(item.subjectId) === String(selectedSubject?.id)), [classes, selectedSubject?.id])
   const visibleRegistrations = useMemo(() => registrations.filter((item) => {
     const ownerId = item.memberId ?? item.ownerMemberId ?? item.member?.id
-    if (ownerId == null) return true
-    return memberId != null && String(ownerId) === String(memberId)
+    return memberId != null && ownerId != null && String(ownerId) === String(memberId)
   }), [registrations, memberId])
-
-  const existingAdvancedSportRecord = useMemo(() => {
-    if (!selectedSubject?.id) return null
-    const targetSubjectId = String(selectedSubject.id)
-    const normalizedTargetName = normalizeCatalogText(selectedSubject.name || '')
-    const matchesSubject = (item) => {
-      if (item?.subjectId != null && String(item.subjectId) === targetSubjectId) return true
-      const rawName = item?.subjectName || item?.packageName || ''
-      return Boolean(normalizedTargetName && normalizeCatalogText(rawName).includes(normalizedTargetName))
-    }
-
-    // 1. Check existing PT 1:1 / Advanced registration requests for this sport (across ANY coach)
-    const activeOrPendingRequest = visibleRegistrations.find((item) => {
-      if (!matchesSubject(item)) return false
-      const st = normalizeCatalogStatus(item.status)
-      return !['rejected', 'cancelled', 'canceled', 'expired', 'failed'].includes(st)
-    })
-    if (activeOrPendingRequest) {
-      return { type: 'request', record: activeOrPendingRequest, status: activeOrPendingRequest.status || 'requested' }
-    }
-
-    // 2. Check active or pending-payment PT / Advanced packages (subscriptions) for this sport
-    const activeOrPendingSub = memberSubscriptions.find((sub) => {
-      const hasSubjectMatch = (sub?.subjectId != null && String(sub.subjectId) === targetSubjectId)
-        || (String(sub?.packageType || '').toLowerCase() === 'advanced' && matchesSubject(sub))
-      if (!hasSubjectMatch) return false
-      const st = normalizeCatalogStatus(sub.status || sub.rawStatus)
-      return ['active', 'valid', 'grace_period', 'pending_payment', 'pending', 'awaiting_payment'].includes(st)
-    })
-    if (activeOrPendingSub) {
-      return { type: 'subscription', record: activeOrPendingSub, status: activeOrPendingSub.status || 'active' }
-    }
-
-    // 3. Check unpaid invoices or orders for this sport
-    const unpaidOrder = orders.find((ord) => {
-      if (ord?.type !== 'Advanced' || !matchesSubject(ord)) return false
-      const st = normalizeCatalogStatus(ord.paymentStatus || ord.status)
-      return ['pending', 'pending_payment', 'unpaid', 'awaiting_payment'].includes(st)
-    })
-    if (unpaidOrder) {
-      return { type: 'invoice', record: unpaidOrder, status: unpaidOrder.paymentStatus || unpaidOrder.status || 'pending_payment' }
-    }
-
-    const unpaidInvoice = memberInvoices.find((inv) => {
-      if (!matchesSubject(inv)) return false
-      const st = normalizeCatalogStatus(inv.paymentStatus || inv.rawPaymentStatus || inv.status)
-      return ['pending', 'pending_payment', 'unpaid', 'awaiting_payment'].includes(st)
-    })
-    if (unpaidInvoice) {
-      return { type: 'invoice', record: unpaidInvoice, status: unpaidInvoice.paymentStatus || 'pending_payment' }
-    }
-
-    return null
-  }, [selectedSubject, visibleRegistrations, memberSubscriptions, orders, memberInvoices])
 
   const refreshSubjects = useCallback(async () => {
     setSubjectsState((state) => ({ ...state, loading: true, error: '' }))
@@ -468,23 +451,23 @@ export function MemberCourseCatalog() {
       throw error
     }
   }, [apiEnabled, memberId, isVi])
-  const refreshMemberPackagesAndInvoices = useCallback(async () => {
-    if (!apiEnabled || !memberId) {
-      setMemberSubscriptions([])
-      setMemberInvoices([])
-      return
-    }
-    const [subs, invs] = await Promise.all([
-      getMemberSubscriptions(memberId, { notifyForbidden: false, notifyUnauthorized: false }).catch(() => []),
-      invoiceApi.getMemberOwnInvoices().catch(() => []),
-    ])
-    setMemberSubscriptions(Array.isArray(subs) ? subs : [])
-    setMemberInvoices(Array.isArray(invs) ? invs : [])
-  }, [apiEnabled, memberId])
-  const refresh = useCallback(() => Promise.all([refreshSubjects(), refreshClasses(), refreshEnrollments(), refreshRegistrations(), refreshMemberPackagesAndInvoices()]), [refreshSubjects, refreshClasses, refreshEnrollments, refreshRegistrations, refreshMemberPackagesAndInvoices])
+  const refresh = useCallback(() => Promise.all([refreshSubjects(), refreshClasses(), refreshEnrollments(), refreshRegistrations()]), [refreshSubjects, refreshClasses, refreshEnrollments, refreshRegistrations])
 
   useEffect(() => { refresh().catch(() => {}) }, [refresh])
   useEffect(() => { saveMemberOrders(memberId, orders) }, [memberId, orders])
+  useEffect(() => {
+    let timer
+    const updateClock = () => {
+      const now = Date.now()
+      setClockNow(now)
+      const hasUnexpiredAdvancedInvoice = orders.some((order) => order.type === 'Advanced'
+        && normalizeCatalogStatus(order.paymentStatus || order.status) === 'pending'
+        && confirmationDeadlineTimestamp(order.expiresAt) > now)
+      timer = window.setTimeout(updateClock, hasUnexpiredAdvancedInvoice ? 1000 : 15000)
+    }
+    timer = window.setTimeout(updateClock, 1000)
+    return () => window.clearTimeout(timer)
+  }, [orders])
   useEffect(() => {
     const nextTier = searchParams.get('tier')?.toLowerCase() === 'advanced' ? 'Advanced' : 'Normal'
     const nextSport = SPORT_LABELS[searchParams.get('sport')] ? searchParams.get('sport') : 'tennis'
@@ -711,8 +694,8 @@ export function MemberCourseCatalog() {
     }
   }
 
-  const makeRequestKey = (subjectId, coachId) => {
-    const identity = String(memberId) + ':' + String(subjectId) + ':' + String(coachId)
+  const makeRequestKey = (subjectId, coachId, intentSuffix = '') => {
+    const identity = String(memberId) + ':' + String(subjectId) + ':' + String(coachId) + intentSuffix
     if (requestKeysRef.current.has(identity)) return requestKeysRef.current.get(identity)
     let key
     if (globalThis.crypto?.randomUUID) key = globalThis.crypto.randomUUID()
@@ -721,29 +704,31 @@ export function MemberCourseCatalog() {
     return key
   }
   const handleAdvancedRequest = async () => {
-    if (!selectedSubject?.id || !selectedCoachId || !capacityState.verified || !capacityState.available || pendingSubmitRef.current || isSubmitting || !apiEnabled) return
-    if (existingAdvancedSportRecord) {
-      setSubmittingError(
-        isVi
-          ? 'Bạn đã có yêu cầu đăng ký PT 1:1 đang chờ duyệt / chờ thanh toán hoặc đang hoạt động cho bộ môn này.'
-          : 'You already have a pending, awaiting-payment, or active PT 1:1 registration for this sport.',
-      )
-      return
-    }
+    if (!selectedSubject?.id || !selectedCoachId || !capacityState.verified || !capacityState.available || pendingSubmitRef.current || !apiEnabled) return
     const coachId = Number(selectedCoachId)
+    const isExpiredAcceptedForIntent = (item) =>
+      String(item.subjectId) === String(selectedSubject.id)
+      && String(item.primaryCoachId) === String(coachId)
+      && normalizeCatalogStatus(item.status) === 'accepted'
+      && !item.invoiceId
+      && !item.subscriptionId
+      && confirmationDeadlineTimestamp(item.confirmationDeadline) != null
+      && confirmationDeadlineTimestamp(item.confirmationDeadline) <= Date.now()
+    const expiredAcceptedRegistration = visibleRegistrations
+      .filter(isExpiredAcceptedForIntent)
+      .sort((left, right) => Number(right.id) - Number(left.id))[0]
     const pending = visibleRegistrations.find((item) =>
       String(item.subjectId) === String(selectedSubject.id) &&
-      !['rejected', 'cancelled', 'canceled', 'expired', 'failed'].includes(normalizeCatalogStatus(item.status)))
+      String(item.primaryCoachId) === String(coachId) &&
+      !isExpiredAcceptedForIntent(item) &&
+      !['rejected', 'cancelled', 'canceled', 'expired'].includes(normalizeCatalogStatus(item.status)))
     if (pending) {
-      setSubmittingError(
-        isVi
-          ? 'Bạn đã có yêu cầu đăng ký PT 1:1 đang chờ duyệt / chờ thanh toán hoặc đang hoạt động cho bộ môn này.'
-          : 'You already have a pending, awaiting-payment, or active PT 1:1 registration for this sport.',
-      )
+      setNotice(isVi ? 'Đã có yêu cầu cùng môn và Coach. Hãy theo dõi trạng thái hiện tại.' : 'A request for this subject and Coach already exists. Follow its current status.')
       return
     }
-    const key = makeRequestKey(selectedSubject.id, coachId)
-    const identity = String(memberId) + ':' + String(selectedSubject.id) + ':' + String(coachId)
+    const retryAfterExpiredSuffix = expiredAcceptedRegistration ? ':after-expired:' + String(expiredAcceptedRegistration.id) : ''
+    const key = makeRequestKey(selectedSubject.id, coachId, retryAfterExpiredSuffix)
+    const identity = String(memberId) + ':' + String(selectedSubject.id) + ':' + String(coachId) + retryAfterExpiredSuffix
     if (retryGateRef.current === identity) {
       setSubmittingError(isVi ? 'Yêu cầu trước chưa thể đối soát hoặc đã tồn tại. Hãy tải lại trạng thái trước khi gửi tiếp.' : 'A previous request is unresolved or already exists. Reload its status before submitting again.')
       return
@@ -755,51 +740,12 @@ export function MemberCourseCatalog() {
     setSubmittingError('')
     setNotice('')
     try {
-      const [latestRegs, latestSubs, latestInvoices] = await Promise.all([
-        advancedRegistrationApi.getMyAdvancedRegistrations().catch(() => registrations),
-        memberId ? getMemberSubscriptions(memberId, { notifyForbidden: false, notifyUnauthorized: false }).catch(() => memberSubscriptions) : Promise.resolve(memberSubscriptions),
-        invoiceApi.getMemberOwnInvoices().catch(() => memberInvoices),
-      ])
-      if (Array.isArray(latestRegs)) setRegistrations(latestRegs)
-      if (Array.isArray(latestSubs)) setMemberSubscriptions(latestSubs)
-      if (Array.isArray(latestInvoices)) setMemberInvoices(latestInvoices)
-
-      const targetSubjectId = String(selectedSubject.id)
-      const normalizedTargetName = normalizeCatalogText(selectedSubject.name || '')
-      const matchesTargetSubject = (item) => {
-        if (item?.subjectId != null && String(item.subjectId) === targetSubjectId) return true
-        const rawName = item?.subjectName || item?.packageName || ''
-        return Boolean(normalizedTargetName && normalizeCatalogText(rawName).includes(normalizedTargetName))
-      }
-
-      const hasDuplicateReg = (Array.isArray(latestRegs) ? latestRegs : []).some((item) => {
-        const ownerId = item.memberId ?? item.ownerMemberId ?? item.member?.id
-        if (ownerId != null && memberId != null && String(ownerId) !== String(memberId)) return false
-        return matchesTargetSubject(item) && !['rejected', 'cancelled', 'canceled', 'expired', 'failed'].includes(normalizeCatalogStatus(item.status))
-      })
-      const hasDuplicateSub = (Array.isArray(latestSubs) ? latestSubs : []).some((sub) => {
-        const hasSubMatch = (sub?.subjectId != null && String(sub.subjectId) === targetSubjectId)
-          || (String(sub?.packageType || '').toLowerCase() === 'advanced' && matchesTargetSubject(sub))
-        return hasSubMatch && ['active', 'valid', 'grace_period', 'pending_payment', 'pending', 'awaiting_payment'].includes(normalizeCatalogStatus(sub.status || sub.rawStatus))
-      })
-      const hasDuplicateInvoice = (Array.isArray(latestInvoices) ? latestInvoices : []).some((inv) =>
-        matchesTargetSubject(inv) && ['pending', 'pending_payment', 'unpaid', 'awaiting_payment'].includes(normalizeCatalogStatus(inv.paymentStatus || inv.rawPaymentStatus || inv.status)))
-
-      if (hasDuplicateReg || hasDuplicateSub || hasDuplicateInvoice) {
-        setSubmittingError(
-          isVi
-            ? 'Bạn đã có yêu cầu đăng ký PT 1:1 đang chờ duyệt / chờ thanh toán hoặc đang hoạt động cho bộ môn này.'
-            : 'You already have a pending, awaiting-payment, or active PT 1:1 registration for this sport.',
-        )
-        return
-      }
-
       const response = await advancedRegistrationApi.requestAdvancedRegistration({ subjectId: Number(selectedSubject.id), primaryCoachId: coachId, requestKey: key })
       setNotice(isVi ? 'Đã gửi yêu cầu thành công. Bạn có thể theo dõi trạng thái tiếp nhận ở bảng bên dưới.' : 'Request sent successfully. You can track its status below.')
       if (response && typeof response === 'object') {
         setRegistrations((current) => [response, ...current.filter((item) => String(item.id) !== String(response.id))])
       }
-      await Promise.all([refreshRegistrations(), refreshMemberPackagesAndInvoices()])
+      await refreshRegistrations()
     } catch (error) {
       setSubmittingError(getErrorMessage(error, isVi ? 'Không gửi được yêu cầu Advanced.' : 'Advanced request failed.'))
       if (!error?.status || error.status >= 500 || error.status === 409) {
@@ -808,7 +754,14 @@ export function MemberCourseCatalog() {
           const rows = await advancedRegistrationApi.getMyAdvancedRegistrations()
           setRegistrations(rows)
           const matched = rows.find((item) => String(item.requestKey || '') === key)
-          const sameIntent = rows.find((item) => String(item.memberId) === String(memberId) && String(item.subjectId) === String(selectedSubject.id) && String(item.primaryCoachId) === String(coachId))
+          const sameIntent = rows.find((item) =>
+            String(item.memberId) === String(memberId)
+            && String(item.subjectId) === String(selectedSubject.id)
+            && String(item.primaryCoachId) === String(coachId)
+            && !(normalizeCatalogStatus(item.status) === 'accepted' && !item.invoiceId && !item.subscriptionId
+              && confirmationDeadlineTimestamp(item.confirmationDeadline) != null
+              && confirmationDeadlineTimestamp(item.confirmationDeadline) <= Date.now()),
+          )
           if (matched || sameIntent) setSubmittingError(isVi ? 'Đã tìm thấy yêu cầu hoặc kết quả cùng lựa chọn khi đối soát; không gửi lại.' : 'A matching request was found during reconciliation; no retry was sent.')
           else setSubmittingError(isVi ? 'Không xác minh được kết quả gửi. Tải lại danh sách trước khi thử tiếp.' : 'Request outcome could not be verified. Reload the request list before trying again.')
           retryGateRef.current = matched || sameIntent ? identity : null
@@ -825,13 +778,24 @@ export function MemberCourseCatalog() {
   }
 
   const createOrder = async (registration) => {
-    if (normalizeCatalogStatus(registration.status) !== 'accepted' || !registration.id || pendingSubmitRef.current || orderInFlightRef.current.has(String(registration.id))) return
-    if (orders.some((order) => String(order.registrationId) === String(registration.id))) return
-    if (registration.confirmationDeadline && new Date(registration.confirmationDeadline).getTime() <= Date.now()) {
-      setSubmittingError(isVi ? 'Yêu cầu đăng ký đã quá hạn xác nhận 24 giờ. Vui lòng gửi đăng ký mới.' : 'The 24-hour confirmation deadline has passed. Submit a new registration.')
+    if (normalizeCatalogStatus(registration.status) !== 'accepted') return
+    if (!isValidNumericId(registration?.id)) {
+      setSubmittingError(isVi ? 'Không xác định được mã đăng ký. Hãy tải lại danh sách trước khi tiếp tục.' : 'Registration ID is invalid. Reload the list before continuing.')
       return
     }
     const registrationKey = String(registration.id)
+    const deadline = confirmationDeadlineTimestamp(registration.confirmationDeadline)
+    if (expiredConfirmationIds.includes(registrationKey) || deadline == null || deadline <= Date.now()) {
+      if (deadline != null && deadline <= Date.now()) {
+        setExpiredConfirmationIds((current) => current.includes(registrationKey) ? current : [...current, registrationKey])
+      }
+      setSubmittingError(deadline == null
+        ? (isVi ? 'Chưa xác minh được hạn xác nhận. Hãy tải lại danh sách đăng ký.' : 'Could not verify the confirmation deadline. Reload registrations.')
+        : (isVi ? 'Đã hết thời hạn xác nhận mua gói. Vui lòng đăng ký Advanced lại.' : 'The purchase confirmation period has expired. Please submit a new Advanced registration.'))
+      return
+    }
+    if (pendingSubmitRef.current || orderInFlightRef.current.has(registrationKey)) return
+    if (orders.some((order) => String(order.registrationId) === registrationKey)) return
     const preparedPopup = paymentMethod === 'VNPay' ? prepareVnpayCheckoutPopup() : null
     let checkoutStarted = false
     orderInFlightRef.current.add(registrationKey)
@@ -860,6 +824,7 @@ export function MemberCourseCatalog() {
         key: 'advanced-' + String(invoiceId ?? response?.subscriptionId ?? Date.now()),
         type: 'Advanced',
         registrationId: registration.id,
+        subscriptionId: response?.subscriptionId ?? latestRegistration?.subscriptionId ?? null,
         subjectId: registration.subjectId,
         subjectName: selectedSubject?.id === registration.subjectId ? selectedSubject.name : registration.subjectName,
         coachName: registration.primaryCoachName ?? null,
@@ -880,14 +845,18 @@ export function MemberCourseCatalog() {
       setNotice(isVi ? 'Đơn đăng ký đã được tạo. Quyền học sẽ được kích hoạt sau khi thanh toán thành công.' : 'Order created successfully. Course access will activate after payment is verified.')
       await refreshRegistrations().catch(() => {})
       if (paymentMethod === 'VNPay' && paymentUrlIsSafe(redirectUrl) && !['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status))) {
-        startVnpayCheckout({ paymentUrl: redirectUrl, invoiceId: order.invoiceId, invoiceCode: order.invoiceCode, onVerified: refreshRegistrations, popup: preparedPopup })
+        startVnpayCheckout({ paymentUrl: redirectUrl, invoiceId: order.invoiceId, invoiceCode: order.invoiceCode, onVerified: () => checkOrderStatus(order), popup: preparedPopup })
         checkoutStarted = true
       }
     } catch (error) {
       closePreparedVnpayPopup(preparedPopup)
-      const errorCode = String(error?.code || error?.details?.code || error?.response?.data?.code || '')
-      setSubmittingError(errorCode === 'REGISTRATION_CONFIRMATION_EXPIRED' ? 'Yêu cầu đăng ký đã quá hạn xác nhận 24 giờ. Vui lòng gửi đăng ký mới.' : getErrorMessage(error, isVi ? 'Không tạo được đơn hàng.' : 'Could not create the order.'))
-      if (errorCode === 'REGISTRATION_CONFIRMATION_EXPIRED') await refreshRegistrations().catch(() => {})
+      if (isConfirmationExpiredError(error)) {
+        setExpiredConfirmationIds((current) => current.includes(registrationKey) ? current : [...current, registrationKey])
+        await refreshRegistrations().catch(() => {})
+        setSubmittingError(isVi ? 'Đã hết thời hạn xác nhận mua gói. Vui lòng đăng ký Advanced lại.' : 'The purchase confirmation period has expired. Please submit a new Advanced registration.')
+        return
+      }
+      setSubmittingError(getErrorMessage(error, isVi ? 'Không tạo được đơn hàng.' : 'Could not create the order.'))
       if (!orderCreated && (!error?.status || error.status >= 500 || error.status === 409)) {
         setLockedOrderIds((current) => current.includes(registrationKey) ? current : [...current, registrationKey])
         keepOrderLocked = true
@@ -895,6 +864,9 @@ export function MemberCourseCatalog() {
           const rows = await refreshRegistrations()
           const latest = rows?.find((item) => String(item.id) === registrationKey)
           const orderExists = Boolean(latest?.invoiceId || latest?.subscriptionId)
+          if (latest?.invoiceId) {
+            await checkOrderStatus({ key: 'advanced-' + String(latest.invoiceId), type: 'Advanced', invoiceId: latest.invoiceId })
+          }
           if (orderExists) setSubmittingError(isVi ? 'Đã tìm thấy đơn/hoá đơn khi đối soát; không gửi lại.' : 'An order or invoice was found during reconciliation; no retry was sent.')
           else {
             keepOrderLocked = false
@@ -918,32 +890,55 @@ export function MemberCourseCatalog() {
   }
 
   const checkOrderStatus = async (order) => {
+    if (!order?.invoiceId || !isValidNumericId(order.invoiceId) || invoiceStatusChecksInFlightRef.current.has(order.key)) return
+    invoiceStatusChecksInFlightRef.current.add(order.key)
     const checkedAt = () => new Date().toLocaleTimeString('vi-VN', { hour12: false })
     setOrderChecks((current) => ({ ...current, [order.key]: { loading: true, message: '' } }))
     try {
-      if (!order.invoiceId) throw new Error('Thiếu mã hóa đơn.')
       const invoice = await invoiceApi.getMemberOwnInvoiceById(order.invoiceId)
       if (!invoice) throw new Error('Không tìm thấy hóa đơn của hội viên.')
-      const [normalRows, advancedRows] = await Promise.all([refreshEnrollments(), refreshRegistrations()])
+      const [normalRows, advancedRows] = order.type === 'Advanced'
+        ? await Promise.all([refreshEnrollments(), refreshRegistrations()]).catch(() => [[], []])
+        : await Promise.all([refreshEnrollments(), refreshRegistrations()])
       const sourceRows = order.type === 'Advanced' ? advancedRows : normalRows
-      const entitlement = sourceRows?.find((item) => String(item.invoiceId) === String(order.invoiceId))
+      const entitlement = sourceRows?.find((item) => String(item.invoiceId) === String(order.invoiceId)
+        || (order.type === 'Advanced' && String(item.id) === String(order.registrationId)))
       const entitlementStatus = normalizeCatalogStatus(entitlement?.status || entitlement?.orderStatus || entitlement?.subscriptionStatus)
-      const active = ['registered', 'active', 'activated'].includes(entitlementStatus)
-        || entitlement?.active === true || entitlement?.packageActive === true || entitlement?.creditsActive === true
+      let subscription = null
+      if (order.type === 'Advanced' && ['paid', 'successful'].includes(normalizeCatalogStatus(invoice?.paymentStatus)) && memberId) {
+        const subscriptions = await membershipApi.getMemberSubscriptions(memberId, { strict: true, notifyForbidden: false, notifyUnauthorized: false })
+        const subscriptionId = order.subscriptionId ?? entitlement?.subscriptionId
+        subscription = subscriptionId == null ? null : subscriptions.find((item) => String(item.subscriptionId) === String(subscriptionId)) ?? null
+      }
+      const subscriptionActive = String(subscription?.status || '').toLowerCase() === 'active'
+      const active = order.type === 'Advanced'
+        ? subscriptionActive
+        : (['registered', 'active', 'activated'].includes(entitlementStatus)
+          || entitlement?.active === true || entitlement?.packageActive === true || entitlement?.creditsActive === true)
       setOrders((current) => current.map((item) => item.key === order.key ? {
         ...item,
         paymentStatus: invoice?.paymentStatus ?? item.paymentStatus,
-        ...(active ? { status: 'active' } : entitlement ? { status: entitlement.status ?? entitlement.orderStatus ?? entitlement.subscriptionStatus ?? item.status } : {}),
+        ...(order.type === 'Advanced' ? {
+          paymentMethod: invoice?.rawPaymentMethod ?? item.paymentMethod,
+          invoiceCode: invoice?.invoiceCode ?? item.invoiceCode,
+          amount: invoice?.amount ?? item.amount,
+        } : {}),
+        ...(order.type === 'Advanced'
+          ? { status: subscription?.status ?? item.status }
+          : (active ? { status: 'active' } : entitlement ? { status: entitlement.status ?? entitlement.orderStatus ?? entitlement.subscriptionStatus ?? item.status } : {})),
+        ...(order.type === 'Advanced' && subscription ? { subscription, subscriptionId: subscription.subscriptionId } : {}),
         reconciliationRequired: invoice?.reconciliationRequired === true,
-        expiresAt: item.expiresAt ?? invoice?.expiresAt ?? null,
+        expiresAt: order.type === 'Advanced' ? invoice?.expiresAt ?? null : item.expiresAt ?? invoice?.expiresAt ?? null,
       } : item))
       setOrderChecks((current) => ({ ...current, [order.key]: {
         loading: false,
-        tone: active ? 'success' : 'pending',
+        tone: active ? 'success' : invoice?.paymentStatus === 'expired' ? 'error' : 'pending',
         message: `Đã kiểm tra lúc ${checkedAt()} — ${active ? 'Thanh toán hợp lệ, gói học đã kích hoạt' : 'Đang chờ hệ thống đồng bộ quyền học'}`,
       } }))
+      invoiceStatusChecksInFlightRef.current.delete(order.key)
     } catch {
       setOrderChecks((current) => ({ ...current, [order.key]: { loading: false, tone: 'error', message: `Đã kiểm tra lúc ${checkedAt()} — Không thể cập nhật trạng thái. Vui lòng thử lại.` } }))
+      invoiceStatusChecksInFlightRef.current.delete(order.key)
     }
   }
 
@@ -953,6 +948,16 @@ export function MemberCourseCatalog() {
     initialOrderCheckRef.current = true
     orders.filter((order) => order.invoiceId).forEach((order) => checkOrderStatus(order))
   }, [memberId, orders])
+
+  useEffect(() => {
+    orders.forEach((order) => {
+      const status = normalizeCatalogStatus(order.paymentStatus || order.status)
+      const expiresAt = confirmationDeadlineTimestamp(order.expiresAt)
+      if (order.type !== 'Advanced' || status !== 'pending' || expiresAt == null || expiresAt > clockNow || expiredInvoiceChecksRef.current.has(order.key) || invoiceStatusChecksInFlightRef.current.has(order.key)) return
+      expiredInvoiceChecksRef.current.add(order.key)
+      checkOrderStatus(order)
+    })
+  }, [clockNow, orders])
 
   const beginPayment = async (order) => {
     if (order.paymentMethod === 'Cash') {
@@ -964,7 +969,10 @@ export function MemberCourseCatalog() {
     try {
       let url = null
       if (order.invoiceId) {
-        const result = await invoiceApi.payInvoiceOnline(order.invoiceId).catch(() => null)
+        const result = await invoiceApi.payInvoiceOnline(order.invoiceId).catch(async (error) => {
+          if (!error?.status || error.status >= 500) await checkOrderStatus(order)
+          return null
+        })
         if (paymentUrlIsSafe(result?.paymentUrl)) {
           url = result.paymentUrl
         }
@@ -1064,6 +1072,13 @@ export function MemberCourseCatalog() {
             paymentMethod: latest.paymentMethod ?? 'VNPay',
           }
           setOrders((current) => [reconciledOrder, ...current.filter((order) => String(order.invoiceId) !== String(latest.invoiceId))])
+          await checkOrderStatus(reconciledOrder)
+        }
+        if (!latest.invoiceId && latest.subscriptionId) {
+          setSubmittingError(isVi
+            ? 'Đã ghi nhận gói đăng ký nhưng chưa lấy được hóa đơn để đối soát. Nút tạo đơn vẫn khóa để tránh tạo hóa đơn trùng.'
+            : 'The subscription is recorded, but its invoice is not available for reconciliation yet. Order creation remains locked to prevent a duplicate invoice.')
+          return
         }
         setLockedOrderIds((current) => current.filter((id) => id !== String(registrationId)))
         orderInFlightRef.current.delete(String(registrationId))
@@ -1184,25 +1199,7 @@ export function MemberCourseCatalog() {
               })}</div>
             </div>
             {selectedCoachId && <div className="rounded-xl border border-slate-200 p-4"><p className="font-semibold text-slate-900">{isVi ? 'Khả năng nhận học viên' : 'Admission capacity'}</p>{capacityState.loading ? <p className="mt-2 flex items-center gap-2 text-sm text-slate-600"><LoaderCircle size={15} className="animate-spin" />{isVi ? 'Đang kiểm tra…' : 'Checking…'}</p> : capacityState.error ? <p className="mt-2 text-sm text-rose-800" role="alert">{capacityState.error}</p> : capacityState.verified ? <p className="mt-2 text-sm text-slate-700">{capacityState.available ? isVi ? 'Coach đang có khả năng nhận học viên.' : 'Coach can currently accept a new member.' : isVi ? 'Coach hiện không còn khả năng nhận học viên.' : 'Coach cannot currently accept another member.'}{capacityState.count != null ? ' (' + capacityState.count + ')' : ''}</p> : <p className="mt-2 text-sm text-slate-600">{isVi ? 'Chọn Huấn luyện viên để kiểm tra năng lực tiếp nhận.' : 'Select a Coach to check availability.'}</p>}</div>}
-            {existingAdvancedSportRecord && (
-              <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                    {statusText(existingAdvancedSportRecord.status, language)}
-                  </span>
-                  <button type="button" onClick={refresh} className="text-xs font-semibold underline hover:text-amber-950">
-                    {isVi ? 'Tải lại trạng thái' : 'Refresh status'}
-                  </button>
-                </div>
-                <p className="mt-2 font-semibold">
-                  {isVi
-                    ? 'Bạn đã có yêu cầu đăng ký PT 1:1 đang chờ duyệt / chờ thanh toán hoặc đang hoạt động cho bộ môn này.'
-                    : 'You already have a pending, awaiting-payment, or active PT 1:1 registration for this sport.'}
-                </p>
-              </div>
-            )}
-            <button type="button" onClick={handleAdvancedRequest} disabled={!selectedCoachId || !capacityState.verified || !capacityState.available || isSubmitting || Boolean(existingAdvancedSportRecord) || Boolean(coachState.error)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-bold text-white hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300">{isSubmitting ? <LoaderCircle size={16} className="animate-spin" /> : <ArrowUpRight size={16} />}{existingAdvancedSportRecord ? (isVi ? 'Đã có yêu cầu / gói tập cho bộ môn này' : 'Already requested or active for this sport') : isVi ? 'Gửi yêu cầu Coach chấp thuận' : 'Request Coach approval'}</button>
+            <button type="button" onClick={handleAdvancedRequest} disabled={!selectedCoachId || !capacityState.verified || !capacityState.available || submitting || Boolean(coachState.error)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-bold text-white hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300">{submitting ? <LoaderCircle size={16} className="animate-spin" /> : <ArrowUpRight size={16} />}{isVi ? 'Gửi yêu cầu Coach chấp thuận' : 'Request Coach approval'}</button>
           </>}
         </section>}
       </div>
@@ -1220,14 +1217,16 @@ export function MemberCourseCatalog() {
           const rejected = normalizeCatalogStatus(item.status) === 'rejected'
           const hasOrder = Boolean(item.invoiceId || item.subscriptionId || orders.some((order) => String(order.registrationId) === String(item.id)))
           const orderLocked = lockedOrderIds.includes(String(item.id)) || orderInFlightRef.current.has(String(item.id))
-          const confirmationExpired = Boolean(item.confirmationDeadline && new Date(item.confirmationDeadline).getTime() <= Date.now())
+          const confirmationDeadline = confirmationDeadlineTimestamp(item.confirmationDeadline)
+          const confirmationExpired = expiredConfirmationIds.includes(String(item.id)) || confirmationDeadline == null || confirmationDeadline <= clockNow
+          const canConfirmPurchase = accepted && !hasOrder && !orderLocked && !confirmationExpired
           const approvedAmount = item.amount ?? (String(item.subjectId) === String(selectedSubject?.id) ? selectedSubject?.advancedPrice : null)
-          return <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[13px] font-bold uppercase tracking-wide text-brand-purple-dark">Advanced · {isVi ? 'đăng ký theo môn' : 'sport registration'}</p><h3 className="mt-1 font-bold text-slate-900">{item.subjectName || (item.subjectId ? (isVi ? 'Môn #' : 'Subject #') + item.subjectId : isVi ? 'Môn chưa xác định' : 'Unknown subject')}</h3><p className="mt-1 text-sm text-slate-600">{item.primaryCoachName || (item.primaryCoachId ? (isVi ? 'Coach #' : 'Coach #') + item.primaryCoachId : isVi ? 'Coach chưa xác định' : 'Unknown Coach')}</p></div><StatusPill status={item.status} language={language} /></div>{item.reason && <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{item.reason}</p>}{accepted && item.confirmationDeadline && <p className={"mt-3 rounded-lg p-3 text-sm font-semibold " + (confirmationExpired ? "bg-rose-50 text-rose-800" : "bg-blue-50 text-blue-900")}>{confirmationExpired ? "Yêu cầu đăng ký đã quá hạn xác nhận 24 giờ. Vui lòng gửi đăng ký mới." : `Xác nhận và thanh toán trước ${formatDate(item.confirmationDeadline, language)}${item.acceptedAt ? ` · Chấp thuận ${formatDate(item.acceptedAt, language)}` : ""}`}</p>}{confirmationExpired && <p className="text-sm font-semibold text-rose-800">Vui lòng gửi đăng ký Advanced mới để tiếp tục.</p>}{accepted && !hasOrder && orderLocked && <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><p>{isVi ? 'Kết quả tạo đơn chưa thể xác minh. Không gửi lần nữa để tránh hóa đơn trùng.' : 'Order outcome is unresolved. Another order will not be sent to avoid a duplicate invoice.'}</p><button type="button" onClick={() => reconcileAdvancedOrder(item.id)} className="mt-2 font-semibold underline">{isVi ? 'Đối soát đơn' : 'Reconcile order'}</button></div>}{accepted && !hasOrder && !orderLocked && <div className="mt-4 border-t border-violet-100 pt-4"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div className="grid flex-1 gap-4 sm:grid-cols-[minmax(12rem,1fr)_auto] sm:items-end"><label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-700"><span>{isVi ? 'Phương thức thanh toán' : 'Payment method'}</span><select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} aria-label={isVi ? 'Phương thức thanh toán' : 'Payment method'} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-200"><option value="VNPay">VNPay</option><option value="Cash">{isVi ? 'Tiền mặt tại quầy' : 'Cash at counter'}</option></select></label><div className="sm:pb-1"><p className="text-xs font-semibold text-slate-500">{isVi ? 'Tổng thanh toán' : 'Total due'}</p><p className="mt-0.5 text-lg font-extrabold tracking-tight text-slate-950">{approvedAmount == null ? (isVi ? 'Chưa có thông tin giá' : 'Price unavailable') : formatMoney(approvedAmount, language)}</p></div></div><button type="button" disabled={submitting || confirmationExpired} onClick={() => createOrder(item)} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-700 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto sm:min-w-64">{submitting ? (isVi ? 'Đang tạo hóa đơn...' : 'Creating invoice...') : paymentMethod === 'Cash' ? (isVi ? 'Xác nhận thanh toán tại quầy' : 'Confirm payment at counter') : (isVi ? 'Tiến hành thanh toán' : 'Proceed to payment')}<ArrowUpRight size={16} /></button></div></div>}{rejected && <p className="mt-3 text-sm text-slate-600">{isVi ? 'Yêu cầu bị từ chối; không có nút thanh toán.' : 'This request was rejected; payment is unavailable.'}</p>}</article>
+          return <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[13px] font-bold uppercase tracking-wide text-brand-purple-dark">Advanced · {isVi ? 'đăng ký theo môn' : 'sport registration'}</p><h3 className="mt-1 font-bold text-slate-900">{item.subjectName || (item.subjectId ? (isVi ? 'Môn #' : 'Subject #') + item.subjectId : isVi ? 'Môn chưa xác định' : 'Unknown subject')}</h3><p className="mt-1 text-sm text-slate-600">{item.primaryCoachName || (item.primaryCoachId ? (isVi ? 'Coach #' : 'Coach #') + item.primaryCoachId : isVi ? 'Coach chưa xác định' : 'Unknown Coach')}</p></div><StatusPill status={item.status} language={language} /></div>{accepted && <p className="mt-3 flex items-center gap-2 rounded-lg bg-violet-50 p-3 text-sm text-violet-900"><Clock3 size={16} className="shrink-0" />{isVi ? 'Hạn xác nhận mua: ' : 'Confirm purchase by: '}{formatDeadline(item.confirmationDeadline, language)}</p>}{item.reason && <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{item.reason}</p>}{accepted && !hasOrder && confirmationExpired && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm font-medium text-rose-800" role="status">{confirmationDeadline == null ? (isVi ? 'Không xác minh được hạn xác nhận. Hãy tải lại danh sách đăng ký.' : 'Could not verify the confirmation deadline. Reload registrations.') : (isVi ? 'Đã hết thời hạn xác nhận mua gói. Vui lòng đăng ký Advanced lại.' : 'The purchase confirmation period has expired. Please submit a new Advanced registration.')}</p>}{accepted && !hasOrder && orderLocked && <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><p>{isVi ? 'Kết quả tạo đơn chưa thể xác minh. Không gửi lần nữa để tránh hóa đơn trùng.' : 'Order outcome is unresolved. Another order will not be sent to avoid a duplicate invoice.'}</p><button type="button" onClick={() => reconcileAdvancedOrder(item.id)} className="mt-2 font-semibold underline">{isVi ? 'Đối soát đơn' : 'Reconcile order'}</button></div>}{accepted && !hasOrder && !orderLocked && <div className="mt-4 border-t border-violet-100 pt-4"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div className="grid flex-1 gap-4 sm:grid-cols-[minmax(12rem,1fr)_auto] sm:items-end"><label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-700"><span>{isVi ? 'Phương thức thanh toán' : 'Payment method'}</span><select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} aria-label={isVi ? 'Phương thức thanh toán' : 'Payment method'} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-200"><option value="VNPay">VNPay</option><option value="Cash">{isVi ? 'Tiền mặt tại quầy' : 'Cash at counter'}</option></select></label><div className="sm:pb-1"><p className="text-xs font-semibold text-slate-500">{isVi ? 'Tổng thanh toán' : 'Total due'}</p><p className="mt-0.5 text-lg font-extrabold tracking-tight text-slate-950">{approvedAmount == null ? (isVi ? 'Chưa có thông tin giá' : 'Price unavailable') : formatMoney(approvedAmount, language)}</p></div></div><button type="button" disabled={submitting || !canConfirmPurchase} onClick={() => createOrder(item)} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-700 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto sm:min-w-64">{submitting ? (isVi ? 'Đang tạo hóa đơn...' : 'Creating invoice...') : (isVi ? 'Xác nhận và thanh toán' : 'Confirm and pay')}<ArrowUpRight size={16} /></button></div></div>}{rejected && <p className="mt-3 text-sm text-slate-600">{isVi ? 'Yêu cầu bị từ chối; không có nút thanh toán.' : 'This request was rejected; payment is unavailable.'}</p>}</article>
         })}</div>}
       </InlineState>}
       {enrollmentsState.error && tier === 'Normal' && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900" role="alert"><p>{enrollmentsState.error}</p><button type="button" onClick={refreshEnrollments} className="mt-2 font-semibold underline">{isVi ? 'Thử lại' : 'Retry'}</button></div>}
       {tier === 'Normal' && !enrollmentsState.loading && !enrollmentsState.error && displayedOrders.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-5 text-sm text-slate-600">{isVi ? 'Chưa có yêu cầu hoặc đơn hàng. Các đăng ký đã gửi sẽ xuất hiện tại đây.' : 'No requests or orders yet. Your submitted enrollments will appear here.'}</div>}
-      {displayedOrders.length > 0 && <div className="space-y-3">{displayedOrders.map((order) => <article key={order.key} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[13px] font-bold uppercase tracking-wide text-slate-500">{order.type} · {order.invoiceCode || (order.invoiceId ? (isVi ? 'Hóa đơn #' : 'Invoice #') + order.invoiceId : isVi ? 'Đơn chờ xử lý' : 'Order pending')} · {order.paymentMethod === 'Cash' ? (isVi ? 'Tiền mặt tại quầy' : 'Cash at counter') : 'VNPay'}</p><h3 className="mt-1 font-bold text-slate-900">{order.className || order.subjectName || (isVi ? 'Đăng ký khóa học' : 'Course enrollment')}</h3><p className="mt-1 text-sm text-slate-600">{order.amount == null ? (isVi ? 'Chưa có thông tin số tiền' : 'Amount not available') : formatMoney(order.amount, language)}{order.expiresAt ? ' · ' + (isVi ? 'Hạn thanh toán ' : 'Invoice deadline ') + formatDate(order.expiresAt, language) : ''}</p></div><StatusPill status={order.paymentStatus || order.status} language={language} /></div>{order.reconciliationRequired && <p className="mt-3 text-sm font-semibold text-amber-800">{isVi ? 'Đã ghi nhận Paid nhưng đang cần đối soát; chưa xác nhận quyền.' : 'Paid is recorded but reconciliation is required; entitlement is not confirmed.'}</p>}{['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <p className="mt-3 text-sm text-slate-700">{isVi ? 'Đã ghi nhận thanh toán thành công và kích hoạt quyền học chính thức.' : 'Payment confirmed and official course access activated.'}</p>}<div className="mt-4 flex flex-wrap gap-2">{order.paymentMethod !== 'Cash' && ['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" onClick={() => beginPayment(order)} className="min-h-10 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white">{isVi ? 'Tiếp tục thanh toán VNPay' : 'Continue to VNPay'}</button>}{['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" disabled={submitting} onClick={() => handleCancelPendingEnrollment(order)} className="min-h-10 rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100">{isVi ? 'Hủy đơn chờ & Đăng ký lại' : 'Cancel pending & re-enroll'}</button>}{['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" disabled={orderChecks[order.key]?.loading} onClick={() => checkOrderStatus(order)} className="min-h-10 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">{orderChecks[order.key]?.loading ? (isVi ? "Đang kiểm tra..." : "Checking...") : (isVi ? "Kiểm tra trạng thái" : "Check status")}</button>}{!['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && orderChecks[order.key]?.message && <p role="status" className={"mt-3 w-full rounded-lg p-3 text-sm " + (orderChecks[order.key].tone === "success" ? "bg-emerald-50 text-emerald-800" : orderChecks[order.key].tone === "error" ? "bg-rose-50 text-rose-800" : "bg-blue-50 text-blue-800")}>{orderChecks[order.key].message}</p>}</div></article>)}</div>}
+      {displayedOrders.length > 0 && <div className="space-y-3">{displayedOrders.map((order) => <article key={order.key} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[13px] font-bold uppercase tracking-wide text-slate-500">{order.type} · {order.invoiceCode || (order.invoiceId ? (isVi ? 'Hóa đơn #' : 'Invoice #') + order.invoiceId : isVi ? 'Đơn chờ xử lý' : 'Order pending')} · {order.paymentMethod === 'Cash' ? (isVi ? 'Tiền mặt tại quầy' : 'Cash at counter') : 'VNPay'}</p><h3 className="mt-1 font-bold text-slate-900">{order.className || order.subjectName || (isVi ? 'Đăng ký khóa học' : 'Course enrollment')}</h3><p className="mt-1 text-sm text-slate-600">{order.amount == null ? (isVi ? 'Chưa có thông tin số tiền' : 'Amount not available') : formatMoney(order.amount, language)}{order.expiresAt ? ' · ' + (isVi ? 'Hạn thanh toán ' : 'Invoice deadline ') + formatDate(order.expiresAt, language) : ''}</p></div><StatusPill status={order.paymentStatus || order.status} language={language} /></div>{order.type === 'Advanced' && <AdvancedInvoiceDetails order={order} language={language} now={clockNow} />}{order.reconciliationRequired && <p className="mt-3 text-sm font-semibold text-amber-800">{isVi ? 'Đã ghi nhận Paid nhưng đang cần đối soát; chưa xác nhận quyền.' : 'Paid is recorded but reconciliation is required; entitlement is not confirmed.'}</p>}{['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <p className="mt-3 text-sm text-slate-700">{order.type === 'Advanced' ? (String(order.subscription?.status || '').toLowerCase() === 'active' ? (isVi ? 'Backend xác nhận gói Advanced đang hoạt động.' : 'The server confirms the Advanced subscription is active.') : (isVi ? 'Backend đã xác nhận thanh toán; đang chờ đồng bộ Subscription.' : 'Payment is confirmed by the server; waiting for subscription sync.')) : (isVi ? 'Đã ghi nhận thanh toán thành công và kích hoạt quyền học chính thức.' : 'Payment confirmed and official course access activated.')}</p>}<div className="mt-4 flex flex-wrap gap-2">{order.paymentMethod !== 'Cash' && ['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" onClick={() => beginPayment(order)} className="min-h-10 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white">{isVi ? 'Tiếp tục thanh toán VNPay' : 'Continue to VNPay'}</button>}{['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" disabled={submitting} onClick={() => handleCancelPendingEnrollment(order)} className="min-h-10 rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100">{isVi ? 'Hủy đơn chờ & Đăng ký lại' : 'Cancel pending & re-enroll'}</button>}{['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" disabled={orderChecks[order.key]?.loading} onClick={() => checkOrderStatus(order)} className="min-h-10 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">{orderChecks[order.key]?.loading ? (isVi ? "Đang kiểm tra..." : "Checking...") : (isVi ? "Kiểm tra trạng thái" : "Check status")}</button>}{!['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && orderChecks[order.key]?.message && <p role="status" className={"mt-3 w-full rounded-lg p-3 text-sm " + (orderChecks[order.key].tone === "success" ? "bg-emerald-50 text-emerald-800" : orderChecks[order.key].tone === "error" ? "bg-rose-50 text-rose-800" : "bg-blue-50 text-blue-800")}>{orderChecks[order.key].message}</p>}</div></article>)}</div>}
       </div>
     </section>
 
