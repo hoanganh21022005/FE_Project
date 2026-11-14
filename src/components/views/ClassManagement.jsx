@@ -1268,6 +1268,7 @@ export function ClassManagement() {
     apiEnabled,
     classesLoading,
     subjects,
+    rooms,
     staff,
     coaches,
     addClassSession,
@@ -2483,6 +2484,36 @@ export function ClassManagement() {
                   <tbody className="divide-y divide-[#F1F3F5]">
                     {paginatedClasses.map((cls, idx) => {
                       const capacity = cls.capacity ?? (apiEnabled ? null : 8)
+                      const scheduledSessions =
+                        conflictSchedule?.classes === classes
+                          ? (conflictSchedule.sessions || []).filter(
+                              (session) => String(session.classId) === String(cls.id),
+                            )
+                          : []
+                      const assignedRooms = Array.from(
+                        new Map(
+                          scheduledSessions
+                            .map((session) => {
+                              const room = (rooms || []).find(
+                                (entry) => String(entry.id) === String(session.roomId),
+                              )
+                              const name = session.roomName || room?.name || room?.roomCode || ""
+                              return name ? [name, room || { name, capacity: null }] : null
+                            })
+                            .filter(Boolean),
+                        ).values(),
+                      )
+                      const roomNames = assignedRooms.length
+                        ? assignedRooms.map((room) => room.name)
+                        : [cls.roomVi || cls.room].filter(Boolean)
+                      const roomLabel = roomNames.join(", ") || "Chưa xếp phòng"
+                      const roomCapacities = Array.from(
+                        new Set(
+                          assignedRooms
+                            .map((room) => room.capacity)
+                            .filter((roomCapacity) => roomCapacity != null),
+                        ),
+                      )
                       const enrolled = cls.enrolledCount ?? (apiEnabled ? null : 0)
                       const minCap = cls.minCapacity ?? (apiEnabled ? null : 4)
                       const percent = capacity > 0 && enrolled !== null
@@ -2652,19 +2683,15 @@ export function ClassManagement() {
                               <div className="space-y-0.5">
                                 <div
                                   className="font-medium text-stone-800 line-clamp-1 truncate"
-                                  title={
-                                    cls.roomVi || cls.room || (apiEnabled ? "—" : "Sân tiêu chuẩn")
-                                  }
+                                  title={roomLabel}
                                 >
-                                  {cls.roomVi || cls.room || (apiEnabled ? "—" : "Sân tiêu chuẩn")}
+                                  {roomLabel}
                                 </div>
-                                <div
-                                  className="text-xs text-stone-500 line-clamp-1 truncate"
-                                  title={`Sức chứa ${capacity ?? "—"} • ${cls.roomSpec || (apiEnabled ? "—" : "Thảm PVC tiêu chuẩn")}`}
-                                >
-                                  Sức chứa {capacity ?? "—"} &bull;{" "}
-                                  {cls.roomSpec || (apiEnabled ? "—" : "Thảm PVC")}
-                                </div>
+                                {roomCapacities.length > 0 && (
+                                  <div className="text-xs text-stone-500 line-clamp-1 truncate">
+                                    Sức chứa {roomCapacities.join(", ")}
+                                  </div>
+                                )}
                               </div>
                             </td>
                           )}
