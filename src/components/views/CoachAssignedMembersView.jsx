@@ -24,7 +24,6 @@ import {
   Loader2,
   RefreshCw,
   AlertCircle,
-  Lock,
   Search,
 } from "lucide-react"
 
@@ -59,6 +58,26 @@ function normalizeStrictTime(val) {
   if (!isValidTimeFormat(val)) return null
   const s = val.trim()
   return s.length === 5 ? `${s}:00` : s
+}
+
+const STANDARD_PRIVATE_SESSION_SLOTS = [
+  [1, "06:00", "07:30"],
+  [2, "07:45", "09:15"],
+  [3, "09:30", "11:00"],
+  [4, "13:00", "14:30"],
+  [5, "14:45", "16:15"],
+  [6, "16:30", "18:00"],
+  [7, "18:15", "19:45"],
+]
+
+function isStandardPrivateSessionSlot(slot) {
+  if (!slot) return false
+  const slotNumber = Number(slot.slotNumber)
+  const startTime = String(slot.startTime || "").slice(0, 5)
+  const endTime = String(slot.endTime || "").slice(0, 5)
+  return STANDARD_PRIVATE_SESSION_SLOTS.some(([number, start, end]) =>
+    number === slotNumber && start === startTime && end === endTime,
+  )
 }
 
 function formatVietnamDateTime(val) {
@@ -430,6 +449,9 @@ export function CoachAssignedMembersView() {
   const [coachTrainingResults, setCoachTrainingResults] = useState([])
   const [loadingRequests, setLoadingRequests] = useState(false)
   const [requestsError, setRequestsError] = useState(null)
+  const [privateSessionProposals, setPrivateSessionProposals] = useState([])
+  const [loadingProposals, setLoadingProposals] = useState(false)
+  const [proposalsError, setProposalsError] = useState(null)
   const [decidingId, setDecidingId] = useState(null)
   const [rejectModalTarget, setRejectModalTarget] = useState(null)
   const [rejectReason, setRejectReason] = useState("")
@@ -467,13 +489,9 @@ export function CoachAssignedMembersView() {
   const [agreementConfirmed, setAgreementConfirmed] = useState(false)
   const [bookingBusy, setBookingBusy] = useState(false)
   const isSubmittingRef = useRef(false)
-
-  // Persisted Attempts Map by Subscription ID: { [subscriptionId]: AttemptObject }
-  const [attemptsBySubId, setAttemptsBySubId] = useState({})
-  const attemptsBySubIdRef = useRef(attemptsBySubId)
-  attemptsBySubIdRef.current = attemptsBySubId
   const [requestKey, setRequestKey] = useState(() => generateRequestKey())
-  const [readbackError, setReadbackError] = useState(false)
+  const [proposalResponse, setProposalResponse] = useState(null)
+  const [proposalError, setProposalError] = useState("")
 
   const loadAdvancedRequests = useCallback(async () => {
     if (!apiEnabled) return
@@ -482,7 +500,6 @@ export function CoachAssignedMembersView() {
     try {
       const list = await memberPortalApi.getAdvancedRegistrations()
       setAdvancedRequests(Array.isArray(list) ? list : [])
-      setReadbackError(false)
     } catch (err) {
       setRequestsError(getErrorMessage(err, "Không thể tải danh sách đăng ký 1-kèm-1."))
       throw err
@@ -490,6 +507,27 @@ export function CoachAssignedMembersView() {
       setLoadingRequests(false)
     }
   }, [apiEnabled])
+
+  const loadPrivateSessionProposals = useCallback(async () => {
+    if (!apiEnabled) {
+      setPrivateSessionProposals([])
+      setProposalsError(null)
+      return []
+    }
+    setLoadingProposals(true)
+    setProposalsError(null)
+    try {
+      const rows = await memberPortalApi.getPrivateSessionProposals()
+      const list = Array.isArray(rows) ? rows : []
+      setPrivateSessionProposals(list)
+      return list
+    } catch (err) {
+      setProposalsError(getErrorMessage(err, language === "vi" ? "Không thể tải danh sách đề xuất lịch." : "Could not load schedule proposals."))
+      throw err
+    } finally {
+      setLoadingProposals(false)
+    }
+  }, [apiEnabled, language])
 
   // Load rooms with validation & return valid list
   const loadRooms = useCallback(async () => {
@@ -540,11 +578,12 @@ export function CoachAssignedMembersView() {
       })
       .catch(() => {})
     loadAdvancedRequests().catch(() => {})
+    loadPrivateSessionProposals().catch(() => {})
     loadRooms().catch(() => {})
     return () => {
       active = false
     }
-  }, [apiEnabled, loadAdvancedRequests, loadRooms, currentUser?.coachId, currentUser?.id])
+  }, [apiEnabled, loadAdvancedRequests, loadPrivateSessionProposals, loadRooms, currentUser?.coachId, currentUser?.id])
 
   // Fetch slots for modal with strict token check
   const fetchAvailableSlots = useCallback(
@@ -580,9 +619,7 @@ export function CoachAssignedMembersView() {
         })
         if (reqId !== slotsRequestIdRef.current || currentModalSession !== modalSessionRef.current) return
         const rawSlots = Array.isArray(slots) ? slots : []
-        const validSlots = rawSlots.filter(
-          (s) => s && isValidTimeFormat(s.startTime) && isValidTimeFormat(s.endTime),
-        )
+        const validSlots = rawSlots.filter(isStandardPrivateSessionSlot)
         setAvailableSlots(validSlots)
         const firstAvail = validSlots.find((s) => s.isAvailable === true)
         if (firstAvail) {
@@ -698,52 +735,16 @@ export function CoachAssignedMembersView() {
     }
   }
 
-  // Active attempt for current modal
-  const currentSubId = bookingReg ? Number(bookingReg.subscriptionId) : null
-  const currentAttempt = currentSubId ? attemptsBySubId[currentSubId] : null
-
-  // Global unresolved attempt across all subscriptions (chỉ khóa các gói khác khi có giao dịch uncertain cần đối soát)
-  const unresolvedAttempt = useMemo(() => {
-    return Object.values(attemptsBySubId).find((a) => a.status === "uncertain")
-  }, [attemptsBySubId])
-
-  // Open modal for booking
+  // Open the proposal form for an active Advanced subscription.
   const openBookPrivateModal = async (regItem) => {
     if (!regItem) return
     const targetSubId = Number(regItem.subscriptionId)
-
-    // Check if there is an unresolved attempt on ANOTHER subscription
-    if (unresolvedAttempt && unresolvedAttempt.subscriptionId !== targetSubId) {
-      showToast?.(
-        `Đang có giao dịch đặt lịch chưa xác nhận kết quả cho học viên ${
-          unresolvedAttempt.memberName || `#${unresolvedAttempt.memberId}`
-        } (Gói #${unresolvedAttempt.subscriptionId}). Vui lòng đối soát giao dịch này trước khi đặt lịch mới.`,
-        "warning",
-      )
-      return
-    }
-
     const openSession = ++modalSessionRef.current
     currentOpenSubIdRef.current = targetSubId
     setBookingReg(regItem)
     setSlotsError(null)
-
-    const existingAttempt = attemptsBySubId[targetSubId]
-
-    if (
-      existingAttempt &&
-      (existingAttempt.status === "uncertain" || existingAttempt.status === "pending")
-    ) {
-      // Restore exact snapshot in read-only review mode
-      setBookingDate(existingAttempt.sessionDate)
-      setSelectedRoomId(String(existingAttempt.roomId))
-      setSelectedSlot(existingAttempt.selectedSlot)
-      setAgreementConfirmed(true)
-      setRequestKey(existingAttempt.key || existingAttempt.requestKey)
-      return
-    }
-
-    // New attempt
+    setProposalResponse(null)
+    setProposalError("")
     const defaultDate = getVietnamDatePlusDays(2)
     setBookingDate(defaultDate)
     setAgreementConfirmed(false)
@@ -798,16 +799,6 @@ export function CoachAssignedMembersView() {
       return
     }
 
-    // Bảo toàn giao dịch đang đối soát:
-    // Đọc attempt mới nhất từ attemptsBySubIdRef để tránh stale closure sau await loadRooms
-    const latestAttempt = targetSubId ? attemptsBySubIdRef.current[targetSubId] : null
-    const isLockedAttempt =
-      latestAttempt &&
-      (latestAttempt.status === "uncertain" || latestAttempt.status === "pending")
-    if (isLockedAttempt) {
-      return
-    }
-
     const matchingRooms = valid.filter((r) => isRoomForSubject(r, targetReg))
     const pool = matchingRooms.length > 0 ? matchingRooms : valid
     const stillAvailable = pool.some((r) => String(r.id) === String(selectedRoomId))
@@ -826,21 +817,10 @@ export function CoachAssignedMembersView() {
 
   // Change Date
   const handleDateChange = (newDate) => {
-    if (
-      currentAttempt &&
-      (currentAttempt.status === "uncertain" || currentAttempt.status === "pending")
-    )
-      return
     setBookingDate(newDate)
-    // Clear any previous schedule conflict
-    if (currentAttempt && currentAttempt.status === "schedule_conflict") {
-      setAttemptsBySubId((prev) => {
-        const next = { ...prev }
-        delete next[currentSubId]
-        return next
-      })
-      setRequestKey(generateRequestKey())
-    }
+    setRequestKey(generateRequestKey())
+    setProposalResponse(null)
+    setProposalError("")
     if (bookingReg && selectedRoomId) {
       fetchAvailableSlots(newDate, selectedRoomId, bookingReg)
     }
@@ -848,21 +828,10 @@ export function CoachAssignedMembersView() {
 
   // Change Room
   const handleRoomChange = (newRoomId) => {
-    if (
-      currentAttempt &&
-      (currentAttempt.status === "uncertain" || currentAttempt.status === "pending")
-    )
-      return
     setSelectedRoomId(newRoomId)
-    // Clear any previous schedule conflict
-    if (currentAttempt && currentAttempt.status === "schedule_conflict") {
-      setAttemptsBySubId((prev) => {
-        const next = { ...prev }
-        delete next[currentSubId]
-        return next
-      })
-      setRequestKey(generateRequestKey())
-    }
+    setRequestKey(generateRequestKey())
+    setProposalResponse(null)
+    setProposalError("")
     if (bookingReg && newRoomId) {
       fetchAvailableSlots(bookingDate, newRoomId, bookingReg)
     }
@@ -870,353 +839,132 @@ export function CoachAssignedMembersView() {
 
   // Select Slot
   const handleSelectSlot = (slot) => {
-    if (
-      currentAttempt &&
-      (currentAttempt.status === "uncertain" || currentAttempt.status === "pending")
-    )
-      return
     setSelectedSlot(slot)
-    // Clear any previous schedule conflict
-    if (currentAttempt && currentAttempt.status === "schedule_conflict") {
-      setAttemptsBySubId((prev) => {
-        const next = { ...prev }
-        delete next[currentSubId]
-        return next
-      })
-      setRequestKey(generateRequestKey())
-    }
+    setRequestKey(generateRequestKey())
+    setProposalResponse(null)
+    setProposalError("")
   }
 
-  // Handle Book Private Session Submit
-  const handleBookPrivateSession = async (e) => {
-    if (e) e.preventDefault()
-    if (isSubmittingRef.current || bookingBusy) return
-    if (!bookingReg) return
+  // Send a proposal only; Member acceptance creates the scheduled session.
+  const handleSendPrivateSessionProposal = async (e) => {
+    e.preventDefault()
+    if (isSubmittingRef.current || bookingBusy || proposalResponse || !bookingReg) return
+    if (!apiEnabled) {
+      setProposalError(language === "vi" ? "Kết nối Backend để gửi đề xuất lịch." : "Connect to the server to send a schedule proposal.")
+      return
+    }
 
-    const attemptSubId = Number(bookingReg.subscriptionId)
-
-    // Tách biệt hoàn toàn retry snapshot của attempt đã lưu khỏi validation tạo booking mới
-    const isRetrySnapshot = Boolean(
-      currentAttempt &&
-        (currentAttempt.status === "uncertain" || currentAttempt.status === "pending") &&
-        currentAttempt.payload &&
-        Number(currentAttempt.payload.subscriptionId) === attemptSubId,
+    const entitlement = checkRegistrationEntitlement(bookingReg, currentUser)
+    if (!entitlement.canBook) {
+      setProposalError(entitlement.reason)
+      return
+    }
+    if (!isPositiveInteger(bookingReg.subscriptionId) || !isPositiveInteger(bookingReg.subjectId)
+      || !isPositiveInteger(bookingReg.primaryCoachId) || !isPositiveInteger(bookingReg.memberId)) {
+      setProposalError(language === "vi" ? "Thiếu thông tin Member, gói, môn hoặc Coach." : "Member, subscription, subject, or Coach details are missing.")
+      return
+    }
+    const selectedRoom = roomsList.find((room) => Number(room.id) === Number(selectedRoomId))
+    if (!selectedRoom || !isRoomAvailable(selectedRoom, true) || !isRoomForSubject(selectedRoom, bookingReg)) {
+      setProposalError(language === "vi" ? "Vui lòng chọn phòng khả dụng cho môn học." : "Select an available room for this subject.")
+      return
+    }
+    const availableChoice = availableSlots.some((slot) =>
+      Number(slot.slotNumber) === Number(selectedSlot?.slotNumber)
+      && String(slot.startTime).slice(0, 5) === String(selectedSlot?.startTime).slice(0, 5)
+      && String(slot.endTime).slice(0, 5) === String(selectedSlot?.endTime).slice(0, 5)
+      && slot.isAvailable === true,
     )
-
-    let reqKey = requestKey
-    let payloadToSubmit = null
-
-    if (isRetrySnapshot) {
-      // Dùng lại chính xác snapshot và key đã lưu
-      reqKey = currentAttempt.key || currentAttempt.payload.requestKey
-      payloadToSubmit = currentAttempt.payload
-    } else if (apiEnabled) {
-      // 1. Re-validate Entitlement (chỉ khi API mode tạo booking mới)
-      const entitlement = checkRegistrationEntitlement(bookingReg, currentUser)
-      if (!entitlement.canBook) {
-        showToast?.(`Không đủ điều kiện đặt lịch: ${entitlement.reason}`, "error")
-        return
-      }
-
-      // 2. Validate Room
-      if (!isPositiveInteger(selectedRoomId)) {
-        showToast?.("Vui lòng chọn phòng / sân tập hợp lệ.", "warning")
-        return
-      }
-      const selectedRoom = roomsList.find(
-        (r) => isPositiveInteger(r.id) && Number(r.id) === Number(selectedRoomId),
-      )
-      if (!selectedRoom || !isRoomAvailable(selectedRoom, true)) {
-        showToast?.("Phòng tập đã chọn không tồn tại hoặc không khả dụng (chỉ chấp nhận phòng Available).", "error")
-        return
-      }
-
-      // 3. Validate Slot
-      if (
-        !selectedSlot ||
-        !isValidTimeFormat(selectedSlot.startTime) ||
-        !isValidTimeFormat(selectedSlot.endTime)
-      ) {
-        showToast?.("Vui lòng chọn một ca tập trống khả dụng.", "warning")
-        return
-      }
-
-      // 4. Validate Agreement
-      if (!agreementConfirmed) {
-        showToast?.("Vui lòng xác nhận đã thống nhất lịch tập với học viên.", "warning")
-        return
-      }
-
-      const startTime = normalizeStrictTime(selectedSlot.startTime)
-      const endTime = normalizeStrictTime(selectedSlot.endTime)
-
-      // 5. Validate 12h Lead Time (Vietnam Time)
-      const sessionStartMs = parseVietnamDateTime(`${bookingDate}T${startTime}`)
-      if (Number.isNaN(sessionStartMs)) {
-        showToast?.("Thời gian bắt đầu ca tập không hợp lệ.", "error")
-        return
-      }
-      const nowMs = Date.now()
-      if (sessionStartMs - nowMs < 12 * 60 * 60 * 1000) {
-        showToast?.(
-          "Yêu cầu đặt lịch trước tối thiểu 12 tiếng theo giờ Việt Nam.",
-          "warning",
-        )
-        return
-      }
-
-      // 6. Validate End Time <= ExpiresAt (Vietnam Time)
-      const sessionEndMs = parseVietnamDateTime(`${bookingDate}T${endTime}`)
-      if (Number.isNaN(sessionEndMs)) {
-        showToast?.("Thời gian kết thúc ca tập không hợp lệ.", "error")
-        return
-      }
-      const expiryMs = parseVietnamDateTime(bookingReg.expiresAt)
-      if (Number.isNaN(expiryMs) || sessionEndMs > expiryMs) {
-        showToast?.(
-          `Thời gian buổi tập vượt quá thời hạn sử dụng gói (${formatVietnamDateTime(bookingReg.expiresAt)}).`,
-          "warning",
-        )
-        return
-      }
-
-      if (!reqKey) {
-        reqKey = generateRequestKey()
-        setRequestKey(reqKey)
-      }
-      const coachIdNum = Number(
-        bookingReg.primaryCoachId ||
-          currentUser?.coachId ||
-          currentUser?.userId ||
-          currentUser?.id,
-      )
-      payloadToSubmit = {
-        subscriptionId: attemptSubId,
-        coachId: coachIdNum,
-        roomId: Number(selectedRoomId),
-        subjectId: Number(bookingReg.subjectId),
-        sessionDate: bookingDate,
-        startTime,
-        endTime,
-        agreementConfirmed: true,
-        requestKey: reqKey,
-      }
-    } else {
-      // Mock mode validation (không ép mock IDs mem-1/stf-3 thành ID số)
-      if (!selectedRoomId) {
-        showToast?.("Vui lòng chọn phòng / sân tập.", "warning")
-        return
-      }
-      if (!selectedSlot) {
-        showToast?.("Vui lòng chọn một ca tập.", "warning")
-        return
-      }
-      if (!agreementConfirmed) {
-        showToast?.("Vui lòng xác nhận đã thống nhất lịch tập với học viên.", "warning")
-        return
-      }
-      const startTime = normalizeStrictTime(selectedSlot.startTime || "06:00:00")
-      const endTime = normalizeStrictTime(selectedSlot.endTime || "07:30:00")
-
-      const sessionStartMs = parseVietnamDateTime(`${bookingDate}T${startTime}`)
-      if (!Number.isNaN(sessionStartMs) && sessionStartMs - Date.now() < 12 * 60 * 60 * 1000) {
-        showToast?.("Yêu cầu đặt lịch trước tối thiểu 12 tiếng theo giờ Việt Nam.", "warning")
-        return
-      }
-
-      if (!reqKey) {
-        reqKey = generateRequestKey()
-        setRequestKey(reqKey)
-      }
-
-      payloadToSubmit = {
-        subscriptionId: attemptSubId || 1,
-        coachId: bookingReg.primaryCoachId || currentUser?.id || "stf-3",
-        roomId: selectedRoomId,
-        subjectId: bookingReg.subjectId || 1,
-        sessionDate: bookingDate,
-        startTime,
-        endTime,
-        agreementConfirmed: true,
-        requestKey: reqKey,
-      }
+    if (!isStandardPrivateSessionSlot(selectedSlot) || !availableChoice) {
+      setProposalError(language === "vi" ? "Chọn một trong 7 ca chuẩn 90 phút còn khả dụng." : "Choose one of the seven available standard 90-minute slots.")
+      return
+    }
+    if (!agreementConfirmed) {
+      setProposalError(language === "vi" ? "Coach cần xác nhận đã trao đổi và thống nhất lịch với Member." : "Confirm that you agreed on the schedule with the Member.")
+      return
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bookingDate)) {
+      setProposalError(language === "vi" ? "Vui lòng chọn ngày hợp lệ." : "Choose a valid session date.")
+      return
     }
 
-    const newAttemptSnapshot = {
-      subscriptionId: attemptSubId,
-      memberId: apiEnabled ? Number(bookingReg.memberId) : bookingReg.memberId,
-      memberName: bookingReg.memberName || `Học viên #${bookingReg.memberId}`,
-      subjectId: apiEnabled ? Number(bookingReg.subjectId) : (bookingReg.subjectId || 1),
-      coachId: payloadToSubmit.coachId,
-      roomId: payloadToSubmit.roomId,
-      sessionDate: payloadToSubmit.sessionDate,
-      startTime: payloadToSubmit.startTime,
-      endTime: payloadToSubmit.endTime,
-      selectedSlot: isRetrySnapshot ? currentAttempt.selectedSlot : selectedSlot,
+    const startTime = String(selectedSlot.startTime).slice(0, 5)
+    const endTime = String(selectedSlot.endTime).slice(0, 5)
+    const sessionStartMs = parseVietnamDateTime(bookingDate + "T" + startTime)
+    const sessionEndMs = parseVietnamDateTime(bookingDate + "T" + endTime)
+    const expiresAtMs = parseVietnamDateTime(bookingReg.expiresAt)
+    if (Number.isNaN(sessionStartMs) || Number.isNaN(sessionEndMs) || Number.isNaN(expiresAtMs)) {
+      setProposalError(language === "vi" ? "Không xác minh được ngày học hoặc hạn gói từ Backend." : "Could not verify the session date or subscription expiry from the server.")
+      return
+    }
+    if (sessionStartMs - Date.now() < 12 * 60 * 60 * 1000) {
+      setProposalError(language === "vi" ? "Đề xuất cần được gửi trước giờ học ít nhất 12 tiếng." : "Send the proposal at least 12 hours before the session.")
+      return
+    }
+    if (sessionEndMs > expiresAtMs) {
+      setProposalError(language === "vi" ? "Ca học vượt quá thời hạn sử dụng gói 45 ngày." : "The session falls beyond the subscription validity period.")
+      return
+    }
+
+    const payload = {
+      subscriptionId: Number(bookingReg.subscriptionId),
+      subjectId: Number(bookingReg.subjectId),
+      coachId: Number(bookingReg.primaryCoachId),
+      roomId: Number(selectedRoom.id),
+      sessionDate: bookingDate,
+      startTime,
+      endTime,
       agreementConfirmed: true,
-      key: reqKey,
-      status: "pending",
-      error: null,
-      payload: payloadToSubmit,
+      requestKey,
     }
-
-    setAttemptsBySubId((prev) => ({ ...prev, [attemptSubId]: newAttemptSnapshot }))
     isSubmittingRef.current = true
     setBookingBusy(true)
-
-    // Chụp token session và subId lúc submit để bind response
-    const submitModalSession = modalSessionRef.current
-    const submitSubId = attemptSubId
-
+    setProposalError("")
     try {
-      if (apiEnabled) {
-        const sessionResponse = await memberPortalApi.bookPrivateSession(payloadToSubmit)
-
-        // Strict verification of SessionResponse
-        const matchResult = verifySessionResponseMatch(sessionResponse, payloadToSubmit, bookingReg)
-        if (!matchResult.valid) {
-          setAttemptsBySubId((prev) => ({
-            ...prev,
-            [attemptSubId]: {
-              ...newAttemptSnapshot,
-              status: "mismatch",
-              error: matchResult.reason,
-            },
-          }))
-          showToast?.(matchResult.reason, "error")
-          return
-        }
-
-        // Success: Clear attempt
-        setAttemptsBySubId((prev) => {
-          const next = { ...prev }
-          delete next[attemptSubId]
-          return next
-        })
-
-        // Close modal ONLY if modal currently represents this exact session & subscription
-        if (
-          modalSessionRef.current === submitModalSession &&
-          currentOpenSubIdRef.current === submitSubId
-        ) {
-          handleCloseModal()
-        }
-
-        showToast?.(
-          `Đã đặt buổi tập riêng 1-kèm-1 thành công! (Mã buổi: #${sessionResponse.id})`,
-          "success",
-        )
-
-        // Readback credit via GET
+      const response = await memberPortalApi.createPrivateSessionProposal(payload)
+      if (!isPositiveInteger(response?.id) || String(response?.status).toLowerCase() !== "pending" || response?.sessionId != null || !response?.respondBy) {
+        throw new Error("The server response did not match a Pending private-session proposal.")
+      }
+      setProposalResponse(response)
+      loadPrivateSessionProposals().catch(() => {})
+      showToast?.(language === "vi" ? "Đã gửi lịch, chờ học viên xác nhận." : "Schedule proposal sent; waiting for Member confirmation.", "success")
+    } catch (error) {
+      let message = getErrorMessage(error, language === "vi" ? "Không gửi được đề xuất lịch." : "Could not send the schedule proposal.")
+      let didReconcileProposal = false
+      if (!error?.status || error.status >= 500) {
         try {
-          await loadAdvancedRequests()
-        } catch {
-          setReadbackError(true)
-          showToast?.(
-            `Đã đặt ca #${sessionResponse.id} thành công nhưng chưa thể cập nhật credit mới. Vui lòng bấm 'Tải lại dữ liệu'.`,
-            "warning",
+          const rows = await memberPortalApi.getPrivateSessionProposals()
+          setPrivateSessionProposals(Array.isArray(rows) ? rows : [])
+          const matchingProposal = (Array.isArray(rows) ? rows : []).find((item) =>
+            String(item.status || "").toLowerCase() === "pending"
+            && item.sessionId == null
+            && String(item.subscriptionId) === String(payload.subscriptionId)
+            && String(item.subjectId) === String(payload.subjectId)
+            && String(item.coachId) === String(payload.coachId)
+            && String(item.roomId) === String(payload.roomId)
+            && String(item.sessionDate).slice(0, 10) === payload.sessionDate
+            && String(item.startTime).slice(0, 5) === payload.startTime
+            && String(item.endTime).slice(0, 5) === payload.endTime,
           )
+          if (matchingProposal) {
+            setProposalResponse(matchingProposal)
+            message = language === "vi"
+              ? "Đã tìm thấy đề xuất trên Backend khi đối soát; không gửi thêm đề xuất."
+              : "The proposal was found during reconciliation; no duplicate was sent."
+            didReconcileProposal = true
+          } else {
+            message = language === "vi"
+              ? "Chưa xác minh được đề xuất sau timeout. Đã tải lại danh sách; nếu thử lại, giữ nguyên lịch để dùng cùng requestKey."
+              : "The timed-out proposal was not found. The list was reloaded; retry only with this same schedule and requestKey."
+          }
+        } catch {
+          message = language === "vi"
+            ? "Chưa đối soát được kết quả timeout. Không gửi lại; hãy tải lại danh sách đề xuất trước."
+            : "The timeout outcome could not be reconciled. Do not resend; reload proposals first."
         }
-      } else {
-        // Mock mode
-        setAttemptsBySubId((prev) => {
-          const next = { ...prev }
-          delete next[attemptSubId]
-          return next
-        })
-        if (
-          modalSessionRef.current === submitModalSession &&
-          currentOpenSubIdRef.current === submitSubId
-        ) {
-          handleCloseModal()
-        }
-        showToast?.(
-          `[MOCK] Đã đặt lịch 1-kèm-1 thành công cho học viên ngày ${bookingDate}!`,
-          "success",
-        )
       }
-    } catch (err) {
-      const errMessage = getErrorMessage(err, "Không thể đặt buổi tập riêng 1-kèm-1.")
-      const status = Number(err?.status || err?.response?.status || 0)
-      const msgUpper = String(errMessage).toUpperCase()
-      const msgLower = String(errMessage).toLowerCase()
-
-      const isIdempotencyConflict =
-        status === 409 &&
-        (msgUpper.includes("IDEMPOTENCY_CONFLICT") ||
-          msgLower.includes("booking key already"))
-
-      const isScheduleConflict =
-        status === 409 &&
-        (msgUpper.includes("ROOM_CONFLICT") ||
-          msgUpper.includes("COACH_CONFLICT") ||
-          msgLower.includes("trùng lịch") ||
-          msgLower.includes("đã có lịch trong khung giờ") ||
-          msgLower.includes("phòng tập đã có lịch") ||
-          msgLower.includes("hlv đã có lịch"))
-
-      if (isIdempotencyConflict) {
-        setAttemptsBySubId((prev) => ({
-          ...prev,
-          [attemptSubId]: {
-            ...newAttemptSnapshot,
-            status: "idempotency_conflict",
-            error:
-              "Mã yêu cầu này đã được xử lý với nội dung lịch khác. Hãy tải lại trang để xem trạng thái mới nhất.",
-          },
-        }))
-        showToast?.("Lịch này đã được đặt trước đó. Hãy tải lại trang để xem lịch mới nhất.", "error")
-      } else if (isScheduleConflict) {
-        setAttemptsBySubId((prev) => ({
-          ...prev,
-          [attemptSubId]: {
-            ...newAttemptSnapshot,
-            status: "schedule_conflict",
-            error: errMessage,
-          },
-        }))
-        showToast?.(`Xung đột lịch tập: ${errMessage}. Vui lòng chọn ca hoặc ngày/phòng khác.`, "error")
-      } else if (status === 409) {
-        // Unknown 409: Giữ nguyên attempt để đối soát, không coi là schedule conflict, không rotate key
-        setAttemptsBySubId((prev) => ({
-          ...prev,
-          [attemptSubId]: {
-            ...newAttemptSnapshot,
-            status: "conflict_unknown",
-            error: errMessage || "Có xung đột dữ liệu. Vui lòng tải lại trang và thử lại.",
-          },
-        }))
-        showToast?.(`Xung đột lịch tập: ${errMessage}. Vui lòng đối soát lại lịch.`, "error")
-      } else if (
-        !status ||
-        status >= 500 ||
-        msgLower.includes("timeout") ||
-        msgLower.includes("network")
-      ) {
-        setAttemptsBySubId((prev) => ({
-          ...prev,
-          [attemptSubId]: {
-            ...newAttemptSnapshot,
-            status: "uncertain",
-            error:
-              "Không nhận được phản hồi (mạng chậm hoặc hết giờ chờ). Vui lòng bấm 'Thử lại cùng giao dịch' để đối soát an toàn.",
-          },
-        }))
-        showToast?.(
-          "Chưa nhận được xác nhận đặt lịch. Vui lòng thử lại với cùng giao dịch.",
-          "warning",
-        )
-      } else {
-        setAttemptsBySubId((prev) => ({
-          ...prev,
-          [attemptSubId]: {
-            ...newAttemptSnapshot,
-            status: "failed",
-            error: errMessage,
-          },
-        }))
-        showToast?.(errMessage, "error")
-      }
+      setProposalError(message)
+      showToast?.(message, didReconcileProposal ? "success" : "error")
     } finally {
       isSubmittingRef.current = false
       setBookingBusy(false)
@@ -1343,12 +1091,10 @@ export function CoachAssignedMembersView() {
           </div>
           <div>
             <h2 className="text-xl leading-7 font-semibold text-text-primary whitespace-nowrap">
-              {language === "vi" ? "Đăng ký sân & Đặt lịch PT 1:1" : "1:1 Court Booking & Assigned Members"}
+              {language === "vi" ? "Đề xuất lịch PT 1:1" : "1:1 Private Session Proposals"}
             </h2>
             <p className="text-sm leading-5 text-text-secondary whitespace-nowrap">
-              {language === "vi"
-                ? "Chọn học viên cá nhân để đăng ký sân tập, chọn ca học trống và theo dõi các gói tập 1:1"
-                : "Select 1:1 students to book sports courts, reserve available slots & track active packages"}
+              {language === "vi" ? "Chọn Member và gói Advanced Active để gửi đề xuất; Member sẽ xác nhận trước khi lịch được lên lịch." : "Select a Member and active Advanced subscription to propose a time; the Member confirms before it is scheduled."}
             </p>
           </div>
         </div>
@@ -1357,13 +1103,16 @@ export function CoachAssignedMembersView() {
           {apiEnabled && (
             <button
               type="button"
-              disabled={loadingRequests}
-              onClick={() => loadAdvancedRequests().catch(() => {})}
+              disabled={loadingRequests || loadingProposals}
+              onClick={() => {
+                loadAdvancedRequests().catch(() => {})
+                loadPrivateSessionProposals().catch(() => {})
+              }}
               title={t("coachBtnRefresh")}
               aria-label={t("coachBtnRefresh")}
               className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded border border-border-color bg-bg-card text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
             >
-              <RefreshCw className={`w-4 h-4 ${loadingRequests ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-4 h-4 ${loadingRequests || loadingProposals ? "animate-spin" : ""}`} />
             </button>
           )}
           <div className="text-xs leading-4 font-mono font-semibold bg-bg-secondary border border-border-color px-3 py-2 rounded text-text-primary">
@@ -1371,51 +1120,6 @@ export function CoachAssignedMembersView() {
           </div>
         </div>
       </div>
-
-      {/* Global Unresolved Attempt Banner */}
-      {unresolvedAttempt && (!bookingReg || Number(bookingReg.subscriptionId) !== unresolvedAttempt.subscriptionId) && (
-        <div className="p-4 bg-status-warning-bg border border-status-warning-border rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm leading-5 text-status-warning">
-          <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-5 h-5 text-status-warning shrink-0" />
-            <div>
-              <span className="font-semibold">Đang có giao dịch đặt lịch chưa hoàn tất kết quả: </span>
-              <span>
-                Học viên <strong>{unresolvedAttempt.memberName}</strong> &bull; {t("coachPkgLabel")} (
-                {unresolvedAttempt.sessionDate} &bull; {unresolvedAttempt.startTime.slice(0, 5)})
-              </span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              const reg = advancedRequests.find((r) => Number(r.subscriptionId) === unresolvedAttempt.subscriptionId)
-              if (reg) openBookPrivateModal(reg)
-            }}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer self-start sm:self-auto shrink-0"
-          >
-            Mở xem lại &amp; Thử lại
-          </button>
-        </div>
-      )}
-
-      {/* Readback Error Alert */}
-      {readbackError && (
-        <div className="p-3.5 bg-status-warning-bg border border-status-warning-border rounded-lg flex items-center justify-between text-sm leading-5 text-status-warning">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-status-warning shrink-0" />
-            <span>Buổi tập đã được tạo thành công nhưng chưa thể cập nhật số buổi còn lại. Vui lòng tải lại trang.</span>
-          </div>
-          <button
-            type="button"
-            disabled={loadingRequests}
-            onClick={() => loadAdvancedRequests().catch(() => {})}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loadingRequests ? "animate-spin" : ""}`} />
-            <span>Tải lại dữ liệu</span>
-          </button>
-        </div>
-      )}
 
       {/* Pending Advanced PT Coach Requests (ONLY REQUESTED / PENDING) */}
       {pendingAdvancedRequests.length > 0 && (
@@ -1489,6 +1193,90 @@ export function CoachAssignedMembersView() {
             })}
           </div>
         </div>
+      )}
+
+      {apiEnabled && (
+        <section className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3" aria-labelledby="sent-proposals-heading">
+          <div className="flex flex-col gap-2 border-b border-border-color pb-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 id="sent-proposals-heading" className="text-lg leading-7 font-semibold">
+                {language === "vi" ? "Đề xuất lịch đã gửi" : "Sent schedule proposals"}
+                <span className="ml-2 inline-flex items-center rounded-full bg-bg-secondary px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ring-border-color">
+                  {privateSessionProposals.length}
+                </span>
+              </h3>
+              <p className="mt-1 text-xs text-text-secondary">
+                {language === "vi" ? "Đề xuất đang chờ không giữ phòng và không trừ Credit." : "Pending proposals do not reserve a room or consume a credit."}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={loadingProposals}
+              onClick={() => loadPrivateSessionProposals().catch(() => {})}
+              className="inline-flex min-h-9 items-center justify-center gap-2 rounded border border-border-color px-3 text-xs font-semibold hover:bg-bg-secondary disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loadingProposals ? "animate-spin" : ""}`} />
+              {language === "vi" ? "Tải lại" : "Refresh"}
+            </button>
+          </div>
+
+          {proposalsError && (
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded border border-status-danger-border bg-status-danger-bg p-3 text-sm text-status-danger">
+              <span>{proposalsError}</span>
+              <button type="button" onClick={() => loadPrivateSessionProposals().catch(() => {})} className="font-semibold underline">
+                {language === "vi" ? "Thử lại" : "Retry"}
+              </button>
+            </div>
+          )}
+
+          {loadingProposals && privateSessionProposals.length === 0 ? (
+            <div className="flex items-center gap-2 py-4 text-sm text-text-secondary">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {language === "vi" ? "Đang tải đề xuất lịch..." : "Loading proposals..."}
+            </div>
+          ) : privateSessionProposals.length === 0 ? (
+            <p className="py-3 text-sm text-text-secondary">
+              {language === "vi" ? "Chưa có đề xuất lịch nào." : "No schedule proposals yet."}
+            </p>
+          ) : (
+            <div className="divide-y divide-border-color">
+              {privateSessionProposals.map((proposal) => {
+                const registration = advancedRequests.find((item) =>
+                  String(item.memberId) === String(proposal.memberId)
+                  && String(item.subscriptionId || item.id) === String(proposal.subscriptionId),
+                ) || advancedRequests.find((item) => String(item.memberId) === String(proposal.memberId))
+                const memberName = proposal.memberName || registration?.memberName || registration?.fullName
+                  || (proposal.memberId ? `${language === "vi" ? "Học viên" : "Member"} #${proposal.memberId}` : (language === "vi" ? "Học viên" : "Member"))
+                const subject = proposal.subjectName || registration?.subjectName
+                  || (proposal.subjectId ? `${language === "vi" ? "Môn" : "Subject"} #${proposal.subjectId}` : "—")
+                const room = roomsList.find((item) => String(item.id) === String(proposal.roomId))
+                const status = String(proposal.status || "Unknown")
+                const normalizedStatus = status.toLowerCase()
+                const statusLabel = normalizedStatus === "pending" ? (language === "vi" ? "Đang chờ" : "Pending")
+                  : normalizedStatus === "accepted" ? (language === "vi" ? "Đã xác nhận" : "Accepted")
+                    : normalizedStatus === "rejected" ? (language === "vi" ? "Đã từ chối" : "Rejected")
+                      : normalizedStatus === "expired" ? (language === "vi" ? "Đã hết hạn" : "Expired") : status
+                return (
+                  <article key={proposal.id} className="grid gap-2 py-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center">
+                    <div className="space-y-1">
+                      <p className="font-semibold">{memberName} <span className="font-normal text-text-secondary">· {subject}</span></p>
+                      <p className="text-text-secondary">
+                        {proposal.sessionDate || "—"} · {String(proposal.startTime || "").slice(0, 5)}–{String(proposal.endTime || "").slice(0, 5)} · {room?.name || (proposal.roomId ? `Room #${proposal.roomId}` : "—")}
+                      </p>
+                      <p className="text-xs text-text-secondary">
+                        {language === "vi" ? "Hạn phản hồi: " : "Respond by: "}{proposal.respondBy ? formatVietnamDateTime(proposal.respondBy) : "—"}
+                        {proposal.sessionId != null && <> · {language === "vi" ? "Buổi tập #" : "Session #"}{proposal.sessionId}</>}
+                      </p>
+                    </div>
+                    <span className={`inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-semibold ${normalizedStatus === "pending" ? "bg-status-warning-bg text-status-warning" : normalizedStatus === "accepted" ? "bg-status-success-bg text-status-success" : normalizedStatus === "rejected" || normalizedStatus === "expired" ? "bg-status-danger-bg text-status-danger" : "bg-bg-secondary text-text-secondary"}`}>
+                      {statusLabel}
+                    </span>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </section>
       )}
 
       {/* Main Content Area: API Candidates */}
@@ -1879,10 +1667,7 @@ export function CoachAssignedMembersView() {
                         <>
                           <div className="space-y-1 text-sm leading-5">
                             <div className="text-text-primary font-medium">
-                              {t("coachWillDeductFromPkg").replace(
-                                "{pkgName}",
-                                formatPkgName(activeSelectedPkg),
-                              )}
+                              {language === "vi" ? `Gói ${formatPkgName(activeSelectedPkg)} còn ${activeSelectedPkg.remainingCredit ?? 0} buổi. Đề xuất Pending không giữ sân hoặc trừ credit.` : `${formatPkgName(activeSelectedPkg)} has ${activeSelectedPkg.remainingCredit ?? 0} credits. A Pending proposal reserves no room and consumes no credit.`}
                             </div>
                             {bookablePackages.length > 1 && (
                               <div className="flex items-center gap-2">
@@ -1915,42 +1700,15 @@ export function CoachAssignedMembersView() {
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
-                            {unresolvedAttempt &&
-                            unresolvedAttempt.subscriptionId ===
-                              Number(activeSelectedPkg.subscriptionId) ? (
-                              <button
-                                type="button"
-                                onClick={() => openBookPrivateModal(activeSelectedPkg)}
-                                aria-label={`Xem lại đối soát cho học viên ${memberDisplayName}`}
-                                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded border border-border-color bg-bg-card px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none text-text-primary hover:bg-bg-secondary whitespace-nowrap cursor-pointer"
-                              >
-                                <AlertCircle className="w-3.5 h-3.5 text-status-warning shrink-0" />
-                                <span>Đối soát giao dịch</span>
-                              </button>
-                            ) : unresolvedAttempt &&
-                              unresolvedAttempt.subscriptionId !==
-                                Number(activeSelectedPkg.subscriptionId) ? (
-                              <button
-                                type="button"
-                                disabled
-                                aria-disabled="true"
-                                title="Khóa do đang có giao dịch khác chờ đối soát"
-                                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 border border-border-color bg-bg-card text-text-secondary whitespace-nowrap"
-                              >
-                                <Lock className="w-3.5 h-3.5 shrink-0" />
-                                <span>Đang chờ xác nhận</span>
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => openBookPrivateModal(activeSelectedPkg)}
-                                aria-label={`Đặt lịch PT 1:1 cho học viên ${memberDisplayName}`}
-                                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active whitespace-nowrap cursor-pointer"
-                              >
-                                <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
-                                <span>{language === "vi" ? "Đăng ký sân PT 1:1" : "Book PT Court"}</span>
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => openBookPrivateModal(activeSelectedPkg)}
+                              aria-label={`Send a private-session proposal for ${memberDisplayName}`}
+                              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active whitespace-nowrap cursor-pointer"
+                            >
+                              <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
+                              <span>{language === "vi" ? "Gửi đề xuất lịch" : "Send schedule proposal"}</span>
+                            </button>
                           </div>
                         </>
                       ) : (
@@ -2083,7 +1841,7 @@ export function CoachAssignedMembersView() {
             <div className="flex items-center justify-between border-b border-border-color pb-3">
               <div>
                 <h3 className="text-lg leading-7 font-semibold text-text-primary">
-                  {language === "vi" ? "Đăng ký sân & Đặt buổi tập PT 1:1" : "Book Court for 1:1 PT Session"}
+                  {language === "vi" ? "Gửi đề xuất lịch PT 1:1" : "Send a 1:1 PT schedule proposal"}
                 </h3>
                 <p className="text-sm leading-5 text-text-secondary mt-0.5">
                   Học viên: <strong className="text-text-primary">{bookingReg.memberName || `Học viên #${bookingReg.memberId}`}</strong> &bull; Gói:{" "}
@@ -2104,80 +1862,17 @@ export function CoachAssignedMembersView() {
               </button>
             </div>
 
-            {/* Idempotency Alert / Notice */}
-            {currentAttempt?.status === "uncertain" && (
-              <div className="p-3 bg-status-warning-bg border border-status-warning-border rounded text-sm leading-5 text-status-warning space-y-2">
-                <div className="font-semibold flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>Giao dịch chưa được xác nhận</span>
-                </div>
-                <p className="text-xs leading-4">
-                  Yêu cầu trước đó gặp sự cố mạng hoặc timeout. Form đang hiển thị chính xác snapshot của giao dịch đang đối soát
-                  (ngày <strong>{currentAttempt.sessionDate}</strong>, buổi{" "}
-                  <strong>
-                    {currentAttempt.startTime?.slice(0, 5)} - {currentAttempt.endTime?.slice(0, 5)}
-                  </strong>
-                  ). Hãy tải lại trang để kiểm tra kết quả.
-                </p>
-                <div className="pt-1 border-t border-amber-200/60">
-                  <span className="text-xs leading-4">
-                    Mã giao dịch: {currentAttempt.key?.slice(0, 8)}...
-                  </span>
-                </div>
+            {proposalResponse && (
+              <div role="status" className="rounded border border-status-success-border bg-status-success-bg p-3 text-sm leading-5 text-status-success">
+                <p className="font-semibold">{language === "vi" ? "Đã gửi lịch, chờ học viên xác nhận" : "Schedule sent; waiting for Member confirmation"}</p>
+                <p className="mt-1">{proposalResponse.sessionDate || bookingDate} | {String(proposalResponse.startTime || selectedSlot?.startTime || "").slice(0, 5)}-{String(proposalResponse.endTime || selectedSlot?.endTime || "").slice(0, 5)} | {roomsList.find((room) => Number(room.id) === Number(proposalResponse.roomId ?? selectedRoomId))?.name || ("Room #" + (proposalResponse.roomId ?? selectedRoomId))}</p>
+                {proposalResponse.respondBy && <p className="mt-1">{language === "vi" ? "Hạn phản hồi: " : "Respond by: "}{formatVietnamDateTime(proposalResponse.respondBy)}</p>}
+                <p className="mt-1">{language === "vi" ? "Trạng thái: " : "Status: "}{proposalResponse.status}</p>
               </div>
             )}
+            {proposalError && <p role="alert" className="rounded border border-status-danger-border bg-status-danger-bg p-3 text-sm leading-5 text-status-danger">{proposalError}</p>}
 
-            {currentAttempt?.status === "idempotency_conflict" && (
-              <div className="p-3 bg-status-danger-bg border border-status-danger-border rounded text-sm leading-5 text-status-danger space-y-1">
-                <div className="font-semibold flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>Lịch đã được đặt trước đó</span>
-                </div>
-                <p className="text-xs leading-4">
-                  {currentAttempt.error ||
-                    "Mã yêu cầu này đã được xử lý với nội dung lịch khác. Vui lòng đóng cửa sổ và kiểm tra lại lịch hiện tại."}
-                </p>
-              </div>
-            )}
-
-            {currentAttempt?.status === "conflict_unknown" && (
-              <div className="p-3 bg-status-danger-bg border border-status-danger-border rounded text-sm leading-5 text-status-danger space-y-1">
-                <div className="font-semibold flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>Có xung đột dữ liệu, vui lòng tải lại trang</span>
-                </div>
-                <p className="text-xs leading-4">
-                  {currentAttempt.error ||
-                    "Phát hiện xung đột dữ liệu không xác định. Giao dịch được giữ nguyên để kiểm tra lại."}
-                </p>
-              </div>
-            )}
-
-            {currentAttempt?.status === "schedule_conflict" && (
-              <div className="p-3 bg-status-warning-bg border border-status-warning-border rounded text-sm leading-5 text-status-warning space-y-1">
-                <div className="font-semibold flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>Xung đột lịch tập (Phòng hoặc HLV đã bận)</span>
-                </div>
-                <p className="text-xs leading-4">
-                  {currentAttempt.error}. Bạn có thể chọn ngày, phòng, hoặc ca tập khác bên dưới để tiếp tục đặt lịch.
-                </p>
-              </div>
-            )}
-
-            {currentAttempt?.status === "mismatch" && (
-              <div className="p-3 bg-status-danger-bg border border-status-danger-border rounded text-sm leading-5 text-status-danger space-y-1">
-                <div className="font-semibold flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>Phản hồi xác nhận không như mong đợi</span>
-                </div>
-                <p className="text-xs leading-4">
-                  {currentAttempt.error}. Có lỗi xảy ra. Hãy tải lại trang rồi thử lại.
-                </p>
-              </div>
-            )}
-
-            <form onSubmit={handleBookPrivateSession} className="space-y-4">
+            <form onSubmit={handleSendPrivateSessionProposal} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="booking-date-input" className="text-xs leading-4 font-medium text-text-secondary block mb-1">
@@ -2187,10 +1882,7 @@ export function CoachAssignedMembersView() {
                     id="booking-date-input"
                     type="date"
                     required
-                    disabled={
-                      currentAttempt?.status === "uncertain" ||
-                      currentAttempt?.status === "pending"
-                    }
+                    disabled={bookingBusy || Boolean(proposalResponse)}
                     value={bookingDate}
                     onChange={(e) => handleDateChange(e.target.value)}
                     className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
@@ -2223,52 +1915,16 @@ export function CoachAssignedMembersView() {
                   ) : (
                     <select
                       id="booking-room-select"
-                      disabled={
-                        currentAttempt?.status === "uncertain" ||
-                        currentAttempt?.status === "pending"
-                      }
+                      disabled={bookingBusy || Boolean(proposalResponse)}
                       value={selectedRoomId}
                       onChange={(e) => handleRoomChange(e.target.value)}
                       className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                     >
-                      {(() => {
-                        const isLocked =
-                          currentAttempt?.status === "uncertain" ||
-                          currentAttempt?.status === "pending"
-                        const hasMatchInAvailable = modalSubjectRooms.some(
-                          (r) => String(r.id) === String(selectedRoomId),
-                        )
-
-                        const orphanSnapshotOption =
-                          isLocked && selectedRoomId && !hasMatchInAvailable ? (
-                            <option key={`locked-${selectedRoomId}`} value={selectedRoomId} disabled>
-                              {currentAttempt.snapshot?.roomName
-                                ? `${currentAttempt.snapshot.roomName} (Đã gửi trong giao dịch)`
-                                : `Sân #${selectedRoomId} (Đã gửi trong giao dịch)`}
-                            </option>
-                          ) : null
-
-                        if (modalSubjectRooms.length === 0 && !orphanSnapshotOption) {
-                          return (
-                            <option value="">
-                              {language === "vi"
-                                ? `Không có sân tập khả dụng cho môn ${bookingReg?.subjectName || ""}`
-                                : "No available rooms for this subject"}
-                            </option>
-                          )
-                        }
-
-                        return (
-                          <>
-                            {orphanSnapshotOption}
-                            {modalSubjectRooms.map((r) => (
-                              <option key={r.id} value={r.id}>
-                                {formatRoomOptionLabel(r)}
-                              </option>
-                            ))}
-                          </>
-                        )
-                      })()}
+                      {modalSubjectRooms.length === 0 ? (
+                        <option value="">{language === "vi" ? "Không có phòng phù hợp" : "No suitable room available"}</option>
+                      ) : modalSubjectRooms.map((room) => (
+                        <option key={room.id} value={room.id}>{formatRoomOptionLabel(room)}</option>
+                      ))}
                     </select>
                   )}
                 </div>
@@ -2313,10 +1969,7 @@ export function CoachAssignedMembersView() {
                       const startStr = String(slot.startTime || "").slice(0, 5)
                       const endStr = String(slot.endTime || "").slice(0, 5)
                       const isSelected = selectedSlot?.startTime === slot.startTime
-                      const disabled =
-                        slot.isAvailable !== true ||
-                        currentAttempt?.status === "uncertain" ||
-                        currentAttempt?.status === "pending"
+                      const disabled = slot.isAvailable !== true || bookingBusy || Boolean(proposalResponse)
 
                       return (
                         <button
@@ -2357,10 +2010,7 @@ export function CoachAssignedMembersView() {
                   <input
                     type="checkbox"
                     required
-                    disabled={
-                      currentAttempt?.status === "uncertain" ||
-                      currentAttempt?.status === "pending"
-                    }
+                    disabled={bookingBusy || Boolean(proposalResponse)}
                     checked={agreementConfirmed}
                     onChange={(e) => setAgreementConfirmed(e.target.checked)}
                     className="mt-0.5 rounded border-border-strong text-brand-primary focus:ring-brand-primary cursor-pointer disabled:opacity-50"
@@ -2384,26 +2034,21 @@ export function CoachAssignedMembersView() {
                   type="submit"
                   disabled={
                     bookingBusy ||
+                    Boolean(proposalResponse) ||
                     !selectedSlot ||
                     !agreementConfirmed ||
                     !isPositiveInteger(selectedRoomId) ||
-                    currentAttempt?.status === "idempotency_conflict" ||
-                    currentAttempt?.status === "conflict_unknown" ||
-                    currentAttempt?.status === "mismatch" ||
-                    (currentAttempt?.status === "pending" && isSubmittingRef.current)
+                    !apiEnabled
                   }
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 py-2 text-sm font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
                 >
                   {bookingBusy ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Đang xử lý đặt lịch...</span>
+                      <span>Sending proposal...</span>
                     </>
-                  ) : currentAttempt?.status === "uncertain" ||
-                    currentAttempt?.status === "pending" ? (
-                    <span>Thử lại cùng giao dịch</span>
                   ) : (
-                    <span>{language === "vi" ? "Xác nhận đăng ký sân PT 1:1" : "Confirm PT Court Booking"}</span>
+                    <span>{language === "vi" ? "Gửi đề xuất lịch" : "Send schedule proposal"}</span>
                   )}
                 </button>
               </div>

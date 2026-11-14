@@ -1,6 +1,5 @@
 import { httpClient } from './httpClient.js'
 import { extractList, isValidNumericId } from './schemaValidators.js'
-import { getVnpayReturnContext } from '../utils/vnpayCheckout.js'
 
 const requireList = (response, name) => {
   const rows = extractList(response)
@@ -86,16 +85,16 @@ export const requestAdvancedRegistration = async ({ subjectId, primaryCoachId, r
 export const createAdvancedOrder = async (registrationId, paymentMethod) => {
   if (!isValidNumericId(registrationId)) throw new Error('ID đăng ký Advanced không hợp lệ.')
   if (!['Cash', 'VNPay'].includes(paymentMethod)) throw new Error('Phương thức thanh toán không hợp lệ.')
-  const payload = { paymentMethod, ...(paymentMethod === 'VNPay' ? getVnpayReturnContext() : {}) }
-  return normalizeAdvancedOrderResponse(await httpClient.post(`/api/advanced-registrations/${registrationId}/order`, payload))
+  const response = await httpClient.post(`/api/advanced-registrations/${registrationId}/order`, { paymentMethod })
+  return normalizeAdvancedOrderResponse(response)
 }
 
 export const decideAdvancedRegistration = async (registrationId, { accepted, reason = '' } = {}) => {
   if (!isValidNumericId(registrationId)) throw new Error('ID đăng ký Advanced không hợp lệ.')
-  return httpClient.post(`/api/advanced-registrations/${registrationId}/decision`, {
-    accepted: Boolean(accepted),
-    reason: String(reason || '').trim(),
-  })
+  const normalizedReason = String(reason || '').trim()
+  const payload = { accepted: Boolean(accepted) }
+  if (normalizedReason) payload.reason = normalizedReason
+  return httpClient.post(`/api/advanced-registrations/${registrationId}/decision`, payload)
 }
 
 export const getCoachWorkSchedule = async (coachId) => {
