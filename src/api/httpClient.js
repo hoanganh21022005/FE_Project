@@ -25,6 +25,27 @@ export async function httpRequest(path, options = {}) {
     headers.set("Accept", "application/json")
   }
 
+  // Ensure Authorization: Bearer ${token} is attached if token exists and not already set
+  if (!headers.has("Authorization") && typeof window !== "undefined") {
+    const token =
+      localStorage.getItem("token") ||
+      localStorage.getItem("accessToken") ||
+      localStorage.getItem("auth_token") ||
+      localStorage.getItem("jwt") ||
+      localStorage.getItem("scms_token") ||
+      sessionStorage.getItem("token") ||
+      sessionStorage.getItem("accessToken") ||
+      sessionStorage.getItem("auth_token") ||
+      sessionStorage.getItem("jwt") ||
+      sessionStorage.getItem("scms_token")
+    if (token) {
+      headers.set(
+        "Authorization",
+        token.startsWith("Bearer ") ? token : `Bearer ${token}`,
+      )
+    }
+  }
+
   let response
   let timedOut = false
   let timeoutId
@@ -84,8 +105,21 @@ export async function httpRequest(path, options = {}) {
         : await response.text().catch(() => "")
 
   if (!response.ok) {
+    const errorCode = String(body?.code || body?.error || "").toUpperCase()
+    const errorMsg = String(
+      body?.message || body?.detail || body?.error_description || "",
+    ).toLowerCase()
+    const isTokenExpired =
+      response.status === 401 ||
+      errorCode.includes("EXPIRED") ||
+      errorCode.includes("TOKEN_EXPIRED") ||
+      errorCode.includes("AUTH_EXPIRED") ||
+      errorMsg.includes("token expired") ||
+      errorMsg.includes("phiên đăng nhập hết hạn") ||
+      errorMsg.includes("jwt expired")
+
     if (
-      response.status === 401 &&
+      isTokenExpired &&
       options.notifyUnauthorized !== false &&
       typeof window !== "undefined"
     ) {
@@ -93,6 +127,7 @@ export async function httpRequest(path, options = {}) {
     }
     if (
       response.status === 403 &&
+      !isTokenExpired &&
       options.notifyForbidden !== false &&
       typeof window !== "undefined"
     ) {

@@ -1558,6 +1558,10 @@ function SCMSApp() {
                     element={<Navigate to="/member/catalog" replace />}
                   />
                   <Route
+                    path="/member/courses"
+                    element={<Navigate to="/member/catalog" replace />}
+                  />
+                  <Route
                     path="/member/enrollments"
                     element={
                       <RequireRole

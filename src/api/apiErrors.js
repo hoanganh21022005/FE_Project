@@ -121,6 +121,16 @@ export function readBackendMessage(body, status = 0) {
   if (typeof body === 'string' && body.trim()) {
     raw = body.trim();
   } else if (body && typeof body === 'object') {
+    const code = String(body.code || body.errorCode || '').toUpperCase();
+    if (code === 'FORBIDDEN_NOT_OWNER') {
+      return 'Bạn không có quyền thao tác trên buổi tập của học viên khác.';
+    }
+    if (code === 'INVALID_ROLE') {
+      return 'Tài khoản không đúng vai trò để thực hiện thao tác này.';
+    }
+    if (code === 'TOKEN_EXPIRED' || code === 'EXPIRED_TOKEN' || code === 'AUTH_EXPIRED') {
+      return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+    }
     for (const value of [body.message, body.error, body.detail]) {
       if (typeof value === 'string' && value.trim()) {
         raw = value.trim();

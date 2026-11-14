@@ -100,7 +100,25 @@ export function MemberMyCoachView() {
   }, [currentUser])
 
   const coachSports = useMemo(() => [...new Set(coaches.flatMap((coach) => Array.isArray(coach.specializations) && coach.specializations.length ? coach.specializations : coach.specialization ? [coach.specialization] : []).filter(Boolean))], [coaches])
-  const upcomingPrivateSessions = privateSessions.filter((session) => String(session.sessionDate || "") >= new Date().toISOString().slice(0, 10)).length
+  const upcomingPrivateSessions = privateSessions.filter((session) => {
+    const status = String(session?.status || "").trim().toLowerCase()
+    const start = new Date(`${String(session?.sessionDate || "").slice(0, 10)} ${String(session?.startTime || "").slice(0, 8)}`)
+    return status === "scheduled" && !Number.isNaN(start.getTime()) && start.getTime() >= Date.now()
+  }).length
+  const visiblePrivateSessions = privateSessions.filter((session) => !["cancelled", "canceled", "absent"].includes(String(session?.status || "").trim().toLowerCase()))
+  const getSessionTimingRule = (session, now = new Date()) => {
+    const status = String(session?.status || "").trim().toLowerCase()
+    if (["cancelled", "canceled", "absent", "completed"].includes(status)) return { isCancellable: false, isAbsentApplicable: false }
+    const date = String(session?.sessionDate || "").slice(0, 10)
+    const startTime = String(session?.startTime || "").slice(0, 8)
+    const endTime = String(session?.endTime || "").slice(0, 8)
+    const start = new Date(`${date} ${startTime}`)
+    const end = new Date(`${date} ${endTime || startTime}`)
+    if (!date || Number.isNaN(start.getTime())) return { isCancellable: false, isAbsentApplicable: false }
+    const diffHours = (start.getTime() - now.getTime()) / 3600000
+    const hasEnded = !Number.isNaN(end.getTime()) ? now.getTime() >= end.getTime() : diffHours <= 0
+    return { isCancellable: !hasEnded && diffHours >= 12, isAbsentApplicable: !hasEnded && diffHours < 12 }
+  }
   const pendingSessionProposals = privateSessionProposals.filter((proposal) =>
     String(proposal.status || "").toLowerCase() === "pending" && proposal.sessionId == null,
   )
@@ -119,7 +137,7 @@ export function MemberMyCoachView() {
       if (apiEnabled) {
         const list = await memberPortalApi.getCoaches({
           keyword: keyword.trim() || undefined,
-        })
+        }, { notifyForbidden: false })
         const rawList = Array.isArray(list) ? list : []
         setCoaches(rawList)
       } else {
@@ -152,13 +170,13 @@ export function MemberMyCoachView() {
     }
 
     memberPortalApi
-      .getRooms()
+      .getRooms({ notifyForbidden: false })
       .then((res) => setRooms(Array.isArray(res) ? res : []))
       .catch((err) => console.warn("Could not fetch rooms:", err))
 
     if (memberProfileId) {
       membershipApi
-        .getMemberSubscriptions(memberProfileId)
+        .getMemberSubscriptions(memberProfileId, { notifyForbidden: false })
         .then((subs) => {
           const valid = (Array.isArray(subs) ? subs : []).filter((s) => {
             const st = String(s?.status || "").toLowerCase()
@@ -179,7 +197,7 @@ export function MemberMyCoachView() {
     setLoadingSessions(true)
     try {
       if (apiEnabled && memberProfileId) {
-        const allSessions = await memberPortalApi.getClassSessions({ memberId: memberProfileId })
+        const allSessions = await memberPortalApi.getClassSessions({ memberId: memberProfileId }, { notifyForbidden: false })
         const scheduledStatuses = new Set(["scheduled", "confirmed", "ongoing", "completed", "cancelled", "canceled", "absent"])
         const privates = (Array.isArray(allSessions) ? allSessions : []).filter((s) => {
           const status = String(s.status || "").toLowerCase()
@@ -208,12 +226,13 @@ export function MemberMyCoachView() {
     setLoadingProposals(true)
     setProposalsError("")
     try {
-      const rows = await memberPortalApi.getPrivateSessionProposals()
+      const rows = await memberPortalApi.getPrivateSessionProposals({}, { notifyForbidden: false })
       const proposals = Array.isArray(rows) ? rows : []
       setPrivateSessionProposals(proposals)
       return proposals
     } catch (error) {
       setProposalsError(getErrorMessage(error, isVi ? "Không tải được đề xuất lịch." : "Could not load schedule proposals."))
+      setPrivateSessionProposals([])
       throw error
     } finally {
       setLoadingProposals(false)
@@ -261,10 +280,10 @@ export function MemberMyCoachView() {
       setLoadingProposals(true)
       setLoadingSessions(true)
       const results = await Promise.allSettled([
-        memberPortalApi.getPrivateSessionProposalById(proposal.id),
-        memberPortalApi.getPrivateSessionProposals(),
-        memberPortalApi.getClassSessions({ memberId: memberProfileId }),
-        membershipApi.getMemberSubscriptions(memberProfileId),
+        memberPortalApi.getPrivateSessionProposalById(proposal.id, { notifyForbidden: false }),
+        memberPortalApi.getPrivateSessionProposals({}, { notifyForbidden: false }),
+        memberPortalApi.getClassSessions({ memberId: memberProfileId }, { notifyForbidden: false }),
+        membershipApi.getMemberSubscriptions(memberProfileId, { notifyForbidden: false }),
       ])
       setLoadingProposals(false)
       setLoadingSessions(false)
@@ -595,6 +614,16 @@ export function MemberMyCoachView() {
       )
     )
       return
+    const refreshAfterCancellation = async () => {
+      await fetchPrivateSessions()
+      setPrivateSessions((current) => current.map((session) =>
+        String(session.id) === String(sessionId) ? { ...session, status: "Cancelled" } : session,
+      ))
+      if (apiEnabled && memberProfileId) {
+        const subs = await membershipApi.getMemberSubscriptions(memberProfileId, { notifyForbidden: false }).catch(() => [])
+        setSubscriptions((Array.isArray(subs) ? subs : []).filter((s) => ["active", "grace_period"].includes(String(s?.status || "").toLowerCase())))
+      }
+    }
     try {
       let cancellationResult = null
       if (apiEnabled) {
@@ -606,26 +635,14 @@ export function MemberMyCoachView() {
           : (isVi ? "\u0110\u00e3 h\u1ee7y bu\u1ed5i t\u1eadp. Credit s\u1ebd hi\u1ec3n th\u1ecb theo d\u1eef li\u1ec7u g\u00f3i m\u1edbi nh\u1ea5t t\u1eeb Backend." : "Session cancelled. Credits follow the latest subscription data from the server."),
         "success",
       )
-      fetchPrivateSessions()
-      if (apiEnabled && memberProfileId) {
-        membershipApi
-          .getMemberSubscriptions(memberProfileId)
-          .then((subs) => {
-            const valid = (Array.isArray(subs) ? subs : []).filter((s) => {
-              const st = String(s?.status || "").toLowerCase()
-              return st === "active" || st === "grace_period"
-            })
-            setSubscriptions(valid)
-          })
-          .catch(() => {})
-      }
+      await refreshAfterCancellation()
     } catch (err) {
-      alert(
-        getErrorMessage(
-          err,
-          isVi ? "Không thể hủy buổi tập." : "Could not cancel session.",
-        ),
-      )
+      const errorText = [err?.message, err?.details?.message, err?.response?.data?.message, err?.response?.data?.error].filter(Boolean).join(" ").toLowerCase()
+      if (errorText.includes("original credit has already been returned")) {
+        await refreshAfterCancellation()
+        return
+      }
+      showToast?.(getErrorMessage(err, isVi ? "Không thể hủy buổi tập." : "Could not cancel session."), "error")
     }
   }
 
@@ -696,7 +713,7 @@ export function MemberMyCoachView() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              {isVi ? "Lịch 1:1 & đề xuất" : "1:1 schedule & proposals"} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">{privateSessions.length + privateSessionProposals.filter((proposal) => String(proposal.status || "").toLowerCase() === "pending" && proposal.sessionId == null).length}</span>
+              {isVi ? "Lịch 1:1 & đề xuất" : "1:1 schedule & proposals"} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">{upcomingPrivateSessions + privateSessionProposals.filter((proposal) => String(proposal.status || "").toLowerCase() === "pending" && proposal.sessionId == null).length}</span>
             </button>
             <button
               type="button"
@@ -966,7 +983,7 @@ export function MemberMyCoachView() {
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {privateSessions.map((s) => (
+              {visiblePrivateSessions.map((s) => (
                 <div
                   key={s.id}
                   className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
@@ -1002,7 +1019,8 @@ export function MemberMyCoachView() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {/* Absence request button */}
+                      {/* Absence applies only during the 12-hour window before session end. */}
+                      {getSessionTimingRule(s).isAbsentApplicable && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1013,8 +1031,10 @@ export function MemberMyCoachView() {
                     >
                       {isVi ? "Xin vắng mặt" : "Report absence"}
                     </button>
+                      )}
 
                     {/* Cancel session button */}
+                      {getSessionTimingRule(s).isCancellable && (
                     <button
                       type="button"
                       onClick={() => handleCancelPrivate(s.id)}
@@ -1022,6 +1042,7 @@ export function MemberMyCoachView() {
                     >
                       {isVi ? "Hủy buổi tập" : "Cancel"}
                     </button>
+                      )}
                   </div>
                 </div>
               ))}
