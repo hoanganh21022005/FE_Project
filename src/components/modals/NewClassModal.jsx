@@ -5,7 +5,6 @@ import {
   isCoachMatchingSport,
 } from "../classes/sportDisciplines"
 import { validateClassName, MAX_CLASS_NAME_LENGTH } from "../../api/classValidation"
-import { getSessionTimeSlots } from "../../api/managerApi.js"
 import { useScheduleConflict } from "../classes/hooks/useScheduleConflict"
 import { CurrencyInput } from "../common/CurrencyInput"
 import {
@@ -142,18 +141,15 @@ const ROOM_ACTIVITY_TYPES = {
   tennis: "TENNIS",
 }
 
-const DEFAULT_CENTER_TIME_SLOTS = [
-  { slotNumber: 1, startTime: "06:00", endTime: "07:30" },
-  { slotNumber: 2, startTime: "07:45", endTime: "09:15" },
-  { slotNumber: 3, startTime: "09:30", endTime: "11:00" },
-  { slotNumber: 4, startTime: "11:00", endTime: "13:00" },
-  { slotNumber: 5, startTime: "13:00", endTime: "14:30" },
-  { slotNumber: 6, startTime: "14:45", endTime: "16:15" },
-  { slotNumber: 7, startTime: "16:30", endTime: "18:00" },
-  { slotNumber: 8, startTime: "18:15", endTime: "19:45" },
-]
-
-const normalizeSlotTime = (value) => String(value || "").trim().slice(0, 5)
+// Generate 15-minute time options from 05:00 to 23:00
+const TIME_OPTIONS_15MIN = []
+for (let h = 5; h <= 22; h++) {
+  const hh = String(h).padStart(2, "0")
+  for (const mm of ["00", "15", "30", "45"]) {
+    TIME_OPTIONS_15MIN.push(`${hh}:${mm}`)
+  }
+}
+TIME_OPTIONS_15MIN.push("23:00")
 
 function getSportCapacity(sport, room, apiEnabled) {
   const sportCapacity = Number(sport?.defaultCapacity) || 8
@@ -502,9 +498,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const [selectedDays, setSelectedDays] = useState([1, 3, 5]) // T2-T4-T6
   const [startTime, setStartTime] = useState("06:00")
   const [endTime, setEndTime] = useState("07:30")
-  const [centerTimeSlots, setCenterTimeSlots] = useState([])
-  const [timeSlotsLoading, setTimeSlotsLoading] = useState(false)
-  const [timeSlotsError, setTimeSlotsError] = useState("")
 
   // Mặc định ngày bắt đầu: ngày hợp lệ tiếp theo khớp thứ và chưa qua giờ
   const [startDate, setStartDate] = useState(() =>
@@ -782,64 +775,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const normalPrice = Number(selectedSubject?.normalPrice ?? selectedSubject?.normal_price)
 
   useEffect(() => {
-    if (!isOpen) return undefined
-
-    if (!apiEnabled) {
-      setCenterTimeSlots(DEFAULT_CENTER_TIME_SLOTS)
-      setTimeSlotsError("")
-      setTimeSlotsLoading(false)
-      return undefined
-    }
-
-    let active = true
-    setTimeSlotsLoading(true)
-    setTimeSlotsError("")
-    getSessionTimeSlots(selectedSubject?.outdoor === true, { notifyForbidden: false })
-      .then((slots) => {
-        if (!active) return
-        const normalizedSlots = (slots || [])
-          .map((slot, index) => ({
-            ...slot,
-            slotNumber: Number(slot.slotNumber) || index + 1,
-            startTime: normalizeSlotTime(slot.startTime),
-            endTime: normalizeSlotTime(slot.endTime),
-          }))
-          .filter((slot) => slot.startTime && slot.endTime)
-          .sort((a, b) => a.slotNumber - b.slotNumber)
-        setCenterTimeSlots(normalizedSlots)
-        if (normalizedSlots.length === 0) {
-          setTimeSlotsError("Trung tâm chưa cấu hình ca học khả dụng.")
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setCenterTimeSlots([])
-          setTimeSlotsError("Không tải được ca học của trung tâm. Vui lòng thử lại.")
-        }
-      })
-      .finally(() => {
-        if (active) setTimeSlotsLoading(false)
-      })
-
-    return () => {
-      active = false
-    }
-  }, [isOpen, apiEnabled, selectedSubject?.outdoor])
-
-  const selectedStartSlot = useMemo(
-    () => centerTimeSlots.find((slot) => slot.startTime === startTime) || null,
-    [centerTimeSlots, startTime],
-  )
-
-  useEffect(() => {
-    if (!isOpen || timeSlotsLoading || centerTimeSlots.length === 0) return
-    const matchingSlot = centerTimeSlots.find((slot) => slot.startTime === startTime)
-    const slot = matchingSlot || centerTimeSlots[0]
-    if (startTime !== slot.startTime) setStartTime(slot.startTime)
-    if (endTime !== slot.endTime) setEndTime(slot.endTime)
-  }, [isOpen, timeSlotsLoading, centerTimeSlots, startTime, endTime])
-
-  useEffect(() => {
     if (apiEnabled && Number.isFinite(normalPrice) && normalPrice >= 0) {
       setPrice(normalPrice)
       setIsFreeClass(false)
@@ -1086,12 +1021,19 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
       return
     }
     if (apiEnabled) {
-      if (!selectedStartSlot || selectedStartSlot.endTime !== endTime) {
-        showToast("Vui lòng chọn ca học theo khung giờ của trung tâm.", "error")
+      const durationMinutes = (Number(endTime.split(":")[0]) - Number(startTime.split(":")[0])) * 60
+        + Number(endTime.split(":")[1]) - Number(startTime.split(":")[1])
+      if (durationMinutes !== 90) {
+        showToast("Theo quy định trung tâm, mỗi buổi học phải kéo dài đúng 90 phút.", "error")
         return
       }
       if (selectedSubject && selectedSubject.outdoor === null) {
         showToast("Môn học chưa được phân loại trong nhà/ngoài trời (outdoor = null) nên chưa thể xếp lịch.", "error")
+        return
+      }
+      const isOutdoor = selectedSubject?.outdoor === true
+      if (isOutdoor && ["09:30", "13:00"].includes(startTime)) {
+        showToast("Môn ngoài trời không được xếp vào ca 3 hoặc ca 4.", "error")
         return
       }
       if (apiEnabled) {
@@ -1424,32 +1366,21 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
               </label>
               <div className="relative">
                 <select
-                  value={selectedStartSlot?.startTime || ""}
-                  disabled={timeSlotsLoading || centerTimeSlots.length === 0}
+                  value={startTime}
                   onChange={(e) => {
                     setIsDirty(true)
                     setStartTime(e.target.value)
-                    const selectedSlot = centerTimeSlots.find(
-                      (slot) => slot.startTime === e.target.value,
-                    )
-                    setEndTime(selectedSlot?.endTime || "")
                   }}
                   className="w-full h-11 px-3.5 pr-10 bg-white border border-stone-300 rounded-xl text-sm text-stone-900 font-normal appearance-none focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800 cursor-pointer"
                 >
-                  {centerTimeSlots.map((slot) => (
-                    <option key={slot.slotNumber} value={slot.startTime}>
-                      {slot.startTime}
+                  {TIME_OPTIONS_15MIN.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
                     </option>
                   ))}
                 </select>
                 <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
-              {timeSlotsLoading && (
-                <p className="mt-1 text-xs text-stone-500">Đang tải ca học của trung tâm…</p>
-              )}
-              {timeSlotsError && (
-                <p className="mt-1 text-xs font-medium text-rose-600">{timeSlotsError}</p>
-              )}
             </div>
 
             {/* Giờ kết thúc (full width dropdown select chuẩn 24h) */}
@@ -1459,19 +1390,18 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
               </label>
               <div className="relative">
                 <select
-                  value={selectedStartSlot?.endTime || ""}
-                  disabled={!selectedStartSlot || timeSlotsLoading}
+                  value={endTime}
                   onChange={(e) => {
                     setIsDirty(true)
                     setEndTime(e.target.value)
                   }}
                   className="w-full h-11 px-3.5 pr-10 bg-white border border-stone-300 rounded-xl text-sm text-stone-900 font-normal appearance-none focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800 cursor-pointer"
                 >
-                  {selectedStartSlot && (
-                    <option value={selectedStartSlot.endTime}>
-                      {selectedStartSlot.endTime}
+                  {TIME_OPTIONS_15MIN.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
                     </option>
-                  )}
+                  ))}
                 </select>
                 <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
