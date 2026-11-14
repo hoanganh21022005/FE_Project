@@ -297,9 +297,13 @@ export const getCenterIncidents = async () => {
   }
 }
 
-export const bookPrivateSession = async (payload) => {
-  return httpClient.post("/api/sessions/book-private", payload)
+export const createPrivateSessionProposal = async (payload) => httpClient.post("/api/private-session-proposals", payload)
+export const getPrivateSessionProposals = async (params = {}) => {
+  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value != null).map(([key, value]) => [key, String(value)]))
+  return list(`/api/private-session-proposals${query.size ? `?${query}` : ""}`)
 }
+export const getPrivateSessionProposalById = async (id) => httpClient.get(`/api/private-session-proposals/${encodeURIComponent(id)}`)
+export const respondPrivateSessionProposal = async (id, payload) => httpClient.post(`/api/private-session-proposals/${encodeURIComponent(id)}/respond`, { accepted: Boolean(payload?.accepted) })
 
 export const getCoachFeedback = async (params = {}) => {
   const query = new URLSearchParams()
@@ -432,7 +436,10 @@ export const memberPortalApi = {
   getRooms,
   getActiveHolidays,
   getCenterIncidents,
-  bookPrivateSession,
+  createPrivateSessionProposal,
+  getPrivateSessionProposals,
+  getPrivateSessionProposalById,
+  respondPrivateSessionProposal,
   getCoachFeedback,
   getCoachProfileMe,
   getCoachWorkSchedule,

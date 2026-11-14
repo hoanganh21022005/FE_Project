@@ -65,6 +65,9 @@ export function MemberMyCoachView() {
 
   // Booked private sessions
   const [privateSessions, setPrivateSessions] = useState([])
+  const [proposals, setProposals] = useState([])
+  const [respondingProposalId, setRespondingProposalId] = useState(null)
+  const [proposalError, setProposalError] = useState("")
   const [loadingSessions, setLoadingSessions] = useState(false)
 
   // Booking Modal State
@@ -163,6 +166,29 @@ export function MemberMyCoachView() {
     }
   }, [apiEnabled, memberProfileId])
 
+  const refreshProposalView = useCallback(async () => {
+    const [rows] = await Promise.all([
+      memberPortalApi.getPrivateSessionProposals({ role: "member" }),
+      fetchPrivateSessions(),
+      membershipApi.getMemberSubscriptions(memberProfileId).catch(() => []),
+    ])
+    setProposals(Array.isArray(rows) ? rows : [])
+  }, [fetchPrivateSessions, memberProfileId])
+
+  const respondToProposal = async (proposal, accepted) => {
+    if (respondingProposalId != null) return
+    setRespondingProposalId(proposal.id)
+    setProposalError("")
+    try {
+      await memberPortalApi.respondPrivateSessionProposal(proposal.id, { accepted })
+      await refreshProposalView()
+    } catch (error) {
+      const code = String(error?.code || error?.details?.code || "")
+      setProposalError(code === "PROPOSAL_EXPIRED" ? "Đề xuất lịch tập đã quá hạn phản hồi (trước giờ tập tối thiểu 12 giờ)." : getErrorMessage(error, "Không thể phản hồi đề xuất lịch."))
+      await refreshProposalView().catch(() => {})
+    } finally { setRespondingProposalId(null) }
+  }
+
   // 3. Fetch Booked Private Sessions
   const fetchPrivateSessions = useCallback(async () => {
     setLoadingSessions(true)
@@ -189,10 +215,8 @@ export function MemberMyCoachView() {
   }, [apiEnabled, memberProfileId])
 
   useEffect(() => {
-    if (activeTab === "my_sessions") {
-      fetchPrivateSessions()
-    }
-  }, [activeTab, fetchPrivateSessions])
+    if (activeTab === "my_sessions") refreshProposalView()
+  }, [activeTab, refreshProposalView])
 
   const fetchAdvancedRegistrations = useCallback(async () => {
     if (!apiEnabled) return
@@ -652,17 +676,7 @@ export function MemberMyCoachView() {
             >
               {isVi ? "Lịch 1:1 đã đặt" : "Booked 1:1"} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">{privateSessions.length}</span>
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("advanced_pt")}
-              className={`px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                activeTab === "advanced_pt"
-                  ? "bg-white text-slate-900 shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              {isVi ? "Đăng ký HLV Chính" : "Primary Coach"} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">{advancedRegistrations.length}</span>
-            </button>
+
           </div>
         }
       />
@@ -791,33 +805,7 @@ export function MemberMyCoachView() {
                   </div>
 
                   <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenBookingModal(c)}
-                      className="inline-flex min-w-0 items-center justify-center gap-1 px-2 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-[11px] whitespace-nowrap font-bold transition-colors cursor-pointer"
-                    >
-                      <Calendar className="w-3.5 h-3.5 text-brand-accent" />
-                      <span>
-                        {apiEnabled
-                          ? isVi
-                            ? "Tra cứu ca trống"
-                            : "Check Slots"
-                          : isVi
-                            ? "Đặt lịch 1:1"
-                            : "Book 1-on-1"}
-                      </span>
-                    </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleOpenAdvancedModal(c)}
-                      className="inline-flex min-w-0 items-center justify-center gap-1 px-2 py-2 bg-brand-primary hover:bg-brand-primary-hover text-white rounded-xl text-[11px] whitespace-nowrap font-bold transition-colors cursor-pointer"
-                    >
-                      <Award className="w-3.5 h-3.5" />
-                      <span>
-                        {isVi ? "Đăng ký HLV chính" : "Primary Coach"}
-                      </span>
-                    </button>
                   </div>
                 </div>
               ))}
@@ -829,6 +817,14 @@ export function MemberMyCoachView() {
       {/* TAB 2: MY BOOKED 1-ON-1 SESSIONS */}
       {activeTab === "my_sessions" && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+          {proposals.some((p) => String(p.status).toLowerCase() === "pending") && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">{isVi ? `Bạn có ${proposals.filter((p) => String(p.status).toLowerCase() === "pending").length} đề xuất lịch đang chờ xác nhận.` : "You have pending session proposals."}</div>}
+          {proposalError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">{proposalError} {isVi && "Vui lòng phối hợp với Coach để chọn khung giờ mới."}</div>}
+          <h2 className="text-base font-bold text-slate-900">{isVi ? "Chờ xác nhận" : "Awaiting confirmation"}</h2>
+          {proposals.filter((p) => String(p.status).toLowerCase() === "pending").map((p) => {
+            const expired = p.respondBy && new Date(p.respondBy).getTime() <= Date.now()
+            return <article key={p.id} className="rounded-xl border border-amber-200 bg-white p-4"><div className="font-bold text-slate-900">{p.subjectName || p.sportName || `Môn #${p.subjectId}`} · {p.coachName || `Coach #${p.coachId}`}</div><p className="mt-1 text-sm text-slate-600">{p.roomName || `Phòng #${p.roomId}`} · {p.sessionDate} · {String(p.startTime || "").slice(0,5)} - {String(p.endTime || "").slice(0,5)}</p><p className={"mt-1 text-xs font-semibold " + (expired ? "text-rose-700" : "text-slate-500")}>{expired ? "Expired" : `${isVi ? "Phản hồi trước" : "Respond by"}: ${p.respondBy || "—"}`}</p><div className="mt-3 flex gap-2"><button disabled={expired || respondingProposalId === p.id} onClick={() => respondToProposal(p, true)} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{isVi ? "Đồng ý" : "Accept"}</button><button disabled={expired || respondingProposalId === p.id} onClick={() => respondToProposal(p, false)} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-50">{isVi ? "Từ chối" : "Decline"}</button></div></article>
+          })}
+          <h2 className="border-t border-slate-100 pt-4 text-base font-bold text-slate-900">{isVi ? "Đã lên lịch" : "Scheduled"}</h2>
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h2 className="text-base font-bold text-slate-900">
               {isVi
@@ -935,7 +931,7 @@ export function MemberMyCoachView() {
       )}
 
       {/* TAB 3: ADVANCED PT COACH REGISTRATIONS (/api/advanced-registrations) */}
-      {activeTab === "advanced_pt" && (
+      {false && activeTab === "advanced_pt" && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
@@ -1100,7 +1096,7 @@ export function MemberMyCoachView() {
       )}
 
       {/* MODAL 3: COACH WORK SCHEDULE, CAPACITY & ADVANCED PT REGISTRATION */}
-      {advancedModalCoach && (
+      {false && advancedModalCoach && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
           <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
@@ -1263,7 +1259,7 @@ export function MemberMyCoachView() {
       )}
 
       {/* MODAL 1: BOOK PRIVATE 1-ON-1 SESSION (POST /api/sessions/book-private) */}
-      {isBookingModalOpen && selectedCoach && (
+      {isBookingModalOpen && selectedCoach && false && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
           <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
@@ -1453,7 +1449,7 @@ export function MemberMyCoachView() {
                 )}
               </div>
 
-              </> : <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4"><p className="text-sm font-bold text-slate-900">{isVi ? "Bạn chưa có gói HLV 1:1 (Advanced) đang hoạt động cho bộ môn này" : "No active Advanced 1:1 coaching entitlement for this sport"}</p><p className="mt-1 text-xs text-slate-600">{isVi ? "Bạn vẫn có thể xem ca trống và đăng ký HLV chính để bắt đầu." : "You can review availability and register a Primary Coach to get started."}</p><button type="button" onClick={() => { setIsBookingModalOpen(false); handleOpenAdvancedModal(selectedCoach) }} className="mt-3 inline-flex rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-white">{isVi ? "Đăng ký HLV chính →" : "Register Primary Coach →"}</button></div>}
+              </> : <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4"><p className="text-sm font-bold text-slate-900">{isVi ? "Bạn chưa có gói HLV 1:1 (Advanced) đang hoạt động cho bộ môn này" : "No active Advanced 1:1 coaching entitlement for this sport"}</p><p className="mt-1 text-xs text-slate-600">{isVi ? "Vui lòng đăng ký khóa học Advanced trong Danh mục khóa học." : "You can review availability and register a Primary Coach to get started."}</p><button type="button" onClick={() => { setIsBookingModalOpen(false); handleOpenAdvancedModal(selectedCoach) }} className="mt-3 inline-flex rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-white">{isVi ? "Đăng ký khóa học Advanced →" : "Register Advanced course →"}</button></div>}
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button

@@ -427,6 +427,7 @@ export function CoachAssignedMembersView() {
   const [, setAtRiskIds] = useState(new Set())
   const [advancedRequests, setAdvancedRequests] = useState([])
   const [coachSessions, setCoachSessions] = useState([])
+  const [coachProposals, setCoachProposals] = useState([])
   const [coachTrainingResults, setCoachTrainingResults] = useState([])
   const [loadingRequests, setLoadingRequests] = useState(false)
   const [requestsError, setRequestsError] = useState(null)
@@ -482,6 +483,8 @@ export function CoachAssignedMembersView() {
     try {
       const list = await memberPortalApi.getAdvancedRegistrations()
       setAdvancedRequests(Array.isArray(list) ? list : [])
+      const proposals = await memberPortalApi.getPrivateSessionProposals({ role: "coach" }).catch(() => [])
+      setCoachProposals(Array.isArray(proposals) ? proposals : [])
       setReadbackError(false)
     } catch (err) {
       setRequestsError(getErrorMessage(err, "Không thể tải danh sách đăng ký 1-kèm-1."))
@@ -1070,22 +1073,7 @@ export function CoachAssignedMembersView() {
 
     try {
       if (apiEnabled) {
-        const sessionResponse = await memberPortalApi.bookPrivateSession(payloadToSubmit)
-
-        // Strict verification of SessionResponse
-        const matchResult = verifySessionResponseMatch(sessionResponse, payloadToSubmit, bookingReg)
-        if (!matchResult.valid) {
-          setAttemptsBySubId((prev) => ({
-            ...prev,
-            [attemptSubId]: {
-              ...newAttemptSnapshot,
-              status: "mismatch",
-              error: matchResult.reason,
-            },
-          }))
-          showToast?.(matchResult.reason, "error")
-          return
-        }
+        await memberPortalApi.createPrivateSessionProposal(payloadToSubmit)
 
         // Success: Clear attempt
         setAttemptsBySubId((prev) => {
@@ -1103,17 +1091,20 @@ export function CoachAssignedMembersView() {
         }
 
         showToast?.(
-          `Đã đặt buổi tập riêng 1-kèm-1 thành công! (Mã buổi: #${sessionResponse.id})`,
+          "Đã gửi lịch, chờ học viên xác nhận",
           "success",
         )
 
         // Readback credit via GET
         try {
-          await loadAdvancedRequests()
+          await Promise.all([
+            loadAdvancedRequests(),
+            memberPortalApi.getPrivateSessionProposals({ role: "coach" }).then(setCoachProposals),
+          ])
         } catch {
           setReadbackError(true)
           showToast?.(
-            `Đã đặt ca #${sessionResponse.id} thành công nhưng chưa thể cập nhật credit mới. Vui lòng bấm 'Tải lại dữ liệu'.`,
+            "Đã gửi đề xuất. Không thể tải lại trạng thái; vui lòng làm mới dữ liệu.",
             "warning",
           )
         }
@@ -1373,6 +1364,12 @@ export function CoachAssignedMembersView() {
       </div>
 
       {/* Global Unresolved Attempt Banner */}
+      <section className="rounded-lg border border-border-color bg-bg-card p-4 space-y-3">
+        <h3 className="font-semibold text-text-primary">Chờ xác nhận</h3>
+        {coachProposals.filter((p) => String(p.status).toLowerCase() === "pending").map((p) => <article key={p.id} className="rounded border border-amber-200 bg-amber-50 p-3 text-sm"><strong>{p.memberName || `Học viên #${p.memberId}`}</strong> · {p.subjectName || `Môn #${p.subjectId}`} · {p.sessionDate} {String(p.startTime || "").slice(0,5)} - {String(p.endTime || "").slice(0,5)}</article>)}
+        <h3 className="border-t border-border-color pt-3 font-semibold text-text-primary">Đã lên lịch</h3>
+        {coachProposals.filter((p) => ["accepted", "scheduled"].includes(String(p.status).toLowerCase())).map((p) => <article key={p.id} className="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm"><strong>{p.memberName || `Học viên #${p.memberId}`}</strong> · {p.subjectName || `Môn #${p.subjectId}`} · {p.sessionDate} {String(p.startTime || "").slice(0,5)} - {String(p.endTime || "").slice(0,5)}</article>)}
+      </section>
       {unresolvedAttempt && (!bookingReg || Number(bookingReg.subscriptionId) !== unresolvedAttempt.subscriptionId) && (
         <div className="p-4 bg-status-warning-bg border border-status-warning-border rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm leading-5 text-status-warning">
           <div className="flex items-center gap-2.5">
