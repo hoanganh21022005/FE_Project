@@ -1106,7 +1106,7 @@ function SCMSApp() {
   }
 
   // Authenticated: Manager, Coach, Receptionist, Member
-  if (location.pathname === "/admin" || location.pathname.startsWith("/admin/")) {
+  if (location.pathname === "/admin/login") {
     return (
       <Suspense fallback={null}>
         <AdminHostDeniedView
