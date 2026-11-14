@@ -273,42 +273,6 @@ function exportClassesToCsv(
 }
 
 // Deterministic Ultra-Soft Pastel Avatars for Coaches (Calm & Non-clashing)
-const COACH_CHAR_PALETTES = {
-  P: { bg: "bg-[#F0F4F8]", text: "text-[#475467]", border: "border-[#E2E8F0]" }, // Cô Lan (P)
-  T: { bg: "bg-[#F2F4F7]", text: "text-[#344054]", border: "border-[#E4E7EC]" }, // Cô Hương (T)
-  L: { bg: "bg-[#F0F5FA]", text: "text-[#344054]", border: "border-[#DFE7F2]" }, // Thầy Khoa (L)
-  N: { bg: "bg-[#F4F3F7]", text: "text-[#475467]", border: "border-[#E8E6ED]" }, // Thầy Hoàng (N)
-  H: { bg: "bg-[#F8F4F2]", text: "text-[#5E4E47]", border: "border-[#EDE4E0]" }, // Cô My (H)
-  D: { bg: "bg-[#EFF4F7]", text: "text-[#364A57]", border: "border-[#DEE7ED]" }, // Thầy Dũng (D)
-  M: { bg: "bg-[#F1F5F3]", text: "text-[#3D5A4C]", border: "border-[#DFEAE3]" }, // Mai (M)
-  B: { bg: "bg-[#F6F4F0]", text: "text-[#5C5346]", border: "border-[#EDE7DF]" }, // Bình (B)
-}
-
-const PASTEL_FALLBACK_PALETTES = [
-  { bg: "bg-[#F0F4F8]", text: "text-[#475467]", border: "border-[#E2E8F0]" },
-  { bg: "bg-[#F2F4F7]", text: "text-[#344054]", border: "border-[#E4E7EC]" },
-  { bg: "bg-[#F0F5FA]", text: "text-[#344054]", border: "border-[#DFE7F2]" },
-  { bg: "bg-[#F1F5F3]", text: "text-[#3D5A4C]", border: "border-[#DFEAE3]" },
-  { bg: "bg-[#F4F3F7]", text: "text-[#475467]", border: "border-[#E8E6ED]" },
-]
-
-function getCoachAvatarPalette(name) {
-  if (!name || typeof name !== "string") return PASTEL_FALLBACK_PALETTES[0]
-  const trimmed = name.trim()
-  const firstChar = trimmed[0]?.toUpperCase() || "H"
-  if (COACH_CHAR_PALETTES[firstChar]) {
-    return COACH_CHAR_PALETTES[firstChar]
-  }
-  let hash = 0
-  for (let i = 0; i < trimmed.length; i++) {
-    hash = (hash << 5) - hash + trimmed.charCodeAt(i)
-    hash |= 0
-  }
-  return PASTEL_FALLBACK_PALETTES[
-    Math.abs(hash) % PASTEL_FALLBACK_PALETTES.length
-  ]
-}
-
 // Normalized status configuration matching Semantic UI specification
 const STATUS_CONFIG = {
   open: {
@@ -2682,7 +2646,7 @@ export function ClassManagement() {
                             <td className="py-4 px-4 align-middle">
                               <div className="space-y-0.5">
                                 <div
-                                  className="font-medium text-stone-800 line-clamp-1 truncate"
+                                  className="text-sm font-semibold text-stone-800 line-clamp-1 truncate"
                                   title={roomLabel}
                                 >
                                   {roomLabel}
@@ -2695,29 +2659,13 @@ export function ClassManagement() {
                               </div>
                             </td>
                           )}
-
-                          {/* Cột 4: Huấn luyện viên (Deterministic Soft Pastel Color Avatar + Tooltip) */}
+                          {/* Cột 4: Huấn luyện viên */}
                           {columnVisibility.coach !== false && (
                             <td className="py-4 px-4 align-middle">
-                              <div className="flex items-center gap-2.5">
-                                {(() => {
-                                  const palette = getCoachAvatarPalette(
-                                    cls.coachName,
-                                  )
-                                  const initial = (cls.coachName ||
-                                    "H")[0]?.toUpperCase()
-                                  return (
-                                    <div
-                                      className={`w-7 h-7 rounded-full ${palette.bg} border ${palette.border} ${palette.text} font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs`}
-                                      title={`HLV: ${cls.coachName || "Chưa phân công"}`}
-                                    >
-                                      {initial}
-                                    </div>
-                                  )
-                                })()}
+                              <div>
                                 <div className="space-y-0.5 min-w-0">
                                   <div
-                                    className="font-medium text-stone-800 line-clamp-1 truncate flex items-center gap-1.5"
+                                    className="text-sm font-semibold text-stone-800 line-clamp-1 truncate flex items-center gap-1.5"
                                     title={cls.coachName || "Chưa phân công"}
                                   >
                                     <span>{cls.coachName || "Chưa phân công"}</span>
@@ -2739,39 +2687,6 @@ export function ClassManagement() {
                                       return null
                                     })()}
                                   </div>
-                                  {(() => {
-                                    const isMismatch =
-                                      cls.coachName &&
-                                      cls.coachSpecialty &&
-                                      cls.coachName !== "Chưa phân công" &&
-                                      !isCoachMatchingSport(
-                                        {
-                                          specialization: cls.coachSpecialty,
-                                          specializationVi: cls.coachSpecialty,
-                                        },
-                                        cls.category,
-                                      )
-                                    return (
-                                      <div
-                                        className="text-xs text-stone-500 line-clamp-1 truncate flex items-center gap-1.5"
-                                        title={`Chuyên môn: ${cls.coachSpecialty || (apiEnabled ? "—" : cls.category || "HLV")}${
-                                          isMismatch
-                                            ? " (Khác với bộ môn của lớp)"
-                                            : ""
-                                        }`}
-                                      >
-                                        <span>
-                                          Chuyên môn:{" "}
-                                          {cls.coachSpecialty || (apiEnabled ? "—" : cls.category || "HLV")}
-                                        </span>
-                                        {isMismatch && (
-                                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-xs bg-amber-50 text-amber-700 border border-amber-200/80 font-medium shrink-0">
-                                            ⚠️ Khác môn
-                                          </span>
-                                        )}
-                                      </div>
-                                    )
-                                  })()}
                                 </div>
                               </div>
                             </td>
