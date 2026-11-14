@@ -42,8 +42,8 @@ export function MemberMyCoachView() {
   const { language, currentUser, subjects, apiEnabled, showToast, t } = useSCMS()
   const isVi = language === "vi"
 
-  // Navigation tab: 'coaches' | 'my_sessions' | 'advanced_pt'
-  const [activeTab, setActiveTab] = useState("coaches")
+  // Navigation tab: 'my_sessions' | 'coaches' | 'advanced_pt'
+  const [activeTab, setActiveTab] = useState("my_sessions")
 
   // Advanced PT Registration & Coach Work Schedule state
   const [advancedRegistrations, setAdvancedRegistrations] = useState([])
@@ -926,17 +926,6 @@ export function MemberMyCoachView() {
           <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 p-1">
             <button
               type="button"
-              onClick={() => setActiveTab("coaches")}
-              className={`px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                activeTab === "coaches"
-                  ? "bg-white text-slate-900 shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              {isVi ? "Danh bạ Huấn luyện viên" : "Coach directory"} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">{coaches.length}</span>
-            </button>
-            <button
-              type="button"
               onClick={() => setActiveTab("my_sessions")}
               className={`px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                 activeTab === "my_sessions"
@@ -944,15 +933,27 @@ export function MemberMyCoachView() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              {isVi ? "Lịch 1:1 đã đặt" : "Booked 1:1"}{" "}
+              {isVi ? "Lịch tập & Đề xuất 1:1" : "1:1 Sessions & Proposals"}{" "}
               <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">
                 {privateSessions.length}
               </span>
               {pendingProposals.length > 0 && (
                 <span className="ml-1.5 rounded-full bg-amber-500 text-white px-1.5 py-0.5 text-[10px] font-bold">
-                  {pendingProposals.length}
+                  {pendingProposals.length} {isVi ? "chờ duyệt" : "pending"}
                 </span>
               )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("coaches")}
+              className={`px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                activeTab === "coaches"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              {isVi ? "Danh bạ Huấn luyện viên" : "Coach directory"}{" "}
+              <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">{coaches.length}</span>
             </button>
 
           </div>
@@ -970,8 +971,6 @@ export function MemberMyCoachView() {
       {/* TAB 1: COACHES DIRECTORY */}
       {activeTab === "coaches" && (
         <section className="space-y-4">
-          {renderPendingProposalsSection()}
-
           {/* Search bar */}
           <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs sm:flex-row sm:items-center">
             <label className="relative block sm:w-56">
