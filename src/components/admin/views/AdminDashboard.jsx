@@ -14,10 +14,10 @@ import { useAdminData } from "../AdminDataContext.jsx"
 import { AdminPageHeader } from "../AdminPageHeader.jsx"
 import { AUDIT_PAGE_BASE } from "./AdminAuditLogsView.jsx"
 import { formatAdminDateTime, parseToVietnamDate, VIETNAM_TIMEZONE } from "../adminDateUtils.js"
+import { formatAuditTarget } from "../adminAuditFormat.js"
 import {
   formatAdminNumber,
   getAdminAuditActionLabel,
-  getAdminRoleLabel,
   getAdminRoleShortLabel,
   getAdminStatusLabel,
   getAdminText,
@@ -99,28 +99,6 @@ function buildLast7Days(language = "vi") {
     })
   }
   return days
-}
-
-function formatAuditTarget(log, userMap, roleMap, language) {
-  const entity = String(log?.targetEntity || "").toUpperCase()
-  const targetId =
-    log?.targetId !== null && log?.targetId !== undefined ? Number(log.targetId) : null
-
-  if ((entity === "USER" || entity === "USERS") && targetId !== null) {
-    const matchedUser = userMap.get(targetId)
-    if (matchedUser?.fullName) return matchedUser.fullName
-  }
-
-  if ((entity === "ROLE" || entity === "ROLES") && targetId !== null) {
-    const matchedRole = roleMap.get(targetId)
-    if (matchedRole?.name) return getAdminRoleLabel(matchedRole.name, language)
-  }
-
-  if (log?.targetLabel && log.targetLabel !== "N/A" && !/^User #\d+$/i.test(log.targetLabel)) {
-    return log.targetLabel
-  }
-
-  return "—"
 }
 
 export function AdminDashboard() {
@@ -757,7 +735,7 @@ export function AdminDashboard() {
                         : null) ||
                       getAdminText(language, "common.system")
                 const actionText = getAdminAuditActionLabel(log.action, language)
-                const targetText = formatAuditTarget(log, userMap, roleMap, language)
+                const targetText = formatAuditTarget(log, { userMap, roleMap, language })
 
                 return (
                   <div
@@ -814,7 +792,7 @@ export function AdminDashboard() {
                         ? getAdminRoleShortLabel(actorUser.roleName, language)
                         : "—"
                     const actionText = getAdminAuditActionLabel(log.action, language)
-                    const targetText = formatAuditTarget(log, userMap, roleMap, language)
+                    const targetText = formatAuditTarget(log, { userMap, roleMap, language })
 
                     return (
                       <tr

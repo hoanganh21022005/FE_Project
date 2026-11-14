@@ -3,6 +3,7 @@ import { Bell, ChevronRight, LogOut, Menu } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext.jsx"
 import { useAdminData } from "./AdminDataContext.jsx"
+import { formatAuditTarget } from "./adminAuditFormat.js"
 import { getAdminAuditActionLabel, getAdminText } from "./adminI18n.js"
 
 const STORAGE_SEEN_KEY = "scms_admin_notif_seen_at"
@@ -79,6 +80,16 @@ export function AdminHeader({ title, onMenu, onLogout, onChangeLanguage }) {
     }
     return map
   }, [resources?.users?.data])
+
+  const roleMap = useMemo(() => {
+    const map = new Map()
+    for (const r of resources?.roles?.data || []) {
+      if (r.id !== null && r.id !== undefined) {
+        map.set(Number(r.id), r)
+      }
+    }
+    return map
+  }, [resources?.roles?.data])
 
   const notifItems = useMemo(() => {
     const logs = Array.isArray(resources?.auditLogs?.data)
@@ -283,15 +294,11 @@ export function AdminHeader({ title, onMenu, onLogout, onChangeLanguage }) {
                             ? item.actorLabel
                             : null) ||
                           getAdminText(language, "common.system")
-                    let targetName = item.targetLabel
-                    if (
-                      item.targetEntity &&
-                      String(item.targetEntity).toUpperCase() === "USER" &&
-                      item.targetId !== null &&
-                      item.targetId !== undefined
-                    ) {
-                      targetName = userMap.get(Number(item.targetId)) || targetName
-                    }
+                    const targetName = formatAuditTarget(item, {
+                      userMap,
+                      roleMap,
+                      language,
+                    })
 
                     return (
                       <button
@@ -310,7 +317,7 @@ export function AdminHeader({ title, onMenu, onLogout, onChangeLanguage }) {
                         </div>
                         <p className="mt-0.5 text-xs text-text-secondary truncate">
                           {actorName}
-                          {targetName ? ` · ${targetName}` : ""}
+                          {targetName && targetName !== "—" ? ` · ${targetName}` : ""}
                         </p>
                       </button>
                     )

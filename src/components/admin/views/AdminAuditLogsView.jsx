@@ -13,7 +13,8 @@ import {
 import { useAdminData } from "../AdminDataContext.jsx"
 import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { formatAdminDate, formatAdminDateTime } from "../adminDateUtils.js"
-import { getAdminAuditActionLabel, getAdminRoleLabel, getAdminText } from "../adminI18n.js"
+import { formatAuditTarget } from "../adminAuditFormat.js"
+import { getAdminAuditActionLabel, getAdminText } from "../adminI18n.js"
 import { getAdminAuditLogs } from "../../../api/adminApi.js"
 
 // Ghi chú: Quy ước page tính từ 0 hay 1 là CHƯA XÁC NHẬN với Backend.
@@ -479,31 +480,11 @@ export function AdminAuditLogsView() {
               {filteredLogs.map((log) => {
                 const actorName = getUserName(log.actorId, log.actorLabel)
                 const actionLabel = getAdminAuditActionLabel(log.action, language)
-
-                // Áp dụng cho: chỉ tên người dùng hoặc tên vai trò đã dịch; không tra được thì "—"
-                let targetDisplay =
-                  log.targetLabel &&
-                  log.targetLabel !== "N/A" &&
-                  !/^User #\d+$/i.test(log.targetLabel)
-                    ? log.targetLabel
-                    : "—"
-                const entityUpper = String(log.targetEntity || "").toUpperCase()
-                if (
-                  (entityUpper === "USER" || entityUpper === "USERS") &&
-                  log.targetId !== null &&
-                  log.targetId !== undefined
-                ) {
-                  targetDisplay = userMap.get(Number(log.targetId)) || "—"
-                } else if (
-                  (entityUpper === "ROLE" || entityUpper === "ROLES") &&
-                  log.targetId !== null &&
-                  log.targetId !== undefined
-                ) {
-                  const matchedRole = roleMap.get(Number(log.targetId))
-                  targetDisplay = matchedRole?.name
-                    ? getAdminRoleLabel(matchedRole.name, language)
-                    : "—"
-                }
+                const targetDisplay = formatAuditTarget(log, {
+                  userMap,
+                  roleMap,
+                  language,
+                })
 
                 return (
                   <tr

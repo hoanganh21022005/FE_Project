@@ -751,4 +751,148 @@ test.describe('Kịch bản Admin Chỉ Đọc (ADMIN-01 -> ADMIN-06)', () => {
     await page.locator('button:has-text("Clear filters")').click();
     await expect(rangeSummary).toContainText('Showing: all time');
   });
+
+  test('ADMIN-13: Cột Áp dụng cho ở Nhật ký, Tổng quan và chuông làm sạch mọi nhãn #số và ưu tiên tra user/role', async ({ page }) => {
+    const recentBase = Date.now();
+    const mockTargetLogs = [
+      {
+        id: 501,
+        actorId: 1,
+        action: 'CHANGE_USER_STATUS',
+        targetEntity: 'User',
+        targetId: 3, // Lê Hoàng Hội Viên
+        targetLabel: '#3',
+        detail: 'Khóa tài khoản hội viên',
+        createdAt: new Date(recentBase - 1000).toISOString(),
+      },
+      {
+        id: 502,
+        actorId: 1,
+        action: 'CHANGE_USER_ROLE',
+        targetEntity: 'Anh Huỳnh (#49)',
+        targetId: null,
+        targetLabel: 'Anh Huỳnh (#49)',
+        detail: 'Đổi vai trò',
+        createdAt: new Date(recentBase - 2000).toISOString(),
+      },
+      {
+        id: 503,
+        actorId: 1,
+        action: 'CREATE_USER',
+        targetEntity: 'User',
+        targetId: 12, // không có trong mockAdminUsers
+        targetLabel: 'User #12',
+        detail: 'Tạo tài khoản cũ',
+        createdAt: new Date(recentBase - 3000).toISOString(),
+      },
+      {
+        id: 504,
+        actorId: 1,
+        action: 'UPDATE_ROLE_PERMISSIONS',
+        targetEntity: null,
+        targetId: 2,
+        targetLabel: '#2',
+        detail: 'Cập nhật nhãn số',
+        createdAt: new Date(recentBase - 4000).toISOString(),
+      },
+      {
+        id: 505,
+        actorId: 1,
+        action: 'ENROLL_CLASS',
+        targetEntity: 'Class',
+        targetId: 7,
+        targetLabel: 'Class #7',
+        detail: 'Ghi danh lớp',
+        createdAt: new Date(recentBase - 5000).toISOString(),
+      },
+      {
+        id: 506,
+        actorId: 1,
+        action: 'LOGIN',
+        targetEntity: '',
+        targetId: null,
+        targetLabel: 'N/A',
+        detail: 'Đăng nhập',
+        createdAt: new Date(recentBase - 6000).toISOString(),
+      },
+      {
+        id: 507,
+        actorId: 1,
+        action: 'LOGIN_GOOGLE',
+        targetEntity: '',
+        targetId: null,
+        targetLabel: '',
+        detail: 'Đăng nhập Google',
+        createdAt: new Date(recentBase - 7000).toISOString(),
+      },
+    ];
+
+    await page.route((url) => isApiMatch(url, 'audit-logs'), (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      return route.fulfill({ status: 200, json: mockTargetLogs });
+    });
+
+    await loginAs(page, 'admin');
+
+    // 1. Kiểm tra màn Nhật ký (/admin/audit-logs) ở VI & EN
+    await page.goto('/admin/audit-logs');
+    await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
+
+    const auditTargetCells = await page.locator('tbody tr td:nth-child(4)').allInnerTexts();
+    expect(auditTargetCells.map((s) => s.trim())).toEqual([
+      'Lê Hoàng Hội Viên',
+      'Anh Huỳnh',
+      '—',
+      '—',
+      '—',
+      '—',
+      '—',
+    ]);
+    for (const txt of auditTargetCells) {
+      expect(txt).not.toMatch(/#\d/);
+    }
+
+    // 2. Kiểm tra màn Tổng quan (/admin/dashboard) - bảng Hoạt động gần đây (5 bản ghi mới nhất)
+    await page.goto('/admin/dashboard');
+    await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
+    const dashTargetCells = await page.locator('tbody tr td:nth-child(5)').allInnerTexts();
+    expect(dashTargetCells.map((s) => s.trim())).toEqual([
+      'Lê Hoàng Hội Viên',
+      'Anh Huỳnh',
+      '—',
+      '—',
+      '—',
+    ]);
+    for (const txt of dashTargetCells) {
+      expect(txt).not.toMatch(/#\d/);
+    }
+
+    // 3. Kiểm tra chuông thông báo ở VI và EN
+    const bellBtn = page.locator('header button[aria-haspopup="dialog"]');
+    await bellBtn.click();
+    const popover = page.locator('header [role="dialog"]');
+    await expect(popover).toBeVisible();
+    const bellTextVi = await popover.innerText();
+    expect(bellTextVi).toContain('Lê Hoàng Hội Viên');
+    expect(bellTextVi).toContain('Anh Huỳnh');
+    expect(bellTextVi).not.toMatch(/#\d/);
+    await page.keyboard.press('Escape');
+
+    // Chuyển sang EN và kiểm tra lại cả chuông lẫn Nhật ký
+    await page.locator('header button:has-text("EN")').click();
+    await bellBtn.click();
+    await expect(popover).toBeVisible();
+    const bellTextEn = await popover.innerText();
+    expect(bellTextEn).toContain('Lê Hoàng Hội Viên');
+    expect(bellTextEn).toContain('Anh Huỳnh');
+    expect(bellTextEn).not.toMatch(/#\d/);
+    await page.keyboard.press('Escape');
+
+    await page.goto('/admin/audit-logs');
+    await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
+    const auditTargetCellsEn = await page.locator('tbody tr td:nth-child(4)').allInnerTexts();
+    for (const txt of auditTargetCellsEn) {
+      expect(txt).not.toMatch(/#\d/);
+    }
+  });
 });
