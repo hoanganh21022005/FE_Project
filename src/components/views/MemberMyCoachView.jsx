@@ -760,6 +760,63 @@ export function MemberMyCoachView() {
     return formatted
   }
 
+  // 12-hour threshold logic:
+  // Calculate diffHours = (new Date(session.sessionDate + ' ' + session.startTime) - new Date()) / (1000 * 60 * 60)
+  // isCancellable = diffHours >= 12
+  // isAbsentApplicable = diffHours < 12 && diffHours > 0 (or until session ends)
+  const getSessionTimingRule = (session, now = new Date()) => {
+    if (!session) {
+      return { diffHours: null, isCancellable: false, isAbsentApplicable: false, hasEnded: true }
+    }
+
+    const status = String(session.status || session.displayStatus || "").toLowerCase()
+    if (
+      status === "cancelled" ||
+      status === "canceled" ||
+      status === "absent" ||
+      status === "completed"
+    ) {
+      return { diffHours: null, isCancellable: false, isAbsentApplicable: false, hasEnded: true }
+    }
+
+    const datePart = String(session.sessionDate || session.date || "").slice(0, 10)
+    const startTimePart = String(session.startTime || session.sessionStartTime || "00:00").slice(0, 5)
+    const endTimePart = String(session.endTime || session.sessionEndTime || session.startTime || "23:59").slice(0, 5)
+
+    if (!datePart || !/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      return { diffHours: null, isCancellable: false, isAbsentApplicable: false, hasEnded: true }
+    }
+
+    const startDateTime = new Date(`${datePart} ${startTimePart}`)
+    const endDateTime = new Date(`${datePart} ${endTimePart}`)
+
+    const nowDate = now instanceof Date ? now : new Date(now)
+    const nowMs = nowDate.getTime()
+    const startMs = startDateTime.getTime()
+    const endMs = endDateTime.getTime()
+
+    if (Number.isNaN(startMs)) {
+      return { diffHours: null, isCancellable: false, isAbsentApplicable: false, hasEnded: false }
+    }
+
+    const diffHours = (startMs - nowMs) / (1000 * 60 * 60)
+    const hasEnded = !Number.isNaN(endMs) ? nowMs >= endMs : diffHours <= 0
+
+    if (hasEnded) {
+      return { diffHours, isCancellable: false, isAbsentApplicable: false, hasEnded: true }
+    }
+
+    const isCancellable = diffHours >= 12
+    const isAbsentApplicable = diffHours < 12 && !hasEnded
+
+    return {
+      diffHours,
+      isCancellable,
+      isAbsentApplicable,
+      hasEnded: false,
+    }
+  }
+
   // 6. Cancel Private Session (POST /api/member/sessions/{sessionId}/cancel)
   const handleCancelPrivate = async (sessionId) => {
     const session = privateSessions.find(
@@ -772,10 +829,21 @@ export function MemberMyCoachView() {
       return
     }
 
+    const timing = getSessionTimingRule(session)
+    if (!timing.isCancellable) {
+      showToast?.(
+        isVi
+          ? "Chỉ được hủy lịch trước giờ học tối thiểu 12 tiếng để được hoàn lại 1 credit."
+          : "Cancellation with credit refund is only allowed at least 12 hours before session start.",
+        "error",
+      )
+      return
+    }
+
     if (
       !window.confirm(
         isVi
-          ? "Bạn có chắc chắn muốn hủy buổi tập riêng này (trước ≥ 12h để được hoàn 1 credit) không?"
+          ? "Bạn có chắc chắn muốn hủy lịch buổi tập riêng này (trước ≥ 12h, được hoàn 1 credit) không?"
           : "Are you sure you want to cancel this private session (≥ 12h notice refunds 1 credit)?",
       )
     )
@@ -791,7 +859,7 @@ export function MemberMyCoachView() {
       }
       showToast?.(
         isVi
-          ? "Đã hủy buổi tập riêng và hoàn lại 1 credit vào gói gốc."
+          ? "Đã hủy lịch buổi tập riêng và hoàn lại 1 credit vào gói gốc."
           : "Private session cancelled and 1 credit refunded.",
         "success",
       )
@@ -815,40 +883,8 @@ export function MemberMyCoachView() {
     } catch (err) {
       handleSessionActionError(
         err,
-        isVi ? "Không thể hủy buổi tập." : "Could not cancel session.",
+        isVi ? "Không thể hủy lịch buổi tập." : "Could not cancel session.",
       )
-    }
-  }
-
-  // Helper: check 12-hour advance notice rule before session start
-  const checkAdvance12Hours = (session) => {
-    if (!session) return { allowed: true, hoursLeft: null }
-    const dateStr = session.sessionDate || session.date
-    const timeStr = session.startTime || session.sessionStartTime || "00:00"
-    if (!dateStr) return { allowed: true, hoursLeft: null }
-
-    const cleanDate = String(dateStr).slice(0, 10)
-    const cleanTime = String(timeStr).slice(0, 5)
-    let startMs = null
-    if (
-      session.sessionStartTime &&
-      !Number.isNaN(Date.parse(session.sessionStartTime))
-    ) {
-      startMs = Date.parse(session.sessionStartTime)
-    } else if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
-      const timePart = /^\d{2}:\d{2}$/.test(cleanTime) ? cleanTime : "00:00"
-      startMs = new Date(`${cleanDate}T${timePart}:00+07:00`).getTime()
-    }
-
-    if (!startMs || Number.isNaN(startMs)) {
-      return { allowed: true, hoursLeft: null }
-    }
-
-    const nowMs = Date.now()
-    const hoursLeft = (startMs - nowMs) / (1000 * 60 * 60)
-    return {
-      allowed: hoursLeft >= 12,
-      hoursLeft,
     }
   }
 
@@ -878,26 +914,21 @@ export function MemberMyCoachView() {
       return
     }
 
-    const trimmedReason = String(absenceReason || "").trim()
-    if (!trimmedReason) {
+    const timing = getSessionTimingRule(selectedSessionForAbsence)
+    if (timing.hasEnded) {
       const msg = isVi
-        ? "Vui lòng nhập lý do xin vắng mặt."
-        : "Please enter a reason for absence."
+        ? "Buổi tập này đã kết thúc, không thể xin vắng mặt."
+        : "This session has already ended."
       setAbsenceError(msg)
       showToast?.(msg, "error")
       return
     }
 
-    // 12-hour advance cancellation rule check
-    const { allowed, hoursLeft } = checkAdvance12Hours(selectedSessionForAbsence)
-    if (!allowed && hoursLeft !== null) {
+    const trimmedReason = String(absenceReason || "").trim()
+    if (!trimmedReason) {
       const msg = isVi
-        ? `Quy định: Chỉ được xin vắng mặt/hủy buổi trước giờ học tối thiểu 12 tiếng${
-            hoursLeft > 0
-              ? ` (buổi tập sẽ diễn ra sau ${hoursLeft.toFixed(1)} tiếng nữa)`
-              : ""
-          }.`
-        : "Rule: Absence requests must be submitted at least 12 hours before session start."
+        ? "Vui lòng nhập lý do xin vắng mặt."
+        : "Please enter a reason for absence."
       setAbsenceError(msg)
       showToast?.(msg, "error")
       return
@@ -1388,6 +1419,7 @@ export function MemberMyCoachView() {
 
                     <div className="flex items-center gap-2">
                       {/* Absence request button */}
+                      {getSessionTimingRule(s).isAbsentApplicable && (
                       <button
                         type="button"
                         onClick={() => {
@@ -1401,8 +1433,10 @@ export function MemberMyCoachView() {
                       >
                         {isVi ? "Xin vắng mặt" : "Report absence"}
                       </button>
+                      )}
 
                       {/* Cancel session button */}
+                      {getSessionTimingRule(s).isCancellable && (
                       <button
                         type="button"
                         onClick={() => handleCancelPrivate(s.id)}
@@ -1410,6 +1444,7 @@ export function MemberMyCoachView() {
                       >
                         {isVi ? "Hủy buổi tập" : "Cancel"}
                       </button>
+                      )}
                     </div>
                   </div>
                 ))}
