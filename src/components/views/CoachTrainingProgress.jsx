@@ -34,7 +34,81 @@ import {
   RefreshCw,
   TrendingUp,
   Info,
+  AlertCircle,
 } from "lucide-react"
+
+const parseStrictPositiveInt = (raw) => {
+  if (raw === undefined || raw === null || raw === "") return null
+  if (typeof raw === "number") {
+    return Number.isInteger(raw) && raw > 0 ? raw : null
+  }
+  const str = String(raw).trim()
+  if (!/^\d+$/.test(str)) return null
+  const num = Number(str)
+  return Number.isInteger(num) && num > 0 ? num : null
+}
+
+const translateTrainingPlanBackendError = (err) => {
+  const details = err?.details ?? err?.response?.data ?? {}
+  const rawParts = []
+  if (typeof details === "string" && details.trim()) {
+    rawParts.push(details.trim())
+  } else if (details && typeof details === "object") {
+    for (const key of ["message", "error", "detail"]) {
+      if (typeof details[key] === "string" && details[key].trim()) {
+        rawParts.push(details[key].trim())
+      }
+    }
+    if (details.errors && typeof details.errors === "object") {
+      Object.entries(details.errors).forEach(([field, msg]) => {
+        if (msg) rawParts.push(`${field}: ${msg}`)
+      })
+    }
+    if (details.fieldErrors && typeof details.fieldErrors === "object") {
+      Object.entries(details.fieldErrors).forEach(([field, msg]) => {
+        if (msg) rawParts.push(`${field}: ${msg}`)
+      })
+    }
+  }
+  if (err?.message && !/^HTTP\s+\d+$/i.test(err.message)) {
+    rawParts.push(err.message)
+  }
+
+  const combined = rawParts.join(" | ")
+  const lower = combined.toLowerCase()
+
+  if (lower.includes("only the assigned coach may write this record")) {
+    return "Chỉ huấn luyện viên được phân công mới có quyền tạo/cập nhật giáo án này (Only the assigned Coach may write this record)."
+  }
+  if (lower.includes("coach is not assigned to this class")) {
+    return "Huấn luyện viên không được phân công phụ trách lớp học này (Coach is not assigned to this class)."
+  }
+  if (
+    lower.includes("member is not assigned to this coach through a paid course")
+  ) {
+    return "Học viên này chưa được phân công cho bạn qua khóa học đã thanh toán (Member is not assigned to this Coach through a paid course)."
+  }
+  if (
+    lower.includes("either classid or memberid") ||
+    (lower.includes("classid") && lower.includes("memberid"))
+  ) {
+    return "Chỉ được chọn 1 mục tiêu duy nhất: Học viên cá nhân HOẶC Lớp học, không gửi cả hai."
+  }
+  if (lower.includes("enddate") && lower.includes("startdate")) {
+    return "Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu."
+  }
+  if (lower.includes("coachid")) {
+    return "Thiếu hoặc sai mã định danh Huấn luyện viên (coachId không hợp lệ hoặc không khớp tài khoản đang đăng nhập)."
+  }
+  if (lower.includes("title")) {
+    return "Tiêu đề giáo án không được để trống."
+  }
+
+  return getErrorMessage(
+    err,
+    "Không thể lưu giáo án tập luyện. Vui lòng kiểm tra lại thông tin.",
+  )
+}
 
 export function CoachTrainingProgress() {
   const {
@@ -47,12 +121,40 @@ export function CoachTrainingProgress() {
     language,
   } = useSCMS()
 
-  const resolvedCoachId = useMemo(() => {
-    const raw = currentUser?.coachId ?? (apiEnabled ? null : currentUser?.id)
+  const [fetchedCoachId, setFetchedCoachId] = useState(null)
+  const [loadingCoachProfile, setLoadingCoachProfile] = useState(false)
+
+  const contextCoachId = useMemo(() => {
+    if (apiEnabled) {
+      return parseStrictPositiveInt(currentUser?.coachId)
+    }
+    const raw = currentUser?.coachId ?? currentUser?.id
     const match = String(raw || "").match(/(\d+)$/)
     const parsed = match ? Number(match[1]) : Number(raw)
-    return !Number.isNaN(parsed) && parsed > 0 ? parsed : null
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null
   }, [apiEnabled, currentUser?.coachId, currentUser?.id])
+
+  const resolvedCoachId = contextCoachId ?? fetchedCoachId
+
+  useEffect(() => {
+    if (!apiEnabled || contextCoachId) return
+    let active = true
+    setLoadingCoachProfile(true)
+    memberPortalApi
+      .getCoachProfileMe()
+      .then((profile) => {
+        if (!active) return
+        const cId = parseStrictPositiveInt(profile?.id ?? profile?.coachId)
+        if (cId) setFetchedCoachId(cId)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLoadingCoachProfile(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [apiEnabled, contextCoachId])
 
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== "undefined") {
@@ -84,6 +186,9 @@ export function CoachTrainingProgress() {
   const [loadingData, setLoadingData] = useState(false)
 
   // New Training Plan form state (P3.1 Structured PlanBuilder)
+  const [planTargetType, setPlanTargetType] = useState("member") // "member" | "class"
+  const [selectedPlanClassId, setSelectedPlanClassId] = useState("")
+  const [planFormError, setPlanFormError] = useState("")
   const [planTitle, setPlanTitle] = useState("")
   const [planGoal, setPlanGoal] = useState("")
   const [planExercises, setPlanExercises] = useState([])
@@ -220,6 +325,55 @@ export function CoachTrainingProgress() {
       null,
     [availableStudents, selectedMemberId],
   )
+
+  const coachClasses = useMemo(() => {
+    const map = new Map()
+    const list = Array.isArray(classes) ? classes : []
+    list.forEach((c) => {
+      const cId = parseStrictPositiveInt(c?.id)
+      if (!cId) return
+      if (
+        !resolvedCoachId ||
+        parseStrictPositiveInt(c?.coachId) === resolvedCoachId
+      ) {
+        map.set(cId, {
+          id: cId,
+          name: c.nameVi || c.name || `Lớp #${cId}`,
+        })
+      }
+    })
+    apiSessions.forEach((s) => {
+      const cId = parseStrictPositiveInt(s?.classId)
+      if (!cId || map.has(cId)) return
+      map.set(cId, {
+        id: cId,
+        name: s.className || s.subjectName || `Lớp #${cId}`,
+      })
+    })
+    if (map.size === 0) {
+      list.forEach((c) => {
+        const cId = parseStrictPositiveInt(c?.id)
+        if (cId) {
+          map.set(cId, {
+            id: cId,
+            name: c.nameVi || c.name || `Lớp #${cId}`,
+          })
+        }
+      })
+    }
+    return Array.from(map.values())
+  }, [classes, apiSessions, resolvedCoachId])
+
+  useEffect(() => {
+    if (coachClasses.length > 0) {
+      const exists = coachClasses.some(
+        (c) => String(c.id) === String(selectedPlanClassId),
+      )
+      if (!selectedPlanClassId || !exists) {
+        setSelectedPlanClassId(String(coachClasses[0].id))
+      }
+    }
+  }, [coachClasses, selectedPlanClassId])
 
   const completedSessions = useMemo(
     () => apiSessions.filter((s) => canLogResult(s)),
@@ -408,50 +562,115 @@ export function CoachTrainingProgress() {
 
   const handleSaveTrainingPlan = async (e) => {
     if (e) e.preventDefault()
+    setPlanFormError("")
+
+    const trimmedTitle = planTitle.trim()
+    const trimmedGoal = planGoal.trim()
     const validExercises = planExercises.filter(
       (ex) => String(ex?.name || "").trim() !== "",
     )
-    if (
-      !planTitle.trim() ||
-      !planGoal.trim() ||
-      (validExercises.length === 0 && !planNotes.trim())
-    ) {
-      showToast(t("coachEmptyFieldValidationError"), "warning")
+
+    if (!trimmedTitle) {
+      const msg = "Vui lòng nhập tiêu đề giáo án (không được để trống)."
+      setPlanFormError(msg)
+      showToast(msg, "warning")
       return
     }
+    if (!trimmedGoal || (validExercises.length === 0 && !planNotes.trim())) {
+      const msg = t("coachEmptyFieldValidationError")
+      setPlanFormError(msg)
+      showToast(msg, "warning")
+      return
+    }
+
+    const startStr = String(planStartDate || "").trim().slice(0, 10)
+    const endStr = String(planEndDate || "").trim().slice(0, 10)
+    if (startStr && endStr && endStr < startStr) {
+      const msg = "Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu."
+      setPlanFormError(msg)
+      showToast(msg, "warning")
+      return
+    }
+
+    let finalCoachId = parseStrictPositiveInt(resolvedCoachId)
+    if (apiEnabled && !finalCoachId) {
+      try {
+        const myProfile = await memberPortalApi.getCoachProfileMe()
+        const fetchedId = parseStrictPositiveInt(
+          myProfile?.id ?? myProfile?.coachId,
+        )
+        if (fetchedId) {
+          setFetchedCoachId(fetchedId)
+          finalCoachId = fetchedId
+        }
+      } catch {
+        // Handled by check below
+      }
+    }
+
+    if (apiEnabled && (!finalCoachId || !Number.isInteger(finalCoachId))) {
+      const msg =
+        "Chưa xác định được mã định danh Huấn luyện viên (coachId) từ hồ sơ đăng nhập. Vui lòng tải lại trang."
+      setPlanFormError(msg)
+      showToast(msg, "error")
+      return
+    }
+
+    const targetMemberId =
+      planTargetType === "member"
+        ? parseStrictPositiveInt(selectedMemberId || selectedStudent?.id)
+        : null
+    const targetClassId =
+      planTargetType === "class"
+        ? parseStrictPositiveInt(selectedPlanClassId)
+        : null
+
+    if (
+      (targetMemberId !== null && targetClassId !== null) ||
+      (targetMemberId === null && targetClassId === null)
+    ) {
+      const msg =
+        planTargetType === "class"
+          ? "Vui lòng chọn một lớp học hợp lệ để áp dụng giáo án."
+          : "Vui lòng chọn một học viên hợp lệ để áp dụng giáo án."
+      setPlanFormError(msg)
+      showToast(msg, "warning")
+      return
+    }
+
     setSavingPlan(true)
     try {
-      const memberIdNum = parseNumericId(
-        selectedMemberId || selectedStudent?.id,
-        1,
-      )
       const serializedContent = serializePlan({
         exercises: validExercises,
         notes: planNotes.trim(),
       })
       if (apiEnabled) {
-        await memberPortalApi.createTrainingPlan({
-          coachId: resolvedCoachId,
-          memberId: memberIdNum,
-          classId: classes[0]?.id ? Number(classes[0].id) : undefined,
-          title: planTitle.trim(),
-          goal: planGoal.trim(),
-          content: serializedContent,
-          startDate: planStartDate || undefined,
-          endDate: planEndDate || undefined,
-        })
+        const payload = {
+          coachId: Number(finalCoachId),
+          ...(targetMemberId !== null
+            ? { memberId: Number(targetMemberId) }
+            : { classId: Number(targetClassId) }),
+          title: trimmedTitle,
+          ...(trimmedGoal ? { goal: trimmedGoal } : {}),
+          ...(serializedContent.trim()
+            ? { content: serializedContent.trim() }
+            : {}),
+          ...(startStr ? { startDate: startStr } : {}),
+          ...(endStr ? { endDate: endStr } : {}),
+        }
+        await memberPortalApi.createTrainingPlan(payload)
         setPlanTitle("")
         setPlanGoal("")
         setPlanExercises([])
         setPlanNotes("")
+        setPlanFormError("")
         await loadAllProgressData()
         showToast("Đã tạo và lưu giáo án tập luyện lên hệ thống!", "success")
       }
     } catch (err) {
-      showToast(
-        getErrorMessage(err, "Không thể lưu giáo án tập luyện lên máy chủ."),
-        "error",
-      )
+      const friendlyMsg = translateTrainingPlanBackendError(err)
+      setPlanFormError(friendlyMsg)
+      showToast(friendlyMsg, "error")
     } finally {
       setSavingPlan(false)
     }
@@ -835,6 +1054,107 @@ export function CoachTrainingProgress() {
           </div>
 
           <form onSubmit={handleSaveTrainingPlan} className="space-y-4 text-sm leading-5">
+            {planFormError && (
+              <div
+                role="alert"
+                className="flex items-start gap-2.5 rounded-lg border border-status-danger/30 bg-status-danger-bg p-3 text-xs leading-5 text-status-danger"
+              >
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{planFormError}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs leading-4 font-medium text-text-secondary block mb-1">
+                  Phạm vi áp dụng (XOR Target) *
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlanTargetType("member")
+                      setPlanFormError("")
+                    }}
+                    className={`min-h-11 flex-1 rounded px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                      planTargetType === "member"
+                        ? "bg-brand-primary text-text-inverse"
+                        : "border border-border-strong bg-bg-card text-text-secondary hover:bg-bg-secondary"
+                    }`}
+                  >
+                    Học viên cá nhân
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlanTargetType("class")
+                      setPlanFormError("")
+                    }}
+                    className={`min-h-11 flex-1 rounded px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                      planTargetType === "class"
+                        ? "bg-brand-primary text-text-inverse"
+                        : "border border-border-strong bg-bg-card text-text-secondary hover:bg-bg-secondary"
+                    }`}
+                  >
+                    Lớp học
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs leading-4 font-medium text-text-secondary block mb-1">
+                  {planTargetType === "member"
+                    ? "Học viên nhận giáo án *"
+                    : "Lớp học nhận giáo án *"}
+                </label>
+                {planTargetType === "member" ? (
+                  <select
+                    value={selectedMemberId}
+                    onChange={(e) => {
+                      setSelectedMemberId(e.target.value)
+                      setPlanFormError("")
+                      if (typeof window !== "undefined") {
+                        sessionStorage.setItem(
+                          "scms_selected_progress_member_id",
+                          e.target.value,
+                        )
+                      }
+                    }}
+                    className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 cursor-pointer"
+                  >
+                    {availableStudents.length === 0 ? (
+                      <option value="">Chưa có học viên được phân công</option>
+                    ) : (
+                      availableStudents.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} ({m.code})
+                        </option>
+                      ))
+                    )}
+                  </select>
+                ) : (
+                  <select
+                    value={selectedPlanClassId}
+                    onChange={(e) => {
+                      setSelectedPlanClassId(e.target.value)
+                      setPlanFormError("")
+                    }}
+                    className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 cursor-pointer"
+                  >
+                    {coachClasses.length === 0 ? (
+                      <option value="">Chưa có lớp học phụ trách</option>
+                    ) : (
+                      coachClasses.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} (#{c.id})
+                        </option>
+                      ))
+                    )}
+                  </select>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs leading-4 font-medium text-text-secondary block mb-1">
@@ -844,7 +1164,10 @@ export function CoachTrainingProgress() {
                   type="text"
                   required
                   value={planTitle}
-                  onChange={(e) => setPlanTitle(e.target.value)}
+                  onChange={(e) => {
+                    setPlanTitle(e.target.value)
+                    if (planFormError) setPlanFormError("")
+                  }}
                   placeholder="VD: Giáo án phát triển kỹ thuật & thể lực chuyên sâu"
                   className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 />
@@ -857,7 +1180,10 @@ export function CoachTrainingProgress() {
                   type="text"
                   required
                   value={planGoal}
-                  onChange={(e) => setPlanGoal(e.target.value)}
+                  onChange={(e) => {
+                    setPlanGoal(e.target.value)
+                    if (planFormError) setPlanFormError("")
+                  }}
                   placeholder="VD: Tăng cường sức bền, tốc độ di chuyển và độ chuẩn xác kỹ thuật"
                   className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 />
@@ -872,7 +1198,10 @@ export function CoachTrainingProgress() {
                 <input
                   type="date"
                   value={planStartDate}
-                  onChange={(e) => setPlanStartDate(e.target.value)}
+                  onChange={(e) => {
+                    setPlanStartDate(e.target.value)
+                    if (planFormError) setPlanFormError("")
+                  }}
                   className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
                 />
                 <div className="text-xs leading-4 font-medium font-mono text-text-secondary mt-0.5">
@@ -886,7 +1215,10 @@ export function CoachTrainingProgress() {
                 <input
                   type="date"
                   value={planEndDate}
-                  onChange={(e) => setPlanEndDate(e.target.value)}
+                  onChange={(e) => {
+                    setPlanEndDate(e.target.value)
+                    if (planFormError) setPlanFormError("")
+                  }}
                   className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted font-mono"
                 />
                 <div className="text-xs leading-4 font-medium font-mono text-text-secondary mt-0.5">
@@ -905,12 +1237,16 @@ export function CoachTrainingProgress() {
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={savingPlan}
+                disabled={savingPlan || (apiEnabled && loadingCoachProfile)}
                 className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>
-                  {savingPlan ? "Đang lưu..." : "Lưu giáo án tập luyện"}
+                  {savingPlan
+                    ? "Đang lưu..."
+                    : apiEnabled && loadingCoachProfile
+                      ? "Đang tải hồ sơ HLV..."
+                      : "Lưu giáo án tập luyện"}
                 </span>
               </button>
             </div>

@@ -114,8 +114,55 @@ export const getTrainingPlans = (params = {}) => {
   const qStr = query.toString() ? `?${query.toString()}` : ""
   return list(`/api/training-plans${qStr}`)
 }
-export const createTrainingPlan = (payload) =>
-  httpClient.post("/api/training-plans", payload)
+export const createTrainingPlan = (payload = {}) => {
+  const coachId = Number(payload.coachId)
+  const rawClassId =
+    payload.classId !== undefined &&
+    payload.classId !== null &&
+    String(payload.classId).trim() !== ""
+      ? Number(payload.classId)
+      : null
+  const rawMemberId =
+    payload.memberId !== undefined &&
+    payload.memberId !== null &&
+    String(payload.memberId).trim() !== ""
+      ? Number(payload.memberId)
+      : null
+  const hasValidClassId =
+    rawClassId !== null && Number.isInteger(rawClassId) && rawClassId > 0
+  const hasValidMemberId =
+    rawMemberId !== null && Number.isInteger(rawMemberId) && rawMemberId > 0
+
+  const cleanPayload = {
+    ...(Number.isInteger(coachId) && coachId > 0 ? { coachId } : {}),
+    ...(hasValidMemberId && !hasValidClassId
+      ? { memberId: rawMemberId }
+      : hasValidClassId && !hasValidMemberId
+        ? { classId: rawClassId }
+        : {}),
+    title: String(payload.title || "").trim(),
+  }
+
+  const trimmedGoal = String(payload.goal ?? "").trim()
+  if (trimmedGoal) cleanPayload.goal = trimmedGoal
+
+  const trimmedContent = String(payload.content ?? "").trim()
+  if (trimmedContent) cleanPayload.content = trimmedContent
+
+  const trimmedStartDate = String(payload.startDate ?? "").trim().slice(0, 10)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmedStartDate)) {
+    cleanPayload.startDate = trimmedStartDate
+  }
+
+  const trimmedEndDate = String(payload.endDate ?? "").trim().slice(0, 10)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmedEndDate)) {
+    cleanPayload.endDate = trimmedEndDate
+  }
+
+  return httpClient.post("/api/training-plans", cleanPayload, {
+    notifyForbidden: false,
+  })
+}
 export const updateTrainingPlanById = (id, payload) =>
   httpClient.put(`/api/training-plans/${encodeURIComponent(id)}`, payload)
 export const deleteTrainingPlanById = (id) =>
