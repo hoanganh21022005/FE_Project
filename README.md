@@ -12,7 +12,7 @@ Repo này là **source of truth của Frontend Team**. Sau khi baseline được
 - JavaScript / JSX
 - Vite 8
 - Tailwind CSS 4
-- pnpm
+- npm
 - GitHub + GitHub Desktop
 - Backend API: Spring Boot (do BE team cung cấp qua Swagger/OpenAPI)
 - Deployment: Render
@@ -51,7 +51,7 @@ FE_Project/
 ├── index.html               # HTML entry của Vite
 ├── jsconfig.json            # Alias @/* và hỗ trợ VS Code cho JS/JSX
 ├── package.json             # Dependencies + scripts
-├── pnpm-lock.yaml           # Lock dependency; phải commit
+├── package-lock.json        # Lock dependency; phải commit
 ├── vite.config.js           # Vite config độc lập Figma
 ├── README.md                # Tài liệu chung cho FE team
 │
@@ -150,13 +150,13 @@ src/context/SCMSContext.jsx
 src/locales/translations.js
 index.html
 package.json
-pnpm-lock.yaml
+package-lock.json
 ```
 
 ### BỎ KHỎI BASELINE
 
 ```text
-node_modules/                 # Cài lại bằng pnpm install
+node_modules/                 # Cài lại bằng npm ci
 dist/                         # Build output
 .git/                         # Không copy Git history của source cũ
 .figma/                       # Chỉ phục vụ Figma Make
@@ -205,19 +205,19 @@ Không khôi phục toàn bộ `src/imports/` cũ nếu không có file nào s�
 
 ### Yêu cầu
 
-Khuyến nghị dùng Node.js LTS/phiên bản team đã thống nhất và pnpm.
+Khuyến nghị dùng Node.js LTS/phiên bản team đã thống nhất và npm.
 
 Kiểm tra:
 
 ```powershell
 node --version
-pnpm --version
+npm --version
 ```
 
 Cài dependency:
 
 ```powershell
-pnpm install --frozen-lockfile
+npm ci
 ```
 
 ---
@@ -227,7 +227,7 @@ pnpm install --frozen-lockfile
 Dùng khi BE chưa hoàn thiện API của business flow đang làm:
 
 ```powershell
-pnpm dev:local
+npm run dev:local
 ```
 
 Ứng dụng đọc:
@@ -278,7 +278,7 @@ VITE_API_PROXY_TARGET=http://localhost:8080
 Sau đó:
 
 ```powershell
-pnpm dev
+npm run dev
 ```
 
 Vite sẽ proxy request `/api/...` sang Spring Boot local.
@@ -376,7 +376,7 @@ FE thực hiện:
 1. Đọc flow và xác định actor/screen liên quan.
 2. Kiểm tra màn hình nào đã có trong baseline.
 3. Đọc Swagger của BE.
-4. Nếu BE chưa xong: làm UI bằng `pnpm dev:local`.
+4. Nếu BE chưa xong: làm UI bằng `npm run dev:local`.
 5. Tạo/sửa API adapter trong `src/api/`.
 6. Chuyển UI từ mock sang API thật.
 7. Xử lý loading, empty state, validation, success/error.
@@ -553,26 +553,26 @@ Không Force Push nếu team chưa thống nhất.
 
 Trước khi cài thêm thư viện, hỏi/trao đổi với team nếu thư viện ảnh hưởng toàn project.
 
-Dùng pnpm:
+Dùng npm:
 
 ```powershell
-pnpm add <package>
+npm install <package>
 ```
 
 hoặc dev dependency:
 
 ```powershell
-pnpm add -D <package>
+npm install -D <package>
 ```
 
 Sau khi thay đổi dependency, phải commit cả:
 
 ```text
 package.json
-pnpm-lock.yaml
+package-lock.json
 ```
 
-Không xóa hoặc tự tạo `package-lock.json` / `yarn.lock` nếu team đang dùng pnpm.
+Dùng npm và commit `package-lock.json`; không dùng `pnpm-lock.yaml` hoặc `yarn.lock`.
 
 ---
 
@@ -581,8 +581,8 @@ Không xóa hoặc tự tạo `package-lock.json` / `yarn.lock` nếu team đang
 ### UI/mock mode
 
 ```powershell
-pnpm install --frozen-lockfile
-pnpm dev:local
+npm ci
+npm run dev:local
 ```
 
 ### Real API mode
@@ -590,13 +590,13 @@ pnpm dev:local
 ```powershell
 Copy-Item .env.example .env.local
 # chỉnh .env.local nếu cần
-pnpm dev
+npm run dev
 ```
 
 ### Build
 
 ```powershell
-pnpm build
+npm run build
 ```
 
 ---
