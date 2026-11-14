@@ -142,7 +142,7 @@ export function MyMembershipView() {
   }
   const retry = () => setReloadKey((value) => value + 1)
   const tabClass = (selected) => "inline-flex min-h-10 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition " + (selected ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-800")
-  return <main className="min-w-0 w-full space-y-6 px-4 py-5 sm:px-6 lg:px-8" aria-labelledby="membership-title">
+  return <div className="min-w-0 w-full space-y-6" aria-labelledby="membership-title">
     <PageHeader
       title={language === "vi" ? "Quyền học & Đăng ký của tôi" : "My memberships & enrollments"}
       description={language === "vi" ? "Theo dõi lớp Normal, quyền học Advanced và lịch sử thanh toán của bạn." : "Review your Normal courses, Advanced entitlements, and payment history."}
@@ -203,6 +203,6 @@ export function MyMembershipView() {
       <section className="space-y-4"><div><h2 className="text-xl font-bold text-slate-900">{language === "vi" ? "Quyền hội viên đã kết thúc" : "Ended entitlements"}</h2><p className="mt-1 text-sm text-slate-500">{language === "vi" ? "Các trạng thái hết hạn, hoàn thành hoặc đã hủy được giữ riêng với quyền đang dùng." : "Expired, completed, and cancelled entitlements are kept separate from active benefits."}</p></div><ResourceState loading={loading.subscriptions || loading.enrollments} loadingText={t("courseCatalogLoading")} error={[errors.subscriptions, errors.enrollments].filter(Boolean).join(" · ")} onRetry={retry} empty={partition.historySubscriptions.length + partition.historyEnrollments.length === 0 ? (language === "vi" ? "Chưa có gói hoặc lớp trong lịch sử." : "No ended memberships or courses yet.") : null}><div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))]">{partition.historySubscriptions.map((item) => <SubscriptionCard key={item.subscriptionId || item.id} item={item} language={language} t={t} history />)}{partition.historyEnrollments.map((item) => <EnrollmentCard key={item.enrollmentId || item.id || (item.classId + "-" + item.subjectId)} item={item} t={t} language={language} />)}</div></ResourceState></section>
     </div>}
     <footer className="flex w-full items-start gap-2 rounded-xl border border-blue-100 bg-blue-50/70 p-4 text-xs leading-5 text-slate-600"><FileText className="mt-0.5 shrink-0 text-brand-primary" size={15} />Dữ liệu gói, thời hạn, credit và hóa đơn được đồng bộ theo hệ thống trung tâm. Các gói ở trạng thái Chờ xử lý chưa cấp quyền tập luyện.</footer>
-  </main>
+  </div>
 }
 export default MyMembershipView

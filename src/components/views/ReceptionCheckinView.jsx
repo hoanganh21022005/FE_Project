@@ -212,18 +212,18 @@ export function ReceptionCheckinView() {
   return (
     <div className="space-y-6 font-sans">
       {/* Header */}
-      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-bg-secondary text-brand-primary rounded border border-border-color">
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-brand-blue-soft p-2.5 text-brand-primary shrink-0">
             <ClipboardCheck className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl leading-7 font-semibold text-text-primary">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug">
               {language === "vi"
                 ? "Điểm Danh & Check-in / Check-out Tại Quầy"
                 : "Reception Check-in & Attendance Desk"}
-            </h2>
-            <p className="text-sm leading-5 text-text-secondary">
+            </h1>
+            <p className="mt-1 text-sm text-slate-500 leading-relaxed">
               {language === "vi"
                 ? "Tách biệt từng nghiệp vụ: Quét mã QR cổng vào, Check-in/Check-out thủ công và Nhật ký điểm danh"
                 : "Dedicated tabs for QR Gate Scan, Manual Check-in/Out, and Daily Attendance Log"}
@@ -232,14 +232,14 @@ export function ReceptionCheckinView() {
         </div>
 
         {/* Sub-navigation pills */}
-        <div className="flex flex-wrap items-center gap-1 bg-bg-secondary p-1 rounded-lg border border-border-color">
+        <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 self-start">
           <button
             type="button"
             onClick={() => setActiveSubTab("qr")}
-            className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors cursor-pointer ${
+            className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors cursor-pointer ${
               activeSubTab === "qr"
-                ? "bg-bg-card text-brand-primary font-semibold shadow-xs border border-border-color"
-                : "text-text-secondary hover:text-text-primary hover:bg-bg-card/50"
+                ? "bg-white text-brand-primary font-semibold shadow-sm"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
             }`}
           >
             <QrCode className="w-3.5 h-3.5" />
@@ -249,10 +249,10 @@ export function ReceptionCheckinView() {
           <button
             type="button"
             onClick={() => setActiveSubTab("manual")}
-            className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors cursor-pointer ${
+            className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors cursor-pointer ${
               activeSubTab === "manual"
-                ? "bg-bg-card text-brand-primary font-semibold shadow-xs border border-border-color"
-                : "text-text-secondary hover:text-text-primary hover:bg-bg-card/50"
+                ? "bg-white text-brand-primary font-semibold shadow-sm"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
             }`}
           >
             <LogIn className="w-3.5 h-3.5" />
@@ -262,10 +262,10 @@ export function ReceptionCheckinView() {
           <button
             type="button"
             onClick={() => setActiveSubTab("history")}
-            className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors cursor-pointer ${
+            className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors cursor-pointer ${
               activeSubTab === "history"
-                ? "bg-bg-card text-brand-primary font-semibold shadow-xs border border-border-color"
-                : "text-text-secondary hover:text-text-primary hover:bg-bg-card/50"
+                ? "bg-white text-brand-primary font-semibold shadow-sm"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
@@ -276,31 +276,31 @@ export function ReceptionCheckinView() {
 
       {/* Sub-tab 1: QR Gate Scan */}
       {activeSubTab === "qr" && (
-        <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
-          <div className="border-b border-border-color pb-2.5 flex items-center justify-between">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
+          <div className="border-b border-slate-100 pb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <QrCode className="w-4 h-4 text-brand-primary" />
-              <h3 className="text-sm font-semibold text-text-primary">
+              <h3 className="text-base font-semibold text-slate-800">
                 Quét Mã QR Check-in Hội Viên
               </h3>
             </div>
-            <span className="text-xs text-text-secondary">
+            <span className="text-xs text-slate-500">
               Hội viên lấy mã QR tại mục Check-in trên cổng Member
             </span>
           </div>
 
           <form
             onSubmit={handleScanCheckIn}
-            className="grid grid-cols-1 md:grid-cols-3 gap-3.5"
+            className="grid grid-cols-1 md:grid-cols-3 gap-4"
           >
             <div>
-              <label className="text-xs leading-4 font-medium text-text-secondary block mb-1">
+              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
                 1. Chọn hội viên *
               </label>
               <select
                 value={scanMemberId}
                 onChange={(e) => setScanMemberId(e.target.value)}
-                className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+                className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
               >
                 <option value="">-- Chọn hội viên --</option>
                 {members.map((m) => (
@@ -312,7 +312,7 @@ export function ReceptionCheckinView() {
             </div>
 
             <div>
-              <label className="text-xs leading-4 font-medium text-text-secondary block mb-1">
+              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
                 2. Mã QR / Check-in Code *
               </label>
               <input
@@ -320,12 +320,12 @@ export function ReceptionCheckinView() {
                 value={scanCode}
                 onChange={(e) => setScanCode(e.target.value)}
                 placeholder="VD: SCMS-CHK-1029..."
-                className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-xs text-text-primary font-mono placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400"
               />
             </div>
 
             <div>
-              <label className="text-xs leading-4 font-medium text-text-secondary block mb-1">
+              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
                 3. Mã buổi học (Session ID - Tùy chọn)
               </label>
               <input
@@ -333,7 +333,7 @@ export function ReceptionCheckinView() {
                 value={scanSessionId}
                 onChange={(e) => setScanSessionId(e.target.value)}
                 placeholder="Bỏ trống nếu tập tự do"
-                className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-xs text-text-primary font-mono placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400"
               />
             </div>
 
@@ -341,7 +341,7 @@ export function ReceptionCheckinView() {
               <button
                 type="submit"
                 disabled={scanning}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 text-xs font-semibold bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>
@@ -355,31 +355,31 @@ export function ReceptionCheckinView() {
 
       {/* Sub-tab 2: Manual Check-in / Check-out */}
       {activeSubTab === "manual" && (
-        <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3.5">
-          <div className="border-b border-border-color pb-2.5 flex flex-col md:flex-row md:items-center justify-between gap-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
+          <div className="border-b border-slate-100 pb-3 flex flex-col md:flex-row md:items-center justify-between gap-2">
             <div>
-              <h3 className="text-sm font-semibold text-text-primary">
+              <h3 className="text-base font-semibold text-slate-800">
                 Check-in &amp; Check-out Thủ Công Cho Hội Viên
               </h3>
-              <p className="text-xs text-text-secondary">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Dành cho hội viên quên mang điện thoại hoặc cần lễ tân xác nhận
                 ra/vào trực tiếp
               </p>
             </div>
-            <span className="text-xs text-text-secondary font-mono">
+            <span className="text-xs font-medium text-slate-500 tabular-nums">
               Tổng: {searchResults.length} hội viên
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="relative">
-              <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Tìm theo tên, số điện thoại hoặc mã hội viên..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="min-h-11 w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                className="h-10 w-full rounded-xl border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400"
               />
             </div>
 
@@ -389,20 +389,20 @@ export function ReceptionCheckinView() {
                 placeholder="Ghi chú Check-in (Tùy chọn: Tập ca sáng, Quên thẻ...)"
                 value={notesInput}
                 onChange={(e) => setNotesInput(e.target.value)}
-                className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-xs text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400"
               />
             </div>
           </div>
 
-          <div className="space-y-2 pt-1">
+          <div className="space-y-2.5 pt-1">
             {searchResults.map((m) => (
               <div
                 key={m.id}
-                className="p-3 bg-bg-secondary/40 border border-border-color/70 rounded-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5"
+                className="p-3.5 bg-slate-50/70 border border-slate-200 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 hover:bg-slate-50 transition-colors"
               >
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-text-primary">
+                    <span className="text-sm font-semibold text-slate-900">
                       {m.name}
                     </span>
                     <StatusBadge
@@ -410,7 +410,7 @@ export function ReceptionCheckinView() {
                       status={m.membershipStatus}
                     />
                   </div>
-                  <div className="text-xs text-text-secondary font-mono tabular-nums mt-0.5">
+                  <div className="text-xs text-slate-500 tabular-nums mt-0.5">
                     {m.code} &bull; SĐT: {m.phone || "—"} &bull; Gói:{" "}
                     {m.currentPackageName}
                   </div>
@@ -421,7 +421,7 @@ export function ReceptionCheckinView() {
                     type="button"
                     onClick={() => handleManualCheckIn(m)}
                     disabled={actionBusyKey === `in-${m.id}`}
-                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold bg-brand-primary text-text-inverse hover:bg-brand-primary-hover disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
+                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-medium bg-brand-primary text-white hover:bg-brand-primary-hover disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
                   >
                     <LogIn className="w-3.5 h-3.5" />
                     <span>Check-in Vào Cổng</span>
@@ -431,7 +431,7 @@ export function ReceptionCheckinView() {
                     type="button"
                     onClick={() => handleManualCheckOut(m)}
                     disabled={actionBusyKey === `out-${m.id}`}
-                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary disabled:opacity-50 transition-colors cursor-pointer"
+                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors cursor-pointer"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     <span>Check-out Ra Về</span>
@@ -445,13 +445,13 @@ export function ReceptionCheckinView() {
 
       {/* Sub-tab 3: Attendance History */}
       {activeSubTab === "history" && (
-        <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3.5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-border-color pb-2.5">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-100 pb-3">
             <div>
-              <h3 className="text-sm font-semibold text-text-primary">
+              <h3 className="text-base font-semibold text-slate-800">
                 Nhật Ký Điểm Danh &amp; Check-in Trên Hệ Thống
               </h3>
-              <p className="text-xs text-text-secondary">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Danh sách toàn bộ lượt Check-in/Check-out và điểm danh lớp học
               </p>
             </div>
@@ -460,7 +460,7 @@ export function ReceptionCheckinView() {
               <select
                 value={stateFilter}
                 onChange={(e) => setStateFilter(e.target.value)}
-                className="min-h-11 rounded border border-border-strong bg-bg-card px-2.5 text-xs text-text-primary focus-visible:border-brand-primary focus-visible:outline-none cursor-pointer"
+                className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 cursor-pointer"
               >
                 <option value="all">Tất cả trạng thái</option>
                 <option value="Present">Present (Có mặt)</option>
@@ -472,7 +472,7 @@ export function ReceptionCheckinView() {
                 type="button"
                 onClick={loadAttendances}
                 disabled={loadingAttendances}
-                className="inline-flex min-h-11 items-center justify-center gap-1 rounded px-2.5 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary disabled:opacity-50 transition-colors cursor-pointer"
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors cursor-pointer"
               >
                 <RefreshCw
                   className={`w-3.5 h-3.5 ${

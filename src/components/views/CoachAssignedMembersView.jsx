@@ -1084,22 +1084,22 @@ export function CoachAssignedMembersView() {
   return (
     <div className="w-full space-y-6">
       {/* Header */}
-      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-bg-secondary text-brand-primary rounded border border-border-color">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-brand-blue-soft p-2.5 text-brand-primary shrink-0">
             <CalendarPlus className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl leading-7 font-semibold text-text-primary whitespace-nowrap">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug">
               {language === "vi" ? "Đề xuất lịch PT 1:1" : "1:1 Private Session Proposals"}
-            </h2>
-            <p className="text-sm leading-5 text-text-secondary whitespace-nowrap">
+            </h1>
+            <p className="mt-1 text-sm text-slate-500 leading-relaxed">
               {language === "vi" ? "Chọn Member và gói Advanced Active để gửi đề xuất; Member sẽ xác nhận trước khi lịch được lên lịch." : "Select a Member and active Advanced subscription to propose a time; the Member confirms before it is scheduled."}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {apiEnabled && (
             <button
               type="button"
@@ -1110,12 +1110,12 @@ export function CoachAssignedMembersView() {
               }}
               title={t("coachBtnRefresh")}
               aria-label={t("coachBtnRefresh")}
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded border border-border-color bg-bg-card text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${loadingRequests || loadingProposals ? "animate-spin" : ""}`} />
             </button>
           )}
-          <div className="text-xs leading-4 font-mono font-semibold bg-bg-secondary border border-border-color px-3 py-2 rounded text-text-primary">
+          <div className="text-xs font-semibold bg-white border border-slate-200 px-3.5 py-2 rounded-xl text-slate-700 shadow-sm tabular-nums">
             Tổng số: {apiBookingCandidates.length} {t("coachPkgLabel")}
           </div>
         </div>

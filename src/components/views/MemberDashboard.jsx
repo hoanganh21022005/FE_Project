@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { QRCodeSVG } from "qrcode.react"
 import {
@@ -784,7 +784,7 @@ export function MemberDashboard() {
   ]
 
   return (
-    <main className="min-h-full w-full overflow-x-hidden bg-slate-50/70 px-6 py-6">
+    <div className="min-w-0 w-full overflow-x-hidden">
       <div className="min-w-0 w-full space-y-6 lg:space-y-7">
         <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-blue-950 to-slate-800 p-6 text-white shadow-lg shadow-slate-950/10 sm:p-8">
           <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-blue-400/10 blur-3xl" />
@@ -799,7 +799,7 @@ export function MemberDashboard() {
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
-              <button type="button" onClick={handleOpenQr} disabled={!apiEnabled} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:cursor-not-allowed disabled:opacity-50"><QrCode className="h-4 w-4" aria-hidden="true" />{isVi ? "Mã QR Check-in" : "Check-in QR"}</button>
+              <button type="button" onClick={handleOpenQr} disabled={!apiEnabled} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"><QrCode className="h-4 w-4" aria-hidden="true" />{isVi ? "Mã QR Check-in" : "Check-in QR"}</button>
               <button type="button" onClick={() => navigate("/member/schedule")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">{isVi ? "Xem lịch tuần" : "View weekly schedule"}<ArrowRight className="h-4 w-4" /></button>
             </div>
           </div>
@@ -895,7 +895,7 @@ export function MemberDashboard() {
                   <button
                     type="button"
                     onClick={() => navigate("/member/catalog")}
-                    className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-[15px] font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-700 focus-visible:ring-offset-2"
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 cursor-pointer"
                   >
                     {isVi ? "Khám phá khóa học" : "Explore courses"}
                     <ArrowRight className="h-4 w-4" />
@@ -1507,7 +1507,7 @@ export function MemberDashboard() {
           </section>
         </div>
       )}
-    </main>
+    </div>
   )
 }
 

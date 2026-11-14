@@ -669,7 +669,7 @@ export function MemberMyCoachView() {
   }
 
   return (
-    <main className="w-full space-y-6 px-6 py-6 font-sans antialiased">
+    <div className="w-full space-y-6 font-sans antialiased">
       {/* Header */}
       <PageHeader
         title={isVi ? "Huấn Luyện Viên & Đặt Lịch 1:1" : "Personal Coaches & 1-on-1 Sessions"}
@@ -1435,7 +1435,7 @@ export function MemberMyCoachView() {
           </div>
         </div>
       )}
-    </main>
+    </div>
   )
 }
 

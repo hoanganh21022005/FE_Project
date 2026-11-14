@@ -135,17 +135,17 @@ export default function ManagerAdvancedScheduleView() {
 
   if (!canManage) {
     return (
-      <main className="mx-auto max-w-7xl space-y-5 p-4 sm:p-6">
+      <div className="w-full space-y-6">
         <PageHeading isVi={isVi} />
         <div role="alert" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           {isVi ? 'Tài khoản cần quyền MANAGE_CLASSES để xem lịch Advanced.' : 'MANAGE_CLASSES permission is required to view Advanced schedules.'}
         </div>
-      </main>
+      </div>
     )
   }
 
   return (
-    <main className="mx-auto max-w-7xl space-y-5 p-4 sm:p-6" aria-busy={loading}>
+    <div className="w-full space-y-6" aria-busy={loading}>
       <PageHeading isVi={isVi} />
 
       <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-4 text-sm leading-6 text-indigo-950">
@@ -244,7 +244,7 @@ export default function ManagerAdvancedScheduleView() {
           {isVi ? `${filteredRows.length} lịch đang hiển thị` : `${filteredRows.length} schedules shown`}
         </div>
       </section>
-    </main>
+    </div>
   )
 }
 

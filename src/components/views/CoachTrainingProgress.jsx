@@ -542,17 +542,17 @@ export function CoachTrainingProgress() {
   return (
     <div className="w-full space-y-6">
       {/* Sticky Student Selector + 4 Horizontal Tabs */}
-      <div className="sticky top-0 z-10 rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3">
+      <div className="sticky top-0 z-10 rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-bg-secondary text-brand-primary rounded border border-border-color">
+          <div className="flex items-start gap-3">
+            <div className="rounded-xl bg-brand-blue-soft p-2.5 text-brand-primary shrink-0">
               <Activity className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl leading-7 font-semibold text-text-primary">
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug">
                 {t("trainingProgress")}
-              </h2>
-              <p className="text-sm leading-5 text-text-secondary">
+              </h1>
+              <p className="mt-1 text-sm text-slate-500 leading-relaxed">
                 {t("coachProgressSubtitle")}
               </p>
             </div>
@@ -566,7 +566,7 @@ export function CoachTrainingProgress() {
                 disabled={loadingData}
                 aria-label={t("coachBtnRefresh")}
                 title={t("coachBtnRefresh")}
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-secondary hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 shadow-sm cursor-pointer"
               >
                 <RefreshCw
                   className={`w-4 h-4 ${loadingData ? "animate-spin" : ""}`}

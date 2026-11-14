@@ -854,48 +854,47 @@ export function CoachScheduleView() {
   return (
     <div className="w-full space-y-6">
       {/* Coach schedule header */}
-      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-bg-secondary text-brand-primary rounded border border-border-color">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-xl leading-7 font-semibold text-text-primary whitespace-nowrap">
-                {language === "vi" ? "Thời khóa biểu & Lịch dạy" : t("schedule")}
-              </h2>
-              <p className="text-sm leading-5 text-text-secondary">
-                {language === "vi"
-                  ? "Thời khóa biểu tuần trực quan (Thứ/Ca học/Sân tập), danh sách từng ca dạy"
-                  : "Visual weekly timetable by slot and room, with a detailed session list"}
-              </p>
-            </div>
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-brand-blue-soft p-2.5 text-brand-primary shrink-0">
+            <Calendar className="w-5 h-5" />
           </div>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug whitespace-nowrap">
+              {language === "vi" ? "Thời khóa biểu & Lịch dạy" : t("schedule")}
+            </h1>
+            <p className="mt-1 text-sm text-slate-500 leading-relaxed">
+              {language === "vi"
+                ? "Thời khóa biểu tuần trực quan (Thứ/Ca học/Sân tập), danh sách từng ca dạy"
+                : "Visual weekly timetable by slot and room, with a detailed session list"}
+            </p>
+          </div>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {apiEnabled && (
-              <button
-                type="button"
-                onClick={loadCoachScheduleData}
-                disabled={loadingSessions}
-                aria-label={t("coachBtnRefresh")}
-                title={t("coachBtnRefresh")}
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-secondary hover:bg-bg-secondary hover:text-text-primary cursor-pointer"
-              >
-                <RefreshCw
-                  className={`w-4 h-4 ${loadingSessions ? "animate-spin" : ""}`}
-                />
-              </button>
-            )}
-            <Filter className="w-3.5 h-3.5 text-text-muted" />
-            <span className="text-xs leading-4 font-medium text-text-secondary">
-              Lọc theo phòng:
-            </span>
-            <select
-              value={selectedRoom}
-              onChange={(e) => setSelectedRoom(e.target.value)}
-              className="min-h-11 w-full sm:w-48 rounded border border-border-strong bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {apiEnabled && (
+            <button
+              type="button"
+              onClick={loadCoachScheduleData}
+              disabled={loadingSessions}
+              aria-label={t("coachBtnRefresh")}
+              title={t("coachBtnRefresh")}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 shadow-sm cursor-pointer"
             >
+              <RefreshCw
+                className={`w-4 h-4 ${loadingSessions ? "animate-spin" : ""}`}
+              />
+            </button>
+          )}
+          <Filter className="w-3.5 h-3.5 text-slate-500" />
+          <span className="text-xs font-medium text-slate-600">
+            Lọc theo phòng:
+          </span>
+          <select
+            value={selectedRoom}
+            onChange={(e) => setSelectedRoom(e.target.value)}
+            className="h-10 w-full sm:w-48 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
+          >
               <option value="all">
                 {language === "vi" ? "Tất cả phòng / sân" : "All Rooms"}
               </option>
@@ -908,12 +907,10 @@ export function CoachScheduleView() {
           </div>
         </div>
 
-      </div>
-
       {activeTab === "schedule" ? (
         <>
           {/* Section 1: Detailed Sessions Schedule */}
-          <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-border-color pb-3">
               <div>
                 <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
