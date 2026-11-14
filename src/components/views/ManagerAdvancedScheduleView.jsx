@@ -11,11 +11,11 @@ const normalize = (value) => String(value ?? '').trim().toLowerCase()
 
 const statusInfo = (status, isVi) => {
   const key = normalize(status)
-  if (key === 'accepted') return { label: isVi ? 'Member đã xác nhận' : 'Member accepted', style: 'border-emerald-200 bg-emerald-50 text-emerald-800', Icon: CheckCircle2 }
-  if (key === 'pending') return { label: isVi ? 'Chờ Member xác nhận' : 'Waiting for Member', style: 'border-amber-200 bg-amber-50 text-amber-800', Icon: Clock3 }
-  if (key === 'rejected') return { label: isVi ? 'Member từ chối' : 'Member declined', style: 'border-rose-200 bg-rose-50 text-rose-800', Icon: UserRound }
-  if (key === 'expired') return { label: isVi ? 'Đã hết hạn' : 'Expired', style: 'border-stone-200 bg-stone-100 text-stone-700', Icon: Clock3 }
-  return { label: status || (isVi ? 'Chưa xác định' : 'Unknown'), style: 'border-stone-200 bg-stone-100 text-stone-700', Icon: Clock3 }
+  if (key === 'accepted') return { label: isVi ? 'Member đã xác nhận' : 'Member accepted', style: 'border-status-success-border bg-status-success-bg text-status-success', Icon: CheckCircle2 }
+  if (key === 'pending') return { label: isVi ? 'Chờ Member xác nhận' : 'Waiting for Member', style: 'border-status-warning-border bg-status-warning-bg text-status-warning', Icon: Clock3 }
+  if (key === 'rejected') return { label: isVi ? 'Member từ chối' : 'Member declined', style: 'border-status-danger-border bg-status-danger-bg text-status-danger', Icon: UserRound }
+  if (key === 'expired') return { label: isVi ? 'Đã hết hạn' : 'Expired', style: 'border-border-color bg-bg-secondary text-text-secondary', Icon: Clock3 }
+  return { label: status || (isVi ? 'Chưa xác định' : 'Unknown'), style: 'border-border-color bg-bg-secondary text-text-secondary', Icon: Clock3 }
 }
 
 const formatDate = (value, language) => {
@@ -37,7 +37,7 @@ function StatusBadge({ status, isVi }) {
   const config = statusInfo(status, isVi)
   const Icon = config.Icon
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${config.style}`}>
+    <span className={`inline-flex min-h-6 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs leading-4 font-semibold ${config.style}`}>
       <Icon className="h-3.5 w-3.5" aria-hidden="true" />
       {config.label}
     </span>
@@ -126,7 +126,7 @@ export default function ManagerAdvancedScheduleView() {
     return (
       <div className="mx-auto max-w-7xl p-4 sm:p-6">
         <PageHeading isVi={isVi} />
-        <p className="mt-5 rounded-xl border border-dashed border-stone-300 bg-white p-8 text-center text-sm text-stone-600">
+        <p className="mt-5 rounded-xl border border-dashed border-border-strong bg-bg-card p-8 text-center text-sm leading-5 text-text-secondary">
           {isVi ? 'Kết nối Backend để xem lịch học Advanced.' : 'Connect to the Backend to view Advanced schedules.'}
         </p>
       </div>
@@ -137,7 +137,7 @@ export default function ManagerAdvancedScheduleView() {
     return (
       <div className="w-full space-y-6">
         <PageHeading isVi={isVi} />
-        <div role="alert" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div role="alert" className="mt-5 rounded-xl border border-status-warning-border bg-status-warning-bg p-4 text-sm leading-5 text-status-warning">
           {isVi ? 'Tài khoản cần quyền MANAGE_CLASSES để xem lịch Advanced.' : 'MANAGE_CLASSES permission is required to view Advanced schedules.'}
         </div>
       </div>
@@ -148,7 +148,7 @@ export default function ManagerAdvancedScheduleView() {
     <div className="w-full space-y-6" aria-busy={loading}>
       <PageHeading isVi={isVi} />
 
-      <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-4 text-sm leading-6 text-indigo-950">
+      <div className="rounded-xl border border-status-info-border bg-brand-blue-soft p-4 text-sm leading-6 text-text-primary">
         {isVi
           ? 'Coach tạo đề xuất sau khi đã thống nhất lịch với Member. Buổi tập chỉ được tạo khi Member xác nhận; Manager theo dõi lịch và trạng thái, không thay đổi lịch của hai bên.'
           : 'The Coach creates a proposal after agreeing on a time with the Member. A session is created only after the Member accepts. Managers monitor the schedule and status without changing their agreement.'}
@@ -161,18 +161,18 @@ export default function ManagerAdvancedScheduleView() {
         <SummaryCard label={isVi ? 'Từ chối / hết hạn' : 'Declined / expired'} value={counts.closed} tone="rose" />
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-stone-200 p-4 lg:flex-row lg:items-end lg:justify-between">
-          <label className="block min-w-56 flex-1 text-xs font-semibold text-stone-700">
+      <section className="overflow-hidden rounded-xl border border-border-color bg-bg-card shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-border-color p-4 lg:flex-row lg:items-end lg:justify-between">
+          <label className="block min-w-0 flex-1 text-xs leading-4 font-semibold text-text-primary lg:min-w-56">
             {isVi ? 'Tìm Member, Coach, môn hoặc sân/phòng' : 'Search Member, Coach, subject, or room'}
             <span className="relative mt-1 block">
-              <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-stone-400" aria-hidden="true" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} className="min-h-10 w-full rounded-lg border border-stone-300 bg-white pl-9 pr-3 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
+              <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-text-muted" aria-hidden="true" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} className="min-h-11 w-full rounded-lg border border-border-strong bg-bg-card pl-9 pr-3 text-sm leading-5 font-normal text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1" />
             </span>
           </label>
-          <label className="block text-xs font-semibold text-stone-700">
+          <label className="block text-xs leading-4 font-semibold text-text-primary">
             {isVi ? 'Trạng thái' : 'Status'}
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="mt-1 min-h-10 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm font-normal sm:w-52">
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-border-strong bg-bg-card px-3 text-sm leading-5 font-normal text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 sm:w-52">
               <option value="all">{isVi ? 'Tất cả' : 'All'}</option>
               <option value="pending">{isVi ? 'Chờ Member xác nhận' : 'Waiting for Member'}</option>
               <option value="accepted">{isVi ? 'Member đã xác nhận' : 'Member accepted'}</option>
@@ -180,26 +180,26 @@ export default function ManagerAdvancedScheduleView() {
               <option value="expired">{isVi ? 'Đã hết hạn' : 'Expired'}</option>
             </select>
           </label>
-          <label className="block text-xs font-semibold text-stone-700">
+          <label className="block min-w-0 text-xs leading-4 font-semibold text-text-primary">
             {isVi ? 'Từ ngày' : 'From'}
-            <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="mt-1 min-h-10 rounded-lg border border-stone-300 bg-white px-3 text-sm font-normal" />
+            <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-border-strong bg-bg-card px-3 text-sm leading-5 font-normal text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 lg:w-auto" />
           </label>
-          <label className="block text-xs font-semibold text-stone-700">
+          <label className="block min-w-0 text-xs leading-4 font-semibold text-text-primary">
             {isVi ? 'Đến ngày' : 'To'}
-            <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="mt-1 min-h-10 rounded-lg border border-stone-300 bg-white px-3 text-sm font-normal" />
+            <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-border-strong bg-bg-card px-3 text-sm leading-5 font-normal text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 lg:w-auto" />
           </label>
-          <button type="button" onClick={loadSchedule} disabled={loading || !canManage} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-stone-300 px-3 text-sm font-semibold text-stone-700 hover:bg-stone-50 disabled:cursor-wait disabled:opacity-60">
+          <button type="button" onClick={loadSchedule} disabled={loading || !canManage} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border-color bg-bg-card px-3 text-sm leading-5 font-semibold text-text-primary hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
             {isVi ? 'Tải lại' : 'Refresh'}
           </button>
         </div>
 
-        {error && <div role="alert" className="m-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</div>}
-        {lookupWarning && <p role="status" className="mx-4 mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">{lookupWarning} {isVi ? 'Một số tên có thể chỉ hiện bằng mã.' : 'Some records may display IDs instead of names.'}</p>}
+        {error && <div role="alert" className="m-4 rounded-lg border border-status-danger-border bg-status-danger-bg p-3 text-sm leading-5 text-status-danger">{error}</div>}
+        {lookupWarning && <p role="status" className="mx-4 mt-4 rounded-lg border border-status-warning-border bg-status-warning-bg p-3 text-xs leading-4 text-status-warning">{lookupWarning} {isVi ? 'Một số tên có thể chỉ hiện bằng mã.' : 'Some records may display IDs instead of names.'}</p>}
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[940px] text-left text-sm">
-            <thead className="bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
+            <thead className="border-b border-border-color bg-bg-secondary text-xs leading-4 uppercase tracking-wide text-text-secondary">
               <tr>
                 <th className="px-4 py-3 font-semibold">{isVi ? 'Lịch tập' : 'Session'}</th>
                 <th className="px-4 py-3 font-semibold">Member</th>
@@ -210,19 +210,19 @@ export default function ManagerAdvancedScheduleView() {
                 <th className="px-4 py-3 font-semibold">{isVi ? 'Member phản hồi / Hạn' : 'Response / deadline'}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100">
+            <tbody className="divide-y divide-border-color">
               {!loading && filteredRows.map((row) => (
-                <tr key={row.id} className="align-top hover:bg-stone-50/70">
-                  <td className="px-4 py-3">
-                    <div className="font-semibold text-stone-900">{formatDate(row.sessionDate, language)}</div>
-                    <div className="mt-0.5 text-xs tabular-nums text-stone-600">{String(row.startTime || '').slice(0, 5)}–{String(row.endTime || '').slice(0, 5)}</div>
+                <tr key={row.id} className="align-top hover:bg-bg-main">
+                  <td className="px-4 py-3 text-sm leading-5">
+                    <div className="font-semibold text-text-primary">{formatDate(row.sessionDate, language)}</div>
+                    <div className="mt-0.5 text-xs leading-4 tabular-nums text-text-secondary">{String(row.startTime || '').slice(0, 5)}–{String(row.endTime || '').slice(0, 5)}</div>
                   </td>
-                  <td className="px-4 py-3 font-medium text-stone-800">{row.memberName}</td>
-                  <td className="px-4 py-3 text-stone-700">{row.coachName}</td>
-                  <td className="px-4 py-3 text-stone-700">{row.subjectName}</td>
-                  <td className="px-4 py-3 text-stone-700">{row.roomName}</td>
+                  <td className="px-4 py-3 text-sm leading-5 font-medium text-text-primary">{row.memberName}</td>
+                  <td className="px-4 py-3 text-sm leading-5 text-text-secondary">{row.coachName}</td>
+                  <td className="px-4 py-3 text-sm leading-5 text-text-secondary">{row.subjectName}</td>
+                  <td className="px-4 py-3 text-sm leading-5 text-text-secondary">{row.roomName}</td>
                   <td className="px-4 py-3"><StatusBadge status={row.status} isVi={isVi} /></td>
-                  <td className="px-4 py-3 text-xs text-stone-600">
+                  <td className="px-4 py-3 text-xs leading-4 text-text-secondary">
                     {row.respondedAt
                       ? formatDateTime(row.respondedAt, language)
                       : normalize(row.status) === 'pending'
@@ -232,15 +232,15 @@ export default function ManagerAdvancedScheduleView() {
                 </tr>
               ))}
               {!loading && filteredRows.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-stone-500">
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-sm leading-5 text-text-secondary">
                   {error ? (isVi ? 'Không thể hiển thị lịch cho đến khi tải dữ liệu thành công.' : 'Schedules are unavailable until data loads successfully.') : proposals.length === 0 ? (isVi ? 'Chưa có Coach nào tạo đề xuất lịch Advanced.' : 'No Coach has proposed an Advanced schedule yet.') : (isVi ? 'Không có lịch nào khớp bộ lọc.' : 'No schedules match these filters.')}
                 </td></tr>
               )}
-              {loading && <tr><td colSpan={7} role="status" className="px-4 py-12 text-center text-sm text-stone-500">{isVi ? 'Đang tải lịch Advanced…' : 'Loading Advanced schedules…'}</td></tr>}
+              {loading && <tr><td colSpan={7} role="status" className="px-4 py-12 text-center text-sm leading-5 text-text-secondary">{isVi ? 'Đang tải lịch Advanced…' : 'Loading Advanced schedules…'}</td></tr>}
             </tbody>
           </table>
         </div>
-        <div className="border-t border-stone-200 px-4 py-3 text-xs text-stone-500">
+        <div className="border-t border-border-color px-4 py-3 text-xs leading-4 text-text-secondary">
           {isVi ? `${filteredRows.length} lịch đang hiển thị` : `${filteredRows.length} schedules shown`}
         </div>
       </section>
@@ -252,12 +252,12 @@ function PageHeading({ isVi }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-stone-950">{isVi ? 'Lớp Advanced' : 'Advanced Classes'}</h1>
-        <p className="mt-1 text-sm text-stone-600">
+        <h1 className="text-2xl font-bold tracking-tight text-text-primary">{isVi ? 'Lớp Advanced' : 'Advanced Classes'}</h1>
+        <p className="mt-1 text-sm leading-5 text-text-secondary">
           {isVi ? 'Theo dõi lịch Coach tạo và trạng thái xác nhận của Member.' : 'Track Coach-created schedules and Member confirmations.'}
         </p>
       </div>
-      <span className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-800">
+      <span className="inline-flex items-center gap-2 rounded-full border border-status-info-border bg-brand-blue-soft px-3 py-1.5 text-xs leading-4 font-semibold text-brand-primary">
         <CalendarDays className="h-4 w-4" aria-hidden="true" />
         {isVi ? 'Chỉ theo dõi' : 'Read only'}
       </span>
@@ -267,14 +267,14 @@ function PageHeading({ isVi }) {
 
 function SummaryCard({ label, value, tone }) {
   const tones = {
-    stone: 'border-stone-200 bg-white text-stone-950',
-    amber: 'border-amber-200 bg-amber-50/60 text-amber-950',
-    emerald: 'border-emerald-200 bg-emerald-50/60 text-emerald-950',
-    rose: 'border-rose-200 bg-rose-50/60 text-rose-950',
+    stone: 'border-border-color bg-bg-card text-text-primary',
+    amber: 'border-status-warning-border bg-status-warning-bg text-status-warning',
+    emerald: 'border-status-success-border bg-status-success-bg text-status-success',
+    rose: 'border-status-danger-border bg-status-danger-bg text-status-danger',
   }
   return (
     <div className={`rounded-xl border p-4 ${tones[tone]}`}>
-      <p className="text-xs font-semibold text-stone-600">{label}</p>
+      <p className="text-xs leading-4 font-semibold text-text-secondary">{label}</p>
       <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
     </div>
   )
