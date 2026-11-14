@@ -107,7 +107,13 @@ export function MemberMyCoachView() {
   }, [currentUser])
 
   const coachSports = useMemo(() => [...new Set(coaches.flatMap((coach) => Array.isArray(coach.specializations) && coach.specializations.length ? coach.specializations : coach.specialization ? [coach.specialization] : []).filter(Boolean))], [coaches])
-  const upcomingPrivateSessions = privateSessions.filter((session) => String(session.sessionDate || "") >= new Date().toISOString().slice(0, 10)).length
+  const sessionStartTime = (session) => new Date(`${String(session?.sessionDate || "").slice(0, 10)} ${String(session?.startTime || "").slice(0, 8)}`)
+  const upcomingPrivateSessions = privateSessions.filter((session) => {
+    const status = String(session?.status || "").trim().toLowerCase()
+    const start = sessionStartTime(session)
+    return status === "scheduled" && !Number.isNaN(start.getTime()) && start.getTime() >= Date.now()
+  }).length
+  const visiblePrivateSessions = privateSessions.filter((session) => !["cancelled", "canceled", "absent"].includes(String(session?.status || session?.displayStatus || "").trim().toLowerCase()))
   const pendingProposals = useMemo(() => {
     return (Array.isArray(proposals) ? proposals : []).filter(
       (p) => String(p?.status || "").trim().toLowerCase() === "pending",
@@ -865,22 +871,23 @@ export function MemberMyCoachView() {
       )
 
       // On success (200): refetch session list and update credit balance
-      fetchPrivateSessions()
-      fetchProposals()
-      fetchMemberCredits()
-      if (apiEnabled && memberProfileId) {
-        membershipApi
-          .getMemberSubscriptions(memberProfileId)
-          .then((subs) => {
-            const valid = (Array.isArray(subs) ? subs : []).filter((s) => {
-              const st = String(s?.status || "").toLowerCase()
-              return st === "active" || st === "grace_period"
-            })
-            setSubscriptions(valid)
-          })
-          .catch(() => {})
-      }
+      await Promise.all([fetchPrivateSessions(), fetchMemberCredits(), fetchProposals()])
     } catch (err) {
+      const cancelErrorText = [
+        err?.message,
+        err?.response?.data?.message,
+        err?.response?.data?.error,
+        err?.details?.message,
+      ].filter(Boolean).join(" ").toLowerCase()
+      if (cancelErrorText.includes("original credit has already been returned")) {
+        await Promise.all([fetchPrivateSessions(), fetchMemberCredits(), fetchProposals()])
+        setPrivateSessions((current) => current.map((item) =>
+          String(item.id ?? item.sessionId) === String(sessionId)
+            ? { ...item, status: "Cancelled", displayStatus: "Cancelled" }
+            : item,
+        ))
+        return
+      }
       handleSessionActionError(
         err,
         isVi ? "Không thể hủy lịch buổi tập." : "Could not cancel session.",
@@ -1382,7 +1389,7 @@ export function MemberMyCoachView() {
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {privateSessions.map((s) => (
+                {visiblePrivateSessions.map((s) => (
                   <div
                     key={s.id}
                     className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
