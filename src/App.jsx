@@ -1585,7 +1585,16 @@ function SCMSApp() {
                   />
                   <Route
                     path="/member/my-coach"
-                    element={<Navigate to="/member/catalog" replace />}
+                    element={
+                      <RequireRole
+                        allowedRoles={[ROLE_MEMBER]}
+                        currentRole={role}
+                        attemptedPath={location.pathname}
+                        onForbidden={() => navigate(`/${role}/dashboard`)}
+                      >
+                        <MemberMyCoachView />
+                      </RequireRole>
+                    }
                   />
                   {/* Common Routes */}
                   <Route path="/settings" element={<SettingsView />} />

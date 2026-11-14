@@ -306,7 +306,7 @@ const ROUTE_TAB_MAP = {
   "/member/invoices": { role: ROLE_MEMBER, tab: "member_invoices" },
   "/payment-result": { role: ROLE_MEMBER, tab: "member_invoices" },
   "/member/notifications": { role: ROLE_MEMBER, tab: "member_notifications" },
-  "/member/my-coach": { role: ROLE_MEMBER, tab: "member_class_catalog" },
+  "/member/my-coach": { role: ROLE_MEMBER, tab: "member_my_coach" },
   "/member/freeze-request": { role: ROLE_MEMBER, tab: "member_freeze_request" },
 
   // Admin routes
@@ -363,7 +363,7 @@ const TAB_ROUTE_MAP = {
   member_training_plan: "/member/training-plan",
   member_invoices: "/member/invoices",
   member_notifications: "/member/notifications",
-  member_my_coach: "/member/catalog",
+  member_my_coach: "/member/my-coach",
   member_freeze_request: "/member/freeze-request",
 
   // Admin

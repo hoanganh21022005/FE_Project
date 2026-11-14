@@ -24,7 +24,12 @@ import {
   AlertCircle,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
-import { memberPortalApi } from "../../api/memberPortalApi"
+import {
+  memberPortalApi,
+  fetchSessionProposals,
+  respondSessionProposal,
+} from "../../api/memberPortalApi"
+import { httpClient } from "../../api/httpClient"
 import { membershipApi } from "../../api/membershipApi"
 import { invoiceApi } from "../../api/invoiceApi"
 import { startVnpayCheckout } from "../../utils/vnpayCheckout"
@@ -102,6 +107,11 @@ export function MemberMyCoachView() {
 
   const coachSports = useMemo(() => [...new Set(coaches.flatMap((coach) => Array.isArray(coach.specializations) && coach.specializations.length ? coach.specializations : coach.specialization ? [coach.specialization] : []).filter(Boolean))], [coaches])
   const upcomingPrivateSessions = privateSessions.filter((session) => String(session.sessionDate || "") >= new Date().toISOString().slice(0, 10)).length
+  const pendingProposals = useMemo(() => {
+    return (Array.isArray(proposals) ? proposals : []).filter(
+      (p) => String(p?.status || "").trim().toLowerCase() === "pending",
+    )
+  }, [proposals])
 
   // 1. Fetch Coaches from BE (GET /api/coaches)
   const fetchCoaches = useCallback(async () => {
@@ -136,6 +146,28 @@ export function MemberMyCoachView() {
   }, [fetchCoaches])
 
   // 2. Fetch Rooms & Subscriptions (for private booking)
+  const fetchMemberCredits = useCallback(async () => {
+    if (!memberProfileId) return []
+    try {
+      const [subs] = await Promise.all([
+        membershipApi.getMemberSubscriptions(memberProfileId).catch(() => []),
+        httpClient.get("/api/member-packages").catch(() => null),
+      ])
+      const valid = (Array.isArray(subs) ? subs : []).filter((s) => {
+        const st = String(s?.status || "").toLowerCase()
+        return st === "active" || st === "grace_period"
+      })
+      setSubscriptions(valid)
+      if (valid.length > 0) {
+        setSelectedSubscriptionId((prev) => prev || String(valid[0].subscriptionId || valid[0].id))
+      }
+      return valid
+    } catch (err) {
+      console.warn("Could not fetch subscriptions/credits:", err)
+      return []
+    }
+  }, [memberProfileId])
+
   useEffect(() => {
     if (!apiEnabled) {
       setRooms([])
@@ -148,46 +180,8 @@ export function MemberMyCoachView() {
       .then((res) => setRooms(Array.isArray(res) ? res : []))
       .catch((err) => console.warn("Could not fetch rooms:", err))
 
-    if (memberProfileId) {
-      membershipApi
-        .getMemberSubscriptions(memberProfileId)
-        .then((subs) => {
-          const valid = (Array.isArray(subs) ? subs : []).filter((s) => {
-            const st = String(s?.status || "").toLowerCase()
-            return st === "active" || st === "grace_period"
-          })
-          setSubscriptions(valid)
-          if (valid.length > 0)
-            setSelectedSubscriptionId(
-              String(valid[0].subscriptionId || valid[0].id),
-            )
-        })
-        .catch((err) => console.warn("Could not fetch subscriptions:", err))
-    }
-  }, [apiEnabled, memberProfileId])
-
-  const refreshProposalView = useCallback(async () => {
-    const [rows] = await Promise.all([
-      memberPortalApi.getPrivateSessionProposals({ role: "member" }),
-      fetchPrivateSessions(),
-      membershipApi.getMemberSubscriptions(memberProfileId).catch(() => []),
-    ])
-    setProposals(Array.isArray(rows) ? rows : [])
-  }, [fetchPrivateSessions, memberProfileId])
-
-  const respondToProposal = async (proposal, accepted) => {
-    if (respondingProposalId != null) return
-    setRespondingProposalId(proposal.id)
-    setProposalError("")
-    try {
-      await memberPortalApi.respondPrivateSessionProposal(proposal.id, { accepted })
-      await refreshProposalView()
-    } catch (error) {
-      const code = String(error?.code || error?.details?.code || "")
-      setProposalError(code === "PROPOSAL_EXPIRED" ? "Đề xuất lịch tập đã quá hạn phản hồi (trước giờ tập tối thiểu 12 giờ)." : getErrorMessage(error, "Không thể phản hồi đề xuất lịch."))
-      await refreshProposalView().catch(() => {})
-    } finally { setRespondingProposalId(null) }
-  }
+    fetchMemberCredits()
+  }, [apiEnabled, fetchMemberCredits])
 
   // 3. Fetch Booked Private Sessions
   const fetchPrivateSessions = useCallback(async () => {
@@ -204,15 +198,115 @@ export function MemberMyCoachView() {
               String(s.bookedMemberId) === String(memberProfileId)),
         )
         setPrivateSessions(privates)
+        return privates
       } else {
         setPrivateSessions([])
+        return []
       }
     } catch (err) {
       console.warn("Could not fetch private sessions:", err)
+      return []
     } finally {
       setLoadingSessions(false)
     }
   }, [apiEnabled, memberProfileId])
+
+  // Fetch Proposals
+  const fetchProposals = useCallback(async () => {
+    if (!apiEnabled) {
+      setProposals([])
+      return []
+    }
+    try {
+      const rows = await memberPortalApi.fetchSessionProposals()
+      const list = Array.isArray(rows) ? rows : []
+      setProposals(list)
+      return list
+    } catch (err) {
+      console.warn("Could not fetch session proposals:", err)
+      return []
+    }
+  }, [apiEnabled])
+
+  const refreshProposalView = useCallback(async () => {
+    await Promise.all([
+      fetchProposals(),
+      fetchPrivateSessions(),
+      fetchMemberCredits(),
+    ])
+  }, [fetchProposals, fetchPrivateSessions, fetchMemberCredits])
+
+  useEffect(() => {
+    refreshProposalView()
+  }, [refreshProposalView])
+
+  useEffect(() => {
+    if (activeTab === "my_sessions") {
+      refreshProposalView()
+    }
+  }, [activeTab, refreshProposalView])
+
+  const isExpiredProposal = useCallback((p) => {
+    if (!p) return false
+    if (p.expired === true) return true
+    if (String(p.status || "").toLowerCase() === "expired") return true
+    const deadline = p.respondBy || p.respond_by || p.deadline || p.expiresAt
+    if (!deadline) return false
+    const deadlineMs = new Date(
+      typeof deadline === "string" ? deadline.replace(" ", "T") : deadline,
+    ).getTime()
+    return !Number.isNaN(deadlineMs) && deadlineMs <= Date.now()
+  }, [])
+
+  const respondToProposal = async (proposal, accepted) => {
+    if (respondingProposalId != null) return
+    setRespondingProposalId(proposal.id)
+    setProposalError("")
+    try {
+      await memberPortalApi.respondSessionProposal(proposal.id, Boolean(accepted))
+      showToast?.(
+        accepted
+          ? (isVi ? "Đã đồng ý đề xuất lịch tập thành công!" : "Session proposal accepted!")
+          : (isVi ? "Đã từ chối đề xuất lịch tập." : "Session proposal declined."),
+        "success",
+      )
+      // Refetch proposals, session schedule, and member credits (member_packages)
+      await refreshProposalView()
+    } catch (error) {
+      const status = Number(error?.status || error?.response?.status || 0)
+      const code = String(error?.code || error?.details?.code || "")
+      const msg = String(error?.message || error?.details?.message || "")
+      const isConflictOrExpired =
+        status === 409 ||
+        code === "PROPOSAL_EXPIRED" ||
+        code.toLowerCase().includes("conflict") ||
+        code.toLowerCase().includes("expired") ||
+        msg.toLowerCase().includes("conflict") ||
+        msg.toLowerCase().includes("expired")
+
+      if (isConflictOrExpired) {
+        setProposalError(
+          code === "PROPOSAL_EXPIRED"
+            ? (isVi
+                ? "Đề xuất lịch tập đã quá hạn phản hồi (trước giờ tập tối thiểu 12 giờ)."
+                : "The session proposal has expired (must respond at least 12 hours before session).")
+            : (isVi
+                ? "Xung đột lịch tập hoặc đề xuất đã hết hạn. Vui lòng kiểm tra lại."
+                : "Schedule conflict or proposal has expired. Please check again.")
+        )
+      } else {
+        setProposalError(
+          getErrorMessage(
+            error,
+            isVi ? "Không thể phản hồi đề xuất lịch." : "Could not respond to session proposal."
+          )
+        )
+      }
+      // Note: do not auto-retry
+    } finally {
+      setRespondingProposalId(null)
+    }
+  }
 
   useEffect(() => {
     if (activeTab === "my_sessions") refreshProposalView()
@@ -646,6 +740,182 @@ export function MemberMyCoachView() {
     }
   }
 
+  const renderPendingProposalsSection = () => {
+    if (pendingProposals.length === 0 && activeTab !== "my_sessions") {
+      return null
+    }
+
+    return (
+      <section
+        aria-label="Chờ xác nhận"
+        className="rounded-2xl border border-amber-200 bg-amber-50/40 p-5 sm:p-6 shadow-xs space-y-4"
+        data-testid="proposals-pending-section"
+      >
+        <div className="flex items-center justify-between border-b border-amber-200/60 pb-3">
+          <div className="space-y-0.5">
+            <h2 className="text-base font-bold text-slate-900">
+              {isVi ? "Chờ xác nhận" : "Chờ xác nhận"}
+            </h2>
+            <p className="text-xs text-slate-600">
+              {isVi
+                ? "Danh sách đề xuất lịch tập 1:1 từ Huấn luyện viên chờ bạn xác nhận."
+                : "1-on-1 session proposals from your coach awaiting your confirmation."}
+            </p>
+          </div>
+          {pendingProposals.length > 0 && (
+            <span className="rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-xs font-bold text-amber-900">
+              {pendingProposals.length} {isVi ? "đề xuất" : "proposals"}
+            </span>
+          )}
+        </div>
+
+        {proposalError && (
+          <div
+            role="alert"
+            className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-800 flex items-center gap-2"
+          >
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{proposalError}</span>
+          </div>
+        )}
+
+        {pendingProposals.length === 0 ? (
+          <div className="p-4 rounded-xl bg-white border border-dashed border-amber-200 text-center text-xs text-slate-500">
+            {isVi
+              ? "Không có đề xuất lịch tập nào đang chờ xác nhận."
+              : "No pending session proposals awaiting confirmation."}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {pendingProposals.map((p) => {
+              const expired = isExpiredProposal(p)
+              const coachDisplayName =
+                p.coachName ||
+                (p.coach?.name ? p.coach.name : null) ||
+                (p.coachId ? `Coach #${p.coachId}` : (isVi ? "Huấn luyện viên" : "Coach"))
+              const formattedDate = p.sessionDate || p.date || "—"
+              const timeSlotDisplay =
+                p.startTime && p.endTime
+                  ? `${String(p.startTime).slice(0, 5)} - ${String(p.endTime).slice(0, 5)}`
+                  : (p.timeSlot || "—")
+              const roomDisplayName =
+                p.roomName ||
+                (p.room?.name ? p.room.name : null) ||
+                (p.roomId ? `Phòng #${p.roomId}` : (isVi ? "Phòng tập" : "Room"))
+              const deadlineDisplay = p.respondBy || p.deadline || "—"
+
+              return (
+                <article
+                  key={p.id}
+                  className="rounded-xl border border-amber-200 bg-white p-4 shadow-xs space-y-3"
+                  data-testid={`proposal-card-${p.id}`}
+                >
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                    <div>
+                      <div className="font-bold text-slate-900 text-sm">
+                        {coachDisplayName}
+                      </div>
+                      {(p.subjectName || p.sportName) && (
+                        <div className="text-xs text-slate-500 font-semibold mt-0.5">
+                          {p.subjectName || p.sportName}
+                        </div>
+                      )}
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        expired
+                          ? "bg-rose-50 text-rose-700 border border-rose-200"
+                          : "bg-amber-50 text-amber-800 border border-amber-200"
+                      }`}
+                    >
+                      {expired
+                        ? isVi ? "Đã quá hạn" : "Expired"
+                        : isVi ? "Chờ xác nhận" : "Pending"}
+                    </span>
+                  </div>
+
+                  {/* Proposal Info: Coach, date, time slot, room, and respondBy deadline */}
+                  <div className="grid grid-cols-2 gap-2.5 text-xs text-slate-600 bg-slate-50/80 p-3 rounded-lg border border-slate-100">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">
+                        {isVi ? "Huấn luyện viên" : "Coach"}
+                      </span>
+                      <span className="font-semibold text-slate-800">{coachDisplayName}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">
+                        {isVi ? "Ngày tập" : "Date"}
+                      </span>
+                      <span className="font-semibold text-slate-800">{formattedDate}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">
+                        {isVi ? "Khung giờ" : "Time slot"}
+                      </span>
+                      <span className="font-semibold text-slate-800 font-mono">{timeSlotDisplay}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">
+                        {isVi ? "Phòng tập" : "Room"}
+                      </span>
+                      <span className="font-semibold text-slate-800">{roomDisplayName}</span>
+                    </div>
+                  </div>
+
+                  <div className={`text-xs font-semibold flex items-center justify-between ${expired ? "text-rose-700" : "text-amber-900"}`}>
+                    <span>
+                      {isVi ? "Hạn phản hồi (respondBy):" : "Respond by:"}{" "}
+                      <span className="font-mono font-bold">{deadlineDisplay}</span>
+                    </span>
+                    {expired && (
+                      <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                        {isVi ? "Đã quá hạn" : "Expired"}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Action buttons: Đồng ý & Từ chối */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      disabled={expired || respondingProposalId === p.id}
+                      onClick={() => respondToProposal(p, true)}
+                      title={isVi ? "Đồng ý" : "Accept"}
+                      aria-label="Đồng ý / Accept"
+                      className="flex-1 inline-flex items-center justify-center rounded-lg bg-emerald-700 hover:bg-emerald-800 px-3.5 py-2 text-xs font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-2xs"
+                      data-action="accept"
+                      data-testid="proposal-accept-btn"
+                    >
+                      {respondingProposalId === p.id && (
+                        <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                      )}
+                      <span>{isVi ? "Đồng ý" : "Accept"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={expired || respondingProposalId === p.id}
+                      onClick={() => respondToProposal(p, false)}
+                      title={isVi ? "Từ chối" : "Reject"}
+                      aria-label="Từ chối / Reject"
+                      className="flex-1 inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-2xs"
+                      data-action="reject"
+                      data-testid="proposal-reject-btn"
+                    >
+                      {respondingProposalId === p.id && (
+                        <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                      )}
+                      <span>{isVi ? "Từ chối" : "Reject"}</span>
+                    </button>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        )}
+      </section>
+    )
+  }
+
   return (
     <main className="w-full space-y-6 px-6 py-6 font-sans antialiased">
       {/* Header */}
@@ -674,7 +944,15 @@ export function MemberMyCoachView() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              {isVi ? "Lịch 1:1 đã đặt" : "Booked 1:1"} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">{privateSessions.length}</span>
+              {isVi ? "Lịch 1:1 đã đặt" : "Booked 1:1"}{" "}
+              <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">
+                {privateSessions.length}
+              </span>
+              {pendingProposals.length > 0 && (
+                <span className="ml-1.5 rounded-full bg-amber-500 text-white px-1.5 py-0.5 text-[10px] font-bold">
+                  {pendingProposals.length}
+                </span>
+              )}
             </button>
 
           </div>
@@ -692,6 +970,8 @@ export function MemberMyCoachView() {
       {/* TAB 1: COACHES DIRECTORY */}
       {activeTab === "coaches" && (
         <section className="space-y-4">
+          {renderPendingProposalsSection()}
+
           {/* Search bar */}
           <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs sm:flex-row sm:items-center">
             <label className="relative block sm:w-56">
@@ -816,118 +1096,114 @@ export function MemberMyCoachView() {
 
       {/* TAB 2: MY BOOKED 1-ON-1 SESSIONS */}
       {activeTab === "my_sessions" && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-4">
-          {proposals.some((p) => String(p.status).toLowerCase() === "pending") && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">{isVi ? `Bạn có ${proposals.filter((p) => String(p.status).toLowerCase() === "pending").length} đề xuất lịch đang chờ xác nhận.` : "You have pending session proposals."}</div>}
-          {proposalError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">{proposalError} {isVi && "Vui lòng phối hợp với Coach để chọn khung giờ mới."}</div>}
-          <h2 className="text-base font-bold text-slate-900">{isVi ? "Chờ xác nhận" : "Awaiting confirmation"}</h2>
-          {proposals.filter((p) => String(p.status).toLowerCase() === "pending").map((p) => {
-            const expired = p.respondBy && new Date(p.respondBy).getTime() <= Date.now()
-            return <article key={p.id} className="rounded-xl border border-amber-200 bg-white p-4"><div className="font-bold text-slate-900">{p.subjectName || p.sportName || `Môn #${p.subjectId}`} · {p.coachName || `Coach #${p.coachId}`}</div><p className="mt-1 text-sm text-slate-600">{p.roomName || `Phòng #${p.roomId}`} · {p.sessionDate} · {String(p.startTime || "").slice(0,5)} - {String(p.endTime || "").slice(0,5)}</p><p className={"mt-1 text-xs font-semibold " + (expired ? "text-rose-700" : "text-slate-500")}>{expired ? "Expired" : `${isVi ? "Phản hồi trước" : "Respond by"}: ${p.respondBy || "—"}`}</p><div className="mt-3 flex gap-2"><button disabled={expired || respondingProposalId === p.id} onClick={() => respondToProposal(p, true)} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{isVi ? "Đồng ý" : "Accept"}</button><button disabled={expired || respondingProposalId === p.id} onClick={() => respondToProposal(p, false)} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-50">{isVi ? "Từ chối" : "Decline"}</button></div></article>
-          })}
-          <h2 className="border-t border-slate-100 pt-4 text-base font-bold text-slate-900">{isVi ? "Đã lên lịch" : "Scheduled"}</h2>
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h2 className="text-base font-bold text-slate-900">
-              {isVi
-                ? "Danh sách buổi tập riêng 1:1 của bạn"
-                : "Your Booked 1-on-1 Sessions"}
-            </h2>
-            <button
-              type="button"
-              onClick={fetchPrivateSessions}
-              className="text-xs font-bold text-brand-accent-dark hover:underline inline-flex items-center gap-1"
-            >
-              <Clock className="w-3.5 h-3.5" />
-              <span>{isVi ? "Tải lại" : "Refresh"}</span>
-            </button>
-          </div>
+        <div className="space-y-6">
+          {renderPendingProposalsSection()}
 
-          {loadingSessions ? (
-            <div className="py-12 text-center text-xs text-slate-500 flex flex-col items-center gap-2">
-              <Loader2 className="w-6 h-6 animate-spin text-brand-primary" />
-              <span>
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="text-base font-bold text-slate-900">
                 {isVi
-                  ? "Đang tải lịch tập riêng..."
-                  : "Loading private sessions..."}
-              </span>
+                  ? "Danh sách buổi tập riêng 1:1 của bạn"
+                  : "Your Booked 1-on-1 Sessions"}
+              </h2>
+              <button
+                type="button"
+                onClick={fetchPrivateSessions}
+                className="text-xs font-bold text-brand-accent-dark hover:underline inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>{isVi ? "Tải lại" : "Refresh"}</span>
+              </button>
             </div>
-          ) : privateSessions.length === 0 ? (
-            <div className="py-12 text-center text-xs text-slate-500 space-y-2">
-              <Calendar className="w-8 h-8 text-slate-300 mx-auto" />
-              <p className="font-bold text-slate-700 text-sm">
-                {isVi
-                  ? "Bạn chưa đặt buổi tập riêng 1:1 nào"
-                  : "No private sessions booked"}
-              </p>
-              <p>
-                {isVi
-                  ? "Hãy chọn HLV ở tab Danh bạ để đặt buổi tập riêng."
-                  : "Select a coach in the Directory tab to book a 1-on-1 workout."}
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {privateSessions.map((s) => (
-                <div
-                  key={s.id}
-                  className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                >
-                  <div className="space-y-1">
+
+            {loadingSessions ? (
+              <div className="py-12 text-center text-xs text-slate-500 flex flex-col items-center gap-2">
+                <Loader2 className="w-6 h-6 animate-spin text-brand-primary" />
+                <span>
+                  {isVi
+                    ? "Đang tải lịch tập riêng..."
+                    : "Loading private sessions..."}
+                </span>
+              </div>
+            ) : privateSessions.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-500 space-y-2">
+                <Calendar className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="font-bold text-slate-700 text-sm">
+                  {isVi
+                    ? "Bạn chưa đặt buổi tập riêng 1:1 nào"
+                    : "No private sessions booked"}
+                </p>
+                <p>
+                  {isVi
+                    ? "Hãy chọn HLV ở tab Danh bạ để đặt buổi tập riêng."
+                    : "Select a coach in the Directory tab to book a 1-on-1 workout."}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {privateSessions.map((s) => (
+                  <div
+                    key={s.id}
+                    className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900 text-sm">
+                          {isVi
+                            ? "Buổi tập riêng 1:1 với HLV"
+                            : "1-on-1 Session with"}{" "}
+                          {s.coachName || "Coach"}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700">
+                          {s.status || "Scheduled"}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                        <span className="flex items-center gap-1 font-mono">
+                          <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
+                          {s.sessionDate}
+                        </span>
+                        <span className="flex items-center gap-1 font-mono">
+                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                          {String(s.startTime || "").slice(0, 5)} -{" "}
+                          {String(s.endTime || "").slice(0, 5)}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                          {s.roomName || "Phòng PT VIBE Sport"}
+                        </span>
+                      </div>
+                    </div>
+
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900 text-sm">
-                        {isVi
-                          ? "Buổi tập riêng 1:1 với HLV"
-                          : "1-on-1 Session with"}{" "}
-                        {s.coachName || "Coach"}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700">
-                        {s.status || "Scheduled"}
-                      </span>
-                    </div>
+                      {/* Absence request button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedSessionForAbsence(s)
+                          setAbsenceModalOpen(true)
+                        }}
+                        className="px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-xs font-bold hover:bg-amber-100 transition-colors cursor-pointer"
+                      >
+                        {isVi ? "Xin vắng mặt" : "Report absence"}
+                      </button>
 
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                      <span className="flex items-center gap-1 font-mono">
-                        <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
-                        {s.sessionDate}
-                      </span>
-                      <span className="flex items-center gap-1 font-mono">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        {String(s.startTime || "").slice(0, 5)} -{" "}
-                        {String(s.endTime || "").slice(0, 5)}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                        {s.roomName || "Phòng PT VIBE Sport"}
-                      </span>
+                      {/* Cancel session button */}
+                      <button
+                        type="button"
+                        onClick={() => handleCancelPrivate(s.id)}
+                        className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs font-bold hover:bg-rose-100 transition-colors cursor-pointer"
+                      >
+                        {isVi ? "Hủy buổi tập" : "Cancel"}
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    {/* Absence request button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedSessionForAbsence(s)
-                        setAbsenceModalOpen(true)
-                      }}
-                      className="px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-xs font-bold hover:bg-amber-100 transition-colors"
-                    >
-                      {isVi ? "Xin vắng mặt" : "Report absence"}
-                    </button>
-
-                    {/* Cancel session button */}
-                    <button
-                      type="button"
-                      onClick={() => handleCancelPrivate(s.id)}
-                      className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs font-bold hover:bg-rose-100 transition-colors"
-                    >
-                      {isVi ? "Hủy buổi tập" : "Cancel"}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       )}
 
       {/* TAB 3: ADVANCED PT COACH REGISTRATIONS (/api/advanced-registrations) */}

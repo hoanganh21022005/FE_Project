@@ -188,6 +188,11 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             icon: ClipboardCheck,
           },
           {
+            path: "/member/my-coach",
+            label: language === "vi" ? "Huấn luyện viên của tôi" : "My Coach",
+            icon: UserCheck,
+          },
+          {
             path: "/member/progress",
             label:
               language === "vi" ? "Tiến độ tập luyện" : "Training progress",

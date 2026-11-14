@@ -297,13 +297,35 @@ export const getCenterIncidents = async () => {
   }
 }
 
-export const createPrivateSessionProposal = async (payload) => httpClient.post("/api/private-session-proposals", payload)
-export const getPrivateSessionProposals = async (params = {}) => {
-  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value != null).map(([key, value]) => [key, String(value)]))
-  return list(`/api/private-session-proposals${query.size ? `?${query}` : ""}`)
+export const createPrivateSessionProposal = async (payload) =>
+  httpClient.post("/api/private-session-proposals", payload)
+
+export const fetchSessionProposals = async (params = {}) => {
+  const query = new URLSearchParams()
+  for (const [key, val] of Object.entries(params || {})) {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, String(val))
+    }
+  }
+  const qStr = query.toString() ? `?${query.toString()}` : ""
+  return list(`/api/private-session-proposals${qStr}`)
 }
-export const getPrivateSessionProposalById = async (id) => httpClient.get(`/api/private-session-proposals/${encodeURIComponent(id)}`)
-export const respondPrivateSessionProposal = async (id, payload) => httpClient.post(`/api/private-session-proposals/${encodeURIComponent(id)}/respond`, { accepted: Boolean(payload?.accepted) })
+export const getPrivateSessionProposals = fetchSessionProposals
+
+export const getPrivateSessionProposalById = async (id) =>
+  httpClient.get(`/api/private-session-proposals/${encodeURIComponent(id)}`)
+
+export const respondSessionProposal = async (id, accepted) => {
+  const isAccepted =
+    typeof accepted === "object" && accepted !== null
+      ? Boolean(accepted.accepted)
+      : Boolean(accepted)
+  return httpClient.post(
+    `/api/private-session-proposals/${encodeURIComponent(id)}/respond`,
+    { accepted: isAccepted },
+  )
+}
+export const respondPrivateSessionProposal = respondSessionProposal
 
 export const getCoachFeedback = async (params = {}) => {
   const query = new URLSearchParams()
@@ -437,6 +459,8 @@ export const memberPortalApi = {
   getActiveHolidays,
   getCenterIncidents,
   createPrivateSessionProposal,
+  fetchSessionProposals,
+  respondSessionProposal,
   getPrivateSessionProposals,
   getPrivateSessionProposalById,
   respondPrivateSessionProposal,
