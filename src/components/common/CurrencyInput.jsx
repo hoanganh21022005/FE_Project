@@ -147,7 +147,7 @@ export function CurrencyInput({
           inputMode="numeric"
           id={id}
           disabled={disabled}
-          value={disabled ? "0" : displayValue}
+          value={disabled ? displayValue || "0" : displayValue}
           placeholder={placeholder}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
