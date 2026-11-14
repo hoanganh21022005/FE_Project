@@ -8,6 +8,8 @@ import { advancedRegistrationApi } from '../../api/advancedRegistrationApi'
 import { classEnrollmentApi } from '../../api/classEnrollmentApi'
 import { getClassCatalogSessions } from '../../api/memberPortalApi'
 import { invoiceApi } from '../../api/invoiceApi'
+import { getMyMemberProfile } from '../../api/memberApi'
+import { getMemberSubscriptions } from '../../api/membershipApi'
 import { closePreparedVnpayPopup, prepareVnpayCheckoutPopup, startVnpayCheckout } from '../../utils/vnpayCheckout'
 import { getErrorMessage } from '../../api/apiErrors'
 import { getAuthoritativeProfileId } from '../../utils/memberSafetyHelpers'
@@ -187,7 +189,9 @@ function CatalogDialog({ title, onClose, children, language }) {
 export function MemberCourseCatalog() {
   const { currentUser, apiEnabled, language } = useSCMS()
   const isVi = language === 'vi'
-  const memberId = getAuthoritativeProfileId(currentUser)
+  const authMemberId = getAuthoritativeProfileId(currentUser)
+  const [resolvedMemberId, setResolvedMemberId] = useState(authMemberId)
+  const memberId = authMemberId ?? resolvedMemberId
   const [searchParams, setSearchParams] = useSearchParams()
   const initialTier = searchParams.get('tier')?.toLowerCase() === 'advanced' ? 'Advanced' : 'Normal'
   const initialSport = SPORT_LABELS[searchParams.get('sport')] ? searchParams.get('sport') : 'tennis'
@@ -199,6 +203,8 @@ export function MemberCourseCatalog() {
   const [classes, setClasses] = useState([])
   const [enrollments, setEnrollments] = useState([])
   const [registrations, setRegistrations] = useState([])
+  const [memberSubscriptions, setMemberSubscriptions] = useState([])
+  const [memberInvoices, setMemberInvoices] = useState([])
   const [subjectsState, setSubjectsState] = useState({ loading: true, error: '' })
   const [classesState, setClassesState] = useState({ loading: true, error: '' })
   const [enrollmentsState, setEnrollmentsState] = useState({ loading: true, error: '' })
@@ -215,6 +221,7 @@ export function MemberCourseCatalog() {
   const [lockedOrderIds, setLockedOrderIds] = useState([])
   const [paymentMethod, setPaymentMethod] = useState('Cash')
   const [submitting, setSubmitting] = useState(false)
+  const isSubmitting = submitting
   const [submittingError, setSubmittingError] = useState('')
   const [notice, setNotice] = useState('')
   const [orders, setOrders] = useState(() => readMemberOrders(memberId))
@@ -225,6 +232,24 @@ export function MemberCourseCatalog() {
   const retryGateRef = useRef(false)
   const coachRequestInFlightRef = useRef('')
   const capacityRequestCoachRef = useRef('')
+
+  useEffect(() => {
+    if (authMemberId) {
+      setResolvedMemberId(authMemberId)
+      return
+    }
+    if (!apiEnabled) return
+    let active = true
+    getMyMemberProfile()
+      .then((profile) => {
+        const fetchedId = Number(profile?.id ?? profile?.memberId)
+        if (active && Number.isInteger(fetchedId) && fetchedId > 0) {
+          setResolvedMemberId(fetchedId)
+        }
+      })
+      .catch(() => {})
+    return () => { active = false }
+  }, [authMemberId, apiEnabled])
 
   const resolvedSubjects = useMemo(() => resolveCatalogSubjects(subjects), [subjects])
   const subjectRow = resolvedSubjects.find((row) => row.key === sportKey) || resolvedSubjects[0]
@@ -267,8 +292,63 @@ export function MemberCourseCatalog() {
   const selectedClasses = useMemo(() => classes.filter((item) => String(item.subjectId) === String(selectedSubject?.id)), [classes, selectedSubject?.id])
   const visibleRegistrations = useMemo(() => registrations.filter((item) => {
     const ownerId = item.memberId ?? item.ownerMemberId ?? item.member?.id
-    return memberId != null && ownerId != null && String(ownerId) === String(memberId)
+    if (ownerId == null) return true
+    return memberId != null && String(ownerId) === String(memberId)
   }), [registrations, memberId])
+
+  const existingAdvancedSportRecord = useMemo(() => {
+    if (!selectedSubject?.id) return null
+    const targetSubjectId = String(selectedSubject.id)
+    const normalizedTargetName = normalizeCatalogText(selectedSubject.name || '')
+    const matchesSubject = (item) => {
+      if (item?.subjectId != null && String(item.subjectId) === targetSubjectId) return true
+      const rawName = item?.subjectName || item?.packageName || ''
+      return Boolean(normalizedTargetName && normalizeCatalogText(rawName).includes(normalizedTargetName))
+    }
+
+    // 1. Check existing PT 1:1 / Advanced registration requests for this sport (across ANY coach)
+    const activeOrPendingRequest = visibleRegistrations.find((item) => {
+      if (!matchesSubject(item)) return false
+      const st = normalizeCatalogStatus(item.status)
+      return !['rejected', 'cancelled', 'canceled', 'expired', 'failed'].includes(st)
+    })
+    if (activeOrPendingRequest) {
+      return { type: 'request', record: activeOrPendingRequest, status: activeOrPendingRequest.status || 'requested' }
+    }
+
+    // 2. Check active or pending-payment PT / Advanced packages (subscriptions) for this sport
+    const activeOrPendingSub = memberSubscriptions.find((sub) => {
+      const hasSubjectMatch = (sub?.subjectId != null && String(sub.subjectId) === targetSubjectId)
+        || (String(sub?.packageType || '').toLowerCase() === 'advanced' && matchesSubject(sub))
+      if (!hasSubjectMatch) return false
+      const st = normalizeCatalogStatus(sub.status || sub.rawStatus)
+      return ['active', 'valid', 'grace_period', 'pending_payment', 'pending', 'awaiting_payment'].includes(st)
+    })
+    if (activeOrPendingSub) {
+      return { type: 'subscription', record: activeOrPendingSub, status: activeOrPendingSub.status || 'active' }
+    }
+
+    // 3. Check unpaid invoices or orders for this sport
+    const unpaidOrder = orders.find((ord) => {
+      if (ord?.type !== 'Advanced' || !matchesSubject(ord)) return false
+      const st = normalizeCatalogStatus(ord.paymentStatus || ord.status)
+      return ['pending', 'pending_payment', 'unpaid', 'awaiting_payment'].includes(st)
+    })
+    if (unpaidOrder) {
+      return { type: 'invoice', record: unpaidOrder, status: unpaidOrder.paymentStatus || unpaidOrder.status || 'pending_payment' }
+    }
+
+    const unpaidInvoice = memberInvoices.find((inv) => {
+      if (!matchesSubject(inv)) return false
+      const st = normalizeCatalogStatus(inv.paymentStatus || inv.rawPaymentStatus || inv.status)
+      return ['pending', 'pending_payment', 'unpaid', 'awaiting_payment'].includes(st)
+    })
+    if (unpaidInvoice) {
+      return { type: 'invoice', record: unpaidInvoice, status: unpaidInvoice.paymentStatus || 'pending_payment' }
+    }
+
+    return null
+  }, [selectedSubject, visibleRegistrations, memberSubscriptions, orders, memberInvoices])
 
   const refreshSubjects = useCallback(async () => {
     setSubjectsState((state) => ({ ...state, loading: true, error: '' }))
@@ -388,7 +468,20 @@ export function MemberCourseCatalog() {
       throw error
     }
   }, [apiEnabled, memberId, isVi])
-  const refresh = useCallback(() => Promise.all([refreshSubjects(), refreshClasses(), refreshEnrollments(), refreshRegistrations()]), [refreshSubjects, refreshClasses, refreshEnrollments, refreshRegistrations])
+  const refreshMemberPackagesAndInvoices = useCallback(async () => {
+    if (!apiEnabled || !memberId) {
+      setMemberSubscriptions([])
+      setMemberInvoices([])
+      return
+    }
+    const [subs, invs] = await Promise.all([
+      getMemberSubscriptions(memberId, { notifyForbidden: false, notifyUnauthorized: false }).catch(() => []),
+      invoiceApi.getMemberOwnInvoices().catch(() => []),
+    ])
+    setMemberSubscriptions(Array.isArray(subs) ? subs : [])
+    setMemberInvoices(Array.isArray(invs) ? invs : [])
+  }, [apiEnabled, memberId])
+  const refresh = useCallback(() => Promise.all([refreshSubjects(), refreshClasses(), refreshEnrollments(), refreshRegistrations(), refreshMemberPackagesAndInvoices()]), [refreshSubjects, refreshClasses, refreshEnrollments, refreshRegistrations, refreshMemberPackagesAndInvoices])
 
   useEffect(() => { refresh().catch(() => {}) }, [refresh])
   useEffect(() => { saveMemberOrders(memberId, orders) }, [memberId, orders])
@@ -628,14 +721,25 @@ export function MemberCourseCatalog() {
     return key
   }
   const handleAdvancedRequest = async () => {
-    if (!selectedSubject?.id || !selectedCoachId || !capacityState.verified || !capacityState.available || pendingSubmitRef.current || !apiEnabled) return
+    if (!selectedSubject?.id || !selectedCoachId || !capacityState.verified || !capacityState.available || pendingSubmitRef.current || isSubmitting || !apiEnabled) return
+    if (existingAdvancedSportRecord) {
+      setSubmittingError(
+        isVi
+          ? 'Bạn đã có yêu cầu đăng ký PT 1:1 đang chờ duyệt / chờ thanh toán hoặc đang hoạt động cho bộ môn này.'
+          : 'You already have a pending, awaiting-payment, or active PT 1:1 registration for this sport.',
+      )
+      return
+    }
     const coachId = Number(selectedCoachId)
     const pending = visibleRegistrations.find((item) =>
       String(item.subjectId) === String(selectedSubject.id) &&
-      String(item.primaryCoachId) === String(coachId) &&
-      !['rejected', 'cancelled', 'canceled', 'expired'].includes(normalizeCatalogStatus(item.status)))
+      !['rejected', 'cancelled', 'canceled', 'expired', 'failed'].includes(normalizeCatalogStatus(item.status)))
     if (pending) {
-      setNotice(isVi ? 'Đã có yêu cầu cùng môn và Coach. Hãy theo dõi trạng thái hiện tại.' : 'A request for this subject and Coach already exists. Follow its current status.')
+      setSubmittingError(
+        isVi
+          ? 'Bạn đã có yêu cầu đăng ký PT 1:1 đang chờ duyệt / chờ thanh toán hoặc đang hoạt động cho bộ môn này.'
+          : 'You already have a pending, awaiting-payment, or active PT 1:1 registration for this sport.',
+      )
       return
     }
     const key = makeRequestKey(selectedSubject.id, coachId)
@@ -651,12 +755,51 @@ export function MemberCourseCatalog() {
     setSubmittingError('')
     setNotice('')
     try {
+      const [latestRegs, latestSubs, latestInvoices] = await Promise.all([
+        advancedRegistrationApi.getMyAdvancedRegistrations().catch(() => registrations),
+        memberId ? getMemberSubscriptions(memberId, { notifyForbidden: false, notifyUnauthorized: false }).catch(() => memberSubscriptions) : Promise.resolve(memberSubscriptions),
+        invoiceApi.getMemberOwnInvoices().catch(() => memberInvoices),
+      ])
+      if (Array.isArray(latestRegs)) setRegistrations(latestRegs)
+      if (Array.isArray(latestSubs)) setMemberSubscriptions(latestSubs)
+      if (Array.isArray(latestInvoices)) setMemberInvoices(latestInvoices)
+
+      const targetSubjectId = String(selectedSubject.id)
+      const normalizedTargetName = normalizeCatalogText(selectedSubject.name || '')
+      const matchesTargetSubject = (item) => {
+        if (item?.subjectId != null && String(item.subjectId) === targetSubjectId) return true
+        const rawName = item?.subjectName || item?.packageName || ''
+        return Boolean(normalizedTargetName && normalizeCatalogText(rawName).includes(normalizedTargetName))
+      }
+
+      const hasDuplicateReg = (Array.isArray(latestRegs) ? latestRegs : []).some((item) => {
+        const ownerId = item.memberId ?? item.ownerMemberId ?? item.member?.id
+        if (ownerId != null && memberId != null && String(ownerId) !== String(memberId)) return false
+        return matchesTargetSubject(item) && !['rejected', 'cancelled', 'canceled', 'expired', 'failed'].includes(normalizeCatalogStatus(item.status))
+      })
+      const hasDuplicateSub = (Array.isArray(latestSubs) ? latestSubs : []).some((sub) => {
+        const hasSubMatch = (sub?.subjectId != null && String(sub.subjectId) === targetSubjectId)
+          || (String(sub?.packageType || '').toLowerCase() === 'advanced' && matchesTargetSubject(sub))
+        return hasSubMatch && ['active', 'valid', 'grace_period', 'pending_payment', 'pending', 'awaiting_payment'].includes(normalizeCatalogStatus(sub.status || sub.rawStatus))
+      })
+      const hasDuplicateInvoice = (Array.isArray(latestInvoices) ? latestInvoices : []).some((inv) =>
+        matchesTargetSubject(inv) && ['pending', 'pending_payment', 'unpaid', 'awaiting_payment'].includes(normalizeCatalogStatus(inv.paymentStatus || inv.rawPaymentStatus || inv.status)))
+
+      if (hasDuplicateReg || hasDuplicateSub || hasDuplicateInvoice) {
+        setSubmittingError(
+          isVi
+            ? 'Bạn đã có yêu cầu đăng ký PT 1:1 đang chờ duyệt / chờ thanh toán hoặc đang hoạt động cho bộ môn này.'
+            : 'You already have a pending, awaiting-payment, or active PT 1:1 registration for this sport.',
+        )
+        return
+      }
+
       const response = await advancedRegistrationApi.requestAdvancedRegistration({ subjectId: Number(selectedSubject.id), primaryCoachId: coachId, requestKey: key })
       setNotice(isVi ? 'Đã gửi yêu cầu thành công. Bạn có thể theo dõi trạng thái tiếp nhận ở bảng bên dưới.' : 'Request sent successfully. You can track its status below.')
       if (response && typeof response === 'object') {
         setRegistrations((current) => [response, ...current.filter((item) => String(item.id) !== String(response.id))])
       }
-      await refreshRegistrations()
+      await Promise.all([refreshRegistrations(), refreshMemberPackagesAndInvoices()])
     } catch (error) {
       setSubmittingError(getErrorMessage(error, isVi ? 'Không gửi được yêu cầu Advanced.' : 'Advanced request failed.'))
       if (!error?.status || error.status >= 500 || error.status === 409) {
@@ -1035,7 +1178,25 @@ export function MemberCourseCatalog() {
               })}</div>
             </div>
             {selectedCoachId && <div className="rounded-xl border border-slate-200 p-4"><p className="font-semibold text-slate-900">{isVi ? 'Khả năng nhận học viên' : 'Admission capacity'}</p>{capacityState.loading ? <p className="mt-2 flex items-center gap-2 text-sm text-slate-600"><LoaderCircle size={15} className="animate-spin" />{isVi ? 'Đang kiểm tra…' : 'Checking…'}</p> : capacityState.error ? <p className="mt-2 text-sm text-rose-800" role="alert">{capacityState.error}</p> : capacityState.verified ? <p className="mt-2 text-sm text-slate-700">{capacityState.available ? isVi ? 'Coach đang có khả năng nhận học viên.' : 'Coach can currently accept a new member.' : isVi ? 'Coach hiện không còn khả năng nhận học viên.' : 'Coach cannot currently accept another member.'}{capacityState.count != null ? ' (' + capacityState.count + ')' : ''}</p> : <p className="mt-2 text-sm text-slate-600">{isVi ? 'Chọn Huấn luyện viên để kiểm tra năng lực tiếp nhận.' : 'Select a Coach to check availability.'}</p>}</div>}
-            <button type="button" onClick={handleAdvancedRequest} disabled={!selectedCoachId || !capacityState.verified || !capacityState.available || submitting || Boolean(coachState.error)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-bold text-white hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300">{submitting ? <LoaderCircle size={16} className="animate-spin" /> : <ArrowUpRight size={16} />}{isVi ? 'Gửi yêu cầu Coach chấp thuận' : 'Request Coach approval'}</button>
+            {existingAdvancedSportRecord && (
+              <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                    {statusText(existingAdvancedSportRecord.status, language)}
+                  </span>
+                  <button type="button" onClick={refresh} className="text-xs font-semibold underline hover:text-amber-950">
+                    {isVi ? 'Tải lại trạng thái' : 'Refresh status'}
+                  </button>
+                </div>
+                <p className="mt-2 font-semibold">
+                  {isVi
+                    ? 'Bạn đã có yêu cầu đăng ký PT 1:1 đang chờ duyệt / chờ thanh toán hoặc đang hoạt động cho bộ môn này.'
+                    : 'You already have a pending, awaiting-payment, or active PT 1:1 registration for this sport.'}
+                </p>
+              </div>
+            )}
+            <button type="button" onClick={handleAdvancedRequest} disabled={!selectedCoachId || !capacityState.verified || !capacityState.available || isSubmitting || Boolean(existingAdvancedSportRecord) || Boolean(coachState.error)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-bold text-white hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300">{isSubmitting ? <LoaderCircle size={16} className="animate-spin" /> : <ArrowUpRight size={16} />}{existingAdvancedSportRecord ? (isVi ? 'Đã có yêu cầu / gói tập cho bộ môn này' : 'Already requested or active for this sport') : isVi ? 'Gửi yêu cầu Coach chấp thuận' : 'Request Coach approval'}</button>
           </>}
         </section>}
       </div>
