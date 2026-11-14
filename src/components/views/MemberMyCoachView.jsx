@@ -30,6 +30,7 @@ import { invoiceApi } from "../../api/invoiceApi"
 import { startVnpayCheckout } from "../../utils/vnpayCheckout"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { getErrorMessage } from "../../api/apiErrors"
+import { getPrivateSessionProposalErrorMessage } from "../../utils/privateSessionProposalErrors"
 import { resolveCoachAvatar } from "../../data/publicCoaches"
 import { PageHeader } from "../ui/PageHeader"
 
@@ -363,7 +364,7 @@ export function MemberMyCoachView() {
           // Preserve the original server or verification error while keeping any successful reads visible.
         }
       }
-      setProposalsError(getErrorMessage(error, isVi ? "Không thể xác nhận đề xuất lịch." : "Could not accept the schedule proposal."))
+      setProposalsError(getPrivateSessionProposalErrorMessage(error, isVi))
     } finally {
       proposalDecisionInFlightRef.current = false
       setAcceptingProposalId(null)
@@ -736,13 +737,14 @@ export function MemberMyCoachView() {
     )
       return
     try {
+      let cancellationResult = null
       if (apiEnabled) {
-        await memberPortalApi.cancelPrivateSession(sessionId)
+        cancellationResult = await memberPortalApi.cancelPrivateSession(sessionId)
       }
       showToast?.(
-        isVi
-          ? "Đã hủy buổi tập riêng và hoàn lại 1 credit vào gói gốc."
-          : "Private session cancelled and 1 credit refunded.",
+        cancellationResult?.creditReturned === true
+          ? (isVi ? "\u0110\u00e3 h\u1ee7y bu\u1ed5i t\u1eadp; Backend x\u00e1c nh\u1eadn ho\u00e0n l\u1ea1i 1 credit." : "Session cancelled; the server confirmed one credit was returned.")
+          : (isVi ? "\u0110\u00e3 h\u1ee7y bu\u1ed5i t\u1eadp. Credit s\u1ebd hi\u1ec3n th\u1ecb theo d\u1eef li\u1ec7u g\u00f3i m\u1edbi nh\u1ea5t t\u1eeb Backend." : "Session cancelled. Credits follow the latest subscription data from the server."),
         "success",
       )
       fetchPrivateSessions()

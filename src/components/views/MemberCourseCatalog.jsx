@@ -694,8 +694,8 @@ export function MemberCourseCatalog() {
     }
   }
 
-  const makeRequestKey = (subjectId, coachId) => {
-    const identity = String(memberId) + ':' + String(subjectId) + ':' + String(coachId)
+  const makeRequestKey = (subjectId, coachId, intentSuffix = '') => {
+    const identity = String(memberId) + ':' + String(subjectId) + ':' + String(coachId) + intentSuffix
     if (requestKeysRef.current.has(identity)) return requestKeysRef.current.get(identity)
     let key
     if (globalThis.crypto?.randomUUID) key = globalThis.crypto.randomUUID()
@@ -706,16 +706,29 @@ export function MemberCourseCatalog() {
   const handleAdvancedRequest = async () => {
     if (!selectedSubject?.id || !selectedCoachId || !capacityState.verified || !capacityState.available || pendingSubmitRef.current || !apiEnabled) return
     const coachId = Number(selectedCoachId)
+    const isExpiredAcceptedForIntent = (item) =>
+      String(item.subjectId) === String(selectedSubject.id)
+      && String(item.primaryCoachId) === String(coachId)
+      && normalizeCatalogStatus(item.status) === 'accepted'
+      && !item.invoiceId
+      && !item.subscriptionId
+      && confirmationDeadlineTimestamp(item.confirmationDeadline) != null
+      && confirmationDeadlineTimestamp(item.confirmationDeadline) <= Date.now()
+    const expiredAcceptedRegistration = visibleRegistrations
+      .filter(isExpiredAcceptedForIntent)
+      .sort((left, right) => Number(right.id) - Number(left.id))[0]
     const pending = visibleRegistrations.find((item) =>
       String(item.subjectId) === String(selectedSubject.id) &&
       String(item.primaryCoachId) === String(coachId) &&
+      !isExpiredAcceptedForIntent(item) &&
       !['rejected', 'cancelled', 'canceled', 'expired'].includes(normalizeCatalogStatus(item.status)))
     if (pending) {
       setNotice(isVi ? 'Đã có yêu cầu cùng môn và Coach. Hãy theo dõi trạng thái hiện tại.' : 'A request for this subject and Coach already exists. Follow its current status.')
       return
     }
-    const key = makeRequestKey(selectedSubject.id, coachId)
-    const identity = String(memberId) + ':' + String(selectedSubject.id) + ':' + String(coachId)
+    const retryAfterExpiredSuffix = expiredAcceptedRegistration ? ':after-expired:' + String(expiredAcceptedRegistration.id) : ''
+    const key = makeRequestKey(selectedSubject.id, coachId, retryAfterExpiredSuffix)
+    const identity = String(memberId) + ':' + String(selectedSubject.id) + ':' + String(coachId) + retryAfterExpiredSuffix
     if (retryGateRef.current === identity) {
       setSubmittingError(isVi ? 'Yêu cầu trước chưa thể đối soát hoặc đã tồn tại. Hãy tải lại trạng thái trước khi gửi tiếp.' : 'A previous request is unresolved or already exists. Reload its status before submitting again.')
       return
@@ -741,7 +754,14 @@ export function MemberCourseCatalog() {
           const rows = await advancedRegistrationApi.getMyAdvancedRegistrations()
           setRegistrations(rows)
           const matched = rows.find((item) => String(item.requestKey || '') === key)
-          const sameIntent = rows.find((item) => String(item.memberId) === String(memberId) && String(item.subjectId) === String(selectedSubject.id) && String(item.primaryCoachId) === String(coachId))
+          const sameIntent = rows.find((item) =>
+            String(item.memberId) === String(memberId)
+            && String(item.subjectId) === String(selectedSubject.id)
+            && String(item.primaryCoachId) === String(coachId)
+            && !(normalizeCatalogStatus(item.status) === 'accepted' && !item.invoiceId && !item.subscriptionId
+              && confirmationDeadlineTimestamp(item.confirmationDeadline) != null
+              && confirmationDeadlineTimestamp(item.confirmationDeadline) <= Date.now()),
+          )
           if (matched || sameIntent) setSubmittingError(isVi ? 'Đã tìm thấy yêu cầu hoặc kết quả cùng lựa chọn khi đối soát; không gửi lại.' : 'A matching request was found during reconciliation; no retry was sent.')
           else setSubmittingError(isVi ? 'Không xác minh được kết quả gửi. Tải lại danh sách trước khi thử tiếp.' : 'Request outcome could not be verified. Reload the request list before trying again.')
           retryGateRef.current = matched || sameIntent ? identity : null

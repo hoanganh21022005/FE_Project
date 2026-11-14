@@ -903,9 +903,41 @@ export function CoachAssignedMembersView() {
       setProposalResponse(response)
       showToast?.(language === "vi" ? "Đã gửi lịch, chờ học viên xác nhận." : "Schedule proposal sent; waiting for Member confirmation.", "success")
     } catch (error) {
-      const message = getErrorMessage(error, language === "vi" ? "Không gửi được đề xuất lịch." : "Could not send the schedule proposal.")
+      let message = getErrorMessage(error, language === "vi" ? "Không gửi được đề xuất lịch." : "Could not send the schedule proposal.")
+      let didReconcileProposal = false
+      if (!error?.status || error.status >= 500) {
+        try {
+          const rows = await memberPortalApi.getPrivateSessionProposals()
+          const matchingProposal = (Array.isArray(rows) ? rows : []).find((item) =>
+            String(item.status || "").toLowerCase() === "pending"
+            && item.sessionId == null
+            && String(item.subscriptionId) === String(payload.subscriptionId)
+            && String(item.subjectId) === String(payload.subjectId)
+            && String(item.coachId) === String(payload.coachId)
+            && String(item.roomId) === String(payload.roomId)
+            && String(item.sessionDate).slice(0, 10) === payload.sessionDate
+            && String(item.startTime).slice(0, 5) === payload.startTime
+            && String(item.endTime).slice(0, 5) === payload.endTime,
+          )
+          if (matchingProposal) {
+            setProposalResponse(matchingProposal)
+            message = language === "vi"
+              ? "Đã tìm thấy đề xuất trên Backend khi đối soát; không gửi thêm đề xuất."
+              : "The proposal was found during reconciliation; no duplicate was sent."
+            didReconcileProposal = true
+          } else {
+            message = language === "vi"
+              ? "Chưa xác minh được đề xuất sau timeout. Đã tải lại danh sách; nếu thử lại, giữ nguyên lịch để dùng cùng requestKey."
+              : "The timed-out proposal was not found. The list was reloaded; retry only with this same schedule and requestKey."
+          }
+        } catch {
+          message = language === "vi"
+            ? "Chưa đối soát được kết quả timeout. Không gửi lại; hãy tải lại danh sách đề xuất trước."
+            : "The timeout outcome could not be reconciled. Do not resend; reload proposals first."
+        }
+      }
       setProposalError(message)
-      showToast?.(message, "error")
+      showToast?.(message, didReconcileProposal ? "success" : "error")
     } finally {
       isSubmittingRef.current = false
       setBookingBusy(false)
