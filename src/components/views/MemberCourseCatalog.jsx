@@ -178,6 +178,8 @@ function AdvancedInvoiceDetails({ order, language, now }) {
     : `${String(Math.floor(remainingMs / 60000)).padStart(2, '0')}:${String(Math.floor((remainingMs % 60000) / 1000)).padStart(2, '0')}`
   const paymentMethod = String(order.paymentMethod || '').toLowerCase()
   const isVnpay = paymentMethod === 'vnpay' || paymentMethod === 'online'
+  const paymentLinkExpired = expiry != null && expiry <= now
+  const hasHiddenPaymentStatus = ['paid', 'successful', 'completed', 'cancelled', 'canceled'].includes(paymentStatus)
   const subscription = order.subscription
   const subscriptionActive = String(subscription?.status || '').toLowerCase() === 'active'
 
@@ -191,9 +193,12 @@ function AdvancedInvoiceDetails({ order, language, now }) {
     {paymentStatus === 'pending' && countdown != null && (remainingMs > 0
       ? <p className="mt-1 font-semibold tabular-nums">{isVi ? 'Còn lại:' : 'Time remaining:'} {countdown}</p>
       : <p className="mt-1 text-amber-800">{isVi ? 'Đã đến hạn; đang chờ trạng thái hóa đơn từ hệ thống.' : 'Deadline reached; awaiting the invoice status from the server.'}</p>)}
-    {isVnpay && <p className="mt-2 break-all">{isVi ? 'Liên kết VNPay:' : 'VNPay payment URL:'} {paymentUrlIsSafe(order.paymentUrl)
-      ? <a href={order.paymentUrl} target="_blank" rel="noreferrer" className="font-semibold text-brand-primary underline">{order.paymentUrl}</a>
-      : (isVi ? 'Chưa có liên kết hợp lệ' : 'No valid payment URL available')}</p>}
+    {isVnpay && paymentStatus === 'pending' && !hasHiddenPaymentStatus && <div className="mt-2">
+      {paymentLinkExpired && <p className="mb-2 text-amber-800">{isVi ? 'Hóa đơn đã hết hạn thanh toán' : 'This invoice has expired'}</p>}
+      {paymentUrlIsSafe(order.paymentUrl)
+        ? <button type="button" disabled={paymentLinkExpired} onClick={() => window.open(order.paymentUrl, '_blank')} className="rounded-lg bg-brand-primary px-4 py-2 font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:bg-slate-400">{isVi ? 'Thanh toán qua VNPay' : 'Pay with VNPay'}</button>
+        : !paymentLinkExpired && <p>{isVi ? 'Chưa có liên kết thanh toán hợp lệ' : 'No valid payment link available'}</p>}
+    </div>}
     {subscription && <div className="mt-3 border-t border-slate-200 pt-3" aria-live="polite">
       <p><strong>{isVi ? 'Trạng thái gói:' : 'Subscription status:'}</strong> {subscription.status || (isVi ? 'Chưa có dữ liệu' : 'Not provided')}</p>
       {subscriptionActive && <>
