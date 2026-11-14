@@ -29,7 +29,7 @@ import {
   fetchSessionProposals,
   respondSessionProposal,
 } from "../../api/memberPortalApi"
-import { httpClient } from "../../api/httpClient"
+import { httpClient, UNAUTHORIZED_EVENT } from "../../api/httpClient"
 import { membershipApi } from "../../api/membershipApi"
 import { invoiceApi } from "../../api/invoiceApi"
 import { startVnpayCheckout } from "../../utils/vnpayCheckout"
@@ -659,8 +659,119 @@ export function MemberMyCoachView() {
     }
   }
 
-  // 6. Cancel Private Session (POST /api/sessions/{sessionId}/cancel-private)
+  // Verify session ownership against current member
+  const checkSessionOwnership = (session) => {
+    if (!session) {
+      return {
+        isOwner: false,
+        error: isVi
+          ? "Không tìm thấy thông tin buổi tập."
+          : "Session not found.",
+      }
+    }
+    const sessionMemberId =
+      session.bookedMemberId ??
+      session.memberId ??
+      session.studentId ??
+      session.member?.id
+
+    if (sessionMemberId != null && memberProfileId != null) {
+      const isMatch =
+        String(sessionMemberId) === String(memberProfileId) ||
+        String(sessionMemberId) === String(currentUser?.id)
+      if (!isMatch) {
+        return {
+          isOwner: false,
+          error: isVi
+            ? "Bạn không có quyền thao tác trên buổi tập của học viên khác (FORBIDDEN_NOT_OWNER)."
+            : "You are not authorized to manage another member's session (FORBIDDEN_NOT_OWNER).",
+        }
+      }
+    }
+    return { isOwner: true, error: null }
+  }
+
+  // Handle detailed errors: expired token -> logout/refresh; detailed 403 (FORBIDDEN_NOT_OWNER, INVALID_ROLE)
+  const handleSessionActionError = (err, fallbackText) => {
+    const status = Number(err?.status ?? err?.response?.status) || 0
+    const code = String(
+      err?.code ||
+        err?.details?.code ||
+        err?.response?.data?.code ||
+        err?.details?.error ||
+        "",
+    ).toUpperCase()
+    const msg = String(
+      err?.message ||
+        err?.details?.message ||
+        err?.response?.data?.message ||
+        "",
+    ).toLowerCase()
+
+    // 1. If token expired, trigger logout / refresh flow
+    const isTokenExpired =
+      status === 401 ||
+      code.includes("EXPIRED") ||
+      code.includes("TOKEN") ||
+      code.includes("AUTH_EXPIRED") ||
+      msg.includes("token expired") ||
+      msg.includes("phiên đăng nhập hết hạn") ||
+      msg.includes("jwt expired")
+
+    if (isTokenExpired) {
+      const expiredMsg = isVi
+        ? "Phiên đăng nhập đã hết hạn. Đang chuyển hướng đăng nhập lại..."
+        : "Session expired. Redirecting to log in again..."
+      showToast?.(expiredMsg, "error")
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT))
+      }
+      return expiredMsg
+    }
+
+    // 2. Detailed 403 inspections
+    if (status === 403) {
+      if (
+        code === "FORBIDDEN_NOT_OWNER" ||
+        msg.includes("not owner") ||
+        msg.includes("không phải chủ")
+      ) {
+        const notOwnerMsg = isVi
+          ? "Bạn không có quyền thao tác trên buổi tập của học viên khác (FORBIDDEN_NOT_OWNER)."
+          : "You cannot manage another member's session (FORBIDDEN_NOT_OWNER)."
+        showToast?.(notOwnerMsg, "error")
+        return notOwnerMsg
+      }
+      if (
+        code === "INVALID_ROLE" ||
+        msg.includes("role") ||
+        msg.includes("vai trò")
+      ) {
+        const roleMsg = isVi
+          ? "Tài khoản không đúng vai trò hội viên để thực hiện thao tác này (INVALID_ROLE)."
+          : "Invalid role for this action (INVALID_ROLE)."
+        showToast?.(roleMsg, "error")
+        return roleMsg
+      }
+    }
+
+    const formatted = getErrorMessage(err, fallbackText)
+    showToast?.(formatted, "error")
+    return formatted
+  }
+
+  // 6. Cancel Private Session (POST /api/member/sessions/{sessionId}/cancel)
   const handleCancelPrivate = async (sessionId) => {
+    const session = privateSessions.find(
+      (s) => String(s.id ?? s.sessionId) === String(sessionId),
+    )
+
+    const ownership = checkSessionOwnership(session)
+    if (!ownership.isOwner) {
+      showToast?.(ownership.error, "error")
+      return
+    }
+
     if (
       !window.confirm(
         isVi
@@ -669,9 +780,14 @@ export function MemberMyCoachView() {
       )
     )
       return
+
     try {
       if (apiEnabled) {
-        await memberPortalApi.cancelPrivateSession(sessionId)
+        await memberPortalApi.cancelPrivateSession(sessionId, {
+          reason: "Member requested cancellation",
+          cancellationReason: "Member requested cancellation",
+          memberId: memberProfileId,
+        })
       }
       showToast?.(
         isVi
@@ -679,7 +795,11 @@ export function MemberMyCoachView() {
           : "Private session cancelled and 1 credit refunded.",
         "success",
       )
+
+      // On success (200): refetch session list and update credit balance
       fetchPrivateSessions()
+      fetchProposals()
+      fetchMemberCredits()
       if (apiEnabled && memberProfileId) {
         membershipApi
           .getMemberSubscriptions(memberProfileId)
@@ -693,11 +813,9 @@ export function MemberMyCoachView() {
           .catch(() => {})
       }
     } catch (err) {
-      alert(
-        getErrorMessage(
-          err,
-          isVi ? "Không thể hủy buổi tập." : "Could not cancel session.",
-        ),
+      handleSessionActionError(
+        err,
+        isVi ? "Không thể hủy buổi tập." : "Could not cancel session.",
       )
     }
   }
@@ -734,7 +852,7 @@ export function MemberMyCoachView() {
     }
   }
 
-  // 7. Request Absence (POST /api/sessions/{sessionId}/absence)
+  // 7. Request Absence (POST /api/member/sessions/{sessionId}/absence)
   const handleAbsenceSubmit = async (e) => {
     if (e && typeof e.preventDefault === "function") {
       e.preventDefault()
@@ -750,6 +868,13 @@ export function MemberMyCoachView() {
         : "Session not found."
       setAbsenceError(msg)
       showToast?.(msg, "error")
+      return
+    }
+
+    const ownership = checkSessionOwnership(selectedSessionForAbsence)
+    if (!ownership.isOwner) {
+      setAbsenceError(ownership.error)
+      showToast?.(ownership.error, "error")
       return
     }
 
@@ -786,7 +911,11 @@ export function MemberMyCoachView() {
         selectedSessionForAbsence.rawId
 
       if (apiEnabled) {
-        await memberPortalApi.requestAbsence(targetSessionId, trimmedReason)
+        await memberPortalApi.requestAbsence(targetSessionId, {
+          reason: trimmedReason,
+          cancellationReason: trimmedReason,
+          memberId: memberProfileId,
+        })
       }
 
       const successMsg = isVi
@@ -801,20 +930,22 @@ export function MemberMyCoachView() {
         setAbsenceReason("")
         setAbsenceMsg("")
         setAbsenceError("")
+        // On success (200): refetch session list and update credit balance
         fetchPrivateSessions()
+        fetchProposals()
+        fetchMemberCredits()
         if (apiEnabled && memberProfileId) {
           fetchMemberCredits?.()
         }
       }, 1200)
     } catch (err) {
-      const errorMsg = getErrorMessage(
+      const errorMsg = handleSessionActionError(
         err,
         isVi
           ? "Không thể gửi đơn xin vắng mặt. Vui lòng thử lại sau."
           : "Could not submit absence.",
       )
       setAbsenceError(errorMsg)
-      showToast?.(errorMsg, "error")
     } finally {
       setSubmittingAbsence(false)
     }

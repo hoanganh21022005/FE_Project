@@ -209,20 +209,45 @@ export const requestAbsence = async (sessionId, reason) => {
       ? sessionId.sessionId ?? sessionId.id
       : sessionId
   const reasonText =
-    typeof reason === "object" && reason !== null ? reason.reason : reason
+    typeof reason === "object" && reason !== null
+      ? reason.reason || reason.cancellationReason
+      : reason
+  const memberId =
+    typeof reason === "object" && reason !== null
+      ? reason.memberId
+      : typeof sessionId === "object" && sessionId !== null
+        ? sessionId.memberId
+        : undefined
+
+  const trimmedReason = String(reasonText ?? "").trim()
   const payload = {
     sessionId: Number(sid) || sid,
-    reason: String(reasonText ?? "").trim(),
+    ...(memberId ? { memberId: Number(memberId) || memberId } : {}),
+    reason: trimmedReason,
+    cancellationReason: trimmedReason,
   }
   const cleanSid = encodeURIComponent(sid)
-  try {
-    return await httpClient.post(`/api/sessions/${cleanSid}/absence`, payload)
-  } catch (err) {
-    if (err?.status === 404 || err?.response?.status === 404) {
-      return await httpClient.post(`/api/sessions/${cleanSid}/absent`, payload)
+  const candidateEndpoints = [
+    `/api/member/sessions/${cleanSid}/absence`,
+    `/api/member/sessions/${cleanSid}/absent`,
+    `/api/members/me/sessions/${cleanSid}/absence`,
+    `/api/sessions/${cleanSid}/absence`,
+    `/api/sessions/${cleanSid}/absent`,
+  ]
+
+  let lastError = null
+  for (const endpoint of candidateEndpoints) {
+    try {
+      return await httpClient.post(endpoint, payload)
+    } catch (err) {
+      if (err?.status === 404 || err?.response?.status === 404) {
+        lastError = err
+        continue
+      }
+      throw err
     }
-    throw err
   }
+  throw lastError
 }
 export const requestSessionAbsence = requestAbsence
 export const getSessionAbsenceNotices = (sessionId) =>
@@ -233,20 +258,49 @@ export const cancelPrivateSession = async (sessionId, reason = "") => {
       ? sessionId.sessionId ?? sessionId.id
       : sessionId
   const reasonText =
-    typeof reason === "object" && reason !== null ? reason.reason : reason
+    typeof reason === "object" && reason !== null
+      ? reason.reason || reason.cancellationReason
+      : reason
+  const memberId =
+    typeof reason === "object" && reason !== null
+      ? reason.memberId
+      : typeof sessionId === "object" && sessionId !== null
+        ? sessionId.memberId
+        : undefined
+
+  const trimmedReason = String(reasonText ?? "").trim()
   const payload = {
     sessionId: Number(sid) || sid,
-    ...(reasonText ? { reason: String(reasonText).trim() } : {}),
+    ...(memberId ? { memberId: Number(memberId) || memberId } : {}),
+    ...(trimmedReason
+      ? {
+          reason: trimmedReason,
+          cancellationReason: trimmedReason,
+        }
+      : {}),
   }
   const cleanSid = encodeURIComponent(sid)
-  try {
-    return await httpClient.post(`/api/sessions/${cleanSid}/cancel-private`, payload)
-  } catch (err) {
-    if (err?.status === 404 || err?.response?.status === 404) {
-      return await httpClient.post(`/api/sessions/${cleanSid}/cancel`, payload)
+  // Strictly Member-scoped endpoints; never call coach/staff /api/sessions/{id}/cancel
+  const candidateEndpoints = [
+    `/api/member/sessions/${cleanSid}/cancel`,
+    `/api/member/sessions/${cleanSid}/cancel-private`,
+    `/api/members/me/sessions/${cleanSid}/cancel`,
+    `/api/sessions/${cleanSid}/cancel-private`,
+  ]
+
+  let lastError = null
+  for (const endpoint of candidateEndpoints) {
+    try {
+      return await httpClient.post(endpoint, payload)
+    } catch (err) {
+      if (err?.status === 404 || err?.response?.status === 404) {
+        lastError = err
+        continue
+      }
+      throw err
     }
-    throw err
   }
+  throw lastError
 }
 export const submitClassFeedback = (classId, payload) =>
   httpClient.post(`/api/classes/${classId}/feedback`, {
