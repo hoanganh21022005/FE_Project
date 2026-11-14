@@ -166,12 +166,20 @@ export function parseToVietnamDate(value) {
  * @param {string} invalidFallback Mặc định là 'Không hợp lệ'
  * @returns {string}
  */
-export function formatAdminDate(value, emptyFallback = "Chưa có", invalidFallback = "Không hợp lệ") {
+export function formatAdminDate(
+  value,
+  emptyFallback,
+  invalidFallback,
+  language = "vi",
+) {
+  const isEn = language === "en"
+  const emptyText = emptyFallback ?? (isEn ? "Not set" : "Chưa có")
+  const invalidText = invalidFallback ?? (isEn ? "Invalid" : "Không hợp lệ")
   const parsed = parseToVietnamDate(value)
-  if (parsed.empty) return emptyFallback
-  if (!parsed.valid) return invalidFallback
+  if (parsed.empty) return emptyText
+  if (!parsed.valid) return invalidText
 
-  return new Intl.DateTimeFormat(VIETNAM_LOCALE, {
+  return new Intl.DateTimeFormat(isEn ? "en-US" : VIETNAM_LOCALE, {
     dateStyle: "medium",
     timeZone: VIETNAM_TIMEZONE,
   }).format(parsed.date)
@@ -181,16 +189,25 @@ export function formatAdminDate(value, emptyFallback = "Chưa có", invalidFallb
  * Định dạng ngày giờ chi tiết (phục vụ Audit logs hoặc chi tiết giao dịch).
  * Ví dụ: "00:30:00 29/10/26"
  * @param {string|number|Date|null|undefined} value
- * @param {string} emptyFallback Mặc định là 'Chưa có'
- * @param {string} invalidFallback Mặc định là 'Không hợp lệ'
+ * @param {string} emptyFallback Mặc định là 'Chưa có' / 'Not set'
+ * @param {string} invalidFallback Mặc định là 'Không hợp lệ' / 'Invalid'
+ * @param {"vi"|"en"} language Ngôn ngữ hiển thị
  * @returns {string}
  */
-export function formatAdminDateTime(value, emptyFallback = "Chưa có", invalidFallback = "Không hợp lệ") {
+export function formatAdminDateTime(
+  value,
+  emptyFallback,
+  invalidFallback,
+  language = "vi",
+) {
+  const isEn = language === "en"
+  const emptyText = emptyFallback ?? (isEn ? "Not set" : "Chưa có")
+  const invalidText = invalidFallback ?? (isEn ? "Invalid" : "Không hợp lệ")
   const parsed = parseToVietnamDate(value)
-  if (parsed.empty) return emptyFallback
-  if (!parsed.valid) return invalidFallback
+  if (parsed.empty) return emptyText
+  if (!parsed.valid) return invalidText
 
-  return new Intl.DateTimeFormat(VIETNAM_LOCALE, {
+  return new Intl.DateTimeFormat(isEn ? "en-US" : VIETNAM_LOCALE, {
     dateStyle: "short",
     timeStyle: "medium",
     timeZone: VIETNAM_TIMEZONE,
