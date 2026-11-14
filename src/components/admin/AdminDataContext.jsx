@@ -73,7 +73,7 @@ export function AdminDataProvider({ children }) {
         setResources((current) =>
           updateAdminResource(current, key, {
             status: "error",
-            error: getErrorMessage(error, "Không thể tải dữ liệu quản trị."),
+            error: getErrorMessage(error, ""),
           }),
         )
       }

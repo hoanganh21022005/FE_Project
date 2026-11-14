@@ -22,60 +22,11 @@ import {
   getAdminText,
 } from "../adminI18n.js"
 
-export const ROLE_NAME_LABELS = {
-  Admin: "Quản trị viên hệ thống",
-  ADMIN: "Quản trị viên hệ thống",
-  CenterManager: "Quản lý trung tâm",
-  CENTER_MANAGER: "Quản lý trung tâm",
-  Receptionist: "Lễ tân",
-  RECEPTIONIST: "Lễ tân",
-  Coach: "Huấn luyện viên",
-  COACH: "Huấn luyện viên",
-  Member: "Hội viên",
-  MEMBER: "Hội viên",
-}
-
 export const ADMIN_LOCKED_PERMISSIONS = [
   "MANAGE_RBAC",
   "MANAGE_USERS",
   "MANAGE_PERMISSIONS",
 ]
-
-export const PERMISSION_LABEL_MAP = {
-  MANAGE_USERS: "Quản lý người dùng",
-  MANAGE_RBAC: "Quản lý vai trò & quyền",
-  MANAGE_PERMISSIONS: "Quản trị phân quyền",
-  VIEW_AUDIT_LOG: "Xem nhật ký hoạt động",
-  VIEW_AUDIT_LOGS: "Xem nhật ký hoạt động",
-  LOCK_SUBJECTS: "Khóa môn học",
-  MANAGE_PACKAGES: "Quản lý gói tập",
-  HANDLE_CHAT: "Xử lý tin nhắn trực tuyến",
-  HANDLE_SUPPORT: "Xử lý hỗ trợ",
-  MANAGE_SUBSCRIPTIONS: "Quản lý gói hội viên",
-  RECORD_RESULT: "Ghi nhận kết quả tập",
-  MANAGE_TRAINING_PLAN: "Quản lý kế hoạch tập",
-  CHAT_AS_MEMBER: "Nhắn tin với tư cách hội viên",
-  MANAGE_CLASSES: "Quản lý lớp học",
-  MANAGE_STAFF: "Quản lý nhân viên",
-  MANAGE_MEMBERS: "Quản lý hội viên",
-  MANAGE_INVOICES: "Quản lý hóa đơn",
-  MANAGE_PAYMENTS: "Quản lý thanh toán",
-  MANAGE_SPECIALIZATIONS: "Quản lý chuyên môn",
-  MANAGE_SYSTEM_SETTINGS: "Cài đặt hệ thống",
-  PROCESS_PAYMENT: "Xử lý thanh toán",
-  REGISTER_MEMBER: "Đăng ký hội viên",
-  MANAGE_ATTENDANCE: "Quản lý điểm danh",
-  TAKE_ATTENDANCE: "Điểm danh học viên",
-  VIEW_ATTENDANCE: "Xem lịch sử điểm danh",
-  VIEW_PROFILE: "Xem hồ sơ cá nhân",
-  EDIT_PROFILE: "Chỉnh sửa hồ sơ",
-  VIEW_SCHEDULE: "Xem lịch học / lịch dạy",
-  VIEW_INVOICES: "Xem hóa đơn",
-  VIEW_REPORTS: "Xem báo cáo thống kê",
-}
-
-const getRoleDisplayName = (name) => ROLE_NAME_LABELS[name] || name || "Vai trò"
-const getPermissionDisplayName = (name) => PERMISSION_LABEL_MAP[name] || name || "Quyền hạn"
 
 export function AdminRolesView() {
   const { resources, retry } = useAdminData()

@@ -132,7 +132,8 @@ export function UserStatusDialog({
             </h3>
             <p className="text-xs text-text-secondary mt-0.5">
               {getAdminText(language, "statusDialog.userLabel")}{" "}
-              <strong className="text-text-primary">{user.fullName || user.email}</strong> (ID #{user.id})
+              <strong className="text-text-primary">{user.fullName || user.email}</strong>
+              {user.code ? ` (${user.code})` : ""}
             </p>
           </div>
           <button

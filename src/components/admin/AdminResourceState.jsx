@@ -1,7 +1,7 @@
 import React from "react"
 import { AlertTriangle, Inbox, RefreshCw } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext.jsx"
-import { getAdminText } from "./adminI18n.js"
+import { formatAdminErrorMessage, getAdminText } from "./adminI18n.js"
 
 export function AdminResourceState({
   resource,
@@ -39,7 +39,7 @@ export function AdminResourceState({
           {getAdminText(language, "common.loadError")}
         </p>
         <p className="mt-1 max-w-lg text-sm leading-5 text-status-danger">
-          {resource.error}
+          {formatAdminErrorMessage(resource.error, language, "common.loadErrorFallback")}
         </p>
         <button
           type="button"

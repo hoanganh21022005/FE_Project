@@ -23,37 +23,6 @@ import {
   getAdminText,
 } from "../adminI18n.js"
 
-export const ACTION_LABELS = {
-  LOGIN: "Đăng nhập",
-  LOGIN_GOOGLE: "Đăng nhập qua Google",
-  REGISTER_MEMBER_GOOGLE: "Đăng ký hội viên qua Google",
-  REGISTER_MEMBER_PENDING: "Đăng ký hội viên",
-  VERIFY_MEMBER_REGISTRATION: "Xác minh đăng ký hội viên",
-  CREATE_USER: "Tạo tài khoản người dùng",
-  CHANGE_USER_ROLE: "Đổi vai trò người dùng",
-  REISSUE_TEMPORARY_PASSWORD: "Cấp lại mật khẩu tạm",
-  UPDATE_STAFF: "Cập nhật nhân viên",
-  CHANGE_USER_STATUS: "Đổi trạng thái tài khoản",
-  UPDATE_ROLE_PERMISSIONS: "Cập nhật quyền vai trò",
-  CREATE_INVOICE: "Tạo hóa đơn",
-  COLLECT_PAYMENT: "Thu tiền thanh toán",
-  ENROLL_CLASS: "Ghi danh lớp học",
-  ATTENDANCE_CORRECTION: "Điều chỉnh điểm danh",
-}
-
-export const ROLE_LABELS = {
-  Admin: "Quản trị viên",
-  ADMIN: "Quản trị viên",
-  CenterManager: "Quản lý trung tâm",
-  CENTER_MANAGER: "Quản lý trung tâm",
-  Receptionist: "Lễ tân",
-  RECEPTIONIST: "Lễ tân",
-  Coach: "Huấn luyện viên",
-  COACH: "Huấn luyện viên",
-  Member: "Hội viên",
-  MEMBER: "Hội viên",
-}
-
 const ROLE_CHART_COLORS = [
   "var(--brand-primary)",
   "var(--brand-dark)",
@@ -230,7 +199,7 @@ export function AdminDashboard() {
     if (total === 0) return []
     const counts = new Map()
     for (const u of usersList) {
-      const roleKey = u.roleName || (u.roleId ? `Role #${u.roleId}` : (language === "en" ? "Other" : "Khác"))
+      const roleKey = u.roleName || (language === "en" ? "Other" : "Khác")
       counts.set(roleKey, (counts.get(roleKey) || 0) + 1)
     }
     for (const r of rolesList) {
