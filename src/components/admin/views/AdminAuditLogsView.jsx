@@ -13,7 +13,7 @@ import {
 import { useAdminData } from "../AdminDataContext.jsx"
 import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { formatAdminDateTime } from "../adminDateUtils.js"
-import { getAdminAuditActionLabel, getAdminText } from "../adminI18n.js"
+import { getAdminAuditActionLabel, getAdminRoleLabel, getAdminText } from "../adminI18n.js"
 import { getAdminAuditLogs } from "../../../api/adminApi.js"
 
 // Ghi chú: Quy ước page tính từ 0 hay 1 là CHƯA XÁC NHẬN với Backend.
@@ -109,6 +109,16 @@ export function AdminAuditLogsView() {
     }
     return map
   }, [resources.users.data])
+
+  const roleMap = useMemo(() => {
+    const map = new Map()
+    for (const r of resources.roles.data || []) {
+      if (r.id !== null && r.id !== undefined) {
+        map.set(Number(r.id), r)
+      }
+    }
+    return map
+  }, [resources.roles.data])
 
   // Lấy tên người dùng theo id
   const getUserName = useCallback(
@@ -426,16 +436,25 @@ export function AdminAuditLogsView() {
                 const actorName = getUserName(log.actorId)
                 const actionLabel = getAdminAuditActionLabel(log.action, language)
 
-                // Đối tượng USER nếu có thì hiện tên
-                let targetDisplay = log.targetLabel
+                // Đối tượng USER hoặc ROLE nếu có thì hiện tên
+                let targetDisplay = log.targetLabel && log.targetLabel !== "N/A" ? log.targetLabel : "—"
+                const entityUpper = String(log.targetEntity || "").toUpperCase()
                 if (
-                  log.targetEntity &&
-                  String(log.targetEntity).toUpperCase() === "USER" &&
+                  (entityUpper === "USER" || entityUpper === "USERS") &&
                   log.targetId !== null &&
                   log.targetId !== undefined
                 ) {
                   const targetUserName = getUserName(log.targetId)
                   targetDisplay = `${targetUserName} (#${log.targetId})`
+                } else if (
+                  (entityUpper === "ROLE" || entityUpper === "ROLES") &&
+                  log.targetId !== null &&
+                  log.targetId !== undefined
+                ) {
+                  const matchedRole = roleMap.get(Number(log.targetId))
+                  if (matchedRole?.name) {
+                    targetDisplay = getAdminRoleLabel(matchedRole.name, language)
+                  }
                 }
 
                 return (

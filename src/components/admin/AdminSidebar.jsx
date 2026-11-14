@@ -142,20 +142,20 @@ export function AdminSidebar({
                 onClick={() => select("admin_dashboard")}
                 title="VIBE Sport System"
                 aria-label={`VIBE Sport System - ${getAdminText(language, "dash.title")}`}
-                className={`flex min-h-[44px] items-center gap-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded cursor-pointer min-w-0 ${
+                className={`flex min-h-[44px] items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded cursor-pointer min-w-0 ${
                   collapsed ? "lg:hidden" : "flex-1 pr-3"
                 }`}
               >
                 <img
                   src="/images/MainPage/vibe-sport-logo.png?v=4"
                   alt="Vibe Sport"
-                  className="w-11 h-[33px] object-contain shrink-0"
+                  className="w-9 h-[27px] object-contain shrink-0"
                 />
                 <div className="min-w-0">
-                  <p className="text-xs leading-[17px] font-bold uppercase text-text-inverse truncate">
+                  <p className="text-[11px] leading-4 font-bold uppercase tracking-tight text-text-inverse whitespace-nowrap">
                     VIBE Sport System
                   </p>
-                  <p className="text-xs leading-4 font-bold uppercase tracking-wider text-text-inverse/70 truncate">
+                  <p className="text-[11px] leading-3.5 font-semibold uppercase tracking-wider text-text-inverse/70 whitespace-nowrap">
                     Sports Center
                   </p>
                 </div>

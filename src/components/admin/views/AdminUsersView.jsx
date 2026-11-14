@@ -436,7 +436,7 @@ export function AdminUsersView() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <AdminPageHeader
         eyebrow={getAdminText(language, "users.eyebrow")}
         title={getAdminText(language, "users.title")}
@@ -626,7 +626,7 @@ export function AdminUsersView() {
                   <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary border-b border-border-color">
                     <tr>
                       <th
-                        className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap"
+                        className="px-3.5 py-0 text-left align-middle whitespace-nowrap"
                         aria-sort={
                           sortOrder === "name_asc"
                             ? "ascending"
@@ -638,7 +638,7 @@ export function AdminUsersView() {
                         <button
                           type="button"
                           onClick={handleToggleNameSort}
-                          className="inline-flex items-center gap-1 font-semibold text-text-secondary hover:text-text-primary cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary rounded"
+                          className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1 font-semibold text-text-secondary hover:text-text-primary cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary rounded"
                         >
                           <span>{getAdminText(language, "users.colName")}</span>
                           {sortOrder === "name_asc" ? (

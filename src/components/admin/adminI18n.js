@@ -237,9 +237,9 @@ const ADMIN_TEXT = {
     "pagination.next": "Sau",
 
     // Dashboard
-    "dash.eyebrow": "TỔNG QUAN",
-    "dash.title": "Bảng điều khiển quản trị",
-    "dash.reload": "Tải lại",
+    "dash.eyebrow": "QUẢN TRỊ HỆ THỐNG",
+    "dash.title": "Toàn cảnh hệ thống",
+    "dash.reload": "Làm mới dữ liệu",
     "dash.loadErrorTitle": "Không thể tải dữ liệu tổng quan",
     "dash.totalUsers": "Tổng người dùng",
     "dash.activeUsers": "Đang hoạt động",
@@ -248,8 +248,8 @@ const ADMIN_TEXT = {
     "dash.attentionHeading": "Việc cần chú ý",
     "dash.lockedAccounts": "Tài khoản đang bị khóa",
     "dash.lockedSub": "Cần rà soát hoặc mở khóa khi hợp lệ",
-    "dash.inactiveAccounts": "Tài khoản chưa kích hoạt",
-    "dash.inactiveSub": "Cần kích hoạt hoặc xác minh lại",
+    "dash.inactiveAccounts": "Tài khoản không hoạt động",
+    "dash.inactiveSub": "Đang ngừng hoạt động",
     "dash.chartHeading": "Hoạt động 7 ngày gần nhất",
     "dash.chartSub": "Số lượt thao tác quản trị theo ngày (giờ VN)",
     "dash.chartLimited": "Hiển thị 500 bản ghi gần nhất",
@@ -573,9 +573,9 @@ const ADMIN_TEXT = {
     "pagination.next": "Next",
 
     // Dashboard
-    "dash.eyebrow": "OVERVIEW",
-    "dash.title": "Admin Dashboard",
-    "dash.reload": "Reload",
+    "dash.eyebrow": "SYSTEM ADMINISTRATION",
+    "dash.title": "System overview",
+    "dash.reload": "Refresh data",
     "dash.loadErrorTitle": "Unable to load overview data",
     "dash.totalUsers": "Total users",
     "dash.activeUsers": "Active",

@@ -467,7 +467,7 @@ test.describe('Kịch bản Admin Chỉ Đọc (ADMIN-01 -> ADMIN-06)', () => {
     await expect(enBtn).toBeVisible();
     await enBtn.click();
 
-    await expect(page.locator('main')).toContainText('Admin Dashboard');
+    await expect(page.locator('main')).toContainText('System overview');
     await expect(page.locator('main')).toContainText('Recent activity');
 
     const viDiacritics = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i;

@@ -17,6 +17,7 @@ import { formatAdminDateTime, parseToVietnamDate, VIETNAM_TIMEZONE } from "../ad
 import {
   formatAdminNumber,
   getAdminAuditActionLabel,
+  getAdminRoleLabel,
   getAdminRoleShortLabel,
   getAdminStatusLabel,
   getAdminText,
@@ -99,6 +100,28 @@ function buildLast7Days(language = "vi") {
   return days
 }
 
+function formatAuditTarget(log, userMap, roleMap, language) {
+  const entity = String(log?.targetEntity || "").toUpperCase()
+  const targetId =
+    log?.targetId !== null && log?.targetId !== undefined ? Number(log.targetId) : null
+
+  if ((entity === "USER" || entity === "USERS") && targetId !== null) {
+    const matchedUser = userMap.get(targetId)
+    if (matchedUser?.fullName) return matchedUser.fullName
+  }
+
+  if ((entity === "ROLE" || entity === "ROLES") && targetId !== null) {
+    const matchedRole = roleMap.get(targetId)
+    if (matchedRole?.name) return getAdminRoleLabel(matchedRole.name, language)
+  }
+
+  if (log?.targetLabel && log.targetLabel !== "N/A") {
+    return log.targetLabel
+  }
+
+  return "—"
+}
+
 export function AdminDashboard() {
   const { language } = useSCMS()
   const { resources, retry, retryAll, apiEnabled } = useAdminData()
@@ -162,6 +185,16 @@ export function AdminDashboard() {
     }
     return map
   }, [usersList])
+
+  const roleMap = useMemo(() => {
+    const map = new Map()
+    for (const r of rolesList) {
+      if (r.id !== null && r.id !== undefined) {
+        map.set(Number(r.id), r)
+      }
+    }
+    return map
+  }, [rolesList])
 
   const statusCounts = useMemo(() => {
     let active = 0
@@ -624,7 +657,7 @@ export function AdminDashboard() {
                     }}
                   />
                   <div
-                    className="bg-status-warning"
+                    className="bg-text-secondary"
                     style={{
                       width: `${Math.round((statusCounts.inactive / statusCounts.total) * 100)}%`,
                     }}
@@ -705,15 +738,7 @@ export function AdminDashboard() {
                     ? getAdminText(language, "common.system")
                     : actorUser?.fullName || log.actorLabel || `User #${log.actorId}`
                 const actionText = getAdminAuditActionLabel(log.action, language)
-                let targetText = log.targetLabel || "—"
-                if (
-                  log.targetEntity &&
-                  String(log.targetEntity).toUpperCase() === "USER" &&
-                  log.targetId !== null &&
-                  log.targetId !== undefined
-                ) {
-                  targetText = userMap.get(Number(log.targetId))?.fullName || targetText
-                }
+                const targetText = formatAuditTarget(log, userMap, roleMap, language)
 
                 return (
                   <div
@@ -766,15 +791,7 @@ export function AdminDashboard() {
                         ? getAdminRoleShortLabel(actorUser.roleName, language)
                         : "—"
                     const actionText = getAdminAuditActionLabel(log.action, language)
-                    let targetText = log.targetLabel || "—"
-                    if (
-                      log.targetEntity &&
-                      String(log.targetEntity).toUpperCase() === "USER" &&
-                      log.targetId !== null &&
-                      log.targetId !== undefined
-                    ) {
-                      targetText = userMap.get(Number(log.targetId))?.fullName || targetText
-                    }
+                    const targetText = formatAuditTarget(log, userMap, roleMap, language)
 
                     return (
                       <tr
