@@ -83,16 +83,21 @@ export const hasScheduledClassSession = (classId, sessions = []) =>
       session.isPrivate !== true,
   )
 export const getMemberAttendances = async (memberId, params = {}) => {
-  const query = new URLSearchParams()
-  if (memberId !== undefined && memberId !== null && memberId !== "") {
-    query.set("memberId", String(memberId))
+  const numId = Number(memberId)
+  if (!Number.isInteger(numId) || numId <= 0) {
+    return []
   }
+  const query = new URLSearchParams()
+  query.set("memberId", String(numId))
   if (params.sessionId) query.set("sessionId", String(params.sessionId))
   if (params.state) query.set("state", String(params.state))
   if (params.startDate) query.set("startDate", String(params.startDate))
   if (params.endDate) query.set("endDate", String(params.endDate))
   const qStr = query.toString() ? `?${query.toString()}` : ""
-  return list(`/api/attendances${qStr}`)
+  const rows = await list(`/api/attendances${qStr}`)
+  return (Array.isArray(rows) ? rows : []).filter(
+    (r) => r?.memberId == null || String(r.memberId) === String(numId),
+  )
 }
 export const getMemberCheckinCode = async () => {
   try {
