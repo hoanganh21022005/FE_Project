@@ -1,5 +1,7 @@
 export const ADMIN_ORIGIN = "https://admin.vibesports.pages.dev"
 export const MAIN_PRODUCTION_HOST = "vibesports.pages.dev"
+// Tạm bảo lưu việc tách link Admin; đổi thành true khi triển khai link riêng
+export const ADMIN_HOST_REDIRECT_ENABLED = false
 
 function readSurfaceEnv(surfaceEnv) {
   if (surfaceEnv !== undefined) {
@@ -36,7 +38,11 @@ export function getMainHostAdminRedirectUrl(
   search = "",
   hostname,
   surfaceEnv,
+  { enabled = ADMIN_HOST_REDIRECT_ENABLED } = {},
 ) {
+  if (!enabled) {
+    return null
+  }
   if (isAdminHost(hostname, surfaceEnv)) {
     return null
   }
