@@ -14,6 +14,8 @@ const normalizeAdvancedRegistration = (item) => {
   const order = item?.order ?? item?.data?.order
   return {
     ...item,
+    acceptedAt: item?.acceptedAt ?? item?.accepted_at ?? null,
+    confirmationDeadline: item?.confirmationDeadline ?? item?.confirmation_deadline ?? null,
     invoiceId: item?.invoiceId ?? item?.invoiceID ?? invoice?.invoiceId ?? invoice?.id ?? order?.invoiceId ?? null,
     invoiceCode: item?.invoiceCode ?? invoice?.invoiceCode ?? invoice?.code ?? null,
     amount: item?.amount ?? invoice?.amount ?? order?.amount ?? null,
