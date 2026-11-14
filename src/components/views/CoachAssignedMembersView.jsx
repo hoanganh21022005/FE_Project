@@ -1091,7 +1091,7 @@ export function CoachAssignedMembersView() {
           </div>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug">
-              {language === "vi" ? "Đề xuất lịch PT 1:1" : "1:1 Private Session Proposals"}
+              {language === "vi" ? "Đề xuất lịch & Đăng ký sân" : "Schedule Proposals & Court Booking"}
             </h1>
             <p className="mt-1 text-sm text-slate-500 leading-relaxed">
               {language === "vi" ? "Chọn Member và gói Advanced Active để gửi đề xuất; Member sẽ xác nhận trước khi lịch được lên lịch." : "Select a Member and active Advanced subscription to propose a time; the Member confirms before it is scheduled."}
@@ -1127,7 +1127,7 @@ export function CoachAssignedMembersView() {
           <div className="flex items-center justify-between border-b border-border-color pb-2.5">
             <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
               <Clock className="w-4 h-4 text-status-warning" />
-              <span>Yêu cầu đăng ký PT 1:1 chờ duyệt</span>
+              <span>Yêu cầu đăng ký sân chờ duyệt</span>
               <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border">
                 {pendingAdvancedRequests.length}
               </span>
@@ -1286,8 +1286,8 @@ export function CoachAssignedMembersView() {
               <CalendarPlus className="w-4 h-4 text-brand-primary" />
               <span>
                 {language === "vi"
-                  ? `Danh sách học viên & Đăng ký sân PT 1:1 (${groupedStudentCards.length} học viên)`
-                  : `1:1 PT Students & Court Booking (${groupedStudentCards.length} members)`}
+                  ? `Danh sách học viên & Đăng ký sân (${groupedStudentCards.length} học viên)`
+                  : `Students & Court Booking (${groupedStudentCards.length} members)`}
               </span>
             </h3>
 
@@ -1402,6 +1402,8 @@ export function CoachAssignedMembersView() {
                 const formatPkgName = (pkg) => {
                   const subjectName = String(pkg.subjectName || pkg.subject?.name || "").trim()
                   const packageName = String(pkg.packageName || "")
+                    .replace(/\bPT\s*1:1\b/gi, "")
+                    .replace(/[·•-]\s*$/g, "")
                     .replace(/^g[oó]i\s*#?\d+\s*[·:-]?\s*/i, "")
                     .trim()
                   if (subjectName && packageName) {
@@ -1412,10 +1414,10 @@ export function CoachAssignedMembersView() {
                   if (packageName) return packageName
                   if (subjectName) {
                     return pkg.subscriptionId
-                      ? `${subjectName} · PT 1:1`
+                      ? subjectName
                       : `${subjectName} (${t("coachPtAwaitingPackagePayment")})`
                   }
-                  return "PT 1:1"
+                  return t("coachPkgLabel")
                 }
 
                 return (
@@ -1781,7 +1783,7 @@ export function CoachAssignedMembersView() {
                 {rejectModalTarget.subjectName ||
                   (rejectModalTarget.subjectId
                     ? `Môn #${rejectModalTarget.subjectId}`
-                    : "PT 1:1")}
+                    : t("coachPkgLabel"))}
               </div>
               <div className="space-y-1.5">
                 <label
@@ -1841,7 +1843,7 @@ export function CoachAssignedMembersView() {
             <div className="flex items-center justify-between border-b border-border-color pb-3">
               <div>
                 <h3 className="text-lg leading-7 font-semibold text-text-primary">
-                  {language === "vi" ? "Gửi đề xuất lịch PT 1:1" : "Send a 1:1 PT schedule proposal"}
+                  {language === "vi" ? "Gửi đề xuất lịch & Đăng ký sân" : "Send schedule proposal & book court"}
                 </h3>
                 <p className="text-sm leading-5 text-text-secondary mt-0.5">
                   Học viên: <strong className="text-text-primary">{bookingReg.memberName || `Học viên #${bookingReg.memberId}`}</strong> &bull; Gói:{" "}

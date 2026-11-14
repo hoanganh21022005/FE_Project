@@ -109,7 +109,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           },
           {
             path: "/coach/assigned-members",
-            label: language === "vi" ? "Đăng ký sân PT 1:1" : "1:1 Court Booking",
+            label: language === "vi" ? "Đăng ký sân" : "Court Booking",
             icon: CalendarPlus,
           },
           {

@@ -2717,7 +2717,7 @@ export function ClassManagement() {
                                     <span>—</span>
                                   ) : enrolled < minCap ? (
                                     <span>
-                                      Cần thêm {minCap - enrolled} để mở lớp
+                                      Chưa đủ điều kiện mở
                                     </span>
                                   ) : enrolled >= capacity ? (
                                     <span className="text-emerald-700 font-medium">
@@ -2774,11 +2774,6 @@ export function ClassManagement() {
                                             .includes("bắn cung")
                                         ? 900000
                                         : 600000
-                              const sessionCount = cls.sessionCount ?? (apiEnabled ? null : 12)
-                              const perSession = resolvedPrice === null || sessionCount === null || sessionCount === 0
-                                ? null
-                                : Math.round(resolvedPrice / sessionCount / 1000) * 1000
-
                               return (
                                 <td className="py-4 px-4 align-middle whitespace-nowrap">
                                   <div className="space-y-0.5">
@@ -2789,9 +2784,6 @@ export function ClassManagement() {
                                         <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                           Miễn phí
                                         </div>
-                                        <div className="text-xs text-stone-500 tabular-nums">
-                                          0 đ / buổi
-                                        </div>
                                       </>
                                     ) : (
                                       <>
@@ -2800,10 +2792,6 @@ export function ClassManagement() {
                                             "vi-VN",
                                           )}{" "}
                                           đ
-                                        </div>
-                                        <div className="text-xs text-stone-500 tabular-nums">
-                                          ~{perSession?.toLocaleString("vi-VN") ?? "—"}{" "}
-                                          đ/buổi
                                         </div>
                                       </>
                                     )}

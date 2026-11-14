@@ -574,7 +574,7 @@ export const translations = {
 
     coachPtAcceptBtn: 'Chấp nhận',
     coachPtRejectBtn: 'Từ chối',
-    coachPtRejectModalTitle: 'Từ chối yêu cầu đăng ký PT 1:1',
+    coachPtRejectModalTitle: 'Từ chối yêu cầu đăng ký sân',
     coachPtRejectModalDesc: 'Vui lòng nhập lý do từ chối (tối thiểu 5 ký tự) để thông báo cho hội viên.',
     coachPtRejectReasonLabel: 'Lý do từ chối *',
     coachPtRejectReasonPlaceholder: 'VD: Trùng lịch dạy cố định vào khung giờ hội viên yêu cầu...',
@@ -591,7 +591,7 @@ export const translations = {
     coachOnlyCompletedSessionsHint: 'Chỉ hiển thị các buổi học đã hoàn thành để ghi nhận kết quả tập luyện.',
     coachNoCompletedSessions: 'Chưa có buổi học nào hoàn thành',
 
-    coachPkgLabel: 'Gói PT',
+    coachPkgLabel: 'Gói học',
     coachRemainingSessionsLabel: 'Số buổi còn lại',
     coachExpiryDateLabel: 'Hạn sử dụng',
     coachLoadOrNoteLabel: 'Tải trọng / Ghi chú',
@@ -1360,7 +1360,7 @@ export const translations = {
 
     coachPtAcceptBtn: 'Accept',
     coachPtRejectBtn: 'Reject',
-    coachPtRejectModalTitle: 'Reject 1:1 PT Registration Request',
+    coachPtRejectModalTitle: 'Reject court registration request',
     coachPtRejectModalDesc: 'Please provide a reason for rejection (at least 5 characters) to notify the member.',
     coachPtRejectReasonLabel: 'Rejection reason *',
     coachPtRejectReasonPlaceholder: 'E.g. Schedule conflict with fixed classes during the requested slot...',
@@ -1377,7 +1377,7 @@ export const translations = {
     coachOnlyCompletedSessionsHint: 'Only completed sessions are listed for logging training results.',
     coachNoCompletedSessions: 'No completed sessions available yet',
 
-    coachPkgLabel: 'PT Package',
+    coachPkgLabel: 'Packages',
     coachRemainingSessionsLabel: 'Remaining sessions',
     coachExpiryDateLabel: 'Expiry date',
     coachLoadOrNoteLabel: 'Load / Notes',
