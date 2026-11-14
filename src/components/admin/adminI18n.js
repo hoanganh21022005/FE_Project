@@ -202,6 +202,7 @@ const ADMIN_TEXT = {
     "common.noRecords": "Hệ thống chưa có bản ghi nào.",
     "common.loadingData": "Đang tải dữ liệu",
     "common.loadError": "Không thể tải dữ liệu",
+    "common.loadErrorFallback": "Không thể tải dữ liệu quản trị.",
     "common.noPermission": "Bạn không có quyền thực hiện thao tác này.",
     "common.closeAlert": "Đóng thông báo",
     "common.closeError": "Đóng thông báo lỗi",
@@ -565,6 +566,7 @@ const ADMIN_TEXT = {
     "common.noRecords": "No records found in the system.",
     "common.loadingData": "Loading data",
     "common.loadError": "Unable to load data",
+    "common.loadErrorFallback": "Could not load admin data.",
     "common.noPermission": "You do not have permission to perform this action.",
     "common.closeAlert": "Dismiss notification",
     "common.closeError": "Dismiss error",
@@ -971,4 +973,34 @@ export function formatAdminNumber(value, language = "vi") {
   } catch {
     return String(num)
   }
+}
+
+const VI_DEFAULT_STATUS_MESSAGES = {
+  "Không thể kết nối đến máy chủ. Kiểm tra kết nối mạng rồi thử lại.":
+    "Unable to connect to the server. Please check your network connection and try again.",
+  "Dữ liệu gửi lên không hợp lệ.": "The submitted data is invalid.",
+  "Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn.":
+    "You are not signed in or your session has expired.",
+  "Bạn không có quyền thực hiện thao tác này.":
+    "You do not have permission to perform this action.",
+  "Không tìm thấy dữ liệu được yêu cầu.": "The requested resource was not found.",
+  "Dữ liệu đang xung đột với thông tin hiện có.":
+    "The data conflicts with existing records.",
+  "Dữ liệu không vượt qua kiểm tra hợp lệ.":
+    "Validation failed for the submitted data.",
+  "Bạn đã gửi quá nhiều yêu cầu trong thời gian ngắn. Vui lòng chờ giây lát rồi thử lại.":
+    "Too many requests in a short time. Please wait a moment and try again.",
+  "Máy chủ gặp lỗi khi xử lý yêu cầu.":
+    "The server encountered an error while processing the request.",
+}
+
+export function formatAdminErrorMessage(error, language = "vi", fallbackKey = "common.loadErrorFallback") {
+  const lang = normalizeAdminLanguage(language)
+  const rawMessage = typeof error === "string" ? error.trim() : String(error?.message ?? "").trim()
+  if (lang === "en") {
+    if (!rawMessage) return getAdminText("en", fallbackKey)
+    if (VI_DEFAULT_STATUS_MESSAGES[rawMessage]) return VI_DEFAULT_STATUS_MESSAGES[rawMessage]
+    return rawMessage
+  }
+  return rawMessage || getAdminText("vi", fallbackKey)
 }

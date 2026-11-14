@@ -14,32 +14,13 @@ import { useAdminData } from "../AdminDataContext.jsx"
 import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { formatAdminDate, formatAdminDateTime } from "../adminDateUtils.js"
 import { formatAuditTarget } from "../adminAuditFormat.js"
-import { getAdminAuditActionLabel, getAdminText } from "../adminI18n.js"
+import { formatAdminErrorMessage, getAdminAuditActionLabel, getAdminText } from "../adminI18n.js"
 import { getAdminAuditLogs } from "../../../api/adminApi.js"
 
 // Ghi chú: Quy ước page tính từ 0 hay 1 là CHƯA XÁC NHẬN với Backend.
 // Đặt hằng số AUDIT_PAGE_BASE = 0 ở đây để dễ dàng thay đổi khi Backend chốt hợp đồng.
 export const AUDIT_PAGE_BASE = 0
 export const AUDIT_PAGE_SIZE = 20
-
-// Bảng ánh xạ nhãn tiếng Việt cho mã hành động
-export const AUDIT_ACTION_MAP = {
-  LOGIN: "Đăng nhập",
-  LOGIN_GOOGLE: "Đăng nhập qua Google",
-  REGISTER_MEMBER_GOOGLE: "Đăng ký hội viên qua Google",
-  REGISTER_MEMBER_PENDING: "Đăng ký hội viên",
-  VERIFY_MEMBER_REGISTRATION: "Xác minh đăng ký hội viên",
-  CREATE_USER: "Tạo tài khoản người dùng",
-  CHANGE_USER_ROLE: "Đổi vai trò người dùng",
-  REISSUE_TEMPORARY_PASSWORD: "Cấp lại mật khẩu tạm",
-  UPDATE_STAFF: "Cập nhật nhân viên",
-  CHANGE_USER_STATUS: "Đổi trạng thái tài khoản",
-  UPDATE_ROLE_PERMISSIONS: "Cập nhật quyền vai trò",
-  CREATE_INVOICE: "Tạo hóa đơn",
-  COLLECT_PAYMENT: "Thu tiền thanh toán",
-  ENROLL_CLASS: "Ghi danh lớp học",
-  ATTENDANCE_CORRECTION: "Điều chỉnh điểm danh",
-}
 
 const KNOWN_ACTIONS = [
   "LOGIN",
@@ -179,7 +160,7 @@ export function AdminAuditLogsView() {
           setIsForbidden(true)
           setError(getAdminText(language, "audit.forbiddenMsg"))
         } else {
-          setError(err?.message || getAdminText(language, "audit.loadErrorFallback"))
+          setError(formatAdminErrorMessage(err, language, "audit.loadErrorFallback"))
         }
       } finally {
         setLoading(false)
