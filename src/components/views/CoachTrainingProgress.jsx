@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useSCMS } from "../../context/SCMSContext"
 import { evaluationApi } from "../../api/evaluationApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { attendanceApi } from "../../api/attendanceApi"
+import { updateTrainingResultContent } from "../../api/trainingResultApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import { canLogResult } from "../../utils/permissions"
 import { formatDate, formatTime } from "../../utils/datetime"
@@ -36,6 +37,94 @@ import {
   Info,
   AlertCircle,
 } from "lucide-react"
+
+const RESULT_CONTENT_ERROR_MAP = {
+  RESULT_CONTENT_NOT_OPEN: {
+    vi: "Buổi tập chưa kết thúc nên chưa thể sửa nhận xét.",
+    en: "Session has not ended yet.",
+  },
+  RESULT_CONTENT_DEADLINE_PASSED: {
+    vi: "Đã hết hạn sửa nhận xét (chỉ được sửa trước 00:00 ngày hôm sau).",
+    en: "Edit window has expired (must be edited before 00:00 the next day).",
+  },
+  RESULT_CONTENT_FORBIDDEN: {
+    vi: "Chỉ huấn luyện viên được giao buổi tập và là tác giả bản ghi mới có quyền sửa nhận xét này.",
+    en: "Only the assigned coach who authored this record can edit it.",
+  },
+  RESULT_CONTENT_REQUIRED: {
+    vi: "Nhận xét không được để trống.",
+    en: "Comment cannot be empty.",
+  },
+  NORMAL_NOT_STARTED: {
+    vi: "Lớp Normal chưa khai giảng nên chưa thể sửa nhận xét.",
+    en: "Normal class has not started yet.",
+  },
+  SESSION_NOT_HELD: {
+    vi: "Buổi tập không diễn ra hoặc đã bị hủy.",
+    en: "Session was not held or was cancelled.",
+  },
+  SESSION_TIME_REQUIRED: {
+    vi: "Buổi tập chưa có thời gian kết thúc hợp lệ.",
+    en: "Session end time is required.",
+  },
+  ATTENDANCE_SUPERSEDED: {
+    vi: "Dữ liệu điểm danh của buổi tập đã được thay thế.",
+    en: "Attendance record has been superseded.",
+  },
+  NOT_YOUR_CLASS: {
+    vi: "Bạn không phụ trách lớp học này.",
+    en: "You are not assigned to this class.",
+  },
+}
+
+const translateTrainingResultContentError = (err, language) => {
+  const isVi = language === "vi"
+  const rawCode = err?.code || err?.details?.code || err?.response?.data?.code
+  if (rawCode && RESULT_CONTENT_ERROR_MAP[rawCode]) {
+    return RESULT_CONTENT_ERROR_MAP[rawCode][isVi ? "vi" : "en"]
+  }
+  const status = Number(err?.status ?? err?.response?.status) || 0
+  if (status === 404) {
+    return isVi
+      ? "Không tìm thấy bản ghi kết quả buổi tập."
+      : "Training result record not found."
+  }
+  if (status === 403) {
+    return isVi
+      ? "Bạn không có quyền sửa nhận xét này."
+      : "You do not have permission to edit this comment."
+  }
+  const fallback = isVi
+    ? "Không thể cập nhật nhận xét buổi tập."
+    : "Failed to update session comment."
+  const msg = getErrorMessage(err, fallback)
+  return rawCode && msg === rawCode ? fallback : msg
+}
+
+const getResultEditWindowState = (result, sessionById, nowMs = Date.now()) => {
+  const session =
+    result?.sessionId !== undefined && result?.sessionId !== null
+      ? sessionById.get(String(result.sessionId))
+      : null
+  const rawDate = String(result?.sessionDate || session?.sessionDate || "").trim()
+  const dateMatch = rawDate.match(/^(\d{4}-\d{2}-\d{2})/)
+  const rawEndTime = String(session?.endTime ?? session?.end_time ?? "").trim()
+  const timeMatch = rawEndTime.match(/^(\d{2}:\d{2})(?::(\d{2}))?/)
+  if (!dateMatch || !timeMatch) {
+    return { status: "unknown", canEdit: true }
+  }
+  const dateStr = dateMatch[1]
+  const hhmmss = `${timeMatch[1]}:${timeMatch[2] || "00"}`
+  const endMs = Date.parse(`${dateStr}T${hhmmss}+07:00`)
+  const midnightMs = Date.parse(`${dateStr}T00:00:00+07:00`)
+  if (!Number.isFinite(endMs) || !Number.isFinite(midnightMs)) {
+    return { status: "unknown", canEdit: true }
+  }
+  const deadlineMs = midnightMs + 24 * 60 * 60 * 1000
+  if (nowMs < endMs) return { status: "not_open", canEdit: false }
+  if (nowMs >= deadlineMs) return { status: "expired", canEdit: false }
+  return { status: "open", canEdit: true }
+}
 
 const parseStrictPositiveInt = (raw) => {
   if (raw === undefined || raw === null || raw === "") return null
@@ -193,6 +282,29 @@ export function CoachTrainingProgress() {
     }
     return ""
   })
+
+  // Edit existing training result comment state (L18)
+  const [editingResultId, setEditingResultId] = useState(null)
+  const [editingContent, setEditingContent] = useState("")
+  const [savingResultEdit, setSavingResultEdit] = useState(false)
+  const [editResultError, setEditResultError] = useState("")
+  const savingResultEditRef = useRef(false)
+  const editTextareaRef = useRef(null)
+  const editButtonRefs = useRef(new Map())
+  const returnFocusResultIdRef = useRef(null)
+
+  useEffect(() => {
+    if (editingResultId !== null && editTextareaRef.current) {
+      editTextareaRef.current.focus()
+    } else if (editingResultId === null && returnFocusResultIdRef.current !== null) {
+      const targetId = returnFocusResultIdRef.current
+      returnFocusResultIdRef.current = null
+      const btn = editButtonRefs.current.get(String(targetId))
+      if (btn && typeof btn.focus === "function") {
+        btn.focus()
+      }
+    }
+  }, [editingResultId])
   const [resultContent, setResultContent] = useState("")
   const [savingResult, setSavingResult] = useState(false)
 
@@ -492,6 +604,99 @@ export function CoachTrainingProgress() {
     if (!memberIdStr) return evaluations
     return evaluations.filter((ev) => String(ev.memberId) === memberIdStr)
   }, [evaluations, selectedMemberId, selectedStudent?.id])
+
+  const sessionById = useMemo(() => {
+    const map = new Map()
+    apiSessions.forEach((s) => {
+      if (s?.id !== undefined && s?.id !== null) {
+        map.set(String(s.id), s)
+      }
+    })
+    return map
+  }, [apiSessions])
+
+  const openResultEdit = (record) => {
+    const rid = record?.resultId ?? record?.id
+    if (!rid || savingResultEditRef.current) return
+    setEditingResultId(rid)
+    setEditingContent(typeof record?.content === "string" ? record.content : "")
+    setEditResultError("")
+  }
+
+  const closeResultEdit = (recordId) => {
+    if (savingResultEditRef.current) return
+    returnFocusResultIdRef.current = recordId ?? editingResultId
+    setEditingResultId(null)
+    setEditingContent("")
+    setEditResultError("")
+  }
+
+  const handleSaveResultEdit = async (record) => {
+    const rid = record?.resultId ?? record?.id
+    if (!rid || savingResultEditRef.current) return
+
+    const trimmed = editingContent.trim()
+    if (!trimmed) {
+      setEditResultError(
+        language === "vi"
+          ? "Nhận xét không được để trống."
+          : "Comment cannot be empty.",
+      )
+      return
+    }
+
+    if (trimmed === String(record?.content ?? "").trim()) {
+      closeResultEdit(rid)
+      return
+    }
+
+    savingResultEditRef.current = true
+    setSavingResultEdit(true)
+    setEditResultError("")
+    try {
+      const updated = await updateTrainingResultContent(rid, trimmed, {
+        notifyForbidden: false,
+      })
+      setApiResults((prev) =>
+        prev.map((item) =>
+          String(item?.resultId ?? item?.id) === String(rid)
+            ? { ...item, ...updated, content: updated.content ?? trimmed }
+            : item,
+        ),
+      )
+      returnFocusResultIdRef.current = rid
+      setEditingResultId(null)
+      setEditingContent("")
+      showToast?.(
+        language === "vi"
+          ? "Đã cập nhật nhận xét buổi tập."
+          : "Session comment updated.",
+        "success",
+      )
+      await loadAllProgressData()
+    } catch (err) {
+      setEditResultError(translateTrainingResultContentError(err, language))
+      const rawCode = err?.code || err?.details?.code || err?.response?.data?.code
+      const status = Number(err?.status ?? err?.response?.status) || 0
+      if (
+        status === 404 ||
+        [
+          "RESULT_CONTENT_DEADLINE_PASSED",
+          "RESULT_CONTENT_NOT_OPEN",
+          "RESULT_CONTENT_FORBIDDEN",
+          "SESSION_NOT_HELD",
+          "NORMAL_NOT_STARTED",
+          "ATTENDANCE_SUPERSEDED",
+          "NOT_YOUR_CLASS",
+        ].includes(rawCode)
+      ) {
+        await loadAllProgressData()
+      }
+    } finally {
+      savingResultEditRef.current = false
+      setSavingResultEdit(false)
+    }
+  }
 
   const studentResults = useMemo(() => {
     const memberIdStr = String(selectedMemberId || selectedStudent?.id || "")
@@ -1348,6 +1553,9 @@ export function CoachTrainingProgress() {
           {studentResults.length > 0 && (
             <div className="pt-3 border-t border-border-color space-y-2">
               {(showAllResults ? studentResults : studentResults.slice(0, 5)).map((r) => {
+                const rid = r.resultId ?? r.id
+                const isEditing = editingResultId !== null && String(editingResultId) === String(rid)
+                const windowState = getResultEditWindowState(r, sessionById)
                 const memberLabel =
                   r.memberName ||
                   availableStudents.find(
@@ -1359,21 +1567,113 @@ export function CoachTrainingProgress() {
                 const sessionLabel =
                   r.className ||
                   (r.sessionId ? `Buổi #${r.sessionId}` : "Buổi tập")
+                const editTextareaId = `edit-result-content-${rid}`
+                const editErrorId = `edit-result-error-${rid}`
                 return (
                   <div
-                    key={r.resultId || r.id}
-                    className="p-2.5 bg-bg-secondary border border-border-color rounded text-sm leading-5 flex items-center justify-between gap-2"
+                    key={rid}
+                    className="p-2.5 bg-bg-secondary border border-border-color rounded text-sm leading-5 space-y-2 min-w-0"
                   >
-                    <div>
-                      <div className="font-semibold text-text-primary">
-                        {memberLabel} &bull; {sessionLabel}
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-text-primary break-words">
+                          {memberLabel} &bull; {sessionLabel}
+                        </div>
+                        {!isEditing ? (
+                          <div className="text-text-secondary mt-0.5 break-words">{r.content}</div>
+                        ) : null}
                       </div>
-                      <div className="text-text-secondary mt-0.5">{r.content}</div>
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <CoachStatusBadge
+                          domain="attendance"
+                          value={r.attendanceStatus || "Present"}
+                        />
+                        {!isEditing && rid ? (
+                          windowState.canEdit ? (
+                            <button
+                              ref={(el) => {
+                                if (el) editButtonRefs.current.set(String(rid), el)
+                                else editButtonRefs.current.delete(String(rid))
+                              }}
+                              type="button"
+                              onClick={() => openResultEdit(r)}
+                              className="inline-flex min-h-11 items-center justify-center rounded border border-border-color bg-bg-card px-3 text-xs font-semibold leading-5 text-text-primary hover:bg-bg-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 cursor-pointer"
+                            >
+                              {language === "vi" ? "Sửa nhận xét" : "Edit comment"}
+                            </button>
+                          ) : (
+                            <span className="text-xs font-medium text-text-muted">
+                              {windowState.status === "not_open"
+                                ? language === "vi"
+                                  ? "Chưa đến lúc sửa"
+                                  : "Not open for editing yet"
+                                : language === "vi"
+                                  ? "Đã hết hạn sửa"
+                                  : "Edit window expired"}
+                            </span>
+                          )
+                        ) : null}
+                      </div>
                     </div>
-                    <CoachStatusBadge
-                      domain="attendance"
-                      value={r.attendanceStatus || "Present"}
-                    />
+
+                    {isEditing ? (
+                      <div className="space-y-2 pt-1">
+                        <label
+                          htmlFor={editTextareaId}
+                          className="block text-xs font-semibold text-text-primary"
+                        >
+                          {language === "vi" ? "Nội dung nhận xét" : "Comment content"}
+                        </label>
+                        <textarea
+                          ref={editTextareaRef}
+                          id={editTextareaId}
+                          rows={3}
+                          maxLength={4000}
+                          value={editingContent}
+                          disabled={savingResultEdit}
+                          aria-invalid={Boolean(editResultError)}
+                          aria-describedby={editResultError ? editErrorId : undefined}
+                          onChange={(e) => {
+                            setEditingContent(e.target.value)
+                            if (editResultError) setEditResultError("")
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") {
+                              e.preventDefault()
+                              closeResultEdit(rid)
+                            }
+                          }}
+                          className="w-full min-h-11 rounded border border-border-strong bg-bg-card px-3 py-2 text-sm leading-5 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:opacity-60"
+                        />
+                        {editResultError ? (
+                          <p
+                            id={editErrorId}
+                            role="alert"
+                            className="text-xs font-medium text-status-danger"
+                          >
+                            {editResultError}
+                          </p>
+                        ) : null}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={savingResultEdit}
+                            onClick={() => handleSaveResultEdit(r)}
+                            className="inline-flex min-h-11 items-center justify-center rounded bg-brand-primary px-4 text-sm font-semibold text-white hover:bg-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+                          >
+                            {language === "vi" ? "Lưu" : "Save"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={savingResultEdit}
+                            onClick={() => closeResultEdit(rid)}
+                            className="inline-flex min-h-11 items-center justify-center rounded border border-border-color bg-bg-card px-4 text-sm font-semibold text-text-primary hover:bg-bg-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+                          >
+                            {language === "vi" ? "Hủy" : "Cancel"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 )
               })}
