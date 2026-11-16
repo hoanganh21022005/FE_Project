@@ -67,6 +67,25 @@ test.describe('Member đăng ký khóa học: thanh toán và nút hủy (L23, L
     await expect(page.getByText(/chỉ nhận tiền mặt tại quầy lễ tân/).first()).toBeVisible();
   });
 
+  for (const [label, body] of [
+    ['có trường code', { code: 'NORMAL_REGISTRATION_CLOSED', message: 'NORMAL_REGISTRATION_CLOSED: Registration closes 48 hours before the first session' }],
+    ['chỉ có tiền tố trong message', { message: 'NORMAL_REGISTRATION_CLOSED: Registration closes 48 hours before the first session' }],
+  ]) {
+    test(`PAY-02b: Backend báo đóng đăng ký (${label}) vẫn hiện câu 48 giờ và khóa nút xác nhận`, async ({ page }) => {
+      await setup(page);
+      await page.route((url) => new URL(url).pathname === '/api/classes/51/enroll', (route) => route.fulfill({ status: 400, json: body }));
+      await navigateTo(page, '/member/catalog?tier=normal&sport=tennis');
+      await page.getByRole('button', { name: /Đăng ký lớp/ }).first().click();
+      const dialog = page.getByRole('dialog');
+      const confirm = dialog.getByRole('button').last();
+      await confirm.click();
+
+      await expect(dialog.getByText(/Đã đóng cổng đăng ký/)).toBeVisible({ timeout: 10000 });
+      await expect(dialog.getByText(/ít nhất 48 giờ/)).toBeVisible();
+      await expect(confirm).toBeDisabled();
+    });
+  }
+
   test('PAY-03: yêu cầu Advanced đang chờ không còn nút "Hủy yêu cầu"', async ({ page }) => {
     await setup(page, {
       registrations: [{ id: 21, memberId: 101, subjectId: 2, subjectName: 'Quần vợt (Tennis)', primaryCoachId: 6, primaryCoachName: 'HLV Quần vợt', status: 'Requested' }],

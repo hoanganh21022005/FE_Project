@@ -16,6 +16,9 @@ import { isValidNumericId } from '../../api/schemaValidators.js'
 import { COURSE_HERO_MEDIA, SPORT_MEDIA } from '../../data/memberCourseCatalog.js'
 import { hasSellablePrice, normalizeCatalogStatus, normalizeCatalogText, readAdmissionCapacity, resolveCatalogSubjects, verifyNormalCourseClass, coachIsActive, coachCanUseUnknownCapacity, coachMatchesSubject } from '../../utils/memberCourseCatalogRules.js'
 
+// Backend gửi NORMAL_REGISTRATION_CLOSED (bảng dịch lỗi chung có thể đổi chữ thành "Lớp đã đóng đăng ký").
+const REGISTRATION_CLOSED_PATTERN = /registration closes 48 hours before the first session|NORMAL_REGISTRATION_CLOSED|Lớp đã đóng đăng ký/i
+
 const SPORT_LABELS = {
   tennis: { vi: 'Quần vợt', en: 'Tennis' },
   swimming: { vi: 'Bơi lội', en: 'Swimming' },
@@ -727,7 +730,7 @@ export function MemberCourseCatalog() {
       const message = getErrorMessage(error, isVi ? 'Không gửi được đăng ký.' : 'Enrollment request failed.')
       setSubmittingError(/NORMAL_CASH_COUNTER_ONLY/.test(`${error?.code || ''} ${message}`)
         ? (isVi ? 'Lớp Normal chỉ nhận tiền mặt tại quầy lễ tân. Vui lòng thanh toán bằng VNPay hoặc đến quầy để đăng ký.' : 'Normal classes accept cash only at the front desk. Pay with VNPay or enroll at the counter.')
-        : /registration closes 48 hours before the first session/i.test(message)
+        : REGISTRATION_CLOSED_PATTERN.test(`${error?.code || ''} ${message}`)
         ? (isVi ? 'Đã đóng cổng đăng ký (chỉ nhận đăng ký trước buổi học đầu tiên ít nhất 48 giờ).' : message)
         : /normal registration requires 12 valid future sessions/i.test(message)
         ? (isVi ? 'Lớp học đã bắt đầu hoặc không còn đủ 12 buổi học trong tương lai nên không thể đăng ký mới. Vui lòng chọn lớp khác sắp khai giảng.' : 'The class has started or fewer than 12 future sessions remain. Please choose a class starting soon.')
@@ -1382,7 +1385,7 @@ return <article key={item.id} className="rounded-xl border border-slate-200 bg-w
       <div className="space-y-3 rounded-xl bg-slate-50 p-4 text-sm"><p className="text-lg font-bold text-slate-950">{confirmClass.name}</p><p className="text-slate-700">{selectedSubject?.name} · {confirmClass.coachName || (isVi ? 'Coach do trung tâm phân công' : 'Coach assigned by the center')}</p><p className="font-semibold text-slate-900">{formatMoney(confirmClass.tuitionFee, language)}</p><p className="text-slate-600">{isVi ? 'Đăng ký theo tài khoản đăng nhập hiện tại. Trạng thái lớp sẽ chuyển thành Đã đăng ký sau khi thanh toán được hệ thống xác nhận hợp lệ và hoàn tất đối soát.' : 'Enrollment uses your current account. Class status will become Registered once payment is confirmed and reconciled by the system.'}</p></div>
       <fieldset className="mt-4"><legend className="text-sm font-bold text-slate-900">{isVi ? 'Phương thức thanh toán' : 'Payment method'}</legend><div className="mt-2"><p className="flex min-h-11 items-center rounded-lg border border-brand-primary bg-brand-blue-soft px-3 text-sm font-semibold text-brand-primary">{isVi ? 'VNPay (Trực tuyến)' : 'VNPay (Online)'}</p></div></fieldset>
       {submittingError && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800" role="alert">{submittingError}</p>}
-      <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" disabled={submitting} onClick={() => setConfirmClass(null)} className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700">{isVi ? 'Để sau' : 'Cancel'}</button><button type="button" disabled={submitting || classRegistrationClosed(confirmClass) || /registration closes 48 hours before the first session|Đã đóng cổng đăng ký/i.test(submittingError) || !classVerification(confirmClass).eligible} onClick={handleNormalEnroll} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white disabled:bg-slate-300">{submitting && <LoaderCircle size={16} className="animate-spin" />}{isVi ? 'Gửi đăng ký' : 'Submit enrollment'}</button></div>
+      <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" disabled={submitting} onClick={() => setConfirmClass(null)} className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700">{isVi ? 'Để sau' : 'Cancel'}</button><button type="button" disabled={submitting || classRegistrationClosed(confirmClass) || REGISTRATION_CLOSED_PATTERN.test(submittingError) || /Đã đóng cổng đăng ký/.test(submittingError) || !classVerification(confirmClass).eligible} onClick={handleNormalEnroll} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white disabled:bg-slate-300">{submitting && <LoaderCircle size={16} className="animate-spin" />}{isVi ? 'Gửi đăng ký' : 'Submit enrollment'}</button></div>
     </CatalogDialog>}
 
     <footer className="flex items-start gap-2 rounded-xl bg-slate-100 p-4 text-[13px] leading-5 text-slate-700"><FileText size={16} className="mt-0.5 shrink-0 text-slate-500" />{isVi ? 'Giá học phí, trạng thái lớp, lịch học, HLV và kết quả thanh toán được cập nhật từ hệ thống. Các đơn ở trạng thái Chờ xử lý chưa được xem là đã thanh toán.' : 'Course prices, class statuses, schedules, coaches, and payment results are updated from the system. Pending orders are not considered paid.'}</footer>
