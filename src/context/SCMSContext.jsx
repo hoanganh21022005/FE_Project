@@ -1346,51 +1346,79 @@ export const SCMSProvider = ({ children }) => {
       }
     }
 
+    const AUTH_RESTORE_RETRY_DELAYS_MS = [1500, 3000, 6000, 10000, 15000]
+    const AUTH_RESTORE_MAX_WAIT_MS = 50000
+
     let active = true
     const requestEpoch = authRequestEpochRef.current
+    let retryTimerId = null
+    let maxWaitTimerId = null
     setAuthError(null)
-    const authTimeoutId = setTimeout(() => {
-      if (active && authRequestEpochRef.current === requestEpoch) {
+
+    const isCurrentAttempt = () =>
+      active && authRequestEpochRef.current === requestEpoch
+
+    maxWaitTimerId = setTimeout(() => {
+      if (isCurrentAttempt()) {
+        active = false
+        setAuthError(
+          getErrorMessage(
+            new Error("Không thể kết nối đến máy chủ. Vui lòng thử lại."),
+          ),
+        )
         setAuthLoading(false)
       }
-    }, 5000)
+    }, AUTH_RESTORE_MAX_WAIT_MS)
 
-    authApi
-      .getCurrentUser()
-      .then((user) => {
-        if (!active || authRequestEpochRef.current !== requestEpoch) return
-        const normalizedRole = normalizeRole(user?.role, { isApiMode: true })
-        if (!normalizedRole) {
-          setAuthUser(null)
-          setAuthError(UNSUPPORTED_ROLE_MESSAGE)
-          return
-        }
-        const normalizedUser = {
-          ...user,
-          role: normalizedRole,
-        }
-        setAuthUser(normalizedUser)
-        setRole(normalizedRole)
-      })
-      .catch((error) => {
-        if (
-          active &&
-          authRequestEpochRef.current === requestEpoch &&
-          !(error instanceof UnauthorizedError)
-        ) {
-          setAuthError(getErrorMessage(error))
-        }
-      })
-      .finally(() => {
-        clearTimeout(authTimeoutId)
-        if (active && authRequestEpochRef.current === requestEpoch) {
+    const attemptRestore = (attemptIndex = 0) => {
+      authApi
+        .getCurrentUser()
+        .then((user) => {
+          if (!isCurrentAttempt()) return
+          clearTimeout(maxWaitTimerId)
+          const normalizedRole = normalizeRole(user?.role, { isApiMode: true })
+          if (!normalizedRole) {
+            setAuthUser(null)
+            setAuthError(UNSUPPORTED_ROLE_MESSAGE)
+            setAuthLoading(false)
+            return
+          }
+          const normalizedUser = {
+            ...user,
+            role: normalizedRole,
+          }
+          setAuthUser(normalizedUser)
+          setRole(normalizedRole)
           setAuthLoading(false)
-        }
-      })
+        })
+        .catch((error) => {
+          if (!isCurrentAttempt()) return
+          if (error instanceof UnauthorizedError) {
+            clearTimeout(maxWaitTimerId)
+            setAuthLoading(false)
+            return
+          }
+          if (attemptIndex < AUTH_RESTORE_RETRY_DELAYS_MS.length) {
+            const delayMs = AUTH_RESTORE_RETRY_DELAYS_MS[attemptIndex]
+            retryTimerId = setTimeout(() => {
+              if (isCurrentAttempt()) {
+                attemptRestore(attemptIndex + 1)
+              }
+            }, delayMs)
+            return
+          }
+          clearTimeout(maxWaitTimerId)
+          setAuthError(getErrorMessage(error))
+          setAuthLoading(false)
+        })
+    }
+
+    attemptRestore(0)
 
     return () => {
       active = false
-      clearTimeout(authTimeoutId)
+      clearTimeout(retryTimerId)
+      clearTimeout(maxWaitTimerId)
       window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)
       window.removeEventListener(FORBIDDEN_EVENT, handleForbidden)
     }
