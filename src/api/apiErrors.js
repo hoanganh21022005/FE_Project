@@ -201,15 +201,19 @@ export function readBackendMessage(body, status = 0) {
     }
     const prefixMatch = raw.match(/^([A-Z][A-Z0-9_]{3,}):\s*(.*)$/);
     const resolvedCode = code || (prefixMatch ? prefixMatch[1] : '');
+    const strippedText = prefixMatch ? prefixMatch[2].trim() : raw;
     if (resolvedCode && BACKEND_CODE_MESSAGES[resolvedCode]) {
-      const textToInspect = prefixMatch ? prefixMatch[2].trim() : raw;
       const isPlainCodeOrNonVi =
         !raw ||
         raw.toUpperCase() === resolvedCode ||
-        !VIETNAMESE_DIACRITIC_REGEX.test(textToInspect);
+        !VIETNAMESE_DIACRITIC_REGEX.test(strippedText);
       if (isPlainCodeOrNonVi) {
         return BACKEND_CODE_MESSAGES[resolvedCode];
       }
+      return sanitizeBackendMessage(strippedText, status);
+    }
+    if (prefixMatch && VIETNAMESE_DIACRITIC_REGEX.test(strippedText)) {
+      return sanitizeBackendMessage(strippedText, status);
     }
   }
   return sanitizeBackendMessage(raw, status);
@@ -231,10 +235,16 @@ export function createApiError(status, body, fallbackMessage) {
       ? sanitizeBackendMessage(fallbackMessage, status) || fallback
       : fallback;
   const message = backendMessage || (status === 0 ? fallback : cleanFallback);
+  const inferredCode =
+    typeof body?.code === 'string' && body.code
+      ? body.code
+      : typeof body?.message === 'string'
+        ? body.message.trim().match(/^([A-Z][A-Z0-9_]{3,}):\s*/)?.[1] ?? null
+        : null;
   const options = {
     status,
     details: body,
-    code: typeof body?.code === 'string' ? body.code : null,
+    code: inferredCode,
   };
 
   if (status === 400 || status === 409 || status === 422) {
