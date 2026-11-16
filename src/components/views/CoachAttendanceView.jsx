@@ -25,12 +25,63 @@ import {
   Search,
   X,
   Check,
-  Clock,
   FileText,
   XCircle,
   Users,
   UserCheck,
 } from "lucide-react"
+
+function getAttendanceActionErrorMessage(err, language, fallbackVi, fallbackEn) {
+  const code = String(
+    err?.code ||
+      err?.details?.code ||
+      err?.details?.errorCode ||
+      err?.response?.data?.code ||
+      err?.response?.data?.errorCode ||
+      "",
+  )
+    .trim()
+    .toUpperCase()
+  const rawMessage = String(
+    err?.details?.message ||
+      err?.response?.data?.message ||
+      err?.message ||
+      "",
+  ).trim()
+  const upperMsg = rawMessage.toUpperCase()
+
+  if (code === "NORMAL_NOT_STARTED" || upperMsg.includes("NORMAL_NOT_STARTED")) {
+    if (
+      rawMessage &&
+      !upperMsg.includes("NORMAL_NOT_STARTED") &&
+      rawMessage !== code
+    ) {
+      return rawMessage
+    }
+    return language === "vi"
+      ? "Lớp học chưa khai giảng nên chưa thể điểm danh."
+      : "This class has not started yet, so attendance cannot be recorded."
+  }
+
+  if (
+    code === "ATTENDANCE_WINDOW_CLOSED" ||
+    upperMsg.includes("ATTENDANCE_WINDOW_CLOSED")
+  ) {
+    if (
+      rawMessage &&
+      !upperMsg.includes("ATTENDANCE_WINDOW_CLOSED") &&
+      rawMessage !== code
+    ) {
+      return rawMessage
+    }
+    return language === "vi"
+      ? "Đã hết thời gian điểm danh cho buổi học này."
+      : "The attendance window for this session has closed."
+  }
+
+  const fallback = language === "vi" ? fallbackVi : fallbackEn
+  return getErrorMessage(err, fallback)
+}
 
 export function CoachAttendanceView() {
   const {
@@ -259,6 +310,7 @@ export function CoachAttendanceView() {
       setSelectedSessionId("")
       if (typeof window !== "undefined") {
         sessionStorage.setItem("scms_selected_attendance_class_id", "PT_1ON1")
+        sessionStorage.removeItem("scms_selected_attendance_session_id")
       }
     } else {
       const firstNormal = normalClasses[0] || null
@@ -268,6 +320,7 @@ export function CoachAttendanceView() {
       if (typeof window !== "undefined") {
         if (nextId) sessionStorage.setItem("scms_selected_attendance_class_id", nextId)
         else sessionStorage.removeItem("scms_selected_attendance_class_id")
+        sessionStorage.removeItem("scms_selected_attendance_session_id")
       }
     }
   }
@@ -313,6 +366,7 @@ export function CoachAttendanceView() {
   const [searchQuery, setSearchQuery] = useState("")
   const [optimisticStatusMap, setOptimisticStatusMap] = useState({})
   const [savingStateByMember, setSavingStateByMember] = useState({})
+  const [rowErrorByMember, setRowErrorByMember] = useState({})
 
   const todayIso = useMemo(
     () =>
@@ -460,33 +514,21 @@ export function CoachAttendanceView() {
 
       setClassSessions(sortedSessions)
 
-      let targetSession = null
-
-      if (selectedSessionId) {
-        // Khi mở từ lịch hoặc F5 với cặp classId/sessionId cụ thể:
-        // Xác minh ĐÚNG cặp đó và quyền phân công thực tế của Coach.
-        targetSession = sortedSessions.find(
-          (s) => String(s.id) === String(selectedSessionId),
-        )
-        if (!targetSession) {
-          // Buổi không tồn tại trong lớp đã chọn hoặc cặp sai!
-          if (requestId !== rosterRequestId.current) return
-          setApiEnrollments([])
-          setApiAttendances([])
-          setClassTrainingPlans([])
-          setSessionTrainingResults([])
-          setSessionAbsenceNotices([])
-          setLoadedClassId(null)
-          setLoadedSessionId(null)
-          setRosterError(
-            new Error(
-              "Buổi học không tồn tại trong lớp đã chọn hoặc cặp lớp/buổi không hợp lệ.",
-            ),
+      let targetSession = selectedSessionId
+        ? sortedSessions.find(
+            (s) => String(s.id) === String(selectedSessionId),
           )
-          return
+        : null
+
+      if (selectedSessionId && !targetSession) {
+        // Buổi đang chọn/lưu không thuộc lớp hiện tại: xóa mã cũ để tự chọn lại buổi phù hợp
+        setSelectedSessionId("")
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("scms_selected_attendance_session_id")
         }
-      } else {
-        // CHỈ tự chọn buổi khi người dùng mở màn hình mà chưa chọn buổi cụ thể:
+      }
+
+      if (!targetSession) {
         const coachAssignedUpcoming = sortedSessions.find(
           (s) =>
             !isSessionCancelled(s) &&
@@ -836,8 +878,9 @@ export function CoachAttendanceView() {
       )
 
       const saveState = savingStateByMember[optKey] || null
+      const rowErrorMessage = rowErrorByMember[optKey] || ""
 
-      return { currentStatus, attendanceId, absenceNotice, saveState }
+      return { currentStatus, attendanceId, absenceNotice, saveState, rowErrorMessage }
     },
     [
       selectedSessionId,
@@ -849,6 +892,7 @@ export function CoachAttendanceView() {
       apiAttendances,
       sessionAbsenceNotices,
       savingStateByMember,
+      rowErrorByMember,
     ],
   )
 
@@ -951,6 +995,7 @@ export function CoachAttendanceView() {
       ...prev,
       [optKey]: "saving",
     }))
+    setRowErrorByMember(({ [optKey]: _, ...remaining }) => remaining)
 
     const apiStatusMap = {
       present: "Present",
@@ -990,6 +1035,12 @@ export function CoachAttendanceView() {
         [optKey]: "saved",
       }))
     } catch (err) {
+      const errorMsg = getAttendanceActionErrorMessage(
+        err,
+        language,
+        "Không thể lưu điểm danh. Đã hoàn tác trạng thái.",
+        "Could not save attendance. Status has been reverted.",
+      )
       setOptimisticStatusMap(({ [optKey]: _, ...remaining }) =>
         apiEnabled ? remaining : { ...remaining, [optKey]: prevStatus },
       )
@@ -997,13 +1048,11 @@ export function CoachAttendanceView() {
         ...prev,
         [optKey]: "error",
       }))
-      showToast?.(
-        getErrorMessage(
-          err,
-          "Không thể lưu điểm danh. Đã hoàn tác trạng thái.",
-        ),
-        "error",
-      )
+      setRowErrorByMember((prev) => ({
+        ...prev,
+        [optKey]: errorMsg,
+      }))
+      showToast?.(errorMsg, "error")
     }
   }
 
@@ -1055,7 +1104,15 @@ export function CoachAttendanceView() {
       )
     } catch (err) {
       if (requestId === rosterRequestId.current) await loadClassRosterAndAttendance()
-      showToast?.(getErrorMessage(err, "Không thể lưu điểm danh hàng loạt."), "error")
+      showToast?.(
+        getAttendanceActionErrorMessage(
+          err,
+          language,
+          "Không thể lưu điểm danh hàng loạt.",
+          "Could not save bulk attendance.",
+        ),
+        "error",
+      )
     } finally {
       setBulkSaving(false)
     }
@@ -1131,8 +1188,12 @@ export function CoachAttendanceView() {
       }
     } catch (err) {
       showToast?.(
-        err?.message ||
+        getAttendanceActionErrorMessage(
+          err,
+          language,
           "Không thể điểm danh cho mã hội viên / mã check-in này.",
+          "Could not record attendance for this member code / check-in code.",
+        ),
         "error",
       )
     } finally {
@@ -1226,13 +1287,19 @@ export function CoachAttendanceView() {
                 <select
                   value={selectedClass?.id || ""}
                   onChange={(e) => {
-                    setSelectedClassId(e.target.value)
+                    const nextClassId = e.target.value
+                    setSelectedClassId(nextClassId)
                     setSelectedSessionId("")
                     if (typeof window !== "undefined") {
-                      sessionStorage.setItem(
-                        "scms_selected_attendance_class_id",
-                        e.target.value,
-                      )
+                      if (nextClassId) {
+                        sessionStorage.setItem(
+                          "scms_selected_attendance_class_id",
+                          nextClassId,
+                        )
+                      } else {
+                        sessionStorage.removeItem("scms_selected_attendance_class_id")
+                      }
+                      sessionStorage.removeItem("scms_selected_attendance_session_id")
                     }
                   }}
                   className="min-h-11 w-full sm:w-auto rounded border border-border-strong bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
@@ -1546,14 +1613,6 @@ export function CoachAttendanceView() {
                 {t("coachAttendanceSummaryPresent")}: {summaryCounts.present}
               </span>
               <span>&bull;</span>
-              <span className="text-amber-300 font-semibold">
-                {t("coachAttendanceSummaryLate")}: {summaryCounts.late}
-              </span>
-              <span>&bull;</span>
-              <span className="text-sky-300 font-semibold">
-                {t("coachAttendanceSummaryExcused")}: {summaryCounts.excused}
-              </span>
-              <span>&bull;</span>
               <span className="text-rose-300 font-semibold">
                 {t("coachAttendanceSummaryAbsent")}: {summaryCounts.absent}
               </span>
@@ -1573,12 +1632,14 @@ export function CoachAttendanceView() {
           {!loadingRoster && rosterError && (
             <p role="alert" className="p-3 text-sm leading-5 text-status-danger bg-status-danger-bg border border-status-danger-border rounded">
               {rosterError.status === 403
-                ? language === "vi"
-                  ? "Bạn không có quyền xem danh sách học viên của lớp này."
-                  : "You do not have permission to view this class roster."
-                : language === "vi"
-                  ? "Không tải được danh sách học viên. Hãy thử làm mới."
-                  : "Could not load the class roster. Try refreshing."}
+                ? rosterError.message?.trim() ||
+                  (language === "vi"
+                    ? "Bạn không có quyền xem danh sách học viên của lớp này."
+                    : "You do not have permission to view this class roster.")
+                : rosterError.message?.trim() ||
+                  (language === "vi"
+                    ? "Không tải được danh sách học viên. Hãy thử làm mới."
+                    : "Could not load the class roster. Try refreshing.")}
             </p>
           )}
           {!loadingRoster && (attendancesError || trainingResultsError) && (
@@ -1633,6 +1694,7 @@ export function CoachAttendanceView() {
                 attendanceId,
                 absenceNotice,
                 saveState,
+                rowErrorMessage,
               } = getMemberStatusAndMeta(m)
 
               return (
@@ -1675,7 +1737,7 @@ export function CoachAttendanceView() {
                       )}
                       {saveState === "error" && (
                         <span className="text-xs leading-4 font-mono text-status-danger">
-                          {t("coachErrorRow")}
+                          {rowErrorMessage || t("coachErrorRow")}
                         </span>
                       )}
                     </div>
@@ -1691,7 +1753,7 @@ export function CoachAttendanceView() {
                   <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
                     {/* R1.1 & R1.5: 4 one-touch buttons on 1 single row even at 375px */}
                     {allowCheckIn && !sessionCancelled && hasSessionPermission ? (
-                      <div className={`grid ${apiEnabled ? "grid-cols-2" : "grid-cols-4"} gap-1 w-full sm:w-auto`}>
+                      <div className="grid grid-cols-2 gap-1 w-full sm:w-auto">
                         {[
                           {
                             key: "present",
@@ -1702,22 +1764,6 @@ export function CoachAttendanceView() {
                               "bg-status-success-bg text-status-success border-status-success-border ring-1 ring-inset ring-status-success-border",
                           },
                           {
-                            key: "late",
-                            label: t("coachStatusLate"),
-                            shortLabel: "Đi trễ",
-                            Icon: Clock,
-                            activeCls:
-                              "bg-status-warning-bg text-status-warning border-status-warning-border ring-1 ring-inset ring-status-warning-border",
-                          },
-                          {
-                            key: "excused",
-                            label: t("coachStatusExcused"),
-                            shortLabel: "Có phép",
-                            Icon: FileText,
-                            activeCls:
-                              "bg-status-info-bg text-status-info border-status-info-border ring-1 ring-inset ring-status-info-border",
-                          },
-                          {
                             key: "absent",
                             label: t("coachStatusAbsent"),
                             shortLabel: "Vắng",
@@ -1725,7 +1771,7 @@ export function CoachAttendanceView() {
                             activeCls:
                               "bg-status-danger-bg text-status-danger border-status-danger-border ring-1 ring-inset ring-status-danger-border",
                           },
-                          ].filter((btn) => !apiEnabled || ["present", "absent"].includes(btn.key)).map((btn) => {
+                        ].map((btn) => {
                           const isSelected = currentStatus === btn.key
                           const IconComp = btn.Icon
                           return (
