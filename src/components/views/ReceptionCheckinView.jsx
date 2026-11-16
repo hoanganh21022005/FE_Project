@@ -250,7 +250,7 @@ export function ReceptionCheckinView() {
               <select
                 value={scanMemberId}
                 onChange={(e) => setScanMemberId(e.target.value)}
-                className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
+                className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
               >
                 <option value="">-- Chọn hội viên --</option>
                 {members.map((m) => (
@@ -270,7 +270,7 @@ export function ReceptionCheckinView() {
                 value={scanCode}
                 onChange={(e) => setScanCode(e.target.value)}
                 placeholder="VD: SCMS-CHK-1029..."
-                className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400"
+                className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400"
               />
             </div>
 
@@ -297,7 +297,7 @@ export function ReceptionCheckinView() {
                   sessionError ? "reception-scan-session-error" : undefined
                 }
                 placeholder="Nhập mã buổi học (VD: 12)"
-                className={`h-10 w-full rounded-xl border bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400 ${
+                className={`min-h-11 w-full rounded-xl border bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400 ${
                   sessionError ? "border-status-danger" : "border-slate-300"
                 }`}
               />
@@ -345,7 +345,7 @@ export function ReceptionCheckinView() {
               <select
                 value={stateFilter}
                 onChange={(e) => setStateFilter(e.target.value)}
-                className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 cursor-pointer"
+                className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 cursor-pointer"
               >
                 <option value="all">Tất cả trạng thái</option>
                 <option value="Present">Present (Có mặt)</option>
@@ -357,7 +357,7 @@ export function ReceptionCheckinView() {
                 type="button"
                 onClick={loadAttendances}
                 disabled={loadingAttendances}
-                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors cursor-pointer"
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors cursor-pointer"
               >
                 <RefreshCw
                   className={`w-3.5 h-3.5 ${

@@ -147,4 +147,44 @@ test.describe('L05 & L04: Lễ tân quét QR bắt buộc chọn buổi & ẩn c
 
     await expect(page.locator('#reception-scan-session-error')).toContainText(/Thiếu mã buổi học/i, { timeout: 5000 });
   });
+
+  test('W-A2b AC1: Vùng bấm các ô nhập và nút ở tab QR >= 44px ở 1280x720 và 375x667', async ({ page }) => {
+    await setupDefaultApiMocks(page, ['/api/classes']);
+
+    await page.route((url) => isApiMatch(url, 'members'), async (route) => {
+      if (route.request().method() === 'GET') {
+        return route.fulfill({ status: 200, json: mockMembers });
+      }
+      return route.fallback();
+    });
+
+    await page.route((url) => isApiMatch(url, 'attendances'), async (route) => {
+      const req = route.request();
+      const pathname = new URL(req.url()).pathname;
+      if (pathname === '/api/attendances' && req.method() === 'GET') {
+        return route.fulfill({ status: 200, json: [] });
+      }
+      return route.fallback();
+    });
+
+    await loginAs(page, 'receptionist');
+    await navigateTo(page, '/receptionist/checkin');
+
+    const memberSelect = page.locator('form select').first();
+    const codeInput = page.getByPlaceholder(/SCMS-CHK/i);
+    const sessionInput = page.locator('#reception-scan-session-id');
+    const submitBtn = page.getByRole('button', { name: /Xác Nhận Quét Mã QR Check-in/i });
+
+    for (const vp of [
+      { width: 1280, height: 720 },
+      { width: 375, height: 667 },
+    ]) {
+      await page.setViewportSize(vp);
+      await expect(memberSelect).toBeVisible({ timeout: 10000 });
+      expect((await memberSelect.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+      expect((await codeInput.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+      expect((await sessionInput.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+      expect((await submitBtn.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    }
+  });
 });
