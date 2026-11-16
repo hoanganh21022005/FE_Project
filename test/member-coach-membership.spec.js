@@ -16,8 +16,21 @@ const subscription = {
   startDate: '2026-11-10', endDate: '2026-12-25',
 };
 
+// Sau khi đăng nhập, ngữ cảnh ứng dụng tải thêm đăng ký lớp và hóa đơn của Member. Thời điểm gọi
+// phụ thuộc tốc độ máy nên phải mock sẵn mặc định (rỗng); ca nào cần dữ liệu riêng thì đăng ký
+// route sau để ghi đè. Nếu không, ca hoàn tất sớm thì lọt, ca chậm thì bị chốt chặn request ngoài
+// mock báo lỗi.
+async function mockMemberBackgroundData(page) {
+  const empty = ['/api/members/101/enrollments', '/api/members/me/invoices'];
+  await page.route((url) => empty.includes(new URL(url).pathname), (r) => {
+    if (r.request().method() !== 'GET') return r.fallback();
+    return r.fulfill({ status: 200, json: [] });
+  });
+}
+
 async function mockCommon(page) {
   await setupDefaultApiMocks(page, ['/api/public/subjects', '/api/classes']);
+  await mockMemberBackgroundData(page);
   await page.route((url) => isApiMatch(url, 'subjects'), (r) => r.fulfill({ status: 200, json: subjects }));
   await page.route((url) => isApiMatch(url, 'coaches') && new URL(url).pathname === '/api/coaches', (r) => r.fulfill({ status: 200, json: coaches }));
   // Route đăng ký sau cùng được ưu tiên: ca nào cần dữ liệu riêng sẽ ghi đè mock rỗng này.
@@ -51,6 +64,7 @@ test.describe('Member: danh bạ HLV và tên môn/HLV của gói (L03, L06)', (
 
   test('MEMB-02: tra tên lỗi thì giữ nhãn mã, không làm hỏng trang', async ({ page }) => {
     await setupDefaultApiMocks(page, ['/api/public/subjects', '/api/classes']);
+    await mockMemberBackgroundData(page);
     await page.route((url) => isApiMatch(url, 'subjects'), (r) => r.fulfill({ status: 500, json: { message: 'lỗi' } }));
     await page.route((url) => isApiMatch(url, 'coaches') && new URL(url).pathname === '/api/coaches', (r) => r.fulfill({ status: 500, json: { message: 'lỗi' } }));
     await page.route((url) => new URL(url).pathname === '/api/members/101/subscriptions', (r) => r.fulfill({ status: 200, json: [subscription] }));
