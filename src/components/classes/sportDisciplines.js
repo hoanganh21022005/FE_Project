@@ -224,6 +224,14 @@ export const SPORT_DISCIPLINES = [
     ],
   },
   {
+    id: "swimming",
+    name: "Bơi lội",
+    codePrefix: "BL",
+    defaultDuration: 60,
+    defaultCapacity: 12,
+    courts: [],
+  },
+  {
     id: "tennis",
     name: "Quần vợt",
     codePrefix: "QV",
