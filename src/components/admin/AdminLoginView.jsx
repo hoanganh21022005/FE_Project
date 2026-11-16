@@ -188,7 +188,9 @@ export function AdminLoginView({ onLoginSuccess, initialDenied = false }) {
       email: trimmedEmail,
       password,
       members,
-      demoPassword: import.meta.env.VITE_DEMO_PASSWORD || "Scms@2026",
+      demoPassword:
+        import.meta.env.VITE_DEMO_PASSWORD ||
+        (import.meta.env.MODE === "mock" ? "Scms@2026" : null),
     })
 
     if (!mockUser) {

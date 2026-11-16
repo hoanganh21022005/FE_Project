@@ -56,7 +56,9 @@ import {
 } from "lucide-react"
 
 const DEMO_EMAIL = "manager@scms.com"
-const DEMO_PASSWORD = "Scms@2026"
+// Mật khẩu demo chỉ có trong bản build chế độ giả (vite --mode mock). Bản build thật nhận null,
+// nên chuỗi không lọt vào bundle và không mật khẩu nào khớp với null.
+const DEMO_PASSWORD = import.meta.env.MODE === "mock" ? "Scms@2026" : null
 const REGISTRATION_OTP_REQUEST_TIMEOUT_MS = 30000
 const RECENT_EMAILS_KEY = "scms_recent_login_emails"
 const EMAIL_DOMAIN_SUGGESTIONS = [
@@ -643,8 +645,8 @@ export function LoginView({
 
     setLoginError(
       isVi
-        ? "Thông tin đăng nhập không chính xác. Mật khẩu demo: Scms@2026"
-        : "Incorrect sign-in details. Demo password: Scms@2026",
+        ? `Thông tin đăng nhập không chính xác.${DEMO_PASSWORD ? ` Mật khẩu demo: ${DEMO_PASSWORD}` : ""}`
+        : `Incorrect sign-in details.${DEMO_PASSWORD ? ` Demo password: ${DEMO_PASSWORD}` : ""}`,
     )
   }
 
