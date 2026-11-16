@@ -38,7 +38,7 @@ export function isApiMatch(url, endpoint) {
 export async function setupDefaultApiMocks(page, auxiliaryPaths = []) {
   // Auxiliary GETs are explicitly mocked; other requests hit the test guard.
   const paths = ['subjects', 'rooms', 'coaches', 'staff', 'packages', 'notifications'].map((path) => `/api/${path}`);
-  paths.push('/api/notifications/me', '/api/reports/dashboard', '/api/audit-logs', ...auxiliaryPaths);
+  paths.push('/api/notifications/me', '/api/reports/dashboard', '/api/audit-logs', '/api/normal-refunds', ...auxiliaryPaths);
   await page.route((url) => url.origin === testOrigin && paths.includes(url.pathname), async (route) => {
     if (route.request().method() !== 'GET') return route.fallback();
     return route.fulfill({ status: 200, json: [] });
