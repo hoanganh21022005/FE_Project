@@ -116,6 +116,68 @@ export function sanitizeBackendMessage(rawMessage, status = 0) {
   return msg;
 }
 
+export const BACKEND_CODE_MESSAGES = {
+  NORMAL_CASH_COUNTER_ONLY:
+    'Lớp Normal chỉ nhận tiền mặt tại quầy lễ tân. Vui lòng thanh toán bằng VNPay hoặc đến quầy để đăng ký.',
+  LOBBY_CHECKIN_DISABLED:
+    'Check-in thủ công tại quầy hiện đã tắt. Vui lòng quét mã QR theo buổi học.',
+  SESSION_REQUIRED:
+    'Thiếu mã buổi học. Vui lòng chọn buổi học trước khi quét mã.',
+  NORMAL_NOT_STARTED:
+    'Lớp học chưa khai giảng nên chưa thể thực hiện thao tác này.',
+  ATTENDANCE_WINDOW_CLOSED:
+    'Đã hết thời gian điểm danh cho buổi học này.',
+  NORMAL_PROPOSAL_STALE:
+    'Đề xuất đã thay đổi. Vui lòng tải lại để xem phiên bản mới nhất.',
+  NORMAL_VERSION_STALE:
+    'Thông tin lớp đã thay đổi. Vui lòng tải lại rồi thử lại.',
+  NORMAL_CHANGE_PENDING:
+    'Lớp đang có một đề xuất thay đổi chưa xử lý xong.',
+  NORMAL_CHOICE_ALREADY_RECORDED:
+    'Bạn đã chọn khác cho đề xuất này trước đó.',
+  MEMBER_RESPONSES_PENDING:
+    'Vẫn còn học viên chưa phản hồi đề xuất. Không phản hồi không được tính là đồng ý.',
+  REFUND_VERSION_STALE:
+    'Hồ sơ hoàn tiền vừa được cập nhật. Vui lòng tải lại rồi thử lại.',
+  REFUND_CLAIM_EXISTS:
+    'Hồ sơ này đã có giao dịch chuyển khoản đang xử lý. Cần đối soát trước khi nhận lại.',
+  REFUND_APPROVAL_REQUIRED:
+    'Hồ sơ hoàn tiền chưa được duyệt tài khoản nhận.',
+  ATTEMPT_NOT_EDITABLE:
+    'Giao dịch chuyển khoản này không còn chỉnh sửa được.',
+  REFUND_AMOUNT_MISMATCH:
+    'Số tiền phải đúng bằng số tiền hoàn đã duyệt (VND).',
+  REFUND_TIME_INVALID:
+    'Thời điểm chuyển khoản phải nằm giữa lúc nhận việc và hiện tại.',
+  BANK_REFERENCE_REUSED:
+    'Mã tham chiếu chuyển khoản này đã được dùng cho giao dịch khác.',
+  DOCUMENT_TYPE_INVALID:
+    'Chứng từ phải là ảnh PNG, JPEG hoặc tệp PDF.',
+  DOCUMENT_SIZE_INVALID:
+    'Chứng từ phải lớn hơn 0 và tối đa 5 MB.',
+  RECEIVER_INVALID:
+    'Thông tin tài khoản nhận chưa hợp lệ. Số tài khoản gồm 4 đến 40 chữ cái hoặc chữ số.',
+  REFUND_BANK_ATTEMPT_EXISTS:
+    'Khoản này đã có giao dịch chuyển khoản, không thể đổi tài khoản nhận.',
+  RESULT_CONTENT_NOT_OPEN:
+    'Buổi học chưa kết thúc, chưa thể sửa nhận xét.',
+  RESULT_CONTENT_DEADLINE_PASSED:
+    'Đã hết hạn sửa nhận xét của buổi học này.',
+  RESULT_CONTENT_FORBIDDEN:
+    'Chỉ Coach được giao buổi học và là người ghi nhận xét mới được sửa.',
+  CLASS_FULL: 'Lớp đã đủ chỗ.',
+  ALREADY_ENROLLED: 'Bạn đã đăng ký lớp này.',
+  SCHEDULE_CONFLICT:
+    'Lịch học bị trùng với lịch khác. Vui lòng chọn lớp hoặc khung giờ khác.',
+  NORMAL_REGISTRATION_CLOSED: 'Lớp đã đóng đăng ký.',
+  BOOKING_BLOCKED:
+    'Tài khoản đang bị tạm khóa đặt lịch. Vui lòng liên hệ quầy lễ tân.',
+  HOLIDAY_BLOCKED: 'Ngày này là ngày nghỉ của trung tâm.',
+};
+
+const VIETNAMESE_DIACRITIC_REGEX =
+  /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]/;
+
 export function readBackendMessage(body, status = 0) {
   let raw = '';
   if (typeof body === 'string' && body.trim()) {
@@ -135,6 +197,18 @@ export function readBackendMessage(body, status = 0) {
       if (typeof value === 'string' && value.trim()) {
         raw = value.trim();
         break;
+      }
+    }
+    const prefixMatch = raw.match(/^([A-Z][A-Z0-9_]{3,}):\s*(.*)$/);
+    const resolvedCode = code || (prefixMatch ? prefixMatch[1] : '');
+    if (resolvedCode && BACKEND_CODE_MESSAGES[resolvedCode]) {
+      const textToInspect = prefixMatch ? prefixMatch[2].trim() : raw;
+      const isPlainCodeOrNonVi =
+        !raw ||
+        raw.toUpperCase() === resolvedCode ||
+        !VIETNAMESE_DIACRITIC_REGEX.test(textToInspect);
+      if (isPlainCodeOrNonVi) {
+        return BACKEND_CODE_MESSAGES[resolvedCode];
       }
     }
   }
