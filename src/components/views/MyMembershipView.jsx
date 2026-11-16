@@ -5,6 +5,8 @@ import { useSCMS } from "../../context/SCMSContext"
 import { membershipApi } from "../../api/membershipApi"
 import { invoiceApi } from "../../api/invoiceApi"
 import { classEnrollmentApi } from "../../api/classEnrollmentApi"
+import { getMemberSubjectCatalog } from "../../api/subjectCatalogApi"
+import { memberPortalApi } from "../../api/memberPortalApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { partitionMemberMembershipData } from "../../utils/memberMembershipData"
@@ -92,6 +94,9 @@ export function MyMembershipView() {
   const [historySearch, setHistorySearch] = useState("")
   const [copiedInvoiceId, setCopiedInvoiceId] = useState("")
   const [copyTimer, setCopyTimer] = useState(null)
+  // Tên môn/HLV tra từ danh mục (API gói chỉ trả subjectId, primaryCoachId). Lỗi thì giữ nhãn mã như cũ.
+  const [subjectNames, setSubjectNames] = useState({})
+  const [coachNames, setCoachNames] = useState({})
   const load = useCallback(async () => {
     if (!apiEnabled || !memberId) {
       const message = !apiEnabled ? "Trang này cần kết nối máy chủ để hiển thị quyền hội viên." : "Không tìm thấy memberId của phiên đăng nhập; dữ liệu hội viên chưa được tải."
@@ -119,7 +124,29 @@ export function MyMembershipView() {
     }))
   }, [apiEnabled, memberId])
   useEffect(() => { load() }, [load, reloadKey])
-  const partition = useMemo(() => partitionMemberMembershipData(data), [data])
+  useEffect(() => {
+    if (!apiEnabled || !memberId) return undefined
+    let active = true
+    const toNameMap = (list) => Object.fromEntries((Array.isArray(list) ? list : [])
+      .filter((row) => row?.id != null && row?.name)
+      .map((row) => [String(row.id), row.name]))
+    getMemberSubjectCatalog().then((list) => { if (active) setSubjectNames(toNameMap(list)) }).catch(() => {})
+    memberPortalApi.getCoaches({}, { notifyForbidden: false }).then((list) => { if (active) setCoachNames(toNameMap(list)) }).catch(() => {})
+    return () => { active = false }
+  }, [apiEnabled, memberId])
+  const namedData = useMemo(() => ({
+    ...data,
+    subscriptions: data.subscriptions.map((item) => ({
+      ...item,
+      subjectName: item.subjectName || subjectNames[String(item.subjectId)] || item.subjectName,
+      primaryCoachName: item.primaryCoachName || coachNames[String(item.primaryCoachId)] || item.primaryCoachName,
+    })),
+    enrollments: data.enrollments.map((item) => ({
+      ...item,
+      subjectName: item.subjectName || subjectNames[String(item.subjectId)] || item.subjectName,
+    })),
+  }), [data, subjectNames, coachNames])
+  const partition = useMemo(() => partitionMemberMembershipData(namedData), [namedData])
   const activeNormalCount = useMemo(
     () => data.enrollments.filter((row) => isActiveNormalEnrollment(row)).length,
     [data.enrollments],
