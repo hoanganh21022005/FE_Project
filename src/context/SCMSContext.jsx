@@ -1493,21 +1493,7 @@ export const SCMSProvider = ({ children }) => {
     let active = true
 
     const resolveAuthoritativeCoach = async () => {
-      // 1. Try GET /api/coaches/me
-      try {
-        const myProfile = await memberPortalApi.getCoachProfileMe()
-        const cId = Number(myProfile?.id ?? myProfile?.coachId)
-        if (active && Number.isInteger(cId) && cId > 0) {
-          setAuthUser((prev) =>
-            prev && !prev.coachId ? { ...prev, coachId: cId } : prev,
-          )
-          return
-        }
-      } catch {
-        // Fallback to /api/coaches
-      }
-
-      // 2. Try GET /api/coaches
+      // 1. Try GET /api/coaches
       try {
         const coachList = await memberPortalApi.getCoaches()
         if (active && Array.isArray(coachList) && coachList.length > 0) {
@@ -1586,31 +1572,48 @@ export const SCMSProvider = ({ children }) => {
       fetchMembers(
         authUser.role === ROLE_COACH ? { notifyForbidden: false } : undefined,
       ).catch(() => {})
-      fetchStaff().catch(() => {})
+      if (authUser.role !== ROLE_COACH) {
+        fetchStaff().catch(() => {})
+      }
     }
     if (authUser.role !== ROLE_MANAGER && authUser.role !== ROLE_ADMIN) {
       Promise.all([
         managerApi.getSubjects({ notifyForbidden: false }).catch(() => []),
         authUser.role === ROLE_MEMBER
           ? Promise.resolve([])
-          : staffApi
-              .getStaff({ notifyForbidden: false })
-              .catch(() =>
-                memberPortalApi
-                  .getCoaches()
-                  .then((list) =>
-                    Array.isArray(list)
-                      ? list.map((c) => ({
-                          id: c.id,
-                          name: c.name,
-                          email: c.email || "",
-                          role: "coach",
-                          status: String(c.status || "active").toLowerCase(),
-                        }))
-                      : [],
-                  )
-                  .catch(() => []),
-              ),
+          : authUser.role === ROLE_COACH
+            ? memberPortalApi
+                .getCoaches()
+                .then((list) =>
+                  Array.isArray(list)
+                    ? list.map((c) => ({
+                        id: c.id,
+                        name: c.name,
+                        email: c.email || "",
+                        role: "coach",
+                        status: String(c.status || "active").toLowerCase(),
+                      }))
+                    : [],
+                )
+                .catch(() => [])
+            : staffApi
+                .getStaff({ notifyForbidden: false })
+                .catch(() =>
+                  memberPortalApi
+                    .getCoaches()
+                    .then((list) =>
+                      Array.isArray(list)
+                        ? list.map((c) => ({
+                            id: c.id,
+                            name: c.name,
+                            email: c.email || "",
+                            role: "coach",
+                            status: String(c.status || "active").toLowerCase(),
+                          }))
+                        : [],
+                    )
+                    .catch(() => []),
+                ),
         managerApi.getRooms({ notifyForbidden: false }).catch(() => []),
         managerApi.getPackages({ notifyForbidden: false }).catch(() => []),
       ])

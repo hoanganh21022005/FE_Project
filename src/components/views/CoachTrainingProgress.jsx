@@ -136,26 +136,6 @@ export function CoachTrainingProgress() {
 
   const resolvedCoachId = contextCoachId ?? fetchedCoachId
 
-  useEffect(() => {
-    if (!apiEnabled || contextCoachId) return
-    let active = true
-    setLoadingCoachProfile(true)
-    memberPortalApi
-      .getCoachProfileMe()
-      .then((profile) => {
-        if (!active) return
-        const cId = parseStrictPositiveInt(profile?.id ?? profile?.coachId)
-        if (cId) setFetchedCoachId(cId)
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setLoadingCoachProfile(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [apiEnabled, contextCoachId])
-
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== "undefined") {
       const savedTab = sessionStorage.getItem("scms_selected_progress_tab")
@@ -593,20 +573,6 @@ export function CoachTrainingProgress() {
     }
 
     let finalCoachId = parseStrictPositiveInt(resolvedCoachId)
-    if (apiEnabled && !finalCoachId) {
-      try {
-        const myProfile = await memberPortalApi.getCoachProfileMe()
-        const fetchedId = parseStrictPositiveInt(
-          myProfile?.id ?? myProfile?.coachId,
-        )
-        if (fetchedId) {
-          setFetchedCoachId(fetchedId)
-          finalCoachId = fetchedId
-        }
-      } catch {
-        // Handled by check below
-      }
-    }
 
     if (apiEnabled && (!finalCoachId || !Number.isInteger(finalCoachId))) {
       const msg =

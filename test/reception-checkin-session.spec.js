@@ -67,7 +67,7 @@ test.describe('L05 & L04: Lễ tân quét QR bắt buộc chọn buổi & ẩn c
       if (pathname === '/api/attendances' && req.method() === 'GET') {
         return route.fulfill({ status: 200, json: [] });
       }
-      if ((pathname === '/api/attendances/qr-checkin' || pathname === '/api/attendances/scan') && req.method() === 'POST') {
+      if (pathname === '/api/attendances/scan' && req.method() === 'POST') {
         scanPayloads.push(req.postDataJSON());
         return route.fulfill({
           status: 200,
@@ -125,7 +125,7 @@ test.describe('L05 & L04: Lễ tân quét QR bắt buộc chọn buổi & ẩn c
       if (pathname === '/api/attendances' && req.method() === 'GET') {
         return route.fulfill({ status: 200, json: [] });
       }
-      if (pathname === '/api/attendances/qr-checkin' && req.method() === 'POST') {
+      if (pathname === '/api/attendances/scan' && req.method() === 'POST') {
         return route.fulfill({
           status: 400,
           json: {
