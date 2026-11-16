@@ -2144,7 +2144,7 @@ export const SCMSProvider = ({ children }) => {
     return newTx
   }
 
-  const bookClass = async (classId, memberId) => {
+  const bookClass = async (classId, memberId, paymentMethod) => {
     const requestedMemberId = Number(memberId)
     const effectiveMemberId = API_ENABLED
       ? Number.isInteger(requestedMemberId) && requestedMemberId > 0
@@ -2167,6 +2167,7 @@ export const SCMSProvider = ({ children }) => {
         const result = await classEnrollmentApi.enrollMemberInClass(
           classId,
           effectiveMemberId,
+          paymentMethod,
         )
         showToast(
           language === "vi"

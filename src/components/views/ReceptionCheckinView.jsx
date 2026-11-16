@@ -1,35 +1,47 @@
 import React, { useState, useEffect, useCallback } from "react"
 import { useSCMS } from "../../context/SCMSContext"
-import { StatusBadge } from "../common/Badge"
 import { attendanceApi } from "../../api/attendanceApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import {
   QrCode,
-  Search,
-  LogIn,
-  LogOut,
   RefreshCw,
   CheckCircle2,
   ClipboardCheck,
   Clock,
 } from "lucide-react"
 
+const getCheckinErrorMessage = (err, fallback) => {
+  const code = String(
+    err?.code || err?.details?.code || err?.response?.data?.code || "",
+  ).toUpperCase()
+  const rawMessage = String(
+    err?.message || err?.details?.message || err?.response?.data?.message || "",
+  ).toUpperCase()
+
+  if (code === "SESSION_REQUIRED" || rawMessage.includes("SESSION_REQUIRED")) {
+    return "Thiếu mã buổi học. Vui lòng nhập mã buổi học hợp lệ trước khi quét QR."
+  }
+  if (
+    code === "LOBBY_CHECKIN_DISABLED" ||
+    rawMessage.includes("LOBBY_CHECKIN_DISABLED")
+  ) {
+    return "Tính năng check-in/check-out thủ công tại quầy đã được tắt."
+  }
+  return getErrorMessage(err, fallback)
+}
+
 export function ReceptionCheckinView() {
   const { members, apiEnabled, showToast, addAuditLog, language } = useSCMS()
 
-  // Sub-tab inside Check-in page: 'qr' | 'manual' | 'history'
+  // Sub-tab inside Check-in page: 'qr' | 'history'
   const [activeSubTab, setActiveSubTab] = useState("qr")
 
   // QR Scan Check-in state
   const [scanMemberId, setScanMemberId] = useState("")
   const [scanCode, setScanCode] = useState("")
   const [scanSessionId, setScanSessionId] = useState("")
+  const [sessionError, setSessionError] = useState("")
   const [scanning, setScanning] = useState(false)
-
-  // Manual check-in/out search state
-  const [searchTerm, setSearchTerm] = useState("")
-  const [notesInput, setNotesInput] = useState("")
-  const [actionBusyKey, setActionBusyKey] = useState("")
 
   // Attendance history state
   const [attendances, setAttendances] = useState([])
@@ -90,17 +102,29 @@ export function ReceptionCheckinView() {
       return
     }
 
+    const trimmedSessionId = scanSessionId.trim()
+    const parsedSessionId = Number(trimmedSessionId)
+    if (
+      !trimmedSessionId ||
+      !Number.isInteger(parsedSessionId) ||
+      parsedSessionId <= 0
+    ) {
+      const msg = "Vui lòng nhập mã buổi học hợp lệ (số nguyên dương)."
+      setSessionError(msg)
+      showToast(msg, "error")
+      return
+    }
+    setSessionError("")
+
     setScanning(true)
     try {
       if (apiEnabled) {
         const payload = {
           code: trimmedCode,
+          sessionId: parsedSessionId,
         }
         if (resolvedMemberId && !Number.isNaN(resolvedMemberId)) {
           payload.memberId = resolvedMemberId
-        }
-        if (scanSessionId.trim() && !Number.isNaN(Number(scanSessionId))) {
-          payload.sessionId = Number(scanSessionId)
         }
         await attendanceApi.scanAttendance(payload)
         await loadAttendances()
@@ -123,83 +147,21 @@ export function ReceptionCheckinView() {
       )
       setScanCode("")
       setScanSessionId("")
+      setSessionError("")
     } catch (err) {
-      showToast(getErrorMessage(err, "Không thể quét mã QR Check-in."), "error")
+      const msg = getCheckinErrorMessage(err, "Không thể quét mã QR Check-in.")
+      if (
+        String(
+          err?.code || err?.details?.code || err?.response?.data?.code || "",
+        ).toUpperCase() === "SESSION_REQUIRED"
+      ) {
+        setSessionError(msg)
+      }
+      showToast(msg, "error")
     } finally {
       setScanning(false)
     }
   }
-
-  const handleManualCheckIn = async (member) => {
-    const key = `in-${member.id}`
-    setActionBusyKey(key)
-    try {
-      const numericMemberId = parseNumericId(member.id)
-      if (apiEnabled && !Number.isNaN(numericMemberId)) {
-        await attendanceApi.manualCheckIn({
-          memberId: numericMemberId,
-          notes: notesInput.trim() || "Check-in trực tiếp tại quầy lễ tân",
-        })
-        await loadAttendances()
-      }
-      addAuditLog?.(
-        "MANUAL_CHECKIN",
-        `Hội viên: ${member.name} (${member.code})`,
-        "Outside",
-        "Checked-In",
-        notesInput.trim() || "Check-in trực tiếp tại quầy lễ tân",
-      )
-      showToast(
-        `Đã Check-in thành công cho hội viên ${member.name}!`,
-        "success",
-      )
-    } catch (err) {
-      showToast(
-        getErrorMessage(err, "Không thể Check-in cho hội viên."),
-        "error",
-      )
-    } finally {
-      setActionBusyKey("")
-    }
-  }
-
-  const handleManualCheckOut = async (member) => {
-    const key = `out-${member.id}`
-    setActionBusyKey(key)
-    try {
-      const numericMemberId = parseNumericId(member.id)
-      if (apiEnabled && !Number.isNaN(numericMemberId)) {
-        await attendanceApi.manualCheckOut(numericMemberId)
-        await loadAttendances()
-      }
-      addAuditLog?.(
-        "MANUAL_CHECKOUT",
-        `Hội viên: ${member.name} (${member.code})`,
-        "Checked-In",
-        "Checked-Out",
-        "Check-out tại quầy lễ tân",
-      )
-      showToast(`Đã Check-out cho hội viên ${member.name}!`, "success")
-    } catch (err) {
-      showToast(
-        getErrorMessage(err, "Không thể Check-out cho hội viên."),
-        "error",
-      )
-    } finally {
-      setActionBusyKey("")
-    }
-  }
-
-  const searchResults = members.filter(
-    (m) =>
-      String(m.name || "")
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      String(m.phone || "").includes(searchTerm) ||
-      String(m.code || "")
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()),
-  )
 
   const filteredAttendances =
     stateFilter === "all"
@@ -225,8 +187,8 @@ export function ReceptionCheckinView() {
             </h1>
             <p className="mt-1 text-sm text-slate-500 leading-relaxed">
               {language === "vi"
-                ? "Tách biệt từng nghiệp vụ: Quét mã QR cổng vào, Check-in/Check-out thủ công và Nhật ký điểm danh"
-                : "Dedicated tabs for QR Gate Scan, Manual Check-in/Out, and Daily Attendance Log"}
+                ? "Tách biệt từng nghiệp vụ: Quét mã QR cổng vào và Nhật ký điểm danh"
+                : "Dedicated tabs for QR Gate Scan and Daily Attendance Log"}
             </p>
           </div>
         </div>
@@ -236,7 +198,7 @@ export function ReceptionCheckinView() {
           <button
             type="button"
             onClick={() => setActiveSubTab("qr")}
-            className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors cursor-pointer ${
+            className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors cursor-pointer ${
               activeSubTab === "qr"
                 ? "bg-white text-brand-primary font-semibold shadow-sm"
                 : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
@@ -248,21 +210,8 @@ export function ReceptionCheckinView() {
 
           <button
             type="button"
-            onClick={() => setActiveSubTab("manual")}
-            className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors cursor-pointer ${
-              activeSubTab === "manual"
-                ? "bg-white text-brand-primary font-semibold shadow-sm"
-                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-            }`}
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Check-in / Check-out Thủ Công</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setActiveSubTab("history")}
-            className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors cursor-pointer ${
+            className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors cursor-pointer ${
               activeSubTab === "history"
                 ? "bg-white text-brand-primary font-semibold shadow-sm"
                 : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
@@ -290,6 +239,7 @@ export function ReceptionCheckinView() {
           </div>
 
           <form
+            noValidate
             onSubmit={handleScanCheckIn}
             className="grid grid-cols-1 md:grid-cols-3 gap-4"
           >
@@ -325,23 +275,48 @@ export function ReceptionCheckinView() {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
-                3. Mã buổi học (Session ID - Tùy chọn)
+              <label
+                htmlFor="reception-scan-session-id"
+                className="text-xs font-semibold text-slate-600 block mb-1.5"
+              >
+                3. Mã buổi học (Session ID) *
               </label>
               <input
+                id="reception-scan-session-id"
                 type="number"
+                min="1"
+                step="1"
+                required
                 value={scanSessionId}
-                onChange={(e) => setScanSessionId(e.target.value)}
-                placeholder="Bỏ trống nếu tập tự do"
-                className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400"
+                onChange={(e) => {
+                  setScanSessionId(e.target.value)
+                  if (sessionError) setSessionError("")
+                }}
+                aria-invalid={Boolean(sessionError)}
+                aria-describedby={
+                  sessionError ? "reception-scan-session-error" : undefined
+                }
+                placeholder="Nhập mã buổi học (VD: 12)"
+                className={`h-10 w-full rounded-xl border bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400 ${
+                  sessionError ? "border-status-danger" : "border-slate-300"
+                }`}
               />
+              {sessionError && (
+                <p
+                  id="reception-scan-session-error"
+                  role="alert"
+                  className="mt-1.5 text-xs leading-4 text-status-danger"
+                >
+                  {sessionError}
+                </p>
+              )}
             </div>
 
             <div className="md:col-span-3 flex justify-end pt-1">
               <button
                 type="submit"
                 disabled={scanning}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>
@@ -353,97 +328,7 @@ export function ReceptionCheckinView() {
         </div>
       )}
 
-      {/* Sub-tab 2: Manual Check-in / Check-out */}
-      {activeSubTab === "manual" && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
-          <div className="border-b border-slate-100 pb-3 flex flex-col md:flex-row md:items-center justify-between gap-2">
-            <div>
-              <h3 className="text-base font-semibold text-slate-800">
-                Check-in &amp; Check-out Thủ Công Cho Hội Viên
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Dành cho hội viên quên mang điện thoại hoặc cần lễ tân xác nhận
-                ra/vào trực tiếp
-              </p>
-            </div>
-            <span className="text-xs font-medium text-slate-500 tabular-nums">
-              Tổng: {searchResults.length} hội viên
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Tìm theo tên, số điện thoại hoặc mã hội viên..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-10 w-full rounded-xl border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400"
-              />
-            </div>
-
-            <div>
-              <input
-                type="text"
-                placeholder="Ghi chú Check-in (Tùy chọn: Tập ca sáng, Quên thẻ...)"
-                value={notesInput}
-                onChange={(e) => setNotesInput(e.target.value)}
-                className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2.5 pt-1">
-            {searchResults.map((m) => (
-              <div
-                key={m.id}
-                className="p-3.5 bg-slate-50/70 border border-slate-200 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 hover:bg-slate-50 transition-colors"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-slate-900">
-                      {m.name}
-                    </span>
-                    <StatusBadge
-                      type="membership"
-                      status={m.membershipStatus}
-                    />
-                  </div>
-                  <div className="text-xs text-slate-500 tabular-nums mt-0.5">
-                    {m.code} &bull; SĐT: {m.phone || "—"} &bull; Gói:{" "}
-                    {m.currentPackageName}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleManualCheckIn(m)}
-                    disabled={actionBusyKey === `in-${m.id}`}
-                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-medium bg-brand-primary text-white hover:bg-brand-primary-hover disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
-                  >
-                    <LogIn className="w-3.5 h-3.5" />
-                    <span>Check-in Vào Cổng</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleManualCheckOut(m)}
-                    disabled={actionBusyKey === `out-${m.id}`}
-                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors cursor-pointer"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Check-out Ra Về</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Sub-tab 3: Attendance History */}
+      {/* Sub-tab 2: Attendance History */}
       {activeSubTab === "history" && (
         <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-100 pb-3">

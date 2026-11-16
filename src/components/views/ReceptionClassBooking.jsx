@@ -206,7 +206,7 @@ export function ReceptionClassBooking() {
     setEnrollmentsLoading(false)
 
     try {
-      const result = await bookClass(targetClassId, targetMemberId)
+      const result = await bookClass(targetClassId, targetMemberId, "Cash")
 
       // Guard against stale context if member changed mid-request
       if (String(selectedMemberIdRef.current) !== String(targetMemberId)) {
