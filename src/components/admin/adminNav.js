@@ -18,6 +18,7 @@ import {
   Users,
 } from "lucide-react"
 import { ROLE_ADMIN } from "../../utils/navigation.js"
+import { hasAuthority } from "../../utils/paymentAccess.js"
 
 export const ADMIN_NAV_GROUPS = Object.freeze([
   {
@@ -94,6 +95,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         labelEn: "Normal Classes",
         icon: Calendar,
         path: "/admin/ops/classes",
+        requiredAuthority: "MANAGE_CLASSES",
       },
       {
         id: "ops_holidays",
@@ -115,6 +117,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         labelEn: "Advanced Classes",
         icon: CalendarDays,
         path: "/admin/ops/advanced-schedule",
+        requiredAuthority: "MANAGE_CLASSES",
       },
       {
         id: "ops_resources",
@@ -129,6 +132,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         labelEn: "Payments",
         icon: CreditCard,
         path: "/admin/ops/payments",
+        requiredAuthority: "MANAGE_INVOICES",
       },
       {
         id: "ops_refunds",
@@ -136,6 +140,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         labelEn: "Normal Refunds",
         icon: ReceiptText,
         path: "/admin/ops/normal-refunds",
+        requiredAuthority: "MANAGE_INVOICES",
       },
       {
         id: "ops_reports",
@@ -185,6 +190,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         labelEn: "Cashier",
         icon: CreditCard,
         path: "/admin/ops/reception/payments",
+        requiredAuthority: "MANAGE_INVOICES",
       },
     ],
   },
@@ -194,12 +200,24 @@ export const ADMIN_NAV_ITEMS = Object.freeze(
   ADMIN_NAV_GROUPS.flatMap((group) => group.items),
 )
 
-export function getAdminNavGroups(role) {
+// Mục có requiredAuthority chỉ hiện khi tài khoản Admin có quyền đó (backend chỉ
+// cấp MANAGE_CLASSES/MANAGE_INVOICES cho Admin khi được duyệt). Nhóm hết mục thì ẩn.
+// Không truyền `user` thì trả toàn bộ (giữ hành vi cũ cho nơi gọi chưa có user).
+const canSeeNavItem = (item, user) =>
+  !item.requiredAuthority || !user || hasAuthority(user, item.requiredAuthority)
+
+export function getAdminNavGroups(role, user) {
   if (role !== ROLE_ADMIN) return []
+  if (!user) return ADMIN_NAV_GROUPS
   return ADMIN_NAV_GROUPS
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => canSeeNavItem(item, user)),
+    }))
+    .filter((group) => group.items.length > 0)
 }
 
-export function getAdminNavItems(role) {
+export function getAdminNavItems(role, user) {
   if (role !== ROLE_ADMIN) return []
-  return ADMIN_NAV_ITEMS
+  return getAdminNavGroups(role, user).flatMap((group) => group.items)
 }

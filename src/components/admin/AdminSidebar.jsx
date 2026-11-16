@@ -59,9 +59,9 @@ export function AdminSidebar({
   isOpen,
   onClose,
 }) {
-  const { role, language } = useSCMS()
+  const { role, language, currentUser } = useSCMS()
   const isEn = language === "en"
-  const groups = getAdminNavGroups(role)
+  const groups = getAdminNavGroups(role, currentUser)
 
   const activeGroupKey =
     groups.find((g) => g.items.some((item) => item.id === currentTab))?.key ||
