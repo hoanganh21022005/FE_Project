@@ -5,7 +5,7 @@ import { useSCMS } from "../../context/SCMSContext"
 import { membershipApi } from "../../api/membershipApi"
 import { invoiceApi } from "../../api/invoiceApi"
 import { classEnrollmentApi } from "../../api/classEnrollmentApi"
-import { getMemberSubjectCatalog } from "../../api/subjectCatalogApi"
+import { getSubjectNameMap } from "../../api/subjectCatalogApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getErrorMessage } from "../../api/apiErrors"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
@@ -130,7 +130,7 @@ export function MyMembershipView() {
     const toNameMap = (list) => Object.fromEntries((Array.isArray(list) ? list : [])
       .filter((row) => row?.id != null && row?.name)
       .map((row) => [String(row.id), row.name]))
-    getMemberSubjectCatalog().then((list) => { if (active) setSubjectNames(toNameMap(list)) }).catch(() => {})
+    getSubjectNameMap().then((names) => { if (active) setSubjectNames(names) }).catch(() => {})
     memberPortalApi.getCoaches({}, { notifyForbidden: false }).then((list) => { if (active) setCoachNames(toNameMap(list)) }).catch(() => {})
     return () => { active = false }
   }, [apiEnabled, memberId])
