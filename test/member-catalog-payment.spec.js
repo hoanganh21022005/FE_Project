@@ -38,6 +38,9 @@ test.describe('Member đăng ký khóa học: thanh toán và nút hủy (L23, L
 
     await expect(page.getByText('Thanh toán: VNPay (Trực tuyến)')).toBeVisible({ timeout: 15000 });
     await expect(page.getByLabel('Phương thức thanh toán lớp học')).toHaveCount(0);
+    // Cột "Quy trình đăng ký lớp" không còn mời Member chọn tiền mặt online.
+    await expect(page.getByText(/giữ chỗ thanh toán tiền mặt/)).toHaveCount(0);
+    await expect(page.getByText(/đến quầy Lễ tân để được đăng ký trực tiếp/)).toBeVisible();
 
     await page.getByRole('button', { name: /Đăng ký lớp/ }).first().click();
     const dialog = page.getByRole('dialog');
