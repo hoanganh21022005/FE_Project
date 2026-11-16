@@ -175,6 +175,81 @@ export const BACKEND_CODE_MESSAGES = {
   HOLIDAY_BLOCKED: 'Ngày này là ngày nghỉ của trung tâm.',
 };
 
+export const BACKEND_FORBIDDEN_MESSAGES = {
+  'Financial staff required':
+    'Chức năng này chỉ dành cho nhân sự phụ trách tài chính.',
+  'Schedule access requires an assigned operational permission':
+    'Tài khoản chưa được cấp quyền xem lịch học.',
+  'Authentication required':
+    'Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn.',
+  'Authenticated account required':
+    'Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn.',
+  'Account not found': 'Không tìm thấy tài khoản đang đăng nhập.',
+  'Authenticated account not found': 'Không tìm thấy tài khoản đang đăng nhập.',
+  'Authenticated user account was not found':
+    'Không tìm thấy tài khoản đang đăng nhập.',
+  'Authenticated member account was not found':
+    'Không tìm thấy tài khoản đang đăng nhập.',
+  'Account is not Active': 'Tài khoản hiện không ở trạng thái hoạt động.',
+  'Active account required': 'Tài khoản hiện không ở trạng thái hoạt động.',
+  'Current account permission required':
+    'Tài khoản không có quyền thực hiện thao tác này.',
+  'Training write permission required':
+    'Tài khoản không có quyền ghi nội dung buổi tập.',
+  'VIEW_AUDIT_LOG required': 'Tài khoản không có quyền xem nhật ký hệ thống.',
+  'VIEW_REPORTS required': 'Tài khoản không có quyền xem báo cáo.',
+  'Admin or CenterManager required':
+    'Chức năng này chỉ dành cho Admin hoặc Quản lý trung tâm.',
+  'Only active Admin with MANAGE_PERMISSIONS may change role permissions':
+    'Chỉ Admin đang hoạt động có quyền quản lý phân quyền mới được đổi quyền của vai trò.',
+  'Only the assigned Coach may write professional training content':
+    'Chỉ Coach được phân công mới được ghi nội dung chuyên môn của buổi tập.',
+  'Coach is not assigned to this class':
+    'Bạn không được phân công phụ trách lớp này.',
+  'Coaches may only view their assigned schedule':
+    'Coach chỉ xem được lịch dạy được phân công cho mình.',
+  'Members may only view their own schedule':
+    'Hội viên chỉ xem được lịch học của chính mình.',
+  'Members may only view their own subscriptions':
+    'Hội viên chỉ xem được gói của chính mình.',
+  'Members may only view their own training plans':
+    'Hội viên chỉ xem được kế hoạch tập luyện của chính mình.',
+  'Members may only view their own evaluations':
+    'Hội viên chỉ xem được đánh giá của chính mình.',
+  'Member required': 'Thao tác này chỉ dành cho hội viên.',
+  'Member confirmation required': 'Thao tác này chỉ dành cho hội viên.',
+  'Member consent required': 'Thao tác này chỉ dành cho hội viên.',
+  'Member response required': 'Thao tác này chỉ dành cho hội viên.',
+  'Own paid proposal required':
+    'Chỉ hội viên đã thanh toán lớp này mới phản hồi được đề xuất.',
+  'Proposal belongs to another account':
+    'Đề xuất này thuộc tài khoản khác.',
+  'Registration owner required':
+    'Chỉ người tạo đăng ký mới thực hiện được thao tác này.',
+  'Only approved financial work is visible to Receptionist':
+    'Lễ tân chỉ xem được các việc hoàn tiền đã được duyệt.',
+  'Invoice belongs to another center': 'Dữ liệu này thuộc trung tâm khác.',
+  'User is outside the current center scope':
+    'Dữ liệu này thuộc trung tâm khác.',
+  'Members may only be managed within the current center':
+    'Dữ liệu này thuộc trung tâm khác.',
+  'Feedback is allowed only for Ongoing or Closed classes':
+    'Chỉ được đánh giá lớp đang học hoặc đã kết thúc.',
+  'You must be registered or have completed this class to submit feedback':
+    'Bạn phải đã đăng ký hoặc hoàn thành lớp này mới gửi được đánh giá.',
+  'Only the booked Member may report absence':
+    'Chỉ hội viên đã đặt buổi này mới báo nghỉ được.',
+  'Insufficient permission to reissue this account password':
+    'Bạn không đủ quyền cấp lại mật khẩu cho tài khoản này.',
+};
+
+const BACKEND_FORBIDDEN_LOOKUP = Object.fromEntries(
+  Object.entries(BACKEND_FORBIDDEN_MESSAGES).map(([k, v]) => [
+    k.toLowerCase(),
+    v,
+  ]),
+);
+
 const VIETNAMESE_DIACRITIC_REGEX =
   /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]/;
 
@@ -214,6 +289,12 @@ export function readBackendMessage(body, status = 0) {
     }
     if (prefixMatch && VIETNAMESE_DIACRITIC_REGEX.test(strippedText)) {
       return sanitizeBackendMessage(strippedText, status);
+    }
+    if (!code && !prefixMatch && raw) {
+      const forbiddenVi = BACKEND_FORBIDDEN_LOOKUP[raw.toLowerCase()];
+      if (forbiddenVi) {
+        return forbiddenVi;
+      }
     }
   }
   return sanitizeBackendMessage(raw, status);

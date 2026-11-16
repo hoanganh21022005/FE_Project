@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import {
   BACKEND_CODE_MESSAGES,
+  BACKEND_FORBIDDEN_MESSAGES,
   createApiError,
   getErrorMessage,
   readBackendMessage,
@@ -114,3 +115,52 @@ assert.equal(ac5Err.code, 'ATTENDANCE_CORRECTION_FORBIDDEN')
 assert.equal(ac5Err.message, 'Chỉ huấn luyện viên được giao mới sửa được điểm danh.')
 
 console.log('api_error_codes_test.mjs (with W-A11): ALL PASSED')
+
+// W-A12 AC1: kiểm tra đủ 38 khóa trong BACKEND_FORBIDDEN_MESSAGES
+const forbiddenKeys = Object.keys(BACKEND_FORBIDDEN_MESSAGES)
+assert.equal(forbiddenKeys.length, 38)
+for (const key of forbiddenKeys) {
+  const err = createApiError(403, {
+    timestamp: '2026-11-16T09:00:00Z',
+    status: 403,
+    error: 'Forbidden',
+    message: key,
+  })
+  assert.equal(err.code, null)
+  assert.equal(err.message, BACKEND_FORBIDDEN_MESSAGES[key], `Failed for ${key}`)
+}
+
+// W-A12 AC2: không phân biệt hoa thường và bỏ khoảng trắng đầu/cuối
+const ac2Forbidden = createApiError(403, {
+  status: 403,
+  error: 'Forbidden',
+  message: '  financial staff required ',
+})
+assert.equal(ac2Forbidden.code, null)
+assert.equal(
+  ac2Forbidden.message,
+  'Chức năng này chỉ dành cho nhân sự phụ trách tài chính.',
+)
+
+// W-A12 AC3: câu lạ, Access Denied, và câu 403 tiếng Việt có sẵn giữ nguyên hành vi cũ
+assert.equal(
+  createApiError(403, { message: 'Something new happened' }).message,
+  'Something new happened',
+)
+assert.equal(
+  createApiError(403, { message: 'Access Denied' }).message,
+  'Bạn không có quyền thực hiện thao tác này.',
+)
+assert.equal(
+  createApiError(403, { message: 'Bạn không thể thao tác ở trung tâm khác.' }).message,
+  'Bạn không thể thao tác ở trung tâm khác.',
+)
+
+// W-A12 AC4: lỗi có tiền tố mã vẫn đi đường bảng mã cũ
+const ac4Forbidden = createApiError(403, {
+  message: 'NORMAL_CASH_COUNTER_ONLY: Receptionist required',
+})
+assert.equal(ac4Forbidden.code, 'NORMAL_CASH_COUNTER_ONLY')
+assert.equal(ac4Forbidden.message, BACKEND_CODE_MESSAGES.NORMAL_CASH_COUNTER_ONLY)
+
+console.log('api_error_codes_test.mjs (with W-A12): ALL PASSED')
