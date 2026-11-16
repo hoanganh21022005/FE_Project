@@ -59,17 +59,14 @@ export function AdminAuditLogsView() {
   const isEn = language === "en"
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const initialRangeToday = searchParams.get("range") === "today" ? getTodayVnDate() : ""
-
-  // Bộ lọc gửi lên server
-  const [selectedAction, setSelectedAction] = useState(searchParams.get("action") || "")
-  const [startDate, setStartDate] = useState(
-    searchParams.get("startDate") || initialRangeToday || "",
-  )
-  const [endDate, setEndDate] = useState(
-    searchParams.get("endDate") || initialRangeToday || "",
-  )
-  const [selectedActorId, setSelectedActorId] = useState(searchParams.get("actorId") || "")
+  // Bộ lọc gửi lên server: URL là nguồn duy nhất, không sao chép sang state riêng.
+  // (Trước đây state và URL đồng bộ hai chiều qua effect, nên khi đổi bộ lọc liên tiếp
+  // rất nhanh, giá trị URL cũ có thể ghi đè bộ lọc vừa chọn.)
+  const rangeToday = searchParams.get("range") === "today" ? getTodayVnDate() : ""
+  const selectedAction = searchParams.get("action") || ""
+  const startDate = searchParams.get("startDate") || rangeToday
+  const endDate = searchParams.get("endDate") || rangeToday
+  const selectedActorId = searchParams.get("actorId") || ""
 
   // Phân trang
   const [page, setPage] = useState(1) // UI page bắt đầu từ 1
@@ -81,17 +78,8 @@ export function AdminAuditLogsView() {
   // Ô tìm kiếm chữ client trên trang hiện tại
   const [query, setQuery] = useState("")
 
-  // Đồng bộ bộ lọc khi URL query (?startDate=&endDate=&action=&actorId=) thay đổi từ bên ngoài
+  // Bộ lọc đổi (do người dùng hoặc do URL đổi từ bên ngoài) thì quay về trang 1
   useEffect(() => {
-    const rangeToday = searchParams.get("range") === "today" ? getTodayVnDate() : ""
-    const nextAction = searchParams.get("action") || ""
-    const nextStart = searchParams.get("startDate") || rangeToday || ""
-    const nextEnd = searchParams.get("endDate") || rangeToday || ""
-    const nextActor = searchParams.get("actorId") || ""
-    setSelectedAction(nextAction)
-    setStartDate(nextStart)
-    setEndDate(nextEnd)
-    setSelectedActorId(nextActor)
     setPage(1)
   }, [searchParams])
 
@@ -176,13 +164,16 @@ export function AdminAuditLogsView() {
 
   const syncAuditParams = useCallback(
     (nextValues) => {
-      const next = new URLSearchParams(searchParams)
+      // Đọc URL hiện tại tại thời điểm gọi (không dùng giá trị của lần render cũ) để các
+      // thay đổi liên tiếp không làm mất nhau.
+      const next = new URLSearchParams(window.location.search)
+      const todayRange = next.get("range") === "today" ? getTodayVnDate() : ""
       next.delete("range")
       const entries = {
-        action: nextValues.action ?? selectedAction,
-        startDate: nextValues.startDate ?? startDate,
-        endDate: nextValues.endDate ?? endDate,
-        actorId: nextValues.actorId ?? selectedActorId,
+        action: nextValues.action ?? (next.get("action") || ""),
+        startDate: nextValues.startDate ?? (next.get("startDate") || todayRange),
+        endDate: nextValues.endDate ?? (next.get("endDate") || todayRange),
+        actorId: nextValues.actorId ?? (next.get("actorId") || ""),
       }
       for (const [key, value] of Object.entries(entries)) {
         if (value) {
@@ -193,43 +184,35 @@ export function AdminAuditLogsView() {
       }
       setSearchParams(next, { replace: true })
     },
-    [searchParams, setSearchParams, selectedAction, startDate, endDate, selectedActorId],
+    [setSearchParams],
   )
 
   // Khi thay đổi bộ lọc server, reset về trang 1
   const handleActionChange = (e) => {
     const val = e.target.value
-    setSelectedAction(val)
     setPage(1)
     syncAuditParams({ action: val })
   }
 
   const handleStartDateChange = (e) => {
     const val = e.target.value
-    setStartDate(val)
     setPage(1)
     syncAuditParams({ startDate: val })
   }
 
   const handleEndDateChange = (e) => {
     const val = e.target.value
-    setEndDate(val)
     setPage(1)
     syncAuditParams({ endDate: val })
   }
 
   const handleActorChange = (e) => {
     const val = e.target.value
-    setSelectedActorId(val)
     setPage(1)
     syncAuditParams({ actorId: val })
   }
 
   const handleResetFilters = () => {
-    setSelectedAction("")
-    setStartDate("")
-    setEndDate("")
-    setSelectedActorId("")
     setQuery("")
     setPage(1)
     syncAuditParams({ action: "", startDate: "", endDate: "", actorId: "" })
