@@ -145,6 +145,11 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             labelKey: "payments",
             icon: CreditCard,
           },
+          {
+            path: "/receptionist/refund-work",
+            label: language === "vi" ? "Việc hoàn tiền" : "Refund work",
+            icon: ReceiptText,
+          },
         ]
 
       case "member":

@@ -275,6 +275,10 @@ const ROUTE_TAB_MAP = {
     role: ROLE_RECEPTIONIST,
     tab: "reception_payments",
   },
+  "/receptionist/refund-work": {
+    role: ROLE_RECEPTIONIST,
+    tab: "reception_refund_work",
+  },
 
   // Member routes
   "/member/dashboard": { role: ROLE_MEMBER, tab: "member_dashboard" },
@@ -350,6 +354,7 @@ const TAB_ROUTE_MAP = {
   reception_member_search: "/receptionist/search",
   reception_booking: "/receptionist/booking",
   reception_payments: "/receptionist/payments",
+  reception_refund_work: "/receptionist/refund-work",
 
   // Member
   member_dashboard: "/member/dashboard",
