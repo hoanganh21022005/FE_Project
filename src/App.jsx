@@ -203,6 +203,11 @@ const ReceptionPaymentsView = React.lazy(() =>
     default: module.ReceptionPaymentsView,
   })),
 )
+const ReceptionRefundWorkView = React.lazy(() =>
+  import("./components/views/ReceptionRefundWorkView").then((module) => ({
+    default: module.ReceptionRefundWorkView,
+  })),
+)
 
 // Member Views
 const MemberDashboard = React.lazy(() =>
@@ -713,6 +718,8 @@ function SCMSApp() {
     if (path.includes("/booking")) return t("bookings")
     if (path.includes("/invoices") || path.includes("/payment-result"))
       return t("memberInvoicesTitle")
+    if (path.includes("/refund-work"))
+      return language === "vi" ? "Việc hoàn tiền" : "Refund work"
     if (path.includes("/payments")) return t("payments")
     if (path.includes("/normal-refunds"))
       return language === "vi" ? "Hoàn tiền Normal" : "Normal refunds"
@@ -1505,6 +1512,19 @@ function SCMSApp() {
                         onForbidden={() => navigate(`/${role}/dashboard`)}
                       >
                         <ReceptionPaymentsView />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/receptionist/refund-work"
+                    element={
+                      <RequireRole
+                        allowedRoles={[ROLE_RECEPTIONIST]}
+                        currentRole={role}
+                        attemptedPath={location.pathname}
+                        onForbidden={() => navigate(`/${role}/dashboard`)}
+                      >
+                        <ReceptionRefundWorkView />
                       </RequireRole>
                     }
                   />

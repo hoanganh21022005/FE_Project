@@ -29,6 +29,7 @@ import { invoiceApi } from "../../api/invoiceApi"
 import { startVnpayCheckout } from "../../utils/vnpayCheckout"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { getErrorMessage } from "../../api/apiErrors"
+import { coachIsActive } from "../../utils/memberCourseCatalogRules"
 import { getPrivateSessionProposalErrorMessage } from "../../utils/privateSessionProposalErrors"
 import { resolveCoachAvatar } from "../../data/publicCoaches"
 import { PageHeader } from "../ui/PageHeader"
@@ -68,6 +69,11 @@ export function MemberMyCoachView() {
   const [coaches, setCoaches] = useState([])
   const [loadingCoaches, setLoadingCoaches] = useState(true)
   const [coachesError, setCoachesError] = useState("")
+  // Danh bạ HLV: ở chế độ API chỉ hiện Coach đang hoạt động (backend chặn đăng ký với Coach không Active).
+  const directoryCoaches = useMemo(
+    () => (apiEnabled ? coaches.filter(coachIsActive) : coaches),
+    [apiEnabled, coaches],
+  )
   const [keyword, setKeyword] = useState("")
   const [sportFilter, setSportFilter] = useState("all")
 
@@ -786,7 +792,7 @@ export function MemberMyCoachView() {
                   : "Loading coaches..."}
               </span>
             </div>
-          ) : coaches.length === 0 ? (
+          ) : directoryCoaches.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-xs">
               <Users className="w-10 h-10 text-slate-300 mx-auto" />
               <p className="mt-3 text-sm font-bold text-slate-800">
@@ -797,7 +803,7 @@ export function MemberMyCoachView() {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {coaches.filter((c) => sportFilter === "all" || (c.specializations || [c.specialization]).includes(sportFilter)).map((c) => (
+              {directoryCoaches.filter((c) => sportFilter === "all" || (c.specializations || [c.specialization]).includes(sportFilter)).map((c) => (
                 <div
                   key={c.id}
                   className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between space-y-4"
@@ -814,9 +820,15 @@ export function MemberMyCoachView() {
                           <h3 className="font-bold text-slate-900 text-sm leading-snug">
                             {c.name}
                           </h3>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 shrink-0">
-                            {isVi ? "• Đang nhận học viên" : "• Accepting students"}
-                          </span>
+                          {c.acceptingNew === false ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 shrink-0">
+                              {isVi ? "• Tạm ngưng nhận mới" : "• Not accepting new students"}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 shrink-0">
+                              {isVi ? "• Đang nhận học viên" : "• Accepting students"}
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-slate-500 truncate mt-0.5">
                           {c.email}

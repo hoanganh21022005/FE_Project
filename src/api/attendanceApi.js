@@ -2,14 +2,7 @@ import { httpClient } from "./httpClient.js"
 import { extractList, isValidNumericId } from "./schemaValidators.js"
 
 export const scanAttendance = async (payload) => {
-  try {
-    return await httpClient.post("/api/attendances/qr-checkin", payload)
-  } catch (error) {
-    if (error?.status === 404) {
-      return httpClient.post("/api/attendances/scan", payload)
-    }
-    throw error
-  }
+  return httpClient.post("/api/attendances/scan", payload)
 }
 
 export const matchesSessionAttendance = (result, sessionId, memberId, status) =>
@@ -60,18 +53,7 @@ export const manualCheckIn = async (payload) => {
       notes: payload.notes || "",
     })
   }
-  try {
-    return await httpClient.post("/api/attendances/check-in", payload)
-  } catch (error) {
-    if (error?.status === 404) {
-      return httpClient.post("/api/attendances", {
-        memberId: Number(payload?.memberId),
-        status: "Present",
-        notes: payload?.notes || "",
-      })
-    }
-    throw error
-  }
+  return httpClient.post("/api/attendances/check-in", payload)
 }
 
 export const manualCheckOut = async (memberId) => {

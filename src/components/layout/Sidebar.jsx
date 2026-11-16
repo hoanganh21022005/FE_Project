@@ -28,7 +28,6 @@ import {
   Dumbbell,
   MessageSquareHeart,
   Bell,
-  PauseCircle,
 } from "lucide-react"
 
 export function Sidebar({ mobileOpen = false, onCloseMobile }) {
@@ -146,6 +145,11 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             labelKey: "payments",
             icon: CreditCard,
           },
+          {
+            path: "/receptionist/refund-work",
+            label: language === "vi" ? "Việc hoàn tiền" : "Refund work",
+            icon: ReceiptText,
+          },
         ]
 
       case "member":
@@ -168,11 +172,6 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             labelKey: "myMembership",
             label: language === "vi" ? "Gói hội viên của tôi" : "My Membership",
             icon: Award,
-          },
-          {
-            path: "/member/freeze-request",
-            label: language === "vi" ? "Bảo lưu gói tập" : "Freeze membership",
-            icon: PauseCircle,
           },
           {
             path: "/member/catalog",

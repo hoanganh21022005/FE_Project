@@ -116,6 +116,143 @@ export function sanitizeBackendMessage(rawMessage, status = 0) {
   return msg;
 }
 
+export const BACKEND_CODE_MESSAGES = {
+  NORMAL_CASH_COUNTER_ONLY:
+    'Lớp Normal chỉ nhận tiền mặt tại quầy lễ tân. Vui lòng thanh toán bằng VNPay hoặc đến quầy để đăng ký.',
+  LOBBY_CHECKIN_DISABLED:
+    'Check-in thủ công tại quầy hiện đã tắt. Vui lòng quét mã QR theo buổi học.',
+  SESSION_REQUIRED:
+    'Thiếu mã buổi học. Vui lòng chọn buổi học trước khi quét mã.',
+  NORMAL_NOT_STARTED:
+    'Lớp học chưa khai giảng nên chưa thể thực hiện thao tác này.',
+  ATTENDANCE_WINDOW_CLOSED:
+    'Đã hết thời gian điểm danh cho buổi học này.',
+  NORMAL_PROPOSAL_STALE:
+    'Đề xuất đã thay đổi. Vui lòng tải lại để xem phiên bản mới nhất.',
+  NORMAL_VERSION_STALE:
+    'Thông tin lớp đã thay đổi. Vui lòng tải lại rồi thử lại.',
+  NORMAL_CHANGE_PENDING:
+    'Lớp đang có một đề xuất thay đổi chưa xử lý xong.',
+  NORMAL_CHOICE_ALREADY_RECORDED:
+    'Bạn đã chọn khác cho đề xuất này trước đó.',
+  MEMBER_RESPONSES_PENDING:
+    'Vẫn còn học viên chưa phản hồi đề xuất. Không phản hồi không được tính là đồng ý.',
+  REFUND_VERSION_STALE:
+    'Hồ sơ hoàn tiền vừa được cập nhật. Vui lòng tải lại rồi thử lại.',
+  REFUND_CLAIM_EXISTS:
+    'Hồ sơ này đã có giao dịch chuyển khoản đang xử lý. Cần đối soát trước khi nhận lại.',
+  REFUND_APPROVAL_REQUIRED:
+    'Hồ sơ hoàn tiền chưa được duyệt tài khoản nhận.',
+  ATTEMPT_NOT_EDITABLE:
+    'Giao dịch chuyển khoản này không còn chỉnh sửa được.',
+  REFUND_AMOUNT_MISMATCH:
+    'Số tiền phải đúng bằng số tiền hoàn đã duyệt (VND).',
+  REFUND_TIME_INVALID:
+    'Thời điểm chuyển khoản phải nằm giữa lúc nhận việc và hiện tại.',
+  BANK_REFERENCE_REUSED:
+    'Mã tham chiếu chuyển khoản này đã được dùng cho giao dịch khác.',
+  DOCUMENT_TYPE_INVALID:
+    'Chứng từ phải là ảnh PNG, JPEG hoặc tệp PDF.',
+  DOCUMENT_SIZE_INVALID:
+    'Chứng từ phải lớn hơn 0 và tối đa 5 MB.',
+  RECEIVER_INVALID:
+    'Thông tin tài khoản nhận chưa hợp lệ. Số tài khoản gồm 4 đến 40 chữ cái hoặc chữ số.',
+  REFUND_BANK_ATTEMPT_EXISTS:
+    'Khoản này đã có giao dịch chuyển khoản, không thể đổi tài khoản nhận.',
+  RESULT_CONTENT_NOT_OPEN:
+    'Buổi học chưa kết thúc, chưa thể sửa nhận xét.',
+  RESULT_CONTENT_DEADLINE_PASSED:
+    'Đã hết hạn sửa nhận xét của buổi học này.',
+  RESULT_CONTENT_FORBIDDEN:
+    'Chỉ Coach được giao buổi học và là người ghi nhận xét mới được sửa.',
+  CLASS_FULL: 'Lớp đã đủ chỗ.',
+  ALREADY_ENROLLED: 'Bạn đã đăng ký lớp này.',
+  SCHEDULE_CONFLICT:
+    'Lịch học bị trùng với lịch khác. Vui lòng chọn lớp hoặc khung giờ khác.',
+  NORMAL_REGISTRATION_CLOSED: 'Lớp đã đóng đăng ký.',
+  BOOKING_BLOCKED:
+    'Tài khoản đang bị tạm khóa đặt lịch. Vui lòng liên hệ quầy lễ tân.',
+  HOLIDAY_BLOCKED: 'Ngày này là ngày nghỉ của trung tâm.',
+};
+
+export const BACKEND_FORBIDDEN_MESSAGES = {
+  'Financial staff required':
+    'Chức năng này chỉ dành cho nhân sự phụ trách tài chính.',
+  'Schedule access requires an assigned operational permission':
+    'Tài khoản chưa được cấp quyền xem lịch học.',
+  'Authentication required':
+    'Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn.',
+  'Authenticated account required':
+    'Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn.',
+  'Account not found': 'Không tìm thấy tài khoản đang đăng nhập.',
+  'Authenticated account not found': 'Không tìm thấy tài khoản đang đăng nhập.',
+  'Authenticated user account was not found':
+    'Không tìm thấy tài khoản đang đăng nhập.',
+  'Authenticated member account was not found':
+    'Không tìm thấy tài khoản đang đăng nhập.',
+  'Account is not Active': 'Tài khoản hiện không ở trạng thái hoạt động.',
+  'Active account required': 'Tài khoản hiện không ở trạng thái hoạt động.',
+  'Current account permission required':
+    'Tài khoản không có quyền thực hiện thao tác này.',
+  'Training write permission required':
+    'Tài khoản không có quyền ghi nội dung buổi tập.',
+  'VIEW_AUDIT_LOG required': 'Tài khoản không có quyền xem nhật ký hệ thống.',
+  'VIEW_REPORTS required': 'Tài khoản không có quyền xem báo cáo.',
+  'Admin or CenterManager required':
+    'Chức năng này chỉ dành cho Admin hoặc Quản lý trung tâm.',
+  'Only active Admin with MANAGE_PERMISSIONS may change role permissions':
+    'Chỉ Admin đang hoạt động có quyền quản lý phân quyền mới được đổi quyền của vai trò.',
+  'Only the assigned Coach may write professional training content':
+    'Chỉ Coach được phân công mới được ghi nội dung chuyên môn của buổi tập.',
+  'Coach is not assigned to this class':
+    'Bạn không được phân công phụ trách lớp này.',
+  'Coaches may only view their assigned schedule':
+    'Coach chỉ xem được lịch dạy được phân công cho mình.',
+  'Members may only view their own schedule':
+    'Hội viên chỉ xem được lịch học của chính mình.',
+  'Members may only view their own subscriptions':
+    'Hội viên chỉ xem được gói của chính mình.',
+  'Members may only view their own training plans':
+    'Hội viên chỉ xem được kế hoạch tập luyện của chính mình.',
+  'Members may only view their own evaluations':
+    'Hội viên chỉ xem được đánh giá của chính mình.',
+  'Member required': 'Thao tác này chỉ dành cho hội viên.',
+  'Member confirmation required': 'Thao tác này chỉ dành cho hội viên.',
+  'Member consent required': 'Thao tác này chỉ dành cho hội viên.',
+  'Member response required': 'Thao tác này chỉ dành cho hội viên.',
+  'Own paid proposal required':
+    'Chỉ hội viên đã thanh toán lớp này mới phản hồi được đề xuất.',
+  'Proposal belongs to another account':
+    'Đề xuất này thuộc tài khoản khác.',
+  'Registration owner required':
+    'Chỉ người tạo đăng ký mới thực hiện được thao tác này.',
+  'Only approved financial work is visible to Receptionist':
+    'Lễ tân chỉ xem được các việc hoàn tiền đã được duyệt.',
+  'Invoice belongs to another center': 'Dữ liệu này thuộc trung tâm khác.',
+  'User is outside the current center scope':
+    'Dữ liệu này thuộc trung tâm khác.',
+  'Members may only be managed within the current center':
+    'Dữ liệu này thuộc trung tâm khác.',
+  'Feedback is allowed only for Ongoing or Closed classes':
+    'Chỉ được đánh giá lớp đang học hoặc đã kết thúc.',
+  'You must be registered or have completed this class to submit feedback':
+    'Bạn phải đã đăng ký hoặc hoàn thành lớp này mới gửi được đánh giá.',
+  'Only the booked Member may report absence':
+    'Chỉ hội viên đã đặt buổi này mới báo nghỉ được.',
+  'Insufficient permission to reissue this account password':
+    'Bạn không đủ quyền cấp lại mật khẩu cho tài khoản này.',
+};
+
+const BACKEND_FORBIDDEN_LOOKUP = Object.fromEntries(
+  Object.entries(BACKEND_FORBIDDEN_MESSAGES).map(([k, v]) => [
+    k.toLowerCase(),
+    v,
+  ]),
+);
+
+const VIETNAMESE_DIACRITIC_REGEX =
+  /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]/;
+
 export function readBackendMessage(body, status = 0) {
   let raw = '';
   if (typeof body === 'string' && body.trim()) {
@@ -135,6 +272,28 @@ export function readBackendMessage(body, status = 0) {
       if (typeof value === 'string' && value.trim()) {
         raw = value.trim();
         break;
+      }
+    }
+    const prefixMatch = raw.match(/^([A-Z][A-Z0-9_]{3,}):\s*(.*)$/);
+    const resolvedCode = code || (prefixMatch ? prefixMatch[1] : '');
+    const strippedText = prefixMatch ? prefixMatch[2].trim() : raw;
+    if (resolvedCode && BACKEND_CODE_MESSAGES[resolvedCode]) {
+      const isPlainCodeOrNonVi =
+        !raw ||
+        raw.toUpperCase() === resolvedCode ||
+        !VIETNAMESE_DIACRITIC_REGEX.test(strippedText);
+      if (isPlainCodeOrNonVi) {
+        return BACKEND_CODE_MESSAGES[resolvedCode];
+      }
+      return sanitizeBackendMessage(strippedText, status);
+    }
+    if (prefixMatch && VIETNAMESE_DIACRITIC_REGEX.test(strippedText)) {
+      return sanitizeBackendMessage(strippedText, status);
+    }
+    if (!code && !prefixMatch && raw) {
+      const forbiddenVi = BACKEND_FORBIDDEN_LOOKUP[raw.toLowerCase()];
+      if (forbiddenVi) {
+        return forbiddenVi;
       }
     }
   }
@@ -157,10 +316,16 @@ export function createApiError(status, body, fallbackMessage) {
       ? sanitizeBackendMessage(fallbackMessage, status) || fallback
       : fallback;
   const message = backendMessage || (status === 0 ? fallback : cleanFallback);
+  const inferredCode =
+    typeof body?.code === 'string' && body.code
+      ? body.code
+      : typeof body?.message === 'string'
+        ? body.message.trim().match(/^([A-Z][A-Z0-9_]{3,}):\s*/)?.[1] ?? null
+        : null;
   const options = {
     status,
     details: body,
-    code: typeof body?.code === 'string' ? body.code : null,
+    code: inferredCode,
   };
 
   if (status === 400 || status === 409 || status === 422) {

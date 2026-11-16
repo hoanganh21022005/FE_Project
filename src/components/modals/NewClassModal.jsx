@@ -4,6 +4,7 @@ import {
   SPORT_DISCIPLINES,
   isCoachMatchingSport,
 } from "../classes/sportDisciplines"
+import { resolveCatalogSubjects } from "../../utils/memberCourseCatalogRules"
 import { validateClassName, MAX_CLASS_NAME_LENGTH } from "../../api/classValidation"
 import { useScheduleConflict } from "../classes/hooks/useScheduleConflict"
 import { CurrencyInput } from "../common/CurrencyInput"
@@ -139,7 +140,11 @@ const ROOM_ACTIVITY_TYPES = {
   archery: "ARCHERY",
   football: "FOOTBALL",
   tennis: "TENNIS",
+  swimming: "SWIMMING",
 }
+
+// Khóa môn của danh mục hệ thống (resolveCatalogSubjects) -> id của SPORT_DISCIPLINES.
+const CATALOG_KEY_TO_SPORT_ID = { "table-tennis": "table_tennis" }
 
 // Generate 15-minute time options from 05:00 to 23:00
 const TIME_OPTIONS_15MIN = []
@@ -535,12 +540,34 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     normalRequestIdStateRef.current = null
   }, [isOpen])
 
+  // Chế độ API: danh sách môn lấy từ /api/subjects (khớp bằng mã/tên chuẩn hóa),
+  // chỉ hiện môn có trong hệ thống. Chế độ mock: dùng danh sách cố định.
+  const sportOptions = useMemo(() => {
+    if (!apiEnabled) return SPORT_DISCIPLINES
+    return resolveCatalogSubjects(subjects || [])
+      .filter((entry) => entry.subject)
+      .map((entry) => {
+        const sportId = CATALOG_KEY_TO_SPORT_ID[entry.key] || entry.key
+        const discipline = SPORT_DISCIPLINES.find((s) => s.id === sportId)
+        return discipline ? { ...discipline, subjectId: entry.subject.id } : null
+      })
+      .filter(Boolean)
+  }, [apiEnabled, subjects])
+
   const currentSport = useMemo(
     () =>
-      SPORT_DISCIPLINES.find((s) => s.id === selectedSportId) ||
+      sportOptions.find((s) => s.id === selectedSportId) ||
+      sportOptions[0] ||
       SPORT_DISCIPLINES[0],
-    [selectedSportId],
+    [sportOptions, selectedSportId],
   )
+
+  // Môn đang chọn không còn trong danh mục (hoặc danh mục vừa tải xong): chọn môn đầu tiên.
+  useEffect(() => {
+    if (sportOptions.length > 0 && !sportOptions.some((s) => s.id === selectedSportId)) {
+      setSelectedSportId(sportOptions[0].id)
+    }
+  }, [sportOptions, selectedSportId])
 
   const sportCourts = useMemo(() => currentSport.courts || [], [currentSport])
 
@@ -760,14 +787,9 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   ])
 
   const targetSubjectId = useMemo(() => {
-    const matchedSubject = (subjects || []).find((s) => {
-      const sName = (s.nameVi || s.name || "").toLowerCase()
-      return sName === currentSport.name.toLowerCase()
-    })
-    return matchedSubject
-      ? matchedSubject.id
-      : apiEnabled ? null : currentSport.backendSubjectId || 1
-  }, [subjects, currentSport, apiEnabled])
+    if (apiEnabled) return currentSport.subjectId ?? null
+    return currentSport.backendSubjectId || 1
+  }, [currentSport, apiEnabled])
   const selectedSubject = useMemo(
     () => (subjects || []).find((subject) => String(subject.id) === String(targetSubjectId)),
     [subjects, targetSubjectId],
@@ -1044,9 +1066,15 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         }
       }
     }
-    if (apiEnabled && targetStatus !== "Draft" && (!targetSubjectId || !Number.isFinite(normalPrice) || !selectedRoomObj?.id)) {
-      showToast("Thiếu thông tin môn học, học phí hoặc sân/phòng. Vui lòng tải lại danh mục.", "error")
-      return
+    if (apiEnabled && targetStatus !== "Draft") {
+      const missing = []
+      if (!targetSubjectId) missing.push(`không tìm thấy môn "${currentSport.name}" trong danh mục hệ thống`)
+      else if (!Number.isFinite(normalPrice)) missing.push(`môn "${currentSport.name}" chưa có học phí hợp lệ`)
+      if (!selectedRoomObj?.id) missing.push(`chưa có sân/phòng phù hợp cho môn "${currentSport.name}"`)
+      if (missing.length > 0) {
+        showToast(`Không thể tạo lớp: ${missing.join("; ")}. Vui lòng tải lại danh mục.`, "error")
+        return
+      }
     }
 
     setIsSubmitting(true)
@@ -1176,7 +1204,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   }}
                   className="w-full h-11 px-3.5 pr-10 bg-white border border-stone-300 rounded-xl text-sm text-stone-900 font-normal appearance-none focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800 cursor-pointer"
                 >
-                  {SPORT_DISCIPLINES.map((s) => (
+                  {sportOptions.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
                     </option>

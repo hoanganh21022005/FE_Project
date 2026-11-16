@@ -378,10 +378,6 @@ export const getCoachFeedback = async (params = {}) => {
   }
 }
 
-export const getCoachProfileMe = async () => {
-  return httpClient.get("/api/coaches/me", { notifyForbidden: false })
-}
-
 export const getCoachWorkSchedule = async (coachId) => {
   if (!coachId) return null
   return httpClient.get(
@@ -499,7 +495,6 @@ export const memberPortalApi = {
   respondToPrivateSessionProposal,
   respondPrivateSessionProposal,
   getCoachFeedback,
-  getCoachProfileMe,
   getCoachWorkSchedule,
   updateCoachWorkSchedule,
   getCoachAdmissionCapacity,

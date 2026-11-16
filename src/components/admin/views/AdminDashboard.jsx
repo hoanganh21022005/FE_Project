@@ -251,8 +251,10 @@ export function AdminDashboard() {
 
   const usersLoading =
     resources.users.status === "loading" || resources.users.status === "idle"
+  const usersError = resources.users.status === "error"
   const rolesLoading =
     resources.roles.status === "loading" || resources.roles.status === "idle"
+  const rolesError = resources.roles.status === "error"
   const logsLoading =
     resources.auditLogs.status === "loading" ||
     resources.auditLogs.status === "idle"
@@ -304,7 +306,13 @@ export function AdminDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <Link
               to="/admin/users?status=locked"
-              aria-label={`${statusCounts.locked} ${getAdminText(language, "dash.lockedAccounts")}`}
+              aria-label={
+                usersLoading
+                  ? `${getAdminText(language, "dash.lockedAccounts")}: ${getAdminText(language, "common.loadingData")}`
+                  : usersError
+                    ? `${getAdminText(language, "dash.lockedAccounts")}: —`
+                    : `${statusCounts.locked} ${getAdminText(language, "dash.lockedAccounts")}`
+              }
               className="min-h-[44px] flex flex-col justify-between gap-2.5 p-4 rounded-xl bg-status-danger-bg/60 border border-status-danger-border shadow-[inset_4px_0_0_var(--status-danger)] text-text-primary hover:bg-status-danger-bg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
             >
               <div className="flex items-center justify-between">
@@ -312,10 +320,14 @@ export function AdminDashboard() {
                   <Lock className="w-4 h-4" />
                 </span>
                 {usersLoading ? (
-                  <span className="h-8 w-10 rounded bg-bg-secondary animate-pulse" />
+                  <span
+                    className="h-8 w-10 rounded bg-bg-secondary animate-pulse"
+                    aria-busy="true"
+                    aria-label={getAdminText(language, "common.loadingData")}
+                  />
                 ) : (
                   <strong className="text-[28px] leading-8 font-bold text-status-danger tabular-nums">
-                    {formatAdminNumber(statusCounts.locked, language)}
+                    {usersError ? "—" : formatAdminNumber(statusCounts.locked, language)}
                   </strong>
                 )}
               </div>
@@ -323,7 +335,13 @@ export function AdminDashboard() {
                 <p className="text-sm leading-5 font-semibold text-text-primary">
                   {getAdminText(language, "dash.lockedAccounts")}
                 </p>
-                {statusCounts.locked === 0 ? (
+                {usersLoading ? (
+                  <p className="mt-1 text-[13px] leading-[18px] text-text-secondary">
+                    {getAdminText(language, "common.loadingData")}
+                  </p>
+                ) : usersError ? (
+                  <p className="mt-1 text-[13px] leading-[18px] text-text-secondary">—</p>
+                ) : statusCounts.locked === 0 ? (
                   <p className="mt-1 text-[13px] leading-[18px] text-text-secondary">
                     {isEn ? "None" : "Không có"}
                   </p>
@@ -338,7 +356,13 @@ export function AdminDashboard() {
 
             <Link
               to="/admin/users?status=inactive"
-              aria-label={`${statusCounts.inactive} ${getAdminText(language, "dash.inactiveAccounts")}`}
+              aria-label={
+                usersLoading
+                  ? `${getAdminText(language, "dash.inactiveAccounts")}: ${getAdminText(language, "common.loadingData")}`
+                  : usersError
+                    ? `${getAdminText(language, "dash.inactiveAccounts")}: —`
+                    : `${statusCounts.inactive} ${getAdminText(language, "dash.inactiveAccounts")}`
+              }
               className="min-h-[44px] flex flex-col justify-between gap-2.5 p-4 rounded-xl bg-bg-secondary/75 border border-border-color shadow-[inset_4px_0_0_var(--text-secondary)] text-text-primary hover:bg-bg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
             >
               <div className="flex items-center justify-between">
@@ -346,10 +370,14 @@ export function AdminDashboard() {
                   <UserX className="w-4 h-4" />
                 </span>
                 {usersLoading ? (
-                  <span className="h-8 w-10 rounded bg-bg-secondary animate-pulse" />
+                  <span
+                    className="h-8 w-10 rounded bg-bg-secondary animate-pulse"
+                    aria-busy="true"
+                    aria-label={getAdminText(language, "common.loadingData")}
+                  />
                 ) : (
                   <strong className="text-[28px] leading-8 font-bold text-text-secondary tabular-nums">
-                    {formatAdminNumber(statusCounts.inactive, language)}
+                    {usersError ? "—" : formatAdminNumber(statusCounts.inactive, language)}
                   </strong>
                 )}
               </div>
@@ -357,7 +385,13 @@ export function AdminDashboard() {
                 <p className="text-sm leading-5 font-semibold text-text-primary">
                   {getAdminText(language, "dash.inactiveAccounts")}
                 </p>
-                {statusCounts.inactive === 0 ? (
+                {usersLoading ? (
+                  <p className="mt-1 text-[13px] leading-[18px] text-text-secondary">
+                    {getAdminText(language, "common.loadingData")}
+                  </p>
+                ) : usersError ? (
+                  <p className="mt-1 text-[13px] leading-[18px] text-text-secondary">—</p>
+                ) : statusCounts.inactive === 0 ? (
                   <p className="mt-1 text-[13px] leading-[18px] text-text-secondary">
                     {isEn ? "None" : "Không có"}
                   </p>
@@ -385,10 +419,14 @@ export function AdminDashboard() {
                   <Users className="w-4 h-4" />
                 </span>
                 {usersLoading ? (
-                  <span className="h-8 w-12 rounded bg-bg-secondary animate-pulse" />
+                  <span
+                    className="h-8 w-12 rounded bg-bg-secondary animate-pulse"
+                    aria-busy="true"
+                    aria-label={getAdminText(language, "common.loadingData")}
+                  />
                 ) : (
                   <strong className="text-[28px] leading-8 font-bold text-text-primary tabular-nums">
-                    {formatAdminNumber(statusCounts.total, language)}
+                    {usersError ? "—" : formatAdminNumber(statusCounts.total, language)}
                   </strong>
                 )}
               </div>
@@ -397,7 +435,11 @@ export function AdminDashboard() {
                   {getAdminText(language, "dash.totalUsers")}
                 </p>
                 <p className="mt-1 text-[13px] leading-[18px] text-text-secondary tabular-nums">
-                  {formatAdminNumber(statusCounts.active, language)} {getAdminText(language, "dash.activeUsers").toLowerCase()}
+                  {usersLoading
+                    ? getAdminText(language, "common.loadingData")
+                    : usersError
+                      ? "—"
+                      : `${formatAdminNumber(statusCounts.active, language)} ${getAdminText(language, "dash.activeUsers").toLowerCase()}`}
                 </p>
               </div>
             </div>
@@ -408,10 +450,14 @@ export function AdminDashboard() {
                   <ShieldCheck className="w-4 h-4" />
                 </span>
                 {rolesLoading ? (
-                  <span className="h-8 w-10 rounded bg-bg-secondary animate-pulse" />
+                  <span
+                    className="h-8 w-10 rounded bg-bg-secondary animate-pulse"
+                    aria-busy="true"
+                    aria-label={getAdminText(language, "common.loadingData")}
+                  />
                 ) : (
                   <strong className="text-[28px] leading-8 font-bold text-text-primary tabular-nums">
-                    {formatAdminNumber(rolesList.length, language)}
+                    {rolesError ? "—" : formatAdminNumber(rolesList.length, language)}
                   </strong>
                 )}
               </div>
@@ -447,11 +493,15 @@ export function AdminDashboard() {
                 {getAdminText(language, "dash.chartHeading")}
               </h2>
               <p className="mt-0.5 text-xs leading-4 text-text-muted">
-                {weeklyTruncated
-                  ? getAdminText(language, "dash.chartLimited")
-                  : getAdminText(language, "dash.chartTotal", {
-                      count: formatAdminNumber(weeklySeries.totalCount, language),
-                    })}
+                {weeklyLoading
+                  ? getAdminText(language, "common.loadingData")
+                  : weeklyError
+                    ? "—"
+                    : weeklyTruncated
+                      ? getAdminText(language, "dash.chartLimited")
+                      : getAdminText(language, "dash.chartTotal", {
+                          count: formatAdminNumber(weeklySeries.totalCount, language),
+                        })}
               </p>
             </div>
           </div>
@@ -469,7 +519,11 @@ export function AdminDashboard() {
               </button>
             </div>
           ) : weeklyLoading ? (
-            <div className="mt-5 h-56 rounded-lg bg-bg-secondary animate-pulse" aria-label={getAdminText(language, "common.loadingData")} />
+            <div
+              className="mt-5 h-56 rounded-lg bg-bg-secondary animate-pulse"
+              aria-busy="true"
+              aria-label={getAdminText(language, "common.loadingData")}
+            />
           ) : (
             <div
               role="img"
@@ -525,12 +579,23 @@ export function AdminDashboard() {
               {getAdminText(language, "dash.roleDistHeading")}
             </h2>
             <p className="mt-0.5 text-xs leading-4 text-text-muted tabular-nums">
-              {getAdminText(language, "dash.roleDistSub")} · {formatAdminNumber(usersList.length, language)}
+              {getAdminText(language, "dash.roleDistSub")} ·{" "}
+              {usersLoading
+                ? getAdminText(language, "common.loadingData")
+                : usersError
+                  ? "—"
+                  : formatAdminNumber(usersList.length, language)}
             </p>
           </div>
 
           {usersLoading ? (
-            <div className="h-36 rounded-lg bg-bg-secondary animate-pulse" />
+            <div
+              className="h-36 rounded-lg bg-bg-secondary animate-pulse"
+              aria-busy="true"
+              aria-label={getAdminText(language, "common.loadingData")}
+            />
+          ) : usersError ? (
+            <p className="py-6 text-sm text-text-muted text-center">—</p>
           ) : roleDistribution.length === 0 ? (
             <p className="py-6 text-sm text-text-muted text-center">
               {getAdminText(language, "common.noData")}

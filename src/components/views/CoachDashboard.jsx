@@ -41,6 +41,7 @@ import {
 export function CoachDashboard() {
   const {
     classes,
+    classesLoading,
     currentUser,
     setCurrentTab,
     apiEnabled,
@@ -61,6 +62,7 @@ export function CoachDashboard() {
   const [attendanceRecords, setAttendanceRecords] = useState([])
   const [dashLoading, setDashLoading] = useState(!!apiEnabled)
   const [dashError, setDashError] = useState(null)
+  const [dashReloadTick, setDashReloadTick] = useState(0)
 
   const myClasses = useMemo(() => {
     const resolvedCoachId = currentUser.coachId || (!apiEnabled ? currentUser.id : null)
@@ -83,6 +85,7 @@ export function CoachDashboard() {
     const resolvedCoachId = currentUser.coachId || (!apiEnabled ? currentUser.id : null)
     setDashLoading(true)
     setDashError(null)
+    let coreFailures = 0
     Promise.all([
       memberPortalApi.getCoachFeedback().catch(() => ({
         totalFeedback: 0,
@@ -114,8 +117,14 @@ export function CoachDashboard() {
       ),
       memberPortalApi
         .getClassSessions(resolvedCoachId ? { coachId: resolvedCoachId } : {})
-        .catch(() => []),
-      attendanceApi.searchAttendances().catch(() => []),
+        .catch(() => {
+          coreFailures += 1
+          return []
+        }),
+      attendanceApi.searchAttendances().catch(() => {
+        coreFailures += 1
+        return []
+      }),
     ]).then(
       ([
         fbData,
@@ -126,6 +135,15 @@ export function CoachDashboard() {
         attList,
       ]) => {
         if (!active) return
+        if (coreFailures >= 2) {
+          setDashError(
+            language === "vi"
+              ? "Không tải được dữ liệu dashboard. Kiểm tra kết nối rồi thử lại."
+              : "Failed to load dashboard data. Check your connection and retry.",
+          )
+          setDashLoading(false)
+          return
+        }
         if (fbData) setCoachFeedbackSummary(fbData)
         if (Array.isArray(riskList)) setAtRiskMembers(riskList)
         if (Array.isArray(advList)) setAdvRegistrations(advList)
@@ -153,7 +171,7 @@ export function CoachDashboard() {
     return () => {
       active = false
     }
-  }, [apiEnabled, myClasses, currentUser.coachId, currentUser.id])
+  }, [apiEnabled, myClasses, currentUser.coachId, currentUser.id, language, dashReloadTick])
 
   const todayIso = useMemo(
     () =>
@@ -555,8 +573,8 @@ export function CoachDashboard() {
     navigate("/coach/attendance")
   }
 
-  // Loading skeleton — shown while Promise.all is pending
-  if (dashLoading) {
+  // Loading skeleton — shown while Promise.all or classes list is pending
+  if (dashLoading || (apiEnabled && classesLoading && classes.length === 0)) {
     return (
       <div className="space-y-6" aria-busy="true" aria-label={language === "vi" ? "Đang tải..." : "Loading..."}>
         {/* Header skeleton */}
@@ -614,6 +632,7 @@ export function CoachDashboard() {
             onRetry={() => {
               setDashLoading(true)
               setDashError(null)
+              setDashReloadTick((c) => c + 1)
             }}
           />
         </div>

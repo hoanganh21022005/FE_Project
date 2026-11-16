@@ -48,6 +48,7 @@ import {
   storeAutomaticVnpayAttempt,
 } from "../../utils/paymentVerification"
 import { PageHeader } from "../ui/PageHeader"
+import { MemberRefundPanel } from "./MemberRefundPanel"
 
 const STATUS_LABELS = {
   successful: {
@@ -935,6 +936,8 @@ export function MemberInvoicesView() {
           </button>
         }
       />
+
+      {apiEnabled && <MemberRefundPanel language={language} showToast={showToast} />}
 
       <section className="grid gap-3 sm:grid-cols-3">
         <Summary

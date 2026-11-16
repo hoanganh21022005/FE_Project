@@ -25,24 +25,34 @@ import {
 
 export function ReceptionistDashboard() {
   const navigate = useNavigate()
-  const { members, payments, apiEnabled, language } = useSCMS()
+  const { members, membersLoading, membersError, payments, apiEnabled, language } = useSCMS()
   const [isNewMemberOpen, setIsNewMemberOpen] = useState(false)
   const [todayAttendances, setTodayAttendances] = useState([])
-  const [loadingAttendances, setLoadingAttendances] = useState(false)
+  const [loadingAttendances, setLoadingAttendances] = useState(!!apiEnabled)
+  const [attendanceError, setAttendanceError] = useState(false)
   const [invoices, setInvoices] = useState([])
+  const [invoiceError, setInvoiceError] = useState(false)
 
   const loadAttendances = useCallback(async () => {
     if (!apiEnabled) return
     setLoadingAttendances(true)
+    setAttendanceError(false)
+    setInvoiceError(false)
     try {
-      const [list, invList] = await Promise.all([
-        attendanceApi.searchAttendances().catch(() => []),
-        invoiceApi.getInvoices({}, { notifyForbidden: false }).catch(() => []),
+      const [attResult, invResult] = await Promise.allSettled([
+        attendanceApi.searchAttendances(),
+        invoiceApi.getInvoices({}, { notifyForbidden: false }),
       ])
-      setTodayAttendances(Array.isArray(list) ? list : [])
-      setInvoices(Array.isArray(invList) ? invList : [])
-    } catch {
-      // ignore
+      if (attResult.status === "fulfilled") {
+        setTodayAttendances(Array.isArray(attResult.value) ? attResult.value : [])
+      } else {
+        setAttendanceError(true)
+      }
+      if (invResult.status === "fulfilled") {
+        setInvoices(Array.isArray(invResult.value) ? invResult.value : [])
+      } else {
+        setInvoiceError(true)
+      }
     } finally {
       setLoadingAttendances(false)
     }
@@ -242,25 +252,49 @@ export function ReceptionistDashboard() {
                   ? "Lượt check-in ghi nhận:"
                   : "Recorded Check-ins:"}
               </span>
-              <span className="text-base font-semibold text-slate-900 tabular-nums">
-                {todayAttendances.length}
-              </span>
+              {apiEnabled && loadingAttendances && todayAttendances.length === 0 ? (
+                <span
+                  className="inline-flex h-5 w-10 rounded bg-slate-200 animate-pulse"
+                  aria-busy="true"
+                  aria-label={language === "vi" ? "Đang tải" : "Loading"}
+                />
+              ) : (
+                <span className="text-base font-semibold text-slate-900 tabular-nums">
+                  {apiEnabled && attendanceError ? "—" : todayAttendances.length}
+                </span>
+              )}
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-between">
               <span className="text-xs font-medium text-slate-600">
                 {language === "vi" ? "Giao dịch thu tiền:" : "Transactions:"}
               </span>
-              <span className="text-base font-semibold text-status-success tabular-nums">
-                {apiEnabled ? invoices.length : payments?.length || 0}
-              </span>
+              {apiEnabled && loadingAttendances && invoices.length === 0 ? (
+                <span
+                  className="inline-flex h-5 w-10 rounded bg-slate-200 animate-pulse"
+                  aria-busy="true"
+                  aria-label={language === "vi" ? "Đang tải" : "Loading"}
+                />
+              ) : (
+                <span className="text-base font-semibold text-status-success tabular-nums">
+                  {apiEnabled ? (invoiceError ? "—" : invoices.length) : payments?.length || 0}
+                </span>
+              )}
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-between">
               <span className="text-xs font-medium text-slate-600">
                 {language === "vi" ? "Tổng số hội viên:" : "Total Members:"}
               </span>
-              <span className="text-base font-semibold text-brand-primary tabular-nums">
-                {members.length}
-              </span>
+              {apiEnabled && membersLoading && members.length === 0 ? (
+                <span
+                  className="inline-flex h-5 w-10 rounded bg-slate-200 animate-pulse"
+                  aria-busy="true"
+                  aria-label={language === "vi" ? "Đang tải" : "Loading"}
+                />
+              ) : (
+                <span className="text-base font-semibold text-brand-primary tabular-nums">
+                  {apiEnabled && membersError ? "—" : members.length}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -270,7 +304,8 @@ export function ReceptionistDashboard() {
       <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <h3 className="text-base font-semibold text-slate-800">
-            Lượt Điểm Danh &amp; Check-in Gần Nhất ({todayAttendances.length})
+            Lượt Điểm Danh &amp; Check-in Gần Nhất
+            {!loadingAttendances && !attendanceError ? ` (${todayAttendances.length})` : ""}
           </h3>
           <div className="flex items-center gap-2">
             {apiEnabled && (
@@ -278,7 +313,7 @@ export function ReceptionistDashboard() {
                 type="button"
                 onClick={loadAttendances}
                 disabled={loadingAttendances}
-                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 <RefreshCw
                   className={`w-3.5 h-3.5 ${
@@ -291,14 +326,39 @@ export function ReceptionistDashboard() {
             <button
               type="button"
               onClick={() => navigate("/receptionist/checkin")}
-              className="inline-flex h-9 items-center justify-center gap-1 rounded-xl px-3 text-xs font-medium text-brand-primary hover:bg-brand-blue-soft/60 transition-colors cursor-pointer"
+              className="inline-flex min-h-11 items-center justify-center gap-1 rounded-xl px-3 text-xs font-medium text-brand-primary hover:bg-brand-blue-soft/60 transition-colors cursor-pointer"
             >
               Mở trang Check-in &rarr;
             </button>
           </div>
         </div>
 
-        {todayAttendances.length === 0 ? (
+        {apiEnabled && loadingAttendances && todayAttendances.length === 0 ? (
+          <div
+            className="grid grid-cols-1 md:grid-cols-3 gap-3"
+            aria-busy="true"
+            aria-label={language === "vi" ? "Đang tải" : "Loading"}
+          >
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-16 rounded-xl bg-slate-100 animate-pulse" />
+            ))}
+          </div>
+        ) : apiEnabled && attendanceError ? (
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm text-status-danger">
+            <span>
+              {language === "vi"
+                ? "Không thể tải lượt điểm danh gần nhất."
+                : "Unable to load recent check-ins."}
+            </span>
+            <button
+              type="button"
+              onClick={loadAttendances}
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+            >
+              {language === "vi" ? "Thử lại" : "Retry"}
+            </button>
+          </div>
+        ) : todayAttendances.length === 0 ? (
           <p className="text-sm text-slate-500 py-3">
             Chưa có lượt check-in nào được ghi nhận.
           </p>

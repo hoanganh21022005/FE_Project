@@ -23,3 +23,11 @@ export async function getMemberSubjectCatalog({ strict = false } = {}) {
     return readSubjectList(data);
   }
 }
+
+// Bảng id -> tên môn, dùng cho màn chỉ cần hiện tên môn (không cần giá).
+export async function getSubjectNameMap() {
+  const list = await getMemberSubjectCatalog();
+  return Object.fromEntries(
+    list.filter((row) => row?.id != null && row?.name).map((row) => [String(row.id), row.name]),
+  );
+}
