@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import { CoachStatusBadge } from "../coach/StatusBadge"
 import { formatDate, formatTime, formatTimeRange } from "../../utils/datetime"
@@ -96,7 +97,9 @@ export function CoachAttendanceView() {
     showToast,
     language,
     t,
+    setCurrentTab,
   } = useSCMS()
+  const navigate = useNavigate()
 
   const resolvedCoachId = useMemo(() => {
     const raw = currentUser?.coachId ?? (apiEnabled ? null : currentUser?.id)
