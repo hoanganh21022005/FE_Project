@@ -1,0 +1,36 @@
+export const INITIAL_TRAINING_PLANS = [
+  {
+    id: "tp-1",
+    memberId: "mem-1",
+    memberName: "Nguyễn Minh Anh",
+    coachId: "stf-3",
+    coachName: "Lê Thị Mai",
+    goal: "Increase core stability and posture flexibility in 8 weeks.",
+    goalVi: "Tăng cường sức mạnh vùng lõi và độ dẻo cột sống trong 8 tuần.",
+    exercises: [
+      { name: "Plank Hold", sets: 4, reps: "60 sec" },
+      { name: "Cat-Cow Flow", sets: 3, reps: "12 reps" },
+      { name: "Reformer Footwork", sets: 3, reps: "15 reps", weight: "20kg" },
+    ],
+    resultNotes: "Cải thiện rõ rệt tư thế đứng, tư thế bả vai cân đối hơn.",
+    lastUpdated: "2026-09-15",
+    progressPercent: 65,
+  },
+  {
+    id: "tp-2",
+    memberId: "mem-2",
+    memberName: "Lê Hoàng Nam",
+    coachId: "stf-2",
+    coachName: "Nguyễn Văn Hùng",
+    goal: "Hypertrophy & CrossFit MetCon capacity building.",
+    goalVi: "Tăng khối lượng cơ bắp và sức bền tim mạch cho CrossFit.",
+    exercises: [
+      { name: "Barbell Deadlift", sets: 5, reps: "5 reps", weight: "120kg" },
+      { name: "Kettlebell Swings", sets: 4, reps: "20 reps", weight: "24kg" },
+      { name: "Box Jumps", sets: 4, reps: "15 reps" },
+    ],
+    resultNotes: "Đạt PR Deadlift 120kg, sức bền hô hấp tăng đáng kể.",
+    lastUpdated: "2026-09-17",
+    progressPercent: 80,
+  },
+]
