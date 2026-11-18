@@ -20,300 +20,39 @@ import {
   resolveMockLoginUser,
   ROLE_ADMIN,
 } from "../../utils/navigation"
-import {
-  PASSWORD_MIN_LENGTH,
-  isPasswordValid,
-  validatePassword,
-  getPasswordRulesStatus,
-  getPasswordRuleHint,
-} from "../../utils/passwordPolicy"
+import { isPasswordValid, validatePassword, getPasswordRuleHint } from "../../utils/passwordPolicy"
 import { CoachesHeader } from "../layout/CoachesHeader"
 import { PublicFooter } from "../layout/PublicFooter"
 import "../../styles/coaches.css"
 import {
-  Activity,
   AlertCircle,
   ArrowLeft,
   ArrowRight,
-  CalendarDays,
   Check,
   CheckCircle2,
-  Clock,
   Eye,
   EyeOff,
-  KeyRound,
   Lock,
-  LogIn,
   Mail,
   Phone,
-  QrCode,
   RefreshCw,
-  ShieldCheck,
-  Sparkles,
   User,
-  UserPlus,
   X,
 } from "lucide-react"
-
-const DEMO_EMAIL = "manager@scms.com"
-// Mật khẩu demo chỉ có trong bản build chế độ giả (vite --mode mock). Bản build thật nhận null,
-// nên chuỗi không lọt vào bundle và không mật khẩu nào khớp với null.
-const DEMO_PASSWORD = import.meta.env.MODE === "mock" ? "Scms@2026" : null
-const REGISTRATION_OTP_REQUEST_TIMEOUT_MS = 30000
-const RECENT_EMAILS_KEY = "scms_recent_login_emails"
-const EMAIL_DOMAIN_SUGGESTIONS = [
-  "@gmail.com",
-  "@fpt.edu.vn",
-  "@vibesport.vn",
-  "@scms.com",
-]
-
-const SPORT_ONBOARDING_OPTIONS = [
-  {
-    id: "badminton",
-    labelVi: "Cầu lông",
-    labelEn: "Badminton",
-    headlineTopVi: "CHINH PHỤC",
-    headlineAccentVi: "CẦU LÔNG.",
-    headlineTopEn: "MASTER",
-    headlineAccentEn: "BADMINTON.",
-    descVi:
-      "Rèn tốc độ, sự linh hoạt và phản xạ qua từng đường cầu trên hệ thống sân thảm chuẩn BWF.",
-    descEn:
-      "Build speed, agility, and reflexes across every rally on BWF-standard courts.",
-  },
-  {
-    id: "pickleball",
-    labelVi: "Pickleball",
-    labelEn: "Pickleball",
-    headlineTopVi: "BÙNG NỔ CÙNG",
-    headlineAccentVi: "PICKLEBALL.",
-    headlineTopEn: "ENERGIZE WITH",
-    headlineAccentEn: "PICKLEBALL.",
-    descVi:
-      "Môn thể thao xu hướng đầy năng lượng, dễ bắt đầu và kết nối cộng đồng trên mặt sân chuẩn DUPR.",
-    descEn:
-      "An energetic trending sport that is easy to pick up and fun to play together.",
-  },
-  {
-    id: "swimming",
-    labelVi: "Bơi lội",
-    labelEn: "Swimming",
-    headlineTopVi: "SỨC BỀN CÙNG",
-    headlineAccentVi: "BƠI LỘI.",
-    headlineTopEn: "ENDURANCE IN",
-    headlineAccentEn: "SWIMMING.",
-    descVi:
-      "Hoàn thiện kỹ thuật bơi, điều hòa nhịp thở và nâng cao thể lực toàn diện trong hồ bơi 4 mùa.",
-    descEn:
-      "Build swimming technique, breathing control, and total fitness in our 4-season pool.",
-  },
-  {
-    id: "archery",
-    labelVi: "Bắn cung",
-    labelEn: "Archery",
-    headlineTopVi: "TẬP TRUNG CÙNG",
-    headlineAccentVi: "BẮN CUNG.",
-    headlineTopEn: "PRECISION IN",
-    headlineAccentEn: "ARCHERY.",
-    descVi:
-      "Rèn sự tĩnh tại, tư thế chuẩn xác và khả năng làm chủ tâm lý qua từng phát bắn cự ly 15m.",
-    descEn:
-      "Practice focus, posture, and mental control across every 15m target shot.",
-  },
-  {
-    id: "basketball",
-    labelVi: "Bóng rổ",
-    labelEn: "Basketball",
-    headlineTopVi: "BỨT PHÁ CÙNG",
-    headlineAccentVi: "BÓNG RỔ.",
-    headlineTopEn: "ELEVATE WITH",
-    headlineAccentEn: "BASKETBALL.",
-    descVi:
-      "Phát triển kỹ thuật dẫn bóng, sức bật và tinh thần phối hợp đồng đội trên mặt sân gỗ tiêu chuẩn.",
-    descEn:
-      "Develop ball handling, vertical power, and teamwork on pro hardwood courts.",
-  },
-  {
-    id: "tennis",
-    labelVi: "Quần vợt",
-    labelEn: "Tennis",
-    headlineTopVi: "LÀM CHỦ SÂN",
-    headlineAccentVi: "QUẦN VỢT.",
-    headlineTopEn: "COMMAND THE",
-    headlineAccentEn: "TENNIS COURT.",
-    descVi:
-      "Hoàn thiện kỹ thuật giao bóng, bộ chân di chuyển và bản lĩnh kiểm soát trận đấu.",
-    descEn:
-      "Refine your serve, footwork, and match control with specialist coaches.",
-  },
-  {
-    id: "football",
-    labelVi: "Bóng đá",
-    labelEn: "Football",
-    headlineTopVi: "BỨT TỐC CÙNG",
-    headlineAccentVi: "BÓNG ĐÁ.",
-    headlineTopEn: "MOVE UP WITH",
-    headlineAccentEn: "FOOTBALL.",
-    descVi:
-      "Rèn kỹ thuật, thể lực và phối hợp đồng đội qua từng buổi tập trên sân bóng.",
-    descEn:
-      "Build technique, fitness, and teamwork through focused football training.",
-  },
-  {
-    id: "volleyball",
-    labelVi: "Bóng chuyền",
-    labelEn: "Volleyball",
-    headlineTopVi: "CHINH PHỤC",
-    headlineAccentVi: "BÓNG CHUYỀN.",
-    headlineTopEn: "RISE TO",
-    headlineAccentEn: "VOLLEYBALL.",
-    descVi:
-      "Hoàn thiện kỹ thuật chuyền, đập bóng và phối hợp chiến thuật cùng đồng đội.",
-    descEn:
-      "Improve your passing, attacking, and tactical teamwork on court.",
-  },
-  {
-    id: "table-tennis",
-    labelVi: "Bóng bàn",
-    labelEn: "Table tennis",
-    headlineTopVi: "LÀM CHỦ",
-    headlineAccentVi: "BÓNG BÀN.",
-    headlineTopEn: "MASTER",
-    headlineAccentEn: "TABLE TENNIS.",
-    descVi:
-      "Phát triển phản xạ, độ chính xác và chiến thuật qua từng pha bóng tốc độ.",
-    descEn:
-      "Sharpen your reflexes, precision, and strategy in every fast-paced rally.",
-  },
-]
-
-function buildEmailSuggestions(rawValue) {
-  const val = String(rawValue || "").trim()
-  if (!val || val.length < 2 || val.includes(" ")) return []
-  const atIndex = val.indexOf("@")
-  const localPart = atIndex === -1 ? val : val.slice(0, atIndex)
-  const typedDomain = atIndex === -1 ? "" : val.slice(atIndex).toLowerCase()
-  if (!localPart) return []
-  return EMAIL_DOMAIN_SUGGESTIONS.filter((domain) => {
-    if (!typedDomain) return true
-    return domain.startsWith(typedDomain) && domain !== typedDomain
-  }).map((domain) => `${localPart}${domain}`)
-}
-
-function checkIsClubOpenNow() {
-  const now = new Date()
-  const minutes = now.getHours() * 60 + now.getMinutes()
-  // Open 06:00 (360) to 20:00 (1200)
-  return minutes >= 360 && minutes < 1200
-}
-
-function computePasswordStrength(pwd, isVi) {
-  const val = String(pwd || "")
-  const checks = {
-    length: val.length >= PASSWORD_MIN_LENGTH,
-    hasLetter: /[A-Za-z]/.test(val),
-    hasDigit: /\d/.test(val),
-    mixedCase: /[A-Z]/.test(val) && /[a-z]/.test(val),
-    special: /[^A-Za-z0-9]/.test(val),
-  }
-  if (!val) {
-    return {
-      score: 0,
-      label: "",
-      color: "bg-stone-200",
-      textColor: "text-stone-400",
-      checks,
-    }
-  }
-  let score = 0
-  const isPolicyMet = checks.length && checks.hasLetter && checks.hasDigit
-  if (isPolicyMet) {
-    score = 2
-    if (checks.mixedCase) score += 1
-    if (checks.special) score += 1
-  } else {
-    score = 1
-  }
-
-  const map = {
-    1: {
-      label: isVi ? "Yếu (chưa đủ 8 ký tự, chữ và số)" : "Weak (needs 8+ chars, letter & number)",
-      color: "bg-rose-500",
-      textColor: "text-rose-600",
-    },
-    2: {
-      label: isVi ? "Hợp lệ" : "Valid",
-      color: "bg-amber-500",
-      textColor: "text-amber-600",
-    },
-    3: {
-      label: isVi ? "Khá mạnh" : "Good",
-      color: "bg-emerald-500",
-      textColor: "text-emerald-600",
-    },
-    4: {
-      label: isVi ? "Rất mạnh" : "Strong",
-      color: "bg-emerald-600",
-      textColor: "text-emerald-700",
-    },
-  }
-  const picked = map[score] || map[1]
-  return { score: Math.max(1, score), ...picked, checks }
-}
-
-function parseJwtPayload(token) {
-  if (!token || typeof token !== "string") return null
-  try {
-    const parts = token.split(".")
-    if (parts.length < 2) return null
-    let base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/")
-    while (base64.length % 4) {
-      base64 += "="
-    }
-    const binary = atob(base64)
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i)
-    }
-    const text = new TextDecoder("utf-8").decode(bytes)
-    return JSON.parse(text)
-  } catch {
-    return null
-  }
-}
-
-function getGoogleErrorMessage(error, tab, isVi) {
-  if (error?.message === "Vai trò người dùng không được hỗ trợ trong hệ thống.") {
-    return isVi
-      ? "Vai trò người dùng không được hỗ trợ trong hệ thống."
-      : "User role is not supported in the system."
-  }
-  const status = error?.status
-  if (status === 401) {
-    if (tab === "register") {
-      return isVi
-        ? "Chưa tạo được tài khoản bằng Google. Vui lòng điền biểu mẫu bên trên; email Google của bạn đã được điền sẵn."
-        : "Could not create account with Google. Please fill in the form above; your Google email has been autofilled."
-    }
-    return isVi
-      ? "Không đăng nhập được bằng Google. Nếu chưa có tài khoản, hãy chuyển sang tab Đăng ký."
-      : "Unable to sign in with Google. If you do not have an account, please switch to the Register tab."
-  }
-  if (status === 403) {
-    return isVi
-      ? "Tài khoản đã bị khóa hoặc không có quyền đăng nhập."
-      : "Account is locked or not authorized to sign in."
-  }
-  if (!status || status >= 500) {
-    return isVi
-      ? "Không kết nối được máy chủ. Vui lòng thử lại."
-      : "Cannot connect to server. Please try again."
-  }
-  return isVi
-    ? "Đăng nhập Google thất bại. Vui lòng thử lại."
-    : "Google sign-in failed. Please try again."
-}
+import {
+  DEMO_EMAIL,
+  DEMO_PASSWORD,
+  REGISTRATION_OTP_REQUEST_TIMEOUT_MS,
+  RECENT_EMAILS_KEY,
+  SPORT_ONBOARDING_OPTIONS,
+} from "./login/loginConstants"
+import {
+  buildEmailSuggestions,
+  checkIsClubOpenNow,
+  computePasswordStrength,
+  parseJwtPayload,
+  getGoogleErrorMessage,
+} from "./login/loginHelpers"
 
 export function LoginView({
   onLoginSuccess,
