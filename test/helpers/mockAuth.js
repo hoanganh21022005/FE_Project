@@ -38,7 +38,9 @@ export function isApiMatch(url, endpoint) {
 export async function setupDefaultApiMocks(page, auxiliaryPaths = []) {
   // Auxiliary GETs are explicitly mocked; other requests hit the test guard.
   const paths = ['subjects', 'rooms', 'coaches', 'staff', 'packages', 'notifications'].map((path) => `/api/${path}`);
-  paths.push('/api/notifications/me', '/api/reports/dashboard', '/api/audit-logs', '/api/normal-refunds', ...auxiliaryPaths);
+  // /api/sessions, /api/attendances và đăng ký lớp của Member 101: ngữ cảnh ứng dụng tải sau khi đăng nhập, thời điểm gọi phụ thuộc tốc độ máy.
+  // Mock rỗng mặc định để ca không hỏng lúc có lúc không; ca nào cần dữ liệu riêng thì đăng ký route sau để ghi đè.
+  paths.push('/api/notifications/me', '/api/reports/dashboard', '/api/audit-logs', '/api/normal-refunds', '/api/sessions', '/api/attendances', '/api/members/101/enrollments', ...auxiliaryPaths);
   await page.route((url) => url.origin === testOrigin && paths.includes(url.pathname), async (route) => {
     if (route.request().method() !== 'GET') return route.fallback();
     return route.fulfill({ status: 200, json: [] });
