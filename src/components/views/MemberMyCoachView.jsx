@@ -189,10 +189,6 @@ export function MemberMyCoachView() {
             return st === "active" || st === "grace_period"
           })
           setSubscriptions(valid)
-          if (valid.length > 0)
-            setSelectedSubscriptionId(
-              String(valid[0].subscriptionId || valid[0].id),
-            )
         })
         .catch((err) => console.warn("Could not fetch subscriptions:", err))
     }
