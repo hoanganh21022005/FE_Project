@@ -24,6 +24,9 @@ const coachAuthUserWithoutCoachId = {
   authorities: ['ROLE_COACH'],
 };
 
+// Ngày hiện tại theo UTC, cùng cách CoachScheduleView tính `todayIso`: buổi học của fixture luôn thuộc nhóm "Hôm nay" (mở sẵn), không rơi vào nhóm "Đã qua" (thu gọn).
+const todayIso = new Date().toISOString().slice(0, 10);
+
 const sessionFromCoachId = {
   ...mockCoachSessions[0],
   id: 501,
@@ -31,7 +34,7 @@ const sessionFromCoachId = {
   className: 'Lớp Cầu Lông Cơ Bản K01',
   coachId: 2,
   coachName: mockUsers.coach.name,
-  sessionDate: '2026-11-16',
+  sessionDate: todayIso,
   startTime: '08:00:00',
   endTime: '09:30:00',
   status: 'Scheduled',
@@ -44,7 +47,7 @@ const sessionFromClassFallback = {
   className: 'Lớp Bổ Sung Pha 2',
   coachId: 2,
   coachName: mockUsers.coach.name,
-  sessionDate: '2026-11-16',
+  sessionDate: todayIso,
   startTime: '14:00:00',
   endTime: '15:30:00',
   status: 'Scheduled',
