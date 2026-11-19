@@ -551,7 +551,6 @@ function SCMSApp() {
     if (path.startsWith("/admin/audit-logs")) return "admin_audit_logs"
 
     // Quản lý trung tâm
-    if (path === "/admin/ops/dashboard") return "ops_manager_dashboard"
     if (path.startsWith("/admin/ops/staff")) return "ops_staff"
     if (path.startsWith("/admin/ops/members")) return "ops_members"
     if (path.startsWith("/admin/ops/packages")) return "ops_packages"
@@ -562,7 +561,6 @@ function SCMSApp() {
     if (path.startsWith("/admin/ops/resources")) return "ops_resources"
     if (path.startsWith("/admin/ops/payments")) return "ops_payments"
     if (path.startsWith("/admin/ops/normal-refunds")) return "ops_refunds"
-    if (path.startsWith("/admin/ops/reports")) return "ops_reports"
 
     // Lễ tân
     if (path === "/admin/ops/reception/dashboard") return "ops_reception_dashboard"
@@ -582,7 +580,6 @@ function SCMSApp() {
     if (path.startsWith("/admin/audit-logs")) return "Nhật ký hoạt động"
 
     // Quản lý trung tâm
-    if (path.startsWith("/admin/ops/dashboard")) return "Tổng quan quản lý trung tâm"
     if (path.startsWith("/admin/ops/staff")) return "Quản lý nhân sự"
     if (path.startsWith("/admin/ops/members")) return "Quản lý hội viên"
     if (path.startsWith("/admin/ops/packages")) return "Quản lý gói tập"
@@ -593,7 +590,6 @@ function SCMSApp() {
     if (path.startsWith("/admin/ops/resources")) return "Bộ môn & Phòng tập"
     if (path.startsWith("/admin/ops/payments")) return "Quản lý thanh toán"
     if (path.startsWith("/admin/ops/normal-refunds")) return "Hoàn tiền Normal"
-    if (path.startsWith("/admin/ops/reports")) return "Báo cáo thống kê"
 
     // Lễ tân
     if (path.startsWith("/admin/ops/reception/dashboard")) return "Tổng quan lễ tân"
@@ -630,9 +626,6 @@ function SCMSApp() {
         break
 
       // Quản lý trung tâm
-      case "ops_manager_dashboard":
-        navigate("/admin/ops/dashboard")
-        break
       case "ops_staff":
         navigate("/admin/ops/staff")
         break
@@ -662,9 +655,6 @@ function SCMSApp() {
         break
       case "ops_refunds":
         navigate("/admin/ops/normal-refunds")
-        break
-      case "ops_reports":
-        navigate("/admin/ops/reports")
         break
 
       // Lễ tân

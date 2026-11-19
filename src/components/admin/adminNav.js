@@ -197,8 +197,23 @@ export const ADMIN_NAV_ITEMS = Object.freeze(
 // Mục có requiredAuthority / requiredAnyAuthority chỉ hiện khi tài khoản Admin có
 // quyền tương ứng. Nhóm hết mục thì ẩn.
 // Không truyền `user` thì trả toàn bộ (giữ hành vi cũ cho nơi gọi chưa có user).
-export const canSeeNavItem = (item, user) => {
+const canSeeNavItem = (item, user) => {
   if (!user) return true
+  if (item.requiredAuthority && !hasAuthority(user, item.requiredAuthority)) {
+    return false
+  }
+  if (
+    Array.isArray(item.requiredAnyAuthority) &&
+    item.requiredAnyAuthority.length > 0 &&
+    !item.requiredAnyAuthority.some((auth) => hasAuthority(user, auth))
+  ) {
+    return false
+  }
+  return true
+}
+
+const canAccessNavItemStrict = (item, user) => {
+  if (!user) return false
   if (item.requiredAuthority && !hasAuthority(user, item.requiredAuthority)) {
     return false
   }
@@ -218,12 +233,15 @@ const ADMIN_NAV_ITEMS_BY_PATH_LENGTH = [...ADMIN_NAV_ITEMS].sort(
 
 export function canAccessAdminOpsPath(pathname, user) {
   if (!pathname || !pathname.startsWith("/admin/ops")) return true
-  if (pathname === "/admin/ops/audit-logs") return true
+  if (!user) return false
+  if (pathname === "/admin/ops/audit-logs") {
+    return hasAuthority(user, "VIEW_AUDIT_LOG")
+  }
   const matched = ADMIN_NAV_ITEMS_BY_PATH_LENGTH.find(
     (item) => pathname === item.path || pathname.startsWith(`${item.path}/`),
   )
   if (!matched) return false
-  return canSeeNavItem(matched, user)
+  return canAccessNavItemStrict(matched, user)
 }
 
 export function getAdminNavGroups(role, user) {
