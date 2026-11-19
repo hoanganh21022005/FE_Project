@@ -1,4 +1,5 @@
 import { toClassRequest } from './mappers.js'
+import { convertWeekday } from '../utils/weekday.js'
 
 export const NORMAL_CLASS_API_BLOCKED_MESSAGE =
   'Hệ thống hiện chưa hỗ trợ lưu lớp học ở trạng thái Nháp; lớp học cần được khởi tạo hoàn chỉnh cùng đầy đủ 12 buổi học.'
@@ -60,7 +61,10 @@ export const validateNormalClassCapacity = ({
 
 export const toBackendDaysOfWeek = (daysOfWeek) => {
   if (!Array.isArray(daysOfWeek)) return daysOfWeek
-  return daysOfWeek.map((day) => day === 0 ? 7 : day === '0' ? '7' : day)
+  // Chỉ đổi Chủ nhật (JS 0 -> API 7); giữ nguyên kiểu số hoặc chuỗi và mọi giá trị khác.
+  return daysOfWeek.map((day) =>
+    day === 0 || day === '0' ? (typeof day === 'string' ? String(convertWeekday(day, 'api')) : convertWeekday(day, 'api')) : day,
+  )
 }
 
 export const createNormalClassRequestId = () => {

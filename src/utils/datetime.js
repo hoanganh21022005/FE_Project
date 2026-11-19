@@ -23,6 +23,18 @@ const WEEKDAYS_EN = [
   'Saturday',
 ];
 
+/**
+ * parseBackendDate(value) -> mili giây (hoặc NaN nếu rỗng/không đọc được).
+ * Field thời gian mới của Backend có offset (ví dụ "+07:00" hoặc "Z"); field cũ không offset
+ * là giờ Việt Nam nên được gắn "+07:00" trước khi đọc.
+ */
+export function parseBackendDate(value) {
+  const text = String(value || "").trim();
+  if (!text) return Number.NaN;
+  const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text);
+  return Date.parse(hasZone ? text : `${text}+07:00`);
+}
+
 function parseIsoOrDate(iso) {
   if (!iso) return null;
   if (iso instanceof Date) {

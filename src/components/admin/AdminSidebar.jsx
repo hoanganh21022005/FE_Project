@@ -133,7 +133,7 @@ export function AdminSidebar({
         <div className="h-full flex flex-col justify-between">
           <div className="flex-1 flex flex-col min-h-0">
             <div
-              className={`h-14 flex items-center border-b border-brand-dark-hover shrink-0 ${
+              className={`h-[76px] flex items-center border-b border-brand-dark-hover shrink-0 ${
                 collapsed ? "px-3 lg:px-0 lg:justify-center" : "px-3 justify-between"
               }`}
             >
@@ -147,9 +147,9 @@ export function AdminSidebar({
                 }`}
               >
                 <img
-                  src="/images/MainPage/vibe-sport-logo.png?v=4"
+                  src="/images/MainPage/vibe-sport-logo.png?v=5"
                   alt="Vibe Sport"
-                  className="w-9 h-[27px] object-contain shrink-0"
+                  className="h-16 w-auto object-contain shrink-0 sm:h-[72px]"
                 />
                 <div className="min-w-0">
                   <p className="text-[11px] leading-4 font-bold uppercase tracking-tight text-text-inverse whitespace-nowrap">

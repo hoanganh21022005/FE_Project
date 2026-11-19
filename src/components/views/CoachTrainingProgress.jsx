@@ -4,7 +4,7 @@ import { evaluationApi } from "../../api/evaluationApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { attendanceApi } from "../../api/attendanceApi"
 import { updateTrainingResultContent } from "../../api/trainingResultApi"
-import { getErrorMessage } from "../../api/apiErrors"
+import { getErrorMessage, translateErrorCode } from "../../api/apiErrors"
 import { canLogResult } from "../../utils/permissions"
 import { formatDate, formatTime } from "../../utils/datetime"
 import { formatMemberCode } from "../../utils/formatMember"
@@ -38,50 +38,24 @@ import {
   AlertCircle,
 } from "lucide-react"
 
-const RESULT_CONTENT_ERROR_MAP = {
-  RESULT_CONTENT_NOT_OPEN: {
-    vi: "Buổi tập chưa kết thúc nên chưa thể sửa nhận xét.",
-    en: "Session has not ended yet.",
-  },
-  RESULT_CONTENT_DEADLINE_PASSED: {
-    vi: "Đã hết hạn sửa nhận xét (chỉ được sửa trước 00:00 ngày hôm sau).",
-    en: "Edit window has expired (must be edited before 00:00 the next day).",
-  },
-  RESULT_CONTENT_FORBIDDEN: {
-    vi: "Chỉ huấn luyện viên được giao buổi tập và là tác giả bản ghi mới có quyền sửa nhận xét này.",
-    en: "Only the assigned coach who authored this record can edit it.",
-  },
-  RESULT_CONTENT_REQUIRED: {
-    vi: "Nhận xét không được để trống.",
-    en: "Comment cannot be empty.",
-  },
-  NORMAL_NOT_STARTED: {
-    vi: "Lớp Normal chưa khai giảng nên chưa thể sửa nhận xét.",
-    en: "Normal class has not started yet.",
-  },
-  SESSION_NOT_HELD: {
-    vi: "Buổi tập không diễn ra hoặc đã bị hủy.",
-    en: "Session was not held or was cancelled.",
-  },
-  SESSION_TIME_REQUIRED: {
-    vi: "Buổi tập chưa có thời gian kết thúc hợp lệ.",
-    en: "Session end time is required.",
-  },
-  ATTENDANCE_SUPERSEDED: {
-    vi: "Dữ liệu điểm danh của buổi tập đã được thay thế.",
-    en: "Attendance record has been superseded.",
-  },
-  NOT_YOUR_CLASS: {
-    vi: "Bạn không phụ trách lớp học này.",
-    en: "You are not assigned to this class.",
-  },
-}
+// Mã lỗi khi sửa nhận xét buổi tập; chữ nằm ở bảng chung trong apiErrors.js (ngữ cảnh "resultContent").
+const RESULT_CONTENT_CODES = [
+  "RESULT_CONTENT_NOT_OPEN",
+  "RESULT_CONTENT_DEADLINE_PASSED",
+  "RESULT_CONTENT_FORBIDDEN",
+  "RESULT_CONTENT_REQUIRED",
+  "NORMAL_NOT_STARTED",
+  "SESSION_NOT_HELD",
+  "SESSION_TIME_REQUIRED",
+  "ATTENDANCE_SUPERSEDED",
+  "NOT_YOUR_CLASS",
+]
 
 const translateTrainingResultContentError = (err, language) => {
   const isVi = language === "vi"
   const rawCode = err?.code || err?.details?.code || err?.response?.data?.code
-  if (rawCode && RESULT_CONTENT_ERROR_MAP[rawCode]) {
-    return RESULT_CONTENT_ERROR_MAP[rawCode][isVi ? "vi" : "en"]
+  if (RESULT_CONTENT_CODES.includes(rawCode)) {
+    return translateErrorCode(rawCode, isVi ? "vi" : "en", "resultContent")
   }
   const status = Number(err?.status ?? err?.response?.status) || 0
   if (status === 404) {

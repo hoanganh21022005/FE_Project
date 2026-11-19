@@ -15,6 +15,7 @@ import { AdminResourceState } from "../AdminResourceState.jsx"
 import { useAdminData } from "../AdminDataContext.jsx"
 import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { updateRolePermissions } from "../../../api/adminApi.js"
+import { getErrorCode, translateErrorCode } from "../../../api/apiErrors.js"
 import { AdminConfirmDialog } from "../AdminConfirmDialog.jsx"
 import {
   getAdminPermissionLabel,
@@ -152,10 +153,23 @@ export function AdminRolesView() {
         message: getAdminText(language, "roles.saveSuccess"),
       })
     } catch (err) {
-      if (err?.status === 403) {
+      const status = Number(err?.status ?? err?.response?.status) || 0
+      const code = getErrorCode(err)
+      const translated = code ? translateErrorCode(code, language) : null
+      if (status === 403) {
         setSaveError(getAdminText(language, "common.noPermission"))
       } else {
-        setSaveError(err?.message || getAdminText(language, "roles.saveError"))
+        setSaveError(
+          translated || err?.message || getAdminText(language, "roles.saveError"),
+        )
+      }
+      // Chỉ hủy bản nháp và tải lại ma trận khi BE từ chối (400/403/404/409/422).
+      // Lỗi mạng (không có status) hoặc lỗi máy chủ (>= 500) giữ bản nháp để Admin thử lại.
+      if ([400, 403, 404, 409, 422].includes(status)) {
+        setDraftPermissions({})
+        setIsEditing(false)
+        retry("roles")
+        retry("permissions")
       }
       setIsConfirmOpen(false)
     } finally {

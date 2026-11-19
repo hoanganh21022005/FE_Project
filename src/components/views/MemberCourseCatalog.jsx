@@ -10,7 +10,7 @@ import { getClassCatalogSessions } from '../../api/memberPortalApi'
 import { invoiceApi } from '../../api/invoiceApi'
 import { membershipApi } from '../../api/membershipApi'
 import { closePreparedVnpayPopup, prepareVnpayCheckoutPopup, startVnpayCheckout } from '../../utils/vnpayCheckout'
-import { getErrorMessage } from '../../api/apiErrors'
+import { errorHasCode, getErrorMessage } from '../../api/apiErrors'
 import { getAuthoritativeProfileId, parseVietnamDateTime } from '../../utils/memberSafetyHelpers'
 import { isValidNumericId } from '../../api/schemaValidators.js'
 import { COURSE_HERO_MEDIA, SPORT_MEDIA } from '../../data/memberCourseCatalog.js'
@@ -50,14 +50,8 @@ const confirmationDeadlineTimestamp = (value) => {
   const timestamp = parseVietnamDateTime(value)
   return Number.isFinite(timestamp) ? timestamp : null
 }
-const isConfirmationExpiredError = (error) => {
-  const details = error?.details ?? error?.response?.data
-  const text = [error?.code, error?.message, details?.code, details?.message, details?.error, details?.detail]
-    .filter((value) => typeof value === 'string')
-    .join(' ')
-    .toUpperCase()
-  return Number(error?.status ?? error?.response?.status) === 409 && text.includes('REGISTRATION_CONFIRMATION_EXPIRED')
-}
+const isConfirmationExpiredError = (error) =>
+  Number(error?.status ?? error?.response?.status) === 409 && errorHasCode(error, 'REGISTRATION_CONFIRMATION_EXPIRED')
 const formatDeadline = (value, language) => {
   const timestamp = confirmationDeadlineTimestamp(value)
   if (timestamp == null) return language === 'vi' ? 'Chưa có thông tin hạn xác nhận' : 'Confirmation deadline unavailable'

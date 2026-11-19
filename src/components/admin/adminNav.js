@@ -1,6 +1,5 @@
 import {
   Activity,
-  BarChart3,
   Calendar,
   CalendarDays,
   CalendarPlus,
@@ -13,7 +12,6 @@ import {
   ScrollText,
   Search,
   ShieldCheck,
-  TrendingUp,
   UserCheck,
   Users,
 } from "lucide-react"
@@ -62,18 +60,12 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
     titleEn: "Center Management",
     items: [
       {
-        id: "ops_manager_dashboard",
-        label: "Tổng quan quản lý",
-        labelEn: "Manager Overview",
-        icon: BarChart3,
-        path: "/admin/ops/dashboard",
-      },
-      {
         id: "ops_staff",
         label: "Nhân sự",
         labelEn: "Staff",
         icon: Users,
         path: "/admin/ops/staff",
+        requiredAuthority: "MANAGE_USERS",
       },
       {
         id: "ops_members",
@@ -81,6 +73,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         labelEn: "Members",
         icon: UserCheck,
         path: "/admin/ops/members",
+        requiredAuthority: "MANAGE_USERS",
       },
       {
         id: "ops_packages",
@@ -88,6 +81,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         labelEn: "Packages",
         icon: Package,
         path: "/admin/ops/packages",
+        requiredAuthority: "MANAGE_PACKAGES",
       },
       {
         id: "ops_classes",
@@ -103,6 +97,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         labelEn: "Holidays",
         icon: CalendarDays,
         path: "/admin/ops/holidays",
+        requiredAuthority: "MANAGE_CLASSES",
       },
       {
         id: "ops_session_incidents",
@@ -110,6 +105,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         labelEn: "Session Incidents",
         icon: Activity,
         path: "/admin/ops/session-incidents",
+        requiredAuthority: "MANAGE_CLASSES",
       },
       {
         id: "ops_advanced_schedule",
@@ -125,6 +121,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         labelEn: "Disciplines & Rooms",
         icon: Library,
         path: "/admin/ops/resources",
+        requiredAnyAuthority: ["MANAGE_CLASSES", "MANAGE_SPECIALIZATIONS"],
       },
       {
         id: "ops_payments",
@@ -142,13 +139,6 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         path: "/admin/ops/normal-refunds",
         requiredAuthority: "MANAGE_INVOICES",
       },
-      {
-        id: "ops_reports",
-        label: "Báo cáo",
-        labelEn: "Reports",
-        icon: TrendingUp,
-        path: "/admin/ops/reports",
-      },
     ],
   },
   {
@@ -162,6 +152,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         labelEn: "Reception Overview",
         icon: LayoutDashboard,
         path: "/admin/ops/reception/dashboard",
+        requiredAuthority: "REGISTER_MEMBER",
       },
       {
         id: "ops_reception_checkin",
@@ -169,6 +160,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         labelEn: "Attendance & Check-in",
         icon: ClipboardCheck,
         path: "/admin/ops/reception/checkin",
+        requiredAuthority: "REGISTER_MEMBER",
       },
       {
         id: "ops_reception_search",
@@ -176,6 +168,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         labelEn: "Member Lookup",
         icon: Search,
         path: "/admin/ops/reception/search",
+        requiredAuthority: "REGISTER_MEMBER",
       },
       {
         id: "ops_reception_booking",
@@ -183,6 +176,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
         labelEn: "Class Booking",
         icon: CalendarPlus,
         path: "/admin/ops/reception/booking",
+        requiredAuthority: "REGISTER_MEMBER",
       },
       {
         id: "ops_reception_payments",
@@ -200,11 +194,55 @@ export const ADMIN_NAV_ITEMS = Object.freeze(
   ADMIN_NAV_GROUPS.flatMap((group) => group.items),
 )
 
-// Mục có requiredAuthority chỉ hiện khi tài khoản Admin có quyền đó (backend chỉ
-// cấp MANAGE_CLASSES/MANAGE_INVOICES cho Admin khi được duyệt). Nhóm hết mục thì ẩn.
+// Mục có requiredAuthority / requiredAnyAuthority chỉ hiện khi tài khoản Admin có
+// quyền tương ứng. Nhóm hết mục thì ẩn.
 // Không truyền `user` thì trả toàn bộ (giữ hành vi cũ cho nơi gọi chưa có user).
-const canSeeNavItem = (item, user) =>
-  !item.requiredAuthority || !user || hasAuthority(user, item.requiredAuthority)
+const canSeeNavItem = (item, user) => {
+  if (!user) return true
+  if (item.requiredAuthority && !hasAuthority(user, item.requiredAuthority)) {
+    return false
+  }
+  if (
+    Array.isArray(item.requiredAnyAuthority) &&
+    item.requiredAnyAuthority.length > 0 &&
+    !item.requiredAnyAuthority.some((auth) => hasAuthority(user, auth))
+  ) {
+    return false
+  }
+  return true
+}
+
+const canAccessNavItemStrict = (item, user) => {
+  if (!user) return false
+  if (item.requiredAuthority && !hasAuthority(user, item.requiredAuthority)) {
+    return false
+  }
+  if (
+    Array.isArray(item.requiredAnyAuthority) &&
+    item.requiredAnyAuthority.length > 0 &&
+    !item.requiredAnyAuthority.some((auth) => hasAuthority(user, auth))
+  ) {
+    return false
+  }
+  return true
+}
+
+const ADMIN_NAV_ITEMS_BY_PATH_LENGTH = [...ADMIN_NAV_ITEMS].sort(
+  (a, b) => b.path.length - a.path.length,
+)
+
+export function canAccessAdminOpsPath(pathname, user) {
+  if (!pathname || !pathname.startsWith("/admin/ops")) return true
+  if (!user) return false
+  if (pathname === "/admin/ops/audit-logs") {
+    return hasAuthority(user, "VIEW_AUDIT_LOG")
+  }
+  const matched = ADMIN_NAV_ITEMS_BY_PATH_LENGTH.find(
+    (item) => pathname === item.path || pathname.startsWith(`${item.path}/`),
+  )
+  if (!matched) return false
+  return canAccessNavItemStrict(matched, user)
+}
 
 export function getAdminNavGroups(role, user) {
   if (role !== ROLE_ADMIN) return []

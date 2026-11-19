@@ -185,6 +185,18 @@ export const getTrainingResults = (params = {}) => {
 }
 export const createTrainingResult = (payload) =>
   httpClient.post("/api/training-results", payload)
+export const updateTrainingResultContent = (resultId, content) => {
+  if (!Number.isInteger(Number(resultId)) || Number(resultId) <= 0) {
+    throw new Error("ID kết quả buổi tập không hợp lệ.")
+  }
+  if (typeof content !== "string") {
+    throw new Error("Nhận xét phải là chuỗi.")
+  }
+  return httpClient.patch(
+    `/api/training-results/${Number(resultId)}/content`,
+    { content },
+  )
+}
 export const recordBulkTrainingResults = (payload) =>
   httpClient.post("/api/training-results/bulk", payload)
 
@@ -295,10 +307,6 @@ export const getCenterIncidents = async () => {
   } catch {
     return []
   }
-}
-
-export const bookPrivateSession = async (payload) => {
-  return httpClient.post("/api/sessions/book-private", payload)
 }
 
 export const createPrivateSessionProposal = async (payload) => {
@@ -472,6 +480,7 @@ export const memberPortalApi = {
   getMemberTrainingResults,
   getTrainingResults,
   createTrainingResult,
+  updateTrainingResultContent,
   recordBulkTrainingResults,
   getMemberEvaluations,
   getEvaluationById,
@@ -488,7 +497,6 @@ export const memberPortalApi = {
   getRooms,
   getActiveHolidays,
   getCenterIncidents,
-  bookPrivateSession,
   createPrivateSessionProposal,
   getPrivateSessionProposals,
   getPrivateSessionProposalById,

@@ -1,3 +1,5 @@
+import { parseBackendDate } from "./datetime.js";
+
 const authoritiesOf = (user) =>
   Array.isArray(user?.authorities)
     ? user.authorities.map((authority) => String(authority).trim().toUpperCase())
@@ -27,12 +29,6 @@ export function isCashInvoiceConfirmable(invoice, now = Date.now()) {
   const method = String(invoice.paymentMethod || invoice.rawPaymentMethod || invoice.method || "")
     .trim()
     .toLowerCase();
-  const parseBackendDate = (value) => {
-    const text = String(value || "").trim();
-    if (!text) return Number.NaN;
-    const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text);
-    return Date.parse(hasZone ? text : `${text}+07:00`);
-  };
   const expiresAt = parseBackendDate(invoice.expiresAt);
   const backendNow = parseBackendDate(invoice.serverTime);
   const referenceNow = Number.isFinite(backendNow) ? backendNow : now;

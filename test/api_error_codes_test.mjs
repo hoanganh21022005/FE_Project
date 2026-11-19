@@ -8,7 +8,7 @@ import {
 } from '../src/api/apiErrors.js'
 
 const codes = Object.keys(BACKEND_CODE_MESSAGES)
-assert.equal(codes.length, 30)
+assert.equal(codes.length, 46)
 
 // AC-A1: mọi mã trong bảng khi có { code, message: "<MÃ>: English text" } hoặc chỉ { message: "MÃ: English text" }
 for (const code of codes) {
