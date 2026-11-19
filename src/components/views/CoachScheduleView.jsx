@@ -1032,8 +1032,8 @@ export function CoachScheduleView() {
               </div>
             ) : viewMode === "week" ? (
               /* Weekly 7 days x 8 slots Grid View */
-              <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
-                <table className="w-full min-w-full text-left text-sm border-collapse">
+              <div className="w-full min-w-0 max-w-full touch-pan-x overscroll-x-contain scroll-smooth overflow-x-auto rounded-lg border border-border-color bg-bg-card">
+                <table className="w-full min-w-[900px] text-left text-sm border-collapse xl:min-w-full">
                   <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
                     <tr>
                       <th className="px-4 py-3 text-left align-middle border-r border-border-color w-32">
