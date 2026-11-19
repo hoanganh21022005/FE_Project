@@ -57,7 +57,7 @@ export function PTDetailView() {
               <span className="text-white">SC</span>
             </div>
             <div className="text-xl font-black tracking-widest uppercase text-white leading-none mt-1">
-              VIBE Sport FITNESS
+              AVT Sport FITNESS
             </div>
           </div>
           <button 
@@ -202,7 +202,7 @@ export function PTDetailView() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
             <div className="max-w-xl">
               <h2 className="text-5xl md:text-[64px] font-black uppercase leading-[1.1] tracking-tighter mb-8 text-[#111111]">
-                {isVi ? 'KẾT NỐI NGAY VỚI CÁC HLV CÁ NHÂN TẠI VIBE Sport' : 'CONNECT NOW WITH VIBE Sport PERSONAL TRAINERS'}
+                {isVi ? 'KẾT NỐI NGAY VỚI CÁC HLV CÁ NHÂN TẠI AVT Sport' : 'CONNECT NOW WITH AVT Sport PERSONAL TRAINERS'}
               </h2>
               <p className="text-stone-600 font-medium text-sm leading-relaxed">
                 {isVi 

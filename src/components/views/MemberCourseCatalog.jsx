@@ -10,12 +10,17 @@ import { getClassCatalogSessions } from '../../api/memberPortalApi'
 import { invoiceApi } from '../../api/invoiceApi'
 import { membershipApi } from '../../api/membershipApi'
 import { closePreparedVnpayPopup, prepareVnpayCheckoutPopup, startVnpayCheckout } from '../../utils/vnpayCheckout'
-import { getErrorMessage } from '../../api/apiErrors'
+import { errorHasCode, getErrorCode, getErrorMessage } from '../../api/apiErrors'
+import { allowsFullClass, decideNormalEnroll, readEnrollmentOutcome } from '../../utils/normalRegistration'
+import { getPurchaseConfirmationState, hasExistingInvoice, isInvoicePending, serverClockOffsetMs } from '../../utils/advancedPurchase'
 import { getAuthoritativeProfileId, parseVietnamDateTime } from '../../utils/memberSafetyHelpers'
 import { isValidNumericId } from '../../api/schemaValidators.js'
 import { inferNormalClassWeekdaysFromSessions } from '../../api/mappers.js'
 import { COURSE_HERO_MEDIA, SPORT_MEDIA } from '../../data/memberCourseCatalog.js'
 import { hasSellablePrice, normalizeCatalogStatus, normalizeCatalogText, readAdmissionCapacity, resolveCatalogSubjects, verifyNormalCourseClass, coachIsActive, coachCanUseUnknownCapacity, coachMatchesSubject } from '../../utils/memberCourseCatalogRules.js'
+
+// Backend gửi NORMAL_REGISTRATION_CLOSED (bảng dịch lỗi chung có thể đổi chữ thành "Lớp đã đóng đăng ký").
+const REGISTRATION_CLOSED_PATTERN = /registration closes 48 hours before the first session|NORMAL_REGISTRATION_CLOSED|Lớp đã đóng đăng ký/i
 
 const SPORT_LABELS = {
   tennis: { vi: 'Quần vợt', en: 'Tennis' },
@@ -72,14 +77,8 @@ const confirmationDeadlineTimestamp = (value) => {
   const timestamp = parseVietnamDateTime(value)
   return Number.isFinite(timestamp) ? timestamp : null
 }
-const isConfirmationExpiredError = (error) => {
-  const details = error?.details ?? error?.response?.data
-  const text = [error?.code, error?.message, details?.code, details?.message, details?.error, details?.detail]
-    .filter((value) => typeof value === 'string')
-    .join(' ')
-    .toUpperCase()
-  return Number(error?.status ?? error?.response?.status) === 409 && text.includes('REGISTRATION_CONFIRMATION_EXPIRED')
-}
+const isConfirmationExpiredError = (error) =>
+  Number(error?.status ?? error?.response?.status) === 409 && errorHasCode(error, 'REGISTRATION_CONFIRMATION_EXPIRED')
 const formatDeadline = (value, language) => {
   const timestamp = confirmationDeadlineTimestamp(value)
   if (timestamp == null) return language === 'vi' ? 'Chưa có thông tin hạn xác nhận' : 'Confirmation deadline unavailable'
@@ -286,6 +285,10 @@ export function MemberCourseCatalog() {
   const [onlyAvailable, setOnlyAvailable] = useState(false)
   const [subjects, setSubjects] = useState([])
   const [classes, setClasses] = useState([])
+  // Chi tiết đăng ký theo classId (GET /api/classes/{id}); danh sách luôn trả null nên chỉ chi tiết mới có giá trị theo Member.
+  const [classRegistrations, setClassRegistrations] = useState({})
+  const classRegistrationsRef = useRef({})
+  const classRegistrationInFlightRef = useRef(new Set())
   const [enrollments, setEnrollments] = useState([])
   const [registrations, setRegistrations] = useState([])
   const [memberSubscriptions, setMemberSubscriptions] = useState([])
@@ -308,7 +311,10 @@ export function MemberCourseCatalog() {
   const [lockedOrderIds, setLockedOrderIds] = useState([])
   const [expiredConfirmationIds, setExpiredConfirmationIds] = useState([])
   const [clockNow, setClockNow] = useState(() => Date.now())
-  const [paymentMethod, setPaymentMethod] = useState('Cash')
+  // Độ lệch đồng hồ Backend so với trình duyệt (từ serverTime); so hạn theo giờ Backend.
+  const [serverOffsetMs, setServerOffsetMs] = useState(0)
+  const trustedNow = clockNow + serverOffsetMs
+  const [paymentMethod, setPaymentMethod] = useState('VNPay')
   const [submitting, setSubmitting] = useState(false)
   const [submittingError, setSubmittingError] = useState('')
   const [notice, setNotice] = useState('')
@@ -323,6 +329,12 @@ export function MemberCourseCatalog() {
   const invoiceStatusChecksInFlightRef = useRef(new Set())
   const expiredInvoiceChecksRef = useRef(new Set())
 
+  // MỘT nơi gộp: chưa tải xong hoặc tải lỗi thì giữ dữ liệu danh sách (field = null = hành vi cũ, không khóa).
+  const catalogClasses = useMemo(() => classes.map((item) => {
+    const detail = classRegistrations[item.id]
+    if (!detail?.loaded) return item
+    return { ...item, registrationAllowed: detail.registrationAllowed, registrationBlockReason: detail.registrationBlockReason, registrationDeadline: detail.registrationDeadline, serverTime: detail.serverTime }
+  }), [classes, classRegistrations])
   const resolvedSubjects = useMemo(() => resolveCatalogSubjects(subjects), [subjects])
   const subjectRow = resolvedSubjects.find((row) => row.key === sportKey) || resolvedSubjects[0]
   const selectedSubject = subjectRow?.subject || null
@@ -334,9 +346,9 @@ export function MemberCourseCatalog() {
       const subject = row.subject
       const hasValidPrice = Boolean(subject && hasSellablePrice(subject[tier === 'Normal' ? 'normalPrice' : 'advancedPrice']) && !row.ambiguous && !row.invalidId)
       if (tier === 'Normal') {
-        const subjectClasses = classes.filter((item) => String(item.subjectId) === String(subject?.id) && normalizeCatalogText(item.classType) === 'normal')
+        const subjectClasses = catalogClasses.filter((item) => String(item.subjectId) === String(subject?.id) && normalizeCatalogText(item.classType) === 'normal')
         const openClasses = hasValidPrice ? subjectClasses.filter((item) =>
-          verifyNormalCourseClass(item, scheduleStates[item.id] ? scheduleStates[item.id].sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules), subject.id).eligible
+          verifyNormalCourseClass(item, scheduleStates[item.id] ? scheduleStates[item.id].sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules), subject.id, { allowFull: allowsFullClass(item) }).eligible
           && !normalFutureSessionIssue(item, scheduleStates[item.id] ? scheduleStates[item.id].sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules)),
         ) : []
         const loading = classesState.loading || subjectClasses.some((item) => scheduleStates[item.id]?.loading || (!scheduleStates[item.id] && !Array.isArray(item.sessions ?? item.scheduleSessions ?? item.schedules)))
@@ -350,7 +362,7 @@ export function MemberCourseCatalog() {
       bySport.set(row.key, { available: activeSport && hasValidPrice && (!coachData?.loaded || availableCoaches.length > 0), noCoach, count: availableCoaches.length })
     })
     return bySport
-  }, [resolvedSubjects, tier, classes, classesState.loading, scheduleStates, coachAvailabilityBySubject])
+  }, [resolvedSubjects, tier, catalogClasses, classesState.loading, scheduleStates, coachAvailabilityBySubject])
   const availableSports = useMemo(() => resolvedSubjects.filter((row) =>
     sportAvailability.get(row.key)?.available === true || sportAvailability.get(row.key)?.loading === true,
   ), [resolvedSubjects, sportAvailability])
@@ -361,7 +373,7 @@ export function MemberCourseCatalog() {
       return !normalizedQuery || normalizeCatalogText(label + ' ' + row.key).includes(normalizedQuery)
     })
   }, [resolvedSubjects, availableSports, query, onlyAvailable, isVi])
-  const selectedClasses = useMemo(() => classes.filter((item) => String(item.subjectId) === String(selectedSubject?.id)), [classes, selectedSubject?.id])
+  const selectedClasses = useMemo(() => catalogClasses.filter((item) => String(item.subjectId) === String(selectedSubject?.id)), [catalogClasses, selectedSubject?.id])
   const visibleRegistrations = useMemo(() => registrations.filter((item) => {
     const ownerId = item.memberId ?? item.ownerMemberId ?? item.member?.id
     return memberId != null && ownerId != null && String(ownerId) === String(memberId)
@@ -380,7 +392,7 @@ export function MemberCourseCatalog() {
       if (status === 'requested') return true
       if (!['accepted', 'invoiced'].includes(status)) return false
       const linkedOrder = orders.find((order) => String(order.registrationId) === String(item.id))
-      const invoiceStatus = normalizeCatalogStatus(item.paymentStatus ?? linkedOrder?.paymentStatus ?? linkedOrder?.status)
+      const invoiceStatus = normalizeCatalogStatus(item.paymentStatus ?? item.invoiceStatus ?? linkedOrder?.paymentStatus ?? linkedOrder?.status)
       if (['expired', 'cancelled', 'canceled', 'rejected', 'failed'].includes(invoiceStatus)) return false
       const confirmationDeadline = confirmationDeadlineTimestamp(item.confirmationDeadline)
       const invoiceExpiry = confirmationDeadlineTimestamp(item.invoiceExpiresAt ?? item.expiresAt ?? linkedOrder?.expiresAt)
@@ -474,6 +486,7 @@ export function MemberCourseCatalog() {
     try {
       const rows = await advancedRegistrationApi.getMyAdvancedRegistrations()
       setRegistrations(rows)
+      setServerOffsetMs(serverClockOffsetMs(rows))
       const serverOrders = rows.filter((item) => item.invoiceId != null).map((item) => ({
         key: 'advanced-' + String(item.invoiceId),
         type: 'Advanced',
@@ -482,7 +495,7 @@ export function MemberCourseCatalog() {
         subjectName: item.subjectName ?? null,
         coachName: item.primaryCoachName ?? null,
         status: item.orderStatus ?? item.subscriptionStatus ?? item.status ?? null,
-        paymentStatus: item.paymentStatus ?? null,
+        paymentStatus: item.paymentStatus ?? item.invoiceStatus ?? null,
         invoiceId: item.invoiceId,
         invoiceCode: item.invoiceCode ?? null,
         amount: item.amount ?? null,
@@ -669,11 +682,38 @@ export function MemberCourseCatalog() {
     }
   }
 
+  // Tải chi tiết đăng ký của một lớp. force = true: tải lại sau khi đăng ký/bị từ chối để khóa/mở theo Backend.
+  const loadClassRegistration = useCallback(async (classId, { force = false } = {}) => {
+    if (!apiEnabled || !isValidNumericId(classId)) return
+    const key = String(classId)
+    if (classRegistrationInFlightRef.current.has(key)) return
+    if (!force && classRegistrationsRef.current[key]?.loaded) return
+    classRegistrationInFlightRef.current.add(key)
+    setClassRegistrations((current) => ({ ...current, [key]: { ...current[key], loading: true } }))
+    try {
+      const detail = await memberCourseCatalogApi.getMemberCourseClassRegistration(classId)
+      // Lỗi (loaded: false) giữ nguyên giá trị đã có (nếu có), nếu chưa có thì vẫn là null = hành vi cũ.
+      const next = detail.loaded ? { ...detail, loading: false } : { ...(classRegistrationsRef.current[key] ?? {}), loading: false }
+      classRegistrationsRef.current = { ...classRegistrationsRef.current, [key]: next }
+      setClassRegistrations((current) => ({ ...current, [key]: next }))
+    } finally {
+      classRegistrationInFlightRef.current.delete(key)
+    }
+  }, [apiEnabled])
+  useEffect(() => {
+    if (tier !== 'Normal' || !apiEnabled || !selectedSubject?.id) return
+    // Chỉ lớp Normal đang Open của môn đang chọn; không gọi cho mọi lớp khi tải trang.
+    const targets = classes.filter((item) => String(item.subjectId) === String(selectedSubject.id)
+      && normalizeCatalogText(item.classType) === 'normal' && normalizeCatalogText(item.status) === 'open')
+    if (!targets.length) return
+    Promise.allSettled(targets.map((item) => loadClassRegistration(item.id)))
+  }, [tier, apiEnabled, selectedSubject?.id, classes, loadClassRegistration])
+
   const findExistingClassEnrollment = (classId) => enrollments.find((item) => String(item.classId) === String(classId) && !['cancelled', 'canceled', 'rejected', 'expired'].includes(normalizeCatalogStatus(item.status)))
   const classVerification = (item) => {
     const loadedSessions = scheduleStates[item.id]?.sessions
     const sessions = loadedSessions?.length ? loadedSessions : item.sessions ?? item.scheduleSessions ?? item.schedules ?? loadedSessions
-    const check = verifyNormalCourseClass(item, sessions, selectedSubject?.id)
+    const check = verifyNormalCourseClass(item, sessions, selectedSubject?.id, { allowFull: allowsFullClass(item) })
     const issue = normalFutureSessionIssue(item, sessions)
     return issue ? { ...check, eligible: false, reasons: [normalSessionIssueMessage(issue, isVi), ...check.reasons] } : check
   }
@@ -687,7 +727,13 @@ export function MemberCourseCatalog() {
       setSubmittingError(isVi ? 'Hãy đối soát trạng thái lớp trước khi gửi đăng ký.' : 'Reconcile this class before submitting again.')
       return
     }
-    if (classRegistrationClosed(item)) {
+    // Backend khóa (registrationAllowed === false): nêu lý do từ bảng chung; true bỏ qua mốc 48 giờ phía trình duyệt; thiếu field giữ cách cũ.
+    const decision = decideNormalEnroll(item, { checkEligible: classVerification(item).eligible, cutoffPassed: classRegistrationClosed(item), hasPrice: hasSellablePrice(selectedSubject?.normalPrice), language })
+    if (decision.source === 'backend' && !decision.canEnroll && decision.reasonText) {
+      setSubmittingError(decision.reasonText)
+      return
+    }
+    if (decision.source === 'legacy' && classRegistrationClosed(item)) {
       setSubmittingError(isVi ? 'Đã đóng cổng đăng ký (chỉ nhận đăng ký trước buổi học đầu tiên ít nhất 48 giờ).' : 'Registration closes 48 hours before the first session.')
       return
     }
@@ -700,6 +746,9 @@ export function MemberCourseCatalog() {
       setSubmittingError(isVi ? 'Đã có yêu cầu đăng ký lớp này. Hãy tải lại trạng thái thay vì gửi trùng.' : 'An enrollment already exists for this class. Refresh its status instead of submitting again.')
       return
     }
+    // Lớp Normal: Member chỉ thanh toán VNPay (tiền mặt chỉ thu tại quầy Lễ tân,
+    // backend trả NORMAL_CASH_COUNTER_ONLY). Cố định giá trị, không đọc state dùng chung với Advanced.
+    const paymentMethod = 'VNPay'
     const preparedPopup = paymentMethod === 'VNPay' ? prepareVnpayCheckoutPopup() : null
     let checkoutStarted = false
     pendingSubmitRef.current = true
@@ -708,6 +757,16 @@ export function MemberCourseCatalog() {
     try {
       const response = await classEnrollmentApi.enrollCurrentMemberInClass(item.id, paymentMethod)
       const status = response?.status ?? response?.enrollmentStatus ?? null
+      const outcome = readEnrollmentOutcome(response)
+      // Danh sách chờ: không hóa đơn, không VNPay; chỉ báo trạng thái thật và tải lại.
+      if (!outcome.proceedToPayment) {
+        setConfirmClass(null)
+        setNotice(outcome.waitlistPosition
+          ? (isVi ? `Lớp đã đủ chỗ nên bạn được vào danh sách chờ (vị trí ${outcome.waitlistPosition}). Chưa cần thanh toán; trung tâm sẽ báo khi có chỗ.` : `The class is full, so you were added to the waitlist (position ${outcome.waitlistPosition}). No payment is needed yet; the center will notify you when a seat opens.`)
+          : (isVi ? 'Lớp đã đủ chỗ nên bạn được vào danh sách chờ. Chưa cần thanh toán; trung tâm sẽ báo khi có chỗ.' : 'The class is full, so you were added to the waitlist. No payment is needed yet; the center will notify you when a seat opens.'))
+        await Promise.all([refreshEnrollments(), refreshClasses(), loadClassRegistration(item.id, { force: true })])
+        return
+      }
       let redirectUrl = response?.paymentUrl ?? null
       if (paymentMethod === 'VNPay' && !paymentUrlIsSafe(redirectUrl) && response?.invoiceId != null) {
         const onlineRes = await invoiceApi.payInvoiceOnline(response.invoiceId).catch(() => null)
@@ -739,7 +798,7 @@ export function MemberCourseCatalog() {
       setNotice(normalizeCatalogStatus(status) === 'registered'
         ? (isVi ? 'Hệ thống đã xác nhận đăng ký lớp học thành công.' : 'System confirmed the class registration successfully.')
         : isVi ? 'Đã nhận yêu cầu đăng ký. Quyền học sẽ được kích hoạt sau khi hoàn tất thanh toán.' : 'Registration received. Course access will activate after payment.')
-      await refreshEnrollments()
+      await Promise.all([refreshEnrollments(), loadClassRegistration(item.id, { force: true })])
       if (paymentMethod === 'VNPay' && paymentUrlIsSafe(redirectUrl) && !['registered', 'paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || status))) {
         startVnpayCheckout({ paymentUrl: redirectUrl, invoiceId: order.invoiceId, invoiceCode: order.invoiceCode, onVerified: async () => { await Promise.all([refreshEnrollments(), refreshClasses()]) }, popup: preparedPopup })
         checkoutStarted = true
@@ -747,11 +806,17 @@ export function MemberCourseCatalog() {
     } catch (error) {
       closePreparedVnpayPopup(preparedPopup)
       const message = getErrorMessage(error, isVi ? 'Không gửi được đăng ký.' : 'Enrollment request failed.')
-      setSubmittingError(/registration closes 48 hours before the first session/i.test(message)
+      setSubmittingError(/NORMAL_CASH_COUNTER_ONLY/.test(`${error?.code || ''} ${message}`)
+        ? (isVi ? 'Lớp Normal chỉ nhận tiền mặt tại quầy lễ tân. Vui lòng thanh toán bằng VNPay hoặc đến quầy để đăng ký.' : 'Normal classes accept cash only at the front desk. Pay with VNPay or enroll at the counter.')
+        : REGISTRATION_CLOSED_PATTERN.test(`${error?.code || ''} ${message}`)
         ? (isVi ? 'Đã đóng cổng đăng ký (chỉ nhận đăng ký trước buổi học đầu tiên ít nhất 48 giờ).' : message)
         : /normal registration requires 12 valid future sessions/i.test(message)
         ? (isVi ? 'Lớp học đã bắt đầu hoặc không còn đủ 12 buổi học trong tương lai nên không thể đăng ký mới. Vui lòng chọn lớp khác sắp khai giảng.' : 'The class has started or fewer than 12 future sessions remain. Please choose a class starting soon.')
         : message)
+      // Backend vừa từ chối vì hạn/danh sách chờ: tải lại lớp để trạng thái khóa/mở cập nhật theo Backend.
+      if (['WAITLIST_FULL', 'NORMAL_REGISTRATION_CLOSED', 'CLASS_FULL', 'WAITLIST_NOT_READY', 'ALREADY_ENROLLED', 'SCHEDULE_CONFLICT', 'BOOKING_BLOCKED', 'CLASS_NOT_OPEN', 'CLASS_NOT_READY'].includes(getErrorCode(error))) {
+        await Promise.all([refreshClasses().catch(() => {}), loadClassRegistration(item.id, { force: true })])
+      }
       if (!error?.status || error.status >= 500 || error.status === 409) {
         try {
           const refreshed = await refreshEnrollments()
@@ -803,7 +868,7 @@ export function MemberCourseCatalog() {
       if (!['accepted', 'invoiced'].includes(status)) return false
       if (isExpiredAcceptedForIntent(item)) return true
       const linkedOrder = orders.find((order) => String(order.registrationId) === String(item.id))
-      const invoiceStatus = normalizeCatalogStatus(item.paymentStatus ?? linkedOrder?.paymentStatus ?? linkedOrder?.status)
+      const invoiceStatus = normalizeCatalogStatus(item.paymentStatus ?? item.invoiceStatus ?? linkedOrder?.paymentStatus ?? linkedOrder?.status)
       if (['expired', 'cancelled', 'canceled', 'rejected', 'failed'].includes(invoiceStatus)) return true
       const invoiceId = item.invoiceId ?? linkedOrder?.invoiceId
       const invoiceExpiry = confirmationDeadlineTimestamp(item.invoiceExpiresAt ?? item.expiresAt ?? linkedOrder?.expiresAt)
@@ -916,6 +981,32 @@ export function MemberCourseCatalog() {
     }
   }
 
+  // Mở lại hóa đơn đã có của một đăng ký Advanced: đọc GET /api/members/me/invoices/{id}, không tạo hóa đơn mới.
+  const openRegistrationInvoice = async (registration, relatedOrder = null) => {
+    if (!hasExistingInvoice(registration, relatedOrder)) return
+    const invoiceId = registration?.invoiceId ?? relatedOrder?.invoiceId
+    const existing = relatedOrder ?? orders.find((order) => String(order.invoiceId) === String(invoiceId))
+    const order = existing ?? {
+      key: 'advanced-' + String(invoiceId),
+      type: 'Advanced',
+      registrationId: registration.id,
+      subjectId: registration.subjectId,
+      subjectName: registration.subjectName ?? null,
+      coachName: registration.primaryCoachName ?? null,
+      status: registration.orderStatus ?? registration.status ?? null,
+      paymentStatus: registration.paymentStatus ?? registration.invoiceStatus ?? null,
+      invoiceId,
+      invoiceCode: registration.invoiceCode ?? null,
+      amount: registration.amount ?? null,
+      paymentUrl: registration.paymentUrl ?? null,
+      expiresAt: registration.invoiceExpiresAt ?? registration.expiresAt ?? null,
+      paymentMethod: registration.paymentMethod ?? null,
+    }
+    if (!existing) setOrders((current) => [order, ...current.filter((item) => item.key !== order.key)])
+    await checkOrderStatus(order)
+    setTimeout(() => document.getElementById('advanced-invoice-' + String(invoiceId))?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }), 0)
+  }
+
   const createOrder = async (registration) => {
     if (normalizeCatalogStatus(registration.status) !== 'accepted') return
     if (!isValidNumericId(registration?.id)) {
@@ -923,14 +1014,23 @@ export function MemberCourseCatalog() {
       return
     }
     const registrationKey = String(registration.id)
+    const relatedOrder = orders.find((order) => String(order.registrationId) === registrationKey)
+    // Hóa đơn đã có thì mở lại hóa đơn đó, không tạo mới.
+    if (hasExistingInvoice(registration, relatedOrder)) {
+      await openRegistrationInvoice(registration, relatedOrder)
+      return
+    }
     const deadline = confirmationDeadlineTimestamp(registration.confirmationDeadline)
-    if (expiredConfirmationIds.includes(registrationKey) || deadline == null || deadline <= Date.now()) {
-      if (deadline != null && deadline <= Date.now()) {
+    const purchaseState = getPurchaseConfirmationState(registration, { nowMs: trustedNow, confirmationDeadlineMs: deadline, expiredByRejection: expiredConfirmationIds.includes(registrationKey), language })
+    if (!purchaseState.canConfirm) {
+      if (purchaseState.source === 'legacy' && purchaseState.expired && !purchaseState.deadlineUnknown) {
         setExpiredConfirmationIds((current) => current.includes(registrationKey) ? current : [...current, registrationKey])
       }
-      setSubmittingError(deadline == null
-        ? (isVi ? 'Chưa xác minh được hạn xác nhận. Hãy tải lại danh sách đăng ký.' : 'Could not verify the confirmation deadline. Reload registrations.')
-        : (isVi ? 'Đã hết thời hạn xác nhận mua gói. Vui lòng đăng ký Advanced lại.' : 'The purchase confirmation period has expired. Please submit a new Advanced registration.'))
+      setSubmittingError(purchaseState.source === 'backend' && purchaseState.reasonText
+        ? purchaseState.reasonText
+        : purchaseState.deadlineUnknown
+          ? (isVi ? 'Chưa xác minh được hạn xác nhận. Hãy tải lại danh sách đăng ký.' : 'Could not verify the confirmation deadline. Reload registrations.')
+          : (isVi ? 'Đã hết thời hạn xác nhận mua gói. Vui lòng đăng ký Advanced lại.' : 'The purchase confirmation period has expired. Please submit a new Advanced registration.'))
       return
     }
     if (pendingSubmitRef.current || orderInFlightRef.current.has(registrationKey)) return
@@ -1182,7 +1282,7 @@ export function MemberCourseCatalog() {
         return next
       })
       await Promise.all([refreshEnrollments(), refreshClasses()])
-      setNotice(isVi ? 'Đã hủy đơn chờ thanh toán. Bạn có thể chọn Tiền mặt tại quầy (Cash) và đăng ký lại.' : 'Pending enrollment cancelled. You can now select Cash at counter and enroll again.')
+      setNotice(isVi ? 'Đã hủy đơn chờ thanh toán. Bạn có thể đăng ký lại.' : 'Pending enrollment cancelled. You can enroll again.')
     } catch (error) {
       setSubmittingError(getErrorMessage(error, isVi ? 'Không thể hủy đơn đang chờ.' : 'Could not cancel pending enrollment.'))
     } finally {
@@ -1242,6 +1342,8 @@ export function MemberCourseCatalog() {
     }
   }
 
+  // Quyết định cho lớp đang xác nhận: tính MỘT lần, dùng cho nút "Gửi đăng ký".
+  const confirmDecision = confirmClass ? decideNormalEnroll(confirmClass, { checkEligible: true, hasPrice: true, language }) : null
   const normalClassCards = selectedClasses.filter((item) => normalizeCatalogText(item.classType) === 'normal')
   const visibleClasses = normalClassCards.filter((item) => {
     const text = normalizeCatalogText((item.name || '') + ' ' + (item.coachName || '') + ' ' + (item.subjectName || ''))
@@ -1260,7 +1362,7 @@ export function MemberCourseCatalog() {
   return <div className="w-full space-y-6" aria-labelledby="course-catalog-title">
     <header className="relative isolate overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-r from-white via-white/95 to-blue-50 p-5 shadow-sm sm:p-7">
       <img src={COURSE_HERO_MEDIA.poster} alt="" className="absolute inset-y-0 right-0 -z-10 hidden h-full w-3/5 object-cover opacity-35 lg:block" /><div className="absolute inset-y-0 right-0 -z-10 hidden w-3/5 bg-gradient-to-r from-white via-white/80 to-transparent lg:block" />
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div className="max-w-3xl"><p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-accent-dark">VIBE SPORT · MEMBER</p><h1 id="course-catalog-title" className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-900 leading-snug">{isVi ? 'Đăng ký khóa học' : 'Course registration'}</h1><p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500">{isVi ? 'Chọn môn thể thao, xem học phí và đăng ký lớp nhóm hoặc gửi yêu cầu huấn luyện 1:1.' : 'Choose a sport, review its listed price, then enroll in a group class or request 1:1 coaching.'}</p></div><button type="button" onClick={retryAll} className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm cursor-pointer"><RefreshCw size={16} />{isVi ? 'Tải lại dữ liệu' : 'Refresh data'}</button></div>
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div className="max-w-3xl"><p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-accent-dark">AVT SPORT · MEMBER</p><h1 id="course-catalog-title" className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-900 leading-snug">{isVi ? 'Đăng ký khóa học' : 'Course registration'}</h1><p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500">{isVi ? 'Chọn môn thể thao, xem học phí và đăng ký lớp nhóm hoặc gửi yêu cầu huấn luyện 1:1.' : 'Choose a sport, review its listed price, then enroll in a group class or request 1:1 coaching.'}</p></div><button type="button" onClick={retryAll} className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm cursor-pointer"><RefreshCw size={16} />{isVi ? 'Tải lại dữ liệu' : 'Refresh data'}</button></div>
     </header>
 
     {!apiEnabled && <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">{isVi ? 'Danh mục khóa học yêu cầu kết nối mạng trực tuyến để tải học phí và đăng ký.' : 'Course catalog requires network connection to view prices and enroll.'}</div>}
@@ -1303,7 +1405,10 @@ export function MemberCourseCatalog() {
               const check = classVerification(item)
               const futureIssue = normalFutureSessionIssue(item, scheduleSessions)
               const existing = findExistingClassEnrollment(item.id)
-              const cutoffPassed = !existing && classRegistrationClosed(item)
+              const decision = decideNormalEnroll(item, { checkEligible: check.eligible, cutoffPassed: !existing && classRegistrationClosed(item), hasPrice: hasSellablePrice(selectedSubject?.normalPrice) && hasSellablePrice(item.tuitionFee), language })
+              const backendLocked = decision.source === 'backend' && !decision.canEnroll && Boolean(decision.reasonText)
+              const cutoffPassed = (!existing && classRegistrationClosed(item) && item.registrationAllowed !== true) || backendLocked
+              const fullButOpen = item.registrationAllowed === true && Number(item.maxCapacity || 0) > 0 && Number(item.enrolledCount || 0) >= Number(item.maxCapacity)
               const uncertain = normalUncertainClassIds.some((id) => String(id) === String(item.id))
               const dates = scheduleSessions.map(sessionDate).filter(Boolean)
               const scheduleText = normalScheduleLabel(item, scheduleSessions, isVi)
@@ -1313,13 +1418,13 @@ export function MemberCourseCatalog() {
               return <article key={item.id} className="rounded-xl border border-slate-200 p-4 sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-lg font-bold text-slate-900">{item.name || (isVi ? 'Lớp chưa có tên' : 'Unnamed class')}</h3><p className="mt-1 text-sm text-slate-600">{item.subjectName || selectedSubject.name} · {item.coachName || (isVi ? 'Chưa có Coach' : 'Coach unavailable')}</p></div><StatusPill status={existing?.status || item.status} language={language} /></div>
                 <div className="mt-4 grid gap-2 sm:grid-cols-2"><Metric icon={CalendarDays} label={isVi ? 'Ngày bắt đầu – kết thúc' : 'Start – end'} value={(dates.length ? formatDate(dates[0], language) : formatDate(item.startDate, language)) + ' – ' + (dates.length ? formatDate(dates[dates.length - 1], language) : formatDate(item.endDate, language))} /><Metric icon={Clock3} label={isVi ? 'Lịch lớp' : 'Class schedule'} value={scheduleText} /><Metric icon={Users} label={isVi ? 'Số buổi' : 'Sessions'} value={String(item.totalSessions ?? 12) + (isVi ? ' buổi' : ' sessions')} /><Metric icon={CreditCard} label={isVi ? 'Sĩ số lớp' : 'Class capacity'} value={String(item.enrolledCount ?? '—') + '/' + String(item.maxCapacity ?? '—') + (isVi ? ' học viên' : ' students')} /></div>
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4"><span className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ' + (cutoffPassed ? 'bg-amber-50 text-amber-800' : remainingSeats > 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800')}><span className={'h-1.5 w-1.5 rounded-full ' + (cutoffPassed ? 'bg-amber-500' : remainingSeats > 1 ? 'bg-emerald-500' : 'bg-amber-500')} />{cutoffPassed ? (isVi ? 'Đã đóng đăng ký' : 'Registration closed') : isVi ? `Còn ${remainingSeats} chỗ` : `${remainingSeats} seats left`}</span><button type="button" aria-expanded={classDetailsId === item.id} onClick={() => setClassDetailsId((current) => current === item.id ? null : item.id)} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-brand-primary hover:border-blue-200 hover:bg-blue-50">{classDetailsId === item.id ? (isVi ? 'Ẩn lịch chi tiết' : 'Hide schedule') : (isVi ? 'Xem chi tiết lịch' : 'View schedule details')}</button></div>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4"><span className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ' + (cutoffPassed ? 'bg-amber-50 text-amber-800' : remainingSeats > 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800')}><span className={'h-1.5 w-1.5 rounded-full ' + (cutoffPassed ? 'bg-amber-500' : remainingSeats > 1 ? 'bg-emerald-500' : 'bg-amber-500')} />{cutoffPassed ? (isVi ? 'Đã đóng đăng ký' : 'Registration closed') : fullButOpen ? (isVi ? 'Đã đủ chỗ · nhận danh sách chờ' : 'Full · waitlist open') : isVi ? `Còn ${remainingSeats} chỗ` : `${remainingSeats} seats left`}</span><button type="button" aria-expanded={classDetailsId === item.id} onClick={() => setClassDetailsId((current) => current === item.id ? null : item.id)} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-brand-primary hover:border-blue-200 hover:bg-blue-50">{classDetailsId === item.id ? (isVi ? 'Ẩn lịch chi tiết' : 'Hide schedule') : (isVi ? 'Xem chi tiết lịch' : 'View schedule details')}</button></div>
                 {classDetailsId === item.id && <div className="mt-3 rounded-lg bg-slate-50 p-3">
                   {scheduleLoading ? <p className="flex items-center gap-2 text-sm text-slate-600"><LoaderCircle size={16} className="animate-spin" />{isVi ? 'Đang xác minh lịch…' : 'Verifying schedule…'}</p> : scheduleError ? <div role="alert" className="text-sm text-rose-800"><p>{schedule.error}</p><button type="button" onClick={() => retrySchedule(item.id)} className="mt-2 inline-flex min-h-9 items-center gap-2 font-semibold underline"><RefreshCw size={14} />{isVi ? 'Thử lại' : 'Retry'}</button></div> : scheduleSessions.length ? <ol className="grid gap-2 sm:grid-cols-2">{scheduleSessions.map((session, index) => <li key={session.id || session.sessionId || (String(sessionDate(session)) + '-' + index)} className="flex items-start gap-2 rounded-lg bg-white p-2 text-sm text-slate-700"><CalendarDays size={15} className="mt-0.5 shrink-0 text-brand-accent-dark" /><span>{formatDate(sessionDate(session), language)} · {formatTime(session.startTime || session.startAt)}–{formatTime(session.endTime || session.endAt)}</span></li>)}</ol> : <p className="text-sm text-slate-600">{isVi ? 'Chưa có thông tin lịch học chi tiết cho lớp này.' : 'Timetable not yet available for this class.'}</p>}
                   {!scheduleLoading && !scheduleError && <p className="mt-3 text-[13px] text-slate-600">{check.eligible ? (isVi ? 'Đã xác minh đủ 12 buổi và điều kiện lớp.' : 'All 12 sessions and class conditions are verified.') : check.reasons.join(' ')}</p>}
                 </div>}
                 {futureIssue && !existing && <p className="mt-3 inline-flex rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-800">{normalSessionIssueMessage(futureIssue, isVi)}</p>}
-                {existing ? <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><span>{isVi ? 'Đăng ký hiện có:' : 'Existing enrollment:'} <strong>{statusText(existing.status, language)}</strong></span><div className="flex flex-wrap items-center gap-3">{['pending', 'pending_payment'].includes(normalizeCatalogStatus(existing.status)) && <button type="button" disabled={submitting} onClick={() => handleCancelPendingEnrollment(existing)} className="font-semibold text-rose-700 underline">{isVi ? 'Hủy đơn chờ & Chọn lại phương thức' : 'Cancel pending & re-enroll'}</button>}<button type="button" onClick={refreshEnrollments} className="font-semibold underline">{isVi ? 'Tải lại trạng thái' : 'Refresh status'}</button></div></div> : uncertain ? <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><p>{isVi ? 'Kết quả gửi trước chưa rõ; lớp đang khóa để tránh đăng ký trùng.' : 'Previous submission is unresolved; this class is locked to prevent a duplicate.'}</p><button type="button" onClick={() => reconcileNormalEnrollment(item.id)} className="mt-2 font-semibold underline">{isVi ? 'Đối soát trạng thái' : 'Reconcile status'}</button></div> : <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-600">{check.eligible ? (isVi ? 'Còn ' + (Number(item.maxCapacity) - Number(item.enrolledCount)) + ' chỗ' : (Number(item.maxCapacity) - Number(item.enrolledCount)) + ' seats left') : check.reasons[0] || (isVi ? 'Đang xác minh điều kiện lớp.' : 'Verifying class eligibility.')}</p><div className="flex flex-wrap items-center gap-2"><label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700"><span>{isVi ? 'Thanh toán:' : 'Payment:'}</span><select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} aria-label={isVi ? 'Phương thức thanh toán lớp học' : 'Class payment method'} className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 focus:border-brand-primary focus:outline-none"><option value="Cash">{isVi ? 'Tiền mặt tại quầy (Cash)' : 'Cash at counter'}</option><option value="VNPay">{isVi ? 'VNPay (Trực tuyến)' : 'VNPay (Online)'}</option></select></label><button type="button" disabled={cutoffPassed || !check.eligible || !hasSellablePrice(selectedSubject?.normalPrice) || !hasSellablePrice(item.tuitionFee)} onClick={() => { setConfirmClass(item); setSubmittingError('') }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-bold text-white hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300">{cutoffPassed ? (isVi ? 'Quá hạn đăng ký' : 'Registration closed') : isVi ? 'Đăng ký lớp' : 'Enroll in class'}<ArrowUpRight size={16} /></button></div></div>}
+                {existing ? <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><span>{isVi ? 'Đăng ký hiện có:' : 'Existing enrollment:'} <strong>{statusText(existing.status, language)}</strong></span><div className="flex flex-wrap items-center gap-3">{['pending', 'pending_payment'].includes(normalizeCatalogStatus(existing.status)) && <button type="button" disabled={submitting} onClick={() => handleCancelPendingEnrollment(existing)} className="font-semibold text-rose-700 underline">{isVi ? 'Hủy đơn chờ & Đăng ký lại' : 'Cancel pending & re-enroll'}</button>}<button type="button" onClick={refreshEnrollments} className="font-semibold underline">{isVi ? 'Tải lại trạng thái' : 'Refresh status'}</button></div></div> : uncertain ? <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><p>{isVi ? 'Kết quả gửi trước chưa rõ; lớp đang khóa để tránh đăng ký trùng.' : 'Previous submission is unresolved; this class is locked to prevent a duplicate.'}</p><button type="button" onClick={() => reconcileNormalEnrollment(item.id)} className="mt-2 font-semibold underline">{isVi ? 'Đối soát trạng thái' : 'Reconcile status'}</button></div> : <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><div className="text-sm text-slate-600"><p>{backendLocked ? decision.reasonText : check.eligible ? (fullButOpen ? (isVi ? 'Lớp đã đủ chỗ: đăng ký sẽ vào danh sách chờ (tối đa 10 người), chưa thanh toán.' : 'The class is full: your registration goes to the waitlist (up to 10), with no payment yet.') : isVi ? 'Còn ' + (Number(item.maxCapacity) - Number(item.enrolledCount)) + ' chỗ' : (Number(item.maxCapacity) - Number(item.enrolledCount)) + ' seats left') : check.reasons[0] || (isVi ? 'Đang xác minh điều kiện lớp.' : 'Verifying class eligibility.')}</p>{decision.deadlineText && <p className="mt-1 text-xs text-slate-600">{(isVi ? 'Hạn đăng ký: ' : 'Registration deadline: ') + decision.deadlineText}</p>}</div><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-semibold text-slate-700">{isVi ? 'Thanh toán: VNPay (Trực tuyến)' : 'Payment: VNPay (Online)'}</p><button type="button" disabled={!decision.canEnroll} onClick={() => { setConfirmClass(item); setSubmittingError('') }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-bold text-white hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300">{backendLocked && decision.reasonCode !== 'NORMAL_REGISTRATION_CLOSED' ? (isVi ? 'Chưa thể đăng ký' : "Can't enroll yet") : cutoffPassed ? (isVi ? 'Quá hạn đăng ký' : 'Registration closed') : isVi ? 'Đăng ký lớp' : 'Enroll in class'}<ArrowUpRight size={16} /></button></div></div>}
               </article>
             })}</div>}
           </InlineState>
@@ -1352,7 +1457,7 @@ export function MemberCourseCatalog() {
       </div>
 
       <aside className="space-y-4 xl:sticky xl:top-5">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-bold text-slate-950">{tier === 'Normal' ? (isVi ? 'Quy trình đăng ký lớp' : 'Class enrollment steps') : (isVi ? 'Quy trình Advanced' : 'Advanced steps')}</h2>{tier === 'Normal' ? <ol className="mt-4 space-y-3 text-sm text-slate-700"><Step n="1" title={isVi ? 'Chọn môn & lớp học' : 'Choose a sport and class'} body={isVi ? 'Kiểm tra lịch học 12 buổi và sĩ số chỗ trống của lớp đang mở.' : 'Review the 12-session schedule and remaining seats in an open class.'} /><Step n="2" title={isVi ? 'Chọn hình thức thanh toán' : 'Choose a payment method'} body={isVi ? 'Thanh toán trực tuyến qua VNPay hoặc đăng ký giữ chỗ thanh toán tiền mặt tại quầy Lễ tân.' : 'Pay online with VNPay or reserve a seat and pay cash at Reception.'} /><Step n="3" title={isVi ? 'Thực hiện thanh toán' : 'Complete payment'} body={isVi ? 'Hoàn tất giao dịch qua cổng VNPay an toàn hoặc nộp phí trực tiếp tại quầy.' : 'Complete payment securely through VNPay or pay at the front desk.'} /><Step n="4" title={isVi ? 'Kích hoạt khóa học' : 'Activate your course'} body={isVi ? 'Hệ thống tự động cấp quyền vào lớp và cập nhật lịch học ngay sau khi xác nhận thanh toán.' : 'Access is activated and your schedule updated once payment is confirmed.'} /></ol> : <ol className="mt-4 space-y-3 text-sm text-slate-700"><Step n="1" title={isVi ? 'Chọn môn và Huấn luyện viên' : 'Choose sport and Coach'} body={isVi ? 'Chọn huấn luyện viên phù hợp với bộ môn và còn khả năng tiếp nhận.' : 'Choose a Coach who matches the sport and can accept a new member.'} /><Step n="2" title={isVi ? 'Chờ Huấn luyện viên xác nhận' : 'Wait for Coach confirmation'} body={isVi ? 'Yêu cầu chỉ tiếp tục sau khi Huấn luyện viên xác nhận tiếp nhận.' : 'The request proceeds only after the Coach accepts.'} /><Step n="3" title={isVi ? 'Tạo đơn và thanh toán' : 'Create order and pay'} body={isVi ? 'Thông tin số tiền và hạn thanh toán sẽ hiển thị trên hóa đơn.' : 'The invoice shows the amount and payment deadline.'} /><Step n="4" title={isVi ? 'Kích hoạt quyền học' : 'Activate course access'} body={isVi ? 'Quyền học được kích hoạt sau khi thanh toán được xác nhận và đối soát.' : 'Course access activates after payment is confirmed and reconciled.'} /></ol>}</section>
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-bold text-slate-950">{tier === 'Normal' ? (isVi ? 'Quy trình đăng ký lớp' : 'Class enrollment steps') : (isVi ? 'Quy trình Advanced' : 'Advanced steps')}</h2>{tier === 'Normal' ? <ol className="mt-4 space-y-3 text-sm text-slate-700"><Step n="1" title={isVi ? 'Chọn môn & lớp học' : 'Choose a sport and class'} body={isVi ? 'Kiểm tra lịch học 12 buổi và sĩ số chỗ trống của lớp đang mở.' : 'Review the 12-session schedule and remaining seats in an open class.'} /><Step n="2" title={isVi ? 'Hình thức thanh toán' : 'Payment method'} body={isVi ? 'Thanh toán trực tuyến qua VNPay. Nếu muốn nộp tiền mặt, hãy đến quầy Lễ tân để được đăng ký trực tiếp.' : 'Pay online with VNPay. To pay cash, visit the Reception desk to be enrolled in person.'} /><Step n="3" title={isVi ? 'Thực hiện thanh toán' : 'Complete payment'} body={isVi ? 'Hoàn tất giao dịch qua cổng VNPay an toàn hoặc nộp phí trực tiếp tại quầy.' : 'Complete payment securely through VNPay or pay at the front desk.'} /><Step n="4" title={isVi ? 'Kích hoạt khóa học' : 'Activate your course'} body={isVi ? 'Hệ thống tự động cấp quyền vào lớp và cập nhật lịch học ngay sau khi xác nhận thanh toán.' : 'Access is activated and your schedule updated once payment is confirmed.'} /></ol> : <ol className="mt-4 space-y-3 text-sm text-slate-700"><Step n="1" title={isVi ? 'Chọn môn và Huấn luyện viên' : 'Choose sport and Coach'} body={isVi ? 'Chọn huấn luyện viên phù hợp với bộ môn và còn khả năng tiếp nhận.' : 'Choose a Coach who matches the sport and can accept a new member.'} /><Step n="2" title={isVi ? 'Chờ Huấn luyện viên xác nhận' : 'Wait for Coach confirmation'} body={isVi ? 'Yêu cầu chỉ tiếp tục sau khi Huấn luyện viên xác nhận tiếp nhận.' : 'The request proceeds only after the Coach accepts.'} /><Step n="3" title={isVi ? 'Tạo đơn và thanh toán' : 'Create order and pay'} body={isVi ? 'Thông tin số tiền và hạn thanh toán sẽ hiển thị trên hóa đơn.' : 'The invoice shows the amount and payment deadline.'} /><Step n="4" title={isVi ? 'Kích hoạt quyền học' : 'Activate course access'} body={isVi ? 'Quyền học được kích hoạt sau khi thanh toán được xác nhận và đối soát.' : 'Course access activates after payment is confirmed and reconciled.'} /></ol>}</section>
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center gap-2"><ShieldCheck size={19} className="text-brand-purple" /><h2 className="text-lg font-bold text-slate-950">{tier === 'Normal' ? (isVi ? 'Chính sách lớp Normal' : 'Normal class policies') : (isVi ? 'Chính sách Advanced' : 'Advanced policies')}</h2></div>{tier === 'Normal' ? <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700"><li>{isVi ? 'Đăng ký trọn khóa 12 buổi theo lịch cố định của lớp.' : 'Enrollment covers all 12 sessions on the class schedule.'}</li><li>{isVi ? 'Chỉ nhận đăng ký trước buổi học đầu tiên và khi lớp còn chỗ trống.' : 'Registration is available before the first session and while seats remain.'}</li><li>{isVi ? 'Lịch học được kích hoạt tự động sau khi hoàn tất thanh toán.' : 'The class schedule activates automatically after payment is completed.'}</li></ul> : <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700"><li>{isVi ? 'Cấp 12 buổi tập (12 credit) 1 kèm 1 theo đúng bộ môn đã thanh toán.' : 'Includes 12 one-to-one sessions (12 credits) for the sport purchased.'}</li><li>{isVi ? 'Huấn luyện viên phụ trách (Primary Coach) trực tiếp sắp xếp lịch tập sau khi thống nhất cùng hội viên.' : 'Your Primary Coach arranges sessions after agreeing the schedule with you.'}</li><li>{isVi ? 'Lịch tập từng buổi được tạo trước giờ bắt đầu tối thiểu 12 giờ.' : 'Each session is scheduled at least 12 hours before it starts.'}</li><li>{isVi ? 'Thời hạn sử dụng trọn gói trong vòng 45 ngày kể từ ngày kích hoạt thanh toán.' : 'The package is valid for 45 days from payment activation.'}</li><li>{isVi ? 'Đơn đăng ký chỉ phát sinh thanh toán sau khi Huấn luyện viên xác nhận tiếp nhận.' : 'Payment is requested only after the Coach accepts your request.'}</li></ul>}</section>
       </aside>
     </section>
@@ -1363,14 +1468,14 @@ export function MemberCourseCatalog() {
           const requested = normalizeCatalogStatus(item.status) === 'requested'
           const registrationStatus = normalizeCatalogStatus(item.status)
           const relatedOrder = orders.find((order) => String(order.registrationId) === String(item.id))
-          const invoiceStatus = normalizeCatalogStatus(item.paymentStatus ?? relatedOrder?.paymentStatus ?? relatedOrder?.status)
+          const invoiceStatus = normalizeCatalogStatus(item.paymentStatus ?? item.invoiceStatus ?? relatedOrder?.paymentStatus ?? relatedOrder?.status)
           const invoiceExpiry = confirmationDeadlineTimestamp(item.invoiceExpiresAt ?? item.expiresAt ?? relatedOrder?.expiresAt)
           const confirmationDeadline = confirmationDeadlineTimestamp(item.confirmationDeadline)
           const hasInvoiceRecord = Boolean(item.invoiceId ?? relatedOrder?.invoiceId)
           const unpaidInvoice = !['paid', 'successful', 'completed'].includes(invoiceStatus)
           const invoiceExpiredByStatus = ['expired', 'cancelled', 'canceled'].includes(invoiceStatus)
-          const invoiceExpired = invoiceExpiry != null && invoiceExpiry + 5 * 60 * 1000 <= clockNow
-          const confirmationExpiredByGrace = confirmationDeadline != null && confirmationDeadline + 24 * 60 * 60 * 1000 <= clockNow
+          const invoiceExpired = invoiceExpiry != null && invoiceExpiry <= trustedNow
+          const confirmationExpiredByGrace = confirmationDeadline != null && confirmationDeadline + 24 * 60 * 60 * 1000 <= trustedNow
           const hasActivePackageForRegistration = memberSubscriptions.some((subscription) =>
             String(subscription.subjectId) === String(item.subjectId)
             && String(subscription.primaryCoachId) === String(item.primaryCoachId)
@@ -1382,15 +1487,27 @@ export function MemberCourseCatalog() {
           const rejected = registrationStatus === 'rejected'
           const hasOrder = Boolean(item.invoiceId || item.subscriptionId || relatedOrder)
           const orderLocked = lockedOrderIds.includes(String(item.id)) || orderInFlightRef.current.has(String(item.id))
-          const confirmationExpired = expiredConfirmationIds.includes(String(item.id)) || confirmationDeadline == null || confirmationDeadline <= clockNow
-          const canConfirmPurchase = accepted && !hasOrder && !orderLocked && !confirmationExpired
+          // Nút mua theo purchaseConfirmationAllowed của Backend (=== false khóa, === true mở); thiếu field thì so hạn như cũ.
+          const purchaseState = getPurchaseConfirmationState(item, { nowMs: trustedNow, confirmationDeadlineMs: confirmationDeadline, expiredByRejection: expiredConfirmationIds.includes(String(item.id)), language })
+          const confirmationExpired = purchaseState.expired
+          const canConfirmPurchase = accepted && !hasOrder && !orderLocked && purchaseState.canConfirm
+          // Chỉ hiện gói đang hoạt động cho đăng ký ở trạng thái Active, hoặc đăng ký có subscriptionId trùng đúng gói;
+          // không hiện cho Requested, Rejected hay Accepted chưa mua (dù cùng môn + Coach có gói Active khác).
+          const activePackage = (registrationStatus === 'active' || item.subscriptionId != null) && !['requested', 'rejected'].includes(registrationStatus)
+            ? memberSubscriptions.find((subscription) =>
+              normalizeCatalogStatus(subscription.status) === 'active'
+              && Number(subscription.remainingCredit) > 0
+              && (item.subscriptionId != null
+                ? String(subscription.subscriptionId ?? subscription.id) === String(item.subscriptionId)
+                : String(subscription.subjectId) === String(item.subjectId) && String(subscription.primaryCoachId) === String(item.primaryCoachId)))
+            : null
           const approvedAmount = item.amount ?? (String(item.subjectId) === String(selectedSubject?.id) ? selectedSubject?.advancedPrice : null)
-return <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[13px] font-bold uppercase tracking-wide text-brand-purple-dark">Advanced · {isVi ? 'đăng ký theo môn' : 'sport registration'}</p><h3 className="mt-1 font-bold text-slate-900">{item.subjectName || (item.subjectId ? (isVi ? 'Môn #' : 'Subject #') + item.subjectId : isVi ? 'Môn chưa xác định' : 'Unknown subject')}</h3><p className="mt-1 text-sm text-slate-600">{item.primaryCoachName || (item.primaryCoachId ? (isVi ? 'Coach #' : 'Coach #') + item.primaryCoachId : isVi ? 'Coach chưa xác định' : 'Unknown Coach')}</p></div><StatusPill status={displayStatus} language={language} /></div>{requested && <button type="button" disabled={cancelingRegistrationId === String(item.id)} onClick={() => setRegistrationToCancel(item)} className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50">{isVi ? 'Hủy yêu cầu' : 'Cancel request'}</button>}{staleInvoiced && <button type="button" disabled={cancelingRegistrationId === String(item.id)} onClick={() => setRegistrationToCancel({ ...item, cancelStale: true })} className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50">{isVi ? 'Hủy đơn & Đăng ký lại' : 'Cancel order & register again'}</button>}{accepted && <p className="mt-3 flex items-center gap-2 rounded-lg bg-violet-50 p-3 text-sm text-violet-900"><Clock3 size={16} className="shrink-0" />{isVi ? 'Hạn xác nhận mua: ' : 'Confirm purchase by: '}{formatDeadline(item.confirmationDeadline, language)}</p>}{item.reason && <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{rejected && <strong>{isVi ? 'Lí do: ' : 'Reason: '}</strong>}{item.reason}</p>}{accepted && !hasOrder && confirmationExpired && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm font-medium text-rose-800" role="status">{confirmationDeadline == null ? (isVi ? 'Không xác minh được hạn xác nhận. Hãy tải lại danh sách đăng ký.' : 'Could not verify the confirmation deadline. Reload registrations.') : (isVi ? 'Đã hết thời hạn xác nhận mua gói. Vui lòng đăng ký Advanced lại.' : 'The purchase confirmation period has expired. Please submit a new Advanced registration.')}</p>}{accepted && !hasOrder && orderLocked && <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><p>{isVi ? 'Kết quả tạo đơn chưa thể xác minh. Không gửi lần nữa để tránh hóa đơn trùng.' : 'Order outcome is unresolved. Another order will not be sent to avoid a duplicate invoice.'}</p><button type="button" onClick={() => reconcileAdvancedOrder(item.id)} className="mt-2 font-semibold underline">{isVi ? 'Đối soát đơn' : 'Reconcile order'}</button></div>}{accepted && !hasOrder && !orderLocked && <div className="mt-4 border-t border-violet-100 pt-4"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div className="grid flex-1 gap-4 sm:grid-cols-[minmax(12rem,1fr)_auto] sm:items-end"><label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-700"><span>{isVi ? 'Phương thức thanh toán' : 'Payment method'}</span><select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} aria-label={isVi ? 'Phương thức thanh toán' : 'Payment method'} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-200"><option value="VNPay">VNPay</option><option value="Cash">{isVi ? 'Tiền mặt tại quầy' : 'Cash at counter'}</option></select></label><div className="sm:pb-1"><p className="text-xs font-semibold text-slate-500">{isVi ? 'Tổng thanh toán' : 'Total due'}</p><p className="mt-0.5 text-lg font-extrabold tracking-tight text-slate-950">{approvedAmount == null ? (isVi ? 'Chưa có thông tin giá' : 'Price unavailable') : formatMoney(approvedAmount, language)}</p></div></div><button type="button" disabled={submitting || !canConfirmPurchase} onClick={() => createOrder(item)} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-700 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto sm:min-w-64">{submitting ? (isVi ? 'Đang tạo hóa đơn...' : 'Creating invoice...') : (isVi ? 'Xác nhận và thanh toán' : 'Confirm and pay')}<ArrowUpRight size={16} /></button></div></div>}</article>
+return <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[13px] font-bold uppercase tracking-wide text-brand-purple-dark">Advanced · {isVi ? 'đăng ký theo môn' : 'sport registration'}</p><h3 className="mt-1 font-bold text-slate-900">{item.subjectName || (item.subjectId ? (isVi ? 'Môn #' : 'Subject #') + item.subjectId : isVi ? 'Môn chưa xác định' : 'Unknown subject')}</h3><p className="mt-1 text-sm text-slate-600">{item.primaryCoachName || (item.primaryCoachId ? (isVi ? 'Coach #' : 'Coach #') + item.primaryCoachId : isVi ? 'Coach chưa xác định' : 'Unknown Coach')}</p></div><StatusPill status={displayStatus} language={language} /></div>{staleInvoiced && <p role="status" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{isVi ? 'Hóa đơn của yêu cầu này đã hết hạn. Hiện chưa thể hủy hoặc đăng ký lại trực tiếp; vui lòng liên hệ quầy lễ tân để được hỗ trợ.' : 'The invoice for this request has expired. It cannot be cancelled or re-registered online yet; please contact the front desk.'}</p>}{accepted && <p className="mt-3 flex items-center gap-2 rounded-lg bg-violet-50 p-3 text-sm text-violet-900"><Clock3 size={16} className="shrink-0" />{isVi ? 'Hạn xác nhận mua: ' : 'Confirm purchase by: '}{formatDeadline(item.confirmationDeadline, language)}</p>}{hasInvoiceRecord && unpaidInvoice && isInvoicePending(invoiceStatus) && !staleInvoiced && <button type="button" onClick={() => openRegistrationInvoice(item, relatedOrder)} className="mt-3 inline-flex min-h-11 items-center justify-center rounded-lg border border-violet-300 bg-white px-4 text-sm font-bold text-violet-800 hover:bg-violet-50">{isVi ? 'Mở hóa đơn đang chờ thanh toán' : 'Open the pending invoice'}</button>}{activePackage && <p className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900" role="status">{isVi ? 'Gói đang hoạt động · Credit còn lại: ' : 'Active package · Credits left: '}<strong>{activePackage.remainingCredit}</strong>{(activePackage.endDate || activePackage.expiresAt) ? (isVi ? ' · Hạn dùng: ' : ' · Valid until: ') + formatDate(activePackage.endDate || activePackage.expiresAt, language) : ''}</p>}{accepted && !hasOrder && !orderLocked && purchaseState.source === 'backend' && !purchaseState.canConfirm && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm font-medium text-rose-800" role="status">{purchaseState.reasonText}</p>}{item.reason && <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{rejected && <strong>{isVi ? 'Lí do: ' : 'Reason: '}</strong>}{item.reason}</p>}{accepted && !hasOrder && confirmationExpired && purchaseState.source !== 'backend' && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm font-medium text-rose-800" role="status">{confirmationDeadline == null ? (isVi ? 'Không xác minh được hạn xác nhận. Hãy tải lại danh sách đăng ký.' : 'Could not verify the confirmation deadline. Reload registrations.') : (isVi ? 'Đã hết thời hạn xác nhận mua gói. Vui lòng đăng ký Advanced lại.' : 'The purchase confirmation period has expired. Please submit a new Advanced registration.')}</p>}{accepted && !hasOrder && orderLocked && <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><p>{isVi ? 'Kết quả tạo đơn chưa thể xác minh. Không gửi lần nữa để tránh hóa đơn trùng.' : 'Order outcome is unresolved. Another order will not be sent to avoid a duplicate invoice.'}</p><button type="button" onClick={() => reconcileAdvancedOrder(item.id)} className="mt-2 font-semibold underline">{isVi ? 'Đối soát đơn' : 'Reconcile order'}</button></div>}{accepted && !hasOrder && !orderLocked && <div className="mt-4 border-t border-violet-100 pt-4"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div className="grid flex-1 gap-4 sm:grid-cols-[minmax(12rem,1fr)_auto] sm:items-end"><label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-700"><span>{isVi ? 'Phương thức thanh toán' : 'Payment method'}</span><select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} aria-label={isVi ? 'Phương thức thanh toán' : 'Payment method'} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-200"><option value="VNPay">VNPay</option><option value="Cash">{isVi ? 'Tiền mặt tại quầy' : 'Cash at counter'}</option></select></label><div className="sm:pb-1"><p className="text-xs font-semibold text-slate-500">{isVi ? 'Tổng thanh toán' : 'Total due'}</p><p className="mt-0.5 text-lg font-extrabold tracking-tight text-slate-950">{approvedAmount == null ? (isVi ? 'Chưa có thông tin giá' : 'Price unavailable') : formatMoney(approvedAmount, language)}</p></div></div><button type="button" disabled={submitting || !canConfirmPurchase} onClick={() => createOrder(item)} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-700 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto sm:min-w-64">{submitting ? (isVi ? 'Đang tạo hóa đơn...' : 'Creating invoice...') : (isVi ? 'Xác nhận và thanh toán' : 'Confirm and pay')}<ArrowUpRight size={16} /></button></div></div>}</article>
         })}</div>}
       </InlineState>}
       {enrollmentsState.error && tier === 'Normal' && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900" role="alert"><p>{enrollmentsState.error}</p><button type="button" onClick={refreshEnrollments} className="mt-2 font-semibold underline">{isVi ? 'Thử lại' : 'Retry'}</button></div>}
       {tier === 'Normal' && !enrollmentsState.loading && !enrollmentsState.error && displayedOrders.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-5 text-sm text-slate-600">{isVi ? 'Chưa có yêu cầu hoặc đơn hàng. Các đăng ký đã gửi sẽ xuất hiện tại đây.' : 'No requests or orders yet. Your submitted enrollments will appear here.'}</div>}
-      {displayedOrders.length > 0 && <div className="space-y-3">{displayedOrders.map((order) => <article key={order.key} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[13px] font-bold uppercase tracking-wide text-slate-500">{order.type} · {order.invoiceCode || (order.invoiceId ? (isVi ? 'Hóa đơn #' : 'Invoice #') + order.invoiceId : isVi ? 'Đơn chờ xử lý' : 'Order pending')} · {order.paymentMethod === 'Cash' ? (isVi ? 'Tiền mặt tại quầy' : 'Cash at counter') : 'VNPay'}</p><h3 className="mt-1 font-bold text-slate-900">{order.className || order.subjectName || (isVi ? 'Đăng ký khóa học' : 'Course enrollment')}</h3><p className="mt-1 text-sm text-slate-600">{order.amount == null ? (isVi ? 'Chưa có thông tin số tiền' : 'Amount not available') : formatMoney(order.amount, language)}{order.expiresAt ? ' · ' + (isVi ? 'Hạn thanh toán ' : 'Invoice deadline ') + formatDate(order.expiresAt, language) : ''}</p></div><StatusPill status={order.paymentStatus || order.status} language={language} /></div>{order.type === 'Advanced' && <AdvancedInvoiceDetails order={order} language={language} now={clockNow} />}{order.reconciliationRequired && <p className="mt-3 text-sm font-semibold text-amber-800">{isVi ? 'Đã ghi nhận Paid nhưng đang cần đối soát; chưa xác nhận quyền.' : 'Paid is recorded but reconciliation is required; entitlement is not confirmed.'}</p>}{['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <p className="mt-3 text-sm text-slate-700">{order.type === 'Advanced' ? (String(order.subscription?.status || '').toLowerCase() === 'active' ? (isVi ? 'Backend xác nhận gói Advanced đang hoạt động.' : 'The server confirms the Advanced subscription is active.') : (isVi ? 'Backend đã xác nhận thanh toán; đang chờ đồng bộ Subscription.' : 'Payment is confirmed by the server; waiting for subscription sync.')) : (isVi ? 'Đã ghi nhận thanh toán thành công và kích hoạt quyền học chính thức.' : 'Payment confirmed and official course access activated.')}</p>}<div className="mt-4 flex flex-wrap gap-2">{order.paymentMethod !== 'Cash' && ['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" onClick={() => beginPayment(order)} className="min-h-10 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white">{isVi ? 'Tiếp tục thanh toán VNPay' : 'Continue to VNPay'}</button>}{['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" disabled={submitting} onClick={() => handleCancelPendingEnrollment(order)} className="min-h-10 rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100">{isVi ? 'Hủy đơn chờ & Đăng ký lại' : 'Cancel pending & re-enroll'}</button>}{['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" disabled={orderChecks[order.key]?.loading} onClick={() => checkOrderStatus(order)} className="min-h-10 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">{orderChecks[order.key]?.loading ? (isVi ? "Đang kiểm tra..." : "Checking...") : (isVi ? "Kiểm tra trạng thái" : "Check status")}</button>}{!['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && orderChecks[order.key]?.message && <p role="status" className={"mt-3 w-full rounded-lg p-3 text-sm " + (orderChecks[order.key].tone === "success" ? "bg-emerald-50 text-emerald-800" : orderChecks[order.key].tone === "error" ? "bg-rose-50 text-rose-800" : "bg-blue-50 text-blue-800")}>{orderChecks[order.key].message}</p>}</div></article>)}</div>}
+      {displayedOrders.length > 0 && <div className="space-y-3">{displayedOrders.map((order) => <article key={order.key} id={order.invoiceId ? 'advanced-invoice-' + String(order.invoiceId) : undefined} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[13px] font-bold uppercase tracking-wide text-slate-500">{order.type} · {order.invoiceCode || (order.invoiceId ? (isVi ? 'Hóa đơn #' : 'Invoice #') + order.invoiceId : isVi ? 'Đơn chờ xử lý' : 'Order pending')} · {order.paymentMethod === 'Cash' ? (isVi ? 'Tiền mặt tại quầy' : 'Cash at counter') : 'VNPay'}</p><h3 className="mt-1 font-bold text-slate-900">{order.className || order.subjectName || (isVi ? 'Đăng ký khóa học' : 'Course enrollment')}</h3><p className="mt-1 text-sm text-slate-600">{order.amount == null ? (isVi ? 'Chưa có thông tin số tiền' : 'Amount not available') : formatMoney(order.amount, language)}{order.expiresAt ? ' · ' + (isVi ? 'Hạn thanh toán ' : 'Invoice deadline ') + formatDate(order.expiresAt, language) : ''}</p></div><StatusPill status={order.paymentStatus || order.status} language={language} /></div>{order.type === 'Advanced' && <AdvancedInvoiceDetails order={order} language={language} now={trustedNow} />}{order.reconciliationRequired && <p className="mt-3 text-sm font-semibold text-amber-800">{isVi ? 'Đã ghi nhận Paid nhưng đang cần đối soát; chưa xác nhận quyền.' : 'Paid is recorded but reconciliation is required; entitlement is not confirmed.'}</p>}{['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <p className="mt-3 text-sm text-slate-700">{order.type === 'Advanced' ? (String(order.subscription?.status || '').toLowerCase() === 'active' ? (isVi ? 'Backend xác nhận gói Advanced đang hoạt động.' : 'The server confirms the Advanced subscription is active.') : (isVi ? 'Backend đã xác nhận thanh toán; đang chờ đồng bộ Subscription.' : 'Payment is confirmed by the server; waiting for subscription sync.')) : (isVi ? 'Đã ghi nhận thanh toán thành công và kích hoạt quyền học chính thức.' : 'Payment confirmed and official course access activated.')}</p>}<div className="mt-4 flex flex-wrap gap-2">{order.paymentMethod !== 'Cash' && ['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" onClick={() => beginPayment(order)} className="min-h-10 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white">{isVi ? 'Tiếp tục thanh toán VNPay' : 'Continue to VNPay'}</button>}{['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" disabled={submitting} onClick={() => handleCancelPendingEnrollment(order)} className="min-h-10 rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100">{isVi ? 'Hủy đơn chờ & Đăng ký lại' : 'Cancel pending & re-enroll'}</button>}{['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" disabled={orderChecks[order.key]?.loading} onClick={() => checkOrderStatus(order)} className="min-h-10 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">{orderChecks[order.key]?.loading ? (isVi ? "Đang kiểm tra..." : "Checking...") : (isVi ? "Kiểm tra trạng thái" : "Check status")}</button>}{!['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && orderChecks[order.key]?.message && <p role="status" className={"mt-3 w-full rounded-lg p-3 text-sm " + (orderChecks[order.key].tone === "success" ? "bg-emerald-50 text-emerald-800" : orderChecks[order.key].tone === "error" ? "bg-rose-50 text-rose-800" : "bg-blue-50 text-blue-800")}>{orderChecks[order.key].message}</p>}</div></article>)}</div>}
       </div>
     </section>
 
@@ -1405,10 +1522,10 @@ return <article key={item.id} className="rounded-xl border border-slate-200 bg-w
     </CatalogDialog>}
 
     {confirmClass && <CatalogDialog title={isVi ? 'Xác nhận đăng ký lớp' : 'Confirm class enrollment'} onClose={() => !submitting && setConfirmClass(null)} language={language}>
-      <div className="space-y-3 rounded-xl bg-slate-50 p-4 text-sm"><p className="text-lg font-bold text-slate-950">{confirmClass.name}</p><p className="text-slate-700">{selectedSubject?.name} · {confirmClass.coachName || (isVi ? 'Coach do trung tâm phân công' : 'Coach assigned by the center')}</p><p className="font-semibold text-slate-900">{formatMoney(confirmClass.tuitionFee, language)}</p><p className="text-slate-600">{isVi ? 'Đăng ký theo tài khoản đăng nhập hiện tại. Trạng thái lớp sẽ chuyển thành Đã đăng ký sau khi thanh toán được hệ thống xác nhận hợp lệ và hoàn tất đối soát.' : 'Enrollment uses your current account. Class status will become Registered once payment is confirmed and reconciled by the system.'}</p></div>
-      <fieldset className="mt-4"><legend className="text-sm font-bold text-slate-900">{isVi ? 'Phương thức thanh toán' : 'Payment method'}</legend><div className="mt-2 grid gap-2 sm:grid-cols-2"><label className={'flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-semibold ' + (paymentMethod === 'Cash' ? 'border-brand-primary bg-brand-blue-soft text-brand-primary' : 'border-slate-200 text-slate-700')}><input type="radio" name="normal-payment-method" value="Cash" checked={paymentMethod === 'Cash'} onChange={() => setPaymentMethod('Cash')} className="accent-brand-primary" />{isVi ? 'Tiền mặt tại quầy (Cash)' : 'Cash at counter'}</label><label className={'flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-semibold ' + (paymentMethod === 'VNPay' ? 'border-brand-primary bg-brand-blue-soft text-brand-primary' : 'border-slate-200 text-slate-700')}><input type="radio" name="normal-payment-method" value="VNPay" checked={paymentMethod === 'VNPay'} onChange={() => setPaymentMethod('VNPay')} className="accent-brand-primary" />{isVi ? 'VNPay (Trực tuyến)' : 'VNPay (Online)'}</label></div></fieldset>
+      <div className="space-y-3 rounded-xl bg-slate-50 p-4 text-sm"><p className="text-lg font-bold text-slate-950">{confirmClass.name}</p><p className="text-slate-700">{selectedSubject?.name} · {confirmClass.coachName || (isVi ? 'Coach do trung tâm phân công' : 'Coach assigned by the center')}</p><p className="font-semibold text-slate-900">{formatMoney(confirmClass.tuitionFee, language)}</p>{confirmClass.registrationAllowed === true && Number(confirmClass.maxCapacity || 0) > 0 && Number(confirmClass.enrolledCount || 0) >= Number(confirmClass.maxCapacity) && <p className="rounded-lg bg-amber-50 p-3 text-amber-900">{isVi ? "Lớp đã đủ chỗ: bạn sẽ vào danh sách chờ (tối đa 10 người) và chưa cần thanh toán. Hệ thống xác nhận trạng thái thật sau khi gửi." : "The class is full: you will join the waitlist (up to 10) and need not pay yet. The system confirms the real status after you submit."}</p>}<p className="text-slate-600">{isVi ? 'Đăng ký theo tài khoản đăng nhập hiện tại. Trạng thái lớp sẽ chuyển thành Đã đăng ký sau khi thanh toán được hệ thống xác nhận hợp lệ và hoàn tất đối soát.' : 'Enrollment uses your current account. Class status will become Registered once payment is confirmed and reconciled by the system.'}</p></div>
+      <fieldset className="mt-4"><legend className="text-sm font-bold text-slate-900">{isVi ? 'Phương thức thanh toán' : 'Payment method'}</legend><div className="mt-2"><p className="flex min-h-11 items-center rounded-lg border border-brand-primary bg-brand-blue-soft px-3 text-sm font-semibold text-brand-primary">{isVi ? 'VNPay (Trực tuyến)' : 'VNPay (Online)'}</p></div></fieldset>
       {submittingError && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800" role="alert">{submittingError}</p>}
-      <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" disabled={submitting} onClick={() => setConfirmClass(null)} className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700">{isVi ? 'Để sau' : 'Cancel'}</button><button type="button" disabled={submitting || classRegistrationClosed(confirmClass) || /registration closes 48 hours before the first session|Đã đóng cổng đăng ký/i.test(submittingError) || !classVerification(confirmClass).eligible} onClick={handleNormalEnroll} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white disabled:bg-slate-300">{submitting && <LoaderCircle size={16} className="animate-spin" />}{isVi ? 'Gửi đăng ký' : 'Submit enrollment'}</button></div>
+      <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" disabled={submitting} onClick={() => setConfirmClass(null)} className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700">{isVi ? 'Để sau' : 'Cancel'}</button><button type="button" disabled={submitting || (confirmClass.registrationAllowed !== true && classRegistrationClosed(confirmClass)) || (confirmDecision?.source === 'backend' && !confirmDecision.canEnroll) || REGISTRATION_CLOSED_PATTERN.test(submittingError) || /Đã đóng cổng đăng ký/.test(submittingError) || !classVerification(confirmClass).eligible} onClick={handleNormalEnroll} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white disabled:bg-slate-300">{submitting && <LoaderCircle size={16} className="animate-spin" />}{isVi ? 'Gửi đăng ký' : 'Submit enrollment'}</button></div>
     </CatalogDialog>}
 
     <footer className="flex items-start gap-2 rounded-xl bg-slate-100 p-4 text-[13px] leading-5 text-slate-700"><FileText size={16} className="mt-0.5 shrink-0 text-slate-500" />{isVi ? 'Giá học phí, trạng thái lớp, lịch học, HLV và kết quả thanh toán được cập nhật từ hệ thống. Các đơn ở trạng thái Chờ xử lý chưa được xem là đã thanh toán.' : 'Course prices, class statuses, schedules, coaches, and payment results are updated from the system. Pending orders are not considered paid.'}</footer>

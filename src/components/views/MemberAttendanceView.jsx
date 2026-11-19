@@ -700,7 +700,7 @@ export function MemberAttendanceView() {
   const [apiLoading, setApiLoading] = useState(false)
   const [apiStatusFilter, setApiStatusFilter] = useState("all")
   const [liveQrPayload, setLiveQrPayload] = useState("")
-  const [liveQrSeconds, setLiveQrSeconds] = useState(60)
+  const [liveQrSeconds, setLiveQrSeconds] = useState(0)
   const [liveQrLoading, setLiveQrLoading] = useState(false)
 
   // Active sport tab: 'badminton' | 'pickleball' | 'archery'
@@ -1166,20 +1166,16 @@ export function MemberAttendanceView() {
     setLiveQrLoading(true)
     try {
       const res = await memberPortalApi.getMemberCheckinCode()
-      const ttl = Math.max(
-        1,
-        Math.min(
-          30,
-          Number(res?.expiresInSeconds || res?.validitySeconds || 30),
-        ),
-      )
+      const rawTtl = Number(res?.expiresInSeconds ?? res?.validitySeconds)
+      const ttl =
+        Number.isFinite(rawTtl) && rawTtl >= 1 ? Math.round(rawTtl) : 30
       if (res?.code || res?.payload) {
         setLiveQrPayload(res.code || res.payload)
         setLiveQrSeconds(ttl)
       }
     } catch {
       setLiveQrPayload("")
-      setLiveQrSeconds(30)
+      setLiveQrSeconds(0)
     } finally {
       setLiveQrLoading(false)
     }
@@ -1229,7 +1225,7 @@ export function MemberAttendanceView() {
       setLiveQrSeconds((prev) => {
         if (prev <= 1) {
           loadLiveQrCode()
-          return 30
+          return 0
         }
         return prev - 1
       })
@@ -1633,8 +1629,8 @@ export function MemberAttendanceView() {
                 <Award className="w-3 h-3 text-[#24A9D2]" />
                 <span>
                   {isVip
-                    ? "VIBE ATHLETIC CLUB • THẺ VIP"
-                    : "VIBE ATHLETIC CLUB • THẺ HỘI VIÊN"}
+                    ? "AVT SPORT • THẺ VIP"
+                    : "AVT SPORT • THẺ HỘI VIÊN"}
                 </span>
               </span>
               <span className="text-[#6B7890]/50">•</span>
@@ -2214,7 +2210,7 @@ export function MemberAttendanceView() {
                       <div className="flex items-center gap-2">
                         <span className="h-px w-5 bg-[#24A9D2]" />
                         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#6B7890]">
-                          VIBE ATHLETIC CLUB • LỘ TRÌNH 12 BUỔI
+                          AVT SPORT • LỘ TRÌNH 12 BUỔI
                         </span>
                       </div>
                       <h3 className="font-sans font-normal text-2xl text-[#202B46]">
@@ -3163,7 +3159,7 @@ export function MemberAttendanceView() {
               <div className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#405BD5] animate-pulse" />
                 <span className="text-[11px] tracking-[0.14em] uppercase font-sans font-medium text-[#405BD5]">
-                  VIBE ATHLETIC • {isVip ? "THẺ VÀO SÂN VIP" : "THẺ VÀO SÂN"}
+                  AVT SPORT • {isVip ? "THẺ VÀO SÂN VIP" : "THẺ VÀO SÂN"}
                 </span>
               </div>
               <button

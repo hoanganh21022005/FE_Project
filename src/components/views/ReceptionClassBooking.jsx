@@ -7,7 +7,8 @@ import {
   formatDateTime,
 } from "../../locales/translations"
 import { classEnrollmentApi } from "../../api/classEnrollmentApi"
-import { getErrorMessage } from "../../api/apiErrors"
+import { getErrorCode, getErrorMessage, translateErrorCode } from "../../api/apiErrors"
+import { parseBackendDate } from "../../utils/datetime"
 import {
   Calendar,
   Clock,
@@ -46,6 +47,8 @@ export function ReceptionClassBooking() {
   const [submittingClassId, setSubmittingClassId] = useState(null)
   const [bookingError, setBookingError] = useState(null)
   const [latestBookingResult, setLatestBookingResult] = useState(null)
+  const [deskCancelTarget, setDeskCancelTarget] = useState(null)
+  const [cancellingBooking, setCancellingBooking] = useState(false)
 
   // API read-back enrollments state for selected member
   const [memberEnrollments, setMemberEnrollments] = useState([])
@@ -57,6 +60,15 @@ export function ReceptionClassBooking() {
   const selectedMemberIdRef = useRef(selectedMemberId)
   const enrollmentReqIdRef = useRef(0)
   const reloadClassesRef = useRef(reloadClasses)
+
+  useEffect(() => {
+    if (!deskCancelTarget || cancellingBooking) return undefined
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setDeskCancelTarget(null)
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [deskCancelTarget, cancellingBooking])
 
   useEffect(() => {
     reloadClassesRef.current = reloadClasses
@@ -206,7 +218,7 @@ export function ReceptionClassBooking() {
     setEnrollmentsLoading(false)
 
     try {
-      const result = await bookClass(targetClassId, targetMemberId)
+      const result = await bookClass(targetClassId, targetMemberId, "Cash")
 
       // Guard against stale context if member changed mid-request
       if (String(selectedMemberIdRef.current) !== String(targetMemberId)) {
@@ -223,6 +235,7 @@ export function ReceptionClassBooking() {
             ? "Đăng ký lớp học không thành công."
             : "Class enrollment failed.")
         setBookingError(msg)
+        showToast?.(msg, "error")
         return
       }
 
@@ -242,6 +255,10 @@ export function ReceptionClassBooking() {
       }
 
       setLatestBookingResult(bookingSummary)
+      showToast?.(
+        language === "vi" ? "Đặt lớp thành công." : "Class booking completed successfully.",
+        "success",
+      )
 
       // Invalidate any read-back that resolved during the POST request to protect latest Pending snapshot
       enrollmentReqIdRef.current++
@@ -274,13 +291,18 @@ export function ReceptionClassBooking() {
       enrollmentReqIdRef.current++
       setEnrollmentsLoading(false)
       if (String(selectedMemberIdRef.current) === String(targetMemberId)) {
-        const errorMsg = getErrorMessage(
-          err,
-          language === "vi"
-            ? "Đăng ký lớp học thất bại do lỗi kết nối hoặc máy chủ."
-            : "Class enrollment failed due to network or server error.",
-        )
+        const code = getErrorCode(err)
+        const translated = code ? translateErrorCode(code, language) : null
+        const errorMsg =
+          translated ||
+          getErrorMessage(
+            err,
+            language === "vi"
+              ? "Đăng ký lớp học thất bại do lỗi kết nối hoặc máy chủ."
+              : "Class enrollment failed due to network or server error.",
+          )
         setBookingError(errorMsg)
+        showToast?.(errorMsg, "error")
         // Outcome chưa rõ ràng (uncertain): không tự kết luận là chưa đăng ký
         if (apiEnabled) {
           setEnrollmentsError(
@@ -299,8 +321,17 @@ export function ReceptionClassBooking() {
   }
 
   const handleDeskCancel = async (classId) => {
-    if (!selectedMember || submittingRef.current) return
-    await cancelBooking(classId, selectedMember.id)
+    if (!selectedMember || submittingRef.current || cancellingBooking) return
+    setCancellingBooking(true)
+    try {
+      await cancelBooking(classId, selectedMember.id)
+      setDeskCancelTarget(null)
+      showToast?.(language === "vi" ? "Đã hủy đăng ký lớp." : "Class booking cancelled.", "success")
+    } catch (error) {
+      showToast?.(getErrorMessage(error, language === "vi" ? "Không thể hủy đăng ký lớp." : "Could not cancel the class booking."), "error")
+    } finally {
+      setCancellingBooking(false)
+    }
   }
 
   const handleNavigateToPayment = (invoiceId, invoiceCode) => {
@@ -319,7 +350,7 @@ export function ReceptionClassBooking() {
             <Calendar className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug whitespace-nowrap">
+            <h1 className="min-w-0 text-2xl font-semibold tracking-tight text-slate-900 leading-normal break-words">
               {t("bookings")}
             </h1>
             <p className="mt-1 text-sm text-slate-500 leading-relaxed">
@@ -365,7 +396,7 @@ export function ReceptionClassBooking() {
           value={selectedMemberId}
           onChange={handleSelectMember}
           disabled={isSubmitting}
-          className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+          className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
         >
           {members.map((m) => (
             <option key={m.id} value={m.id}>
@@ -377,21 +408,21 @@ export function ReceptionClassBooking() {
         </select>
 
         {selectedMember && (
-          <div className="p-3 bg-bg-secondary rounded border border-border-color text-sm leading-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div>
-              <span className="text-text-secondary">Trạng thái tài khoản: </span>
+              <span className="text-slate-500">Trạng thái tài khoản: </span>
               <span
                 className={`font-semibold uppercase ${
                   selectedMember.membershipStatus === "active"
-                    ? "text-status-success"
-                    : "text-status-warning"
+                    ? "text-emerald-700"
+                    : "text-amber-700"
                 }`}
               >
                 {selectedMember.membershipStatus}
               </span>
             </div>
             {selectedMember.membershipStatus !== "active" && (
-              <span className="text-status-warning font-semibold flex items-center gap-1 text-xs leading-4">
+              <span className="text-amber-700 font-semibold flex items-center gap-1 text-xs">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 <span>
                   Lưu ý: Hội viên cần có gói tập hợp lệ để hệ thống chấp nhận
@@ -626,15 +657,15 @@ export function ReceptionClassBooking() {
         )}
 
       {/* Classes Available */}
-      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-color pb-3">
-          <h3 className="text-lg leading-7 font-semibold text-text-primary">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <h3 className="text-base font-semibold text-slate-900">
             2. Lớp Học Sắp Khai Giảng ({filteredClasses.length})
           </h3>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="min-h-11 w-full sm:w-auto rounded border border-border-strong bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+            className="h-9 w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-3 text-xs sm:text-sm text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 cursor-pointer"
           >
             <option value="all">Tất cả bộ môn</option>
             {categories.map((cat) => (
@@ -703,14 +734,14 @@ export function ReceptionClassBooking() {
             return (
               <div
                 key={cls.id}
-                className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-slate-900 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
+                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
                       {cls.category || "Thể thao"}
                     </span>
-                    <span className="text-lg leading-7 font-semibold text-text-primary">
+                    <span className="text-base font-semibold text-slate-900">
                       {language === "vi" ? cls.nameVi || cls.name : cls.name}
                     </span>
                   </div>
@@ -731,6 +762,22 @@ export function ReceptionClassBooking() {
                         {language === "vi" ? cls.roomVi || cls.room : cls.room}
                       </strong>
                     </span>
+                    {(() => {
+                      const regDeadline = parseBackendDate(cls.registrationDeadline)
+                      if (!regDeadline) return null
+                      return (
+                        <span className="font-mono tabular-nums">
+                          {language === "vi" ? "Hạn đăng ký:" : "Registration closes:"}{" "}
+                          <strong className="text-text-primary">
+                            {new Intl.DateTimeFormat(language === "vi" ? "vi-VN" : "en-US", {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                              timeZone: "Asia/Ho_Chi_Minh",
+                            }).format(new Date(regDeadline))}
+                          </strong>
+                        </span>
+                      )
+                    })()}
                   </div>
                 </div>
 
@@ -778,7 +825,7 @@ export function ReceptionClassBooking() {
                               enrollmentInvoiceCode,
                             )
                           }
-                          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
                         >
                           <span>
                             {language === "vi" ? "Thu tiền" : "Collect"}
@@ -805,7 +852,7 @@ export function ReceptionClassBooking() {
                         type="button"
                         disabled={!canBook}
                         onClick={() => handleDeskBooking(cls)}
-                        className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
                       >
                         {isThisSubmitting ? (
                           <>
@@ -833,7 +880,7 @@ export function ReceptionClassBooking() {
                     isRegistered ? (
                       <button
                         type="button"
-                        onClick={() => handleDeskCancel(cls.id)}
+                        onClick={() => setDeskCancelTarget(cls)}
                         className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-status-danger text-text-inverse hover:bg-status-danger/90 cursor-pointer"
                       >
                         <XCircle className="w-3.5 h-3.5" />
@@ -844,7 +891,7 @@ export function ReceptionClassBooking() {
                         type="button"
                         disabled={!canBook}
                         onClick={() => handleDeskBooking(cls)}
-                        className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
                       >
                         {isThisSubmitting ? (
                           <>
@@ -866,6 +913,18 @@ export function ReceptionClassBooking() {
           })}
         </div>
       </div>
+      {deskCancelTarget && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4" role="presentation">
+          <section role="dialog" aria-modal="true" aria-labelledby="desk-cancel-title" className="w-full max-w-md space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <h2 id="desk-cancel-title" className="text-lg font-bold text-slate-900">{language === "vi" ? "Xác nhận hủy đăng ký" : "Confirm booking cancellation"}</h2>
+            <p className="text-sm leading-relaxed text-slate-700">{language === "vi" ? `Bạn có chắc muốn hủy đăng ký lớp ${deskCancelTarget.nameVi || deskCancelTarget.name || "này"} cho ${selectedMember?.name || "hội viên"}?` : `Cancel ${selectedMember?.name || "this member"}'s booking for ${deskCancelTarget.name || "this class"}?`}</p>
+            <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
+              <button type="button" disabled={cancellingBooking} onClick={() => setDeskCancelTarget(null)} className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 disabled:opacity-50">{language === "vi" ? "Hủy bỏ" : "Keep booking"}</button>
+              <button type="button" disabled={cancellingBooking} onClick={() => handleDeskCancel(deskCancelTarget.id)} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-rose-700 px-4 text-sm font-bold text-white disabled:opacity-50">{cancellingBooking && <Loader2 className="h-4 w-4 animate-spin" />}{language === "vi" ? "Xác nhận hủy" : "Confirm cancellation"}</button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }

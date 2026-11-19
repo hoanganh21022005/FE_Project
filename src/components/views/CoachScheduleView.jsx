@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react"
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import {
@@ -108,7 +108,7 @@ export function CoachScheduleView() {
     if (Number.isInteger(userCoachId) && userCoachId > 0) {
       return userCoachId
     }
-    // 2. Detected coachId from /api/coaches or /api/coaches/me
+    // 2. Detected coachId from /api/coaches
     const detected = Number(detectedCoachId)
     if (Number.isInteger(detected) && detected > 0) {
       return detected
@@ -122,7 +122,7 @@ export function CoachScheduleView() {
     return null
   }, [currentUser?.coachId, currentUser?.id, detectedCoachId, apiEnabled])
 
-  // Auto-resolve coachId from /api/coaches or /api/coaches/me when in API mode and coachId is missing
+  // Auto-resolve coachId from /api/coaches when in API mode and coachId is missing
   useEffect(() => {
     if (!apiEnabled) return
     if (currentUser?.coachId && Number(currentUser.coachId) > 0) return
@@ -149,19 +149,7 @@ export function CoachScheduleView() {
         }
       }
 
-      // Step B: Try GET /api/coaches/me
-      try {
-        const me = await memberPortalApi.getCoachProfileMe()
-        const cId = Number(me?.id ?? me?.coachId)
-        if (active && Number.isInteger(cId) && cId > 0) {
-          setDetectedCoachId(cId)
-          return
-        }
-      } catch {
-        // Fallback to GET /api/coaches
-      }
-
-      // Step C: Try GET /api/coaches
+      // Step B: Try GET /api/coaches
       try {
         const list = await memberPortalApi.getCoaches()
         if (!active || !Array.isArray(list) || list.length === 0) return
@@ -240,10 +228,188 @@ export function CoachScheduleView() {
   const [daysOff, setDaysOff] = useState([])
   const [isWorkScheduleDirty, setIsWorkScheduleDirty] = useState(false)
   const [savingWorkSchedule, setSavingWorkSchedule] = useState(false)
+  const scheduleRequestIdRef = useRef(0)
 
   const loadCoachScheduleData = useCallback(async () => {
     if (!apiEnabled) return
+    const reqId = ++scheduleRequestIdRef.current
     setLoadingSessions(true)
+
+    const myClassMap = new Map(myClasses.map((c) => [String(c.id), c]))
+    const nameLower = String(currentUser?.name || "")
+      .trim()
+      .toLowerCase()
+
+    const createSessionMerger = () => {
+      const sessionMap = new Map()
+      const addSession = (s) => {
+        if (!s || !s.id) return
+        const prev = sessionMap.get(String(s.id)) || {}
+        const matchedClass = s.classId ? myClassMap.get(String(s.classId)) : null
+        const matchedRoom = s.roomId
+          ? rooms?.find((r) => String(r.id) === String(s.roomId))
+          : null
+        sessionMap.set(String(s.id), {
+          ...prev,
+          ...s,
+          status: s.status || prev.status || null,
+          className:
+            s.className ||
+            prev.className ||
+            matchedClass?.nameVi ||
+            matchedClass?.name ||
+            "",
+          subjectName:
+            s.subjectName ||
+            prev.subjectName ||
+            matchedClass?.category ||
+            "Thể thao",
+          roomName:
+            s.roomName ||
+            prev.roomName ||
+            matchedRoom?.name ||
+            matchedClass?.roomVi ||
+            matchedClass?.room ||
+            (s.roomId ? `Sân/Phòng #${s.roomId}` : "Sân tập trung tâm"),
+          enrolledCount:
+            s.enrolledCount ?? prev.enrolledCount ?? matchedClass?.enrolledCount ?? 0,
+          maxCapacity: apiEnabled
+            ? s.maxCapacity ?? prev.maxCapacity ?? matchedClass?.capacity ?? null
+            : s.maxCapacity ?? prev.maxCapacity ?? matchedClass?.capacity ?? 12,
+        })
+      }
+      return { sessionMap, addSession }
+    }
+
+    const filterAndAppendGeneralSessions = (generalSessions, addSession) => {
+      if (!Array.isArray(generalSessions)) return
+      generalSessions.forEach((s) => {
+        const belongsToCoach =
+          (resolvedCoachId &&
+            s.coachId != null &&
+            String(s.coachId) === String(resolvedCoachId)) ||
+          (resolvedCoachId && s.coachId == null) ||
+          (!apiEnabled && String(s.coachId) === String(currentUser?.id)) ||
+          (nameLower &&
+            String(s.coachName || "")
+              .trim()
+              .toLowerCase()
+              .includes(nameLower)) ||
+          (s.classId && myClassMap.has(String(s.classId)))
+        if (belongsToCoach) {
+          addSession(s)
+        }
+      })
+    }
+
+    const sortSessions = (sessionMap) =>
+      Array.from(sessionMap.values()).sort((a, b) => {
+        const dA = `${a.sessionDate || ""}T${a.startTime || "00:00"}`
+        const dB = `${b.sessionDate || ""}T${b.startTime || "00:00"}`
+        return dA.localeCompare(dB)
+      })
+
+    const fetchNoticesForSessions = (sessions, alreadyFetchedIds) => {
+      const targets = sessions.filter(
+        (s) => !isSessionCancelled(s) && !alreadyFetchedIds.has(String(s.id)),
+      )
+      if (targets.length === 0) return
+      targets.forEach((s) => alreadyFetchedIds.add(String(s.id)))
+      Promise.all(
+        targets.map((s) =>
+          memberPortalApi
+            .getSessionAbsenceNotices(s.id)
+            .then((list) => [String(s.id), Array.isArray(list) ? list : []])
+            .catch(() => [String(s.id), []]),
+        ),
+      ).then((entries) => {
+        if (reqId !== scheduleRequestIdRef.current) return
+        setAbsenceNoticesBySession((prev) => ({
+          ...prev,
+          ...Object.fromEntries(entries),
+        }))
+      })
+    }
+
+    let generalSessions = []
+    const fetchedNoticeIds = new Set()
+
+    try {
+      // Pha 1 (vẽ ngay): chỉ gọi 1 yêu cầu sessions theo coachId cùng với work-schedule, training-results, time-slots
+      const [
+        coachSessionsRes,
+        workData,
+        resultsList,
+        slotsList,
+      ] = await Promise.all([
+        resolvedCoachId
+          ? memberPortalApi.getClassSessions({ coachId: resolvedCoachId }).catch(() => [])
+          : Promise.resolve([]),
+        resolvedCoachId
+          ? memberPortalApi
+              .getCoachWorkSchedule(resolvedCoachId)
+              .catch(() => null)
+          : Promise.resolve(null),
+        memberPortalApi
+          .getTrainingResults(
+            resolvedCoachId ? { coachId: resolvedCoachId } : {},
+          )
+          .catch(() => []),
+        memberPortalApi.getTimeSlots().catch(() => []),
+      ])
+
+      if (reqId !== scheduleRequestIdRef.current) return
+
+      generalSessions = Array.isArray(coachSessionsRes) ? coachSessionsRes : []
+
+      if (Array.isArray(slotsList) && slotsList.length > 0) {
+        const sortedSlots = [...slotsList].sort(
+          (a, b) => Number(a.slotNumber || 0) - Number(b.slotNumber || 0),
+        )
+        setApiTimeSlots(sortedSlots)
+      }
+
+      if (Array.isArray(resultsList)) {
+        setLoggedResultSessionIds(
+          new Set(
+            resultsList
+              .map((r) => (r.sessionId != null ? String(r.sessionId) : null))
+              .filter(Boolean),
+          ),
+        )
+      }
+
+      if (workData && typeof workData === "object") {
+        if (typeof workData.acceptingNew === "boolean") {
+          setAcceptingNew(workData.acceptingNew)
+        }
+        if (Array.isArray(workData.weeklySlots)) {
+          setWeeklySlots(normalizeWeeklySlotsArray(workData.weeklySlots))
+        }
+        if (Array.isArray(workData.daysOff)) {
+          setDaysOff(
+            workData.daysOff
+              .map((d) => String(d || "").trim().slice(0, 10))
+              .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)),
+          )
+        }
+        setIsWorkScheduleDirty(false)
+      }
+
+      const phase1Merger = createSessionMerger()
+      filterAndAppendGeneralSessions(generalSessions, phase1Merger.addSession)
+      const phase1Sessions = sortSessions(phase1Merger.sessionMap)
+      setApiSessions(phase1Sessions)
+      fetchNoticesForSessions(phase1Sessions, fetchedNoticeIds)
+    } finally {
+      if (reqId === scheduleRequestIdRef.current) {
+        setLoadingSessions(false)
+      }
+    }
+
+    // Pha 2 (nền): tải bổ sung theo từng lớp và gộp vào danh sách hiện có, không xóa dữ liệu pha 1 nếu lỗi
+    if (myClasses.length === 0) return
+
     try {
       const catalogPromises = myClasses.map((cls) =>
         getCatalogClassSessions(cls.id, { notifyForbidden: false })
@@ -284,153 +450,23 @@ export function CoachScheduleView() {
           .catch(() => []),
       )
 
-      const [
-        generalSessions,
-        catalogArrays,
-        classDirectArrays,
-        workData,
-        resultsList,
-        slotsList,
-      ] = await Promise.all([
-        resolvedCoachId
-          ? memberPortalApi.getClassSessions({ coachId: resolvedCoachId }).catch(() => [])
-          : Promise.resolve([]),
+      const [catalogArrays, classDirectArrays] = await Promise.all([
         Promise.all(catalogPromises),
         Promise.all(classSessionPromises),
-        resolvedCoachId
-          ? memberPortalApi
-              .getCoachWorkSchedule(resolvedCoachId)
-              .catch(() => null)
-          : Promise.resolve(null),
-        memberPortalApi
-          .getTrainingResults(
-            resolvedCoachId ? { coachId: resolvedCoachId } : {},
-          )
-          .catch(() => []),
-        memberPortalApi.getTimeSlots().catch(() => []),
       ])
 
-      if (Array.isArray(slotsList) && slotsList.length > 0) {
-        const sortedSlots = [...slotsList].sort(
-          (a, b) => Number(a.slotNumber || 0) - Number(b.slotNumber || 0),
-        )
-        setApiTimeSlots(sortedSlots)
-      }
+      if (reqId !== scheduleRequestIdRef.current) return
 
-      if (Array.isArray(resultsList)) {
-        setLoggedResultSessionIds(
-          new Set(
-            resultsList
-              .map((r) => (r.sessionId != null ? String(r.sessionId) : null))
-              .filter(Boolean),
-          ),
-        )
-      }
+      const phase2Merger = createSessionMerger()
+      catalogArrays.flat().forEach(phase2Merger.addSession)
+      classDirectArrays.flat().forEach(phase2Merger.addSession)
+      filterAndAppendGeneralSessions(generalSessions, phase2Merger.addSession)
 
-      const myClassMap = new Map(myClasses.map((c) => [String(c.id), c]))
-      const nameLower = String(currentUser?.name || "")
-        .trim()
-        .toLowerCase()
-
-      const sessionMap = new Map()
-      const addSession = (s) => {
-        if (!s || !s.id) return
-        const prev = sessionMap.get(String(s.id)) || {}
-        const matchedClass = s.classId ? myClassMap.get(String(s.classId)) : null
-        const matchedRoom = s.roomId
-          ? rooms?.find((r) => String(r.id) === String(s.roomId))
-          : null
-        sessionMap.set(String(s.id), {
-          ...prev,
-          ...s,
-          status: s.status || prev.status || null,
-          className:
-            s.className ||
-            prev.className ||
-            matchedClass?.nameVi ||
-            matchedClass?.name ||
-            "",
-          subjectName:
-            s.subjectName ||
-            prev.subjectName ||
-            matchedClass?.category ||
-            "Thể thao",
-          roomName:
-            s.roomName ||
-            prev.roomName ||
-            matchedRoom?.name ||
-            matchedClass?.roomVi ||
-            matchedClass?.room ||
-            (s.roomId ? `Sân/Phòng #${s.roomId}` : "Sân tập trung tâm"),
-          enrolledCount:
-            s.enrolledCount ?? prev.enrolledCount ?? matchedClass?.enrolledCount ?? 0,
-          maxCapacity: apiEnabled
-            ? s.maxCapacity ?? prev.maxCapacity ?? matchedClass?.capacity ?? null
-            : s.maxCapacity ?? prev.maxCapacity ?? matchedClass?.capacity ?? 12,
-        })
-      }
-
-      catalogArrays.flat().forEach(addSession)
-      classDirectArrays.flat().forEach(addSession)
-
-      if (Array.isArray(generalSessions)) {
-        generalSessions.forEach((s) => {
-          const belongsToCoach =
-            (resolvedCoachId && s.coachId != null &&
-              String(s.coachId) === String(resolvedCoachId)) ||
-            (resolvedCoachId && s.coachId == null) ||
-            (!apiEnabled && String(s.coachId) === String(currentUser?.id)) ||
-            (nameLower &&
-              String(s.coachName || "")
-                .trim()
-                .toLowerCase()
-                .includes(nameLower)) ||
-            (s.classId && myClassMap.has(String(s.classId)))
-          if (belongsToCoach) {
-            addSession(s)
-          }
-        })
-      }
-
-      const mergedSessions = Array.from(sessionMap.values()).sort((a, b) => {
-        const dA = `${a.sessionDate || ""}T${a.startTime || "00:00"}`
-        const dB = `${b.sessionDate || ""}T${b.startTime || "00:00"}`
-        return dA.localeCompare(dB)
-      })
+      const mergedSessions = sortSessions(phase2Merger.sessionMap)
       setApiSessions(mergedSessions)
-
-      // R3.3: Silently prefetch absence notices so we only show "Báo vắng (N)" on sessions that actually have notices
-      Promise.all(
-        mergedSessions
-          .filter((s) => !isSessionCancelled(s))
-          .map((s) =>
-            memberPortalApi
-              .getSessionAbsenceNotices(s.id)
-              .then((list) => [String(s.id), Array.isArray(list) ? list : []])
-              .catch(() => [String(s.id), []]),
-          ),
-      ).then((entries) => {
-        setAbsenceNoticesBySession(Object.fromEntries(entries))
-      })
-
-      if (workData && typeof workData === "object") {
-        if (typeof workData.acceptingNew === "boolean") {
-          setAcceptingNew(workData.acceptingNew)
-        }
-        if (Array.isArray(workData.weeklySlots)) {
-          setWeeklySlots(normalizeWeeklySlotsArray(workData.weeklySlots))
-        }
-        if (Array.isArray(workData.daysOff)) {
-          setDaysOff(
-            workData.daysOff
-              .map((d) => String(d || "").trim().slice(0, 10))
-              .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)),
-          )
-        }
-        setIsWorkScheduleDirty(false)
-      }
-    } finally {
-      setLoadingSessions(false)
+      fetchNoticesForSessions(mergedSessions, fetchedNoticeIds)
+    } catch {
+      // Lỗi ở pha 2 không xóa dữ liệu pha 1 và không hiện lỗi mới
     }
   }, [
     apiEnabled,
@@ -439,11 +475,13 @@ export function CoachScheduleView() {
     rooms,
     currentUser?.id,
     currentUser?.name,
-    apiEnabled,
   ])
 
   useEffect(() => {
     loadCoachScheduleData()
+    return () => {
+      scheduleRequestIdRef.current += 1
+    }
   }, [loadCoachScheduleData])
 
   const privateSessions = useMemo(
@@ -816,7 +854,7 @@ export function CoachScheduleView() {
                 <button
                   type="button"
                   onClick={() => handleGoToAttendance(ses)}
-                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>
@@ -911,27 +949,27 @@ export function CoachScheduleView() {
         <>
           {/* Section 1: Detailed Sessions Schedule */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-border-color pb-3">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
+                <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
                   <Clock className="w-4 h-4 text-brand-primary" />
                   <span>Thời khóa biểu các buổi giảng dạy chi tiết</span>
                 </h3>
-                <p className="text-sm leading-5 text-text-secondary mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   {t("coachScheduleSubtitleShort")}
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 {/* View Mode Toggle: Week Grid vs List */}
-                <div className="inline-flex rounded border border-border-color bg-bg-secondary p-1 gap-1">
+                <div className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1 gap-1">
                   <button
                     type="button"
                     onClick={() => setViewMode("week")}
-                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+                    className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 cursor-pointer ${
                       viewMode === "week"
-                        ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
-                        : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
+                        ? "bg-white text-brand-primary shadow-sm"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
                     }`}
                   >
                     <CalendarDays className="w-3.5 h-3.5" />
@@ -940,10 +978,10 @@ export function CoachScheduleView() {
                   <button
                     type="button"
                     onClick={() => setViewMode("list")}
-                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+                    className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 cursor-pointer ${
                       viewMode === "list"
-                        ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
-                        : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
+                        ? "bg-white text-brand-primary shadow-sm"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
                     }`}
                   >
                     <LayoutList className="w-3.5 h-3.5" />
@@ -967,10 +1005,10 @@ export function CoachScheduleView() {
                     key={tab.id}
                     type="button"
                     onClick={() => setScheduleFilter(tab.id)}
-                    className={`inline-flex min-h-11 items-center justify-center gap-1 rounded px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+                    className={`inline-flex h-9 items-center justify-center gap-1 rounded-xl px-3 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 cursor-pointer ${
                       scheduleFilter === tab.id
-                        ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
-                        : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
+                        ? "bg-brand-primary text-white shadow-sm"
+                        : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                     }`}
                   >
                     {tab.label}
@@ -989,13 +1027,14 @@ export function CoachScheduleView() {
                 ))}
               </div>
             ) : filteredSessions.length === 0 ? (
-              <div className="p-6 text-center text-sm leading-5 text-text-secondary bg-bg-secondary border border-border-color rounded-lg">
-                Không có buổi dạy nào khớp với bộ lọc hiện tại.
+              <div className="flex min-h-40 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border-color bg-bg-secondary p-6 text-center text-sm leading-5 text-text-secondary">
+                <CalendarDays className="h-8 w-8 text-text-muted" aria-hidden="true" />
+                <p>{language === "vi" ? "Không có buổi dạy nào khớp với bộ lọc hiện tại." : "No sessions match the current filters."}</p>
               </div>
             ) : viewMode === "week" ? (
               /* Weekly 7 days x 8 slots Grid View */
-              <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
-                <table className="w-full min-w-full text-left text-sm border-collapse">
+              <div className="w-full min-w-0 max-w-full touch-pan-x overscroll-x-contain scroll-smooth overflow-x-auto rounded-lg border border-border-color bg-bg-card">
+                <table className="w-full min-w-[900px] text-left text-sm border-collapse xl:min-w-full">
                   <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
                     <tr>
                       <th className="px-4 py-3 text-left align-middle border-r border-border-color w-32">

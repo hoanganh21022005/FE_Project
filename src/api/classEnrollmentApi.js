@@ -35,11 +35,15 @@ export const getEnrollmentsByClass = async (classId, { strict = false, ...option
   }
 }
 
-export const enrollMemberInClass = async (classId, memberId) => {
-  return await httpClient.post(`/api/classes/${classId}/enroll`, {
+export const enrollMemberInClass = async (classId, memberId, paymentMethod) => {
+  const payload = {
     classId: Number(classId),
     memberId: Number(memberId),
-  })
+  }
+  if (paymentMethod !== undefined && paymentMethod !== null && paymentMethod !== "") {
+    payload.paymentMethod = paymentMethod
+  }
+  return await httpClient.post(`/api/classes/${classId}/enroll`, payload)
 }
 
 // Member self-service: identity is derived by the backend from JSESSIONID.

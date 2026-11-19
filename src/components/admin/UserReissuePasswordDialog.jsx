@@ -81,7 +81,8 @@ export function UserReissuePasswordDialog({
               </h3>
               <p className="text-xs text-text-secondary">
                 {getAdminText(language, "reissueDialog.accountLabel")}{" "}
-                <strong className="text-text-primary">{user.fullName || user.email}</strong> (ID #{user.id})
+                <strong className="text-text-primary">{user.fullName || user.email}</strong>
+                {user.code ? ` (${user.code})` : ""}
               </p>
             </div>
           </div>

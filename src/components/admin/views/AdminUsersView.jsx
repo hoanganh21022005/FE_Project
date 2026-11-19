@@ -25,6 +25,7 @@ import { useAdminData } from "../AdminDataContext.jsx"
 import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { formatAdminDate } from "../adminDateUtils.js"
 import {
+  formatAdminErrorMessage,
   formatAdminNumber,
   getAdminPermissionLabel,
   getAdminRoleLabel,
@@ -55,15 +56,6 @@ const compareVietnameseNames = (a, b, locale = "vi") => {
   if (lastCmp !== 0) return lastCmp
   return nameA.localeCompare(nameB, locale, { sensitivity: "base" })
 }
-
-const statusLabel = (status) =>
-  ({
-    active: "Hoạt động",
-    inactive: "Không hoạt động",
-    locked: "Đã khóa",
-  })[status] ||
-  status ||
-  "Không rõ"
 
 export function AdminUsersView() {
   const { resources, retry } = useAdminData()
@@ -137,11 +129,11 @@ export function AdminUsersView() {
       const data = await getUserById(id)
       setDetailUser(data)
     } catch (err) {
-      setDetailError(err?.message || "Không thể tải chi tiết người dùng.")
+      setDetailError(formatAdminErrorMessage(err, language, "users.detailErrorFallback"))
     } finally {
       setDetailLoading(false)
     }
-  }, [])
+  }, [language])
 
   const handleSelectUser = (user, event) => {
     lastTriggerRef.current = event?.currentTarget || null
@@ -214,14 +206,14 @@ export function AdminUsersView() {
       }
     } catch (err) {
       if (currentSeq === roleFilterSeqRef.current) {
-        setRoleError(err?.message || "Không thể lọc người dùng theo vai trò từ máy chủ.")
+        setRoleError(formatAdminErrorMessage(err, language, "users.roleFilterError"))
       }
     } finally {
       if (currentSeq === roleFilterSeqRef.current) {
         setRoleLoading(false)
       }
     }
-  }, [])
+  }, [language])
 
   const handleRoleFilterChange = async (newRole) => {
     setRoleFilter(newRole)
@@ -757,7 +749,7 @@ export function AdminUsersView() {
                         {(detailUser || selectedUserSummary).fullName || getAdminText(language, "users.noName")}
                       </h3>
                       <p className="text-xs leading-4 text-text-secondary font-mono">
-                        ID #{(detailUser || selectedUserSummary).id ?? "N/A"} · {(detailUser || selectedUserSummary).code || getAdminText(language, "common.notSet")}
+                        {(detailUser || selectedUserSummary).code || getAdminText(language, "common.notSet")}
                       </p>
                     </div>
                   </div>

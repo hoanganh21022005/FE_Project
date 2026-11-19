@@ -4,6 +4,7 @@ import {
   SPORT_DISCIPLINES,
   isCoachMatchingSport,
 } from "../classes/sportDisciplines"
+import { resolveCatalogSubjects } from "../../utils/memberCourseCatalogRules"
 import { validateClassName, MAX_CLASS_NAME_LENGTH } from "../../api/classValidation"
 import { useScheduleConflict } from "../classes/hooks/useScheduleConflict"
 import { CurrencyInput } from "../common/CurrencyInput"
@@ -22,7 +23,6 @@ import {
 } from "../../api/normalClassCreation.js"
 import {
   ArrowLeft,
-  Calendar,
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
@@ -32,369 +32,22 @@ import {
   Minus,
   ArrowLeftRight,
 } from "lucide-react"
-
-const WEEKDAYS = [
-  { id: 1, label: "T2", name: "Thứ Hai", dayOfWeek: 1 },
-  { id: 2, label: "T3", name: "Thứ Ba", dayOfWeek: 2 },
-  { id: 3, label: "T4", name: "Thứ Tư", dayOfWeek: 3 },
-  { id: 4, label: "T5", name: "Thứ Năm", dayOfWeek: 4 },
-  { id: 5, label: "T6", name: "Thứ Sáu", dayOfWeek: 5 },
-  { id: 6, label: "T7", name: "Thứ Bảy", dayOfWeek: 6 },
-  { id: 0, label: "CN", name: "Chủ nhật", dayOfWeek: 0 },
-]
-
-const VI_WEEKDAYS_FULL = [
-  "Chủ nhật",
-  "Thứ Hai",
-  "Thứ Ba",
-  "Thứ Tư",
-  "Thứ Năm",
-  "Thứ Sáu",
-  "Thứ Bảy",
-]
-
-const DEFAULT_COACHES = [
-  {
-    id: 2,
-    name: "Trần Thị Hương",
-    specializationVi: "Cầu lông",
-    specialization: "Cầu lông",
-    role: "coach",
-    status: "active",
-  },
-  {
-    id: 3,
-    name: "Lê Minh Khoa",
-    specializationVi: "Bóng bàn",
-    specialization: "Bóng bàn",
-    role: "coach",
-    status: "active",
-  },
-  {
-    id: 4,
-    name: "Phạm Thị Lan",
-    specializationVi: "Pickleball",
-    specialization: "Pickleball",
-    role: "coach",
-    status: "active",
-  },
-  {
-    id: 14,
-    name: "Trần Anh Dũng",
-    specializationVi: "Bóng rổ",
-    specialization: "Bóng rổ",
-    role: "coach",
-    status: "active",
-  },
-  {
-    id: 15,
-    name: "Nguyễn Văn Hoàng",
-    specializationVi: "Bắn súng",
-    specialization: "Bắn súng",
-    role: "coach",
-    status: "active",
-  },
-  {
-    id: 16,
-    name: "Lê Nguyễn Thiên Phúc",
-    specializationVi: "Bắn cung",
-    specialization: "Bắn cung",
-    role: "coach",
-    status: "active",
-  },
-  {
-    id: 17,
-    name: "Lê Phương Anh",
-    specializationVi: "Bơi lội",
-    specialization: "Bơi lội",
-    role: "coach",
-    status: "active",
-  },
-  {
-    id: 18,
-    name: "Lê Trần Phi",
-    specializationVi: "Bóng đá",
-    specialization: "Bóng đá",
-    role: "coach",
-    status: "active",
-  },
-  {
-    id: 19,
-    name: "Huỳnh Diễm My",
-    specializationVi: "Quần vợt (Tennis)",
-    specialization: "Tennis",
-    role: "coach",
-    status: "active",
-  },
-  {
-    id: 20,
-    name: "Vũ Quốc Trung",
-    specializationVi: "Bóng chuyền",
-    specialization: "Bóng chuyền",
-    role: "coach",
-    status: "active",
-  },
-]
-
-const ROOM_ACTIVITY_TYPES = {
-  badminton: "BADMINTON",
-  table_tennis: "TABLE_TENNIS",
-  pickleball: "PICKLEBALL",
-  basketball: "BASKETBALL",
-  volleyball: "VOLLEYBALL",
-  archery: "ARCHERY",
-  football: "FOOTBALL",
-  tennis: "TENNIS",
-}
-
-// Generate 15-minute time options from 05:00 to 23:00
-const TIME_OPTIONS_15MIN = []
-for (let h = 5; h <= 22; h++) {
-  const hh = String(h).padStart(2, "0")
-  for (const mm of ["00", "15", "30", "45"]) {
-    TIME_OPTIONS_15MIN.push(`${hh}:${mm}`)
-  }
-}
-TIME_OPTIONS_15MIN.push("23:00")
-
-function getSportCapacity(sport, room, apiEnabled) {
-  const sportCapacity = Number(sport?.defaultCapacity) || 8
-  const roomCapacity = Number(room?.capacity)
-  const limits = [sportCapacity]
-
-  if (Number.isInteger(roomCapacity) && roomCapacity > 0) {
-    limits.push(roomCapacity)
-  }
-  if (apiEnabled) limits.push(15)
-
-  return Math.max(1, Math.min(...limits))
-}
-
-function formatViDate(dateInput) {
-  if (!dateInput) return "—"
-  let yyyy, mm, dd
-  if (typeof dateInput === "string" && dateInput.includes("-")) {
-    const parts = dateInput.split("-")
-    yyyy = parts[0]
-    mm = parts[1]
-    dd = parts[2]
-  } else {
-    const d = new Date(dateInput)
-    if (isNaN(d.getTime())) return String(dateInput)
-    dd = String(d.getDate()).padStart(2, "0")
-    mm = String(d.getMonth() + 1).padStart(2, "0")
-    yyyy = d.getFullYear()
-  }
-  return `${dd}/${mm}/${yyyy}`
-}
-
-function formatViDateWithWeekday(dateInput) {
-  if (!dateInput) return "—"
-  const d = parseLocalDate(dateInput)
-  if (!d) return dateInput
-  const dayName = VI_WEEKDAYS_FULL[d.getDay()]
-  const dd = String(d.getDate()).padStart(2, "0")
-  const mm = String(d.getMonth() + 1).padStart(2, "0")
-  const yyyy = d.getFullYear()
-  return `${dayName} ${dd}/${mm}/${yyyy}`
-}
-
-function formatNumber(num) {
-  if (num === null || num === undefined || isNaN(num)) return "0"
-  return Number(num).toLocaleString("vi-VN")
-}
-
-function getDurationLabel(startTime, endTime) {
-  if (!startTime || !endTime) return ""
-  const [sh, sm] = startTime.split(":").map(Number)
-  const [eh, em] = endTime.split(":").map(Number)
-  let totalMin = eh * 60 + em - (sh * 60 + sm)
-  if (totalMin <= 0) totalMin += 24 * 60
-  const hours = Math.floor(totalMin / 60)
-  const mins = totalMin % 60
-  if (mins === 0) return `${hours} giờ`
-  if (hours === 0) return `${mins} phút`
-  return `${hours} giờ ${mins} phút`
-}
-
-// -------------------------------------------------------------
-// Component DatePicker tự dựng cố định dd/MM/yyyy không phụ thuộc OS locale
-// -------------------------------------------------------------
-function DatePicker({ value, onChange, min, error }) {
-  const [isOpen, setIsOpen] = useState(false)
-  const containerRef = useRef(null)
-
-  const dateObj = useMemo(() => {
-    if (!value) return new Date()
-    return parseLocalDate(value) || new Date()
-  }, [value])
-
-  const [viewYear, setViewYear] = useState(() => dateObj.getFullYear())
-  const [viewMonth, setViewMonth] = useState(() => dateObj.getMonth())
-
-  useEffect(() => {
-    if (value) {
-      const d = parseLocalDate(value)
-      if (d) {
-        setViewYear(d.getFullYear())
-        setViewMonth(d.getMonth())
-      }
-    }
-  }, [value])
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
-
-  const displayStr = useMemo(() => formatViDate(value), [value])
-
-  const monthNames = [
-    "Tháng 1",
-    "Tháng 2",
-    "Tháng 3",
-    "Tháng 4",
-    "Tháng 5",
-    "Tháng 6",
-    "Tháng 7",
-    "Tháng 8",
-    "Tháng 9",
-    "Tháng 10",
-    "Tháng 11",
-    "Tháng 12",
-  ]
-
-  const daysInMonth = useMemo(() => {
-    return new Date(viewYear, viewMonth + 1, 0).getDate()
-  }, [viewYear, viewMonth])
-
-  const firstDayOfWeek = useMemo(() => {
-    const day = new Date(viewYear, viewMonth, 1).getDay()
-    return day === 0 ? 6 : day - 1 // Mon=0 .. Sun=6
-  }, [viewYear, viewMonth])
-
-  const handlePrevMonth = () => {
-    if (viewMonth === 0) {
-      setViewMonth(11)
-      setViewYear((y) => y - 1)
-    } else {
-      setViewMonth((m) => m - 1)
-    }
-  }
-
-  const handleNextMonth = () => {
-    if (viewMonth === 11) {
-      setViewMonth(0)
-      setViewYear((y) => y + 1)
-    } else {
-      setViewMonth((m) => m + 1)
-    }
-  }
-
-  const handleSelectDay = (day) => {
-    const yyyy = viewYear
-    const mm = String(viewMonth + 1).padStart(2, "0")
-    const dd = String(day).padStart(2, "0")
-    onChange(`${yyyy}-${mm}-${dd}`)
-    setIsOpen(false)
-  }
-
-  const minDateObj = useMemo(() => {
-    if (!min) return null
-    const [y, m, d] = min.split("-").map(Number)
-    return new Date(y, m - 1, d)
-  }, [min])
-
-  return (
-    <div className="relative" ref={containerRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full h-11 px-3.5 bg-white border rounded-xl flex items-center justify-between text-sm transition-colors cursor-pointer text-left ${
-          error
-            ? "border-orange-500 bg-orange-50/20"
-            : "border-stone-300 focus:border-stone-800 focus:ring-1 focus:ring-stone-800"
-        }`}
-      >
-        <span className="font-normal text-stone-900">{displayStr}</span>
-        <Calendar className="w-4 h-4 text-stone-400 shrink-0" />
-      </button>
-
-      {isOpen && (
-        <div className="absolute left-0 top-full mt-1.5 bg-white border border-stone-200 rounded-xl shadow-xl z-40 p-3 w-64 text-xs">
-          <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-stone-100">
-            <button
-              type="button"
-              onClick={handlePrevMonth}
-              className="p-1 hover:bg-stone-100 rounded text-stone-600 cursor-pointer"
-            >
-              &larr;
-            </button>
-            <span className="font-semibold text-stone-900">
-              {monthNames[viewMonth]} {viewYear}
-            </span>
-            <button
-              type="button"
-              onClick={handleNextMonth}
-              className="p-1 hover:bg-stone-100 rounded text-stone-600 cursor-pointer"
-            >
-              &rarr;
-            </button>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1 text-center font-medium text-stone-400 mb-1 text-[11px]">
-            <span>T2</span>
-            <span>T3</span>
-            <span>T4</span>
-            <span>T5</span>
-            <span>T6</span>
-            <span>T7</span>
-            <span>CN</span>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1 text-center">
-            {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-              <div key={`empty-${i}`} />
-            ))}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1
-              const thisDate = new Date(viewYear, viewMonth, day)
-              const isDisabled = minDateObj && thisDate < minDateObj
-
-              const yyyy = viewYear
-              const mm = String(viewMonth + 1).padStart(2, "0")
-              const dd = String(day).padStart(2, "0")
-              const isSelected = value === `${yyyy}-${mm}-${dd}`
-
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  disabled={isDisabled}
-                  onClick={() => handleSelectDay(day)}
-                  className={`w-7 h-7 flex items-center justify-center rounded-md text-xs transition-colors cursor-pointer ${
-                    isSelected
-                      ? "bg-stone-900 text-white font-medium"
-                      : isDisabled
-                        ? "text-stone-300 cursor-not-allowed"
-                        : "hover:bg-stone-100 text-stone-700"
-                  }`}
-                >
-                  {day}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+import {
+  WEEKDAYS,
+  VI_WEEKDAYS_FULL,
+  ROOM_ACTIVITY_TYPES,
+  CATALOG_KEY_TO_SPORT_ID,
+  TIME_OPTIONS_15MIN,
+} from "./new-class/classFormConstants"
+import { DEFAULT_COACHES } from "../../mocks/defaultCoaches"
+import {
+  getSportCapacity,
+  formatViDate,
+  formatViDateWithWeekday,
+  formatNumber,
+  getDurationLabel,
+} from "./new-class/classFormHelpers"
+import { DatePicker } from "./new-class/DatePicker"
 
 // -------------------------------------------------------------
 // MAIN MODAL COMPONENT (Match 100% Reference Screenshots)
@@ -498,12 +151,34 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     )
   }, [isOpen])
 
+  // Chế độ API: danh sách môn lấy từ /api/subjects (khớp bằng mã/tên chuẩn hóa),
+  // chỉ hiện môn có trong hệ thống. Chế độ mock: dùng danh sách cố định.
+  const sportOptions = useMemo(() => {
+    if (!apiEnabled) return SPORT_DISCIPLINES
+    return resolveCatalogSubjects(subjects || [])
+      .filter((entry) => entry.subject)
+      .map((entry) => {
+        const sportId = CATALOG_KEY_TO_SPORT_ID[entry.key] || entry.key
+        const discipline = SPORT_DISCIPLINES.find((s) => s.id === sportId)
+        return discipline ? { ...discipline, subjectId: entry.subject.id } : null
+      })
+      .filter(Boolean)
+  }, [apiEnabled, subjects])
+
   const currentSport = useMemo(
     () =>
-      SPORT_DISCIPLINES.find((s) => s.id === selectedSportId) ||
+      sportOptions.find((s) => s.id === selectedSportId) ||
+      sportOptions[0] ||
       SPORT_DISCIPLINES[0],
-    [selectedSportId],
+    [sportOptions, selectedSportId],
   )
+
+  // Môn đang chọn không còn trong danh mục (hoặc danh mục vừa tải xong): chọn môn đầu tiên.
+  useEffect(() => {
+    if (sportOptions.length > 0 && !sportOptions.some((s) => s.id === selectedSportId)) {
+      setSelectedSportId(sportOptions[0].id)
+    }
+  }, [sportOptions, selectedSportId])
 
   const sportCourts = useMemo(() => currentSport.courts || [], [currentSport])
 
@@ -729,14 +404,9 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   ])
 
   const targetSubjectId = useMemo(() => {
-    const matchedSubject = (subjects || []).find((s) => {
-      const sName = (s.nameVi || s.name || "").toLowerCase()
-      return sName === currentSport.name.toLowerCase()
-    })
-    return matchedSubject
-      ? matchedSubject.id
-      : apiEnabled ? null : currentSport.backendSubjectId || 1
-  }, [subjects, currentSport, apiEnabled])
+    if (apiEnabled) return currentSport.subjectId ?? null
+    return currentSport.backendSubjectId || 1
+  }, [currentSport, apiEnabled])
   const selectedSubject = useMemo(
     () => (subjects || []).find((subject) => String(subject.id) === String(targetSubjectId)),
     [subjects, targetSubjectId],
@@ -1069,9 +739,15 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         }
       }
     }
-    if (apiEnabled && targetStatus !== "Draft" && (!targetSubjectId || !Number.isFinite(normalPrice) || !selectedRoomObj?.id)) {
-      showToast("Thiếu thông tin môn học, học phí hoặc sân/phòng. Vui lòng tải lại danh mục.", "error")
-      return
+    if (apiEnabled && targetStatus !== "Draft") {
+      const missing = []
+      if (!targetSubjectId) missing.push(`không tìm thấy môn "${currentSport.name}" trong danh mục hệ thống`)
+      else if (!Number.isFinite(normalPrice)) missing.push(`môn "${currentSport.name}" chưa có học phí hợp lệ`)
+      if (!selectedRoomObj?.id) missing.push(`chưa có sân/phòng phù hợp cho môn "${currentSport.name}"`)
+      if (missing.length > 0) {
+        showToast(`Không thể tạo lớp: ${missing.join("; ")}. Vui lòng tải lại danh mục.`, "error")
+        return
+      }
     }
 
     setIsSubmitting(true)
@@ -1242,7 +918,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   }}
                   className="w-full h-11 px-3.5 pr-10 bg-white border border-stone-300 rounded-xl text-sm text-stone-900 font-normal appearance-none focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800 cursor-pointer"
                 >
-                  {SPORT_DISCIPLINES.map((s) => (
+                  {sportOptions.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
                     </option>
@@ -1823,8 +1499,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                     : [20000, 50000, 75000, 100000, 150000]
                 }
               />
-
-
 
               {/* Checkbox Lớp học miễn phí */}
               {!apiEnabled && <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none group">

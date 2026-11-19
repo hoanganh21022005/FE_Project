@@ -185,6 +185,18 @@ export const getTrainingResults = (params = {}) => {
 }
 export const createTrainingResult = (payload) =>
   httpClient.post("/api/training-results", payload)
+export const updateTrainingResultContent = (resultId, content) => {
+  if (!Number.isInteger(Number(resultId)) || Number(resultId) <= 0) {
+    throw new Error("ID kết quả buổi tập không hợp lệ.")
+  }
+  if (typeof content !== "string") {
+    throw new Error("Nhận xét phải là chuỗi.")
+  }
+  return httpClient.patch(
+    `/api/training-results/${Number(resultId)}/content`,
+    { content },
+  )
+}
 export const recordBulkTrainingResults = (payload) =>
   httpClient.post("/api/training-results/bulk", payload)
 
@@ -297,10 +309,6 @@ export const getCenterIncidents = async () => {
   }
 }
 
-export const bookPrivateSession = async (payload) => {
-  return httpClient.post("/api/sessions/book-private", payload)
-}
-
 export const createPrivateSessionProposal = async (payload) => {
   const requiredPositiveId = (value) => typeof value === "number" && Number.isInteger(value) && value > 0
   const standardSlots = [
@@ -376,10 +384,6 @@ export const getCoachFeedback = async (params = {}) => {
     averageCoachRating: Number(data?.averageCoachRating || 0),
     feedback: Array.isArray(data?.feedback) ? data.feedback : [],
   }
-}
-
-export const getCoachProfileMe = async () => {
-  return httpClient.get("/api/coaches/me", { notifyForbidden: false })
 }
 
 export const getCoachWorkSchedule = async (coachId) => {
@@ -476,6 +480,7 @@ export const memberPortalApi = {
   getMemberTrainingResults,
   getTrainingResults,
   createTrainingResult,
+  updateTrainingResultContent,
   recordBulkTrainingResults,
   getMemberEvaluations,
   getEvaluationById,
@@ -492,14 +497,12 @@ export const memberPortalApi = {
   getRooms,
   getActiveHolidays,
   getCenterIncidents,
-  bookPrivateSession,
   createPrivateSessionProposal,
   getPrivateSessionProposals,
   getPrivateSessionProposalById,
   respondToPrivateSessionProposal,
   respondPrivateSessionProposal,
   getCoachFeedback,
-  getCoachProfileMe,
   getCoachWorkSchedule,
   updateCoachWorkSchedule,
   getCoachAdmissionCapacity,

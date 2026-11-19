@@ -130,8 +130,8 @@ export function SettingsView() {
                   ? "Tùy chỉnh ngôn ngữ hiển thị, thông báo nhắc lịch tập và lối tắt tài khoản cá nhân."
                   : "Customize your display language, training reminders, and personal account shortcuts."
                 : isVi
-                  ? "Cấu hình ngôn ngữ, thông báo & tham số vận hành Trung tâm VIBE Sport"
-                  : "Configure language, notifications & VIBE Sport operational parameters"}
+                  ? "Cấu hình ngôn ngữ, thông báo & tham số vận hành Trung tâm AVT Sport"
+                  : "Configure language, notifications & AVT Sport operational parameters"}
             </p>
             {isMember && <span className="mt-3 inline-flex rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">• {isVi ? "Ngôn ngữ: Tiếng Việt" : "Language: English"}</span>}
           </div>
@@ -164,7 +164,7 @@ export function SettingsView() {
             </section>
           ) : (
             <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-4"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700"><Sliders className="h-5 w-5" /></span><h2 className="text-lg font-black text-slate-950">{isVi ? "Quy tắc vận hành VIBE Sport" : "VIBE Sport operating rules"}</h2></div>
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-4"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700"><Sliders className="h-5 w-5" /></span><h2 className="text-lg font-black text-slate-950">{isVi ? "Quy tắc vận hành AVT Sport" : "AVT Sport operating rules"}</h2></div>
               <div className="space-y-3 text-sm text-slate-700">
                 <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50 p-4"><span>{isVi ? "Thời gian cho phép gia hạn tự động sau khi gói hết hạn:" : "Automatic grace period after package expiry:"}</span><strong className="shrink-0 tabular-nums text-slate-950">{isVi ? "72 giờ" : "72 hours"}</strong></div>
                 <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50 p-4"><span>{isVi ? "Bắt buộc nhập lý do khi điều chỉnh điểm danh:" : "Require a reason when attendance is changed:"}</span><strong className="shrink-0 text-emerald-700">{isVi ? "Đang bật" : "Enabled"}</strong></div>
@@ -182,7 +182,7 @@ export function SettingsView() {
           </section>
 
           <section className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5 sm:p-6">
-            <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-blue-700"><ShieldCheck className="h-5 w-5" /></span><h2 className="text-base font-black text-slate-900">{isVi ? "Chính sách Hội viên VIBE Sport" : "VIBE Sport member policies"}</h2></div>
+            <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-blue-700"><ShieldCheck className="h-5 w-5" /></span><h2 className="text-base font-black text-slate-900">{isVi ? "Chính sách Hội viên AVT Sport" : "AVT Sport member policies"}</h2></div>
             <div className="mt-5 space-y-3 text-xs leading-5 text-slate-600">
               <p className="flex gap-2"><Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />{isVi ? "Thời gian ân hạn gia hạn gói tập sau khi hết hạn: 72 giờ." : "Membership renewal grace period after expiry: 72 hours."}</p>
               <p className="flex gap-2"><CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />{isVi ? "Check-in mã QR tại quầy trước giờ tập." : "Check in with the QR code at reception before your session."}</p>

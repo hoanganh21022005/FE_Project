@@ -41,7 +41,7 @@ export function SpinningDetailView() {
       <header className="relative z-50 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
-            <div className="text-xl font-black uppercase tracking-widest text-white">VIBE Sport SPINNING</div>
+            <div className="text-xl font-black uppercase tracking-widest text-white">AVT Sport SPINNING</div>
           </div>
           <button onClick={goBack} className="flex items-center gap-2 text-stone-400 hover:text-white transition-colors"><ArrowLeft className="w-5 h-5" />Quay lại</button>
         </div>

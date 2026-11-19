@@ -3,15 +3,16 @@
 export const translations = {
   vi: {
     // App Brand
-    appName: 'HỆ THỐNG QUẢN LÝ TRUNG TÂM THỂ THAO',
-    appShort: 'VIBE Sport',
-    systemTitle: 'SPORTS CENTER MANAGEMENT SYSTEM',
+    appName: 'HỆ THỐNG AVT SPORT',
+    appShort: 'AVT Sport',
+    systemTitle: 'AVT SPORT',
     
     // Navigation & Roles
     dashboard: 'Tổng quan',
     staff: 'Nhân viên',
     members: 'Thành viên',
     packages: 'Gói thành viên',
+    packageWritesRetiredNotice: 'Gói hội viên chung đã ngừng bán; gói Advanced mua theo môn học và huấn luyện viên.',
     memberships: 'Hội viên',
     classes: 'Lớp học',
     schedule: 'Lịch học',
@@ -62,6 +63,7 @@ export const translations = {
     grace_period: 'Chờ gia hạn',
     expired: 'Hết hạn',
     cancelled: 'Đã hủy',
+    enrolled: 'Đã đăng ký',
 
     // Statuses - Payment
     successful: 'Thành công',
@@ -207,7 +209,7 @@ export const translations = {
     membershipBtnViewEnrollments: 'Xem khóa học đã đăng ký',
 
     // Member Schedule View (Lịch học của tôi)
-    scheduleBrand: 'VIBE SPORT · MEMBER',
+    scheduleBrand: 'AVT SPORT · MEMBER',
     schedulePageTitle: 'Lịch học của tôi',
     schedulePageSubtitle: 'Xem lịch từng buổi, lịch PT 1-kèm-1 và báo vắng.',
     scheduleBtnRefresh: 'Tải lại lịch học',
@@ -291,6 +293,18 @@ export const translations = {
     schedulePtCancelConfirmBtn: 'Xác nhận hủy',
     schedulePtCancelSuccessToast: 'Đã hủy lịch tập PT 1-kèm-1 thành công.',
     schedulePtCancelErrorToast: 'Không thể hủy buổi tập PT này.',
+    sessionCancelDialogTitle: 'Xác nhận hủy buổi tập',
+    sessionCancelDialogRefundMsg: 'Buổi tập sẽ được hủy và hoàn 1 credit vào gói Advanced của bạn.',
+    sessionCancelDialogUnknownMsg: 'Nếu còn trong hạn hủy, buổi tập sẽ được hủy và hoàn 1 credit vào gói Advanced của bạn. Hệ thống sẽ xác nhận kết quả sau khi bạn bấm Xác nhận hủy.',
+    sessionCancelDeadline: 'Hạn hủy: {datetime}',
+    sessionCancelKeepBtn: 'Giữ lịch',
+    sessionCancelBlockedGeneric: 'Không thể hủy buổi tập này.',
+    sessionCancelOutcomeRefunded: 'Đã hủy buổi. Credit hoàn từ {before}→{after}.',
+    sessionCancelOutcomeRefundUnverified: 'Đã hủy buổi. Hệ thống báo đã hoàn 1 credit; số dư hiển thị theo dữ liệu gói mới nhất.',
+    sessionCancelOutcomeNoRefund: 'Đã hủy buổi. Chưa có xác nhận hoàn credit; số dư hiển thị theo dữ liệu gói mới nhất.',
+    sessionCancelErrorReloaded: 'Không thể hủy buổi tập. Trạng thái buổi đã được tải lại.',
+    sessionCancelledBadge: 'Đã hủy',
+    sessionCancelledRefundedBadge: 'Đã hủy · Đã hoàn 1 credit',
     scheduleErrorLoad: 'Không thể tải lịch học.',
     scheduleBtnRetry: 'Thử lại',
     scheduleUnlinkedAccount: 'Tài khoản chưa được liên kết với hồ sơ hội viên. Vui lòng liên hệ lễ tân để cập nhật hồ sơ.',
@@ -323,7 +337,7 @@ export const translations = {
     scheduleAbsenceSuperseded: 'Đã thay thế',
 
     // Member Check-in View (Điểm danh)
-    checkinBrand: 'VIBE SPORT · MEMBER',
+    checkinBrand: 'AVT SPORT · MEMBER',
     checkinPageTitle: 'Điểm danh',
     checkinPageSubtitle: 'Đưa mã QR cho Coach hoặc lễ tân quét khi bạn đến buổi tập, đồng thời theo dõi lịch sử điểm danh.',
     checkinBtnRefresh: 'Tải lại dữ liệu',
@@ -416,7 +430,7 @@ export const translations = {
     checkinclose: 'Đóng',
 
     // Member Feedback View (Reviews & feedback)
-    feedbackBrand: 'VIBE SPORT · MEMBER',
+    feedbackBrand: 'AVT SPORT · MEMBER',
     feedbackPageTitle: 'Đánh giá & Phản hồi',
     feedbackPageSubtitle: 'Ý kiến của bạn giúp chúng tôi liên tục nâng cao chuẩn mực huấn luyện và chất lượng cơ sở vật chất.',
     feedbackBtnRefresh: 'Tải lại đánh giá',
@@ -789,15 +803,16 @@ export const translations = {
   },
   en: {
     // App Brand
-    appName: 'SPORTS CENTER MANAGEMENT SYSTEM',
-    appShort: 'VIBE Sport',
-    systemTitle: 'SPORTS CENTER MANAGEMENT SYSTEM',
+    appName: 'AVT SPORT',
+    appShort: 'AVT Sport',
+    systemTitle: 'AVT SPORT',
     
     // Navigation & Roles
     dashboard: 'Dashboard',
     staff: 'Staff',
     members: 'Members',
     packages: 'Membership Packages',
+    packageWritesRetiredNotice: 'General membership packages are retired; Advanced packages are purchased per subject and coach.',
     memberships: 'Memberships',
     classes: 'Classes',
     schedule: 'Schedule',
@@ -848,6 +863,7 @@ export const translations = {
     grace_period: 'Grace Period',
     expired: 'Expired',
     cancelled: 'Cancelled',
+    enrolled: 'Enrolled',
 
     // Statuses - Payment
     successful: 'Successful',
@@ -993,7 +1009,7 @@ export const translations = {
     membershipBtnViewEnrollments: 'View enrolled courses',
 
     // Member Schedule View (My Schedule)
-    scheduleBrand: 'VIBE SPORT · MEMBER',
+    scheduleBrand: 'AVT SPORT · MEMBER',
     schedulePageTitle: 'My Schedule',
     schedulePageSubtitle: 'View your session schedule, 1-on-1 PT schedule and absence reports.',
     scheduleBtnRefresh: 'Refresh schedule',
@@ -1077,6 +1093,18 @@ export const translations = {
     schedulePtCancelConfirmBtn: 'Confirm cancel',
     schedulePtCancelSuccessToast: 'Cancelled private PT session.',
     schedulePtCancelErrorToast: 'Could not cancel private session.',
+    sessionCancelDialogTitle: 'Confirm session cancellation',
+    sessionCancelDialogRefundMsg: 'This session will be cancelled and 1 credit will be refunded to your Advanced package.',
+    sessionCancelDialogUnknownMsg: 'If you are still within the cancellation deadline, this session will be cancelled and 1 credit will be refunded to your Advanced package. The system will confirm the result after you press Confirm cancel.',
+    sessionCancelDeadline: 'Cancel by: {datetime}',
+    sessionCancelKeepBtn: 'Keep session',
+    sessionCancelBlockedGeneric: 'This session cannot be cancelled.',
+    sessionCancelOutcomeRefunded: 'Session cancelled. Credits went from {before} to {after}.',
+    sessionCancelOutcomeRefundUnverified: 'Session cancelled. The system reports 1 credit refunded; the balance shown follows the latest package data.',
+    sessionCancelOutcomeNoRefund: 'Session cancelled. No credit refund was confirmed; the balance shown follows the latest package data.',
+    sessionCancelErrorReloaded: 'Could not cancel the session. Its status was reloaded.',
+    sessionCancelledBadge: 'Cancelled',
+    sessionCancelledRefundedBadge: 'Cancelled · 1 credit refunded',
     scheduleErrorLoad: 'Could not load schedule.',
     scheduleBtnRetry: 'Retry',
     scheduleUnlinkedAccount: 'This account is not linked to a member profile. Please contact reception.',
@@ -1109,7 +1137,7 @@ export const translations = {
     scheduleAbsenceSuperseded: 'Superseded',
 
     // Member Check-in View (Check-in)
-    checkinBrand: 'VIBE SPORT · MEMBER',
+    checkinBrand: 'AVT SPORT · MEMBER',
     checkinPageTitle: 'Check-in',
     checkinPageSubtitle: 'Show your QR code to your coach or reception when you arrive, and track your attendance history.',
     checkinBtnRefresh: 'Refresh data',
@@ -1202,7 +1230,7 @@ export const translations = {
     checkinclose: 'Close',
 
     // Member Feedback View (Reviews & feedback)
-    feedbackBrand: 'VIBE SPORT · MEMBER',
+    feedbackBrand: 'AVT SPORT · MEMBER',
     feedbackPageTitle: 'Reviews & feedback',
     feedbackPageSubtitle: 'Your feedback helps us continuously improve coaching standards and facility quality.',
     feedbackBtnRefresh: 'Refresh reviews',
@@ -1581,7 +1609,7 @@ export const formatCurrency = (amount, lang = 'vi') => {
     maximumFractionDigits: 0
   }).format(value);
 
-  return lang === 'vi' ? `${formatted} ₫` : `${formatted} VND`;
+  return lang === 'vi' ? `${formatted} đ` : `${formatted} VND`;
 };
 
 export const formatDate = (dateStr, lang = 'vi') => {
@@ -1604,9 +1632,18 @@ export const formatDate = (dateStr, lang = 'vi') => {
 
 export const formatDateTime = (dateTimeStr, lang = 'vi') => {
   if (!dateTimeStr) return '';
-  const match = String(dateTimeStr).match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/);
-  if (!match) return formatDate(dateTimeStr, lang);
-  return lang === 'vi'
-    ? `${formatDate(match[1], lang)} ${match[2]}`
-    : `${formatDate(match[1], lang)}, ${match[2]}`;
+  const value = String(dateTimeStr);
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  if (match && !/[Z+]/.test(value.slice(10))) {
+    const [, year, month, day, hour, minute] = match;
+    return `${hour}:${minute} - ${day}/${month}/${year}`;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(date);
+  const part = (type) => parts.find((item) => item.type === type)?.value || '00';
+  return `${part('hour')}:${part('minute')} - ${part('day')}/${part('month')}/${part('year')}`;
 };

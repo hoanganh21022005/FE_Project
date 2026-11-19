@@ -6,14 +6,13 @@ import { formatMemberCode } from "../../utils/formatMember"
 import { formatDate } from "../../utils/datetime"
 import { memberApi } from "../../api/memberApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
-import { getErrorMessage, getFriendlyError } from "../../api/apiErrors"
+import { getErrorMessage } from "../../api/apiErrors"
 import { parseVietnamDateTime } from "../../utils/memberSafetyHelpers"
 import {
   canCoachActOnPackage,
   getPackageActionBlockReason,
 } from "../../utils/permissions"
 import {
-  Users,
   Dumbbell,
   Award,
   CalendarPlus,
@@ -26,410 +25,22 @@ import {
   AlertCircle,
   Search,
 } from "lucide-react"
-
-function isPositiveInteger(val) {
-  if (typeof val === "number") return Number.isInteger(val) && val > 0
-  if (typeof val === "string") {
-    const s = val.trim()
-    if (!/^\d+$/.test(s)) return false
-    const n = Number(s)
-    return Number.isInteger(n) && n > 0
-  }
-  return false
-}
-
-function generateRequestKey() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID()
-  }
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0
-    const v = c === "x" ? r : (r & 0x3) | 0x8
-    return v.toString(16)
-  })
-}
-
-function isValidTimeFormat(val) {
-  if (typeof val !== "string") return false
-  return /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(val.trim())
-}
-
-function normalizeStrictTime(val) {
-  if (!isValidTimeFormat(val)) return null
-  const s = val.trim()
-  return s.length === 5 ? `${s}:00` : s
-}
-
-const STANDARD_PRIVATE_SESSION_SLOTS = [
-  [1, "06:00", "07:30"],
-  [2, "07:45", "09:15"],
-  [3, "09:30", "11:00"],
-  [4, "13:00", "14:30"],
-  [5, "14:45", "16:15"],
-  [6, "16:30", "18:00"],
-  [7, "18:15", "19:45"],
-]
-
-function isStandardPrivateSessionSlot(slot) {
-  if (!slot) return false
-  const slotNumber = Number(slot.slotNumber)
-  const startTime = String(slot.startTime || "").slice(0, 5)
-  const endTime = String(slot.endTime || "").slice(0, 5)
-  return STANDARD_PRIVATE_SESSION_SLOTS.some(([number, start, end]) =>
-    number === slotNumber && start === startTime && end === endTime,
-  )
-}
-
-function formatVietnamDateTime(val) {
-  const ms = parseVietnamDateTime(val)
-  if (Number.isNaN(ms)) return "—"
-  return new Intl.DateTimeFormat("vi-VN", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(ms))
-}
-
-function formatVietnamDateOnly(val) {
-  const ms = parseVietnamDateTime(val)
-  if (Number.isNaN(ms)) return "—"
-  return new Intl.DateTimeFormat("vi-VN", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(ms))
-}
-
-function getVietnamDatePlusDays(days = 2) {
-  const now = new Date()
-  const targetMs = now.getTime() + days * 24 * 60 * 60 * 1000
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(targetMs))
-}
-
-function checkRegistrationEntitlement(item, currentUser) {
-  if (!item) return { canBook: false, reason: "Dữ liệu đăng ký không tồn tại" }
-
-  if (!isPositiveInteger(item.subscriptionId)) {
-    return { canBook: false, reason: "Chưa liên kết gói tập" }
-  }
-  if (!isPositiveInteger(item.memberId)) {
-    return { canBook: false, reason: "Mã học viên không hợp lệ" }
-  }
-  if (!isPositiveInteger(item.subjectId)) {
-    return { canBook: false, reason: "Mã môn học không hợp lệ" }
-  }
-  if (!isPositiveInteger(item.primaryCoachId)) {
-    return { canBook: false, reason: "Mã HLV phụ trách không hợp lệ" }
-  }
-
-  const currentCoachId = currentUser?.coachId ?? currentUser?.userId ?? currentUser?.id
-  const coachNameMatches =
-    !isPositiveInteger(currentUser?.coachId) &&
-    item.primaryCoachName &&
-    currentUser?.name &&
-    String(item.primaryCoachName).trim().toLowerCase() ===
-      String(currentUser.name).trim().toLowerCase()
-  if (
-    !coachNameMatches &&
-    (!isPositiveInteger(currentCoachId) ||
-      Number(item.primaryCoachId) !== Number(currentCoachId))
-  ) {
-    return { canBook: false, reason: "Không phải HLV phụ trách gói này" }
-  }
-
-  const st = String(item.subscriptionStatus || "").trim().toLowerCase()
-  if (st !== "active") {
-    return { canBook: false, reason: `Gói chưa kích hoạt (${item.subscriptionStatus || "Chờ xử lý"})` }
-  }
-
-  const credit = Number(item.remainingCredit)
-  if (!Number.isInteger(credit) || credit < 1) {
-    return { canBook: false, reason: "Hết số buổi khả dụng (0 credit)" }
-  }
-
-  const activatedMs = parseVietnamDateTime(item.activatedAt)
-  if (Number.isNaN(activatedMs)) {
-    return { canBook: false, reason: "Thiếu ngày kích hoạt gói" }
-  }
-
-  const expiresMs = parseVietnamDateTime(item.expiresAt)
-  if (Number.isNaN(expiresMs)) {
-    return { canBook: false, reason: "Thiếu ngày hết hạn gói" }
-  }
-  if (expiresMs <= Date.now()) {
-    return { canBook: false, reason: "Gói tập đã hết hạn" }
-  }
-
-  return { canBook: true, reason: "" }
-}
-
-export function isRoomAvailable(room, isApi = true) {
-  if (!room || typeof room !== "object") return false
-  if (!isApi) {
-    const s = String(room.status || "").trim().toLowerCase()
-    return s !== "closed" && s !== "maintenance"
-  }
-  const s = String(room.status || "").trim().toLowerCase()
-  return s === "available"
-}
-
-export function isRoomForSubject(room, regItem) {
-  if (!room || !regItem) return true
-
-  const targetSubjectId = regItem.subjectId ? String(regItem.subjectId).trim() : null
-  const targetSubjectName = String(
-    regItem.subjectName ||
-    regItem.subject?.name ||
-    regItem.specialty ||
-    regItem.specialization ||
-    "",
-  ).trim().toLowerCase()
-
-  // 1. Direct subjectId matching if room provides subject association
-  if (targetSubjectId) {
-    if (room.subjectId != null && String(room.subjectId).trim() === targetSubjectId) return true
-    if (room.subject_id != null && String(room.subject_id).trim() === targetSubjectId) return true
-    if (room.subject?.id != null && String(room.subject.id).trim() === targetSubjectId) return true
-    if (Array.isArray(room.subjectIds) && room.subjectIds.some((id) => String(id).trim() === targetSubjectId)) return true
-    if (Array.isArray(room.subjects) && room.subjects.some((s) => String(s?.id ?? s).trim() === targetSubjectId)) return true
-  }
-
-  // 2. Direct room subject / sport / activity name matching
-  const roomSubjectName = String(
-    room.subjectName ||
-    room.subject?.name ||
-    room.sport ||
-    room.sportName ||
-    room.activityType ||
-    "",
-  ).trim().toLowerCase()
-  if (roomSubjectName && targetSubjectName) {
-    if (roomSubjectName.includes(targetSubjectName) || targetSubjectName.includes(roomSubjectName)) {
-      return true
-    }
-  }
-
-  // 3. Normalized string matching on roomCode, name, and location
-  const roomName = String(room.name || "").toLowerCase()
-  const roomLocation = String(room.location || "").toLowerCase()
-  const roomCode = String(room.roomCode || "").toUpperCase()
-  const roomCombined = `${roomCode} ${roomName} ${roomLocation}`
-
-  const SPORT_DICTIONARY = [
-    {
-      keys: ["quần vợt", "tennis"],
-      roomTerms: ["quần vợt", "tennis"],
-      codes: ["TEN", "TNS"],
-    },
-    {
-      keys: ["bắn cung", "archery"],
-      roomTerms: ["bắn cung", "archery"],
-      codes: ["ARC"],
-    },
-    {
-      keys: ["bơi", "swimming", "swim"],
-      roomTerms: ["bơi", "swimming", "swim", "hồ bơi", "bể bơi", "pool"],
-      codes: ["SWM", "SWI"],
-    },
-    {
-      keys: ["cầu lông", "badminton"],
-      roomTerms: ["cầu lông", "badminton"],
-      codes: ["BAD", "BDM"],
-    },
-    {
-      keys: ["bóng bàn", "table tennis", "ping pong", "pingpong"],
-      roomTerms: ["bóng bàn", "table tennis", "ping pong", "pingpong"],
-      codes: ["TTN", "TAB"],
-    },
-    {
-      keys: ["bóng rổ", "basketball"],
-      roomTerms: ["bóng rổ", "basketball"],
-      codes: ["BKB", "BSK"],
-    },
-    {
-      keys: ["bóng chuyền", "volleyball"],
-      roomTerms: ["bóng chuyền", "volleyball"],
-      codes: ["VLB", "VOL"],
-    },
-    {
-      keys: ["bóng đá", "football", "soccer"],
-      roomTerms: ["bóng đá", "sân cỏ", "football", "soccer"],
-      codes: ["FTB", "SOC"],
-    },
-    {
-      keys: ["bắn súng", "shooting"],
-      roomTerms: ["bắn súng", "shooting", "súng hơi", "laser 10m"],
-      codes: ["SHT", "GUN"],
-    },
-    {
-      keys: ["pickleball"],
-      roomTerms: ["pickleball"],
-      codes: ["PCK", "PKB"],
-    },
-    {
-      keys: ["gym", "fitness", "thể hình"],
-      roomTerms: ["gym", "fitness", "thể hình"],
-      codes: ["GYM", "FIT"],
-    },
-    {
-      keys: ["yoga", "pilates"],
-      roomTerms: ["yoga", "pilates"],
-      codes: ["YOG", "PIL"],
-    },
-    {
-      keys: ["boxing", "vovinam", "quyền anh", "võ thuật", "võ"],
-      roomTerms: ["boxing", "vovinam", "quyền anh", "võ thuật", "đối kháng"],
-      codes: ["BOX", "VOV"],
-    },
-  ]
-
-  for (const item of SPORT_DICTIONARY) {
-    const isTargetSport = item.keys.some((k) => targetSubjectName.includes(k))
-    if (isTargetSport) {
-      const hasTerm = item.roomTerms.some((t) => roomCombined.includes(t))
-      const hasCode = item.codes.some((c) => roomCode.includes(c))
-      if (hasTerm || hasCode) {
-        return true
-      }
-    }
-  }
-
-  // 4. Token-level matching (e.g., "Tennis", "Quần vợt")
-  if (targetSubjectName) {
-    const tokens = targetSubjectName
-      .replace(/[()[\]{}_-]/g, " ")
-      .split(/\s+/)
-      .map((t) => t.trim())
-      .filter((t) => t.length >= 3)
-    if (tokens.some((token) => roomCombined.includes(token))) {
-      return true
-    }
-  }
-
-  return false
-}
-
-export function formatRoomOptionLabel(room) {
-  if (!room || typeof room !== "object") return ""
-  const code = room.roomCode ? String(room.roomCode).trim() : ""
-  const name = room.name || `Sân #${room.id ?? ""}`
-  return code ? `${code} - ${name}` : name
-}
-
-export function verifySessionResponseMatch(resp, payload, regItem) {
-  if (!resp || typeof resp !== "object") {
-    return { valid: false, reason: "Phản hồi không hợp lệ. Vui lòng thử lại." }
-  }
-  if (!isPositiveInteger(resp.id)) {
-    return { valid: false, reason: "Không nhận được mã buổi tập hợp lệ. Vui lòng thử lại." }
-  }
-
-  // 1. Coach ID (bắt buộc có và khớp)
-  if (resp.coachId === undefined || resp.coachId === null || Number(resp.coachId) !== Number(payload.coachId)) {
-    return {
-      valid: false,
-      reason: `HLV xác nhận (#${resp.coachId ?? "thiếu"}) không khớp yêu cầu (#${payload.coachId}).`,
-    }
-  }
-
-  // 2. Room ID (bắt buộc có và khớp)
-  if (resp.roomId === undefined || resp.roomId === null || Number(resp.roomId) !== Number(payload.roomId)) {
-    return {
-      valid: false,
-      reason: `Phòng tập xác nhận (#${resp.roomId ?? "thiếu"}) không khớp yêu cầu (#${payload.roomId}).`,
-    }
-  }
-
-  // 3. Member ID (bắt buộc có bookedMemberId thật và khớp, bỏ hoàn toàn fallback memberId)
-  if (resp.bookedMemberId === undefined || resp.bookedMemberId === null || !isPositiveInteger(resp.bookedMemberId)) {
-    return {
-      valid: false,
-      reason: `Phản hồi xác nhận thiếu thông tin học viên (bookedMemberId).`,
-    }
-  }
-  if (Number(resp.bookedMemberId) !== Number(regItem.memberId)) {
-    return {
-      valid: false,
-      reason: `Học viên xác nhận (#${resp.bookedMemberId}) không khớp yêu cầu (#${regItem.memberId}).`,
-    }
-  }
-
-  // 4. Subject ID (nếu yêu cầu có môn thì xác nhận phải khớp)
-  if (payload.subjectId !== undefined && payload.subjectId !== null) {
-    if (resp.subjectId === undefined || resp.subjectId === null || Number(resp.subjectId) !== Number(payload.subjectId)) {
-      return {
-        valid: false,
-        reason: `Môn thể thao (#${resp.subjectId ?? "thiếu"}) không khớp yêu cầu (#${payload.subjectId}).`,
-      }
-    }
-  }
-
-  // 5. Session Date (bắt buộc có và khớp ngày)
-  if (!resp.sessionDate || String(resp.sessionDate).slice(0, 10) !== String(payload.sessionDate).slice(0, 10)) {
-    return {
-      valid: false,
-      reason: `Ngày tập xác nhận (${resp.sessionDate ?? "thiếu"}) không khớp yêu cầu (${payload.sessionDate}).`,
-    }
-  }
-
-  // 6. Start Time (bắt buộc có và khớp giờ)
-  if (
-    !resp.startTime ||
-    !isValidTimeFormat(resp.startTime) ||
-    normalizeStrictTime(resp.startTime) !== normalizeStrictTime(payload.startTime)
-  ) {
-    return {
-      valid: false,
-      reason: `Giờ bắt đầu xác nhận (${resp.startTime ?? "thiếu"}) không khớp yêu cầu (${payload.startTime}).`,
-    }
-  }
-
-  // 7. End Time (bắt buộc có và khớp giờ)
-  if (
-    !resp.endTime ||
-    !isValidTimeFormat(resp.endTime) ||
-    normalizeStrictTime(resp.endTime) !== normalizeStrictTime(payload.endTime)
-  ) {
-    return {
-      valid: false,
-      reason: `Giờ kết thúc xác nhận (${resp.endTime ?? "thiếu"}) không khớp yêu cầu (${payload.endTime}).`,
-    }
-  }
-
-  // 8. isPrivate (bắt buộc phải là true)
-  if (resp.isPrivate !== true) {
-    return {
-      valid: false,
-      reason: "Buổi tập không được ghi nhận là ca tập riêng 1-kèm-1 (isPrivate phải là true).",
-    }
-  }
-
-  // 9. Status (bắt buộc hiện diện và phải là Scheduled)
-  if (!resp.status || typeof resp.status !== "string") {
-    return {
-      valid: false,
-      reason: "Phản hồi xác nhận thiếu trạng thái buổi tập (status).",
-    }
-  }
-  const st = resp.status.trim()
-  if (st.toLowerCase() !== "scheduled") {
-    return {
-      valid: false,
-      reason: `Trạng thái buổi tập không hợp lệ hoặc không khả dụng (${st}). Yêu cầu trạng thái 'Scheduled'.`,
-    }
-  }
-
-  return { valid: true }
-}
+import {
+  isPositiveInteger,
+  generateRequestKey,
+  isStandardPrivateSessionSlot,
+  formatVietnamDateTime,
+  formatVietnamDateOnly,
+  getVietnamDatePlusDays,
+  checkRegistrationEntitlement,
+} from "./coach-assigned-members/privateSessionHelpers"
+import {
+  isRoomAvailable,
+  isRoomForSubject,
+  formatRoomOptionLabel,
+} from "./coach-assigned-members/roomHelpers"
+export { verifySessionResponseMatch } from "./coach-assigned-members/privateSessionHelpers"
+export { isRoomAvailable, isRoomForSubject, formatRoomOptionLabel } from "./coach-assigned-members/roomHelpers"
 
 export function CoachAssignedMembersView() {
   const {
@@ -1281,8 +892,8 @@ export function CoachAssignedMembersView() {
 
       {/* Main Content Area: API Candidates */}
       <div className="space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 rounded-lg border border-border-color bg-bg-card p-4 text-text-primary">
-            <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
+            <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
               <CalendarPlus className="w-4 h-4 text-brand-primary" />
               <span>
                 {language === "vi"
@@ -1294,13 +905,13 @@ export function CoachAssignedMembersView() {
             {/* Search & Filter Bar (P2.4) */}
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
-                <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={memberSearchQuery}
                   onChange={(e) => setMemberSearchQuery(e.target.value)}
                   placeholder={t("coachSearchStudentPlaceholder")}
-                  className="min-h-11 w-full sm:w-56 rounded border border-border-strong bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                  className="h-10 w-full sm:w-56 rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400"
                 />
               </div>
 
@@ -1706,7 +1317,7 @@ export function CoachAssignedMembersView() {
                               type="button"
                               onClick={() => openBookPrivateModal(activeSelectedPkg)}
                               aria-label={`Send a private-session proposal for ${memberDisplayName}`}
-                              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active whitespace-nowrap cursor-pointer"
+                              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm whitespace-nowrap cursor-pointer"
                             >
                               <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
                               <span>{language === "vi" ? "Gửi đề xuất lịch" : "Send schedule proposal"}</span>
@@ -1745,25 +1356,25 @@ export function CoachAssignedMembersView() {
       {/* Mandatory Rejection Reason Modal (P0.3) */}
       {rejectModalTarget && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-brand-dark/60 p-4 backdrop-blur-2xs"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="reject-pt-modal-title"
         >
-          <div className="rounded-lg border border-border-color bg-bg-card text-text-primary shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-5 py-4 border-b border-border-color flex items-center justify-between bg-bg-secondary">
+          <div className="rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
               <h3
                 id="reject-pt-modal-title"
-                className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2"
+                className="text-lg font-semibold text-slate-900 flex items-center gap-2"
               >
-                <XCircle className="w-4 h-4 text-status-danger" />
+                <XCircle className="w-4 h-4 text-rose-600" />
                 <span>{t("coachPtRejectModalTitle")}</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setRejectModalTarget(null)}
                 aria-label={t("coachCancelBtn") || "Đóng"}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-card hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-200/70 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1838,18 +1449,18 @@ export function CoachAssignedMembersView() {
 
       {/* Private PT Session Booking Modal (Mục 6 / D04) */}
       {bookingReg && (
-        <div className="fixed inset-0 z-50 bg-brand-dark/60 flex items-center justify-center p-4">
-          <div className="rounded-lg border border-border-color bg-bg-card text-text-primary w-full max-w-lg shadow-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-border-color pb-3">
+        <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="rounded-2xl border border-slate-200 bg-white text-slate-900 w-full max-w-lg shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div>
-                <h3 className="text-lg leading-7 font-semibold text-text-primary">
+                <h3 className="text-lg font-semibold text-slate-900">
                   {language === "vi" ? "Gửi đề xuất lịch & Đăng ký sân" : "Send schedule proposal & book court"}
                 </h3>
-                <p className="text-sm leading-5 text-text-secondary mt-0.5">
-                  Học viên: <strong className="text-text-primary">{bookingReg.memberName || `Học viên #${bookingReg.memberId}`}</strong> &bull; Gói:{" "}
-                  <strong className="text-text-primary">#{bookingReg.subscriptionId}</strong> ({bookingReg.subjectName || `Môn #${bookingReg.subjectId}`})
+                <p className="text-sm text-slate-500 mt-0.5">
+                  Học viên: <strong className="text-slate-900">{bookingReg.memberName || `Học viên #${bookingReg.memberId}`}</strong> &bull; Gói:{" "}
+                  <strong className="text-slate-900">#{bookingReg.subscriptionId}</strong> ({bookingReg.subjectName || `Môn #${bookingReg.subjectId}`})
                 </p>
-                <div className="text-xs leading-4 text-status-success font-medium mt-0.5">
+                <div className="text-xs text-emerald-700 font-medium mt-0.5">
                   Số buổi khả dụng: <strong>{bookingReg.remainingCredit ?? 0} buổi</strong> &bull; Hạn dùng:{" "}
                   <strong>{formatVietnamDateTime(bookingReg.expiresAt)}</strong>
                 </div>
@@ -1858,7 +1469,7 @@ export function CoachAssignedMembersView() {
                 type="button"
                 onClick={handleCloseModal}
                 aria-label="Đóng cửa sổ đặt lịch"
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>

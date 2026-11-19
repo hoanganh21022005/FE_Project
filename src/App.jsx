@@ -20,6 +20,7 @@ import {
   getMainHostAdminRedirectUrl,
   isAdminHost,
 } from "./components/admin/adminHost"
+import { canAccessAdminOpsPath } from "./components/admin/adminNav"
 import { ErrorBoundary } from "./components/common/ErrorBoundary"
 import { VnpayCheckoutHost } from "./components/common/VnpayCheckoutHost"
 import {
@@ -201,6 +202,11 @@ const ReceptionClassBooking = React.lazy(() =>
 const ReceptionPaymentsView = React.lazy(() =>
   import("./components/views/ReceptionPaymentsView").then((module) => ({
     default: module.ReceptionPaymentsView,
+  })),
+)
+const ReceptionRefundWorkView = React.lazy(() =>
+  import("./components/views/ReceptionRefundWorkView").then((module) => ({
+    default: module.ReceptionRefundWorkView,
   })),
 )
 
@@ -404,10 +410,21 @@ function AdminMemberDetailWrapper() {
   )
 }
 
+function AdminOpsGuard({ user, children }) {
+  const location = useLocation()
+  if (!canAccessAdminOpsPath(location.pathname, user)) {
+    return <Navigate to="/admin/dashboard" replace />
+  }
+  return children
+}
+
 function AdminManagerWildcardRedirect() {
   const location = useLocation()
   const subPath = location.pathname.replace(/^\/manager\/?/, "")
-  const targetPath = subPath ? `/admin/ops/${subPath}` : "/admin/ops/dashboard"
+  const targetPath =
+    subPath && subPath !== "dashboard" && subPath !== "reports"
+      ? `/admin/ops/${subPath}`
+      : "/admin/dashboard"
   return <Navigate to={`${targetPath}${location.search}`} replace />
 }
 
@@ -424,6 +441,7 @@ function SCMSApp() {
   const {
     role,
     setRole,
+    currentUser,
     t,
     language,
     isAuthenticated,
@@ -533,7 +551,6 @@ function SCMSApp() {
     if (path.startsWith("/admin/audit-logs")) return "admin_audit_logs"
 
     // Quản lý trung tâm
-    if (path === "/admin/ops/dashboard") return "ops_manager_dashboard"
     if (path.startsWith("/admin/ops/staff")) return "ops_staff"
     if (path.startsWith("/admin/ops/members")) return "ops_members"
     if (path.startsWith("/admin/ops/packages")) return "ops_packages"
@@ -544,7 +561,6 @@ function SCMSApp() {
     if (path.startsWith("/admin/ops/resources")) return "ops_resources"
     if (path.startsWith("/admin/ops/payments")) return "ops_payments"
     if (path.startsWith("/admin/ops/normal-refunds")) return "ops_refunds"
-    if (path.startsWith("/admin/ops/reports")) return "ops_reports"
 
     // Lễ tân
     if (path === "/admin/ops/reception/dashboard") return "ops_reception_dashboard"
@@ -564,7 +580,6 @@ function SCMSApp() {
     if (path.startsWith("/admin/audit-logs")) return "Nhật ký hoạt động"
 
     // Quản lý trung tâm
-    if (path.startsWith("/admin/ops/dashboard")) return "Tổng quan quản lý trung tâm"
     if (path.startsWith("/admin/ops/staff")) return "Quản lý nhân sự"
     if (path.startsWith("/admin/ops/members")) return "Quản lý hội viên"
     if (path.startsWith("/admin/ops/packages")) return "Quản lý gói tập"
@@ -575,7 +590,6 @@ function SCMSApp() {
     if (path.startsWith("/admin/ops/resources")) return "Bộ môn & Phòng tập"
     if (path.startsWith("/admin/ops/payments")) return "Quản lý thanh toán"
     if (path.startsWith("/admin/ops/normal-refunds")) return "Hoàn tiền Normal"
-    if (path.startsWith("/admin/ops/reports")) return "Báo cáo thống kê"
 
     // Lễ tân
     if (path.startsWith("/admin/ops/reception/dashboard")) return "Tổng quan lễ tân"
@@ -612,9 +626,6 @@ function SCMSApp() {
         break
 
       // Quản lý trung tâm
-      case "ops_manager_dashboard":
-        navigate("/admin/ops/dashboard")
-        break
       case "ops_staff":
         navigate("/admin/ops/staff")
         break
@@ -644,9 +655,6 @@ function SCMSApp() {
         break
       case "ops_refunds":
         navigate("/admin/ops/normal-refunds")
-        break
-      case "ops_reports":
-        navigate("/admin/ops/reports")
         break
 
       // Lễ tân
@@ -713,6 +721,8 @@ function SCMSApp() {
     if (path.includes("/booking")) return t("bookings")
     if (path.includes("/invoices") || path.includes("/payment-result"))
       return t("memberInvoicesTitle")
+    if (path.includes("/refund-work"))
+      return language === "vi" ? "Việc hoàn tiền" : "Refund work"
     if (path.includes("/payments")) return t("payments")
     if (path.includes("/normal-refunds"))
       return language === "vi" ? "Hoàn tiền Normal" : "Normal refunds"
@@ -739,7 +749,7 @@ function SCMSApp() {
         </div>
         <div className="text-center">
           <p className="font-bold tracking-wide text-slate-800">
-            VIBE SPORT CENTER
+            AVT SPORT CENTER
           </p>
           <p className="text-xs text-slate-500 mt-1">
             Đang kiểm tra phiên đăng nhập & nạp dữ liệu...
@@ -975,60 +985,108 @@ function SCMSApp() {
                   {/* Nhóm Quản lý trung tâm */}
                   <Route
                     path="/admin/ops"
-                    element={<Navigate to="/admin/ops/dashboard" replace />}
+                    element={<Navigate to="/admin/dashboard" replace />}
                   />
                   <Route
                     path="/admin/ops/dashboard"
-                    element={<ManagerDashboard />}
+                    element={<Navigate to="/admin/dashboard" replace />}
                   />
-                  <Route path="/admin/ops/staff" element={<StaffManagement />} />
+                  <Route
+                    path="/admin/ops/staff"
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <StaffManagement />
+                      </AdminOpsGuard>
+                    }
+                  />
                   <Route
                     path="/admin/ops/members"
                     element={
-                      <MemberManagement
-                        onSelectMemberDetail={(id) =>
-                          navigate(`/admin/ops/members/${id}`)
-                        }
-                      />
+                      <AdminOpsGuard user={currentUser}>
+                        <MemberManagement
+                          onSelectMemberDetail={(id) =>
+                            navigate(`/admin/ops/members/${id}`)
+                          }
+                        />
+                      </AdminOpsGuard>
                     }
                   />
                   <Route
                     path="/admin/ops/members/:id"
-                    element={<AdminMemberDetailWrapper />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <AdminMemberDetailWrapper />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/packages"
-                    element={<PackageManagement />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <PackageManagement />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/classes"
-                    element={<ClassManagement />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ClassManagement />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/holidays"
-                    element={<ManagerHolidaysView />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ManagerHolidaysView />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/session-incidents"
-                    element={<ManagerSessionIncidentsView />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ManagerSessionIncidentsView />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/advanced-schedule"
-                    element={<ManagerAdvancedScheduleView />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ManagerAdvancedScheduleView />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/resources"
-                    element={<ResourceManagement />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ResourceManagement />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/payments"
-                    element={<PaymentManagement />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <PaymentManagement />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/normal-refunds"
-                    element={<NormalRefundManagement />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <NormalRefundManagement />
+                      </AdminOpsGuard>
+                    }
                   />
-                  <Route path="/admin/ops/reports" element={<ReportsView />} />
+                  <Route
+                    path="/admin/ops/reports"
+                    element={<Navigate to="/admin/dashboard" replace />}
+                  />
                   <Route
                     path="/admin/ops/audit-logs"
                     element={<AuditLogView />}
@@ -1043,23 +1101,43 @@ function SCMSApp() {
                   />
                   <Route
                     path="/admin/ops/reception/dashboard"
-                    element={<ReceptionistDashboard />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ReceptionistDashboard />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/reception/checkin"
-                    element={<ReceptionCheckinView />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ReceptionCheckinView />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/reception/search"
-                    element={<ReceptionMemberSearch />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ReceptionMemberSearch />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/reception/booking"
-                    element={<ReceptionClassBooking />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ReceptionClassBooking />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/reception/payments"
-                    element={<ReceptionPaymentsView />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ReceptionPaymentsView />
+                      </AdminOpsGuard>
+                    }
                   />
 
                   {/* Hồ sơ Admin riêng biệt */}
@@ -1152,7 +1230,7 @@ function SCMSApp() {
             onLogout={handleLogout}
             onOpenMobileMenu={() => setMobileSidebarOpen(true)}
           />
-          <main className="flex-1 min-w-0 p-3 sm:p-4 md:p-6 overflow-y-auto w-full bg-bg-main">
+          <main className="flex-1 min-w-0 p-3 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-4 sm:pb-20 md:p-6 md:pb-6 overflow-y-auto w-full bg-bg-main">
             <ErrorBoundary inline>
               <Suspense
                 fallback={
@@ -1505,6 +1583,19 @@ function SCMSApp() {
                         onForbidden={() => navigate(`/${role}/dashboard`)}
                       >
                         <ReceptionPaymentsView />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/receptionist/refund-work"
+                    element={
+                      <RequireRole
+                        allowedRoles={[ROLE_RECEPTIONIST]}
+                        currentRole={role}
+                        attemptedPath={location.pathname}
+                        onForbidden={() => navigate(`/${role}/dashboard`)}
+                      >
+                        <ReceptionRefundWorkView />
                       </RequireRole>
                     }
                   />

@@ -7,6 +7,9 @@ export const asNumber = (value) => {
   return Number.isFinite(number) ? number : null
 }
 
+// Giữ phân biệt "Backend chưa trả field" (null) với "Backend trả false".
+export const optionalBoolean = (value) => (typeof value === "boolean" ? value : null)
+
 export const idNumber = (value) => {
   const direct = asNumber(value)
   if (direct !== null) return direct
@@ -79,6 +82,18 @@ export function mapSession(item) {
     isPrivate: typeof item.isPrivate === "boolean" ? item.isPrivate : null,
     classType: item.classType ?? null,
     makeupForSessionId: asNumber(item.makeupForSessionId),
+    // Field theo contract hạn và quyền thao tác: thiếu thì giữ null (khác với false).
+    bookedMemberId: asNumber(item.bookedMemberId),
+    bookedMemberName: item.bookedMemberName ?? null,
+    creditReturned: optionalBoolean(item.creditReturned),
+    serverTime: item.serverTime ?? null,
+    correctionAllowed: optionalBoolean(item.correctionAllowed),
+    correctionDeadline: item.correctionDeadline ?? null,
+    cancellationAllowed: optionalBoolean(item.cancellationAllowed),
+    cancellationDeadline: item.cancellationDeadline ?? null,
+    cancellationBlockReason: item.cancellationBlockReason ?? null,
+    attendanceAllowed: optionalBoolean(item.attendanceAllowed),
+    attendanceBlockReason: item.attendanceBlockReason ?? null,
   }
 }
 
@@ -228,6 +243,18 @@ export function mapClass(
       lifecycleVersion: asNumber(item.lifecycleVersion),
       changePending: typeof item.changePending === "boolean" ? item.changePending : null,
       selectedDays,
+      // Field theo contract hạn và quyền thao tác: thiếu thì giữ null (khác với false).
+      advancedState: item.advancedState ?? null,
+      registrationDeadline: item.registrationDeadline ?? null,
+      firstSessionAt: item.firstSessionAt ?? null,
+      registrationAllowed: optionalBoolean(item.registrationAllowed),
+      registrationBlockReason: item.registrationBlockReason ?? null,
+      openingConfirmationDueAt: item.openingConfirmationDueAt ?? null,
+      openingConfirmationDeadline: item.openingConfirmationDeadline ?? null,
+      openingReasonRequired: optionalBoolean(item.openingReasonRequired),
+      openingConfirmationAllowed: optionalBoolean(item.openingConfirmationAllowed),
+      openingConfirmationBlockReason: item.openingConfirmationBlockReason ?? null,
+      serverTime: item.serverTime ?? null,
     }
   }
 

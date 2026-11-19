@@ -1,15 +1,55 @@
 import { httpClient } from "./httpClient.js"
 import { extractList, isValidNumericId } from "./schemaValidators.js"
+import { optionalBoolean } from "./mappers.js"
+import { translateErrorCode } from "./apiErrors.js"
+
+const ATTENDANCE_BLOCK_REASON_CODES = new Set([
+  "SESSION_NOT_HELD",
+  "NORMAL_NOT_STARTED",
+  "ATTENDANCE_WINDOW_CLOSED",
+  "CHECKIN_WINDOW_CLOSED",
+  "SESSION_TIME_REQUIRED",
+  "COACH_REQUIRED",
+])
+
+export function formatAttendanceReasonCode(reasonCode, language = "vi") {
+  if (!reasonCode) return ""
+  const normalized = String(reasonCode).trim().toUpperCase()
+  const mappedCode =
+    normalized === "CHECKIN_WINDOW_CLOSED"
+      ? "ATTENDANCE_WINDOW_CLOSED"
+      : normalized
+  if (ATTENDANCE_BLOCK_REASON_CODES.has(normalized)) {
+    return translateErrorCode(mappedCode, language, "attendance") || mappedCode
+  }
+  return translateErrorCode(mappedCode, language, "attendance") || String(reasonCode)
+}
+
+export function resolveSessionAttendanceAccess(session, legacyCanCheckIn = false) {
+  const attendanceAllowed = optionalBoolean(session?.attendanceAllowed)
+  if (attendanceAllowed === true) {
+    return {
+      allowed: true,
+      attendanceAllowed: true,
+      blockReason: null,
+    }
+  }
+  if (attendanceAllowed === false) {
+    return {
+      allowed: false,
+      attendanceAllowed: false,
+      blockReason: session?.attendanceBlockReason || null,
+    }
+  }
+  return {
+    allowed: Boolean(legacyCanCheckIn),
+    attendanceAllowed: null,
+    blockReason: null,
+  }
+}
 
 export const scanAttendance = async (payload) => {
-  try {
-    return await httpClient.post("/api/attendances/qr-checkin", payload)
-  } catch (error) {
-    if (error?.status === 404) {
-      return httpClient.post("/api/attendances/scan", payload)
-    }
-    throw error
-  }
+  return httpClient.post("/api/attendances/scan", payload)
 }
 
 export const matchesSessionAttendance = (result, sessionId, memberId, status) =>
@@ -36,13 +76,13 @@ export const recordSessionAttendance = async ({
     throw new Error("Điểm danh theo buổi chỉ hỗ trợ Có mặt hoặc Vắng mặt.")
   }
 
+  const cleanNotes = typeof notes === "string" ? notes.trim() : ""
   const result = await httpClient.post("/api/training-results", {
     sessionId: numericSessionId,
     memberId: numericMemberId,
     coachId: numericCoachId,
     attendanceStatus: normalizedStatus,
-    content: notes || `Điểm danh buổi tập: ${normalizedStatus}`,
-    reason: notes || undefined,
+    note: cleanNotes || undefined,
   }, { notifyForbidden: false })
   if (!matchesSessionAttendance(result, numericSessionId, numericMemberId, normalizedStatus)) {
     throw new Error("Chưa xác nhận được kết quả điểm danh. Hãy làm mới danh sách trước khi thử lại.")
@@ -60,18 +100,7 @@ export const manualCheckIn = async (payload) => {
       notes: payload.notes || "",
     })
   }
-  try {
-    return await httpClient.post("/api/attendances/check-in", payload)
-  } catch (error) {
-    if (error?.status === 404) {
-      return httpClient.post("/api/attendances", {
-        memberId: Number(payload?.memberId),
-        status: "Present",
-        notes: payload?.notes || "",
-      })
-    }
-    throw error
-  }
+  return httpClient.post("/api/attendances/check-in", payload)
 }
 
 export const manualCheckOut = async (memberId) => {
@@ -114,6 +143,11 @@ export const getSessions = async (params = {}) => {
   return extractList(data) || []
 }
 
+export const getSessionById = async (sessionId) => {
+  if (!isValidNumericId(sessionId)) return null
+  return httpClient.get(`/api/sessions/${Number(sessionId)}`)
+}
+
 export const attendanceApi = {
   scanAttendance,
   scanCheckin: scanAttendance,
@@ -123,6 +157,7 @@ export const attendanceApi = {
   correctAttendance,
   searchAttendances,
   getSessions,
+  getSessionById,
 }
 
 export default attendanceApi

@@ -10,7 +10,7 @@ import {
 } from "lucide-react"
 import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { authApi } from "../../../api/authApi.js"
-import { getAdminText } from "../adminI18n.js"
+import { formatAdminErrorMessage, getAdminText } from "../adminI18n.js"
 
 export function AdminProfileView() {
   const { authUser, currentUser, language } = useSCMS()
@@ -99,10 +99,11 @@ export function AdminProfileView() {
         confirmPassword: "",
       })
     } catch (err) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        getAdminText(language, "profile.errChangeFallback")
+      const msg = formatAdminErrorMessage(
+        err?.response?.data?.message || err,
+        language,
+        "profile.errChangeFallback",
+      )
       setServerError(msg)
     } finally {
       setSubmitting(false)

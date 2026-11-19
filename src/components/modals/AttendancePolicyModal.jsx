@@ -41,7 +41,7 @@ export function AttendancePolicyModal({ isOpen, onClose, language = 'vi' }) {
             <div className="flex items-center gap-2">
               <span className="h-px w-5 bg-[#24A9D2]" />
               <span className="text-[11px] font-sans font-medium uppercase tracking-[0.14em] text-[#6B7890]">
-                VIBE ATHLETIC CLUB • NỘI QUY HOẠT ĐỘNG
+                AVT SPORT • NỘI QUY HOẠT ĐỘNG
               </span>
             </div>
             <h2 className="font-sans font-normal text-2xl sm:text-3xl text-[#202B46] tracking-tight">
@@ -205,7 +205,7 @@ export function AttendancePolicyModal({ isOpen, onClose, language = 'vi' }) {
                 <strong className="text-[#202B46] font-medium">Hạn mức vắng cho phép:</strong> Tối đa <span className="text-[#202B46] font-medium">{policy.maxAbsent} buổi/khóa</span>. Khi chỉ còn <span className="text-[#202B46] font-medium">1 buổi vắng cuối cùng</span> (đã vắng 2/3 buổi cho phép), hệ thống sẽ gửi thông báo cảnh báo chuyên cần tới hội viên.
               </li>
               <li>
-                <strong className="text-[#202B46] font-medium">Xin phép nghỉ có báo trước:</strong> Kênh tiếp nhận chính là tính năng <strong className="text-[#202B46] font-medium">Xin nghỉ</strong> trực tiếp trên ứng dụng VIBE Athletic, yêu cầu gửi đơn trước tối thiểu <span className="text-[#202B46] font-medium">{policy.leaveNoticeHours} giờ</span> để được bảo lưu quyền lợi và bố trí buổi tập bù. Trường hợp khẩn cấp dưới 12 giờ, quý hội viên vui lòng liên hệ trực tiếp HLV hoặc Lễ tân để được hỗ trợ.
+                <strong className="text-[#202B46] font-medium">Xin phép nghỉ có báo trước:</strong> Kênh tiếp nhận chính là tính năng <strong className="text-[#202B46] font-medium">Xin nghỉ</strong> trực tiếp trên ứng dụng AVT Sport, yêu cầu gửi đơn trước tối thiểu <span className="text-[#202B46] font-medium">{policy.leaveNoticeHours} giờ</span> để được bảo lưu quyền lợi và bố trí buổi tập bù. Trường hợp khẩn cấp dưới 12 giờ, quý hội viên vui lòng liên hệ trực tiếp HLV hoặc Lễ tân để được hỗ trợ.
               </li>
             </ul>
           </div>
@@ -228,7 +228,7 @@ export function AttendancePolicyModal({ isOpen, onClose, language = 'vi' }) {
         {/* Footer: Quiet Luxury Style */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-[rgba(21,23,28,0.1)]">
           <div className="text-xs text-[#6B7890] font-normal">
-            Áp dụng toàn bộ hệ thống cơ sở VIBE Athletic Club • Phiên bản {policy.version} (Hiệu lực từ {policy.effectiveDate})
+            Áp dụng toàn bộ hệ thống cơ sở AVT Sport • Phiên bản {policy.version} (Hiệu lực từ {policy.effectiveDate})
           </div>
           <button
             type="button"

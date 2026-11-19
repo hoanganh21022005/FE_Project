@@ -1,11 +1,18 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useSCMS } from "../../context/SCMSContext"
 import { evaluationApi } from "../../api/evaluationApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { attendanceApi } from "../../api/attendanceApi"
-import { getErrorMessage } from "../../api/apiErrors"
+import { updateTrainingResultContent } from "../../api/trainingResultApi"
+import { getErrorMessage, translateErrorCode } from "../../api/apiErrors"
 import { canLogResult } from "../../utils/permissions"
-import { formatDate, formatTime } from "../../utils/datetime"
+import {
+  decideTrainingResultSubmission,
+  getTrainingResultSaveErrorMessage,
+  isSessionPastEndTime,
+  resolveVerifiedAttendanceStatus,
+} from "../../utils/trainingResultSubmission"
+import { formatDate, formatTime, parseBackendDate } from "../../utils/datetime"
 import { formatMemberCode } from "../../utils/formatMember"
 import {
   normalizeScore,
@@ -36,6 +43,68 @@ import {
   Info,
   AlertCircle,
 } from "lucide-react"
+
+// Mã lỗi khi sửa nhận xét buổi tập; chữ nằm ở bảng chung trong apiErrors.js (ngữ cảnh "resultContent").
+const RESULT_CONTENT_CODES = [
+  "RESULT_CONTENT_NOT_OPEN",
+  "RESULT_CONTENT_DEADLINE_PASSED",
+  "RESULT_CONTENT_FORBIDDEN",
+  "RESULT_CONTENT_REQUIRED",
+  "NORMAL_NOT_STARTED",
+  "SESSION_NOT_HELD",
+  "SESSION_TIME_REQUIRED",
+  "ATTENDANCE_SUPERSEDED",
+  "NOT_YOUR_CLASS",
+]
+
+const translateTrainingResultContentError = (err, language) => {
+  const isVi = language === "vi"
+  const rawCode = err?.code || err?.details?.code || err?.response?.data?.code
+  if (RESULT_CONTENT_CODES.includes(rawCode)) {
+    return translateErrorCode(rawCode, isVi ? "vi" : "en", "resultContent")
+  }
+  const status = Number(err?.status ?? err?.response?.status) || 0
+  if (status === 404) {
+    return isVi
+      ? "Không tìm thấy bản ghi kết quả buổi tập."
+      : "Training result record not found."
+  }
+  if (status === 403) {
+    return isVi
+      ? "Bạn không có quyền sửa nhận xét này."
+      : "You do not have permission to edit this comment."
+  }
+  const fallback = isVi
+    ? "Không thể cập nhật nhận xét buổi tập."
+    : "Failed to update session comment."
+  const msg = getErrorMessage(err, fallback)
+  return rawCode && msg === rawCode ? fallback : msg
+}
+
+const getResultEditWindowState = (result, sessionById, nowMs = Date.now()) => {
+  const session =
+    result?.sessionId !== undefined && result?.sessionId !== null
+      ? sessionById.get(String(result.sessionId))
+      : null
+  const rawDate = String(result?.sessionDate || session?.sessionDate || "").trim()
+  const dateMatch = rawDate.match(/^(\d{4}-\d{2}-\d{2})/)
+  const rawEndTime = String(session?.endTime ?? session?.end_time ?? "").trim()
+  const timeMatch = rawEndTime.match(/^(\d{2}:\d{2})(?::(\d{2}))?/)
+  if (!dateMatch || !timeMatch) {
+    return { status: "unknown", canEdit: true }
+  }
+  const dateStr = dateMatch[1]
+  const hhmmss = `${timeMatch[1]}:${timeMatch[2] || "00"}`
+  const endMs = Date.parse(`${dateStr}T${hhmmss}+07:00`)
+  const midnightMs = Date.parse(`${dateStr}T00:00:00+07:00`)
+  if (!Number.isFinite(endMs) || !Number.isFinite(midnightMs)) {
+    return { status: "unknown", canEdit: true }
+  }
+  const deadlineMs = midnightMs + 24 * 60 * 60 * 1000
+  if (nowMs < endMs) return { status: "not_open", canEdit: false }
+  if (nowMs >= deadlineMs) return { status: "expired", canEdit: false }
+  return { status: "open", canEdit: true }
+}
 
 const parseStrictPositiveInt = (raw) => {
   if (raw === undefined || raw === null || raw === "") return null
@@ -136,26 +205,6 @@ export function CoachTrainingProgress() {
 
   const resolvedCoachId = contextCoachId ?? fetchedCoachId
 
-  useEffect(() => {
-    if (!apiEnabled || contextCoachId) return
-    let active = true
-    setLoadingCoachProfile(true)
-    memberPortalApi
-      .getCoachProfileMe()
-      .then((profile) => {
-        if (!active) return
-        const cId = parseStrictPositiveInt(profile?.id ?? profile?.coachId)
-        if (cId) setFetchedCoachId(cId)
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setLoadingCoachProfile(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [apiEnabled, contextCoachId])
-
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== "undefined") {
       const savedTab = sessionStorage.getItem("scms_selected_progress_tab")
@@ -213,6 +262,29 @@ export function CoachTrainingProgress() {
     }
     return ""
   })
+
+  // Edit existing training result comment state (L18)
+  const [editingResultId, setEditingResultId] = useState(null)
+  const [editingContent, setEditingContent] = useState("")
+  const [savingResultEdit, setSavingResultEdit] = useState(false)
+  const [editResultError, setEditResultError] = useState("")
+  const savingResultEditRef = useRef(false)
+  const editTextareaRef = useRef(null)
+  const editButtonRefs = useRef(new Map())
+  const returnFocusResultIdRef = useRef(null)
+
+  useEffect(() => {
+    if (editingResultId !== null && editTextareaRef.current) {
+      editTextareaRef.current.focus()
+    } else if (editingResultId === null && returnFocusResultIdRef.current !== null) {
+      const targetId = returnFocusResultIdRef.current
+      returnFocusResultIdRef.current = null
+      const btn = editButtonRefs.current.get(String(targetId))
+      if (btn && typeof btn.focus === "function") {
+        btn.focus()
+      }
+    }
+  }, [editingResultId])
   const [resultContent, setResultContent] = useState("")
   const [savingResult, setSavingResult] = useState(false)
 
@@ -248,7 +320,7 @@ export function CoachTrainingProgress() {
       setApiSessions(validSessions)
       setAdvancedRegs(Array.isArray(advList) ? advList : [])
       setApiAttendances(Array.isArray(attList) ? attList : [])
-      const completedOnly = validSessions.filter((s) => canLogResult(s))
+      const completedOnly = validSessions.filter((s) => isSessionPastEndTime(s))
       if (completedOnly.length > 0 && !selectedSessionId) {
         setSelectedSessionId(String(completedOnly[0].id))
       }
@@ -376,36 +448,21 @@ export function CoachTrainingProgress() {
   }, [coachClasses, selectedPlanClassId])
 
   const completedSessions = useMemo(
-    () => apiSessions.filter((s) => canLogResult(s)),
+    () => apiSessions.filter((s) => isSessionPastEndTime(s)),
     [apiSessions],
   )
 
   const readOnlyAttendanceStatus = useMemo(() => {
     const memberIdStr = String(selectedMemberId || selectedStudent?.id || "")
     const sessionIdStr = String(selectedSessionId || "")
-    if (!sessionIdStr || !memberIdStr) return "Present"
+    if (!sessionIdStr || !memberIdStr) return null
 
-    const matchedResult = apiResults.find(
-      (r) =>
-        String(r.sessionId) === sessionIdStr &&
-        String(r.memberId) === memberIdStr &&
-        r.attendanceStatus,
-    )
-    if (matchedResult?.attendanceStatus) return matchedResult.attendanceStatus
-
-    const matchedAtt = apiAttendances.find(
-      (a) =>
-        String(a.sessionId) === sessionIdStr &&
-        String(a.memberId) === memberIdStr,
-    )
-    if (matchedAtt?.state) {
-      const raw = String(matchedAtt.state).toLowerCase()
-      if (raw.includes("late")) return "Late"
-      if (raw.includes("excuse")) return "Excused"
-      if (raw.includes("absent")) return "Absent"
-      return "Present"
-    }
-    return "Present"
+    return resolveVerifiedAttendanceStatus({
+      sessionId: sessionIdStr,
+      memberId: memberIdStr,
+      results: apiResults,
+      attendances: apiAttendances,
+    })
   }, [
     selectedSessionId,
     selectedMemberId,
@@ -513,6 +570,99 @@ export function CoachTrainingProgress() {
     return evaluations.filter((ev) => String(ev.memberId) === memberIdStr)
   }, [evaluations, selectedMemberId, selectedStudent?.id])
 
+  const sessionById = useMemo(() => {
+    const map = new Map()
+    apiSessions.forEach((s) => {
+      if (s?.id !== undefined && s?.id !== null) {
+        map.set(String(s.id), s)
+      }
+    })
+    return map
+  }, [apiSessions])
+
+  const openResultEdit = (record) => {
+    const rid = record?.resultId ?? record?.id
+    if (!rid || savingResultEditRef.current) return
+    setEditingResultId(rid)
+    setEditingContent(typeof record?.content === "string" ? record.content : "")
+    setEditResultError("")
+  }
+
+  const closeResultEdit = (recordId) => {
+    if (savingResultEditRef.current) return
+    returnFocusResultIdRef.current = recordId ?? editingResultId
+    setEditingResultId(null)
+    setEditingContent("")
+    setEditResultError("")
+  }
+
+  const handleSaveResultEdit = async (record) => {
+    const rid = record?.resultId ?? record?.id
+    if (!rid || savingResultEditRef.current) return
+
+    const trimmed = editingContent.trim()
+    if (!trimmed) {
+      setEditResultError(
+        language === "vi"
+          ? "Nhận xét không được để trống."
+          : "Comment cannot be empty.",
+      )
+      return
+    }
+
+    if (trimmed === String(record?.content ?? "").trim()) {
+      closeResultEdit(rid)
+      return
+    }
+
+    savingResultEditRef.current = true
+    setSavingResultEdit(true)
+    setEditResultError("")
+    try {
+      const updated = await updateTrainingResultContent(rid, trimmed, {
+        notifyForbidden: false,
+      })
+      setApiResults((prev) =>
+        prev.map((item) =>
+          String(item?.resultId ?? item?.id) === String(rid)
+            ? { ...item, ...updated, content: updated.content ?? trimmed }
+            : item,
+        ),
+      )
+      returnFocusResultIdRef.current = rid
+      setEditingResultId(null)
+      setEditingContent("")
+      showToast?.(
+        language === "vi"
+          ? "Đã cập nhật nhận xét buổi tập."
+          : "Session comment updated.",
+        "success",
+      )
+      await loadAllProgressData()
+    } catch (err) {
+      setEditResultError(translateTrainingResultContentError(err, language))
+      const rawCode = err?.code || err?.details?.code || err?.response?.data?.code
+      const status = Number(err?.status ?? err?.response?.status) || 0
+      if (
+        status === 404 ||
+        [
+          "RESULT_CONTENT_DEADLINE_PASSED",
+          "RESULT_CONTENT_NOT_OPEN",
+          "RESULT_CONTENT_FORBIDDEN",
+          "SESSION_NOT_HELD",
+          "NORMAL_NOT_STARTED",
+          "ATTENDANCE_SUPERSEDED",
+          "NOT_YOUR_CLASS",
+        ].includes(rawCode)
+      ) {
+        await loadAllProgressData()
+      }
+    } finally {
+      savingResultEditRef.current = false
+      setSavingResultEdit(false)
+    }
+  }
+
   const studentResults = useMemo(() => {
     const memberIdStr = String(selectedMemberId || selectedStudent?.id || "")
     if (!memberIdStr) return apiResults
@@ -593,20 +743,6 @@ export function CoachTrainingProgress() {
     }
 
     let finalCoachId = parseStrictPositiveInt(resolvedCoachId)
-    if (apiEnabled && !finalCoachId) {
-      try {
-        const myProfile = await memberPortalApi.getCoachProfileMe()
-        const fetchedId = parseStrictPositiveInt(
-          myProfile?.id ?? myProfile?.coachId,
-        )
-        if (fetchedId) {
-          setFetchedCoachId(fetchedId)
-          finalCoachId = fetchedId
-        }
-      } catch {
-        // Handled by check below
-      }
-    }
 
     if (apiEnabled && (!finalCoachId || !Number.isInteger(finalCoachId))) {
       const msg =
@@ -689,27 +825,65 @@ export function CoachTrainingProgress() {
       showToast(t("coachEmptyFieldValidationError"), "warning")
       return
     }
+    const memberIdNum = parseNumericId(
+      selectedMemberId || selectedStudent?.id,
+      1,
+    )
+    const selectedSessionObj =
+      apiSessions.find((s) => String(s.id) === String(selectedSessionId)) || {
+        id: Number(selectedSessionId),
+        status: "Completed",
+      }
+    const parsedServerTime = parseBackendDate(selectedSessionObj?.serverTime)
+    const nowMs = Number.isFinite(parsedServerTime) ? parsedServerTime : Date.now()
+    const decision = apiEnabled
+      ? decideTrainingResultSubmission({
+          session: selectedSessionObj,
+          memberId: memberIdNum,
+          results: apiResults,
+          attendances: apiAttendances,
+          content: resultContent,
+          language,
+          now: nowMs,
+        })
+      : { action: "mock" }
+
+    if (decision.action === "block") {
+      showToast(decision.message, "warning")
+      return
+    }
+
     setSavingResult(true)
     try {
-      const memberIdNum = parseNumericId(
-        selectedMemberId || selectedStudent?.id,
-        1,
-      )
       if (apiEnabled) {
-        await memberPortalApi.createTrainingResult({
-          sessionId: Number(selectedSessionId),
-          memberId: memberIdNum,
-          coachId: resolvedCoachId,
-          attendanceStatus: readOnlyAttendanceStatus,
-          content: resultContent.trim(),
-        })
-        setResultContent("")
-        await loadAllProgressData()
-        showToast("Đã ghi nhận kết quả buổi tập thành công!", "success")
+        if (decision.action === "patch") {
+          await updateTrainingResultContent(decision.resultId, decision.content, {
+            notifyForbidden: false,
+          })
+          setResultContent("")
+          await loadAllProgressData()
+          showToast(
+            language === "vi"
+              ? "Đã cập nhật nhận xét buổi tập."
+              : "Session comment updated.",
+            "success",
+          )
+        } else {
+          await memberPortalApi.createTrainingResult({
+            sessionId: Number(selectedSessionId),
+            memberId: memberIdNum,
+            coachId: resolvedCoachId,
+            attendanceStatus: decision.attendanceStatus,
+            content: decision.content,
+          })
+          setResultContent("")
+          await loadAllProgressData()
+          showToast("Đã ghi nhận kết quả buổi tập thành công!", "success")
+        }
       }
     } catch (err) {
       showToast(
-        getErrorMessage(err, "Không thể ghi nhận kết quả buổi tập."),
+        getTrainingResultSaveErrorMessage(err, language),
         "error",
       )
     } finally {
@@ -1338,10 +1512,16 @@ export function CoachTrainingProgress() {
                   {t("coachAttendanceReadOnlyLabel")}
                 </label>
                 <div className="h-9 w-full bg-bg-secondary border border-border-color rounded px-3 py-1.5 text-text-primary text-sm font-semibold flex items-center justify-between">
-                  <CoachStatusBadge
-                    domain="attendance"
-                    value={readOnlyAttendanceStatus}
-                  />
+                  {readOnlyAttendanceStatus ? (
+                    <CoachStatusBadge
+                      domain="attendance"
+                      value={readOnlyAttendanceStatus}
+                    />
+                  ) : (
+                    <span className="text-xs font-medium text-text-muted">
+                      {language === "vi" ? "Chưa có điểm danh" : "No attendance recorded"}
+                    </span>
+                  )}
                   <span className="text-xs leading-4 font-mono text-text-secondary uppercase">
                     {t("coachReadOnlyTag")}
                   </span>
@@ -1382,6 +1562,9 @@ export function CoachTrainingProgress() {
           {studentResults.length > 0 && (
             <div className="pt-3 border-t border-border-color space-y-2">
               {(showAllResults ? studentResults : studentResults.slice(0, 5)).map((r) => {
+                const rid = r.resultId ?? r.id
+                const isEditing = editingResultId !== null && String(editingResultId) === String(rid)
+                const windowState = getResultEditWindowState(r, sessionById)
                 const memberLabel =
                   r.memberName ||
                   availableStudents.find(
@@ -1393,21 +1576,113 @@ export function CoachTrainingProgress() {
                 const sessionLabel =
                   r.className ||
                   (r.sessionId ? `Buổi #${r.sessionId}` : "Buổi tập")
+                const editTextareaId = `edit-result-content-${rid}`
+                const editErrorId = `edit-result-error-${rid}`
                 return (
                   <div
-                    key={r.resultId || r.id}
-                    className="p-2.5 bg-bg-secondary border border-border-color rounded text-sm leading-5 flex items-center justify-between gap-2"
+                    key={rid}
+                    className="p-2.5 bg-bg-secondary border border-border-color rounded text-sm leading-5 space-y-2 min-w-0"
                   >
-                    <div>
-                      <div className="font-semibold text-text-primary">
-                        {memberLabel} &bull; {sessionLabel}
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-text-primary break-words">
+                          {memberLabel} &bull; {sessionLabel}
+                        </div>
+                        {!isEditing ? (
+                          <div className="text-text-secondary mt-0.5 break-words">{r.content}</div>
+                        ) : null}
                       </div>
-                      <div className="text-text-secondary mt-0.5">{r.content}</div>
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <CoachStatusBadge
+                          domain="attendance"
+                          value={r.attendanceStatus || "Present"}
+                        />
+                        {!isEditing && rid ? (
+                          windowState.canEdit ? (
+                            <button
+                              ref={(el) => {
+                                if (el) editButtonRefs.current.set(String(rid), el)
+                                else editButtonRefs.current.delete(String(rid))
+                              }}
+                              type="button"
+                              onClick={() => openResultEdit(r)}
+                              className="inline-flex min-h-11 items-center justify-center rounded border border-border-color bg-bg-card px-3 text-xs font-semibold leading-5 text-text-primary hover:bg-bg-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 cursor-pointer"
+                            >
+                              {language === "vi" ? "Sửa nhận xét" : "Edit comment"}
+                            </button>
+                          ) : (
+                            <span className="text-xs font-medium text-text-muted">
+                              {windowState.status === "not_open"
+                                ? language === "vi"
+                                  ? "Chưa đến lúc sửa"
+                                  : "Not open for editing yet"
+                                : language === "vi"
+                                  ? "Đã hết hạn sửa"
+                                  : "Edit window expired"}
+                            </span>
+                          )
+                        ) : null}
+                      </div>
                     </div>
-                    <CoachStatusBadge
-                      domain="attendance"
-                      value={r.attendanceStatus || "Present"}
-                    />
+
+                    {isEditing ? (
+                      <div className="space-y-2 pt-1">
+                        <label
+                          htmlFor={editTextareaId}
+                          className="block text-xs font-semibold text-text-primary"
+                        >
+                          {language === "vi" ? "Nội dung nhận xét" : "Comment content"}
+                        </label>
+                        <textarea
+                          ref={editTextareaRef}
+                          id={editTextareaId}
+                          rows={3}
+                          maxLength={4000}
+                          value={editingContent}
+                          disabled={savingResultEdit}
+                          aria-invalid={Boolean(editResultError)}
+                          aria-describedby={editResultError ? editErrorId : undefined}
+                          onChange={(e) => {
+                            setEditingContent(e.target.value)
+                            if (editResultError) setEditResultError("")
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") {
+                              e.preventDefault()
+                              closeResultEdit(rid)
+                            }
+                          }}
+                          className="w-full min-h-11 rounded border border-border-strong bg-bg-card px-3 py-2 text-sm leading-5 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:opacity-60"
+                        />
+                        {editResultError ? (
+                          <p
+                            id={editErrorId}
+                            role="alert"
+                            className="text-xs font-medium text-status-danger"
+                          >
+                            {editResultError}
+                          </p>
+                        ) : null}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={savingResultEdit}
+                            onClick={() => handleSaveResultEdit(r)}
+                            className="inline-flex min-h-11 items-center justify-center rounded bg-brand-primary px-4 text-sm font-semibold text-white hover:bg-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+                          >
+                            {language === "vi" ? "Lưu" : "Save"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={savingResultEdit}
+                            onClick={() => closeResultEdit(rid)}
+                            className="inline-flex min-h-11 items-center justify-center rounded border border-border-color bg-bg-card px-4 text-sm font-semibold text-text-primary hover:bg-bg-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+                          >
+                            {language === "vi" ? "Hủy" : "Cancel"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 )
               })}

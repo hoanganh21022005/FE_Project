@@ -5,7 +5,6 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
-  X,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { PageHeader } from "../ui/PageHeader"
@@ -56,6 +55,12 @@ import {
   WeekNavigator,
 } from "../schedule/MemberScheduleWidgets"
 import { SessionAbsenceModal } from "../schedule/MemberCourseScheduleComponents"
+import { PrivateSessionCancelDialog } from "../schedule/PrivateSessionCancelDialog"
+import { formatDateTime } from "../../utils/datetime"
+import {
+  resolveCancellationOutcome,
+  sumAdvancedCredits,
+} from "../../utils/sessionCancellation"
 
 export function MemberScheduleView() {
   const navigate = useNavigate()
@@ -481,23 +486,54 @@ export function MemberScheduleView() {
       canCancelForRefund: sessionItem.canCancelPtForRefund,
       cutoffHours: sessionItem.cancelCutoffHours,
       refundDeadlineFormatted: sessionItem.ptRefundDeadlineFormatted,
+      cancellationAllowed: sessionItem.cancellationAllowed,
+      cancellationDeadline: sessionItem.cancellationDeadline,
     })
+  }
+
+  // Đọc gói của Member từ Backend; null nếu không đọc được (không dùng số cũ để báo "11→12").
+  const readSubscriptionsOrNull = async () => {
+    if (!validMember) return null
+    try {
+      const subs = await membershipApi.getMemberSubscriptions(memberId, { strict: true })
+      return Array.isArray(subs) ? subs : null
+    } catch {
+      return null
+    }
   }
 
   const handleConfirmCancelPrivate = async () => {
     const sid = ptCancelConfirmTarget?.session?.id
-    if (!sid) return
+    if (!sid || cancellingSessionId) return
     setCancellingSessionId(sid)
+    const creditBefore = sumAdvancedCredits(await readSubscriptionsOrNull())
     try {
-      await cancelPrivateSession(sid)
-      showToast(t("schedulePtCancelSuccessToast"), "success")
+      const result = await cancelPrivateSession(sid)
       setPtCancelConfirmTarget(null)
+      const creditAfter = sumAdvancedCredits(await readSubscriptionsOrNull())
+      const outcome = resolveCancellationOutcome({
+        creditReturned: result?.creditReturned === true,
+        creditBefore,
+        creditAfter,
+      })
+      showToast(
+        outcome.kind === "refunded_verified"
+          ? tr("sessionCancelOutcomeRefunded", { before: outcome.before, after: outcome.after })
+          : outcome.kind === "refunded_unverified"
+            ? t("sessionCancelOutcomeRefundUnverified")
+            : t("sessionCancelOutcomeNoRefund"),
+        "success",
+      )
       await refresh()
     } catch (err) {
+      // CANCEL_TOO_LATE, SESSION_ALREADY_ATTENDED...: câu từ bảng mã lỗi chung, không báo thành công,
+      // đóng hộp thoại và tải lại trạng thái buổi.
       showToast(
-        getErrorMessage(err, t("schedulePtCancelErrorToast")),
+        getErrorMessage(err, t("sessionCancelErrorReloaded")),
         "error",
       )
+      setPtCancelConfirmTarget(null)
+      await refresh()
     } finally {
       setCancellingSessionId(null)
     }
@@ -806,57 +842,28 @@ export function MemberScheduleView() {
 
       {/* Hộp xác nhận hủy PT 1:1 */}
       {ptCancelConfirmTarget && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={t("schedulePtCancelConfirmTitle")}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
-        >
-          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="text-[16px] font-extrabold text-slate-900">{t("schedulePtCancelConfirmTitle")}</h3>
-              <button
-                type="button"
-                aria-label={t("scheduleAbsenceClose")}
-                onClick={() => setPtCancelConfirmTarget(null)}
-                className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="space-y-2 text-[13px] text-slate-700">
-              <p className="font-bold text-slate-900">
-                {ptCancelConfirmTarget.session.className || t("schedulePtDefaultTitle")}{" "}
-                · {toDdMmYyyy(ptCancelConfirmTarget.session.sessionDate) || "—"} (
-                {ptCancelConfirmTarget.session.startTime}–{ptCancelConfirmTarget.session.endTime})
-              </p>
-              <p className={`rounded-lg border p-3 font-medium leading-relaxed ${ptCancelConfirmTarget.canCancelForRefund ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-amber-200 bg-amber-50 text-amber-950"}`}>
-                {ptCancelConfirmTarget.canCancelForRefund
-                  ? tr("schedulePtCancelConfirmRefundMsg", { hours: ptCancelConfirmTarget.cutoffHours, datetime: ptCancelConfirmTarget.refundDeadlineFormatted || "—" })
-                  : tr("schedulePtCancelConfirmNoRefundMsg", { hours: ptCancelConfirmTarget.cutoffHours })}
-              </p>
-            </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setPtCancelConfirmTarget(null)}
-                className="min-h-[38px] rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 text-[13px] font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
-              >
-                {t("scheduleAbsenceClose")}
-              </button>
-              <button
-                type="button"
-                disabled={cancellingSessionId === ptCancelConfirmTarget.session.id}
-                onClick={handleConfirmCancelPrivate}
-                className="min-h-[38px] rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-50 px-4 py-1.5 text-[13px] font-bold text-white cursor-pointer"
-              >
-                {cancellingSessionId === ptCancelConfirmTarget.session.id
-                  ? t("schedulePtBtnCancelling")
-                  : t("schedulePtCancelConfirmBtn")}
-              </button>
-            </div>
-          </div>
-        </div>
+        <PrivateSessionCancelDialog
+          title={ptCancelConfirmTarget.session.className || t("schedulePtDefaultTitle")}
+          dateText={toDdMmYyyy(ptCancelConfirmTarget.session.sessionDate) || "—"}
+          timeText={`${ptCancelConfirmTarget.session.startTime}–${ptCancelConfirmTarget.session.endTime}`}
+          // Backend xác nhận được hủy: nói rõ hoàn 1 credit. Thiếu field: giữ cách báo cũ theo mốc 12 giờ.
+          message={
+            ptCancelConfirmTarget.cancellationAllowed === true
+              ? t("sessionCancelDialogRefundMsg")
+              : ptCancelConfirmTarget.canCancelForRefund
+                ? tr("schedulePtCancelConfirmRefundMsg", { hours: ptCancelConfirmTarget.cutoffHours, datetime: ptCancelConfirmTarget.refundDeadlineFormatted || "—" })
+                : tr("schedulePtCancelConfirmNoRefundMsg", { hours: ptCancelConfirmTarget.cutoffHours })
+          }
+          tone={ptCancelConfirmTarget.cancellationAllowed === true || ptCancelConfirmTarget.canCancelForRefund ? "refund" : "warn"}
+          deadlineText={
+            ptCancelConfirmTarget.cancellationDeadline
+              ? tr("sessionCancelDeadline", { datetime: formatDateTime(ptCancelConfirmTarget.cancellationDeadline) })
+              : ""
+          }
+          busy={cancellingSessionId === ptCancelConfirmTarget.session.id}
+          onKeep={() => setPtCancelConfirmTarget(null)}
+          onConfirm={handleConfirmCancelPrivate}
+        />
       )}
     </div>
   )

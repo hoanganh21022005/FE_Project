@@ -124,7 +124,14 @@ export function MemberTrainingView() {
         </div>
       )}
       {loading ? (
-        <div className="rounded-xl border bg-white p-8 text-center text-sm text-slate-500">{isVi ? 'Đang tải…' : 'Loading…'}</div>
+        <div aria-busy="true" className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+          <section className="space-y-6 lg:col-span-5">
+            {[0, 1].map((key) => <article key={key} className="animate-pulse space-y-4 rounded-xl border border-slate-200 bg-white p-5"><div className="h-5 w-2/5 rounded bg-slate-200" /><div className="h-3 w-1/3 rounded bg-slate-100" /><div className="h-24 rounded-lg bg-slate-100" /></article>)}
+          </section>
+          <section className="space-y-6 lg:col-span-7">
+            {[0, 1].map((key) => <article key={key} className="animate-pulse space-y-4 rounded-xl border border-slate-200 bg-white p-5"><div className="h-5 w-1/3 rounded bg-slate-200" /><div className="grid grid-cols-2 gap-3"><div className="h-16 rounded-lg bg-slate-100" /><div className="h-16 rounded-lg bg-slate-100" /></div><div className="h-3 w-4/5 rounded bg-slate-100" /></article>)}
+          </section>
+        </div>
       ) : (
         <div className="space-y-6">
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
@@ -241,5 +248,5 @@ export function MemberTrainingView() {
 }
 
 function Empty({ text }) {
-  return <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">{text}</div>;
+  return <div className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500"><ClipboardList className="h-7 w-7 text-slate-300" aria-hidden="true" /><p>{text}</p></div>;
 }

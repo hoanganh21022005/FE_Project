@@ -1,5 +1,6 @@
 import { httpClient } from './httpClient.js'
 import { extractList, isValidNumericId } from './schemaValidators.js'
+import { optionalBoolean } from './mappers.js'
 
 const requireList = (response, name) => {
   const rows = extractList(response)
@@ -9,7 +10,7 @@ const requireList = (response, name) => {
   return rows
 }
 
-const normalizeAdvancedRegistration = (item) => {
+export const normalizeAdvancedRegistration = (item) => {
   const invoice = item?.invoice ?? item?.order?.invoice ?? item?.data?.invoice
   const order = item?.order ?? item?.data?.order
   return {
@@ -23,6 +24,11 @@ const normalizeAdvancedRegistration = (item) => {
     orderStatus: item?.orderStatus ?? order?.status ?? invoice?.status ?? null,
     paymentUrl: item?.paymentUrl ?? invoice?.paymentUrl ?? order?.paymentUrl ?? null,
     invoiceExpiresAt: item?.invoiceExpiresAt ?? invoice?.expiresAt ?? null,
+    // Field theo contract hạn và quyền thao tác: thiếu thì giữ null (khác với false).
+    invoiceStatus: item?.invoiceStatus ?? invoice?.status ?? invoice?.paymentStatus ?? null,
+    purchaseConfirmationAllowed: optionalBoolean(item?.purchaseConfirmationAllowed),
+    purchaseConfirmationBlockReason: item?.purchaseConfirmationBlockReason ?? null,
+    serverTime: item?.serverTime ?? null,
   }
 }
 

@@ -6,11 +6,11 @@ product
 
 ## Users
 
-SCMS phục vụ nhân sự vận hành trung tâm thể thao và hội viên. System Admin là vai trò quản trị bao trùm, quản lý tài khoản, vai trò, quyền và nhật ký an toàn, đồng thời có thể trực tiếp thao tác và giám sát vận hành thay cho các vai trò quản lý và lễ tân khi cần thiết trong một ca làm việc tập trung. Họ cần quét nhanh trạng thái hệ thống, tìm đúng bản ghi và nhận biết lỗi dữ liệu mà không mất ngữ cảnh.
+AVT Sport phục vụ nhân sự vận hành trung tâm thể thao và hội viên. System Admin là vai trò quản trị bao trùm, quản lý tài khoản, vai trò, quyền và nhật ký an toàn, đồng thời có thể trực tiếp thao tác và giám sát vận hành thay cho các vai trò quản lý và lễ tân khi cần thiết trong một ca làm việc tập trung. Họ cần quét nhanh trạng thái hệ thống, tìm đúng bản ghi và nhận biết lỗi dữ liệu mà không mất ngữ cảnh.
 
 ## Product Purpose
 
-SCMS hợp nhất các luồng vận hành trung tâm thể thao theo vai trò. Portal Admin cung cấp một không gian quản trị hệ thống độc lập với Center Manager, sử dụng session và quyền từ backend, đồng thời trình bày dữ liệu thật với nguồn và trạng thái rõ ràng.
+AVT Sport hợp nhất các luồng vận hành trung tâm thể thao theo vai trò. Portal Admin cung cấp một không gian quản trị hệ thống độc lập với Center Manager, sử dụng session và quyền từ backend, đồng thời trình bày dữ liệu thật với nguồn và trạng thái rõ ràng.
 
 ## Brand Personality
 
@@ -28,7 +28,7 @@ Rõ ràng, tin cậy, hiệu quả. Giao diện nói bằng ngôn ngữ vận h�
 - Quyền và nguồn dữ liệu phải nhìn thấy được: navigation, nhãn và trạng thái phản ánh contract backend.
 - Lỗi cục bộ ở đâu thì xử lý và retry ở đó; phần dữ liệu lành mạnh vẫn dùng được.
 - Mật độ phục vụ công việc: bảng, bộ lọc và thông tin chính phải quét nhanh mà không chật chội.
-- Giữ nhận diện SCMS nhưng tách rõ không gian Admin khỏi các portal theo trung tâm.
+- Giữ nhận diện AVT Sport nhưng tách rõ không gian Admin khỏi các portal theo trung tâm.
 - Trạng thái loading, empty, error và forbidden là trạng thái sản phẩm hạng nhất, không phải phần bổ sung.
 
 ## Accessibility & Inclusion

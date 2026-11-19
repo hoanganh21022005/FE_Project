@@ -14,32 +14,13 @@ import { useAdminData } from "../AdminDataContext.jsx"
 import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { formatAdminDate, formatAdminDateTime } from "../adminDateUtils.js"
 import { formatAuditTarget } from "../adminAuditFormat.js"
-import { getAdminAuditActionLabel, getAdminText } from "../adminI18n.js"
+import { formatAdminErrorMessage, getAdminAuditActionLabel, getAdminText } from "../adminI18n.js"
 import { getAdminAuditLogs } from "../../../api/adminApi.js"
 
 // Ghi chú: Quy ước page tính từ 0 hay 1 là CHƯA XÁC NHẬN với Backend.
 // Đặt hằng số AUDIT_PAGE_BASE = 0 ở đây để dễ dàng thay đổi khi Backend chốt hợp đồng.
 export const AUDIT_PAGE_BASE = 0
 export const AUDIT_PAGE_SIZE = 20
-
-// Bảng ánh xạ nhãn tiếng Việt cho mã hành động
-export const AUDIT_ACTION_MAP = {
-  LOGIN: "Đăng nhập",
-  LOGIN_GOOGLE: "Đăng nhập qua Google",
-  REGISTER_MEMBER_GOOGLE: "Đăng ký hội viên qua Google",
-  REGISTER_MEMBER_PENDING: "Đăng ký hội viên",
-  VERIFY_MEMBER_REGISTRATION: "Xác minh đăng ký hội viên",
-  CREATE_USER: "Tạo tài khoản người dùng",
-  CHANGE_USER_ROLE: "Đổi vai trò người dùng",
-  REISSUE_TEMPORARY_PASSWORD: "Cấp lại mật khẩu tạm",
-  UPDATE_STAFF: "Cập nhật nhân viên",
-  CHANGE_USER_STATUS: "Đổi trạng thái tài khoản",
-  UPDATE_ROLE_PERMISSIONS: "Cập nhật quyền vai trò",
-  CREATE_INVOICE: "Tạo hóa đơn",
-  COLLECT_PAYMENT: "Thu tiền thanh toán",
-  ENROLL_CLASS: "Ghi danh lớp học",
-  ATTENDANCE_CORRECTION: "Điều chỉnh điểm danh",
-}
 
 const KNOWN_ACTIONS = [
   "LOGIN",
@@ -50,11 +31,18 @@ const KNOWN_ACTIONS = [
   "CREATE_USER",
   "CHANGE_USER_ROLE",
   "REISSUE_TEMPORARY_PASSWORD",
+  "RESET_PASSWORD",
   "UPDATE_STAFF",
   "CHANGE_USER_STATUS",
   "UPDATE_ROLE_PERMISSIONS",
   "CREATE_INVOICE",
   "COLLECT_PAYMENT",
+  "CONFIRM_PAYMENT",
+  "OPEN_PAYMENT_RESOLUTION",
+  "BLOCK_PAYMENT_RESOLUTION",
+  "OPEN_CENTER_INCIDENT",
+  "RESOLVE_CENTER_INCIDENT",
+  "DELETE_SESSION",
   "ENROLL_CLASS",
   "ATTENDANCE_CORRECTION",
 ]
@@ -78,17 +66,14 @@ export function AdminAuditLogsView() {
   const isEn = language === "en"
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const initialRangeToday = searchParams.get("range") === "today" ? getTodayVnDate() : ""
-
-  // Bộ lọc gửi lên server
-  const [selectedAction, setSelectedAction] = useState(searchParams.get("action") || "")
-  const [startDate, setStartDate] = useState(
-    searchParams.get("startDate") || initialRangeToday || "",
-  )
-  const [endDate, setEndDate] = useState(
-    searchParams.get("endDate") || initialRangeToday || "",
-  )
-  const [selectedActorId, setSelectedActorId] = useState(searchParams.get("actorId") || "")
+  // Bộ lọc gửi lên server: URL là nguồn duy nhất, không sao chép sang state riêng.
+  // (Trước đây state và URL đồng bộ hai chiều qua effect, nên khi đổi bộ lọc liên tiếp
+  // rất nhanh, giá trị URL cũ có thể ghi đè bộ lọc vừa chọn.)
+  const rangeToday = searchParams.get("range") === "today" ? getTodayVnDate() : ""
+  const selectedAction = searchParams.get("action") || ""
+  const startDate = searchParams.get("startDate") || rangeToday
+  const endDate = searchParams.get("endDate") || rangeToday
+  const selectedActorId = searchParams.get("actorId") || ""
 
   // Phân trang
   const [page, setPage] = useState(1) // UI page bắt đầu từ 1
@@ -100,17 +85,8 @@ export function AdminAuditLogsView() {
   // Ô tìm kiếm chữ client trên trang hiện tại
   const [query, setQuery] = useState("")
 
-  // Đồng bộ bộ lọc khi URL query (?startDate=&endDate=&action=&actorId=) thay đổi từ bên ngoài
+  // Bộ lọc đổi (do người dùng hoặc do URL đổi từ bên ngoài) thì quay về trang 1
   useEffect(() => {
-    const rangeToday = searchParams.get("range") === "today" ? getTodayVnDate() : ""
-    const nextAction = searchParams.get("action") || ""
-    const nextStart = searchParams.get("startDate") || rangeToday || ""
-    const nextEnd = searchParams.get("endDate") || rangeToday || ""
-    const nextActor = searchParams.get("actorId") || ""
-    setSelectedAction(nextAction)
-    setStartDate(nextStart)
-    setEndDate(nextEnd)
-    setSelectedActorId(nextActor)
     setPage(1)
   }, [searchParams])
 
@@ -179,7 +155,7 @@ export function AdminAuditLogsView() {
           setIsForbidden(true)
           setError(getAdminText(language, "audit.forbiddenMsg"))
         } else {
-          setError(err?.message || getAdminText(language, "audit.loadErrorFallback"))
+          setError(formatAdminErrorMessage(err, language, "audit.loadErrorFallback"))
         }
       } finally {
         setLoading(false)
@@ -195,13 +171,16 @@ export function AdminAuditLogsView() {
 
   const syncAuditParams = useCallback(
     (nextValues) => {
-      const next = new URLSearchParams(searchParams)
+      // Đọc URL hiện tại tại thời điểm gọi (không dùng giá trị của lần render cũ) để các
+      // thay đổi liên tiếp không làm mất nhau.
+      const next = new URLSearchParams(window.location.search)
+      const todayRange = next.get("range") === "today" ? getTodayVnDate() : ""
       next.delete("range")
       const entries = {
-        action: nextValues.action ?? selectedAction,
-        startDate: nextValues.startDate ?? startDate,
-        endDate: nextValues.endDate ?? endDate,
-        actorId: nextValues.actorId ?? selectedActorId,
+        action: nextValues.action ?? (next.get("action") || ""),
+        startDate: nextValues.startDate ?? (next.get("startDate") || todayRange),
+        endDate: nextValues.endDate ?? (next.get("endDate") || todayRange),
+        actorId: nextValues.actorId ?? (next.get("actorId") || ""),
       }
       for (const [key, value] of Object.entries(entries)) {
         if (value) {
@@ -212,43 +191,35 @@ export function AdminAuditLogsView() {
       }
       setSearchParams(next, { replace: true })
     },
-    [searchParams, setSearchParams, selectedAction, startDate, endDate, selectedActorId],
+    [setSearchParams],
   )
 
   // Khi thay đổi bộ lọc server, reset về trang 1
   const handleActionChange = (e) => {
     const val = e.target.value
-    setSelectedAction(val)
     setPage(1)
     syncAuditParams({ action: val })
   }
 
   const handleStartDateChange = (e) => {
     const val = e.target.value
-    setStartDate(val)
     setPage(1)
     syncAuditParams({ startDate: val })
   }
 
   const handleEndDateChange = (e) => {
     const val = e.target.value
-    setEndDate(val)
     setPage(1)
     syncAuditParams({ endDate: val })
   }
 
   const handleActorChange = (e) => {
     const val = e.target.value
-    setSelectedActorId(val)
     setPage(1)
     syncAuditParams({ actorId: val })
   }
 
   const handleResetFilters = () => {
-    setSelectedAction("")
-    setStartDate("")
-    setEndDate("")
-    setSelectedActorId("")
     setQuery("")
     setPage(1)
     syncAuditParams({ action: "", startDate: "", endDate: "", actorId: "" })

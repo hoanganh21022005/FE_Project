@@ -29,9 +29,23 @@ import { invoiceApi } from "../../api/invoiceApi"
 import { startVnpayCheckout } from "../../utils/vnpayCheckout"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import { getErrorMessage } from "../../api/apiErrors"
+import { coachIsActive } from "../../utils/memberCourseCatalogRules"
 import { getPrivateSessionProposalErrorMessage } from "../../utils/privateSessionProposalErrors"
 import { resolveCoachAvatar } from "../../data/publicCoaches"
 import { PageHeader } from "../ui/PageHeader"
+import { PrivateSessionCancelDialog } from "../schedule/PrivateSessionCancelDialog"
+import { formatDateTime } from "../../utils/datetime"
+import { buildOrderCreatedMessage } from "../../utils/paymentDeadline"
+import { normalizeAdvancedOrderResponse } from "../../api/advancedRegistrationApi"
+import {
+  describeCancellationBlock,
+  isCancellationConfirmed,
+  isCancelledWithRefund,
+  readCancellationFields,
+  getPrivateSessionTimingRule,
+  resolveCancellationOutcome,
+  sumAdvancedCredits,
+} from "../../utils/sessionCancellation"
 
 const isPositiveSessionId = (value) => Number.isInteger(Number(value)) && Number(value) > 0
 const formatProposalDeadline = (value, isVi) => {
@@ -48,6 +62,16 @@ const formatProposalDeadline = (value, isVi) => {
 export function MemberMyCoachView() {
   const { language, currentUser, subjects, apiEnabled, showToast, t } = useSCMS()
   const isVi = language === "vi"
+  const tr = useCallback(
+    (key, params = {}) => {
+      let text = t(key)
+      for (const [name, value] of Object.entries(params)) {
+        text = text.replaceAll(`{${name}}`, String(value ?? ""))
+      }
+      return text
+    },
+    [t],
+  )
 
   // Navigation tab: 'coaches' | 'my_sessions' | 'advanced_pt'
   const [activeTab, setActiveTab] = useState("coaches")
@@ -68,6 +92,11 @@ export function MemberMyCoachView() {
   const [coaches, setCoaches] = useState([])
   const [loadingCoaches, setLoadingCoaches] = useState(true)
   const [coachesError, setCoachesError] = useState("")
+  // Danh bạ HLV: ở chế độ API chỉ hiện Coach đang hoạt động (backend chặn đăng ký với Coach không Active).
+  const directoryCoaches = useMemo(
+    () => (apiEnabled ? coaches.filter(coachIsActive) : coaches),
+    [apiEnabled, coaches],
+  )
   const [keyword, setKeyword] = useState("")
   const [sportFilter, setSportFilter] = useState("all")
 
@@ -94,6 +123,10 @@ export function MemberMyCoachView() {
   const [submittingAbsence, setSubmittingAbsence] = useState(false)
   const [absenceMsg, setAbsenceMsg] = useState("")
 
+  // Hộp xác nhận hủy buổi PT
+  const [cancelTarget, setCancelTarget] = useState(null)
+  const [cancelling, setCancelling] = useState(false)
+
   // Member ID
   const memberProfileId = useMemo(() => {
     return getAuthoritativeProfileId(currentUser) || currentUser?.id
@@ -105,20 +138,10 @@ export function MemberMyCoachView() {
     const start = new Date(`${String(session?.sessionDate || "").slice(0, 10)} ${String(session?.startTime || "").slice(0, 8)}`)
     return status === "scheduled" && !Number.isNaN(start.getTime()) && start.getTime() >= Date.now()
   }).length
-  const visiblePrivateSessions = privateSessions.filter((session) => !["cancelled", "canceled", "absent"].includes(String(session?.status || "").trim().toLowerCase()))
-  const getSessionTimingRule = (session, now = new Date()) => {
-    const status = String(session?.status || "").trim().toLowerCase()
-    if (["cancelled", "canceled", "absent", "completed"].includes(status)) return { isCancellable: false, isAbsentApplicable: false }
-    const date = String(session?.sessionDate || "").slice(0, 10)
-    const startTime = String(session?.startTime || "").slice(0, 8)
-    const endTime = String(session?.endTime || "").slice(0, 8)
-    const start = new Date(`${date} ${startTime}`)
-    const end = new Date(`${date} ${endTime || startTime}`)
-    if (!date || Number.isNaN(start.getTime())) return { isCancellable: false, isAbsentApplicable: false }
-    const diffHours = (start.getTime() - now.getTime()) / 3600000
-    const hasEnded = !Number.isNaN(end.getTime()) ? now.getTime() >= end.getTime() : diffHours <= 0
-    return { isCancellable: !hasEnded && diffHours >= 12, isAbsentApplicable: !hasEnded && diffHours < 12 }
-  }
+  // Buổi đã hủy vẫn hiện (kèm nhãn "Đã hủy · Đã hoàn 1 credit" khi Backend xác nhận hoàn); buổi báo vắng thì ẩn như cũ.
+  const visiblePrivateSessions = privateSessions.filter((session) => String(session?.status || "").trim().toLowerCase() !== "absent")
+  // Quy tắc nút hủy / báo vắng nằm ở utils/sessionCancellation.js (có test .mjs riêng).
+  const getSessionTimingRule = getPrivateSessionTimingRule
   const pendingSessionProposals = privateSessionProposals.filter((proposal) =>
     String(proposal.status || "").toLowerCase() === "pending" && proposal.sessionId == null,
   )
@@ -183,10 +206,6 @@ export function MemberMyCoachView() {
             return st === "active" || st === "grace_period"
           })
           setSubscriptions(valid)
-          if (valid.length > 0)
-            setSelectedSubscriptionId(
-              String(valid[0].subscriptionId || valid[0].id),
-            )
         })
         .catch((err) => console.warn("Could not fetch subscriptions:", err))
     }
@@ -502,10 +521,15 @@ export function MemberMyCoachView() {
       const orderRes = await memberPortalApi.orderAdvancedRegistration(reg.id, {
         paymentMethod,
       })
+      // Hạn thanh toán theo expiresAt của đơn do Backend lưu; không có thì không nêu số phút.
+      const createdOrder = normalizeAdvancedOrderResponse(orderRes)
       showToast?.(
-        isVi
-          ? `Đã tạo đơn thanh toán (${orderRes?.invoiceCode || paymentMethod}) thành công! Hạn thanh toán: 5 phút.`
-          : "Created payment order! 5-minute payment window active.",
+        buildOrderCreatedMessage({
+          invoiceCode: createdOrder.invoiceCode,
+          paymentMethod,
+          expiresAt: createdOrder.expiresAt,
+          language: isVi ? "vi" : "en",
+        }),
         "success",
       )
       await fetchAdvancedRegistrations()
@@ -605,44 +629,74 @@ export function MemberMyCoachView() {
   }, [coachWorkSchedule, isVi])
 
   // 6. Cancel Private Session (POST /api/sessions/{sessionId}/cancel-private)
-  const handleCancelPrivate = async (sessionId) => {
-    if (
-      !window.confirm(
-        isVi
-          ? "Bạn có chắc chắn muốn hủy buổi tập riêng này (trước ≥ 12h để được hoàn 1 credit) không?"
-          : "Are you sure you want to cancel this private session (≥ 12h notice refunds 1 credit)?",
-      )
-    )
-      return
-    const refreshAfterCancellation = async () => {
+  // Bấm "Hủy" chỉ mở hộp xác nhận; yêu cầu hủy chỉ gửi khi bấm "Xác nhận hủy".
+  const handleCancelPrivate = (session) => {
+    if (!session || cancelling) return
+    setCancelTarget(session)
+  }
+
+  // Đọc gói của Member (null nếu không đọc được); gói Advanced đang dùng được là thứ ta cần.
+  const readSubscriptionsOrNull = async () => {
+    if (!apiEnabled || !memberProfileId) return null
+    try {
+      const subs = await membershipApi.getMemberSubscriptions(memberProfileId, { notifyForbidden: false, strict: true })
+      return Array.isArray(subs) ? subs : null
+    } catch {
+      return null
+    }
+  }
+
+  const handleConfirmCancelPrivate = async () => {
+    const session = cancelTarget
+    if (!session || cancelling) return
+    setCancelling(true)
+    // Credit trước khi hủy: đọc mới từ Backend; không đọc được thì dùng số đang hiển thị.
+    const subsBefore = await readSubscriptionsOrNull()
+    const creditBefore = sumAdvancedCredits(subsBefore ?? subscriptions)
+    const reloadAfterCancellation = async (creditReturned) => {
       await fetchPrivateSessions()
-      setPrivateSessions((current) => current.map((session) =>
-        String(session.id) === String(sessionId) ? { ...session, status: "Cancelled" } : session,
+      setPrivateSessions((current) => current.map((item) =>
+        String(item.id) === String(session.id)
+          ? { ...item, status: "Cancelled", creditReturned: creditReturned === true ? true : item.creditReturned }
+          : item,
       ))
-      if (apiEnabled && memberProfileId) {
-        const subs = await membershipApi.getMemberSubscriptions(memberProfileId, { notifyForbidden: false }).catch(() => [])
-        setSubscriptions((Array.isArray(subs) ? subs : []).filter((s) => ["active", "grace_period"].includes(String(s?.status || "").toLowerCase())))
+      const subsAfter = await readSubscriptionsOrNull()
+      if (subsAfter) {
+        setSubscriptions(subsAfter.filter((s) => ["active", "grace_period"].includes(String(s?.status || "").toLowerCase())))
       }
+      return subsAfter ? sumAdvancedCredits(subsAfter) : null
     }
     try {
       let cancellationResult = null
       if (apiEnabled) {
-        cancellationResult = await memberPortalApi.cancelPrivateSession(sessionId)
+        cancellationResult = await memberPortalApi.cancelPrivateSession(session.id)
       }
+      const creditReturned = cancellationResult?.creditReturned === true
+      const creditAfter = await reloadAfterCancellation(creditReturned)
+      const outcome = resolveCancellationOutcome({ creditReturned, creditBefore, creditAfter })
       showToast?.(
-        cancellationResult?.creditReturned === true
-          ? (isVi ? "\u0110\u00e3 h\u1ee7y bu\u1ed5i t\u1eadp; Backend x\u00e1c nh\u1eadn ho\u00e0n l\u1ea1i 1 credit." : "Session cancelled; the server confirmed one credit was returned.")
-          : (isVi ? "\u0110\u00e3 h\u1ee7y bu\u1ed5i t\u1eadp. Credit s\u1ebd hi\u1ec3n th\u1ecb theo d\u1eef li\u1ec7u g\u00f3i m\u1edbi nh\u1ea5t t\u1eeb Backend." : "Session cancelled. Credits follow the latest subscription data from the server."),
+        outcome.kind === "refunded_verified"
+          ? tr("sessionCancelOutcomeRefunded", { before: outcome.before, after: outcome.after })
+          : outcome.kind === "refunded_unverified"
+            ? t("sessionCancelOutcomeRefundUnverified")
+            : t("sessionCancelOutcomeNoRefund"),
         "success",
       )
-      await refreshAfterCancellation()
+      setCancelTarget(null)
     } catch (err) {
       const errorText = [err?.message, err?.details?.message, err?.response?.data?.message, err?.response?.data?.error].filter(Boolean).join(" ").toLowerCase()
       if (errorText.includes("original credit has already been returned")) {
-        await refreshAfterCancellation()
+        await reloadAfterCancellation(true)
+        setCancelTarget(null)
         return
       }
-      showToast?.(getErrorMessage(err, isVi ? "Không thể hủy buổi tập." : "Could not cancel session."), "error")
+      // CANCEL_TOO_LATE, SESSION_ALREADY_ATTENDED...: hiện câu từ bảng mã lỗi chung, không báo thành công,
+      // tải lại trạng thái buổi và giữ số dư credit đã đọc.
+      showToast?.(getErrorMessage(err, t("sessionCancelErrorReloaded")), "error")
+      setCancelTarget(null)
+      await fetchPrivateSessions()
+    } finally {
+      setCancelling(false)
     }
   }
 
@@ -786,7 +840,7 @@ export function MemberMyCoachView() {
                   : "Loading coaches..."}
               </span>
             </div>
-          ) : coaches.length === 0 ? (
+          ) : directoryCoaches.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-xs">
               <Users className="w-10 h-10 text-slate-300 mx-auto" />
               <p className="mt-3 text-sm font-bold text-slate-800">
@@ -797,7 +851,7 @@ export function MemberMyCoachView() {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {coaches.filter((c) => sportFilter === "all" || (c.specializations || [c.specialization]).includes(sportFilter)).map((c) => (
+              {directoryCoaches.filter((c) => sportFilter === "all" || (c.specializations || [c.specialization]).includes(sportFilter)).map((c) => (
                 <div
                   key={c.id}
                   className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between space-y-4"
@@ -814,9 +868,15 @@ export function MemberMyCoachView() {
                           <h3 className="font-bold text-slate-900 text-sm leading-snug">
                             {c.name}
                           </h3>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 shrink-0">
-                            {isVi ? "• Đang nhận học viên" : "• Accepting students"}
-                          </span>
+                          {c.acceptingNew === false ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 shrink-0">
+                              {isVi ? "• Tạm ngưng nhận mới" : "• Not accepting new students"}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 shrink-0">
+                              {isVi ? "• Đang nhận học viên" : "• Accepting students"}
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-slate-500 truncate mt-0.5">
                           {c.email}
@@ -831,7 +891,7 @@ export function MemberMyCoachView() {
                       {(String(c.bio || "").toLowerCase().includes("demo") ? "" : c.bio) ||
                         (isVi
                           ? `Huấn luyện viên chuyên sâu bộ môn ${(c.specializations?.[0] || c.specialization || "thể thao")} · Đào tạo kỹ thuật & chiến thuật 1:1`
-                          : "Professional personal trainer at VIBE Sport.")}
+                          : "Professional personal trainer at AVT Sport.")}
                     </p>
 
                     {/* Specializations tags */}
@@ -841,7 +901,7 @@ export function MemberMyCoachView() {
                         ? c.specializations
                         : c.specialization
                           ? [c.specialization]
-                          : ["VIBE Sport Coach"]
+                          : ["AVT Sport Coach"]
                       ).map((spec, sIdx) => (
                         <span
                           key={sIdx}
@@ -997,7 +1057,9 @@ export function MemberMyCoachView() {
                         {s.coachName || "Coach"}
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700">
-                        {s.status || "Scheduled"}
+                        {["cancelled", "canceled"].includes(String(s.status || "").trim().toLowerCase())
+                          ? (isCancelledWithRefund(s) ? t("sessionCancelledRefundedBadge") : t("sessionCancelledBadge"))
+                          : (s.status || "Scheduled")}
                       </span>
                     </div>
 
@@ -1013,7 +1075,7 @@ export function MemberMyCoachView() {
                       </span>
                       <span className="flex items-center gap-1">
                         <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                        {s.roomName || "Phòng PT VIBE Sport"}
+                        {s.roomName || "Phòng PT AVT Sport"}
                       </span>
                     </div>
                   </div>
@@ -1037,12 +1099,33 @@ export function MemberMyCoachView() {
                       {getSessionTimingRule(s).isCancellable && (
                     <button
                       type="button"
-                      onClick={() => handleCancelPrivate(s.id)}
+                      onClick={() => handleCancelPrivate(s)}
                       className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs font-bold hover:bg-rose-100 transition-colors"
                     >
                       {isVi ? "Hủy buổi tập" : "Cancel"}
                     </button>
                       )}
+
+                    {/* Backend nói rõ không được hủy (cancellationAllowed === false): khóa nút và nêu lý do */}
+                      {getSessionTimingRule(s).isCancelLocked && (() => {
+                        const block = describeCancellationBlock(s, isVi ? "vi" : "en")
+                        return (
+                          <div className="flex flex-col items-end gap-1">
+                            <button
+                              type="button"
+                              disabled
+                              aria-describedby={`cancel-block-${s.id}`}
+                              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-400 text-xs font-bold cursor-not-allowed"
+                            >
+                              {isVi ? "Hủy buổi tập" : "Cancel"}
+                            </button>
+                            <p id={`cancel-block-${s.id}`} className="max-w-[260px] text-right text-[11px] leading-snug text-slate-600">
+                              {block.reasonText}
+                              {block.deadline ? ` ${tr("sessionCancelDeadline", { datetime: formatDateTime(block.deadline) })}` : ""}
+                            </p>
+                          </div>
+                        )
+                      })()}
                   </div>
                 </div>
               ))}
@@ -1455,6 +1538,19 @@ export function MemberMyCoachView() {
             </form>
           </div>
         </div>
+      )}
+
+      {cancelTarget && (
+        <PrivateSessionCancelDialog
+          title={cancelTarget.coachName ? `${isVi ? "Buổi tập 1:1 với HLV" : "1-on-1 session with"} ${cancelTarget.coachName}` : (isVi ? "Buổi tập riêng 1:1" : "1-on-1 session")}
+          dateText={cancelTarget.sessionDate}
+          timeText={`${String(cancelTarget.startTime || "").slice(0, 5)}–${String(cancelTarget.endTime || "").slice(0, 5)}`}
+          message={isCancellationConfirmed(cancelTarget) ? t("sessionCancelDialogRefundMsg") : t("sessionCancelDialogUnknownMsg")}
+          deadlineText={readCancellationFields(cancelTarget).deadline ? tr("sessionCancelDeadline", { datetime: formatDateTime(readCancellationFields(cancelTarget).deadline) }) : ""}
+          busy={cancelling}
+          onKeep={() => setCancelTarget(null)}
+          onConfirm={handleConfirmCancelPrivate}
+        />
       )}
     </div>
   )

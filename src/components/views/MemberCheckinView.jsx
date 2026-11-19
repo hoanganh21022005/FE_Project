@@ -1490,7 +1490,7 @@ export function MemberCheckinView() {
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-blue-800">
-              {session.subjectName || "VIBE SPORT"}
+              {session.subjectName || "AVT SPORT"}
             </span>
             {session.isPrivate && (
               <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-bold text-slate-700">
@@ -1662,8 +1662,8 @@ export function MemberCheckinView() {
       {/* 4.6 QR pass and schedule */}
       <section className="grid grid-cols-1 gap-6 items-stretch lg:grid-cols-12">
         {/* 4.2 Card Mã QR điểm danh */}
-        <article className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:col-span-1 sm:p-6 lg:col-span-4">
-          <div className="flex items-center justify-between gap-3">
+        <article className="flex w-full min-w-0 flex-col items-center rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:col-span-1 sm:items-stretch sm:p-6 lg:col-span-4">
+          <div className="flex w-full min-w-0 items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <QrCode className="h-5 w-5 text-brand-accent-dark shrink-0" />
               <h2 className="text-lg font-extrabold text-slate-900">
@@ -1725,7 +1725,7 @@ export function MemberCheckinView() {
           </div>
 
           {/* 3.2 Nội dung Card QR theo 5 trạng thái */}
-          <div className="mt-4 flex w-full flex-1 flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-slate-50/80 p-6 text-center">
+          <div className="mt-4 flex w-full min-w-0 flex-1 flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 text-center sm:p-6">
             <span className={`mb-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold ${isQrActiveMode ? "bg-emerald-100 text-emerald-900" : qrContext.mode === "checked_in" ? "bg-blue-100 text-blue-900" : "bg-slate-200 text-slate-700"}`}>
               <span aria-hidden="true">●</span>{isQrActiveMode ? t("checkinWindowActiveBadge") : qrContext.mode === "checked_in" ? t("checkinStateCheckedInTitle") : isVi ? "Mã QR đang khóa" : "QR is locked"}
             </span>
@@ -1768,6 +1768,7 @@ export function MemberCheckinView() {
                         size={188}
                         level="M"
                         includeMargin
+                        className="h-auto max-w-full"
                       />
                       <span className="mt-1 text-xs font-semibold text-slate-500 group-hover:text-brand-primary">
                         {t("checkinEnlargeQr")}
@@ -2064,7 +2065,7 @@ export function MemberCheckinView() {
                     <div className="mx-auto w-full max-w-2xl rounded-2xl border border-blue-200 bg-white p-4 text-left shadow-xs">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-blue-800">{nextFutureValidSession.subjectName || "VIBE SPORT"}</span>
+                          <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-blue-800">{nextFutureValidSession.subjectName || "AVT SPORT"}</span>
                           <h3 className="mt-2 text-base font-extrabold text-slate-900">{nextFutureValidSession.className || nextFutureValidSession.subjectName || (nextFutureValidSession.isPrivate ? t("schedulePtDefaultTitle") : `#${nextFutureValidSession.classId}`)}</h3>
                           <p className="mt-1 text-xs font-medium leading-relaxed text-slate-600">{toDateDdMmYyyy(nextFutureValidSession.sessionDate)} · {nextFutureValidSession.startTime}–{nextFutureValidSession.endTime} · {nextFutureValidSession.roomName || t("scheduleRoomTbd")}{nextFutureValidSession.coachName ? ` · ${nextFutureValidSession.coachName}` : ""}</p>
                         </div>

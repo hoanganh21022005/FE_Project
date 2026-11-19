@@ -6,6 +6,7 @@ import { getErrorMessage } from "../../api/apiErrors"
 import { normalizeRole, ROLE_MANAGER } from "../../utils/navigation"
 import {
   evaluateNormalClassOpening,
+  formatOpeningDateTime,
   getFirstNormalClassSession,
   getNormalClassOpeningError,
 } from "../../api/normalClassOpening"
@@ -361,6 +362,7 @@ export function ClassDetailDrawer({
     } catch (error) {
       const normalized = getNormalClassOpeningError(error)
       setOpeningActionError(normalized)
+      refreshOpeningData().catch(() => {})
     } finally {
       setOpeningSubmitting(false)
     }
@@ -1197,6 +1199,28 @@ export function ClassDetailDrawer({
               <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
                 {openingEvaluation.blockers[0]}
               </p>
+            )}
+
+            {(Number.isFinite(openingEvaluation.openingConfirmationDueAt) ||
+              Number.isFinite(openingEvaluation.openingConfirmationDeadline)) && (
+              <div className="mt-3 rounded-lg border border-stone-200 bg-stone-50 p-3 text-xs text-stone-700 space-y-1">
+                {Number.isFinite(openingEvaluation.openingConfirmationDueAt) && (
+                  <p>
+                    Hạn chuẩn xác nhận:{" "}
+                    <strong className="font-mono text-stone-900">
+                      {formatOpeningDateTime(openingEvaluation.openingConfirmationDueAt)}
+                    </strong>
+                  </p>
+                )}
+                {Number.isFinite(openingEvaluation.openingConfirmationDeadline) && (
+                  <p>
+                    Hạn cuối xác nhận:{" "}
+                    <strong className="font-mono text-stone-900">
+                      {formatOpeningDateTime(openingEvaluation.openingConfirmationDeadline)}
+                    </strong>
+                  </p>
+                )}
+              </div>
             )}
 
             {openingEvaluation.reasonRequired === true && (

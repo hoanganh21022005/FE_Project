@@ -7,12 +7,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 
 const dataMap = {
   gym: {
-    titleEn: 'VIBE Sport GYM',
-    titleVi: 'VIBE Sport GYM',
+    titleEn: 'AVT Sport GYM',
+    titleVi: 'AVT Sport GYM',
     subtitleEn: 'The Ultimate Strength & Conditioning Platform Built For You',
     subtitleVi: 'Nền Tảng Thể Lực & Cơ Bắp Được Xây Dựng Riêng Cho Bạn',
-    descEn: 'Focusing on members and clients as the core of the experience, VIBE Sport Gym offers convenience, proactivity, and personalization for your fitness journey.',
-    descVi: 'Lấy Hội viên và Khách hàng làm trọng tâm của trải nghiệm, VIBE Sport Gym mang đến sự thuận tiện, chủ động và cá nhân hóa cho hành trình sống khỏe của bạn.',
+    descEn: 'Focusing on members and clients as the core of the experience, AVT Sport Gym offers convenience, proactivity, and personalization for your fitness journey.',
+    descVi: 'Lấy Hội viên và Khách hàng làm trọng tâm của trải nghiệm, AVT Sport Gym mang đến sự thuận tiện, chủ động và cá nhân hóa cho hành trình sống khỏe của bạn.',
     image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop',
     features: [
       {
@@ -32,12 +32,12 @@ const dataMap = {
     ]
   },
   yoga: {
-    titleEn: 'VIBE Sport YOGA',
-    titleVi: 'VIBE Sport YOGA',
+    titleEn: 'AVT Sport YOGA',
+    titleVi: 'AVT Sport YOGA',
     subtitleEn: 'Elevate Your Mind & Body With Just One Touch',
     subtitleVi: 'Nâng Tầm Tâm Trí & Cơ Thể Chỉ Với Một Chạm',
-    descEn: 'Immerse yourself in serenity. VIBE Sport Yoga app integration allows you to book classes, track flexibility progress, and connect with master yogis effortlessly.',
-    descVi: 'Đắm mình trong sự tĩnh tại. Tích hợp ứng dụng VIBE Sport Yoga giúp bạn đặt lớp, theo dõi tiến độ dẻo dai và kết nối với các Master Yogi dễ dàng.',
+    descEn: 'Immerse yourself in serenity. AVT Sport Yoga app integration allows you to book classes, track flexibility progress, and connect with master yogis effortlessly.',
+    descVi: 'Đắm mình trong sự tĩnh tại. Tích hợp ứng dụng AVT Sport Yoga giúp bạn đặt lớp, theo dõi tiến độ dẻo dai và kết nối với các Master Yogi dễ dàng.',
     image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=1520&auto=format&fit=crop',
     features: [
       {
@@ -57,8 +57,8 @@ const dataMap = {
     ]
   },
   boxing: {
-    titleEn: 'VIBE Sport BOXING',
-    titleVi: 'VIBE Sport BOXING',
+    titleEn: 'AVT Sport BOXING',
+    titleVi: 'AVT Sport BOXING',
     subtitleEn: 'Ignite Your Fighting Spirit',
     subtitleVi: 'Đánh Thức Bản Lĩnh Chiến Binh',
     descEn: 'Burn fat, build endurance, and learn practical self-defense techniques in our high-energy boxing and kickfit classes.',
@@ -82,8 +82,8 @@ const dataMap = {
     ]
   },
   pilates: {
-    titleEn: 'VIBE Sport PILATES',
-    titleVi: 'VIBE Sport PILATES',
+    titleEn: 'AVT Sport PILATES',
+    titleVi: 'AVT Sport PILATES',
     subtitleEn: 'Sculpt & Align Your Body',
     subtitleVi: 'Định Hình & Chỉnh Dáng Hoàn Hảo',
     descEn: 'Strengthen your core, improve posture, and achieve a lean, toned physique with our specialized reformer pilates sessions.',
@@ -108,8 +108,8 @@ const dataMap = {
   },
 
   'recovery': {
-    titleEn: 'VIBE Sport RECOVERY',
-    titleVi: 'VIBE Sport RECOVERY',
+    titleEn: 'AVT Sport RECOVERY',
+    titleVi: 'AVT Sport RECOVERY',
     subtitleEn: 'Deep Healing & Flexibility',
     subtitleVi: 'Phục Hồi Sâu & Tăng Độ Dẻo Dai',
     descEn: 'Relieve muscle tension, improve blood flow, and enhance your overall well-being with our dedicated recovery sessions.',
@@ -133,8 +133,8 @@ const dataMap = {
     ]
   },
   'spinning': {
-    titleEn: 'VIBE Sport SPINNING',
-    titleVi: 'VIBE Sport SPINNING',
+    titleEn: 'AVT Sport SPINNING',
+    titleVi: 'AVT Sport SPINNING',
     subtitleEn: 'Ride to the Rhythm, Burn the Calories',
     subtitleVi: 'Đạp Xe Theo Nhịp Điệu, Đốt Mỡ Tối Đa',
     descEn: 'Immersive indoor cycling classes combined with dynamic lighting and pumping music to push your limits.',
@@ -158,8 +158,8 @@ const dataMap = {
     ]
   },
   'group-x': {
-    titleEn: 'VIBE Sport GROUP X',
-    titleVi: 'VIBE Sport GROUP X',
+    titleEn: 'AVT Sport GROUP X',
+    titleVi: 'AVT Sport GROUP X',
     subtitleEn: 'Strength in Numbers',
     subtitleVi: 'Sức Mạnh Của Tập Thể',
     descEn: 'Join Les Mills BodyPump, BodyCombat, and other energetic group classes designed to build strength and community.',
@@ -183,8 +183,8 @@ const dataMap = {
     ]
   },
   'zumba': {
-    titleEn: 'VIBE Sport ZUMBA',
-    titleVi: 'VIBE Sport ZUMBA',
+    titleEn: 'AVT Sport ZUMBA',
+    titleVi: 'AVT Sport ZUMBA',
     subtitleEn: 'Dance Like Nobody Is Watching',
     subtitleVi: 'Hòa Nhịp Điệu Đam Mê',
     descEn: 'Lose yourself in the music and find yourself in shape at the original dance-fitness party.',
@@ -208,8 +208,8 @@ const dataMap = {
     ]
   },
   'hiit': {
-    titleEn: 'VIBE Sport HIIT',
-    titleVi: 'VIBE Sport HIIT',
+    titleEn: 'AVT Sport HIIT',
+    titleVi: 'AVT Sport HIIT',
     subtitleEn: 'High Intensity, Maximum Results',
     subtitleVi: 'Cường Độ Cao, Đột Phá Giới Hạn',
     descEn: 'Fast-paced, demanding, and incredibly rewarding. Push your cardiovascular system to its absolute peak.',
@@ -233,8 +233,8 @@ const dataMap = {
     ]
   },
   'pt': {
-    titleEn: 'VIBE Sport PERSONAL TRAINING',
-    titleVi: 'VIBE Sport HUẤN LUYỆN CÁ NHÂN',
+    titleEn: 'AVT Sport PERSONAL TRAINING',
+    titleVi: 'AVT Sport HUẤN LUYỆN CÁ NHÂN',
     subtitleEn: 'Your Goal, Your Journey, Our Expertise',
     subtitleVi: 'Mục Tiêu Của Bạn, Hành Trình Của Chúng Ta',
     descEn: 'Get 1-on-1 personalized attention, customized meal plans, and precise form correction to reach your goals faster.',
@@ -250,9 +250,9 @@ const dataMap = {
       },
       {
         titleVi: 'PHÂN TÍCH INBODY & THEO DÕI APP',
-        descVi: 'Lưu trữ toàn bộ chỉ số cơ thể, hình ảnh trước/sau và lịch sử tập luyện minh bạch trên nền tảng VIBE Sport.',
+        descVi: 'Lưu trữ toàn bộ chỉ số cơ thể, hình ảnh trước/sau và lịch sử tập luyện minh bạch trên nền tảng AVT Sport.',
         titleEn: 'INBODY ANALYSIS & APP TRACKING',
-        descEn: 'Store all body metrics, before/after photos, and transparent workout history on the VIBE Sport platform.',
+        descEn: 'Store all body metrics, before/after photos, and transparent workout history on the AVT Sport platform.',
         img: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?q=80&w=600&auto=format&fit=crop'
       }
     ]
@@ -261,8 +261,8 @@ const dataMap = {
 };
 
 const defaultData = {
-  titleEn: 'VIBE Sport PROGRAM',
-  titleVi: 'CHƯƠNG TRÌNH VIBE Sport',
+  titleEn: 'AVT Sport PROGRAM',
+  titleVi: 'CHƯƠNG TRÌNH AVT Sport',
   subtitleEn: 'Elevating Your Fitness Journey',
   subtitleVi: 'Nền Tảng Sống Khỏe Được Xây Dựng Riêng Cho Bạn',
   descEn: 'Discover comprehensive training programs tailored to help you achieve your unique fitness goals with professional guidance.',
@@ -309,7 +309,7 @@ export function DisciplineDetailView() {
               <span className="text-white">SC</span>
             </div>
             <div className="text-xl font-black tracking-widest uppercase text-white leading-none mt-1">
-              VIBE Sport FITNESS
+              AVT Sport FITNESS
             </div>
           </div>
           <button 
@@ -385,8 +385,8 @@ export function DisciplineDetailView() {
             </h2>
             <p className="text-stone-400 font-medium text-lg max-w-2xl mx-auto">
               {isVi 
-                ? 'Được thiết kế chuyên biệt để mang lại hiệu quả tối đa cho từng học viên. VIBE Sport mang đến trải nghiệm luyện tập 5 sao.'
-                : 'Specially designed to deliver maximum efficiency for every member. VIBE Sport provides a 5-star workout experience.'}
+                ? 'Được thiết kế chuyên biệt để mang lại hiệu quả tối đa cho từng học viên. AVT Sport mang đến trải nghiệm luyện tập 5 sao.'
+                : 'Specially designed to deliver maximum efficiency for every member. AVT Sport provides a 5-star workout experience.'}
             </p>
           </div>
 

@@ -23,7 +23,7 @@ import { PageHeader } from "../ui/PageHeader"
 const INITIAL_REQUESTS = [
   {
     id: "req-102",
-    packageName: "VIBE Standard 6 Tháng",
+    packageName: "AVT Standard 6 Tháng",
     startDate: "2026-06-10",
     days: 14,
     reasonVi: "Đi công tác nước ngoài",

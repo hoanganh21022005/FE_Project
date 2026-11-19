@@ -23,6 +23,18 @@ const WEEKDAYS_EN = [
   'Saturday',
 ];
 
+/**
+ * parseBackendDate(value) -> mili giây (hoặc NaN nếu rỗng/không đọc được).
+ * Field thời gian mới của Backend có offset (ví dụ "+07:00" hoặc "Z"); field cũ không offset
+ * là giờ Việt Nam nên được gắn "+07:00" trước khi đọc.
+ */
+export function parseBackendDate(value) {
+  const text = String(value || "").trim();
+  if (!text) return Number.NaN;
+  const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text);
+  return Date.parse(hasZone ? text : `${text}+07:00`);
+}
+
 function parseIsoOrDate(iso) {
   if (!iso) return null;
   if (iso instanceof Date) {
@@ -95,7 +107,7 @@ export function formatTimeRange(startTime, endTime) {
 }
 
 /**
- * formatDateTime(iso) -> HH:mm dd/MM/yyyy
+ * formatDateTime(iso) -> HH:mm - dd/MM/yyyy
  */
 export function formatDateTime(iso) {
   if (!iso) return '—';
@@ -103,7 +115,7 @@ export function formatDateTime(iso) {
   const localMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2})/);
   if (localMatch && !str.includes('Z') && !str.includes('+')) {
     const [, yyyy, mm, dd, hhmm] = localMatch;
-    return `${hhmm} ${dd}/${mm}/${yyyy}`;
+    return `${hhmm} - ${dd}/${mm}/${yyyy}`;
   }
   const parsed = parseIsoOrDate(iso);
   if (!parsed) return str || '—';
@@ -122,7 +134,7 @@ export function formatDateTime(iso) {
     const yyyy = parts.find((p) => p.type === 'year')?.value || '2026';
     const hh = parts.find((p) => p.type === 'hour')?.value || '00';
     const min = parts.find((p) => p.type === 'minute')?.value || '00';
-    return `${hh}:${min} ${dd}/${mm}/${yyyy}`;
+    return `${hh}:${min} - ${dd}/${mm}/${yyyy}`;
   } catch {
     return formatDate(iso);
   }

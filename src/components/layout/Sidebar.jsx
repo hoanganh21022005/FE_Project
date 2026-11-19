@@ -28,7 +28,6 @@ import {
   Dumbbell,
   MessageSquareHeart,
   Bell,
-  PauseCircle,
 } from "lucide-react"
 
 export function Sidebar({ mobileOpen = false, onCloseMobile }) {
@@ -146,6 +145,11 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             labelKey: "payments",
             icon: CreditCard,
           },
+          {
+            path: "/receptionist/refund-work",
+            label: language === "vi" ? "Việc hoàn tiền" : "Refund work",
+            icon: ReceiptText,
+          },
         ]
 
       case "member":
@@ -168,11 +172,6 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             labelKey: "myMembership",
             label: language === "vi" ? "Gói hội viên của tôi" : "My Membership",
             icon: Award,
-          },
-          {
-            path: "/member/freeze-request",
-            label: language === "vi" ? "Bảo lưu gói tập" : "Freeze membership",
-            icon: PauseCircle,
           },
           {
             path: "/member/catalog",
@@ -258,8 +257,8 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <img
-                src="/images/MainPage/vibe-sport-logo.png?v=5"
-                alt="Vibe Sport"
+                src="/images/MainPage/avt-sport-logo.png?v=6"
+                alt="AVT Sport"
                 className={`object-contain flex-shrink-0 ${
                   collapsed ? "w-10 h-8" : "h-16 w-auto sm:h-[72px]"
                 }`}
@@ -267,7 +266,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
               {(!collapsed || mobileOpen) && (
                 <div className="truncate">
                   <div className="text-xs font-bold tracking-tight text-white uppercase leading-tight truncate">
-                    VIBE Sport SYSTEM
+                    AVT Sport SYSTEM
                   </div>
                   <div className="text-[9px] text-slate-300 font-bold tracking-wider uppercase leading-tight truncate">
                     SPORTS CENTER

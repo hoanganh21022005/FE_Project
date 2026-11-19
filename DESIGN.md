@@ -1,6 +1,6 @@
 ---
-name: SCMS Webzone Operations System
-description: SCMS dùng Palette A (Navy + sport blue + sea teal). Giá trị mục tiêu nằm trong tài liệu này; src/index.css chạy palette cũ cho đến khi có task chuyển token.
+name: AVT Sport Operations System
+description: AVT Sport dùng Palette A (Navy + sport blue + sea teal). Giá trị mục tiêu nằm trong tài liệu này; src/index.css chạy palette cũ cho đến khi có task chuyển token.
 colors:
   brand-dark: "#202B46"
   brand-dark-hover: "#303B58"
@@ -112,7 +112,7 @@ components:
     padding: "16px"
 ---
 
-# Design System: SCMS Webzone Operations System
+# Design System: AVT Sport Operations System
 
 ## 1. Trạng thái và phạm vi áp dụng
 
@@ -307,7 +307,7 @@ Dùng panel cho một nhóm nội dung có ranh giới; không lồng panel tron
 
 ## 7. Kết quả xem thử và điểm chưa chốt (11/11/2026)
 
-Bản xem thử dựng ngoài repo (Chromium, route chặn mọi request ngoài, 1280×800 và 375×667, kèm mô phỏng mù màu đỏ-lục và thang xám). Đây là trang mẫu, không phải màn thật của SCMS; font hiển thị là font hệ thống, không phải Be Vietnam Pro.
+Bản xem thử dựng ngoài repo (Chromium, route chặn mọi request ngoài, 1280×800 và 375×667, kèm mô phỏng mù màu đỏ-lục và thang xám). Đây là trang mẫu, không phải màn thật của AVT Sport; font hiển thị là font hệ thống, không phải Be Vietnam Pro.
 
 **Đã chốt:**
 1. **Danger:** Owner chọn đỏ gạch `#9B2C1F` (hover `#7F2419`, nền `#F7EEED`, viền `#E1C0BC`). Lý do: với umber `#744522` (đề xuất gốc), ô nhập lỗi, badge và khung lỗi trông gần như nâu xám trung tính, nút "Xóa" trông như nút thông thường. Đỏ gạch đọc ngay là lỗi: tương phản 7.57:1 với trắng và 6.64:1 trên nền `#F7EEED`. Khoảng cách màu cảm nhận tới cảnh báo hổ phách `#B45309` là ΔE 24.5 (umber là 33.9), vẫn phân biệt được ở thị giác bình thường. Khi mô phỏng mù đỏ-lục, danger và cảnh báo rút về cùng tông; vì vậy icon và nhãn chữ là bắt buộc.

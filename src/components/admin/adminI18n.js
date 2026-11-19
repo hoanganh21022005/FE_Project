@@ -131,6 +131,7 @@ export const ADMIN_AUDIT_ACTION_LABELS = {
     CREATE_USER: "Tạo tài khoản người dùng",
     CHANGE_USER_ROLE: "Đổi vai trò người dùng",
     REISSUE_TEMPORARY_PASSWORD: "Cấp lại mật khẩu tạm",
+    RESET_PASSWORD: "Đặt lại mật khẩu",
     UPDATE_STAFF: "Cập nhật nhân viên",
     CHANGE_USER_STATUS: "Đổi trạng thái tài khoản",
     UPDATE_USER: "Cập nhật thông tin người dùng",
@@ -139,12 +140,17 @@ export const ADMIN_AUDIT_ACTION_LABELS = {
     CREATE_CLASS: "Tạo lớp học mới",
     UPDATE_CLASS: "Cập nhật lớp học",
     CANCEL_CLASS: "Hủy lớp học",
+    DELETE_SESSION: "Xóa buổi học",
     ATTENDANCE_CORRECTION: "Điều chỉnh điểm danh",
     ENROLL_MEMBER: "Ghi danh hội viên",
     ENROLL_CLASS: "Ghi danh lớp học",
     CREATE_INVOICE: "Tạo hóa đơn",
     COLLECT_PAYMENT: "Thu tiền thanh toán",
     CONFIRM_PAYMENT: "Xác nhận thanh toán",
+    OPEN_PAYMENT_RESOLUTION: "Mở xử lý thanh toán",
+    BLOCK_PAYMENT_RESOLUTION: "Khóa xử lý thanh toán",
+    OPEN_CENTER_INCIDENT: "Mở sự cố trung tâm",
+    RESOLVE_CENTER_INCIDENT: "Giải quyết sự cố trung tâm",
     CREATE_REFUND: "Tạo yêu cầu hoàn tiền",
   },
   en: {
@@ -156,6 +162,7 @@ export const ADMIN_AUDIT_ACTION_LABELS = {
     CREATE_USER: "Create user account",
     CHANGE_USER_ROLE: "Change user role",
     REISSUE_TEMPORARY_PASSWORD: "Reissue temporary password",
+    RESET_PASSWORD: "Reset password",
     UPDATE_STAFF: "Update staff",
     CHANGE_USER_STATUS: "Change user status",
     UPDATE_USER: "Update user profile",
@@ -164,12 +171,17 @@ export const ADMIN_AUDIT_ACTION_LABELS = {
     CREATE_CLASS: "Create class",
     UPDATE_CLASS: "Update class",
     CANCEL_CLASS: "Cancel class",
+    DELETE_SESSION: "Delete session",
     ATTENDANCE_CORRECTION: "Adjust attendance",
     ENROLL_MEMBER: "Enroll member",
     ENROLL_CLASS: "Enroll in class",
     CREATE_INVOICE: "Create invoice",
     COLLECT_PAYMENT: "Collect payment",
     CONFIRM_PAYMENT: "Confirm payment",
+    OPEN_PAYMENT_RESOLUTION: "Open payment resolution",
+    BLOCK_PAYMENT_RESOLUTION: "Block payment resolution",
+    OPEN_CENTER_INCIDENT: "Open center incident",
+    RESOLVE_CENTER_INCIDENT: "Resolve center incident",
     CREATE_REFUND: "Create refund request",
   },
 }
@@ -202,6 +214,7 @@ const ADMIN_TEXT = {
     "common.noRecords": "Hệ thống chưa có bản ghi nào.",
     "common.loadingData": "Đang tải dữ liệu",
     "common.loadError": "Không thể tải dữ liệu",
+    "common.loadErrorFallback": "Không thể tải dữ liệu quản trị.",
     "common.noPermission": "Bạn không có quyền thực hiện thao tác này.",
     "common.closeAlert": "Đóng thông báo",
     "common.closeError": "Đóng thông báo lỗi",
@@ -218,7 +231,7 @@ const ADMIN_TEXT = {
     "shell.collapseSidebar": "Thu gọn thanh bên",
     "shell.expandSidebar": "Mở rộng thanh bên",
     "shell.adminPortal": "Cổng Quản Trị",
-    "shell.brand": "VIBE Athletic Club",
+    "shell.brand": "AVT Sport",
     "shell.langGroup": "Ngôn ngữ giao diện",
     "shell.langViLabel": "Tiếng Việt",
     "shell.langEnLabel": "Tiếng Anh",
@@ -531,7 +544,7 @@ const ADMIN_TEXT = {
     "profile.showPwd": "Hiện mật khẩu",
 
     // Admin Login View
-    "login.brandName": "VIBE Sport",
+    "login.brandName": "AVT Sport",
     "login.brandTagline": "Hệ thống quản trị trung tâm thể thao",
     "login.kicker": "KHU VỰC QUẢN TRỊ",
     "login.title": "Đăng nhập Quản trị",
@@ -565,6 +578,7 @@ const ADMIN_TEXT = {
     "common.noRecords": "No records found in the system.",
     "common.loadingData": "Loading data",
     "common.loadError": "Unable to load data",
+    "common.loadErrorFallback": "Could not load admin data.",
     "common.noPermission": "You do not have permission to perform this action.",
     "common.closeAlert": "Dismiss notification",
     "common.closeError": "Dismiss error",
@@ -581,7 +595,7 @@ const ADMIN_TEXT = {
     "shell.collapseSidebar": "Collapse sidebar",
     "shell.expandSidebar": "Expand sidebar",
     "shell.adminPortal": "Admin Portal",
-    "shell.brand": "VIBE Athletic Club",
+    "shell.brand": "AVT Sport",
     "shell.langGroup": "Interface language",
     "shell.langViLabel": "Vietnamese",
     "shell.langEnLabel": "English",
@@ -894,7 +908,7 @@ const ADMIN_TEXT = {
     "profile.showPwd": "Show password",
 
     // Admin Login View
-    "login.brandName": "VIBE Sport",
+    "login.brandName": "AVT Sport",
     "login.brandTagline": "Sports Center Administration",
     "login.kicker": "ADMINISTRATION",
     "login.title": "Admin sign-in",
@@ -954,7 +968,7 @@ export function getAdminAuditActionLabel(action, language = "vi") {
     return ADMIN_AUDIT_ACTION_LABELS[lang][action]
   }
   if (!action) return getAdminText(lang, "common.dash")
-  return lang === "en" ? "Other action" : "Thao tác khác"
+  return String(action)
 }
 
 export function getAdminStatusLabel(status, language = "vi") {
@@ -971,4 +985,34 @@ export function formatAdminNumber(value, language = "vi") {
   } catch {
     return String(num)
   }
+}
+
+const VI_DEFAULT_STATUS_MESSAGES = {
+  "Không thể kết nối đến máy chủ. Kiểm tra kết nối mạng rồi thử lại.":
+    "Unable to connect to the server. Please check your network connection and try again.",
+  "Dữ liệu gửi lên không hợp lệ.": "The submitted data is invalid.",
+  "Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn.":
+    "You are not signed in or your session has expired.",
+  "Bạn không có quyền thực hiện thao tác này.":
+    "You do not have permission to perform this action.",
+  "Không tìm thấy dữ liệu được yêu cầu.": "The requested resource was not found.",
+  "Dữ liệu đang xung đột với thông tin hiện có.":
+    "The data conflicts with existing records.",
+  "Dữ liệu không vượt qua kiểm tra hợp lệ.":
+    "Validation failed for the submitted data.",
+  "Bạn đã gửi quá nhiều yêu cầu trong thời gian ngắn. Vui lòng chờ giây lát rồi thử lại.":
+    "Too many requests in a short time. Please wait a moment and try again.",
+  "Máy chủ gặp lỗi khi xử lý yêu cầu.":
+    "The server encountered an error while processing the request.",
+}
+
+export function formatAdminErrorMessage(error, language = "vi", fallbackKey = "common.loadErrorFallback") {
+  const lang = normalizeAdminLanguage(language)
+  const rawMessage = typeof error === "string" ? error.trim() : String(error?.message ?? "").trim()
+  if (lang === "en") {
+    if (!rawMessage) return getAdminText("en", fallbackKey)
+    if (VI_DEFAULT_STATUS_MESSAGES[rawMessage]) return VI_DEFAULT_STATUS_MESSAGES[rawMessage]
+    return rawMessage
+  }
+  return rawMessage || getAdminText("vi", fallbackKey)
 }

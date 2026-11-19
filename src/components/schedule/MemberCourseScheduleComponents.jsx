@@ -198,7 +198,7 @@ export function MemberCourseCard({
           <div className="space-y-1">
             <div className={compactLayout ? "flex items-start justify-between gap-3" : "flex items-center justify-between gap-3"}>
               <span className={compactLayout ? "inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-brand-accent-dark" : "text-xs font-bold uppercase tracking-wide text-brand-accent-dark"}>
-                {course.subjectName || "VIBE SPORT"}
+                {course.subjectName || "AVT SPORT"}
               </span>
               <span
                 className={`shrink-0 ${compactLayout ? "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold" : "rounded-full border px-2.5 py-0.5 text-xs font-bold"} ${lifecycleTone}`}

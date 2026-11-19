@@ -40,6 +40,7 @@ import {
   SessionDetailDrawer,
 } from "../schedule/MemberCourseScheduleComponents"
 import { PageHeader } from "../ui/PageHeader"
+import { NormalProposalResponsePanel } from "../schedule/NormalProposalResponsePanel"
 
 export function MemberEnrollmentsView() {
   const navigate = useNavigate()
@@ -396,6 +397,15 @@ export function MemberEnrollmentsView() {
       </section>
 
       {renderHolidayBanner()}
+
+      {validMember && (
+        <NormalProposalResponsePanel
+          enrollments={rawEnrollments.filter((row) => isActiveNormalEnrollment(row))}
+          language={language}
+          showToast={showToast}
+          onResponded={refresh}
+        />
+      )}
 
       {!validMember && (
         <div
