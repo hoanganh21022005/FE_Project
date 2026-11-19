@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import { useSCMS } from "../../context/SCMSContext"
 import { attendanceApi } from "../../api/attendanceApi"
 import { getErrorMessage } from "../../api/apiErrors"
@@ -42,6 +42,7 @@ export function ReceptionCheckinView() {
   const [scanSessionId, setScanSessionId] = useState("")
   const [sessionError, setSessionError] = useState("")
   const [scanning, setScanning] = useState(false)
+  const scanningRef = useRef(false)
 
   // Attendance history state
   const [attendances, setAttendances] = useState([])
@@ -72,6 +73,7 @@ export function ReceptionCheckinView() {
 
   const handleScanCheckIn = async (e) => {
     e.preventDefault()
+    if (scanningRef.current) return
     const trimmedCode = scanCode.trim()
     if (!trimmedCode) {
       showToast("Vui lòng nhập hoặc quét mã QR Check-in của hội viên.", "error")
@@ -116,6 +118,7 @@ export function ReceptionCheckinView() {
     }
     setSessionError("")
 
+    scanningRef.current = true
     setScanning(true)
     try {
       if (apiEnabled) {
@@ -159,6 +162,7 @@ export function ReceptionCheckinView() {
       }
       showToast(msg, "error")
     } finally {
+      scanningRef.current = false
       setScanning(false)
     }
   }
@@ -318,7 +322,7 @@ export function ReceptionCheckinView() {
                 disabled={scanning}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
               >
-                <CheckCircle2 className="w-4 h-4" />
+                {scanning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 <span>
                   {scanning ? "Đang xử lý..." : "Xác Nhận Quét Mã QR Check-in"}
                 </span>

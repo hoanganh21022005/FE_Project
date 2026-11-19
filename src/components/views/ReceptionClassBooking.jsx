@@ -223,6 +223,7 @@ export function ReceptionClassBooking() {
             ? "Đăng ký lớp học không thành công."
             : "Class enrollment failed.")
         setBookingError(msg)
+        showToast?.(msg, "error")
         return
       }
 
@@ -242,6 +243,10 @@ export function ReceptionClassBooking() {
       }
 
       setLatestBookingResult(bookingSummary)
+      showToast?.(
+        language === "vi" ? "Đặt lớp thành công." : "Class booking completed successfully.",
+        "success",
+      )
 
       // Invalidate any read-back that resolved during the POST request to protect latest Pending snapshot
       enrollmentReqIdRef.current++
@@ -281,6 +286,7 @@ export function ReceptionClassBooking() {
             : "Class enrollment failed due to network or server error.",
         )
         setBookingError(errorMsg)
+        showToast?.(errorMsg, "error")
         // Outcome chưa rõ ràng (uncertain): không tự kết luận là chưa đăng ký
         if (apiEnabled) {
           setEnrollmentsError(
