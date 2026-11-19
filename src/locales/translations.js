@@ -1607,7 +1607,7 @@ export const formatCurrency = (amount, lang = 'vi') => {
     maximumFractionDigits: 0
   }).format(value);
 
-  return lang === 'vi' ? `${formatted} ₫` : `${formatted} VND`;
+  return lang === 'vi' ? `${formatted} đ` : `${formatted} VND`;
 };
 
 export const formatDate = (dateStr, lang = 'vi') => {
@@ -1630,9 +1630,18 @@ export const formatDate = (dateStr, lang = 'vi') => {
 
 export const formatDateTime = (dateTimeStr, lang = 'vi') => {
   if (!dateTimeStr) return '';
-  const match = String(dateTimeStr).match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/);
-  if (!match) return formatDate(dateTimeStr, lang);
-  return lang === 'vi'
-    ? `${formatDate(match[1], lang)} ${match[2]}`
-    : `${formatDate(match[1], lang)}, ${match[2]}`;
+  const value = String(dateTimeStr);
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  if (match && !/[Z+]/.test(value.slice(10))) {
+    const [, year, month, day, hour, minute] = match;
+    return `${hour}:${minute} - ${day}/${month}/${year}`;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(date);
+  const part = (type) => parts.find((item) => item.type === type)?.value || '00';
+  return `${part('hour')}:${part('minute')} - ${part('day')}/${part('month')}/${part('year')}`;
 };
