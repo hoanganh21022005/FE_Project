@@ -610,21 +610,11 @@ export function CoachDashboard() {
   if (dashError) {
     return (
       <div className="space-y-6">
-        {/* Still show the welcome header */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded bg-brand-dark flex items-center justify-center text-text-inverse font-bold text-sm shrink-0">
-              PT
-            </div>
-            <div>
-              <h2 className="text-xl leading-7 font-semibold text-text-primary">
-                {language === "vi"
-                  ? `Xin chào Coach ${currentUser.name}!`
-                  : `Welcome Coach ${currentUser.name}!`}
-              </h2>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          title={language === "vi"
+            ? `Xin chào Coach ${currentUser.name}!`
+            : `Welcome Coach ${currentUser.name}!`}
+        />
         <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm">
           <ErrorState
             message={dashError}
@@ -654,19 +644,19 @@ export function CoachDashboard() {
 
       {/* R5.3: Prominent Banner when Pending PT 1:1 Registration Requests exist */}
       {pendingPtRequests.length > 0 && (
-        <div className="p-4 bg-status-warning-bg border border-status-warning-border rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-status-warning-bg text-status-warning rounded-lg border border-status-warning-border shrink-0">
+            <div className="p-2.5 bg-white text-amber-600 rounded-xl border border-amber-200 shrink-0">
               <BellRing className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-sm leading-5 font-semibold text-status-warning">
+              <div className="text-sm font-semibold text-amber-900">
                 {t("coachPendingPtBannerTitle").replace(
                   "{count}",
                   String(pendingPtRequests.length),
                 )}
               </div>
-              <div className="text-xs leading-4 font-medium text-status-warning mt-0.5">
+              <div className="text-xs font-medium text-amber-700 mt-0.5">
                 {language === "vi"
                   ? "Vui lòng chấp nhận hoặc từ chối để hội viên tiếp tục chọn gói & thanh toán."
                   : "Please accept or reject so the member can proceed with package selection & payment."}
@@ -679,7 +669,7 @@ export function CoachDashboard() {
               setCurrentTab("assignedMembers")
               navigate("/coach/assigned-members")
             }}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active shrink-0 self-start sm:self-auto cursor-pointer"
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm shrink-0 self-start sm:self-auto cursor-pointer"
           >
             <span>{t("coachPendingPtBannerBtn")}</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -689,19 +679,19 @@ export function CoachDashboard() {
 
       {/* R5.1: Top Priority Section – "Hôm nay bạn dạy gì" */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-color pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-brand-primary" />
-            <h3 className="text-lg leading-7 font-semibold text-text-primary">
+            <h3 className="text-base font-semibold text-slate-900">
               {t("coachTodayTeachingTitle")} ({formatDate(todayIso)})
             </h3>
-            <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
+            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
               {todaySessionsInfo.sessions.length}{" "}
               {language === "vi" ? "buổi" : "sessions"}
             </span>
           </div>
           {todaySessionsInfo.uncheckedCount > 0 && (
-            <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border">
+            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
               {language === "vi"
                 ? `${todaySessionsInfo.uncheckedCount} buổi chưa điểm danh`
                 : `${todaySessionsInfo.uncheckedCount} unchecked session(s)`}
@@ -710,7 +700,7 @@ export function CoachDashboard() {
         </div>
 
         {todaySessionsInfo.sessions.length === 0 ? (
-          <div className="p-4 bg-bg-secondary border border-border-color rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm leading-5 text-text-secondary">
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm text-slate-600">
             <span>{t("coachTodayNoSessions")}</span>
             <button
               type="button"
@@ -718,7 +708,7 @@ export function CoachDashboard() {
                 setCurrentTab("schedule")
                 navigate("/coach/schedule")
               }}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer self-start sm:self-auto"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer self-start sm:self-auto"
             >
               {language === "vi" ? "Xem toàn bộ lịch dạy →" : "View full schedule →"}
             </button>
@@ -730,20 +720,20 @@ export function CoachDashboard() {
               return (
                 <div
                   key={ses.id}
-                  className="p-3.5 bg-bg-secondary border border-border-color rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className="p-3.5 bg-slate-50/70 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
                           ses.isPrivate
-                            ? "bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border"
-                            : "bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-blue-50 text-blue-700 border-blue-200"
                         }`}
                       >
                         {ses.isPrivate ? "PT 1:1" : ses.subjectName || "Lớp nhóm"}
                       </span>
-                      <span className="text-sm leading-5 font-semibold text-text-primary">
+                      <span className="text-sm font-semibold text-slate-900">
                         {ses.isPrivate
                           ? `${ses.subjectName || "PT 1:1"} — ${
                               ses.bookedMemberName || "Hội viên PT"
@@ -759,13 +749,13 @@ export function CoachDashboard() {
                         }
                       />
                     </div>
-                    <div className="flex flex-wrap items-center gap-3 text-sm leading-5 text-text-secondary">
-                      <span className="font-mono font-semibold text-text-primary flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+                      <span className="font-mono font-semibold text-slate-800 flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5 text-brand-primary" />
                         {formatTimeRange(ses.startTime, ses.endTime)}
                       </span>
                       <span className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-status-danger" />
+                        <MapPin className="w-3.5 h-3.5 text-rose-500" />
                         {ses.roomName || "Sân tập trung tâm"}
                       </span>
                     </div>
@@ -774,7 +764,7 @@ export function CoachDashboard() {
                     <button
                       type="button"
                       onClick={() => handleGoToAttendance(ses)}
-                      className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer self-start sm:self-auto"
+                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer self-start sm:self-auto"
                     >
                       {canCheckIn(ses)
                         ? t("coachBtnCheckInThisSession")
@@ -1079,23 +1069,23 @@ export function CoachDashboard() {
               {feedbackItems.slice(0, 4).map((fb, idx) => (
                 <div
                   key={idx}
-                  className="p-3 bg-bg-secondary border border-border-color rounded space-y-1"
+                  className="p-3.5 bg-slate-50/70 border border-slate-200 rounded-xl space-y-1.5"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm leading-5 font-semibold text-text-primary">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-slate-900">
                       {fb.className || (fb.classId ? `Lớp #${fb.classId}` : "Lớp học")}
                     </span>
-                    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border gap-1">
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-status-warning" />
+                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 gap-1">
+                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
                       HLV: {fb.coachRating || 5}/5 &bull; Lớp:{" "}
                       {fb.classRating || 5}/5
                     </span>
                   </div>
-                  <p className="text-sm leading-5 font-normal text-text-primary">
+                  <p className="text-sm text-slate-700">
                     {fb.comment || "Học viên hài lòng với buổi tập."}
                   </p>
                   {fb.createdAt && (
-                    <div className="text-xs leading-4 font-medium text-text-secondary font-mono">
+                    <div className="text-xs font-medium text-slate-500 font-mono">
                       {formatDateTime(fb.createdAt)}
                     </div>
                   )}
@@ -1121,7 +1111,7 @@ export function CoachDashboard() {
           </div>
 
           {enrichedAtRiskMembers.length === 0 ? (
-            <div className="p-4 bg-status-success-bg border border-status-success-border rounded text-sm leading-5 text-status-success font-medium">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-800 font-medium">
               Tất cả học viên phụ trách đều duy trì lịch tập luyện đều đặn.
             </div>
           ) : (
@@ -1129,14 +1119,14 @@ export function CoachDashboard() {
               {enrichedAtRiskMembers.map((rm) => (
                 <div
                   key={rm.memberId}
-                  className="p-3.5 bg-status-warning-bg border border-status-warning-border rounded-lg space-y-2 text-sm leading-5"
+                  className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2 text-sm"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm leading-5 font-semibold text-text-primary">
+                      <span className="text-sm font-semibold text-slate-900">
                         {rm.memberName}
                       </span>
-                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-bg-card text-text-secondary ring-1 ring-inset ring-border-color font-mono">
+                      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-white text-slate-600 border border-slate-200 font-mono">
                         {rm.memberCode}
                       </span>
                     </div>
@@ -1152,19 +1142,19 @@ export function CoachDashboard() {
                         setCurrentTab("assignedMembers")
                         navigate("/coach/assigned-members")
                       }}
-                      className="inline-flex min-h-11 items-center justify-center gap-1 rounded border border-border-color bg-bg-card px-2.5 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none text-text-primary hover:bg-bg-secondary cursor-pointer"
+                      className="inline-flex h-8 items-center justify-center gap-1 rounded-xl border border-slate-300 bg-white px-3 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 text-slate-700 hover:bg-slate-50 cursor-pointer"
                     >
                       {language === "vi" ? "Chi tiết →" : "Details →"}
                     </button>
                   </div>
                   {rm.email && (
-                    <div className="text-xs leading-4 font-medium text-text-secondary font-mono">{rm.email}</div>
+                    <div className="text-xs font-medium text-slate-500 font-mono">{rm.email}</div>
                   )}
                   <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                     {rm.computedReasons.map((reasonText, rIdx) => (
                       <span
                         key={rIdx}
-                        className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border"
+                        className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200"
                       >
                         {reasonText}
                       </span>
@@ -1179,7 +1169,7 @@ export function CoachDashboard() {
 
       {/* R5.1: Upcoming Teaching Sessions (Both Group Classes & PT 1:1) */}
       <Card>
-        <div className="flex items-center justify-between mb-4 border-b border-border-color pb-2">
+        <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
           <SectionTitle className="whitespace-nowrap">
             {language === "vi"
               ? "Các buổi dạy sắp tới (lớp nhóm & PT 1:1)"
@@ -1191,7 +1181,7 @@ export function CoachDashboard() {
               setCurrentTab("schedule")
               navigate("/coach/schedule")
             }}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-medium leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer"
           >
             {language === "vi" ? "Xem lịch đầy đủ →" : "Full schedule →"}
           </button>
@@ -1205,20 +1195,20 @@ export function CoachDashboard() {
                 return (
                   <div
                     key={ses.id}
-                    className="p-3.5 bg-bg-secondary border border-border-color rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    className="p-3.5 bg-slate-50/70 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                   >
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
                             ses.isPrivate
-                              ? "bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border"
-                              : "bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-blue-50 text-blue-700 border-blue-200"
                           }`}
                         >
                           {ses.isPrivate ? "PT 1:1" : ses.subjectName || "Lớp nhóm"}
                         </span>
-                        <span className="text-sm leading-5 font-semibold text-text-primary">
+                        <span className="text-sm font-semibold text-slate-900">
                           {ses.isPrivate
                             ? `${ses.subjectName || "PT 1:1"} — ${
                                 ses.bookedMemberName || "Hội viên PT"
@@ -1226,9 +1216,9 @@ export function CoachDashboard() {
                             : ses.className || "Buổi học lớp nhóm"}
                         </span>
                       </div>
-                      <div className="text-sm leading-5 text-text-secondary flex flex-wrap items-center gap-2 mt-1">
-                        <Clock className="w-3.5 h-3.5 text-text-muted" />
-                        <span className="tabular-nums font-mono font-semibold text-text-primary">
+                      <div className="text-sm text-slate-500 flex flex-wrap items-center gap-2 mt-1">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="tabular-nums font-mono font-semibold text-slate-800">
                           {displayDate} &bull; {displayTime}
                         </span>
                         <span>&bull; {displayRoom}</span>
@@ -1237,7 +1227,7 @@ export function CoachDashboard() {
 
                     <div className="flex items-center gap-3 self-start sm:self-auto">
                       {!ses.isPrivate && (
-                        <span className="text-xs leading-4 font-mono font-semibold text-text-primary tabular-nums">
+                        <span className="text-xs font-mono font-semibold text-slate-700 tabular-nums">
                           {ses.enrolledCount ?? 0}/{ses.maxCapacity ?? 12}{" "}
                           {language === "vi" ? "học viên" : "students"}
                         </span>
@@ -1245,7 +1235,7 @@ export function CoachDashboard() {
                       <button
                         type="button"
                         onClick={() => handleGoToAttendance(ses)}
-                        className="inline-flex min-h-11 items-center justify-center gap-1 rounded px-2.5 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                        className="inline-flex h-9 items-center justify-center gap-1 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
                       >
                         {t("attendance")}
                       </button>
@@ -1276,14 +1266,14 @@ export function CoachDashboard() {
                 return (
                   <div
                     key={cls.id}
-                    className="p-3.5 bg-bg-secondary border border-border-color rounded-lg flex items-center justify-between"
+                    className="p-3.5 bg-slate-50/70 border border-slate-200 rounded-xl flex items-center justify-between"
                   >
                     <div>
-                      <div className="text-sm leading-5 font-semibold text-text-primary">
+                      <div className="text-sm font-semibold text-slate-900">
                         {language === "vi" ? cls.nameVi || cls.name : cls.name}
                       </div>
-                      <div className="text-sm leading-5 text-text-secondary flex items-center gap-2 mt-1">
-                        <Clock className="w-3.5 h-3.5 text-text-muted" />
+                      <div className="text-sm text-slate-500 flex items-center gap-2 mt-1">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
                         <span className="tabular-nums font-mono">
                           {displayDate} &bull; {displayTime}
                         </span>
@@ -1292,14 +1282,14 @@ export function CoachDashboard() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <span className="text-xs leading-4 font-mono font-semibold text-text-primary tabular-nums">
+                      <span className="text-xs font-mono font-semibold text-slate-700 tabular-nums">
                         {cls.enrolledCount ?? 0}/{cls.capacity ?? 12}{" "}
                         {language === "vi" ? "học viên" : "students"}
                       </span>
                       <button
                         type="button"
                         onClick={() => handleGoToAttendance(cls)}
-                        className="inline-flex min-h-11 items-center justify-center gap-1 rounded px-2.5 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                        className="inline-flex h-9 items-center justify-center gap-1 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
                       >
                         {t("attendance")}
                       </button>

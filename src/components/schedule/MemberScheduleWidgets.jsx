@@ -1336,13 +1336,13 @@ export function SessionDrawer({
     const cleanStart = String(item.startTime || "06:00").replace(/:/g, "") + "00"
     const cleanEnd = String(item.endTime || "07:30").replace(/:/g, "") + "00"
     const dates = `${cleanDate}T${cleanStart}/${cleanDate}T${cleanEnd}`
-    const details = `${item.sportName} · ${t("scheduleDrawerCoach")}: ${item.coachName || "VIBE Sport"}`
+    const details = `${item.sportName} · ${t("scheduleDrawerCoach")}: ${item.coachName || "AVT Sport"}`
     const params = new URLSearchParams({
       action: "TEMPLATE",
       text: item.className,
       dates,
       ctz: "Asia/Ho_Chi_Minh",
-      location: item.roomName || "VIBE Sport Center",
+      location: item.roomName || "AVT Sport Center",
       details,
     })
     return `https://calendar.google.com/calendar/render?${params.toString()}`

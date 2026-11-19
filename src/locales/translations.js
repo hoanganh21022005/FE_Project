@@ -3,9 +3,9 @@
 export const translations = {
   vi: {
     // App Brand
-    appName: 'HỆ THỐNG QUẢN LÝ TRUNG TÂM THỂ THAO',
-    appShort: 'VIBE Sport',
-    systemTitle: 'SPORTS CENTER MANAGEMENT SYSTEM',
+    appName: 'HỆ THỐNG AVT SPORT',
+    appShort: 'AVT Sport',
+    systemTitle: 'AVT SPORT',
     
     // Navigation & Roles
     dashboard: 'Tổng quan',
@@ -209,7 +209,7 @@ export const translations = {
     membershipBtnViewEnrollments: 'Xem khóa học đã đăng ký',
 
     // Member Schedule View (Lịch học của tôi)
-    scheduleBrand: 'VIBE SPORT · MEMBER',
+    scheduleBrand: 'AVT SPORT · MEMBER',
     schedulePageTitle: 'Lịch học của tôi',
     schedulePageSubtitle: 'Xem lịch từng buổi, lịch PT 1-kèm-1 và báo vắng.',
     scheduleBtnRefresh: 'Tải lại lịch học',
@@ -337,7 +337,7 @@ export const translations = {
     scheduleAbsenceSuperseded: 'Đã thay thế',
 
     // Member Check-in View (Điểm danh)
-    checkinBrand: 'VIBE SPORT · MEMBER',
+    checkinBrand: 'AVT SPORT · MEMBER',
     checkinPageTitle: 'Điểm danh',
     checkinPageSubtitle: 'Đưa mã QR cho Coach hoặc lễ tân quét khi bạn đến buổi tập, đồng thời theo dõi lịch sử điểm danh.',
     checkinBtnRefresh: 'Tải lại dữ liệu',
@@ -430,7 +430,7 @@ export const translations = {
     checkinclose: 'Đóng',
 
     // Member Feedback View (Reviews & feedback)
-    feedbackBrand: 'VIBE SPORT · MEMBER',
+    feedbackBrand: 'AVT SPORT · MEMBER',
     feedbackPageTitle: 'Đánh giá & Phản hồi',
     feedbackPageSubtitle: 'Ý kiến của bạn giúp chúng tôi liên tục nâng cao chuẩn mực huấn luyện và chất lượng cơ sở vật chất.',
     feedbackBtnRefresh: 'Tải lại đánh giá',
@@ -803,9 +803,9 @@ export const translations = {
   },
   en: {
     // App Brand
-    appName: 'SPORTS CENTER MANAGEMENT SYSTEM',
-    appShort: 'VIBE Sport',
-    systemTitle: 'SPORTS CENTER MANAGEMENT SYSTEM',
+    appName: 'AVT SPORT',
+    appShort: 'AVT Sport',
+    systemTitle: 'AVT SPORT',
     
     // Navigation & Roles
     dashboard: 'Dashboard',
@@ -1009,7 +1009,7 @@ export const translations = {
     membershipBtnViewEnrollments: 'View enrolled courses',
 
     // Member Schedule View (My Schedule)
-    scheduleBrand: 'VIBE SPORT · MEMBER',
+    scheduleBrand: 'AVT SPORT · MEMBER',
     schedulePageTitle: 'My Schedule',
     schedulePageSubtitle: 'View your session schedule, 1-on-1 PT schedule and absence reports.',
     scheduleBtnRefresh: 'Refresh schedule',
@@ -1137,7 +1137,7 @@ export const translations = {
     scheduleAbsenceSuperseded: 'Superseded',
 
     // Member Check-in View (Check-in)
-    checkinBrand: 'VIBE SPORT · MEMBER',
+    checkinBrand: 'AVT SPORT · MEMBER',
     checkinPageTitle: 'Check-in',
     checkinPageSubtitle: 'Show your QR code to your coach or reception when you arrive, and track your attendance history.',
     checkinBtnRefresh: 'Refresh data',
@@ -1230,7 +1230,7 @@ export const translations = {
     checkinclose: 'Close',
 
     // Member Feedback View (Reviews & feedback)
-    feedbackBrand: 'VIBE SPORT · MEMBER',
+    feedbackBrand: 'AVT SPORT · MEMBER',
     feedbackPageTitle: 'Reviews & feedback',
     feedbackPageSubtitle: 'Your feedback helps us continuously improve coaching standards and facility quality.',
     feedbackBtnRefresh: 'Refresh reviews',

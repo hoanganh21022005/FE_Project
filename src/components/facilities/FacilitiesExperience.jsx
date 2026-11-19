@@ -43,7 +43,7 @@ export function FacilitiesExperience() {
       <div className="facility-hero" style={{ "--facility-hero-image": "url('/images/training-spaces/swimming.jpg')" }}>
         <div className="facility-hero-grid" aria-hidden="true" />
         <div className="facility-hero-content">
-          <span className="facility-kicker">VIBE SPORT · FACILITIES</span>
+          <span className="facility-kicker">AVT SPORT · FACILITIES</span>
           <h1 id="facilities-title">{isVi ? <>CƠ SỞ<br /><span>VẬT CHẤT</span></> : <>OUR<br /><span>FACILITIES</span></>}</h1>
           <p>{isVi
             ? "Không gian tập luyện đa dạng, được bố trí theo từng bộ môn để bạn rèn luyện kỹ năng và tiến bộ qua mỗi buổi tập."

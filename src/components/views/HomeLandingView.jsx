@@ -9,7 +9,7 @@ import { ArrowDown, ArrowRight, ChevronDown, Menu, X } from "lucide-react"
 import "../../styles/coaches.css"
 import "../../styles/home-facilities.css"
 
-const heroSlogan = ["Vitality", "Inspire", "Balance", "Energy"]
+const heroSlogan = ["Active", "Vibrant", "Thriving"]
 
 const courses = [
   {
@@ -211,12 +211,12 @@ export function HomeLandingView({ onOpenLogin }) {
         <div className="mx-auto flex h-[76px] max-w-[1440px] items-center justify-between px-5 sm:px-8 lg:px-12">
           <Link
             to="#top"
-            aria-label="Vibe Sport, trang chủ"
+            aria-label="AVT Sport, trang chủ"
             className="flex items-center gap-3 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mlc-red"
           >
             <img
-              src="/images/MainPage/vibe-sport-logo.png?v=5"
-              alt="Vibe Sport"
+              src="/images/MainPage/avt-sport-logo.png?v=6"
+              alt="AVT Sport"
               className="h-16 w-auto shrink-0 object-contain sm:h-[72px]"
             />
           </Link>
@@ -488,10 +488,10 @@ export function HomeLandingView({ onOpenLogin }) {
             <Reveal className="max-w-4xl">
               <p className="mb-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-white/85 sm:text-sm">
                 <span className="h-0.5 w-10 bg-mlc-red" />
-                VIBE SPORT
+                AVT SPORT
               </p>
               <h1 className="text-[clamp(3.75rem,12vw,10rem)] font-extrabold leading-[1.08] tracking-[0.02em]">
-                <span className="sr-only">Vitality · Inspire · Balance · Energy</span>
+                <span className="sr-only">Active · Vibrant · Thriving</span>
                 <span className="vibe-slogan-stage" aria-hidden="true">
                   {heroSlogan.map((word, index) => (
                     <span
@@ -557,7 +557,7 @@ export function HomeLandingView({ onOpenLogin }) {
           <div className="mx-auto grid max-w-[1440px] gap-12 px-5 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-20 lg:px-12">
             <Reveal>
               <p className="mb-5 text-xs font-bold uppercase tracking-[0.16em] text-mlc-red">
-                {isVi ? "TẠI SAO CHỌN VIBE SPORT" : "WHY CHOOSE VIBE SPORT"}
+                {isVi ? "TẠI SAO CHỌN AVT SPORT" : "WHY CHOOSE AVT SPORT"}
               </p>
               <h2 className="text-4xl font-extrabold leading-[1.22] tracking-normal sm:text-6xl sm:leading-[1.18]">
                 {isVi ? (
@@ -576,8 +576,8 @@ export function HomeLandingView({ onOpenLogin }) {
               </h2>
               <p className="mt-6 max-w-xl text-base leading-7 text-mlc-muted">
                 {isVi
-                  ? "VIBE Sport mang đến môi trường để học viên khám phá các môn thể thao, rèn luyện sức khỏe và phát triển những kỹ năng đồng hành cùng mình trong cuộc sống."
-                  : "VIBE Sport creates space to explore sports, build healthy habits and develop skills that carry into everyday life."}
+                  ? "AVT Sport mang đến môi trường để học viên khám phá các môn thể thao, rèn luyện sức khỏe và phát triển những kỹ năng đồng hành cùng mình trong cuộc sống."
+                  : "AVT Sport creates space to explore sports, build healthy habits and develop skills that carry into everyday life."}
               </p>
             </Reveal>
             <Stagger className="grid gap-4 sm:grid-cols-3">

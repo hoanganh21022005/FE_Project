@@ -1,4 +1,4 @@
-// Public editorial roster supplied by VIBE Sport; independent of staff accounts.
+// Public editorial roster supplied by AVT Sport; independent of staff accounts.
 export const publicSports = [
   { id: "badminton", title: "Cầu lông", titleEn: "Badminton" },
   { id: "table-tennis", title: "Bóng bàn", titleEn: "Table tennis" },

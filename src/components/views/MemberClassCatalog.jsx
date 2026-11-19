@@ -149,7 +149,7 @@ const DEFAULT_SPORT_META = {
   image: '/images/courses/badminton.jpg',
   badgeColor: 'bg-slate-800',
   lightBg: 'bg-slate-100 text-slate-800 border-slate-200',
-  defaultCourt: 'Sân thể thao chuyên dụng VIBE Sport',
+  defaultCourt: 'Sân thể thao chuyên dụng AVT Sport',
 };
 
 // Format selected days helper
@@ -542,7 +542,7 @@ function LegacyMemberClassCatalog() {
         image: `/images/courses/${item.id}.jpg`,
         intro: 'Chương trình rèn luyện thể thao chuyên nghiệp cùng HLV đạt chuẩn.',
         goals: ['Làm quen kỹ thuật căn bản', 'Thực hành cùng HLV', 'Phát triển phản xạ và thể lực'],
-        space: 'Khu phức hợp thể thao đa năng VIBE Sport',
+        space: 'Khu phức hợp thể thao đa năng AVT Sport',
       };
       const coach = publicCoaches.find(c => c.sportId === item.id) || {
         name: item.coachName,
@@ -799,20 +799,20 @@ function LegacyMemberClassCatalog() {
   const now = new Date();
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-10 animate-in fade-in duration-200 font-sans">
+    <div className="w-full space-y-8 font-sans">
       {/* ============================================================== */}
       {/* 1. KHÓA HỌC ĐANG THAM GIA / LỚP HỌC CỦA TÔI                     */}
       {/* ============================================================== */}
-      <section className="space-y-6 pb-8 border-b border-slate-100">
+      <section className="space-y-5 pb-6 border-b border-slate-200">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-mlc-red mb-1">
+            <div className="text-xs font-semibold uppercase tracking-wider text-brand-primary mb-1">
               Khóa học đang tham gia
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black font-title text-slate-950 uppercase tracking-tight">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug">
               Lớp học của tôi
-            </h2>
-            <p className="text-[14px] text-slate-600 mt-1">
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
               Tiến độ rèn luyện theo chuẩn 12 buổi/khóa và thông tin huấn luyện viên phụ trách.
             </p>
           </div>
@@ -823,10 +823,10 @@ function LegacyMemberClassCatalog() {
               setActiveCenterVideoSport('all');
               setShowCenterVideoModal(true);
             }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-slate-300 hover:border-slate-900 text-slate-800 text-[13px] font-bold transition-all cursor-pointer shrink-0 bg-white hover:bg-slate-50 shadow-xs"
+            className="inline-flex h-10 items-center gap-2 px-4 rounded-xl border border-slate-300 text-slate-700 text-sm font-medium transition-colors cursor-pointer shrink-0 bg-white hover:bg-slate-50 shadow-sm"
           >
-            <Video className="w-4 h-4 text-mlc-red" />
-            <span>Video trung tâm VIBE Sport</span>
+            <Video className="w-4 h-4 text-brand-primary" />
+            <span>Video trung tâm AVT Sport</span>
           </button>
         </div>
 
@@ -919,28 +919,25 @@ function LegacyMemberClassCatalog() {
       {/* ============================================================== */}
       {/* 2. TẤT CẢ LỚP HỌC & HỌC PHÍ CÁC MÔN (ĐĂNG KÝ MỚI)               */}
       {/* ============================================================== */}
-      <div className="bg-[#202B46] border border-slate-800/80 rounded-3xl p-4 sm:p-6 lg:p-7 text-white shadow-xl space-y-6">
-        {/* Top Header Section with Reference System Signature: "HỌC PHÍ CÁC MÔN" + Red Underline */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-2 border-b border-slate-800/80">
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 text-slate-900 shadow-sm space-y-6">
+        {/* Top Header Section */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-4 border-b border-slate-100">
         <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white flex items-center gap-2">
-              <span>HỌC PHÍ</span>
-              <span className="text-[#24A9D2]">CÁC MÔN</span>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h2 className="text-xl font-semibold tracking-tight text-slate-900 flex items-center gap-2">
+              <span>Học phí các môn</span>
             </h2>
-            <span className="text-[11px] font-bold text-[#98D9E8] bg-brand-dark border border-brand-accent/40 px-2.5 py-0.5 rounded-full">
-              VIBE Sport Center
+            <span className="text-xs font-semibold text-brand-primary bg-brand-blue-soft px-2.5 py-0.5 rounded-full">
+              AVT Sport Center
             </span>
-            <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
-              &bull; <strong className="text-white font-bold tabular-nums">{openClassesCount}</strong> lớp đang mở đăng ký
+            <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
+              &bull; <strong className="text-slate-900 font-semibold tabular-nums">{openClassesCount}</strong> lớp đang mở đăng ký
             </span>
           </div>
-          {/* Distinct Red Underline Bar under "HỌC PHÍ" (From reference image) */}
-          <div className="w-20 h-1 bg-brand-primary rounded-full mt-2 mb-2" />
-          <p className="text-xs sm:text-sm text-slate-400 max-w-2xl">
+          <p className="text-sm text-slate-500 max-w-2xl mt-1">
             {language === 'vi'
               ? 'Đăng ký các khóa đào tạo thể thao chuyên nghiệp cùng đội ngũ Huấn luyện viên đạt chuẩn quốc tế.'
-              : 'Enrol in high-performance sports training courses with certified coaches at VIBE Sport Center.'}
+              : 'Enrol in high-performance sports training courses with certified coaches at AVT Sport Center.'}
           </p>
         </div>
 
@@ -953,13 +950,13 @@ function LegacyMemberClassCatalog() {
               placeholder={language === 'vi' ? 'Tìm lớp, bộ môn, HLV, sân tập...' : 'Search class, coach, court...'}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 bg-[#303B58] border border-slate-700/80 rounded-lg text-xs text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-brand-primary focus:border-brand-primary transition-all"
+              className="h-10 w-full pl-9 pr-8 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
             />
             {searchInput && (
               <button
                 type="button"
                 onClick={() => setSearchInput('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5 cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -970,10 +967,10 @@ function LegacyMemberClassCatalog() {
           <button
             type="button"
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className={`p-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+            className={`h-10 px-3.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
               showAdvancedFilters || hasActiveFilters
                 ? 'bg-brand-blue-soft border-brand-primary text-brand-primary'
-                : 'bg-[#303B58] border-slate-700/80 text-slate-300 hover:bg-slate-800'
+                : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
             }`}
             title={language === 'vi' ? 'Bộ lọc nâng cao' : 'Advanced filters'}
           >
@@ -986,13 +983,13 @@ function LegacyMemberClassCatalog() {
         </div>
       </div>
 
-      {/* Scrollable Sport Category Bar on Dark Theme */}
-      <div className="relative flex items-center rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs">
+      {/* Scrollable Sport Category Bar */}
+      <div className="relative flex items-center rounded-2xl border border-slate-200 bg-slate-50/70 p-2">
         {canScrollLeft && (
           <button
             type="button"
             onClick={() => handleScrollSports('left')}
-            className="p-1.5 bg-[#303B58] hover:bg-slate-800 border border-slate-700/80 text-slate-300 rounded-md shadow-sm mr-1.5 shrink-0 cursor-pointer flex items-center justify-center transition-colors"
+            className="p-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-lg shadow-xs mr-1.5 shrink-0 cursor-pointer flex items-center justify-center transition-colors"
             title="Cuộn sang trái"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
@@ -1020,7 +1017,7 @@ function LegacyMemberClassCatalog() {
           <button
             type="button"
             onClick={() => handleScrollSports('right')}
-            className="p-1.5 bg-[#303B58] hover:bg-slate-800 border border-slate-700/80 text-slate-300 rounded-md shadow-sm ml-1.5 shrink-0 cursor-pointer flex items-center justify-center transition-colors"
+            className="p-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-lg shadow-xs ml-1.5 shrink-0 cursor-pointer flex items-center justify-center transition-colors"
             title="Cuộn sang phải"
           >
             <ChevronRight className="w-3.5 h-3.5" />
@@ -1031,10 +1028,10 @@ function LegacyMemberClassCatalog() {
       {/* Active Filter Chips Bar */}
       {hasActiveFilters && (
         <div className="flex items-center gap-1.5 flex-wrap text-xs">
-          <span className="text-slate-400 font-medium text-[11px]">Đang lọc:</span>
+          <span className="text-slate-500 font-medium text-[11px]">Đang lọc:</span>
 
           {selectedCategory !== 'all' && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#303B58] text-slate-200 text-[11px] font-semibold border border-slate-700">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-brand-blue-soft text-brand-primary text-[11px] font-semibold border border-blue-200">
               <span>Môn: {selectedCategory}</span>
               <button
                 type="button"
@@ -1789,7 +1786,7 @@ function LegacyMemberClassCatalog() {
                           <span>Khu vực sân tập tiêu chuẩn:</span>
                         </div>
                         <p className="pl-5 text-slate-400 leading-relaxed">
-                          {selectedSportForDetail.space || 'Khu phức hợp thể thao đa năng VIBE Sport'} &bull; Cửa từ Turnstile kiểm soát tự động.
+                          {selectedSportForDetail.space || 'Khu phức hợp thể thao đa năng AVT Sport'} &bull; Cửa từ Turnstile kiểm soát tự động.
                         </p>
                       </div>
                     </div>
@@ -1829,7 +1826,7 @@ function LegacyMemberClassCatalog() {
       )}
 
       {/* ============================================================== */}
-      {/* 4. MODAL: VIDEO TRUNG TÂM VIBE SPORT (CHỌN TẤT CẢ 9 MÔN)      */}
+      {/* 4. MODAL: VIDEO TRUNG TÂM AVT SPORT (CHỌN TẤT CẢ 9 MÔN)      */}
       {/* ============================================================== */}
       {showCenterVideoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -1837,10 +1834,10 @@ function LegacyMemberClassCatalog() {
             <div className="p-5 sm:p-6 border-b border-slate-800 flex items-center justify-between gap-4 sticky top-0 bg-slate-900/95 backdrop-blur-md z-10">
               <div>
                 <div className="text-xs font-bold uppercase tracking-wider text-mlc-red">
-                  Cơ sở vật chất &bull; VIBE Sport Center
+                  Cơ sở vật chất &bull; AVT Sport Center
                 </div>
                 <h3 className="text-xl sm:text-2xl font-black font-title text-white">
-                  Video Giới Thiệu Trung Tâm Thể Thao VIBE Sport
+                  Video Giới Thiệu Trung Tâm Thể Thao AVT Sport
                 </h3>
               </div>
 
@@ -1893,10 +1890,10 @@ function LegacyMemberClassCatalog() {
 
               <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 text-xs text-slate-300 space-y-2">
                 <div className="font-bold text-white text-sm">
-                  Trung tâm Thể thao Đa năng Chuẩn Quốc Tế VIBE Sport
+                  Trung tâm Thể thao Đa năng Chuẩn Quốc Tế AVT Sport
                 </div>
                 <p className="leading-relaxed text-slate-400">
-                  Hệ thống 9 bộ môn thể thao với mặt sân Taraflex, Plexicushion, DUPR tiêu chuẩn giải đấu. Kiểm soát vào sân tự động bằng mã QR động và thẻ điện tử VIBE Access tại các cổng Turnstile.
+                  Hệ thống 9 bộ môn thể thao với mặt sân Taraflex, Plexicushion, DUPR tiêu chuẩn giải đấu. Kiểm soát vào sân tự động bằng mã QR động và thẻ điện tử AVT Access tại các cổng Turnstile.
                 </p>
               </div>
             </div>

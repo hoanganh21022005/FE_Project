@@ -214,7 +214,7 @@ export function SupportView() {
         const botReply = {
           id: Date.now() + 1,
           senderType: "AI",
-          senderName: "VIBE Support",
+          senderName: "AVT Support",
           isMine: false,
           content: isVi
             ? "Cảm ơn bạn đã gửi tin nhắn! Yêu cầu của bạn đã được ghi nhận, bộ phận Chăm sóc Hội viên sẽ phản hồi ngay."
@@ -403,10 +403,10 @@ export function SupportView() {
           <div>
             <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-                {isVi ? "Trợ lý VIBE AI & Chăm sóc Hội viên" : "VIBE AI & Member Care"}
+                {isVi ? "Trợ lý AVT AI & Chăm sóc Hội viên" : "AVT AI & Member Care"}
               </h1>
             </div>
-            <p className="mt-1 text-sm text-slate-500">{isVi ? "Trò chuyện với Trợ lý AI hoặc kết nối lễ tân để được hỗ trợ." : "Chat with VIBE AI or connect with reception for help."}</p>
+            <p className="mt-1 text-sm text-slate-500">{isVi ? "Trò chuyện với Trợ lý AI hoặc kết nối lễ tân để được hỗ trợ." : "Chat with AVT AI or connect with reception for help."}</p>
             <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600">
               <span className="rounded-full bg-slate-100 px-2.5 py-1">• {isVi ? "AI phản hồi tức thì" : "Instant AI replies"}</span>
               <span className="rounded-full bg-slate-100 px-2.5 py-1">• {isVi ? "Lễ tân trực ca" : "Reception on duty"}</span>
@@ -516,8 +516,8 @@ export function SupportView() {
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-700"><BookOpen className="h-4 w-4" /></span>
               <span>
                 {isVi
-                  ? "Quy trình Hỗ trợ VIBE Sport"
-                  : "VIBE Sport Support Workflow"}
+                  ? "Quy trình Hỗ trợ AVT Sport"
+                  : "AVT Sport Support Workflow"}
               </span>
             </div>
             <div className="space-y-3">
@@ -575,8 +575,8 @@ export function SupportView() {
                   <h2 className="text-sm font-extrabold text-slate-900 truncate">
                     {conversation?.subject ||
                       (isVi
-                        ? "Kênh hỗ trợ trực tuyến VIBE Sport"
-                        : "VIBE Sport Live Support")}
+                        ? "Kênh hỗ trợ trực tuyến AVT Sport"
+                        : "AVT Sport Live Support")}
                   </h2>
                   {conversation && (
                     <span
@@ -750,7 +750,7 @@ export function SupportView() {
                           )}
                           {msg.senderName ||
                             (msg.senderType === "AI"
-                              ? "VIBE AI"
+                              ? "AVT AI"
                               : "Chuyên viên Hỗ trợ")}
                         </span>
                       )}

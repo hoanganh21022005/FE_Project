@@ -396,7 +396,7 @@ export function ReceptionClassBooking() {
           value={selectedMemberId}
           onChange={handleSelectMember}
           disabled={isSubmitting}
-          className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+          className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
         >
           {members.map((m) => (
             <option key={m.id} value={m.id}>
@@ -408,21 +408,21 @@ export function ReceptionClassBooking() {
         </select>
 
         {selectedMember && (
-          <div className="p-3 bg-bg-secondary rounded border border-border-color text-sm leading-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div>
-              <span className="text-text-secondary">Trạng thái tài khoản: </span>
+              <span className="text-slate-500">Trạng thái tài khoản: </span>
               <span
                 className={`font-semibold uppercase ${
                   selectedMember.membershipStatus === "active"
-                    ? "text-status-success"
-                    : "text-status-warning"
+                    ? "text-emerald-700"
+                    : "text-amber-700"
                 }`}
               >
                 {selectedMember.membershipStatus}
               </span>
             </div>
             {selectedMember.membershipStatus !== "active" && (
-              <span className="text-status-warning font-semibold flex items-center gap-1 text-xs leading-4">
+              <span className="text-amber-700 font-semibold flex items-center gap-1 text-xs">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 <span>
                   Lưu ý: Hội viên cần có gói tập hợp lệ để hệ thống chấp nhận
@@ -657,15 +657,15 @@ export function ReceptionClassBooking() {
         )}
 
       {/* Classes Available */}
-      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-color pb-3">
-          <h3 className="text-lg leading-7 font-semibold text-text-primary">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <h3 className="text-base font-semibold text-slate-900">
             2. Lớp Học Sắp Khai Giảng ({filteredClasses.length})
           </h3>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="min-h-11 w-full sm:w-auto rounded border border-border-strong bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+            className="h-9 w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-3 text-xs sm:text-sm text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 cursor-pointer"
           >
             <option value="all">Tất cả bộ môn</option>
             {categories.map((cat) => (
@@ -734,14 +734,14 @@ export function ReceptionClassBooking() {
             return (
               <div
                 key={cls.id}
-                className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-slate-900 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
+                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
                       {cls.category || "Thể thao"}
                     </span>
-                    <span className="text-lg leading-7 font-semibold text-text-primary">
+                    <span className="text-base font-semibold text-slate-900">
                       {language === "vi" ? cls.nameVi || cls.name : cls.name}
                     </span>
                   </div>
@@ -825,7 +825,7 @@ export function ReceptionClassBooking() {
                               enrollmentInvoiceCode,
                             )
                           }
-                          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
                         >
                           <span>
                             {language === "vi" ? "Thu tiền" : "Collect"}
@@ -852,7 +852,7 @@ export function ReceptionClassBooking() {
                         type="button"
                         disabled={!canBook}
                         onClick={() => handleDeskBooking(cls)}
-                        className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
                       >
                         {isThisSubmitting ? (
                           <>
@@ -891,7 +891,7 @@ export function ReceptionClassBooking() {
                         type="button"
                         disabled={!canBook}
                         onClick={() => handleDeskBooking(cls)}
-                        className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
                       >
                         {isThisSubmitting ? (
                           <>

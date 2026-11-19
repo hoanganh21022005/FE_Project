@@ -1,4 +1,4 @@
-# VIBE Sport hero video
+# AVT Sport hero video
 
 `vibe-sport-montage-1080p.mp4` combines nine 3-second scenes into one 27-second loop.
 Encoding: 1920×1080, 30 fps, H.264 High / yuv420p, no audio, MP4 fast start.
@@ -8,7 +8,7 @@ Encoding: 1920×1080, 30 fps, H.264 High / yuv420p, no audio, MP4 fast start.
 ## Stock footage credits
 
 Footage downloaded from Pexels under the [Pexels License](https://www.pexels.com/license/), except the table tennis scene, which is from Mixkit under the [Mixkit Stock Video Free License](https://mixkit.co/license/#videoFree).
-These scenes are illustrative stock footage, not footage of VIBE Sport facilities.
+These scenes are illustrative stock footage, not footage of AVT Sport facilities.
 
 | Montage time | Sport | Creator and source | Source start |
 | --- | --- | --- | --- |

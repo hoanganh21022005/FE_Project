@@ -71,7 +71,7 @@ export function EnrollClassModal({
                   : (language === 'vi' ? 'Xác Nhận Đăng Ký Khóa Học' : 'Confirm Class Enrollment')}
               </h2>
               <p className="text-[11px] text-slate-500">
-                VIBE Sport Center &bull; Hệ thống Đào tạo Thể thao
+                AVT Sport Center &bull; Hệ thống Đào tạo Thể thao
               </p>
             </div>
           </div>
@@ -109,7 +109,7 @@ export function EnrollClassModal({
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Địa điểm:</span>
-                <strong>{classItem.roomVi || classItem.room || 'Sân VIBE Sport'}</strong>
+                <strong>{classItem.roomVi || classItem.room || 'Sân AVT Sport'}</strong>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">HLV:</span>
@@ -176,7 +176,7 @@ export function EnrollClassModal({
 
                 <div className="flex items-center gap-2">
                   <MapPin className="w-3.5 h-3.5 text-brand-accent-dark shrink-0" />
-                  <span>{classItem.roomVi || classItem.room || 'Sân tập VIBE Sport'} {classItem.roomSpec && `(${classItem.roomSpec})`}</span>
+                  <span>{classItem.roomVi || classItem.room || 'Sân tập AVT Sport'} {classItem.roomSpec && `(${classItem.roomSpec})`}</span>
                 </div>
 
                 <div className="flex items-center gap-2">

@@ -854,7 +854,7 @@ export function CoachScheduleView() {
                 <button
                   type="button"
                   onClick={() => handleGoToAttendance(ses)}
-                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>
@@ -949,27 +949,27 @@ export function CoachScheduleView() {
         <>
           {/* Section 1: Detailed Sessions Schedule */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-border-color pb-3">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-lg leading-7 font-semibold text-text-primary flex items-center gap-2">
+                <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
                   <Clock className="w-4 h-4 text-brand-primary" />
                   <span>Thời khóa biểu các buổi giảng dạy chi tiết</span>
                 </h3>
-                <p className="text-sm leading-5 text-text-secondary mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   {t("coachScheduleSubtitleShort")}
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 {/* View Mode Toggle: Week Grid vs List */}
-                <div className="inline-flex rounded border border-border-color bg-bg-secondary p-1 gap-1">
+                <div className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1 gap-1">
                   <button
                     type="button"
                     onClick={() => setViewMode("week")}
-                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+                    className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 cursor-pointer ${
                       viewMode === "week"
-                        ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
-                        : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
+                        ? "bg-white text-brand-primary shadow-sm"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
                     }`}
                   >
                     <CalendarDays className="w-3.5 h-3.5" />
@@ -978,10 +978,10 @@ export function CoachScheduleView() {
                   <button
                     type="button"
                     onClick={() => setViewMode("list")}
-                    className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+                    className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 cursor-pointer ${
                       viewMode === "list"
-                        ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
-                        : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
+                        ? "bg-white text-brand-primary shadow-sm"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
                     }`}
                   >
                     <LayoutList className="w-3.5 h-3.5" />
@@ -1005,10 +1005,10 @@ export function CoachScheduleView() {
                     key={tab.id}
                     type="button"
                     onClick={() => setScheduleFilter(tab.id)}
-                    className={`inline-flex min-h-11 items-center justify-center gap-1 rounded px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none cursor-pointer ${
+                    className={`inline-flex h-9 items-center justify-center gap-1 rounded-xl px-3 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 cursor-pointer ${
                       scheduleFilter === tab.id
-                        ? "bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active"
-                        : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
+                        ? "bg-brand-primary text-white shadow-sm"
+                        : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                     }`}
                   >
                     {tab.label}

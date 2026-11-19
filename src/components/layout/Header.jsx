@@ -196,7 +196,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
           <Menu className="w-5 h-5" />
         </button>
         <span className="hidden sm:inline text-text-secondary font-medium">
-          VIBE Athletic Club
+          AVT Sport
         </span>
         <ChevronRight className="hidden sm:inline w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
         <span className="text-text-primary font-bold truncate">
