@@ -56,11 +56,15 @@ async function runUnitSuite() {
   const originalFetch = globalThis.fetch
   const requests = []
   let mockSessionCount = 12
+  let mockCatalogSessionCount = null
   let lastCreatePayload = null
   let mockReadbackFactory = null
+  let mockEmbeddedSessionsFactory = null
   let includePostSessions = false
-  let postResponseMode = 'success' // 'success' | 'validation_400' | 'room_conflict_409' | 'coach_conflict_409' | 'idempotency_conflict_409' | 'server_500'
+  let postResponseMode = 'success' // 'success' | 'validation_400' | 'room_conflict_409' | 'coach_conflict_409' | 'idempotency_conflict_409' | 'server_500' | 'network_error' | 'missing_id_success'
   let failPrimarySessionsEndpoint = false
+  let failCatalogSessionsEndpoint = false
+  let networkSessionsEndpoints = false
 
   globalThis.fetch = async (reqUrl, options = {}) => {
     const requestUrl = String(reqUrl)
@@ -123,6 +127,15 @@ async function runUnitSuite() {
           },
         )
       }
+      if (postResponseMode === 'network_error') {
+        throw new TypeError('Failed to fetch')
+      }
+      if (postResponseMode === 'missing_id_success') {
+        return new Response(JSON.stringify({ name: parsedBody?.sportsClass?.name, status: 'Open' }), {
+          status: 201,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
       return new Response(
         JSON.stringify({
           id: 17,
@@ -136,7 +149,9 @@ async function runUnitSuite() {
           classType: 'Normal',
           totalSessions: 12,
           tuitionFee: 650000,
-          sessions: includePostSessions ? makeBackendSessions(parsedBody, 12) : undefined,
+          sessions: includePostSessions
+            ? (mockEmbeddedSessionsFactory?.(parsedBody) || makeBackendSessions(parsedBody, 12))
+            : undefined,
         }),
         {
           status: 201,
@@ -146,9 +161,17 @@ async function runUnitSuite() {
     }
 
     if (requestUrl.includes('/api/sessions/catalog/')) {
+      if (networkSessionsEndpoints) throw new TypeError('Failed to fetch catalog sessions')
+      if (failCatalogSessionsEndpoint) {
+        return new Response(JSON.stringify({ message: 'Catalog unavailable' }), {
+          status: 503,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      const count = mockCatalogSessionCount ?? mockSessionCount
       const sessions = mockReadbackFactory
-        ? mockReadbackFactory(lastCreatePayload, mockSessionCount)
-        : makeBackendSessions(lastCreatePayload, mockSessionCount, 101)
+        ? mockReadbackFactory(lastCreatePayload, count)
+        : makeBackendSessions(lastCreatePayload, count, 101)
       return new Response(JSON.stringify(sessions), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -156,6 +179,7 @@ async function runUnitSuite() {
     }
 
     if (requestUrl.includes('/api/sessions?')) {
+      if (networkSessionsEndpoints) throw new TypeError('Failed to fetch sessions')
       if (failPrimarySessionsEndpoint) {
         return new Response(JSON.stringify({ message: 'Internal Server Error' }), {
           status: 500,
@@ -448,27 +472,127 @@ async function runUnitSuite() {
     assert.match(requests.at(-1).url, /\/api\/sessions\/catalog\/17$/)
     failPrimarySessionsEndpoint = false
 
-    // 6. Fail-closed when read-back returns fewer than 12 valid sessions & keep requestId stable for reconciliation
+    // 6. If both GET endpoints return partial lists, preserve the created class and retry verification without another POST.
     mockSessionCount = 11
     const incompleteStateRef = { current: null }
+    requests.length = 0
     await assert.rejects(
       () => createNormalClassWithSessions(baseInput, {}, { idempotencyStateRef: incompleteStateRef }),
       (err) => {
-        assert.equal(err.code, 'INCOMPLETE_NORMAL_CLASS_SESSIONS')
-        assert.equal(err.actualCount, 11)
-        assert.equal(err.expectedCount, 12)
+        assert.equal(err.code, 'NORMAL_CLASS_CREATED_SCHEDULE_UNVERIFIED')
+        assert.equal(err.classId, 17)
+        assert.equal(err.createdClass.id, 17)
+        assert.equal(err.createdClass.scheduleVerificationStatus, 'unverified')
+        assert.equal(err.createdClass.totalSessions, 12)
+        assert.deepEqual(err.createdClass.selectedDays, [1, 3, 0])
+        assert.equal(err.verificationError.code, 'INCOMPLETE_NORMAL_CLASS_SESSIONS')
+        assert.equal(err.verificationError.actualCount, 11)
+        assert.equal(err.verificationError.expectedCount, 12)
         assert.match(err.message, /11\/12/)
         return true
       },
-      'Must reject when read-back does not confirm 12 valid sessions',
+      'A successful POST with partial read-back must report created-but-unverified, not creation failure',
     )
-    const firstIncompleteRequestId = requests.at(-2).body.requestId
+    const firstIncompleteRequestId = requests.find((request) => request.options.method === 'POST').body.requestId
     assert.equal(
       incompleteStateRef.current?.requestId,
       firstIncompleteRequestId,
-      'Uncertain read-back outcome must keep requestId stable in stateRef for safe reconciliation',
+      'Created class recovery keeps the original requestId and classId',
     )
+    assert.equal(incompleteStateRef.current?.createdClassId, 17)
+    assert.equal(incompleteStateRef.current?.status, 'created_unverified')
+    assert.equal(requests.filter((request) => request.options.method === 'POST').length, 1)
     mockSessionCount = 12
+    const postsBeforeVerificationRetry = requests.filter((request) => request.options.method === 'POST').length
+    const recoveredAfterPartialRead = await createNormalClassWithSessions(baseInput, {}, { idempotencyStateRef: incompleteStateRef })
+    assert.equal(recoveredAfterPartialRead.id, 17)
+    assert.equal(recoveredAfterPartialRead.verifiedSessionCount, 12)
+    assert.equal(requests.filter((request) => request.options.method === 'POST').length, postsBeforeVerificationRetry, 'Retry with known classId performs GET verification only')
+    assert.equal(incompleteStateRef.current, null)
+
+    // A successful POST followed by GET network failures keeps the classId and retries GET only.
+    const networkReadStateRef = { current: null }
+    networkSessionsEndpoints = true
+    requests.length = 0
+    await assert.rejects(
+      () => createNormalClassWithSessions(baseInput, {}, { idempotencyStateRef: networkReadStateRef }),
+      (err) => err.code === 'NORMAL_CLASS_CREATED_SCHEDULE_UNVERIFIED' && err.classId === 17,
+    )
+    assert.equal(networkReadStateRef.current?.createdClassId, 17)
+    assert.equal(requests.filter((request) => request.options.method === 'POST').length, 1)
+    networkSessionsEndpoints = false
+    const postCountBeforeGetRetry = requests.filter((request) => request.options.method === 'POST').length
+    const networkReadRecovered = await createNormalClassWithSessions(baseInput, {}, { idempotencyStateRef: networkReadStateRef })
+    assert.equal(networkReadRecovered.verifiedSessionCount, 12)
+    assert.equal(requests.filter((request) => request.options.method === 'POST').length, postCountBeforeGetRetry)
+
+    // A partial primary GET falls back to the existing catalog GET before declaring verification incomplete.
+    mockSessionCount = 11
+    mockCatalogSessionCount = 12
+    const catalogRecovery = await createNormalClassWithSessions(baseInput, {})
+    assert.equal(catalogRecovery.verifiedSessionCount, 12)
+    assert.ok(requests.some((request) => request.url.includes('/api/sessions/catalog/17')))
+    mockSessionCount = 12
+    mockCatalogSessionCount = null
+
+    // Wrong-pattern data after a successful POST is recoverable by GET and must never trigger a second POST.
+    const wrongPatternStateRef = { current: null }
+    mockEmbeddedSessionsFactory = (payload) => {
+      const rows = makeBackendSessions(payload, 12)
+      rows[0].sessionDate = '2026-11-03'
+      return rows
+    }
+    mockReadbackFactory = (payload, count) => {
+      const rows = makeBackendSessions(payload, count)
+      return rows
+    }
+    requests.length = 0
+    includePostSessions = true
+    await assert.rejects(
+      () => createNormalClassWithSessions(baseInput, {}, { idempotencyStateRef: wrongPatternStateRef }),
+      (err) => err.code === 'NORMAL_CLASS_CREATED_SCHEDULE_UNVERIFIED' && err.classId === 17 && /ngoài mẫu/.test(err.message),
+    )
+    assert.equal(requests.filter((request) => request.options.method === 'POST').length, 1)
+    assert.equal(requests.filter((request) => request.url.includes('/api/sessions?')).length, 0, 'invalid embedded sessions are checked first')
+    includePostSessions = false
+    mockEmbeddedSessionsFactory = null
+    mockReadbackFactory = null
+    const postsBeforeWrongPatternRetry = requests.filter((request) => request.options.method === 'POST').length
+    const recoveredWrongPattern = await createNormalClassWithSessions(baseInput, {}, { idempotencyStateRef: wrongPatternStateRef })
+    assert.equal(recoveredWrongPattern.verifiedSessionCount, 12)
+    assert.ok(requests.some((request) => request.url.includes('/api/sessions?classId=17')), 'recovery reads current schedule through GET after embedded data failed')
+    assert.equal(requests.filter((request) => request.options.method === 'POST').length, postsBeforeWrongPatternRetry)
+
+    // A 2xx POST response without a usable classId stays explicitly unknown and blocks another POST.
+    const unknownOutcomeStateRef = { current: null }
+    postResponseMode = 'missing_id_success'
+    requests.length = 0
+    await assert.rejects(
+      () => createNormalClassWithSessions(baseInput, {}, { idempotencyStateRef: unknownOutcomeStateRef }),
+      (err) => err.code === 'NORMAL_CLASS_CREATION_OUTCOME_UNKNOWN' && Boolean(err.requestId),
+    )
+    const unknownRequestId = requests.find((request) => request.options.method === 'POST').body.requestId
+    assert.equal(unknownOutcomeStateRef.current?.status, 'outcome_unknown')
+    assert.equal(unknownOutcomeStateRef.current?.requestId, unknownRequestId)
+    await assert.rejects(
+      () => createNormalClassWithSessions(baseInput, {}, { idempotencyStateRef: unknownOutcomeStateRef }),
+      (err) => err.code === 'NORMAL_CLASS_CREATION_OUTCOME_UNKNOWN',
+    )
+    assert.equal(requests.filter((request) => request.options.method === 'POST').length, 1, 'unknown outcome never triggers a second POST')
+    postResponseMode = 'success'
+
+    // A POST network failure remains uncertain and retries with the same requestId under existing idempotency behavior.
+    const networkStateRef = { current: null }
+    postResponseMode = 'network_error'
+    requests.length = 0
+    await assert.rejects(() => createNormalClassWithSessions(baseInput, {}, { idempotencyStateRef: networkStateRef }))
+    const networkRequestId = requests.find((request) => request.options.method === 'POST').body.requestId
+    assert.equal(networkStateRef.current?.requestId, networkRequestId)
+    postResponseMode = 'success'
+    const recoveredNetworkPost = await createNormalClassWithSessions(baseInput, {}, { idempotencyStateRef: networkStateRef })
+    assert.equal(recoveredNetworkPost.id, 17)
+    assert.equal(requests.filter((request) => request.options.method === 'POST').length, 2)
+    assert.equal(requests.filter((request) => request.options.method === 'POST').at(-1).body.requestId, networkRequestId)
 
     // Backend validation errors are surfaced without retry or follow-up writes.
     requests.length = 0
@@ -623,10 +747,18 @@ async function runUnitSuite() {
 
     // 10. Verify NewClassModal source integration and retry button behavior
     const modalSource = await readFile(new URL('../src/components/modals/NewClassModal.jsx', import.meta.url), 'utf8')
+    const contextSource = await readFile(new URL('../src/context/SCMSContext.jsx', import.meta.url), 'utf8')
+    const managerApiSource = await readFile(new URL('../src/api/managerApi.js', import.meta.url), 'utf8')
     assert.match(modalSource, /isNormalClassApiCreationBlocked\(apiEnabled, "Draft"\)/)
     assert.match(modalSource, /isNormalClassApiCreationBlocked\(apiEnabled\)/)
     assert.match(modalSource, /selectedSubject\.outdoor === null/)
     assert.match(modalSource, /idempotencyStateRef:\s*normalRequestIdStateRef/)
+    assert.match(managerApiSource, /previousState\?\.status === 'created_unverified'/)
+    assert.match(managerApiSource, /NORMAL_CLASS_CREATION_OUTCOME_UNKNOWN/)
+    assert.match(contextSource, /createdButUnverified:\s*true/)
+    assert.match(contextSource, /error\.createdClass/)
+    assert.match(modalSource, /Thử xác minh lại lịch/)
+    assert.match(modalSource, /không gửi POST tạo lớp lần nữa/)
 
     console.log('PASS: FE-10 unit tests: Normal minCapacity defaults, constraints and request body; 400/409 handling; atomic 12-session creation and idempotent retries.')
   } finally {
@@ -823,6 +955,7 @@ async function runBrowserSuite() {
           postMode: 'room_conflict_409', // 'room_conflict_409' | 'server_500' | 'idempotency_conflict_409' | 'success'
           sessionCount: 12,
           createPayload: null,
+          failSessionReadback: false,
         };
 
         const origFetch = window.fetch;
@@ -871,6 +1004,7 @@ async function runBrowserSuite() {
                 capacity: 15,
                 status: 'Available',
                 facilityType: 'BadmintonCourt',
+                activityType: 'BADMINTON',
                 outdoor: false,
               }
             ]), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -932,6 +1066,9 @@ async function runBrowserSuite() {
           if (urlStr.includes('/api/sessions') && method === 'GET') {
             window.__fe10Calls.sessionReadBacks.push({ url: urlStr });
             if (urlStr.includes('classId=88') || urlStr.includes('/catalog/88')) {
+              if (window.__fe10MockState.failSessionReadback) {
+                return new Response(JSON.stringify({ message: 'Session readback unavailable' }), { status: 503, headers: { 'Content-Type': 'application/json' } });
+              }
               const request = window.__fe10MockState.createPayload;
               const weekdays = (request?.daysOfWeek || []).map((day) => Number(day) === 7 ? 0 : Number(day));
               const [year, month, day] = String(request?.sportsClass?.startDate || '2026-11-02').slice(0, 10).split('-').map(Number);
@@ -1181,6 +1318,39 @@ async function runBrowserSuite() {
     const outdoorNullPosts = await client.eval(`window.__fe10Calls.normalCreatePosts.length`)
     assert.equal(outdoorNullPosts, 0, 'Subject with outdoor: null must be blocked before any POST is sent')
     console.log('[FE10-BROWSER-03] PASS: Subject with outdoor: null is blocked before POST with explicit toast warning (0 POSTs sent).')
+
+    // Scenario 4: POST accepted, both existing GET endpoints unavailable, then GET-only recovery.
+    await client.send('Page.addScriptToEvaluateOnNewDocument', {
+      source: `
+        window.__fe10MockState.subjectOutdoor = false;
+        window.__fe10MockState.postMode = 'success';
+        window.__fe10MockState.failSessionReadback = true;
+      `,
+    })
+    await client.navigate(`http://localhost:${vitePort}/manager/classes`)
+    await client.waitFor(`Array.from(document.querySelectorAll('button')).some(b => b.textContent.includes('Tạo lớp học'))`, 10000)
+    await client.eval(`
+      window.__fe10Calls.normalCreatePosts = [];
+      window.__fe10MockState.subjectOutdoor = false;
+      window.__fe10MockState.postMode = 'success';
+      window.__fe10MockState.failSessionReadback = true;
+    `)
+    await client.eval(clickCreateClassOpenButton)
+    await client.waitFor(`Boolean(document.querySelector('#new-class-name'))`)
+    await client.eval(setClassNameInput('Cầu lông Normal chưa xác minh'))
+    await client.eval(clickSubmitModalButton)
+    await client.waitFor(`window.__fe10Calls.normalCreatePosts.length === 1`)
+    await client.waitFor(`document.querySelector('[role="alert"]')?.textContent.includes('#88')`)
+    const postCountAfterUnverified = await client.eval(`window.__fe10Calls.normalCreatePosts.length`)
+    assert.equal(postCountAfterUnverified, 1, 'A successful POST with failed schedule reads is still one creation attempt')
+    await client.eval(`Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Thử xác minh lại lịch'))?.click()`)
+    await client.waitFor(`document.querySelector('[role="alert"]')?.textContent.includes('#88')`)
+    assert.equal(await client.eval(`window.__fe10Calls.normalCreatePosts.length`), 1, 'Retry while GET is unavailable must not POST again')
+    await client.eval(`window.__fe10MockState.failSessionReadback = false`)
+    await client.eval(`Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Thử xác minh lại lịch'))?.click()`)
+    await client.waitFor(`document.body.innerText.includes('Đã xác minh đủ 12 buổi cho lớp #88.')`)
+    assert.equal(await client.eval(`window.__fe10Calls.normalCreatePosts.length`), 1, 'Successful GET-only retry must retain the single original POST')
+    console.log('[FE10-BROWSER-04] PASS: Created class remains identified after failed GET verification; retry performs GET only and never duplicates POST.')
   } finally {
     client.close()
     proc.kill()

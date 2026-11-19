@@ -337,7 +337,7 @@ export const verifyNormalClassSessions = async (
     throw primaryError || new Error(`Không thể tải danh sách buổi học để xác minh lớp #${numericClassId}.`)
   }
 
-  const validSessions = sessions.filter((session) => {
+  const getValidSessions = (items) => items.filter((session) => {
     if (!session || typeof session !== 'object') return false
     if (session.classId !== undefined && session.classId !== null && Number(session.classId) !== numericClassId) {
       return false
@@ -345,6 +345,19 @@ export const verifyNormalClassSessions = async (
     const status = String(session.status || '').trim().toLowerCase()
     return status !== 'cancelled' && status !== 'canceled'
   })
+
+  let validSessions = getValidSessions(sessions)
+  if (validSessions.length !== expectedCount && typeof getCatalogSessionsFn === 'function') {
+    try {
+      const fallbackSessions = await getCatalogSessionsFn(numericClassId)
+      if (Array.isArray(fallbackSessions)) {
+        sessions = fallbackSessions
+        validSessions = getValidSessions(sessions)
+      }
+    } catch {
+      // Keep the primary result so the caller receives its most useful count/error.
+    }
+  }
 
   if (validSessions.length !== expectedCount) {
     const err = new Error(

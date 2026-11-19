@@ -175,6 +175,81 @@ export const createNormalClassWithSessions = async (data, lookups = {}, options 
       ? idempotencyStateRef.current
       : null;
 
+  const verifyCreatedClass = async (created, requestBody, initialSessions = null) => {
+    try {
+      const verification = await verifyNormalClassSessions(created.id, {
+        getSessionsFn: (filters) => getSessions(filters, httpOptions),
+        getCatalogSessionsFn: (cId) => getCatalogClassSessions(cId, httpOptions),
+        expectedCount: expectedSessionCount,
+        expectedDaysOfWeek: requestBody.daysOfWeek,
+        initialSessions,
+      });
+      created.verifiedSessionCount = verification.count;
+      created.scheduleVerificationStatus = 'verified';
+      if (!created.endDate && verification.endDate) created.endDate = verification.endDate;
+      if (idempotencyStateRef && typeof idempotencyStateRef === 'object') {
+        idempotencyStateRef.current = null;
+      }
+      return created;
+    } catch (cause) {
+      Object.assign(created, {
+        classType: 'Normal',
+        totalSessions: expectedSessionCount,
+        roomId: Number(requestBody.roomId),
+        room: data?.room ?? data?.roomVi ?? null,
+        roomVi: data?.roomVi ?? data?.room ?? null,
+        startTime: requestBody.startTime,
+        endTime: requestBody.endTime,
+        daysOfWeek: requestBody.daysOfWeek,
+        selectedDays: normalizeNormalClassWeekdays(requestBody.daysOfWeek),
+      });
+      created.scheduleVerificationStatus = 'unverified';
+      created.scheduleVerificationError = cause?.message || 'Chưa xác minh được lịch học.';
+      const recoveryState = {
+        ...(idempotencyStateRef?.current || previousState || {}),
+        fingerprint: computeNormalClassFingerprint(requestBody),
+        requestId: requestBody.requestId,
+        attemptLocked: true,
+        status: 'created_unverified',
+        createdClassId: created.id,
+        createdClass: created,
+        createdRequestBody: requestBody,
+        // A failed embedded response may be stale or malformed; recovery must read the current schedule via GET.
+        initialSessions: null,
+      };
+      if (idempotencyStateRef && typeof idempotencyStateRef === 'object') {
+        idempotencyStateRef.current = recoveryState;
+      }
+      const error = new Error(
+        `Lớp #${created.id} đã được tạo nhưng chưa xác minh được đầy đủ lịch học. Có thể kiểm tra lại lịch mà không gửi lại lệnh tạo lớp. ${cause?.message || ''}`.trim(),
+        { cause },
+      );
+      error.code = 'NORMAL_CLASS_CREATED_SCHEDULE_UNVERIFIED';
+      error.status = cause?.status ?? 0;
+      error.classId = created.id;
+      error.requestId = requestBody.requestId;
+      error.createdClass = created;
+      error.verificationError = cause;
+      throw error;
+    }
+  };
+
+  if (previousState?.status === 'created_unverified' && previousState.createdClassId) {
+    return verifyCreatedClass(
+      previousState.createdClass,
+      previousState.createdRequestBody,
+      previousState.initialSessions,
+    );
+  }
+  if (previousState?.status === 'outcome_unknown') {
+    const error = new Error(
+      `Kết quả tạo lớp với requestId ${previousState.requestId} chưa xác định vì response không có classId hợp lệ. Kiểm tra danh sách lớp trên hệ thống trước khi tạo lại.`,
+    );
+    error.code = 'NORMAL_CLASS_CREATION_OUTCOME_UNKNOWN';
+    error.requestId = previousState.requestId;
+    throw error;
+  }
+
   const isPreparedRequest = data?.sportsClass && typeof data?.requestId === 'string' && data.requestId.trim();
   const preparedDays = isPreparedRequest ? normalizeNormalClassWeekdays(data.daysOfWeek) : null;
   if (isPreparedRequest && !preparedDays) {
@@ -251,21 +326,34 @@ export const createNormalClassWithSessions = async (data, lookups = {}, options 
     throw err;
   }
 
-  const created = mapClass(rawCreated, { ...lookups, apiMode: true });
+  const created = rawCreated && typeof rawCreated === 'object' && !Array.isArray(rawCreated)
+    ? mapClass(rawCreated, { ...lookups, apiMode: true })
+    : { id: null };
   created.requestId = requestBody.requestId;
 
-  if (verifySessions) {
-    const verification = await verifyNormalClassSessions(created.id, {
-      getSessionsFn: (filters) => getSessions(filters, httpOptions),
-      getCatalogSessionsFn: (cId) => getCatalogClassSessions(cId, httpOptions),
-      expectedCount: expectedSessionCount,
-      expectedDaysOfWeek: requestBody.daysOfWeek,
-      initialSessions: rawCreated?.sessions ?? rawCreated?.scheduleSessions ?? null,
-    });
-    created.verifiedSessionCount = verification.count;
-    if (!created.endDate && verification.endDate) {
-      created.endDate = verification.endDate;
+  if (!Number.isInteger(Number(created.id)) || Number(created.id) <= 0) {
+    if (idempotencyStateRef && typeof idempotencyStateRef === 'object') {
+      idempotencyStateRef.current = {
+        fingerprint: currentFingerprint,
+        requestId: requestBody.requestId,
+        attemptLocked: true,
+        status: 'outcome_unknown',
+      };
     }
+    const error = new Error(
+      `POST tạo lớp đã trả response thành công nhưng không có classId hợp lệ để xác nhận. Kết quả chưa xác định; requestId ${requestBody.requestId} được giữ lại để tránh gửi lại lệnh tạo.`,
+    );
+    error.code = 'NORMAL_CLASS_CREATION_OUTCOME_UNKNOWN';
+    error.requestId = requestBody.requestId;
+    throw error;
+  }
+
+  if (verifySessions) {
+    return verifyCreatedClass(
+      created,
+      requestBody,
+      rawCreated?.sessions ?? rawCreated?.scheduleSessions ?? null,
+    );
   }
 
   if (idempotencyStateRef && typeof idempotencyStateRef === 'object') {

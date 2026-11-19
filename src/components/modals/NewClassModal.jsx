@@ -475,13 +475,21 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const normalRequestIdStateRef = useRef(null)
+  const [normalCreationRecovery, setNormalCreationRecovery] = useState(null)
 
   useEffect(() => {
     if (!isOpen) return
     setClassName("")
     setTouched({})
     setIsDirty(false)
-    normalRequestIdStateRef.current = null
+    const pendingCreation = normalRequestIdStateRef.current
+    setNormalCreationRecovery(
+      pendingCreation?.status === "created_unverified"
+        ? { status: pendingCreation.status, classId: pendingCreation.createdClassId, requestId: pendingCreation.requestId }
+        : pendingCreation?.status === "outcome_unknown"
+          ? { status: pendingCreation.status, requestId: pendingCreation.requestId }
+          : null,
+    )
   }, [isOpen])
 
   const currentSport = useMemo(
@@ -940,6 +948,42 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
   // Handle Submit (Draft or Open)
   const handleSubmit = async (targetStatus = status) => {
+    const pendingCreation = normalRequestIdStateRef.current
+    if (apiEnabled && pendingCreation?.status === "outcome_unknown") {
+      showToast(
+        `Kết quả tạo lớp chưa xác định (requestId ${pendingCreation.requestId}). Hãy kiểm tra danh sách lớp trên hệ thống trước khi thử tạo lại.`,
+        "error",
+      )
+      return
+    }
+    if (apiEnabled && pendingCreation?.status === "created_unverified") {
+      setIsSubmitting(true)
+      try {
+        const retryResult = await addClassSession({}, {
+          idempotencyStateRef: normalRequestIdStateRef,
+        })
+        if (retryResult?.success && retryResult.data?.id) {
+          setNormalCreationRecovery(null)
+          showToast(`Đã xác minh đủ 12 buổi cho lớp #${retryResult.data.id}.`, "success")
+          onClose()
+        } else if (retryResult?.createdButUnverified) {
+          setNormalCreationRecovery({
+            status: "created_unverified",
+            classId: retryResult.classId,
+            requestId: retryResult.requestId,
+          })
+          showToast(retryResult.message, "error")
+        } else {
+          showToast(retryResult?.message || "Chưa thể xác minh lại lịch lớp đã tạo.", "error")
+        }
+      } catch (error) {
+        showToast(error?.message || "Chưa thể xác minh lại lịch lớp đã tạo.", "error")
+      } finally {
+        setIsSubmitting(false)
+      }
+      return
+    }
+
     if (isNormalClassApiCreationBlocked(apiEnabled, targetStatus)) {
       showToast(NORMAL_CLASS_API_BLOCKED_MESSAGE, "error")
       return
@@ -1059,9 +1103,27 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         const createResult = await addClassSession(payload, {
           idempotencyStateRef: normalRequestIdStateRef,
         })
+        if (createResult?.createdButUnverified) {
+          setNormalCreationRecovery({
+            status: "created_unverified",
+            classId: createResult.classId,
+            requestId: createResult.requestId,
+          })
+          showToast(createResult.message, "error")
+          return
+        }
+        if (createResult?.outcomeUnknown) {
+          setNormalCreationRecovery({
+            status: "outcome_unknown",
+            requestId: createResult.requestId,
+          })
+          showToast(createResult.message, "error")
+          return
+        }
         if (!createResult?.success || !createResult.data?.id) {
           throw new Error(createResult?.message || "Hệ thống chưa thể xác nhận mã lớp học mới.")
         }
+        setNormalCreationRecovery(null)
         showToast("Đã tạo lớp học và khởi tạo đủ lịch 12 buổi thành công.", "success")
         onClose()
         return
@@ -1120,6 +1182,16 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
         {/* BODY CUỘN: STACKED CARDS CHUẨN DESIGN THEO ẢNH MẪU */}
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+          {normalCreationRecovery?.status === "created_unverified" && (
+            <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              Lớp #{normalCreationRecovery.classId} đã được tạo nhưng chưa xác minh được đầy đủ lịch học. Lớp đã được thêm vào danh sách để Manager kiểm tra. Nút bên dưới chỉ thử đọc lại lịch, không gửi POST tạo lớp lần nữa.
+            </div>
+          )}
+          {normalCreationRecovery?.status === "outcome_unknown" && (
+            <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              Chưa xác định được kết quả tạo lớp (requestId {normalCreationRecovery.requestId}); response không có classId hợp lệ. Hãy kiểm tra danh sách lớp trên hệ thống trước khi tạo thao tác mới.
+            </div>
+          )}
           {/* CARD 1: THÔNG TIN CƠ BẢN */}
           <div className="bg-white rounded-2xl border border-stone-200/80 p-6 space-y-4 shadow-2xs">
             <h2 className="text-base font-bold text-stone-900">
@@ -1921,11 +1993,15 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             type="button"
             onClick={() => handleSubmit(status)}
             disabled={
-              isSubmitting || conflict?.hasConflict || conflict?.hasMissingSchedule || isFirstSessionInPast || (apiEnabled && !startDateMatchesSchedule) || isNormalClassApiCreationBlocked(apiEnabled)
+              isSubmitting || normalCreationRecovery?.status === "outcome_unknown" || (normalCreationRecovery?.status !== "created_unverified" && (conflict?.hasConflict || conflict?.hasMissingSchedule || isFirstSessionInPast || (apiEnabled && !startDateMatchesSchedule) || isNormalClassApiCreationBlocked(apiEnabled)))
             }
             className="h-10 px-6 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer flex items-center gap-2"
             title={
-              conflict?.hasConflict
+              normalCreationRecovery?.status === "created_unverified"
+                ? "Chỉ thử xác minh lịch của lớp đã tạo; không tạo lớp mới"
+                : normalCreationRecovery?.status === "outcome_unknown"
+                  ? "Cần kiểm tra kết quả trên hệ thống trước"
+                  : conflict?.hasConflict
                 ? conflict.message
                 : isFirstSessionInPast
                   ? "Giờ học đã trôi qua"
@@ -1938,7 +2014,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                 <span>Đang xử lý...</span>
               </>
             ) : (
-              <span>Tạo & mở đăng ký</span>
+              <span>{normalCreationRecovery?.status === "created_unverified" ? "Thử xác minh lại lịch" : normalCreationRecovery?.status === "outcome_unknown" ? "Cần kiểm tra kết quả" : "Tạo & mở đăng ký"}</span>
             )}
           </button>
         </div>

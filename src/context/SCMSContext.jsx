@@ -2736,16 +2736,21 @@ export const SCMSProvider = ({ children }) => {
 
   const addClassSession = async (data, options = {}) => {
     // 1. Pre-flight in-memory validation against existing classes
-    for (const existing of classes) {
-      const conflict = checkSingleClassConflict(data, existing)
-      if (conflict?.hasConflict || conflict?.hasMissingSchedule) {
-        return { success: false, message: conflict.message }
+    const isCreatedClassRecovery = options?.idempotencyStateRef?.current?.status === "created_unverified"
+    if (!isCreatedClassRecovery) {
+      for (const existing of classes) {
+        const conflict = checkSingleClassConflict(data, existing)
+        if (conflict?.hasConflict || conflict?.hasMissingSchedule) {
+          return { success: false, message: conflict.message }
+        }
       }
     }
 
     if (API_ENABLED) {
       try {
+        const isCreatedClassRecovery = options?.idempotencyStateRef?.current?.status === "created_unverified"
         const isNormalAtomic =
+          isCreatedClassRecovery ||
           String(data?.classType || "Normal").toLowerCase() === "normal" &&
           String(data?.apiStatus || data?.status || "Open").toLowerCase() !==
             "draft" &&
@@ -2788,6 +2793,30 @@ export const SCMSProvider = ({ children }) => {
         )
         return { success: true, data: created }
       } catch (error) {
+        if (error?.code === "NORMAL_CLASS_CREATED_SCHEDULE_UNVERIFIED" && error.createdClass?.id) {
+          setClasses((prev) => [
+            error.createdClass,
+            ...prev.filter((item) => String(item.id) !== String(error.createdClass.id)),
+          ])
+          return {
+            success: false,
+            createdButUnverified: true,
+            data: error.createdClass,
+            classId: error.classId,
+            requestId: error.requestId,
+            message: error.message,
+            code: error.code,
+          }
+        }
+        if (error?.code === "NORMAL_CLASS_CREATION_OUTCOME_UNKNOWN") {
+          return {
+            success: false,
+            outcomeUnknown: true,
+            requestId: error.requestId,
+            message: error.message,
+            code: error.code,
+          }
+        }
         const errMsg = getErrorMessage(
           error,
           language === "vi"
