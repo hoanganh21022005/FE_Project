@@ -7,6 +7,7 @@ import {
   UserCheck,
   Package,
   Calendar,
+  CalendarDays,
   ClipboardCheck,
   TrendingUp,
   CalendarPlus,
@@ -53,7 +54,16 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           { path: "/manager/staff", labelKey: "staff", icon: Users },
           { path: "/manager/members", labelKey: "members", icon: UserCheck },
           { path: "/manager/packages", labelKey: "packages", icon: Package },
-          { path: "/manager/classes", labelKey: "classes", icon: Calendar },
+          {
+            path: "/manager/classes",
+            label: language === "vi" ? "Lớp Normal" : "Normal Classes",
+            icon: Calendar,
+          },
+          {
+            path: "/manager/advanced-schedule",
+            label: language === "vi" ? "Lớp Advanced" : "Advanced Classes",
+            icon: CalendarDays,
+          },
           {
             path: "/manager/holidays",
             label: language === "vi" ? "Ngày nghỉ" : "Holidays",
@@ -99,7 +109,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           },
           {
             path: "/coach/assigned-members",
-            label: language === "vi" ? "Đăng ký sân PT 1:1" : "1:1 Court Booking",
+            label: language === "vi" ? "Đăng ký sân" : "Court Booking",
             icon: CalendarPlus,
           },
           {
@@ -242,16 +252,16 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
         {/* Brand Header & Navigation */}
         <div>
           <div
-            className={`h-[56px] border-b border-brand-dark-hover flex items-center justify-between ${
+            className={`${collapsed ? "h-[56px]" : "h-[76px]"} border-b border-brand-dark-hover flex items-center justify-between ${
               collapsed ? "px-2" : "px-3.5"
             }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <img
-                src="/images/MainPage/vibe-sport-logo.png?v=4"
+                src="/images/MainPage/vibe-sport-logo.png?v=5"
                 alt="Vibe Sport"
                 className={`object-contain flex-shrink-0 ${
-                  collapsed ? "w-10 h-8" : "w-12 h-9"
+                  collapsed ? "w-10 h-8" : "h-16 w-auto sm:h-[72px]"
                 }`}
               />
               {(!collapsed || mobileOpen) && (
@@ -357,7 +367,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
               onClick={() => handleNav("/profile")}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all cursor-pointer ${
                 location.pathname === "/profile"
-                  ? "bg-brand-primary text-white font-bold border-l-2 border-brand-accent"
+                  ? "bg-brand-primary text-white font-semibold border-l-2 border-brand-accent shadow-2xs"
                   : "text-slate-200 hover:text-white hover:bg-brand-dark-hover"
               }`}
               title={
@@ -381,7 +391,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             onClick={() => handleNav("/settings")}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all cursor-pointer ${
               location.pathname.includes("/settings")
-                ? "bg-brand-primary text-white font-bold border-l-2 border-brand-accent"
+                ? "bg-brand-primary text-white font-semibold border-l-2 border-brand-accent shadow-2xs"
                 : "text-slate-200 hover:text-white hover:bg-brand-dark-hover"
             }`}
             title={collapsed ? t("settings") : undefined}
@@ -397,7 +407,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             onClick={() => handleNav("/support")}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all cursor-pointer ${
               location.pathname.includes("/support")
-                ? "bg-brand-primary text-white font-bold border-l-2 border-brand-accent"
+                ? "bg-brand-primary text-white font-semibold border-l-2 border-brand-accent shadow-2xs"
                 : "text-slate-200 hover:text-white hover:bg-brand-dark-hover"
             }`}
             title={collapsed ? t("support") : undefined}

@@ -1,5 +1,7 @@
 import React, { useRef } from "react"
 import { AlertTriangle, LoaderCircle, X } from "lucide-react"
+import { useSCMS } from "../../context/SCMSContext.jsx"
+import { getAdminText } from "./adminI18n.js"
 import { useDialogFocus } from "./useDialogFocus.js"
 
 export function AdminConfirmDialog({
@@ -9,15 +11,18 @@ export function AdminConfirmDialog({
   title,
   description,
   warning,
-  confirmText = "Xác nhận",
-  cancelText = "Hủy bỏ",
+  confirmText,
+  cancelText,
   isDanger = false,
   isLoading = false,
   confirmDisabled = false,
   triggerRef = null,
 }) {
+  const { language } = useSCMS()
   const dialogRef = useRef(null)
   const confirmBtnRef = useRef(null)
+  const resolvedConfirm = confirmText ?? getAdminText(language, "common.confirm")
+  const resolvedCancel = cancelText ?? getAdminText(language, "common.cancel")
 
   useDialogFocus({
     isOpen,
@@ -71,7 +76,7 @@ export function AdminConfirmDialog({
             onClick={onClose}
             disabled={isLoading}
             className="w-11 h-11 inline-flex items-center justify-center rounded text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary shrink-0"
-            aria-label="Đóng hộp thoại"
+            aria-label={getAdminText(language, "common.closeDialog")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -98,7 +103,7 @@ export function AdminConfirmDialog({
             disabled={isLoading}
             className="min-h-11 inline-flex items-center justify-center rounded px-4 py-2 text-sm font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
           >
-            {cancelText}
+            {resolvedCancel}
           </button>
           <button
             ref={confirmBtnRef}
@@ -112,7 +117,7 @@ export function AdminConfirmDialog({
             }`}
           >
             {isLoading && <LoaderCircle className="w-4 h-4 animate-spin" />}
-            <span>{confirmText}</span>
+            <span>{resolvedConfirm}</span>
           </button>
         </div>
       </div>

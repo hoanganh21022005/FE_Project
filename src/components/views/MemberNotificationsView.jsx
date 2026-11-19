@@ -248,7 +248,7 @@ export function MemberNotificationsView() {
   }
 
   return (
-    <main className="w-full space-y-6 px-4 py-5 sm:px-6 lg:px-8">
+    <div className="w-full space-y-6">
       {/* Header */}
       <PageHeader
         title={
@@ -489,6 +489,6 @@ export function MemberNotificationsView() {
         </section>
       </aside>
       </div>
-    </main>
+    </div>
   )
 }

@@ -27,15 +27,15 @@ import {
   reopenConversation,
 } from "./chatApi.js"
 
-const list = async (path) => {
-  const data = await httpClient.get(path)
+const list = async (path, options) => {
+  const data = await httpClient.get(path, options)
   return extractList(data) || []
 }
 
 // The member enrollment history is the documented source for enrolled Normal classes.
 // /api/sessions is a general schedule lookup and is not member-scoped by the API contract.
 export const getMemberClasses = (memberId) => getMemberEnrollments(memberId)
-export const getClassSessions = (params = {}) => {
+export const getClassSessions = (params = {}, options) => {
   const query = new URLSearchParams()
   for (const [key, val] of Object.entries(params || {})) {
     if (val !== undefined && val !== null && val !== "") {
@@ -43,7 +43,7 @@ export const getClassSessions = (params = {}) => {
     }
   }
   const qStr = query.toString() ? `?${query.toString()}` : ""
-  return list(`/api/sessions${qStr}`)
+  return list(`/api/sessions${qStr}`, options)
 }
 export const getSessionById = (sessionId) =>
   httpClient.get(`/api/sessions/${encodeURIComponent(sessionId)}`)
@@ -83,16 +83,21 @@ export const hasScheduledClassSession = (classId, sessions = []) =>
       session.isPrivate !== true,
   )
 export const getMemberAttendances = async (memberId, params = {}) => {
-  const query = new URLSearchParams()
-  if (memberId !== undefined && memberId !== null && memberId !== "") {
-    query.set("memberId", String(memberId))
+  const numId = Number(memberId)
+  if (!Number.isInteger(numId) || numId <= 0) {
+    return []
   }
+  const query = new URLSearchParams()
+  query.set("memberId", String(numId))
   if (params.sessionId) query.set("sessionId", String(params.sessionId))
   if (params.state) query.set("state", String(params.state))
   if (params.startDate) query.set("startDate", String(params.startDate))
   if (params.endDate) query.set("endDate", String(params.endDate))
   const qStr = query.toString() ? `?${query.toString()}` : ""
-  return list(`/api/attendances${qStr}`)
+  const rows = await list(`/api/attendances${qStr}`)
+  return (Array.isArray(rows) ? rows : []).filter(
+    (r) => r?.memberId == null || String(r.memberId) === String(numId),
+  )
 }
 export const getMemberCheckinCode = async () => {
   try {
@@ -114,8 +119,55 @@ export const getTrainingPlans = (params = {}) => {
   const qStr = query.toString() ? `?${query.toString()}` : ""
   return list(`/api/training-plans${qStr}`)
 }
-export const createTrainingPlan = (payload) =>
-  httpClient.post("/api/training-plans", payload)
+export const createTrainingPlan = (payload = {}) => {
+  const coachId = Number(payload.coachId)
+  const rawClassId =
+    payload.classId !== undefined &&
+    payload.classId !== null &&
+    String(payload.classId).trim() !== ""
+      ? Number(payload.classId)
+      : null
+  const rawMemberId =
+    payload.memberId !== undefined &&
+    payload.memberId !== null &&
+    String(payload.memberId).trim() !== ""
+      ? Number(payload.memberId)
+      : null
+  const hasValidClassId =
+    rawClassId !== null && Number.isInteger(rawClassId) && rawClassId > 0
+  const hasValidMemberId =
+    rawMemberId !== null && Number.isInteger(rawMemberId) && rawMemberId > 0
+
+  const cleanPayload = {
+    ...(Number.isInteger(coachId) && coachId > 0 ? { coachId } : {}),
+    ...(hasValidMemberId && !hasValidClassId
+      ? { memberId: rawMemberId }
+      : hasValidClassId && !hasValidMemberId
+        ? { classId: rawClassId }
+        : {}),
+    title: String(payload.title || "").trim(),
+  }
+
+  const trimmedGoal = String(payload.goal ?? "").trim()
+  if (trimmedGoal) cleanPayload.goal = trimmedGoal
+
+  const trimmedContent = String(payload.content ?? "").trim()
+  if (trimmedContent) cleanPayload.content = trimmedContent
+
+  const trimmedStartDate = String(payload.startDate ?? "").trim().slice(0, 10)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmedStartDate)) {
+    cleanPayload.startDate = trimmedStartDate
+  }
+
+  const trimmedEndDate = String(payload.endDate ?? "").trim().slice(0, 10)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmedEndDate)) {
+    cleanPayload.endDate = trimmedEndDate
+  }
+
+  return httpClient.post("/api/training-plans", cleanPayload, {
+    notifyForbidden: false,
+  })
+}
 export const updateTrainingPlanById = (id, payload) =>
   httpClient.put(`/api/training-plans/${encodeURIComponent(id)}`, payload)
 export const deleteTrainingPlanById = (id) =>
@@ -195,13 +247,13 @@ export const getClassFeedbacks = async (classId) => {
   }
 }
 
-export const getCoaches = async (params = {}) => {
+export const getCoaches = async (params = {}, options) => {
   const query = new URLSearchParams()
   if (params.specializationId)
     query.set("specializationId", params.specializationId)
   if (params.keyword) query.set("keyword", params.keyword)
   const qStr = query.toString()
-  return list(`/api/coaches${qStr ? `?${qStr}` : ""}`)
+  return list(`/api/coaches${qStr ? `?${qStr}` : ""}`, options)
 }
 
 export const getCoachAvailableSlots = async (
@@ -237,8 +289,8 @@ export const getTimeSlots = async (isOutdoor) => {
   return list(`/api/sessions/time-slots${q}`)
 }
 
-export const getRooms = async () => {
-  return list("/api/rooms")
+export const getRooms = async (options) => {
+  return list("/api/rooms", options)
 }
 
 export const getActiveHolidays = async () => {
@@ -260,6 +312,66 @@ export const getCenterIncidents = async () => {
 export const bookPrivateSession = async (payload) => {
   return httpClient.post("/api/sessions/book-private", payload)
 }
+
+export const createPrivateSessionProposal = async (payload) => {
+  const requiredPositiveId = (value) => typeof value === "number" && Number.isInteger(value) && value > 0
+  const standardSlots = [
+    ["06:00", "07:30"], ["07:45", "09:15"], ["09:30", "11:00"],
+    ["13:00", "14:30"], ["14:45", "16:15"], ["16:30", "18:00"], ["18:15", "19:45"],
+  ]
+  if (!payload || !requiredPositiveId(payload.subscriptionId) || !requiredPositiveId(payload.subjectId)
+    || !requiredPositiveId(payload.coachId) || !requiredPositiveId(payload.roomId)) {
+    throw new Error("A valid subscription, subject, coach, and room are required to propose a session.")
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(payload.sessionDate || ""))) {
+    throw new Error("A valid session date is required to propose a session.")
+  }
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(payload.startTime || ""))
+    || !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(payload.endTime || ""))) {
+    throw new Error("A valid standard session time is required to propose a session.")
+  }
+  if (!standardSlots.some(([start, end]) => start === payload.startTime && end === payload.endTime)) {
+    throw new Error("The proposed time must match one of the seven standard 90-minute session slots.")
+  }
+  if (payload.agreementConfirmed !== true) {
+    throw new Error("Coach agreement confirmation is required to propose a session.")
+  }
+  if (typeof payload.requestKey !== "string" || !/^[A-Za-z0-9_.:-]{1,80}$/.test(payload.requestKey)) {
+    throw new Error("A valid request key is required to propose a session.")
+  }
+  return httpClient.post("/api/private-session-proposals", payload, { expectedStatus: 201 })
+}
+
+export const getPrivateSessionProposals = async (params = {}, options) => {
+  const query = new URLSearchParams()
+  for (const [key, value] of Object.entries(params || {})) {
+    if (value !== undefined && value !== null && value !== "") query.set(key, String(value))
+  }
+  const queryString = query.toString()
+  return list(`/api/private-session-proposals${queryString ? `?${queryString}` : ""}`, options)
+}
+
+export const getPrivateSessionProposalById = async (proposalId, options) => {
+  if (!Number.isInteger(Number(proposalId)) || Number(proposalId) <= 0) {
+    throw new Error("Invalid private-session proposal ID.")
+  }
+  return httpClient.get(`/api/private-session-proposals/${Number(proposalId)}`, options)
+}
+
+export const respondToPrivateSessionProposal = async (proposalId, accepted) => {
+  if (!Number.isInteger(Number(proposalId)) || Number(proposalId) <= 0) {
+    throw new Error("Invalid private-session proposal ID.")
+  }
+  if (typeof accepted !== "boolean") {
+    throw new Error("A Member proposal decision is required.")
+  }
+  return httpClient.post(
+    `/api/private-session-proposals/${Number(proposalId)}/respond`,
+    { accepted },
+    { expectedStatus: 200 },
+  )
+}
+export const respondPrivateSessionProposal = respondToPrivateSessionProposal
 
 export const getCoachFeedback = async (params = {}) => {
   const query = new URLSearchParams()
@@ -394,6 +506,11 @@ export const memberPortalApi = {
   getActiveHolidays,
   getCenterIncidents,
   bookPrivateSession,
+  createPrivateSessionProposal,
+  getPrivateSessionProposals,
+  getPrivateSessionProposalById,
+  respondToPrivateSessionProposal,
+  respondPrivateSessionProposal,
   getCoachFeedback,
   getCoachProfileMe,
   getCoachWorkSchedule,

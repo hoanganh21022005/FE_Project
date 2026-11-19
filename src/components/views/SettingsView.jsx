@@ -119,11 +119,11 @@ export function SettingsView() {
     setNotificationPreferences((previous) => ({ ...previous, [key]: !previous[key] }))
 
   return (
-    <main className="w-full space-y-6 px-4 py-5 sm:px-6 lg:px-8">
-      <header className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs sm:p-6">
+    <div className="w-full space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-5">
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{isMember ? (isVi ? "Cài đặt trải nghiệm & Thông báo" : "Experience & Notification Settings") : t("settings")}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug">{isMember ? (isVi ? "Cài đặt trải nghiệm & Thông báo" : "Experience & Notification Settings") : t("settings")}</h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
               {isMember
                 ? isVi
@@ -191,7 +191,7 @@ export function SettingsView() {
           </section>
         </aside>}
       </div>
-    </main>
+    </div>
   )
 }
 

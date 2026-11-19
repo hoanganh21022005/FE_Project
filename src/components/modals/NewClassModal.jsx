@@ -151,6 +151,19 @@ for (let h = 5; h <= 22; h++) {
 }
 TIME_OPTIONS_15MIN.push("23:00")
 
+function getSportCapacity(sport, room, apiEnabled) {
+  const sportCapacity = Number(sport?.defaultCapacity) || 8
+  const roomCapacity = Number(room?.capacity)
+  const limits = [sportCapacity]
+
+  if (Number.isInteger(roomCapacity) && roomCapacity > 0) {
+    limits.push(roomCapacity)
+  }
+  if (apiEnabled) limits.push(15)
+
+  return Math.max(1, Math.min(...limits))
+}
+
 function formatViDate(dateInput) {
   if (!dateInput) return "—"
   let yyyy, mm, dd
@@ -497,6 +510,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const [showSessionList, setShowSessionList] = useState(false)
 
   const [capacity, setCapacity] = useState(8)
+  const [capacityCustomized, setCapacityCustomized] = useState(false)
   const [minCapacity, setMinCapacity] = useState(() => getDefaultNormalMinCapacity(8))
   const [minCapacityCustomized, setMinCapacityCustomized] = useState(false)
   const [price, setPrice] = useState(650000)
@@ -569,15 +583,15 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
       // Auto-set sport default capacity
       if (sportChanged) {
-        const nextCapacity = currentSport.defaultCapacity || 8
-        setCapacity(nextCapacity)
-        setMinCapacity((currentMinCapacity) =>
-          adjustNormalMinCapacityForMaxChange(
-            currentMinCapacity,
-            nextCapacity,
-            minCapacityCustomized,
-          ),
+        const nextCapacity = getSportCapacity(
+          currentSport,
+          allAvailableRooms[0],
+          apiEnabled,
         )
+        setCapacity(nextCapacity)
+        setCapacityCustomized(false)
+        setMinCapacity(getDefaultNormalMinCapacity(nextCapacity))
+        setMinCapacityCustomized(false)
       }
 
       // Auto-select first coach with matching specialization when sport changes or initially empty
@@ -597,7 +611,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         })
       }
     }
-  }, [currentSport?.id, coaches, minCapacityCustomized])
+  }, [currentSport?.id, coaches, allAvailableRooms, apiEnabled])
 
   // Keep sport-based default room.
   const prevSportForRoomRef = useRef(currentSport?.id)
@@ -667,6 +681,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         && clonedDefaultMin !== null
         && clonedMin > clonedDefaultMin
       setCapacity(clonedCapacity)
+      setCapacityCustomized(true)
       setMinCapacityCustomized(hasCustomMinimum)
       setMinCapacity(adjustNormalMinCapacityForMaxChange(
         clonedMin,
@@ -721,6 +736,28 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     () => allAvailableRooms.find((r) => String(r.id) === String(roomId)),
     [allAvailableRooms, roomId],
   )
+
+  useEffect(() => {
+    if (capacityCustomized || !selectedRoomObj) return
+    const nextCapacity = getSportCapacity(currentSport, selectedRoomObj, apiEnabled)
+    setCapacity((currentCapacity) =>
+      Number(currentCapacity) === nextCapacity ? currentCapacity : nextCapacity,
+    )
+    setMinCapacity((currentMinCapacity) =>
+      adjustNormalMinCapacityForMaxChange(
+        currentMinCapacity,
+        nextCapacity,
+        minCapacityCustomized,
+      ),
+    )
+  }, [
+    currentSport,
+    selectedRoomObj?.id,
+    selectedRoomObj?.capacity,
+    apiEnabled,
+    capacityCustomized,
+    minCapacityCustomized,
+  ])
 
   const targetSubjectId = useMemo(() => {
     const matchedSubject = (subjects || []).find((s) => {
@@ -866,6 +903,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   )
 
   const handleCapacityChange = (value) => {
+    setCapacityCustomized(true)
     setCapacity(value)
     if (value === "") return
     const nextCapacity = Number(value)
@@ -1246,31 +1284,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   Chưa có huấn luyện viên được ghi nhận dạy bộ môn này.
                 </p>
               )}
-              {selectedCoachObj ? (
-                <div className="flex items-center gap-2 mt-1.5 text-xs flex-wrap">
-                  <span className="text-stone-500">Chuyên môn:</span>
-                  <span className="font-semibold text-stone-800">
-                    {selectedCoachObj.specializationVi ||
-                      selectedCoachObj.specialization ||
-                      "Chưa cập nhật"}
-                  </span>
-                  {isCoachMatchingSport(selectedCoachObj, currentSport.name) ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 font-medium">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      Đúng chuyên môn
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80 font-medium">
-                      <AlertTriangle className="w-3 h-3 text-amber-600" />
-                      Khác chuyên môn môn {currentSport.name}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <div className="text-xs text-stone-500 mt-1">
-                  Chưa chọn HLV cho lớp học này
-                </div>
-              )}
+
             </div>
 
             {/* Sân tập */}
@@ -1308,15 +1322,10 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                 </select>
                 <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
-              {allAvailableRooms.length === 0 ? (
+              {allAvailableRooms.length === 0 && (
                 <p role="status" className="text-xs text-amber-700 mt-1">
                   Chưa có sân/phòng phù hợp với bộ môn này.
                 </p>
-              ) : (
-                <div className="text-xs text-stone-500 mt-1">
-                  Sức chứa {selectedRoomObj?.capacity ?? 8} học viên
-                  {selectedRoomObj?.facilityType ? `, ${selectedRoomObj.facilityType}` : ""}
-                </div>
               )}
             </div>
           </div>
@@ -1404,7 +1413,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             {/* Lặp lại vào: Chips T2..CN (Nền đen than khi active chuẩn ảnh mẫu) */}
             <div>
               <label className="text-sm font-medium text-stone-800 block mb-2">
-                Lặp lại vào
+                Lịch học
               </label>
               <div className="flex items-center gap-2 flex-wrap">
                 {(apiEnabled
@@ -1474,6 +1483,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             {/* Tổng số buổi (Stepper + 4 Chips) */}
             {endMode === "sessions" ? (
               <div>
+                {!apiEnabled && (
+                  <>
                 <label className="text-sm font-medium text-stone-800 block mb-2">
                   Tổng số buổi
                 </label>
@@ -1522,26 +1533,9 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                       <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
-
-                  {/* Chips */}
-                  {(apiEnabled ? [12] : [8, 12, 16, 24]).map((cnt) => {
-                    const isSelected = sessionCount === cnt
-                    return (
-                      <button
-                        key={cnt}
-                        type="button"
-                        onClick={() => updateSessionCount(cnt)}
-                        className={`h-10 px-4 text-xs rounded-full border transition-all cursor-pointer ${
-                          isSelected
-                            ? "border-stone-900 text-stone-900 font-semibold bg-white ring-1 ring-stone-900"
-                            : "border-stone-200 text-stone-600 hover:border-stone-300 bg-white font-normal"
-                        }`}
-                      >
-                        {cnt} buổi
-                      </button>
-                    )
-                  })}
                 </div>
+                  </>
+                )}
 
                 {/* Collapsible row kết thúc khóa học */}
                 <div className="mt-3">
@@ -1637,9 +1631,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                     : "border-stone-300 focus:border-stone-800 focus:ring-1 focus:ring-stone-800"
                 }`}
               />
-              <div className="text-xs text-stone-500 mt-1">
-                {apiEnabled ? "Normal tối đa 15 học viên. " : ""}Sức chứa phòng {selectedRoomObj?.capacity ?? (apiEnabled ? "chưa xác định" : 8)} học viên.
-              </div>
+
               {capacityError && (
                 <p className="text-xs text-orange-600 mt-1 font-medium flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -1679,9 +1671,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                     : "border-stone-300 focus:border-stone-800 focus:ring-1 focus:ring-stone-800"
                 }`}
               />
-              <div className="text-xs text-stone-500 mt-1">
-                Mặc định {defaultMinCapacity ?? "—"} học viên (2/3 sĩ số tối đa). Manager có thể tăng ngưỡng; Backend quyết định điều kiện mở lớp.
-              </div>
+
               {minCapacityError && (
                 <p className="text-xs text-orange-600 mt-1 font-medium flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -1695,7 +1685,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-stone-800">
                   {apiEnabled
-                    ? "Học phí Normal theo giá chuẩn môn học"
+                    ? "Học phí"
                     : pricingMode === "total"
                     ? "Học phí trọn khóa"
                     : "Học phí mỗi buổi"}
@@ -1724,7 +1714,15 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
               <CurrencyInput
                 id="class-price"
                 disabled={isFreeClass || apiEnabled}
-                value={pricingMode === "total" ? price : perSessionPriceInput}
+                value={
+                  apiEnabled
+                    ? Number.isFinite(normalPrice)
+                      ? normalPrice
+                      : 0
+                    : pricingMode === "total"
+                      ? price
+                      : perSessionPriceInput
+                }
                 onChange={handleNumericPriceChange}
                 placeholder="0"
                 suffix={apiEnabled || pricingMode === "total" ? "đ" : "đ / buổi"}
@@ -1735,38 +1733,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                 }
               />
 
-              {/* Helper Text với tính toán trực quan 2 chiều */}
-              <div className="text-xs text-stone-500 flex items-center justify-between">
-                {isFreeClass ? (
-                  <span className="text-emerald-600 font-medium">
-                    ✓ Lớp học miễn phí (Hội viên tham gia không mất phí)
-                  </span>
-                ) : pricingMode === "total" ? (
-                  <span>
-                    Ước tính:{" "}
-                    <strong className="font-semibold text-stone-700">
-                      ~ {formatNumber(roundedPerSessionPrice)} đ
-                    </strong>{" "}
-                    / buổi ({sessionCount} buổi)
-                  </span>
-                ) : (
-                  <span>
-                    Tổng học phí trọn khóa:{" "}
-                    <strong className="font-semibold text-stone-700">
-                      ~ {formatNumber(price)} đ
-                    </strong>{" "}
-                    ({sessionCount} buổi × {formatNumber(perSessionPriceInput)}{" "}
-                    đ)
-                  </span>
-                )}
-                {!isFreeClass && price > 0 && (
-                  <span className="text-stone-400 text-[11px]">
-                    {pricingMode === "total"
-                      ? "Làm tròn theo buổi"
-                      : "Tự động tính trọn khóa"}
-                  </span>
-                )}
-              </div>
+
 
               {/* Checkbox Lớp học miễn phí */}
               {!apiEnabled && <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none group">

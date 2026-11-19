@@ -33,6 +33,7 @@ Thumbs.db
 
 # Test artifacts & generated visual audit images
 test/artifacts/
+test/screenshots/
 test-results/
 playwright-report/
 

@@ -901,7 +901,7 @@ export function MemberInvoicesView() {
   }
 
   return (
-    <main className="min-w-0 w-full space-y-6 px-4 py-5 sm:px-6 lg:px-8">
+    <div className="min-w-0 w-full space-y-6">
       <PageHeader
         title={isVi ? "Hóa đơn & thanh toán" : "Invoices & payments"}
         description={
@@ -1520,7 +1520,7 @@ export function MemberInvoicesView() {
       )}
 
       {/* Open Payment Resolution Modal removed for Member */}
-    </main>
+    </div>
   )
 }
 

@@ -9,14 +9,18 @@ import {
   Minus,
   RefreshCw,
   Save,
-  ShieldAlert,
-  ShieldCheck,
   X,
 } from "lucide-react"
 import { AdminResourceState } from "../AdminResourceState.jsx"
 import { useAdminData } from "../AdminDataContext.jsx"
+import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { updateRolePermissions } from "../../../api/adminApi.js"
 import { AdminConfirmDialog } from "../AdminConfirmDialog.jsx"
+import {
+  getAdminPermissionLabel,
+  getAdminRoleLabel,
+  getAdminText,
+} from "../adminI18n.js"
 
 export const ROLE_NAME_LABELS = {
   Admin: "Quản trị viên hệ thống",
@@ -75,8 +79,12 @@ const getPermissionDisplayName = (name) => PERMISSION_LABEL_MAP[name] || name ||
 
 export function AdminRolesView() {
   const { resources, retry } = useAdminData()
+  const { language } = useSCMS()
+  const isEn = language === "en"
   const roles = resources.roles
   const permissions = resources.permissions
+  const getRoleDisplayName = (name) => getAdminRoleLabel(name, language)
+  const getPermissionDisplayName = (name) => getAdminPermissionLabel(name, language)
 
   const rolesData = roles.data || []
   const permissionsData = permissions.data || []
@@ -168,9 +176,9 @@ export function AdminRolesView() {
         )
         if (!hasAllRequired) {
           setSaveError(
-            "Chốt chặn an toàn: Vai trò Quản trị viên (Admin) bắt buộc phải có đầy đủ các quyền cốt lõi: " +
-              ADMIN_LOCKED_PERMISSIONS.join(", ") +
-              ". Không thể lưu thay đổi.",
+            getAdminText(language, "roles.errLockedAdmin", {
+              perms: ADMIN_LOCKED_PERMISSIONS.join(", "),
+            }),
           )
           setIsConfirmOpen(false)
           setSaving(false)
@@ -190,14 +198,13 @@ export function AdminRolesView() {
       setIsConfirmOpen(false)
       setActionAlert({
         type: "success",
-        message:
-          "Cập nhật phân quyền vai trò thành công! Lưu ý: Người dùng thuộc các vai trò này có thể phải đăng nhập lại mới nhận được quyền mới.",
+        message: getAdminText(language, "roles.saveSuccess"),
       })
     } catch (err) {
       if (err?.status === 403) {
-        setSaveError("Bạn không có quyền thực hiện thao tác này.")
+        setSaveError(getAdminText(language, "common.noPermission"))
       } else {
-        setSaveError(err?.message || "Không thể lưu cập nhật phân quyền vai trò.")
+        setSaveError(err?.message || getAdminText(language, "roles.saveError"))
       }
       setIsConfirmOpen(false)
     } finally {
@@ -210,11 +217,8 @@ export function AdminRolesView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-xl leading-7 font-semibold text-text-primary">
-            Vai trò & Quyền hệ thống
+            {getAdminText(language, "roles.title")}
           </h2>
-          <p className="mt-1 text-sm leading-5 text-text-secondary">
-            Ma trận phân quyền chi tiết và danh mục quyền hạn tương ứng với từng vai trò trong hệ thống SCMS.
-          </p>
         </div>
         {!isEditing ? (
           <button
@@ -223,7 +227,7 @@ export function AdminRolesView() {
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 py-2 text-xs font-semibold bg-brand-primary text-white hover:bg-brand-primary/90 transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
           >
             <Edit3 className="w-4 h-4" />
-            <span>Chỉnh sửa phân quyền</span>
+            <span>{getAdminText(language, "roles.editBtn")}</span>
           </button>
         ) : (
           <div className="flex items-center gap-2 shrink-0">
@@ -234,7 +238,7 @@ export function AdminRolesView() {
               className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3.5 py-2 text-xs font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
             >
               <X className="w-4 h-4" />
-              <span>Hủy bỏ</span>
+              <span>{getAdminText(language, "common.cancel")}</span>
             </button>
             <button
               ref={saveBtnRef}
@@ -244,7 +248,11 @@ export function AdminRolesView() {
               className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 py-2 text-xs font-semibold bg-brand-primary text-white hover:bg-brand-primary/90 transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
             >
               <Save className="w-4 h-4" />
-              <span>Lưu thay đổi ({changedRolesSummary.length})</span>
+              <span>
+                {getAdminText(language, "roles.saveBtn", {
+                  count: changedRolesSummary.length,
+                })}
+              </span>
             </button>
           </div>
         )}
@@ -263,7 +271,7 @@ export function AdminRolesView() {
             type="button"
             onClick={() => setActionAlert(null)}
             className="h-11 w-11 shrink-0 inline-flex items-center justify-center rounded hover:bg-black/5 transition-colors cursor-pointer"
-            aria-label="Đóng thông báo"
+            aria-label={getAdminText(language, "common.closeAlert")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -283,7 +291,7 @@ export function AdminRolesView() {
             type="button"
             onClick={() => setSaveError(null)}
             className="h-11 w-11 shrink-0 inline-flex items-center justify-center rounded hover:bg-black/5 transition-colors cursor-pointer"
-            aria-label="Đóng thông báo lỗi"
+            aria-label={getAdminText(language, "common.closeError")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -294,32 +302,21 @@ export function AdminRolesView() {
         <div className="p-3 rounded-lg border border-brand-primary/40 bg-brand-primary/5 text-brand-primary text-xs flex items-start gap-2.5">
           <Edit3 className="w-4 h-4 shrink-0 mt-0.5" />
           <div>
-            <strong>Đang ở chế độ chỉnh sửa phân quyền:</strong> Bạn có thể bật hoặc tắt các quyền của từng vai trò bằng cách nhấn vào ô tương ứng trong ma trận. Ba quyền <code>MANAGE_RBAC</code>, <code>MANAGE_USERS</code> và <code>MANAGE_PERMISSIONS</code> được bảo vệ cố định cho vai trò Quản trị viên (Admin).
+            <strong>{getAdminText(language, "roles.editingBannerPrefix")}</strong>{" "}
+            {getAdminText(language, "roles.editingBannerBody")}
           </div>
         </div>
       )}
 
       {/* Ma trận vai trò × quyền */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3 border-b border-border-color/60 pb-2">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-brand-primary" />
-            <h3 className="text-sm leading-5 font-semibold text-text-primary">
-              {isEditing ? "Ma trận phân quyền (Chế độ chỉnh sửa)" : "Ma trận quyền hạn phân hệ"}
-            </h3>
-          </div>
-          <span className="text-xs leading-4 text-text-muted">
-            {permissionsData.length} quyền × {rolesData.length} vai trò
-          </span>
-        </div>
-
         <AdminResourceState
           resource={roles}
           onRetry={() => {
             retry("roles")
             retry("permissions")
           }}
-          emptyTitle="Chưa có thông tin phân quyền"
+          emptyTitle={getAdminText(language, "roles.emptyTitle")}
         >
           <div className="grid min-w-0">
             <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
@@ -327,7 +324,7 @@ export function AdminRolesView() {
               <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
                 <tr>
                   <th className="px-3.5 py-2.5 text-left align-middle">
-                    Quyền chức năng
+                    {getAdminText(language, "roles.colPerm")}
                   </th>
                   {rolesData.map((role) => (
                     <th
@@ -336,9 +333,6 @@ export function AdminRolesView() {
                     >
                       <p className="text-xs leading-4 text-text-primary font-bold">
                         {getRoleDisplayName(role.name)}
-                      </p>
-                      <p className="mt-0.5 text-xs font-mono text-text-muted font-normal">
-                        {role.name}
                       </p>
                     </th>
                   ))}
@@ -353,19 +347,9 @@ export function AdminRolesView() {
                     <td className="px-3.5 py-2 align-middle text-sm leading-5 text-text-primary">
                       <div className="flex items-center gap-2">
                         <KeyRound className="w-3.5 h-3.5 text-brand-primary shrink-0 opacity-80" />
-                        <div>
-                          <p className="font-medium text-text-primary text-sm leading-5">
-                            {getPermissionDisplayName(permission.name)}
-                          </p>
-                          <p className="mt-0.5 text-xs font-mono text-text-secondary">
-                            {permission.name}
-                          </p>
-                          {permission.description && (
-                            <p className="mt-0.5 text-xs leading-4 text-text-muted line-clamp-1">
-                              {permission.description}
-                            </p>
-                          )}
-                        </div>
+                        <p className="font-medium text-text-primary text-sm leading-5">
+                          {getPermissionDisplayName(permission.name)}
+                        </p>
                       </div>
                     </td>
                     {rolesData.map((role) => {
@@ -394,13 +378,18 @@ export function AdminRolesView() {
                             isMandatoryAdminPerm ? (
                               <div
                                 className="relative inline-flex min-h-11 min-w-11 items-center justify-center text-status-success"
-                                title="Quyền quản trị tối thiểu bắt buộc của vai trò Admin (không thể gỡ)"
+                                title={getAdminText(language, "roles.lockedTooltip")}
                               >
                                 <span className="p-1 rounded bg-status-success-bg/80 inline-flex items-center justify-center">
                                   <Lock className="w-3.5 h-3.5 text-brand-primary mr-0.5" />
                                   <Check className="w-4 h-4 text-status-success stroke-[2.5]" />
                                 </span>
-                                <span className="sr-only">Bắt buộc có</span>
+                                <span className="sr-only">
+                                  {getAdminText(language, "roles.permAriaLocked", {
+                                    role: getRoleDisplayName(role.name),
+                                    perm: getPermissionDisplayName(permission.name),
+                                  })}
+                                </span>
                               </div>
                             ) : (
                               <button
@@ -413,22 +402,25 @@ export function AdminRolesView() {
                                     role.name,
                                   )
                                 }
-                                aria-label={`${
-                                  isGranted ? "Bỏ quyền" : "Cấp quyền"
-                                } ${getPermissionDisplayName(permission.name)} cho ${getRoleDisplayName(
-                                  role.name,
-                                )}`}
+                                aria-label={getAdminText(
+                                  language,
+                                  isGranted ? "roles.permAriaRevoke" : "roles.permAriaGrant",
+                                  {
+                                    perm: getPermissionDisplayName(permission.name),
+                                    role: getRoleDisplayName(role.name),
+                                  },
+                                )}
                                 className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded transition-colors cursor-pointer hover:bg-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                               >
                                 {isGranted ? (
                                   <span className="p-1 rounded bg-status-success-bg inline-flex items-center justify-center">
                                     <Check className="w-4 h-4 text-status-success stroke-[2.5]" />
-                                    <span className="sr-only">Đã cấp</span>
+                                    <span className="sr-only">{isEn ? "Granted" : "Đã cấp"}</span>
                                   </span>
                                 ) : (
                                   <span className="p-1 rounded bg-bg-secondary inline-flex items-center justify-center">
                                     <Minus className="w-4 h-4 text-text-muted/40" />
-                                    <span className="sr-only">Chưa cấp</span>
+                                    <span className="sr-only">{isEn ? "Not granted" : "Chưa cấp"}</span>
                                   </span>
                                 )}
                               </button>
@@ -439,7 +431,7 @@ export function AdminRolesView() {
                                 className="w-4 h-4 text-status-success stroke-[2.5]"
                                 aria-hidden="true"
                               />
-                              <span className="sr-only">Có</span>
+                              <span className="sr-only">{isEn ? "Yes" : "Có"}</span>
                             </span>
                           ) : (
                             <span className="relative inline-flex items-center justify-center p-1">
@@ -447,7 +439,7 @@ export function AdminRolesView() {
                                 className="w-4 h-4 text-text-muted/40"
                                 aria-hidden="true"
                               />
-                              <span className="sr-only">Không</span>
+                              <span className="sr-only">{isEn ? "No" : "Không"}</span>
                             </span>
                           )}
                         </td>
@@ -462,121 +454,34 @@ export function AdminRolesView() {
       </AdminResourceState>
       </div>
 
-      {/* Danh mục chi tiết vai trò và quyền */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full min-w-0 max-w-full">
-        <section
-          className="w-full min-w-0 max-w-full rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3"
-          aria-label="Danh sách vai trò"
-        >
-          <div className="flex items-center justify-between border-b border-border-color/60 pb-2.5">
-            <h3 className="text-sm leading-5 font-semibold text-text-primary">
-              Danh mục vai trò ({rolesData.length})
-            </h3>
-            <span className="text-xs leading-4 text-text-muted">
-              Đồng bộ từ Backend
-            </span>
-          </div>
-
-          <AdminResourceState
-            resource={roles}
-            onRetry={() => retry("roles")}
-            emptyTitle="Chưa có vai trò"
-          >
-            <div className="divide-y divide-border-color/60">
-              {rolesData.map((role) => (
-                <div
-                  key={role.id ?? role.name}
-                  className="py-3 first:pt-1 last:pb-1 space-y-1"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm leading-5 font-semibold text-text-primary">
-                        {getRoleDisplayName(role.name)}
-                      </p>
-                      <p className="text-xs font-mono text-text-secondary">
-                        {role.name || `Role #${role.id}`}
-                      </p>
-                    </div>
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
-                      {(role.permissions || []).length} quyền
-                    </span>
-                  </div>
-                  <p className="text-xs leading-4 text-text-muted">
-                    {role.description || "Chưa có thông tin mô tả."}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </AdminResourceState>
-        </section>
-
-        <section
-          className="w-full min-w-0 max-w-full rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3"
-          aria-label="Danh mục quyền hạn"
-        >
-          <div className="flex items-center justify-between border-b border-border-color/60 pb-2.5">
-            <h3 className="text-sm leading-5 font-semibold text-text-primary">
-              Danh mục quyền hệ thống ({permissionsData.length})
-            </h3>
-            <span className="text-xs leading-4 text-text-muted">
-              Mã định danh chức năng
-            </span>
-          </div>
-
-          <AdminResourceState
-            resource={permissions}
-            onRetry={() => retry("permissions")}
-            emptyTitle="Chưa có quyền"
-          >
-            <div className="divide-y divide-border-color/60 max-h-[460px] overflow-y-auto pr-1">
-              {permissionsData.map((permission) => (
-                <div
-                  key={permission.id ?? permission.name}
-                  className="py-2.5 first:pt-1 last:pb-1"
-                >
-                  <p className="text-sm leading-5 font-semibold text-text-primary">
-                    {getPermissionDisplayName(permission.name)}
-                  </p>
-                  <p className="text-xs leading-4 font-mono text-text-secondary mt-0.5 break-all">
-                    {permission.name}
-                  </p>
-                  <p className="mt-0.5 text-xs leading-4 text-text-muted">
-                    {permission.description || "Chưa có thông tin mô tả."}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </AdminResourceState>
-        </section>
-      </div>
-
       {/* Modal xác nhận lưu phân quyền */}
       <AdminConfirmDialog
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleConfirmSave}
-        title="Xác nhận cập nhật phân quyền vai trò"
+        title={getAdminText(language, "roles.confirmTitle")}
         description={
           <div className="space-y-3">
             <p className="text-sm leading-5 text-text-secondary">
-              Bạn có chắc chắn muốn cập nhật phân quyền cho{" "}
-              <strong className="text-text-primary">{changedRolesSummary.length} vai trò</strong> sau đây?
+              {getAdminText(language, "roles.confirmDescIntro", {
+                count: changedRolesSummary.length,
+              })}
             </p>
             <div className="max-h-60 overflow-y-auto space-y-2.5 rounded-lg border border-border-color bg-bg-secondary/40 p-3 text-xs">
               {changedRolesSummary.map((item) => (
                 <div key={item.role.id} className="space-y-1">
                   <p className="font-semibold text-text-primary">
-                    {getRoleDisplayName(item.role.name)} ({item.role.name}):
+                    {getRoleDisplayName(item.role.name)}:
                   </p>
                   {item.added.length > 0 && (
                     <div className="text-status-success pl-2">
-                      <span className="font-medium">+ Thêm: </span>
+                      <span className="font-medium">{getAdminText(language, "roles.confirmAdded")} </span>
                       {item.added.map((p) => getPermissionDisplayName(p.name)).join(", ")}
                     </div>
                   )}
                   {item.removed.length > 0 && (
                     <div className="text-status-danger pl-2">
-                      <span className="font-medium">- Bớt: </span>
+                      <span className="font-medium">{getAdminText(language, "roles.confirmRemoved")} </span>
                       {item.removed.map((p) => getPermissionDisplayName(p.name)).join(", ")}
                     </div>
                   )}
@@ -585,9 +490,9 @@ export function AdminRolesView() {
             </div>
           </div>
         }
-        warning="Lưu ý: Người dùng thuộc các vai trò này có thể phải đăng nhập lại mới nhận được quyền mới."
-        confirmText="Xác nhận lưu"
-        cancelText="Hủy bỏ"
+        warning={getAdminText(language, "roles.confirmWarning")}
+        confirmText={getAdminText(language, "roles.confirmSubmit")}
+        cancelText={getAdminText(language, "common.cancel")}
         isLoading={saving}
         triggerRef={saveBtnRef}
       />

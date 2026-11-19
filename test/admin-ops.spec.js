@@ -103,6 +103,10 @@ test.describe('Kịch bản Admin Vận Hành Bao Trùm & Hồ Sơ Admin (W-A3)'
       return route.fulfill({ status: 200, json: mockInvoices });
     });
 
+    await page.route((url) => isApiMatch(url, 'attendances'), (route) => {
+      return route.fulfill({ status: 200, json: [] });
+    });
+
     await loginAsCustom(page, adminWithOpsPermissions);
 
     // 1. Quản lý lớp học trong cổng Admin

@@ -1,12 +1,26 @@
 import React, { useEffect, useRef, useState } from "react"
 import { AlertTriangle, LoaderCircle, ShieldAlert, X } from "lucide-react"
 import { updateUserStatus } from "../../api/adminApi.js"
+import { useSCMS } from "../../context/SCMSContext.jsx"
+import { getAdminText } from "./adminI18n.js"
 import { useDialogFocus } from "./useDialogFocus.js"
 
-const STATUS_OPTIONS = [
-  { value: "Active", label: "Hoạt động (Active)", desc: "Cho phép người dùng đăng nhập và sử dụng hệ thống bình thường." },
-  { value: "Inactive", label: "Ngừng hoạt động (Inactive)", desc: "Tạm dừng hoạt động tài khoản, không thể đăng nhập." },
-  { value: "Locked", label: "Khóa tài khoản (Locked)", desc: "Khóa tài khoản do vi phạm chính sách hoặc lý do an toàn." },
+const getStatusOptions = (language) => [
+  {
+    value: "Active",
+    label: getAdminText(language, "statusDialog.optActive"),
+    desc: getAdminText(language, "statusDialog.optActiveDesc"),
+  },
+  {
+    value: "Inactive",
+    label: getAdminText(language, "statusDialog.optInactive"),
+    desc: getAdminText(language, "statusDialog.optInactiveDesc"),
+  },
+  {
+    value: "Locked",
+    label: getAdminText(language, "statusDialog.optLocked"),
+    desc: getAdminText(language, "statusDialog.optLockedDesc"),
+  },
 ]
 
 export const isValidUserId = (id) => {
@@ -29,10 +43,12 @@ export function UserStatusDialog({
   onSuccess,
   triggerRef,
 }) {
+  const { language } = useSCMS()
   const [selectedStatus, setSelectedStatus] = useState("Active")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const dialogRef = useRef(null)
+  const statusOptions = getStatusOptions(language)
 
   useEffect(() => {
     if (isOpen && user) {
@@ -85,9 +101,9 @@ export function UserStatusDialog({
       onClose()
     } catch (err) {
       if (err?.status === 403) {
-        setError("Bạn không có quyền thực hiện thao tác này.")
+        setError(getAdminText(language, "common.noPermission"))
       } else {
-        setError(err?.message || "Không thể cập nhật trạng thái người dùng.")
+        setError(err?.message || getAdminText(language, "statusDialog.errUpdate"))
       }
     } finally {
       setLoading(false)
@@ -112,10 +128,11 @@ export function UserStatusDialog({
         <div className="flex items-start justify-between gap-3 border-b border-border-color/60 pb-3">
           <div>
             <h3 id="user-status-dialog-title" className="text-base font-semibold text-text-primary">
-              Cập nhật trạng thái tài khoản
+              {getAdminText(language, "statusDialog.title")}
             </h3>
             <p className="text-xs text-text-secondary mt-0.5">
-              Người dùng: <strong className="text-text-primary">{user.fullName || user.email}</strong> (ID #{user.id})
+              {getAdminText(language, "statusDialog.userLabel")}{" "}
+              <strong className="text-text-primary">{user.fullName || user.email}</strong> (ID #{user.id})
             </p>
           </div>
           <button
@@ -123,7 +140,7 @@ export function UserStatusDialog({
             onClick={onClose}
             disabled={loading}
             className="w-11 h-11 inline-flex items-center justify-center rounded text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary shrink-0"
-            aria-label="Đóng"
+            aria-label={getAdminText(language, "common.close")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -134,7 +151,8 @@ export function UserStatusDialog({
           <div role="alert" className="p-3 rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger text-xs leading-4 flex items-start gap-2">
             <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
             <div>
-              <strong>Chốt chặn an toàn:</strong> Không xác định được tài khoản đang đăng nhập; tải lại trang hoặc đăng nhập lại.
+              <strong>{getAdminText(language, "statusDialog.guardPrefix")}</strong>{" "}
+              {getAdminText(language, "statusDialog.guardInvalidId")}
             </div>
           </div>
         )}
@@ -144,7 +162,8 @@ export function UserStatusDialog({
           <div role="alert" className="p-3 rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger text-xs leading-4 flex items-start gap-2">
             <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
             <div>
-              <strong>Chốt chặn an toàn:</strong> Bạn không thể tự thay đổi trạng thái tài khoản của chính mình.
+              <strong>{getAdminText(language, "statusDialog.guardPrefix")}</strong>{" "}
+              {getAdminText(language, "statusDialog.guardSelf")}
             </div>
           </div>
         )}
@@ -154,7 +173,8 @@ export function UserStatusDialog({
           <div role="alert" className="p-3 rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger text-xs leading-4 flex items-start gap-2">
             <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
             <div>
-              <strong>Chốt chặn an toàn:</strong> Không thể khóa hoặc ngừng hoạt động Quản trị viên (Admin) đang hoạt động duy nhất trong hệ thống.
+              <strong>{getAdminText(language, "statusDialog.guardPrefix")}</strong>{" "}
+              {getAdminText(language, "statusDialog.guardLastAdmin")}
             </div>
           </div>
         )}
@@ -164,7 +184,8 @@ export function UserStatusDialog({
           <div role="alert" className="p-3 rounded-lg border border-status-warning-border bg-status-warning-bg text-status-warning text-xs leading-4 flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
             <div>
-              <strong>Cảnh báo quản trị:</strong> Bạn đang thao tác trên tài khoản có vai trò Quản trị viên hệ thống (Admin). Hành động này có thể ảnh hưởng đến quyền vận hành toàn hệ thống.
+              <strong>{getAdminText(language, "statusDialog.warnPrefix")}</strong>{" "}
+              {getAdminText(language, "statusDialog.warnAdmin")}
             </div>
           </div>
         )}
@@ -179,10 +200,10 @@ export function UserStatusDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <label className="text-xs font-semibold text-text-secondary block">
-              Chọn trạng thái mới:
+              {getAdminText(language, "statusDialog.selectLabel")}
             </label>
             <div className="space-y-2">
-              {STATUS_OPTIONS.map((opt) => (
+              {statusOptions.map((opt) => (
                 <label
                   key={opt.value}
                   className={`flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer min-h-11 ${
@@ -216,7 +237,7 @@ export function UserStatusDialog({
               disabled={loading}
               className="min-h-11 inline-flex items-center justify-center rounded px-4 py-2 text-sm font-medium border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
             >
-              Hủy bỏ
+              {getAdminText(language, "common.cancel")}
             </button>
             <button
               type="submit"
@@ -224,7 +245,7 @@ export function UserStatusDialog({
               className="min-h-11 inline-flex items-center justify-center gap-2 rounded px-4 py-2 text-sm font-semibold bg-brand-primary text-white hover:bg-brand-primary/90 transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
             >
               {loading && <LoaderCircle className="w-4 h-4 animate-spin" />}
-              <span>Lưu thay đổi</span>
+              <span>{getAdminText(language, "userForm.submitSave")}</span>
             </button>
           </div>
         </form>

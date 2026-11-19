@@ -517,7 +517,7 @@ export function MemberScheduleView() {
   )
 
   return (
-    <main className="mx-auto w-full space-y-6 px-6 py-6">
+    <div className="w-full space-y-6">
       {/* Header: Tiêu đề + ViewToggle + Làm mới */}
       <PageHeader
         title={t("memberSchedTitle")}
@@ -858,6 +858,6 @@ export function MemberScheduleView() {
           </div>
         </div>
       )}
-    </main>
+    </div>
   )
 }

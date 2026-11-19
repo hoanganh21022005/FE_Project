@@ -353,7 +353,7 @@ export function MemberEnrollmentsView() {
   }
 
   return (
-    <main className="w-full space-y-6 px-4 py-5 sm:px-6 lg:px-8">
+    <div className="w-full space-y-6">
       {/* Header */}
       <PageHeader
         title={t("enrollmentsPageTitle")}
@@ -529,6 +529,6 @@ export function MemberEnrollmentsView() {
         t={t}
         tr={tr}
       />
-    </main>
+    </div>
   )
 }

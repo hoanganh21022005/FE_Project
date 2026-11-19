@@ -236,11 +236,11 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
   const otherSubscriptions = subscriptions.filter((s) => !isSubscriptionActive(s))
 
   return (
-    <main
+    <div
       className={
         embedded
           ? "space-y-6"
-          : "min-w-0 w-full space-y-6 px-4 py-5 sm:px-6 lg:px-8"
+          : "min-w-0 w-full space-y-6"
       }
     >
       {/* Header */}
@@ -612,7 +612,7 @@ export function MemberFreezeRequestView({ embedded = false, initialSubscriptions
         )}
       </section>
       </div>
-    </main>
+    </div>
   )
 }
 

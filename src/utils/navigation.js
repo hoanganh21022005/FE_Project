@@ -287,6 +287,7 @@ const ROUTE_TAB_MAP = {
     tab: "member_my_membership",
   },
   "/member/catalog": { role: ROLE_MEMBER, tab: "member_class_catalog" },
+  "/member/courses": { role: ROLE_MEMBER, tab: "member_class_catalog" },
   "/member/class-catalog": { role: ROLE_MEMBER, tab: "member_class_catalog" },
   "/member/attendance": {
     role: ROLE_MEMBER,

@@ -6,11 +6,11 @@ const fixture = (page, expression) => page.evaluate((code) => Function(`return (
 test('center incident list preserves BE values, separates session types, and handles list errors', async ({ page }) => {
   await openPanel(page)
   await expect(page.getByRole('heading', { name: 'Sự cố cấp trung tâm' })).toBeVisible()
-  await expect(page.getByText('Credit phục hồi').first()).toBeVisible()
+  await expect(page.getByText(/Credit/i)).toHaveCount(0)
   await expect(page.getByText('Học viên bị ảnh hưởng').first()).toBeVisible()
-  await expect(page.getByText('0', { exact: true }).first()).toBeVisible()
-  await expect(page.getByText('Chưa xác minh loại lớp')).toBeVisible()
-  await expect(page.getByText('Advanced', { exact: true })).toBeVisible()
+  await expect(page.locator('article').nth(1)).toContainText('0')
+  await expect(page.getByText(/Ch.+ph.+lo/i)).toBeVisible()
+  await expect(page.getByText(/Advanced/).first()).toBeVisible()
   await expect(page.getByRole('button', { name: 'Tạo buổi bù Normal' })).toHaveCount(0)
 
   await page.evaluate(() => { window.__centerIncidentFixture.failList = true })

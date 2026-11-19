@@ -409,16 +409,16 @@ export function ReceptionPaymentsView() {
   };
 
   return (
-    <div className="space-y-6 font-sans text-text-primary">
+    <div className="space-y-6 font-sans text-slate-900">
       {/* Header */}
-      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-bg-secondary text-brand-primary rounded border border-border-color">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-brand-blue-soft p-2.5 text-brand-primary shrink-0">
             <CreditCard className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl leading-7 font-semibold text-text-primary whitespace-nowrap">{t('payments')}</h2>
-            <p className="text-sm leading-5 text-text-secondary">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug whitespace-nowrap">{t('payments')}</h1>
+            <p className="mt-1 text-sm text-slate-500 leading-relaxed">
               {language === 'vi'
                 ? 'Thu tiền trực tiếp tại quầy, xác nhận thanh toán & kích hoạt Membership'
                 : 'Collect desk payments, confirm cash & activate memberships'}
@@ -426,7 +426,7 @@ export function ReceptionPaymentsView() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {apiEnabled && (
             <button
               type="button"
@@ -434,7 +434,7 @@ export function ReceptionPaymentsView() {
               disabled={loading}
               aria-label={language === 'vi' ? 'Tải lại danh sách' : 'Refresh'}
               title={language === 'vi' ? 'Tải lại danh sách' : 'Refresh'}
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-border-color bg-bg-card cursor-pointer"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 border border-slate-300 bg-white shadow-sm cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-brand-primary' : ''}`} />
             </button>
@@ -577,22 +577,22 @@ export function ReceptionPaymentsView() {
 
       {/* Transactions List */}
       {(!apiEnabled || (!loading && (!error || invoices.length > 0))) && (
-        <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-4">
-          <h3 className="text-lg leading-7 font-semibold text-text-primary">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
+          <h3 className="text-base font-semibold text-slate-800">
             {language === 'vi' ? 'Lịch Sử Giao Dịch Thu Tiền Tại Quầy' : 'Desk Collection Transactions'}
           </h3>
 
           {filteredPayments.length === 0 ? (
-            <div className="text-center py-10 text-text-secondary text-sm leading-5">
-              <FileCheck className="w-10 h-10 text-text-muted mx-auto mb-2" />
-              <p className="font-semibold text-text-primary">
+            <div className="text-center py-10 text-slate-500 text-sm">
+              <FileCheck className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+              <p className="font-semibold text-slate-900">
                 {language === 'vi' ? 'Chưa có bản ghi giao dịch thu tiền nào.' : 'No payment records found.'}
               </p>
             </div>
           ) : (
-            <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
+            <div className="w-full overflow-x-auto rounded-xl border border-slate-200 bg-white">
               <table className="w-full min-w-full text-left text-sm">
-                <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
+                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   <tr>
                     <th className="px-4 py-3 text-left align-middle">{language === 'vi' ? 'Mã GD' : 'Code'}</th>
                     <th className="px-4 py-3 text-left align-middle">{language === 'vi' ? 'Thành Viên' : 'Member'}</th>

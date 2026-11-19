@@ -313,16 +313,16 @@ export function ReceptionClassBooking() {
   return (
     <div className="space-y-6 font-sans">
       {/* Header */}
-      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-bg-secondary text-brand-primary rounded border border-border-color">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-brand-blue-soft p-2.5 text-brand-primary shrink-0">
             <Calendar className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl leading-7 font-semibold text-text-primary whitespace-nowrap">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug whitespace-nowrap">
               {t("bookings")}
-            </h2>
-            <p className="text-sm leading-5 text-text-secondary">
+            </h1>
+            <p className="mt-1 text-sm text-slate-500 leading-relaxed">
               {language === "vi"
                 ? "Đăng ký hoặc hủy lịch lớp học trực tiếp tại quầy Lễ tân cho hội viên"
                 : "Register or cancel class schedules directly at the front desk for members"}
@@ -335,7 +335,7 @@ export function ReceptionClassBooking() {
             type="button"
             onClick={() => fetchMemberEnrollments(selectedMemberId)}
             disabled={enrollmentsLoading || isSubmitting}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 py-2 text-sm font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm cursor-pointer shrink-0"
             title={
               language === "vi"
                 ? "Kiểm tra lại đăng ký của học viên"
@@ -353,10 +353,10 @@ export function ReceptionClassBooking() {
       </div>
 
       {/* Select Member Bar */}
-      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary space-y-3">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-3">
         <label
           htmlFor="reception-member-select"
-          className="text-xs leading-4 font-medium text-text-secondary uppercase tracking-wider block"
+          className="text-xs font-semibold text-slate-600 uppercase tracking-wider block"
         >
           1. Chọn Thành Viên Cần Đăng Ký Lớp:
         </label>

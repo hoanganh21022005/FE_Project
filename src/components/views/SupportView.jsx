@@ -393,9 +393,9 @@ export function SupportView() {
   }
 
   return (
-    <main className="w-full space-y-6 px-4 py-5 sm:px-6 lg:px-8">
+    <div className="w-full space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex items-center gap-3.5">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
             <MessageSquare className="h-5 w-5" />
@@ -816,7 +816,7 @@ export function SupportView() {
           </form>
         </div>
       </div>
-    </main>
+    </div>
   )
 }
 
