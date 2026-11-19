@@ -1,5 +1,5 @@
 import { httpClient } from './httpClient.js'
-import { asNumber } from './mappers.js'
+import { asNumber, optionalBoolean } from './mappers.js'
 import { extractList, isValidNumericId } from './schemaValidators.js'
 
 const readArray = (response, resourceName) => {
@@ -31,6 +31,11 @@ export async function getMemberCourseClasses() {
     enrolledCount: asNumber(item.enrolledCount),
     tuitionFee: asNumber(item.tuitionFee),
     scheduleText: item.scheduleText ?? item.schedule ?? null,
+    // Field theo contract hạn và quyền thao tác: thiếu thì giữ null (khác với false). Tài khoản không phải Member cũng là null.
+    registrationAllowed: optionalBoolean(item.registrationAllowed),
+    registrationBlockReason: typeof item.registrationBlockReason === 'string' && item.registrationBlockReason.trim() ? item.registrationBlockReason.trim() : null,
+    registrationDeadline: item.registrationDeadline ?? null,
+    serverTime: item.serverTime ?? null,
   }))
 }
 
