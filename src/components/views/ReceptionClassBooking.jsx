@@ -46,6 +46,8 @@ export function ReceptionClassBooking() {
   const [submittingClassId, setSubmittingClassId] = useState(null)
   const [bookingError, setBookingError] = useState(null)
   const [latestBookingResult, setLatestBookingResult] = useState(null)
+  const [deskCancelTarget, setDeskCancelTarget] = useState(null)
+  const [cancellingBooking, setCancellingBooking] = useState(false)
 
   // API read-back enrollments state for selected member
   const [memberEnrollments, setMemberEnrollments] = useState([])
@@ -57,6 +59,15 @@ export function ReceptionClassBooking() {
   const selectedMemberIdRef = useRef(selectedMemberId)
   const enrollmentReqIdRef = useRef(0)
   const reloadClassesRef = useRef(reloadClasses)
+
+  useEffect(() => {
+    if (!deskCancelTarget || cancellingBooking) return undefined
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setDeskCancelTarget(null)
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [deskCancelTarget, cancellingBooking])
 
   useEffect(() => {
     reloadClassesRef.current = reloadClasses
@@ -305,8 +316,17 @@ export function ReceptionClassBooking() {
   }
 
   const handleDeskCancel = async (classId) => {
-    if (!selectedMember || submittingRef.current) return
-    await cancelBooking(classId, selectedMember.id)
+    if (!selectedMember || submittingRef.current || cancellingBooking) return
+    setCancellingBooking(true)
+    try {
+      await cancelBooking(classId, selectedMember.id)
+      setDeskCancelTarget(null)
+      showToast?.(language === "vi" ? "Đã hủy đăng ký lớp." : "Class booking cancelled.", "success")
+    } catch (error) {
+      showToast?.(getErrorMessage(error, language === "vi" ? "Không thể hủy đăng ký lớp." : "Could not cancel the class booking."), "error")
+    } finally {
+      setCancellingBooking(false)
+    }
   }
 
   const handleNavigateToPayment = (invoiceId, invoiceCode) => {
@@ -839,7 +859,7 @@ export function ReceptionClassBooking() {
                     isRegistered ? (
                       <button
                         type="button"
-                        onClick={() => handleDeskCancel(cls.id)}
+                        onClick={() => setDeskCancelTarget(cls)}
                         className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-status-danger text-text-inverse hover:bg-status-danger/90 cursor-pointer"
                       >
                         <XCircle className="w-3.5 h-3.5" />
@@ -872,6 +892,18 @@ export function ReceptionClassBooking() {
           })}
         </div>
       </div>
+      {deskCancelTarget && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4" role="presentation">
+          <section role="dialog" aria-modal="true" aria-labelledby="desk-cancel-title" className="w-full max-w-md space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <h2 id="desk-cancel-title" className="text-lg font-bold text-slate-900">{language === "vi" ? "Xác nhận hủy đăng ký" : "Confirm booking cancellation"}</h2>
+            <p className="text-sm leading-relaxed text-slate-700">{language === "vi" ? `Bạn có chắc muốn hủy đăng ký lớp ${deskCancelTarget.nameVi || deskCancelTarget.name || "này"} cho ${selectedMember?.name || "hội viên"}?` : `Cancel ${selectedMember?.name || "this member"}'s booking for ${deskCancelTarget.name || "this class"}?`}</p>
+            <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
+              <button type="button" disabled={cancellingBooking} onClick={() => setDeskCancelTarget(null)} className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 disabled:opacity-50">{language === "vi" ? "Hủy bỏ" : "Keep booking"}</button>
+              <button type="button" disabled={cancellingBooking} onClick={() => handleDeskCancel(deskCancelTarget.id)} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-rose-700 px-4 text-sm font-bold text-white disabled:opacity-50">{cancellingBooking && <Loader2 className="h-4 w-4 animate-spin" />}{language === "vi" ? "Xác nhận hủy" : "Confirm cancellation"}</button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }

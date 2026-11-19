@@ -336,6 +336,14 @@ export function CoachAttendanceView() {
   const rosterRequestId = useRef(0)
   const [bulkSaving, setBulkSaving] = useState(false)
   const [showBulkConfirmModal, setShowBulkConfirmModal] = useState(false)
+  useEffect(() => {
+    if (!showBulkConfirmModal || bulkSaving) return undefined
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setShowBulkConfirmModal(false)
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [showBulkConfirmModal, bulkSaving])
   const [quickMemberInput, setQuickMemberInput] = useState("")
   const [quickSaving, setQuickSaving] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
