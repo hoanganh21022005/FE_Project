@@ -360,6 +360,7 @@ export function ClassDetailDrawer({
     } catch (error) {
       const normalized = getNormalClassOpeningError(error)
       setOpeningActionError(normalized)
+      refreshOpeningData().catch(() => {})
     } finally {
       setOpeningSubmitting(false)
     }
@@ -1192,6 +1193,36 @@ export function ClassDetailDrawer({
               <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
                 {openingEvaluation.blockers[0]}
               </p>
+            )}
+
+            {(openingEvaluation.openingConfirmationDueAt != null ||
+              openingEvaluation.openingConfirmationDeadline != null) && (
+              <div className="mt-3 rounded-lg border border-stone-200 bg-stone-50 p-3 text-xs text-stone-700 space-y-1">
+                {openingEvaluation.openingConfirmationDueAt != null && (
+                  <p>
+                    Hạn chuẩn xác nhận:{" "}
+                    <strong className="font-mono text-stone-900">
+                      {new Intl.DateTimeFormat("vi-VN", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                        timeZone: "Asia/Ho_Chi_Minh",
+                      }).format(new Date(openingEvaluation.openingConfirmationDueAt))}
+                    </strong>
+                  </p>
+                )}
+                {openingEvaluation.openingConfirmationDeadline != null && (
+                  <p>
+                    Hạn cuối xác nhận:{" "}
+                    <strong className="font-mono text-stone-900">
+                      {new Intl.DateTimeFormat("vi-VN", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                        timeZone: "Asia/Ho_Chi_Minh",
+                      }).format(new Date(openingEvaluation.openingConfirmationDeadline))}
+                    </strong>
+                  </p>
+                )}
+              </div>
             )}
 
             {openingEvaluation.reasonRequired === true && (

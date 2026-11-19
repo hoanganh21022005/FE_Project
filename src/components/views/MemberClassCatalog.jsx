@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatDate } from '../../locales/translations';
+import { getErrorCode, getErrorMessage, translateErrorCode } from '../../api/apiErrors';
+import { optionalBoolean } from '../../api/mappers';
 import { CancelClassBookingModal } from '../modals/CancelClassBookingModal';
 import { EnrollClassModal } from '../modals/EnrollClassModal';
 import { publicCourses } from '../../data/publicCourses';
@@ -232,11 +234,22 @@ function calculateCourseSchedule(cls) {
 
 // Uniform Status calculation (Đang mở đăng ký | Đã khai giảng | Hết chỗ | Chưa đủ sĩ số | Chỉ còn X chỗ)
 function getClassStatus(cls, now = new Date()) {
+  const regAllowed = optionalBoolean(cls?.registrationAllowed);
+  if (regAllowed === false) {
+    return {
+      key: 'closed',
+      labelVi: 'Đã đóng đăng ký',
+      labelEn: 'Registration Closed',
+      pillClass: 'bg-slate-700 text-white',
+      canEnroll: false,
+      isAbnormal: true,
+    };
+  }
   const maxCap = cls.capacity || 8;
   const enrolled = cls.enrolledCount || 0;
   const minCap = cls.minCapacity || 4;
   const spotsLeft = Math.max(0, maxCap - enrolled);
-  const isFull = enrolled >= maxCap || spotsLeft <= 0;
+  const isFull = regAllowed === true ? false : enrolled >= maxCap || spotsLeft <= 0;
   const schedule = calculateCourseSchedule(cls);
   const isStarted = now >= schedule.firstSessionDate;
 
@@ -742,8 +755,10 @@ function LegacyMemberClassCatalog() {
         showToast(res.message || 'Không thể đăng ký lớp học này.', 'error');
       }
     } catch (err) {
+      const code = getErrorCode(err);
+      const translated = code ? translateErrorCode(code, language) : null;
       showToast(
-        err?.message || (language === 'vi' ? 'Đã xảy ra lỗi khi đăng ký.' : 'Failed to enroll in class.'),
+        translated || getErrorMessage(err, language === 'vi' ? 'Đã xảy ra lỗi khi đăng ký.' : 'Failed to enroll in class.'),
         'error'
       );
     } finally {
@@ -1414,7 +1429,14 @@ function LegacyMemberClassCatalog() {
                         <div className="w-full py-2.5 bg-slate-800/80 text-slate-400 border border-slate-700/60 rounded-lg text-xs font-bold text-center uppercase tracking-wider">
                           Yêu cầu thẻ VIP
                         </div>
-                      ) : isFull ? (
+                      ) : optionalBoolean(cls?.registrationAllowed) === false ? (
+                        <div className="w-full py-2.5 px-3 bg-slate-800/90 text-slate-300 border border-slate-700/60 rounded-lg text-xs font-semibold text-center leading-4">
+                          {(cls.registrationBlockReason &&
+                            translateErrorCode(cls.registrationBlockReason, language)) ||
+                            cls.registrationBlockReason ||
+                            (language === 'vi' ? 'Đã đóng đăng ký' : 'Registration closed')}
+                        </div>
+                      ) : isFull && optionalBoolean(cls?.registrationAllowed) !== true ? (
                         <div className="w-full py-2.5 bg-rose-950/80 text-rose-300 border border-rose-800/60 rounded-lg text-xs font-bold text-center uppercase tracking-wider">
                           {language === 'vi' ? 'Hết chỗ' : 'Full'}
                         </div>
@@ -1524,7 +1546,17 @@ function LegacyMemberClassCatalog() {
         member={member}
         language={language}
         onConfirmEnroll={async (classId) => {
-          return await bookClass(classId);
+          const res = await bookClass(classId);
+          const status = res?.data?.status || res?.status || res?.enrollment?.status;
+          if (status === 'Waitlisted') {
+            showToast(
+              language === 'vi'
+                ? 'Bạn đã được đưa vào danh sách chờ.'
+                : 'You have been added to the waitlist.',
+              'info'
+            );
+          }
+          return res;
         }}
         onNavigateAttendance={() => navigate('/member/attendance')}
       />

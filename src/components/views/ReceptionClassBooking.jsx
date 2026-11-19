@@ -7,7 +7,8 @@ import {
   formatDateTime,
 } from "../../locales/translations"
 import { classEnrollmentApi } from "../../api/classEnrollmentApi"
-import { getErrorMessage } from "../../api/apiErrors"
+import { getErrorCode, getErrorMessage, translateErrorCode } from "../../api/apiErrors"
+import { parseBackendDate } from "../../utils/datetime"
 import {
   Calendar,
   Clock,
@@ -274,12 +275,16 @@ export function ReceptionClassBooking() {
       enrollmentReqIdRef.current++
       setEnrollmentsLoading(false)
       if (String(selectedMemberIdRef.current) === String(targetMemberId)) {
-        const errorMsg = getErrorMessage(
-          err,
-          language === "vi"
-            ? "Đăng ký lớp học thất bại do lỗi kết nối hoặc máy chủ."
-            : "Class enrollment failed due to network or server error.",
-        )
+        const code = getErrorCode(err)
+        const translated = code ? translateErrorCode(code, language) : null
+        const errorMsg =
+          translated ||
+          getErrorMessage(
+            err,
+            language === "vi"
+              ? "Đăng ký lớp học thất bại do lỗi kết nối hoặc máy chủ."
+              : "Class enrollment failed due to network or server error.",
+          )
         setBookingError(errorMsg)
         // Outcome chưa rõ ràng (uncertain): không tự kết luận là chưa đăng ký
         if (apiEnabled) {
@@ -731,6 +736,22 @@ export function ReceptionClassBooking() {
                         {language === "vi" ? cls.roomVi || cls.room : cls.room}
                       </strong>
                     </span>
+                    {(() => {
+                      const regDeadline = parseBackendDate(cls.registrationDeadline)
+                      if (!regDeadline) return null
+                      return (
+                        <span className="font-mono tabular-nums">
+                          {language === "vi" ? "Hạn đăng ký:" : "Registration closes:"}{" "}
+                          <strong className="text-text-primary">
+                            {new Intl.DateTimeFormat(language === "vi" ? "vi-VN" : "en-US", {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                              timeZone: "Asia/Ho_Chi_Minh",
+                            }).format(new Date(regDeadline))}
+                          </strong>
+                        </span>
+                      )
+                    })()}
                   </div>
                 </div>
 
