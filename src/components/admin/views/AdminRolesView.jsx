@@ -153,20 +153,24 @@ export function AdminRolesView() {
         message: getAdminText(language, "roles.saveSuccess"),
       })
     } catch (err) {
+      const status = Number(err?.status ?? err?.response?.status) || 0
       const code = getErrorCode(err)
       const translated = code ? translateErrorCode(code, language) : null
-      if (err?.status === 403) {
+      if (status === 403) {
         setSaveError(getAdminText(language, "common.noPermission"))
       } else {
         setSaveError(
           translated || err?.message || getAdminText(language, "roles.saveError"),
         )
       }
-      // Sau khi bị từ chối: hủy bản nháp đã chỉnh và tải lại ma trận từ BE
-      setDraftPermissions({})
-      setIsEditing(false)
-      retry("roles")
-      retry("permissions")
+      // Chỉ hủy bản nháp và tải lại ma trận khi BE từ chối (400/403/404/409/422).
+      // Lỗi mạng (không có status) hoặc lỗi máy chủ (>= 500) giữ bản nháp để Admin thử lại.
+      if ([400, 403, 404, 409, 422].includes(status)) {
+        setDraftPermissions({})
+        setIsEditing(false)
+        retry("roles")
+        retry("permissions")
+      }
       setIsConfirmOpen(false)
     } finally {
       setSaving(false)
