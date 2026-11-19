@@ -17,7 +17,12 @@ import { buildRoomRequest, buildSubjectRequest, roomStatusForApi } from './resou
 import { validNormalClassOpeningRequest } from './normalClassOpening.js';
 import {
   buildNormalClassWithSessionsRequest,
+  clearPendingNormalClassCreation,
   computeNormalClassFingerprint,
+  getLocalWeekday,
+  loadPendingNormalClassCreation,
+  normalizeNormalClassWeekdays,
+  savePendingNormalClassCreation,
   toBackendDaysOfWeek,
   verifyNormalClassSessions,
 } from './normalClassCreation.js';
@@ -170,23 +175,121 @@ export const createNormalClassWithSessions = async (data, lookups = {}, options 
 
   const previousState =
     idempotencyStateRef && typeof idempotencyStateRef === 'object'
-      ? idempotencyStateRef.current
+      ? idempotencyStateRef.current ?? loadPendingNormalClassCreation()
       : null;
+  if (idempotencyStateRef && typeof idempotencyStateRef === 'object' && !idempotencyStateRef.current && previousState) {
+    idempotencyStateRef.current = previousState;
+  }
 
-  const requestBody =
-    data?.sportsClass && typeof data?.requestId === 'string' && data.requestId.trim()
-      ? {
-          requestId: data.requestId.trim(),
-          sportsClass: data.sportsClass,
-          roomId: Number(data.roomId),
-          daysOfWeek: toBackendDaysOfWeek(data.daysOfWeek),
-          startTime: data.startTime,
-          endTime: data.endTime,
-        }
-      : buildNormalClassWithSessionsRequest(data, {
-          stateRef: idempotencyStateRef,
-          requestId,
-        });
+  const verifyCreatedClass = async (created, requestBody, initialSessions = null) => {
+    try {
+      const verification = await verifyNormalClassSessions(created.id, {
+        getSessionsFn: (filters) => getSessions(filters, httpOptions),
+        getCatalogSessionsFn: (cId) => getCatalogClassSessions(cId, httpOptions),
+        expectedCount: expectedSessionCount,
+        expectedDaysOfWeek: requestBody.daysOfWeek,
+        initialSessions,
+      });
+      created.verifiedSessionCount = verification.count;
+      created.scheduleVerificationStatus = 'verified';
+      if (!created.endDate && verification.endDate) created.endDate = verification.endDate;
+      if (idempotencyStateRef && typeof idempotencyStateRef === 'object') {
+        idempotencyStateRef.current = null;
+      }
+      clearPendingNormalClassCreation();
+      return created;
+    } catch (cause) {
+      Object.assign(created, {
+        classType: 'Normal',
+        totalSessions: expectedSessionCount,
+        roomId: Number(requestBody.roomId),
+        room: data?.room ?? data?.roomVi ?? created.room ?? created.roomVi ?? null,
+        roomVi: data?.roomVi ?? data?.room ?? created.roomVi ?? created.room ?? null,
+        startTime: requestBody.startTime,
+        endTime: requestBody.endTime,
+        daysOfWeek: requestBody.daysOfWeek,
+        selectedDays: normalizeNormalClassWeekdays(requestBody.daysOfWeek),
+      });
+      created.scheduleVerificationStatus = 'unverified';
+      created.scheduleVerificationError = cause?.message || 'Chưa xác minh được lịch học.';
+      const recoveryState = {
+        ...(idempotencyStateRef?.current || previousState || {}),
+        fingerprint: computeNormalClassFingerprint(requestBody),
+        requestId: requestBody.requestId,
+        attemptLocked: true,
+        status: 'created_unverified',
+        createdClassId: created.id,
+        createdClass: created,
+        createdRequestBody: requestBody,
+        // A failed embedded response may be stale or malformed; recovery must read the current schedule via GET.
+        initialSessions: null,
+      };
+      if (idempotencyStateRef && typeof idempotencyStateRef === 'object') {
+        idempotencyStateRef.current = recoveryState;
+      }
+      savePendingNormalClassCreation(recoveryState);
+      const error = new Error(
+        `Lớp #${created.id} đã được tạo nhưng chưa xác minh được đầy đủ lịch học. Có thể kiểm tra lại lịch mà không gửi lại lệnh tạo lớp. ${cause?.message || ''}`.trim(),
+        { cause },
+      );
+      error.code = 'NORMAL_CLASS_CREATED_SCHEDULE_UNVERIFIED';
+      error.status = cause?.status ?? 0;
+      error.classId = created.id;
+      error.requestId = requestBody.requestId;
+      error.createdClass = created;
+      error.verificationError = cause;
+      throw error;
+    }
+  };
+
+  if (previousState?.status === 'created_unverified' && previousState.createdClassId) {
+    return verifyCreatedClass(
+      previousState.createdClass,
+      previousState.createdRequestBody,
+      previousState.initialSessions,
+    );
+  }
+  if (previousState?.status === 'outcome_unknown') {
+    const error = new Error(
+      `Kết quả tạo lớp với requestId ${previousState.requestId} chưa xác định vì response không có classId hợp lệ. Kiểm tra danh sách lớp trên hệ thống trước khi tạo lại.`,
+    );
+    error.code = 'NORMAL_CLASS_CREATION_OUTCOME_UNKNOWN';
+    error.requestId = previousState.requestId;
+    throw error;
+  }
+  const isUnconfirmedPostRetry = ['post_unconfirmed', 'post_pending'].includes(previousState?.status) && previousState.requestBody;
+  if (isUnconfirmedPostRetry && previousState.status === 'post_pending') {
+    previousState.status = 'post_unconfirmed';
+    if (idempotencyStateRef && typeof idempotencyStateRef === 'object') {
+      idempotencyStateRef.current = previousState;
+    }
+    savePendingNormalClassCreation(previousState);
+  }
+
+  const isPreparedRequest = data?.sportsClass && typeof data?.requestId === 'string' && data.requestId.trim();
+  const preparedDays = isPreparedRequest ? normalizeNormalClassWeekdays(data.daysOfWeek) : null;
+  if (isPreparedRequest && !preparedDays) {
+    throw new Error('Chọn đúng một trong năm mẫu lịch Normal.');
+  }
+  if (isPreparedRequest && !preparedDays.includes(getLocalWeekday(data.sportsClass.startDate))) {
+    throw new Error('Ngày bắt đầu phải thuộc mẫu thứ đã chọn.');
+  }
+
+  const requestBody = isUnconfirmedPostRetry
+    ? previousState.requestBody
+    : isPreparedRequest
+    ? {
+        requestId: data.requestId.trim(),
+        sportsClass: { ...data.sportsClass, classType: 'Normal', totalSessions: 12 },
+        roomId: Number(data.roomId),
+        daysOfWeek: toBackendDaysOfWeek(preparedDays),
+        startTime: data.startTime,
+        endTime: data.endTime,
+      }
+    : buildNormalClassWithSessionsRequest(data, {
+        stateRef: idempotencyStateRef,
+        requestId,
+      });
 
   const currentFingerprint = computeNormalClassFingerprint(requestBody);
   const authoritativeFingerprint =
@@ -205,6 +308,11 @@ export const createNormalClassWithSessions = async (data, lookups = {}, options 
       ),
       attemptLocked: true,
     };
+    savePendingNormalClassCreation({
+      ...idempotencyStateRef.current,
+      status: 'post_pending',
+      requestBody,
+    });
   }
 
   let rawCreated;
@@ -219,6 +327,7 @@ export const createNormalClassWithSessions = async (data, lookups = {}, options 
         const hasPayloadChanged = authoritativeFingerprint !== currentFingerprint;
         if (hasPayloadChanged) {
           idempotencyStateRef.current = null;
+          clearPendingNormalClassCreation();
         } else {
           idempotencyStateRef.current = {
             fingerprint: authoritativeFingerprint,
@@ -226,6 +335,7 @@ export const createNormalClassWithSessions = async (data, lookups = {}, options 
             idempotencyConflict: true,
             attemptLocked: true,
           };
+          savePendingNormalClassCreation(idempotencyStateRef.current);
         }
       }
       const conflictErr = new Error(
@@ -238,27 +348,93 @@ export const createNormalClassWithSessions = async (data, lookups = {}, options 
       throw conflictErr;
     }
 
+    if (idempotencyStateRef && typeof idempotencyStateRef === 'object' && (!err?.status || err.status >= 500)) {
+      idempotencyStateRef.current = {
+        ...(idempotencyStateRef.current || previousState || {}),
+        fingerprint: authoritativeFingerprint,
+        requestId: requestBody.requestId,
+        attemptLocked: true,
+        status: 'post_unconfirmed',
+        requestBody,
+      };
+      savePendingNormalClassCreation(idempotencyStateRef.current);
+    } else if (idempotencyStateRef && typeof idempotencyStateRef === 'object' && err?.status >= 400 && err.status < 500) {
+      idempotencyStateRef.current = {
+        ...(idempotencyStateRef.current || previousState || {}),
+        fingerprint: authoritativeFingerprint,
+        requestId: requestBody.requestId,
+        attemptLocked: true,
+        status: 'post_rejected',
+        requestBody,
+      };
+      savePendingNormalClassCreation(idempotencyStateRef.current);
+    }
+
     throw err;
   }
 
-  const created = mapClass(rawCreated, { ...lookups, apiMode: true });
+  const created = rawCreated && typeof rawCreated === 'object' && !Array.isArray(rawCreated)
+    ? mapClass(rawCreated, { ...lookups, apiMode: true })
+    : { id: null };
   created.requestId = requestBody.requestId;
 
-  if (verifySessions) {
-    const verification = await verifyNormalClassSessions(created.id, {
-      getSessionsFn: (filters) => getSessions(filters, httpOptions),
-      getCatalogSessionsFn: (cId) => getCatalogClassSessions(cId, httpOptions),
-      expectedCount: expectedSessionCount,
-    });
-    created.verifiedSessionCount = verification.count;
-    if (!created.endDate && verification.endDate) {
-      created.endDate = verification.endDate;
+  if (!Number.isInteger(Number(created.id)) || Number(created.id) <= 0) {
+    if (idempotencyStateRef && typeof idempotencyStateRef === 'object') {
+      idempotencyStateRef.current = {
+        fingerprint: currentFingerprint,
+        requestId: requestBody.requestId,
+        attemptLocked: true,
+        status: 'outcome_unknown',
+      };
+      savePendingNormalClassCreation(idempotencyStateRef.current);
     }
+    const error = new Error(
+      `POST tạo lớp đã trả response thành công nhưng không có classId hợp lệ để xác nhận. Kết quả chưa xác định; requestId ${requestBody.requestId} được giữ lại để tránh gửi lại lệnh tạo.`,
+    );
+    error.code = 'NORMAL_CLASS_CREATION_OUTCOME_UNKNOWN';
+    error.requestId = requestBody.requestId;
+    throw error;
+  }
+
+  if (verifySessions) {
+    const recoveryState = {
+      ...(idempotencyStateRef?.current || previousState || {}),
+      fingerprint: currentFingerprint,
+      requestId: requestBody.requestId,
+      attemptLocked: true,
+      status: 'created_unverified',
+      createdClassId: created.id,
+      createdClass: {
+        ...created,
+        classType: 'Normal',
+        totalSessions: expectedSessionCount,
+        roomId: Number(requestBody.roomId),
+        room: data?.room ?? data?.roomVi ?? null,
+        roomVi: data?.roomVi ?? data?.room ?? null,
+        startTime: requestBody.startTime,
+        endTime: requestBody.endTime,
+        daysOfWeek: requestBody.daysOfWeek,
+        selectedDays: normalizeNormalClassWeekdays(requestBody.daysOfWeek),
+        scheduleVerificationStatus: 'unverified',
+      },
+      createdRequestBody: requestBody,
+      initialSessions: null,
+    };
+    if (idempotencyStateRef && typeof idempotencyStateRef === 'object') {
+      idempotencyStateRef.current = recoveryState;
+    }
+    savePendingNormalClassCreation(recoveryState);
+    return verifyCreatedClass(
+      created,
+      requestBody,
+      rawCreated?.sessions ?? rawCreated?.scheduleSessions ?? null,
+    );
   }
 
   if (idempotencyStateRef && typeof idempotencyStateRef === 'object') {
     idempotencyStateRef.current = null;
   }
+  clearPendingNormalClassCreation();
 
   return created;
 };

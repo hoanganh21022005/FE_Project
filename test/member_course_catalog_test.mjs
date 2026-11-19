@@ -1,12 +1,75 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { httpClient } from '../src/api/httpClient.js'
+import { memberCourseCatalogApi } from '../src/api/memberCourseCatalogApi.js'
 import { enrollCurrentMemberInClass } from '../src/api/classEnrollmentApi.js'
 import { createAdvancedOrder, requestAdvancedRegistration } from '../src/api/advancedRegistrationApi.js'
 import { coachIsActive, coachMatchesSubject, hasSellablePrice, readAdmissionCapacity, resolveCatalogSubjects, verifyNormalCourseClass } from '../src/utils/memberCourseCatalogRules.js'
 
 const sportNames = ['Tennis', 'Swimming', 'Pickleball', 'Archery', 'Basketball', 'Football', 'Volleyball', 'Badminton', 'Table Tennis']
 const subjects = sportNames.map((name, index) => ({ id: index + 19, name, slug: ['tennis', 'swimming', 'pickleball', 'archery', 'basketball', 'football', 'volleyball', 'badminton', 'table-tennis'][index], normalPrice: 1000000, advancedPrice: 3000000 }))
+
+const scheduleRowsForDays = (selectedDays) => {
+  const dates = []
+  const cursor = new Date(Date.UTC(2026, 0, 1))
+  while (dates.length < 12) {
+    if (selectedDays.includes(cursor.getUTCDay())) dates.push({ sessionDate: cursor.toISOString().slice(0, 10), startTime: '09:00', endTime: '10:00' })
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
+  return dates
+}
+const originalGet = httpClient.get
+const apiSchedules = [
+  [[1, 3, 5], [1, 3, 5]],
+  [[2, 4, 6], [2, 4, 6]],
+  [[1, 3, 7], [1, 3, 0]],
+  [[2, 4, 7], [2, 4, 0]],
+  [[3, 5, 7], [3, 5, 0]],
+]
+httpClient.get = async () => apiSchedules.map(([daysOfWeek], index) => ({
+  id: index + 100,
+  classType: 'Normal',
+  daysOfWeek,
+  totalSessions: 12,
+}))
+try {
+  const mappedClasses = await memberCourseCatalogApi.getMemberCourseClasses()
+  assert.deepEqual(mappedClasses.map((item) => item.selectedDays), apiSchedules.map(([, days]) => days))
+} finally {
+  httpClient.get = originalGet
+}
+
+const sessionsOnly = scheduleRowsForDays([2, 4, 0])
+const holidayAdjustedSessions = (() => {
+  const remaining = new Map([[1, 5], [3, 4], [5, 3]])
+  const dates = []
+  const cursor = new Date(Date.UTC(2026, 0, 1))
+  while (dates.length < 12) {
+    const weekday = cursor.getUTCDay()
+    if ((remaining.get(weekday) || 0) > 0) {
+      dates.push({ sessionDate: cursor.toISOString().slice(0, 10), startTime: '09:00', endTime: '10:00' })
+      remaining.set(weekday, remaining.get(weekday) - 1)
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
+  return dates
+})()
+httpClient.get = async () => [
+  { id: 106, classType: 'Normal', totalSessions: 12, sessions: sessionsOnly },
+  { id: 107, classType: 'Normal', totalSessions: 12 },
+  { id: 108, classType: 'Advanced', sessions: scheduleRowsForDays([1, 3, 5]) },
+  { id: 109, classType: 'Normal', totalSessions: 12, sessions: holidayAdjustedSessions },
+]
+try {
+  const [normalWithSessions, normalUnknown, advanced, holidayAdjusted] = await memberCourseCatalogApi.getMemberCourseClasses()
+  assert.deepEqual(normalWithSessions.selectedDays, [2, 4, 0], 'twelve session dates may establish a clear recurring schedule')
+  assert.deepEqual(normalWithSessions.sessions, sessionsOnly, 'actual sessions remain available for member schedule display')
+  assert.equal(normalUnknown.selectedDays, null, 'missing days and sessions remain unknown')
+  assert.equal(advanced.selectedDays, null, 'Advanced sessions are not converted into recurring weekdays')
+  assert.deepEqual(holidayAdjusted.selectedDays, [1, 3, 5], 'uneven holiday-adjusted sessions still display the identifiable weekday template')
+} finally {
+  httpClient.get = originalGet
+}
 const resolved = resolveCatalogSubjects(subjects)
 assert.equal(resolved.length, 9, 'catalog renders the nine requested sport categories')
 assert.ok(resolved.every((row) => row.subject), 'unique subject slugs map without hardcoded IDs')
@@ -61,6 +124,11 @@ try {
 
 const view = await readFile(new URL('../src/components/views/MemberCourseCatalog.jsx', import.meta.url), 'utf8')
 assert.doesNotMatch(view, /bookClass|localStorage|member-course-waitlist/)
+assert.doesNotMatch(view, /setSelectedDays/)
+assert.match(view, /normalScheduleLabel\(item, scheduleSessions, isVi\)/)
+assert.match(view, /scheduleSessions\.map\(sessionDate\)/)
+assert.match(view, /0: 'Sun'/)
+assert.match(view, /0: 'CN'/)
 assert.match(view, /requestAdvancedRegistration/)
 assert.match(view, /normalizeCatalogStatus\(registration\.status\) !== 'accepted'/)
 assert.match(view, /getMemberOwnInvoiceById/)

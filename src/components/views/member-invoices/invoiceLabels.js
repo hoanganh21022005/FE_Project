@@ -100,4 +100,3 @@ export const getPaymentMethodLabel = (invoice, isVi) => {
     return "VNPay / Online"
   return method ? (isVi ? "Khác" : "Other") : "—"
 }
-

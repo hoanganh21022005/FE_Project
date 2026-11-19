@@ -10,9 +10,15 @@ import { useScheduleConflict } from "../classes/hooks/useScheduleConflict"
 import { CurrencyInput } from "../common/CurrencyInput"
 import {
   adjustNormalMinCapacityForMaxChange,
+  formatLocalDate,
+  generateNormalClassPreview,
+  getLocalWeekday,
+  getNextValidUpcomingDate,
   getDefaultNormalMinCapacity,
   isNormalClassApiCreationBlocked,
+  loadPendingNormalClassCreation,
   NORMAL_CLASS_API_BLOCKED_MESSAGE,
+  parseLocalDate,
   validateNormalClassCapacity,
 } from "../../api/normalClassCreation.js"
 import {
@@ -40,8 +46,6 @@ import {
   formatViDateWithWeekday,
   formatNumber,
   getDurationLabel,
-  getNextValidUpcomingDate,
-  generateProjectedSessions,
 } from "./new-class/classFormHelpers"
 import { DatePicker } from "./new-class/DatePicker"
 
@@ -125,13 +129,26 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const normalRequestIdStateRef = useRef(null)
+  const [normalCreationRecovery, setNormalCreationRecovery] = useState(null)
 
   useEffect(() => {
     if (!isOpen) return
     setClassName("")
     setTouched({})
     setIsDirty(false)
-    normalRequestIdStateRef.current = null
+    const pendingCreation = normalRequestIdStateRef.current || loadPendingNormalClassCreation()
+    if (!normalRequestIdStateRef.current && pendingCreation) {
+      normalRequestIdStateRef.current = pendingCreation
+    }
+    setNormalCreationRecovery(
+      pendingCreation?.status === "created_unverified"
+        ? { status: pendingCreation.status, classId: pendingCreation.createdClassId, requestId: pendingCreation.requestId }
+        : pendingCreation?.status === "outcome_unknown"
+          ? { status: pendingCreation.status, requestId: pendingCreation.requestId }
+          : ["post_unconfirmed", "post_pending"].includes(pendingCreation?.status)
+            ? { status: "post_unconfirmed", requestId: pendingCreation.requestId }
+          : null,
+    )
   }, [isOpen])
 
   // Chế độ API: danh sách môn lấy từ /api/subjects (khớp bằng mã/tên chuẩn hóa),
@@ -327,13 +344,19 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
     // Forward start date by ~4 weeks (28 days) or next valid date to avoid collision
     if (cloneFrom.startDate || cloneFrom.date) {
-      const baseDate = new Date(cloneFrom.startDate || cloneFrom.date)
-      if (!isNaN(baseDate.getTime())) {
+      const baseDate = parseLocalDate(cloneFrom.startDate || cloneFrom.date)
+      if (baseDate) {
         baseDate.setDate(baseDate.getDate() + 28)
-        const yyyy = baseDate.getFullYear()
-        const mm = String(baseDate.getMonth() + 1).padStart(2, "0")
-        const dd = String(baseDate.getDate()).padStart(2, "0")
-        setStartDate(`${yyyy}-${mm}-${dd}`)
+        const candidateDate = formatLocalDate(baseDate)
+        const clonedDays = Array.isArray(cloneFrom.selectedDays) && cloneFrom.selectedDays.length
+          ? cloneFrom.selectedDays
+          : [1, 3, 5]
+        const clonedTime = cloneFrom.startTime || "06:00"
+        const [hour, minute] = clonedTime.split(":").map(Number)
+        const candidateStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), hour || 0, minute || 0)
+        setStartDate(candidateStart > new Date() && clonedDays.includes(baseDate.getDay())
+          ? candidateDate
+          : getNextValidUpcomingDate(clonedDays, clonedTime))
       }
     }
   }, [isOpen, cloneFrom, allAvailableRooms])
@@ -405,13 +428,15 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
   // Projected session dates
   const projectedSessions = useMemo(() => {
-    return generateProjectedSessions(
+    return generateNormalClassPreview(
       startDate,
       selectedDays,
       sessionCount,
-      startTime,
-      endTime,
-    )
+    ).map((session) => ({
+      ...session,
+      formattedDate: formatViDateWithWeekday(session.dateStr),
+      time: `${startTime} - ${endTime}`,
+    }))
   }, [startDate, selectedDays, sessionCount, startTime, endTime])
 
   const calculatedEndDate = useMemo(() => {
@@ -480,16 +505,19 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const isFirstSessionInPast = useMemo(() => {
     if (!startDate || !startTime) return false
     const [sh, sm] = startTime.split(":").map(Number)
-    const [yyyy, mm, dd] = startDate.split("-").map(Number)
-    const firstSession = new Date(yyyy, mm - 1, dd, sh || 0, sm || 0, 0)
+    const date = parseLocalDate(startDate)
+    if (!date) return true
+    const firstSession = new Date(date.getFullYear(), date.getMonth(), date.getDate(), sh || 0, sm || 0, 0)
     return firstSession < new Date()
   }, [startDate, startTime])
+
+  const startDateMatchesSchedule = selectedDays.includes(getLocalWeekday(startDate))
 
   // Selected weekday day of week for display
   const currentWeekdayLabel = useMemo(() => {
     if (!startDate) return ""
-    const d = new Date(startDate)
-    return isNaN(d.getTime()) ? "" : VI_WEEKDAYS_FULL[d.getDay()]
+    const weekday = getLocalWeekday(startDate)
+    return weekday === null ? "" : VI_WEEKDAYS_FULL[weekday]
   }, [startDate])
 
   // Field validation checks
@@ -596,6 +624,53 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
   // Handle Submit (Draft or Open)
   const handleSubmit = async (targetStatus = status) => {
+    const pendingCreation = normalRequestIdStateRef.current
+    if (apiEnabled && pendingCreation?.status === "outcome_unknown") {
+      showToast(
+        `Kết quả tạo lớp chưa xác định (requestId ${pendingCreation.requestId}). Hãy kiểm tra danh sách lớp trên hệ thống trước khi thử tạo lại.`,
+        "error",
+      )
+      return
+    }
+    if (apiEnabled && ["created_unverified", "post_unconfirmed", "post_pending"].includes(pendingCreation?.status)) {
+      setIsSubmitting(true)
+      try {
+        const retryResult = await addClassSession({}, {
+          idempotencyStateRef: normalRequestIdStateRef,
+        })
+        if (retryResult?.success && retryResult.data?.id) {
+          setNormalCreationRecovery(null)
+          showToast(
+            pendingCreation.status === "created_unverified"
+              ? `Đã xác minh đủ 12 buổi cho lớp #${retryResult.data.id}.`
+              : `Đã tạo lớp học và xác minh đủ 12 buổi cho lớp #${retryResult.data.id}.`,
+            "success",
+          )
+          onClose()
+        } else if (retryResult?.createdButUnverified) {
+          setNormalCreationRecovery({
+            status: "created_unverified",
+            classId: retryResult.classId,
+            requestId: retryResult.requestId,
+          })
+          showToast(retryResult.message, "error")
+        } else if (retryResult?.postUnconfirmed) {
+          setNormalCreationRecovery({ status: "post_unconfirmed", requestId: retryResult.requestId })
+          showToast(retryResult.message, "error")
+        } else if (retryResult?.outcomeUnknown) {
+          setNormalCreationRecovery({ status: "outcome_unknown", requestId: retryResult.requestId })
+          showToast(retryResult.message, "error")
+        } else {
+          showToast(retryResult?.message || "Chưa thể xác minh lại lịch lớp đã tạo.", "error")
+        }
+      } catch (error) {
+        showToast(error?.message || "Chưa thể xác minh lại lịch lớp đã tạo.", "error")
+      } finally {
+        setIsSubmitting(false)
+      }
+      return
+    }
+
     if (isNormalClassApiCreationBlocked(apiEnabled, targetStatus)) {
       showToast(NORMAL_CLASS_API_BLOCKED_MESSAGE, "error")
       return
@@ -619,6 +694,10 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         "Buổi học đầu tiên đã qua giờ hiện tại. Vui lòng chọn ngày hoặc giờ trong tương lai.",
         "error",
       )
+      return
+    }
+    if (apiEnabled && !startDateMatchesSchedule) {
+      showToast("Ngày bắt đầu phải thuộc mẫu thứ đã chọn.", "error")
       return
     }
     if (!selectedDays.length) {
@@ -717,9 +796,35 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         const createResult = await addClassSession(payload, {
           idempotencyStateRef: normalRequestIdStateRef,
         })
+        if (createResult?.createdButUnverified) {
+          setNormalCreationRecovery({
+            status: "created_unverified",
+            classId: createResult.classId,
+            requestId: createResult.requestId,
+          })
+          showToast(createResult.message, "error")
+          return
+        }
+        if (createResult?.outcomeUnknown) {
+          setNormalCreationRecovery({
+            status: "outcome_unknown",
+            requestId: createResult.requestId,
+          })
+          showToast(createResult.message, "error")
+          return
+        }
+        if (createResult?.postUnconfirmed) {
+          setNormalCreationRecovery({
+            status: "post_unconfirmed",
+            requestId: createResult.requestId,
+          })
+          showToast(createResult.message, "error")
+          return
+        }
         if (!createResult?.success || !createResult.data?.id) {
           throw new Error(createResult?.message || "Hệ thống chưa thể xác nhận mã lớp học mới.")
         }
+        setNormalCreationRecovery(null)
         showToast("Đã tạo lớp học và khởi tạo đủ lịch 12 buổi thành công.", "success")
         onClose()
         return
@@ -778,6 +883,21 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
         {/* BODY CUỘN: STACKED CARDS CHUẨN DESIGN THEO ẢNH MẪU */}
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+          {normalCreationRecovery?.status === "created_unverified" && (
+            <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              Lớp #{normalCreationRecovery.classId} đã được tạo nhưng chưa xác minh được đầy đủ lịch học. Lớp đã được thêm vào danh sách để Manager kiểm tra. Nút bên dưới chỉ thử đọc lại lịch, không gửi POST tạo lớp lần nữa.
+            </div>
+          )}
+          {normalCreationRecovery?.status === "outcome_unknown" && (
+            <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              Chưa xác định được kết quả tạo lớp (requestId {normalCreationRecovery.requestId}); response không có classId hợp lệ. Hãy kiểm tra danh sách lớp trên hệ thống trước khi tạo thao tác mới.
+            </div>
+          )}
+          {normalCreationRecovery?.status === "post_unconfirmed" && (
+            <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              Chưa xác nhận được kết quả POST tạo lớp (requestId {normalCreationRecovery.requestId}). Thử lại sẽ dùng đúng requestId và payload đã gửi.
+            </div>
+          )}
           {/* CARD 1: THÔNG TIN CƠ BẢN */}
           <div className="bg-white rounded-2xl border border-stone-200/80 p-6 space-y-4 shadow-2xs">
             <h2 className="text-base font-bold text-stone-900">
@@ -967,9 +1087,14 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   setIsDirty(true)
                   setStartDate(v)
                 }}
-                min={new Date().toISOString().split("T")[0]}
+                min={formatLocalDate(new Date())}
                 error={dateError}
               />
+              {apiEnabled && !startDateMatchesSchedule && !isFirstSessionInPast && (
+                <p className="text-xs text-orange-600 mt-1 font-medium">
+                  Ngày bắt đầu phải thuộc mẫu thứ đã chọn.
+                </p>
+              )}
               <div className="text-xs text-stone-500 mt-1">
                 {currentWeekdayLabel}
               </div>
@@ -991,7 +1116,16 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   value={startTime}
                   onChange={(e) => {
                     setIsDirty(true)
-                    setStartTime(e.target.value)
+                    const nextStartTime = e.target.value
+                    setStartTime(nextStartTime)
+                    const currentDate = parseLocalDate(startDate)
+                    const [hour, minute] = nextStartTime.split(":").map(Number)
+                    const currentSessionStart = currentDate
+                      ? new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), hour || 0, minute || 0)
+                      : null
+                    if (!currentSessionStart || currentSessionStart <= new Date() || !selectedDays.includes(currentDate.getDay())) {
+                      setStartDate(getNextValidUpcomingDate(selectedDays, nextStartTime))
+                    }
                   }}
                   className="w-full h-11 px-3.5 pr-10 bg-white border border-stone-300 rounded-xl text-sm text-stone-900 font-normal appearance-none focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800 cursor-pointer"
                 >
@@ -1042,18 +1176,24 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   ? [
                       { id: "mon-wed-fri", label: "T2 · T4 · T6", days: [1, 3, 5] },
                       { id: "tue-thu-sat", label: "T3 · T5 · T7", days: [2, 4, 6] },
+                      { id: "mon-wed-sun", label: "T2 · T4 · CN", days: [1, 3, 0] },
+                      { id: "tue-thu-sun", label: "T3 · T5 · CN", days: [2, 4, 0] },
+                      { id: "wed-fri-sun", label: "T4 · T6 · CN", days: [3, 5, 0] },
                     ]
                   : WEEKDAYS.map((day) => ({ id: day.id, label: day.label, days: [day.dayOfWeek] }))
                 ).map((day) => {
-                  const isSelected = day.days.every((weekday) => selectedDays.includes(weekday))
+                  const isSelected =
+                    day.days.length === selectedDays.length &&
+                    day.days.every((weekday) => selectedDays.includes(weekday))
                   return (
                     <button
                       key={day.id}
                       type="button"
                       onClick={() => {
                         if (apiEnabled) {
-                          setSelectedDays(day.days)
+                          setSelectedDays([...day.days])
                           setStartDate(getNextValidUpcomingDate(day.days, startTime))
+                          setIsDirty(true)
                         } else {
                           toggleWeekday(day.days[0])
                         }
@@ -1175,6 +1315,11 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                     </div>
                   </button>
 
+                  {apiEnabled && (
+                    <p className="mt-2 text-[11px] leading-relaxed text-amber-700">
+                      Preview dự kiến theo mẫu đã chọn; Backend có thể điều chỉnh lịch quanh ngày nghỉ. Lịch thực tế được xác minh sau khi tạo.
+                    </p>
+                  )}
                   {showSessionList && (
                     <div className="mt-2 p-3.5 bg-stone-50 border border-stone-200 rounded-xl max-h-48 overflow-y-auto space-y-1.5 text-xs">
                       {projectedSessions.map((s) => (
@@ -1507,6 +1652,10 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   tập khác để tiếp tục.
                 </p>
               </div>
+            ) : conflict?.hasMissingSchedule ? (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+                {conflict.message || "Chưa thể xác minh xung đột vì thiếu ngày học."}
+              </div>
             ) : (
               <div className="p-3 bg-[#EBFBEE] border border-emerald-200/80 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -1537,7 +1686,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
           <button
             type="button"
             onClick={() => handleSubmit("Draft")}
-            disabled={isSubmitting || conflict?.hasConflict || isNormalClassApiCreationBlocked(apiEnabled, "Draft")}
+            disabled={isSubmitting || conflict?.hasConflict || conflict?.hasMissingSchedule || isNormalClassApiCreationBlocked(apiEnabled, "Draft")}
             className="h-10 px-5 rounded-lg border border-stone-200 hover:bg-stone-50 text-stone-700 text-sm font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title={conflict?.hasConflict ? conflict.message : "Lưu bản nháp"}
           >
@@ -1548,11 +1697,17 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             type="button"
             onClick={() => handleSubmit(status)}
             disabled={
-              isSubmitting || conflict?.hasConflict || isFirstSessionInPast || isNormalClassApiCreationBlocked(apiEnabled)
+              isSubmitting || normalCreationRecovery?.status === "outcome_unknown" || (!["created_unverified", "post_unconfirmed"].includes(normalCreationRecovery?.status) && (conflict?.hasConflict || conflict?.hasMissingSchedule || isFirstSessionInPast || (apiEnabled && !startDateMatchesSchedule) || isNormalClassApiCreationBlocked(apiEnabled)))
             }
             className="h-10 px-6 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer flex items-center gap-2"
             title={
-              conflict?.hasConflict
+              normalCreationRecovery?.status === "created_unverified"
+                ? "Chỉ thử xác minh lịch của lớp đã tạo; không tạo lớp mới"
+                : normalCreationRecovery?.status === "post_unconfirmed"
+                  ? "Thử lại cùng payload và requestId đã gửi"
+                : normalCreationRecovery?.status === "outcome_unknown"
+                  ? "Cần kiểm tra kết quả trên hệ thống trước"
+                  : conflict?.hasConflict
                 ? conflict.message
                 : isFirstSessionInPast
                   ? "Giờ học đã trôi qua"
@@ -1565,7 +1720,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                 <span>Đang xử lý...</span>
               </>
             ) : (
-              <span>Tạo & mở đăng ký</span>
+              <span>{normalCreationRecovery?.status === "created_unverified" ? "Thử xác minh lại lịch" : normalCreationRecovery?.status === "post_unconfirmed" ? "Thử lại cùng requestId" : normalCreationRecovery?.status === "outcome_unknown" ? "Cần kiểm tra kết quả" : "Tạo & mở đăng ký"}</span>
             )}
           </button>
         </div>

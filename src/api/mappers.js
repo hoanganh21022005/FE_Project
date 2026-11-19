@@ -131,6 +131,60 @@ const classStatus = (status, fallback = "draft") => {
   return normalized
 }
 
+export function toFrontendDaysOfWeek(daysOfWeek) {
+  if (!Array.isArray(daysOfWeek)) return daysOfWeek
+  return daysOfWeek.map((day) => {
+    const numericDay = typeof day === "string" && /^\d+$/.test(day)
+      ? Number(day)
+      : day
+    return numericDay === 7 ? 0 : numericDay
+  })
+}
+
+const NORMAL_CLASS_WEEKDAY_PATTERNS = [
+  [1, 3, 5],
+  [2, 4, 6],
+  [1, 3, 0],
+  [2, 4, 0],
+  [3, 5, 0],
+]
+
+export function inferNormalClassWeekdaysFromSessions(sessions, totalSessions = 12) {
+  if (!Array.isArray(sessions) || Number(totalSessions) !== 12 || sessions.length !== 12) {
+    return null
+  }
+
+  const dates = sessions.map((session) => {
+    if (!session || session.centerInvalidated === true ||
+      ["cancelled", "canceled", "deleted"].includes(String(session.status || "").toLowerCase())) {
+      return null
+    }
+    const rawDate = session.sessionDate ?? session.date ?? session.startDate
+    const date = String(rawDate || "").slice(0, 10)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null
+    const [year, month, day] = date.split("-").map(Number)
+    const parsed = new Date(Date.UTC(year, month - 1, day))
+    if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) {
+      return null
+    }
+    return { date, weekday: parsed.getUTCDay() }
+  })
+
+  if (dates.some((entry) => entry === null) || new Set(dates.map((entry) => entry.date)).size !== 12) {
+    return null
+  }
+
+  const counts = new Map()
+  dates.forEach(({ weekday }) => counts.set(weekday, (counts.get(weekday) || 0) + 1))
+  if (counts.size !== 3) return null
+
+  const inferredDays = [...counts.keys()].sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b))
+  const matchesNormalPattern = NORMAL_CLASS_WEEKDAY_PATTERNS.some((pattern) =>
+    pattern.length === inferredDays.length && pattern.every((day) => inferredDays.includes(day)),
+  )
+  return matchesNormalPattern ? inferredDays : null
+}
+
 export function mapClass(
   item,
   { subjects = [], coaches = [], fallback = {}, apiMode = false } = {},
@@ -142,6 +196,14 @@ export function mapClass(
     const coach = coaches.find(
       (entry) => idNumber(entry.id) === asNumber(item.coachId),
     )
+    const rawDays = item.daysOfWeek ?? item.selectedDays
+    const mappedDays = toFrontendDaysOfWeek(rawDays)
+    const classSessions = item.sessions ?? item.scheduleSessions ?? item.sessionList
+    const selectedDays = Array.isArray(mappedDays) && mappedDays.length > 0
+      ? mappedDays
+      : String(item.classType || "").trim().toLowerCase() === "normal"
+        ? inferNormalClassWeekdaysFromSessions(classSessions, item.totalSessions ?? 12)
+        : null
     return {
       id: item.id ?? null,
       name: item.name ?? null,
@@ -180,7 +242,7 @@ export function mapClass(
       postponementCount: asNumber(item.postponementCount),
       lifecycleVersion: asNumber(item.lifecycleVersion),
       changePending: typeof item.changePending === "boolean" ? item.changePending : null,
-      selectedDays: null,
+      selectedDays,
       // Field theo contract hạn và quyền thao tác: thiếu thì giữ null (khác với false).
       advancedState: item.advancedState ?? null,
       registrationDeadline: item.registrationDeadline ?? null,

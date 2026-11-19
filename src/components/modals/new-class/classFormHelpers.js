@@ -1,4 +1,5 @@
 import { VI_WEEKDAYS_FULL } from "./classFormConstants"
+import { parseLocalDate } from "../../../api/normalClassCreation.js"
 
 export function getSportCapacity(sport, room, apiEnabled) {
   const sportCapacity = Number(sport?.defaultCapacity) || 8
@@ -33,8 +34,8 @@ export function formatViDate(dateInput) {
 
 export function formatViDateWithWeekday(dateInput) {
   if (!dateInput) return "—"
-  const d = new Date(dateInput)
-  if (isNaN(d.getTime())) return dateInput
+  const d = dateInput instanceof Date ? dateInput : parseLocalDate(dateInput)
+  if (!d || isNaN(d.getTime())) return dateInput
   const dayName = VI_WEEKDAYS_FULL[d.getDay()]
   const dd = String(d.getDate()).padStart(2, "0")
   const mm = String(d.getMonth() + 1).padStart(2, "0")

@@ -1,5 +1,5 @@
 import { httpClient } from './httpClient.js'
-import { asNumber, optionalBoolean } from './mappers.js'
+import { asNumber, inferNormalClassWeekdaysFromSessions, optionalBoolean, toFrontendDaysOfWeek } from './mappers.js'
 import { extractList, isValidNumericId } from './schemaValidators.js'
 
 const readArray = (response, resourceName) => {
@@ -31,6 +31,16 @@ export async function getMemberCourseClasses() {
     enrolledCount: asNumber(item.enrolledCount),
     tuitionFee: asNumber(item.tuitionFee),
     scheduleText: item.scheduleText ?? item.schedule ?? null,
+    selectedDays: (() => {
+      const mappedDays = toFrontendDaysOfWeek(item.daysOfWeek ?? item.selectedDays)
+      if (Array.isArray(mappedDays) && mappedDays.length > 0) return mappedDays
+      if (String(item.classType || '').trim().toLowerCase() !== 'normal') return null
+      return inferNormalClassWeekdaysFromSessions(
+        item.sessions ?? item.scheduleSessions ?? item.schedules,
+        item.totalSessions ?? 12,
+      )
+    })(),
+    sessions: item.sessions ?? item.scheduleSessions ?? item.schedules ?? null,
     // Field theo contract hạn và quyền thao tác: thiếu thì giữ null (khác với false). Tài khoản không phải Member cũng là null.
     registrationAllowed: optionalBoolean(item.registrationAllowed),
     registrationBlockReason: typeof item.registrationBlockReason === 'string' && item.registrationBlockReason.trim() ? item.registrationBlockReason.trim() : null,

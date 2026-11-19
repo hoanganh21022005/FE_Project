@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react"
 import { useSCMS } from "../../context/SCMSContext"
 import * as managerApi from "../../api/managerApi"
+import { inferNormalClassWeekdaysFromSessions } from "../../api/mappers.js"
 import { getErrorMessage } from "../../api/apiErrors"
 import { normalizeRole, ROLE_MANAGER } from "../../utils/navigation"
 import {
@@ -375,8 +376,12 @@ export function ClassDetailDrawer({
     if (Array.isArray(cls?.selectedDays) && cls.selectedDays.length > 0) {
       return cls.selectedDays.map((d) => WEEKDAY_NAMES_MAP[d] || d)
     }
+    if (apiEnabled && String(cls?.classType || "").trim().toLowerCase() === "normal") {
+      const inferredDays = inferNormalClassWeekdaysFromSessions(sessions, cls?.totalSessions ?? 12)
+      return inferredDays?.map((day) => WEEKDAY_NAMES_MAP[day] || day) || []
+    }
     return apiEnabled ? [] : ["T2", "T4", "T6"]
-  }, [apiEnabled, cls?.selectedDays])
+  }, [apiEnabled, cls?.classType, cls?.selectedDays, cls?.totalSessions, sessions])
 
   // Filtered members in enrolled tab
   const filteredEnrollments = useMemo(() => {
