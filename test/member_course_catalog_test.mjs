@@ -40,17 +40,33 @@ try {
 }
 
 const sessionsOnly = scheduleRowsForDays([2, 4, 0])
+const holidayAdjustedSessions = (() => {
+  const remaining = new Map([[1, 5], [3, 4], [5, 3]])
+  const dates = []
+  const cursor = new Date(Date.UTC(2026, 0, 1))
+  while (dates.length < 12) {
+    const weekday = cursor.getUTCDay()
+    if ((remaining.get(weekday) || 0) > 0) {
+      dates.push({ sessionDate: cursor.toISOString().slice(0, 10), startTime: '09:00', endTime: '10:00' })
+      remaining.set(weekday, remaining.get(weekday) - 1)
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
+  return dates
+})()
 httpClient.get = async () => [
   { id: 106, classType: 'Normal', totalSessions: 12, sessions: sessionsOnly },
   { id: 107, classType: 'Normal', totalSessions: 12 },
   { id: 108, classType: 'Advanced', sessions: scheduleRowsForDays([1, 3, 5]) },
+  { id: 109, classType: 'Normal', totalSessions: 12, sessions: holidayAdjustedSessions },
 ]
 try {
-  const [normalWithSessions, normalUnknown, advanced] = await memberCourseCatalogApi.getMemberCourseClasses()
+  const [normalWithSessions, normalUnknown, advanced, holidayAdjusted] = await memberCourseCatalogApi.getMemberCourseClasses()
   assert.deepEqual(normalWithSessions.selectedDays, [2, 4, 0], 'twelve session dates may establish a clear recurring schedule')
   assert.deepEqual(normalWithSessions.sessions, sessionsOnly, 'actual sessions remain available for member schedule display')
   assert.equal(normalUnknown.selectedDays, null, 'missing days and sessions remain unknown')
   assert.equal(advanced.selectedDays, null, 'Advanced sessions are not converted into recurring weekdays')
+  assert.deepEqual(holidayAdjusted.selectedDays, [1, 3, 5], 'uneven holiday-adjusted sessions still display the identifiable weekday template')
 } finally {
   httpClient.get = originalGet
 }

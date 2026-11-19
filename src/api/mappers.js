@@ -126,6 +126,14 @@ export function toFrontendDaysOfWeek(daysOfWeek) {
   })
 }
 
+const NORMAL_CLASS_WEEKDAY_PATTERNS = [
+  [1, 3, 5],
+  [2, 4, 6],
+  [1, 3, 0],
+  [2, 4, 0],
+  [3, 5, 0],
+]
+
 export function inferNormalClassWeekdaysFromSessions(sessions, totalSessions = 12) {
   if (!Array.isArray(sessions) || Number(totalSessions) !== 12 || sessions.length !== 12) {
     return null
@@ -153,9 +161,13 @@ export function inferNormalClassWeekdaysFromSessions(sessions, totalSessions = 1
 
   const counts = new Map()
   dates.forEach(({ weekday }) => counts.set(weekday, (counts.get(weekday) || 0) + 1))
-  if (counts.size !== 3 || [...counts.values()].some((count) => count !== 4)) return null
+  if (counts.size !== 3) return null
 
-  return [...counts.keys()].sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b))
+  const inferredDays = [...counts.keys()].sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b))
+  const matchesNormalPattern = NORMAL_CLASS_WEEKDAY_PATTERNS.some((pattern) =>
+    pattern.length === inferredDays.length && pattern.every((day) => inferredDays.includes(day)),
+  )
+  return matchesNormalPattern ? inferredDays : null
 }
 
 export function mapClass(

@@ -79,7 +79,7 @@ assert.deepEqual({ classes, sessions }, snapshot)
 assert.equal(buildClassCalendarEntries(classes, [])['2026-12-31'][0].type, 'class')
 console.log('TC09 PASS: Chuyển tháng giữ nguyên dữ liệu lớp và buổi học')
 
-const classInput = { name: 'Lớp A', subjectId: 1, coachId: 2, capacity: 12, startDate: '2026-12-31', endDate: '2027-01-28', classType: 'Normal', status: 'Open', apiStatus: 'Open' }
+const classInput = { name: 'Lớp A', subjectId: 1, coachId: 2, capacity: 12, startDate: '2026-12-30', endDate: '2027-01-28', classType: 'Normal', status: 'Open', apiStatus: 'Open' }
 const update = toClassRequest(classInput)
 assert.equal(update.name, classInput.name)
 assert.equal(update.startDate, classInput.startDate)

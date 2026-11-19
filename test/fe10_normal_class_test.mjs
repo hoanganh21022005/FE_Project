@@ -18,17 +18,47 @@ import {
   getDefaultNormalMinCapacity,
   isNormalClassApiCreationBlocked,
   NORMAL_CLASS_API_BLOCKED_MESSAGE,
+  formatLocalDate,
+  generateNormalClassPreview,
+  getLocalWeekday,
+  getNextValidUpcomingDate,
+  parseLocalDate,
   toBackendDaysOfWeek,
   validateNormalClassCapacity,
+  verifyNormalClassSessions,
 } from '../src/api/normalClassCreation.js'
 
 const browserOnly = process.argv.includes('--browser-only')
 const unitOnly = process.argv.includes('--unit-only')
 
+const makeBackendSessions = (payload, count = 12, firstId = 1, { holidayDates = [] } = {}) => {
+  const days = (payload?.daysOfWeek || []).map((day) => Number(day) === 7 ? 0 : Number(day))
+  const cursor = parseLocalDate(payload?.sportsClass?.startDate) || new Date(2026, 10, 2)
+  const sessions = []
+  for (let offset = 0; offset < 366 && sessions.length < count; offset += 1) {
+    const date = formatLocalDate(cursor)
+    if (days.includes(cursor.getDay()) && !holidayDates.includes(date)) {
+      sessions.push({
+        id: firstId + sessions.length,
+        classId: 17,
+        sessionDate: date,
+        startTime: payload?.startTime || '06:00',
+        endTime: payload?.endTime || '07:30',
+        status: 'Scheduled',
+      })
+    }
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return sessions
+}
+
 async function runUnitSuite() {
   const originalFetch = globalThis.fetch
   const requests = []
   let mockSessionCount = 12
+  let lastCreatePayload = null
+  let mockReadbackFactory = null
+  let includePostSessions = false
   let postResponseMode = 'success' // 'success' | 'validation_400' | 'room_conflict_409' | 'coach_conflict_409' | 'idempotency_conflict_409' | 'server_500'
   let failPrimarySessionsEndpoint = false
 
@@ -38,6 +68,7 @@ async function runUnitSuite() {
     requests.push({ url: requestUrl, options, body: parsedBody })
 
     if (requestUrl.includes('/api/classes/normal-with-sessions')) {
+      lastCreatePayload = parsedBody
       if (postResponseMode === 'validation_400') {
         return new Response(
           JSON.stringify({ code: 'VALIDATION_ERROR', message: 'minCapacity is invalid.' }),
@@ -105,6 +136,7 @@ async function runUnitSuite() {
           classType: 'Normal',
           totalSessions: 12,
           tuitionFee: 650000,
+          sessions: includePostSessions ? makeBackendSessions(parsedBody, 12) : undefined,
         }),
         {
           status: 201,
@@ -114,14 +146,9 @@ async function runUnitSuite() {
     }
 
     if (requestUrl.includes('/api/sessions/catalog/')) {
-      const sessions = Array.from({ length: mockSessionCount }, (_, index) => ({
-        id: index + 101,
-        classId: 17,
-        sessionDate: `2026-11-${String(index + 2).padStart(2, '0')}`,
-        startTime: '06:00',
-        endTime: '07:30',
-        status: 'Scheduled',
-      }))
+      const sessions = mockReadbackFactory
+        ? mockReadbackFactory(lastCreatePayload, mockSessionCount)
+        : makeBackendSessions(lastCreatePayload, mockSessionCount, 101)
       return new Response(JSON.stringify(sessions), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -135,14 +162,9 @@ async function runUnitSuite() {
           headers: { 'content-type': 'application/json' },
         })
       }
-      const sessions = Array.from({ length: mockSessionCount }, (_, index) => ({
-        id: index + 1,
-        classId: 17,
-        sessionDate: `2026-11-${String(index + 2).padStart(2, '0')}`,
-        startTime: '06:00',
-        endTime: '07:30',
-        status: 'Scheduled',
-      }))
+      const sessions = mockReadbackFactory
+        ? mockReadbackFactory(lastCreatePayload, mockSessionCount)
+        : makeBackendSessions(lastCreatePayload, mockSessionCount, 1)
       return new Response(JSON.stringify(sessions), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -172,6 +194,31 @@ async function runUnitSuite() {
     assert.deepEqual(toBackendDaysOfWeek([0]), [7], 'Java Sunday is 7')
     assert.deepEqual(toBackendDaysOfWeek([null, '1']), [null, '1'], 'Other values remain unchanged')
     assert.deepEqual(toBackendDaysOfWeek([1, 6, 0]), [1, 6, 7])
+
+    const normalPatterns = [[1, 3, 5], [2, 4, 6], [1, 3, 0], [2, 4, 0], [3, 5, 0]]
+    const fixedNow = new Date(2026, 10, 20, 5, 0, 0)
+    for (const days of normalPatterns) {
+      const firstDate = getNextValidUpcomingDate(days, '06:00', fixedNow)
+      assert.ok(firstDate, `a start date should be found for ${days.join(',')}`)
+      assert.ok(days.includes(getLocalWeekday(firstDate)), `start date should match ${days.join(',')}`)
+      const preview = generateNormalClassPreview(firstDate, days, 12)
+      const dates = preview.map((session) => session.dateStr)
+      assert.equal(preview.length, 12)
+      assert.deepEqual(dates, [...dates].sort(), 'preview dates are ascending')
+      assert.equal(new Set(dates).size, 12, 'preview dates are unique')
+      assert.ok(dates.every((date) => days.includes(getLocalWeekday(date))))
+    }
+    assert.equal(getNextValidUpcomingDate([5], '06:00', new Date(2026, 10, 20, 5, 0)), '2026-11-20')
+    assert.equal(getNextValidUpcomingDate([5], '06:00', new Date(2026, 10, 20, 7, 0)), '2026-11-27', 'a time already elapsed advances to the next matching weekday')
+    const previousTimezone = process.env.TZ
+    try {
+      process.env.TZ = 'America/Los_Angeles'
+      assert.equal(formatLocalDate(parseLocalDate('2026-11-20')), '2026-11-20', 'local date parsing does not shift date-only values through UTC')
+      assert.equal(getLocalWeekday('2026-11-20'), 5)
+    } finally {
+      if (previousTimezone === undefined) delete process.env.TZ
+      else process.env.TZ = previousTimezone
+    }
 
     const schedule = {
       classId: 17,
@@ -263,13 +310,37 @@ async function runUnitSuite() {
     assert.match(reqAttempt1.requestId, /^[0-9a-f-]{36}$/i, 'requestId must be a UUID')
     assert.equal(reqAttempt2Same.requestId, reqAttempt1.requestId, 'Retry with identical payload reuses same requestId')
     assert.deepEqual(reqAttempt1.daysOfWeek, [1, 3, 7], 'Sunday 0 converts to 7 in NormalClassCreationRequest')
-    for (const selectedDays of [[1, 3, 0], [2, 4, 0], [3, 5, 0]]) {
-      const sundayRequest = buildNormalClassWithSessionsRequest(
-        { ...baseInput, selectedDays },
+    for (const selectedDays of normalPatterns) {
+      const requestDays = buildNormalClassWithSessionsRequest(
+        {
+          ...baseInput,
+          startDate: getNextValidUpcomingDate(selectedDays, '06:00', fixedNow),
+          selectedDays,
+          daysOfWeek: selectedDays,
+        },
         { requestId: `sunday-${selectedDays[0]}` },
       )
-      assert.deepEqual(sundayRequest.daysOfWeek, selectedDays.map((day) => day === 0 ? 7 : day))
+      assert.deepEqual(requestDays.daysOfWeek, selectedDays.map((day) => day === 0 ? 7 : day))
+      assert.equal(requestDays.sportsClass.totalSessions, 12)
+      assert.equal(new Set(requestDays.daysOfWeek).size, 3)
+      const templateVerification = await verifyNormalClassSessions(17, {
+        getSessionsFn: async () => makeBackendSessions(requestDays),
+        expectedDaysOfWeek: requestDays.daysOfWeek,
+      })
+      assert.equal(templateVerification.verified, true, `Backend sessions should match ${selectedDays.join(',')}`)
     }
+    assert.throws(
+      () => buildNormalClassWithSessionsRequest({ ...baseInput, selectedDays: [1, 2, 3], daysOfWeek: [1, 2, 3] }),
+      /năm mẫu lịch Normal/,
+    )
+    assert.throws(
+      () => buildNormalClassWithSessionsRequest({ ...baseInput, selectedDays: [1, 3, null], daysOfWeek: [1, 3, null] }),
+      /năm mẫu lịch Normal/,
+    )
+    assert.throws(
+      () => buildNormalClassWithSessionsRequest({ ...baseInput, startDate: '2026-11-24' }),
+      /Ngày bắt đầu phải thuộc mẫu/,
+    )
     assert.equal(reqAttempt1.sportsClass.classType, 'Normal')
     assert.equal(reqAttempt1.sportsClass.totalSessions, 12)
     assert.equal(reqAttempt1.roomId, 1)
@@ -303,6 +374,62 @@ async function runUnitSuite() {
     assert.equal(requests[0].body.sportsClass.minCapacity, 10)
     assert.match(requests[1].url, /\/api\/sessions\?classId=17$/)
     assert.equal(atomicStateRef.current, null, 'State ref cleared after successful creation and verification')
+
+    includePostSessions = true
+    requests.length = 0
+    const responseSessionsCreated = await createNormalClassWithSessions(baseInput, {})
+    assert.equal(responseSessionsCreated.verifiedSessionCount, 12, 'sessions embedded in the create response are validated')
+    assert.equal(requests.length, 1, 'complete create-response sessions avoid a redundant list read')
+    includePostSessions = false
+
+    const chosenTemplatePreview = generateNormalClassPreview(baseInput.startDate, baseInput.selectedDays, 12)
+    const holidayDate = chosenTemplatePreview[0].dateStr
+    mockReadbackFactory = (payload, count) => makeBackendSessions(payload, count, 1, { holidayDates: [holidayDate] })
+    const holidayAdjustedCreated = await createNormalClassWithSessions(baseInput, {})
+    assert.equal(holidayAdjustedCreated.verifiedSessionCount, 12, 'Backend schedule may extend beyond the FE preview for a skipped holiday')
+    const holidayAdjustedRows = makeBackendSessions(lastCreatePayload, 12, 1, { holidayDates: [holidayDate] })
+    assert.ok(holidayAdjustedRows.at(-1).sessionDate > chosenTemplatePreview.at(-1).dateStr)
+    mockReadbackFactory = null
+
+    const validReadback = makeBackendSessions({
+      daysOfWeek: [1, 3, 7],
+      sportsClass: { startDate: '2026-11-02' },
+      startTime: '06:00',
+      endTime: '07:30',
+    })
+    const verifiedReadback = await verifyNormalClassSessions(17, {
+      getSessionsFn: async () => validReadback,
+      expectedDaysOfWeek: [1, 3, 7],
+    })
+    assert.equal(verifiedReadback.verified, true)
+    assert.equal(verifiedReadback.count, 12)
+    assert.deepEqual(verifiedReadback.sessions.map((session) => session.sessionDate), [...verifiedReadback.sessions.map((session) => session.sessionDate)].sort())
+    const partialResponseFallback = await verifyNormalClassSessions(17, {
+      initialSessions: validReadback.slice(0, 5),
+      getSessionsFn: async () => validReadback,
+      expectedDaysOfWeek: [1, 3, 7],
+    })
+    assert.equal(partialResponseFallback.verified, true, 'incomplete create-response sessions fall back to the complete read-back list')
+    await assert.rejects(() => verifyNormalClassSessions(17, {
+      getSessionsFn: async () => [...validReadback.slice(0, 11), { ...validReadback[11], sessionDate: validReadback[0].sessionDate }],
+      expectedDaysOfWeek: [1, 3, 7],
+    }), (err) => err.code === 'INVALID_NORMAL_CLASS_SESSIONS' && /trùng/.test(err.message))
+    await assert.rejects(() => verifyNormalClassSessions(17, {
+      getSessionsFn: async () => [{ ...validReadback[0], sessionDate: 'not-a-date' }, ...validReadback.slice(1)],
+      expectedDaysOfWeek: [1, 3, 7],
+    }), (err) => err.code === 'INVALID_NORMAL_CLASS_SESSIONS')
+    await assert.rejects(() => verifyNormalClassSessions(17, {
+      getSessionsFn: async () => [{ ...validReadback[0], sessionDate: '2026-11-03' }, ...validReadback.slice(1)],
+      expectedDaysOfWeek: [1, 3, 7],
+    }), (err) => err.code === 'INVALID_NORMAL_CLASS_SESSIONS' && /ngoài mẫu/.test(err.message))
+    await assert.rejects(() => verifyNormalClassSessions(17, {
+      getSessionsFn: async () => [{ ...validReadback[0], endTime: '06:00' }, ...validReadback.slice(1)],
+      expectedDaysOfWeek: [1, 3, 7],
+    }), (err) => err.code === 'INVALID_NORMAL_CLASS_SESSIONS')
+    await assert.rejects(() => verifyNormalClassSessions(17, {
+      getSessionsFn: async () => [],
+      expectedDaysOfWeek: [1, 3, 7],
+    }), (err) => err.code === 'INCOMPLETE_NORMAL_CLASS_SESSIONS')
 
     requests.length = 0
     await createNormalClassWithSessions(
@@ -695,6 +822,7 @@ async function runBrowserSuite() {
           subjectOutdoor: false,
           postMode: 'room_conflict_409', // 'room_conflict_409' | 'server_500' | 'idempotency_conflict_409' | 'success'
           sessionCount: 12,
+          createPayload: null,
         };
 
         const origFetch = window.fetch;
@@ -766,6 +894,7 @@ async function runBrowserSuite() {
 
           if (urlStr.includes('/api/classes/normal-with-sessions') && method === 'POST') {
             window.__fe10Calls.normalCreatePosts.push({ url: urlStr, body: parsedBody });
+            window.__fe10MockState.createPayload = parsedBody;
             const mode = window.__fe10MockState.postMode;
             if (mode === 'room_conflict_409') {
               return new Response(JSON.stringify({
@@ -803,14 +932,24 @@ async function runBrowserSuite() {
           if (urlStr.includes('/api/sessions') && method === 'GET') {
             window.__fe10Calls.sessionReadBacks.push({ url: urlStr });
             if (urlStr.includes('classId=88') || urlStr.includes('/catalog/88')) {
-              const list = Array.from({ length: window.__fe10MockState.sessionCount }, (_, i) => ({
-                id: 500 + i + 1,
-                classId: 88,
-                sessionDate: '2026-11-' + String(i + 2).padStart(2, '0'),
-                startTime: '06:00',
-                endTime: '07:30',
-                status: 'Scheduled',
-              }));
+              const request = window.__fe10MockState.createPayload;
+              const weekdays = (request?.daysOfWeek || []).map((day) => Number(day) === 7 ? 0 : Number(day));
+              const [year, month, day] = String(request?.sportsClass?.startDate || '2026-11-02').slice(0, 10).split('-').map(Number);
+              const cursor = new Date(year, month - 1, day);
+              const list = [];
+              for (let offset = 0; offset < 366 && list.length < window.__fe10MockState.sessionCount; offset += 1) {
+                if (weekdays.includes(cursor.getDay())) {
+                  list.push({
+                    id: 500 + list.length + 1,
+                    classId: 88,
+                    sessionDate: cursor.getFullYear() + '-' + String(cursor.getMonth() + 1).padStart(2, '0') + '-' + String(cursor.getDate()).padStart(2, '0'),
+                    startTime: request?.startTime || '06:00',
+                    endTime: request?.endTime || '07:30',
+                    status: 'Scheduled',
+                  });
+                }
+                cursor.setDate(cursor.getDate() + 1);
+              }
               return new Response(JSON.stringify(list), { status: 200, headers: { 'Content-Type': 'application/json' } });
             }
             return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } });

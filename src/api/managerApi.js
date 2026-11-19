@@ -18,6 +18,8 @@ import { validNormalClassOpeningRequest } from './normalClassOpening.js';
 import {
   buildNormalClassWithSessionsRequest,
   computeNormalClassFingerprint,
+  getLocalWeekday,
+  normalizeNormalClassWeekdays,
   toBackendDaysOfWeek,
   verifyNormalClassSessions,
 } from './normalClassCreation.js';
@@ -173,20 +175,28 @@ export const createNormalClassWithSessions = async (data, lookups = {}, options 
       ? idempotencyStateRef.current
       : null;
 
-  const requestBody =
-    data?.sportsClass && typeof data?.requestId === 'string' && data.requestId.trim()
-      ? {
-          requestId: data.requestId.trim(),
-          sportsClass: data.sportsClass,
-          roomId: Number(data.roomId),
-          daysOfWeek: toBackendDaysOfWeek(data.daysOfWeek),
-          startTime: data.startTime,
-          endTime: data.endTime,
-        }
-      : buildNormalClassWithSessionsRequest(data, {
-          stateRef: idempotencyStateRef,
-          requestId,
-        });
+  const isPreparedRequest = data?.sportsClass && typeof data?.requestId === 'string' && data.requestId.trim();
+  const preparedDays = isPreparedRequest ? normalizeNormalClassWeekdays(data.daysOfWeek) : null;
+  if (isPreparedRequest && !preparedDays) {
+    throw new Error('Chọn đúng một trong năm mẫu lịch Normal.');
+  }
+  if (isPreparedRequest && !preparedDays.includes(getLocalWeekday(data.sportsClass.startDate))) {
+    throw new Error('Ngày bắt đầu phải thuộc mẫu thứ đã chọn.');
+  }
+
+  const requestBody = isPreparedRequest
+    ? {
+        requestId: data.requestId.trim(),
+        sportsClass: { ...data.sportsClass, classType: 'Normal', totalSessions: 12 },
+        roomId: Number(data.roomId),
+        daysOfWeek: toBackendDaysOfWeek(preparedDays),
+        startTime: data.startTime,
+        endTime: data.endTime,
+      }
+    : buildNormalClassWithSessionsRequest(data, {
+        stateRef: idempotencyStateRef,
+        requestId,
+      });
 
   const currentFingerprint = computeNormalClassFingerprint(requestBody);
   const authoritativeFingerprint =
@@ -249,6 +259,8 @@ export const createNormalClassWithSessions = async (data, lookups = {}, options 
       getSessionsFn: (filters) => getSessions(filters, httpOptions),
       getCatalogSessionsFn: (cId) => getCatalogClassSessions(cId, httpOptions),
       expectedCount: expectedSessionCount,
+      expectedDaysOfWeek: requestBody.daysOfWeek,
+      initialSessions: rawCreated?.sessions ?? rawCreated?.scheduleSessions ?? null,
     });
     created.verifiedSessionCount = verification.count;
     if (!created.endDate && verification.endDate) {

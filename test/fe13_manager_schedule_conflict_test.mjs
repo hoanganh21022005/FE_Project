@@ -50,9 +50,33 @@ const scheduleRowsForDays = (selectedDays) => {
   }
   return dates;
 };
+const scheduleRowsWithCounts = (selectedDays, countsByDay) => {
+  const remaining = new Map(selectedDays.map((day, index) => [day, countsByDay[index]]));
+  const dates = [];
+  const cursor = new Date(Date.UTC(2026, 0, 1));
+  while (dates.length < 12) {
+    const weekday = cursor.getUTCDay();
+    if ((remaining.get(weekday) || 0) > 0) {
+      dates.push({ sessionDate: cursor.toISOString().slice(0, 10) });
+      remaining.set(weekday, remaining.get(weekday) - 1);
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+};
 for (const weekdays of [[1, 3, 5], [2, 4, 6], [1, 3, 0], [2, 4, 0], [3, 5, 0]]) {
   assert.deepEqual(inferNormalClassWeekdaysFromSessions(scheduleRowsForDays(weekdays)), weekdays);
 }
+const holidayAdjustedFiveFourThree = scheduleRowsWithCounts([1, 3, 5], [5, 4, 3]);
+assert.deepEqual(inferNormalClassWeekdaysFromSessions(holidayAdjustedFiveFourThree), [1, 3, 5], 'a holiday-adjusted 5-4-3 distribution still identifies the same sample');
+for (const weekdays of [[1, 3, 5], [2, 4, 6], [1, 3, 0], [2, 4, 0], [3, 5, 0]]) {
+  assert.deepEqual(inferNormalClassWeekdaysFromSessions(scheduleRowsWithCounts(weekdays, [5, 4, 3])), weekdays, `uneven counts still identify ${weekdays.join(',')}`);
+}
+assert.equal(inferNormalClassWeekdaysFromSessions(scheduleRowsForDays([1, 2, 3])), null, 'three weekdays outside the five Normal templates stay unknown');
+assert.equal(inferNormalClassWeekdaysFromSessions(scheduleRowsForDays([1, 3])), null, 'a missing template weekday cannot be guessed from twelve sessions on the other two days');
+assert.equal(inferNormalClassWeekdaysFromSessions(scheduleRowsForDays([1, 2, 3, 4])), null, 'four weekdays cannot identify a Normal template');
+assert.equal(inferNormalClassWeekdaysFromSessions([...scheduleRowsForDays([1, 3, 5]).slice(0, 11), scheduleRowsForDays([1, 3, 5])[0]]), null, 'duplicate session dates are rejected');
+assert.equal(inferNormalClassWeekdaysFromSessions([{ sessionDate: 'not-a-date' }, ...scheduleRowsForDays([1, 3, 5]).slice(1)]), null, 'invalid dates are rejected');
 assert.equal(inferNormalClassWeekdaysFromSessions(scheduleRowsForDays([1, 3, 5]).slice(0, 1)), null);
 assert.equal(inferNormalClassWeekdaysFromSessions(scheduleRowsForDays([1, 3, 5]).slice(0, 11)), null);
 assert.deepEqual(mapClass({
@@ -110,6 +134,19 @@ const unverifiedSchedule = checkSingleClassConflict(sundayConflictCandidate, {
 });
 assert.equal(unverifiedSchedule?.hasMissingSchedule, true);
 assert.equal(unverifiedSchedule?.hasConflict, false);
+assert.equal(checkSingleClassConflict(sundayConflictCandidate, {
+  ...sundayConflictExisting,
+  selectedDays: null,
+  coachId: 99,
+  roomId: 9,
+  roomVi: 'Room 9',
+}), null, 'missing days do not block when Coach and room are unrelated');
+assert.equal(checkSingleClassConflict(sundayConflictCandidate, {
+  ...sundayConflictExisting,
+  selectedDays: null,
+  startTime: '10:30',
+  endTime: '11:30',
+}), null, 'missing days do not block when time windows cannot overlap');
 const incompleteActualSchedule = checkSingleClassConflict({
   ...sundayConflictCandidate,
   classType: 'Normal',

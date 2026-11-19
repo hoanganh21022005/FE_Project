@@ -63,6 +63,89 @@ export const toBackendDaysOfWeek = (daysOfWeek) => {
   return daysOfWeek.map((day) => day === 0 ? 7 : day === '0' ? '7' : day)
 }
 
+const NORMAL_CLASS_WEEKDAY_PATTERNS = [
+  [1, 3, 5],
+  [2, 4, 6],
+  [1, 3, 0],
+  [2, 4, 0],
+  [3, 5, 0],
+]
+
+export const normalizeNormalClassWeekdays = (days) => {
+  if (!Array.isArray(days)) return null
+  const normalized = [...new Set(days.map((day) => {
+    const numericDay = typeof day === 'number'
+      ? day
+      : typeof day === 'string' && /^\d+$/.test(day.trim())
+        ? Number(day)
+        : Number.NaN
+    return numericDay === 7 ? 0 : numericDay
+  }))]
+  if (normalized.length !== 3 || normalized.some((day) => !Number.isInteger(day) || day < 0 || day > 6)) return null
+  return NORMAL_CLASS_WEEKDAY_PATTERNS.find((pattern) =>
+    pattern.length === normalized.length && pattern.every((day) => normalized.includes(day)),
+  ) ?? null
+}
+
+export const parseLocalDate = (dateValue) => {
+  const value = String(dateValue ?? '').slice(0, 10)
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return null
+  const [, yearText, monthText, dayText] = match
+  const year = Number(yearText), month = Number(monthText), day = Number(dayText)
+  const date = new Date(year, month - 1, day)
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null
+  return date
+}
+
+export const formatLocalDate = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+export const getLocalWeekday = (dateValue) => parseLocalDate(dateValue)?.getDay() ?? null
+
+export const getNextValidUpcomingDate = (selectedDays, startTime = '06:00', now = new Date()) => {
+  const weekdays = [...new Set(Array.isArray(selectedDays)
+    ? selectedDays.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+    : [])]
+  if (!weekdays.length || !(now instanceof Date) || Number.isNaN(now.getTime())) return ''
+  const [hour = 6, minute = 0] = String(startTime || '06:00').split(':').map(Number)
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23 || !Number.isInteger(minute) || minute < 0 || minute > 59) return ''
+
+  const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  for (let offset = 0; offset <= 7; offset += 1) {
+    if (weekdays.includes(cursor.getDay())) {
+      const sessionStart = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate(), hour, minute)
+      if (sessionStart > now) return formatLocalDate(cursor)
+    }
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return ''
+}
+
+export const generateNormalClassPreview = (startDate, selectedDays, count = 12) => {
+  const firstDate = parseLocalDate(startDate)
+  const weekdays = [...new Set(Array.isArray(selectedDays)
+    ? selectedDays.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+    : [])]
+  const sessionCount = Number(count)
+  if (!firstDate || !weekdays.length || !Number.isInteger(sessionCount) || sessionCount <= 0) return []
+
+  const sessions = []
+  const cursor = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate())
+  for (let offset = 0; offset < 366 && sessions.length < sessionCount; offset += 1) {
+    if (weekdays.includes(cursor.getDay())) {
+      sessions.push({ index: sessions.length + 1, dateStr: formatLocalDate(cursor) })
+    }
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return sessions
+}
+
 export const createNormalClassRequestId = () => {
   if (typeof globalThis !== 'undefined' && typeof globalThis.crypto?.randomUUID === 'function') {
     return globalThis.crypto.randomUUID()
@@ -138,9 +221,13 @@ export const buildNormalClassWithSessionsRequest = (
     : Array.isArray(data.selectedDays)
       ? data.selectedDays
       : []
-  const daysOfWeek = toBackendDaysOfWeek(rawDays).map((day) =>
-    typeof day === 'string' && /^\d+$/.test(day) ? Number(day) : day,
-  )
+  const selectedPattern = normalizeNormalClassWeekdays(rawDays)
+  if (!selectedPattern) throw new Error('Chọn đúng một trong năm mẫu lịch Normal.')
+  if (!selectedPattern.includes(getLocalWeekday(baseClass.startDate))) {
+    throw new Error('Ngày bắt đầu phải thuộc mẫu thứ đã chọn.')
+  }
+  const daysOfWeek = toBackendDaysOfWeek(selectedPattern)
+    .map((day) => typeof day === 'string' && /^\d+$/.test(day) ? Number(day) : day)
   const startTime = data.startTime ?? null
   const endTime = data.endTime ?? null
 
@@ -200,7 +287,13 @@ export const buildNormalClassWithSessionsRequest = (
 
 export const verifyNormalClassSessions = async (
   classId,
-  { getSessionsFn, getCatalogSessionsFn = null, expectedCount = 12 } = {},
+  {
+    getSessionsFn,
+    getCatalogSessionsFn = null,
+    expectedCount = 12,
+    expectedDaysOfWeek,
+    initialSessions = null,
+  } = {},
 ) => {
   const numericClassId = Number(classId)
   if (!Number.isInteger(numericClassId) || numericClassId <= 0) {
@@ -209,15 +302,22 @@ export const verifyNormalClassSessions = async (
     throw err
   }
 
-  if (typeof getSessionsFn !== 'function' && typeof getCatalogSessionsFn !== 'function') {
+  const hasCompleteInitialSessions = Array.isArray(initialSessions) && initialSessions.length === expectedCount &&
+    initialSessions.every((session) => session && typeof session === 'object' &&
+      (session.sessionDate ?? session.date) != null &&
+      (session.startTime ?? session.startAt) != null &&
+      (session.endTime ?? session.endAt) != null)
+  if (typeof getSessionsFn !== 'function' && typeof getCatalogSessionsFn !== 'function' && !hasCompleteInitialSessions) {
     const err = new Error('Thiếu hàm truy vấn buổi học để xác minh 12 buổi của lớp Normal.')
     err.code = 'MISSING_SESSION_VERIFIER'
     throw err
   }
 
-  let sessions = null
+  let sessions = hasCompleteInitialSessions
+    ? initialSessions
+    : null
   let primaryError = null
-  if (typeof getSessionsFn === 'function') {
+  if (!Array.isArray(sessions) && typeof getSessionsFn === 'function') {
     try {
       sessions = await getSessionsFn({ classId: numericClassId })
     } catch (err) {
@@ -256,15 +356,60 @@ export const verifyNormalClassSessions = async (
     throw err
   }
 
-  const dates = validSessions
-    .map((session) => session.sessionDate || session.date || null)
-    .filter(Boolean)
-    .sort()
+  const expectedDays = [...new Set(toBackendDaysOfWeek(expectedDaysOfWeek || [])
+    .map((day) => Number(day) === 7 ? 0 : Number(day)))]
+  const validExpectedDays = expectedDays.length === 3 && expectedDays.every((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+  const failVerification = (message, code = 'INVALID_NORMAL_CLASS_SESSIONS') => {
+    const err = new Error(message)
+    err.code = code
+    err.actualCount = validSessions.length
+    err.expectedCount = expectedCount
+    throw err
+  }
+  if (!validExpectedDays) {
+    failVerification('Không đủ dữ liệu ngày mẫu để xác minh lịch Backend trả về.', 'MISSING_NORMAL_CLASS_WEEKDAYS')
+  }
+
+  const normalizedSessions = validSessions.map((session) => {
+    const dateValue = session.sessionDate ?? session.date
+    const date = parseLocalDate(dateValue)
+    const startTime = String(session.startTime ?? session.startAt ?? '').slice(0, 8)
+    const endTime = String(session.endTime ?? session.endAt ?? '').slice(0, 8)
+    const parseTime = (value) => {
+      const match = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value)
+      if (!match) return null
+      const [, hour, minute, second = '0'] = match
+      const h = Number(hour), m = Number(minute), s = Number(second)
+      if (h > 23 || m > 59 || s > 59) return null
+      return h * 3600 + m * 60 + s
+    }
+    return {
+      session,
+      date,
+      dateStr: date ? formatLocalDate(date) : '',
+      startSeconds: parseTime(startTime),
+      endSeconds: parseTime(endTime),
+    }
+  })
+
+  if (normalizedSessions.some(({ date, startSeconds, endSeconds }) =>
+    !date || startSeconds === null || endSeconds === null || endSeconds <= startSeconds,
+  )) {
+    failVerification('Lịch Backend trả về có ngày hoặc khung giờ không hợp lệ; chưa thể xác minh đủ 12 buổi.')
+  }
+
+  const sortedSessions = [...normalizedSessions].sort((a, b) => a.dateStr.localeCompare(b.dateStr))
+  if (new Set(sortedSessions.map(({ dateStr }) => dateStr)).size !== expectedCount) {
+    failVerification('Lịch Backend trả về có ngày học trùng; chưa thể xác minh đủ 12 buổi.')
+  }
+  if (sortedSessions.some(({ date }) => !expectedDays.includes(date.getDay()))) {
+    failVerification('Lịch Backend trả về có ngày ngoài mẫu lịch đã chọn; cần kiểm tra ngoại lệ ngày nghỉ trước khi xác nhận.')
+  }
 
   return {
     verified: true,
     count: validSessions.length,
-    sessions: validSessions,
-    endDate: dates.length > 0 ? dates[dates.length - 1] : null,
+    sessions: sortedSessions.map(({ session }) => session),
+    endDate: sortedSessions.at(-1)?.dateStr ?? null,
   }
 }

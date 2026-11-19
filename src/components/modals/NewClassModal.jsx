@@ -9,9 +9,14 @@ import { useScheduleConflict } from "../classes/hooks/useScheduleConflict"
 import { CurrencyInput } from "../common/CurrencyInput"
 import {
   adjustNormalMinCapacityForMaxChange,
+  formatLocalDate,
+  generateNormalClassPreview,
+  getLocalWeekday,
+  getNextValidUpcomingDate,
   getDefaultNormalMinCapacity,
   isNormalClassApiCreationBlocked,
   NORMAL_CLASS_API_BLOCKED_MESSAGE,
+  parseLocalDate,
   validateNormalClassCapacity,
 } from "../../api/normalClassCreation.js"
 import {
@@ -184,8 +189,8 @@ function formatViDate(dateInput) {
 
 function formatViDateWithWeekday(dateInput) {
   if (!dateInput) return "—"
-  const d = new Date(dateInput)
-  if (isNaN(d.getTime())) return dateInput
+  const d = parseLocalDate(dateInput)
+  if (!d) return dateInput
   const dayName = VI_WEEKDAYS_FULL[d.getDay()]
   const dd = String(d.getDate()).padStart(2, "0")
   const mm = String(d.getMonth() + 1).padStart(2, "0")
@@ -211,61 +216,6 @@ function getDurationLabel(startTime, endTime) {
   return `${hours} giờ ${mins} phút`
 }
 
-function getNextValidUpcomingDate(selectedDays, startTime = "06:00") {
-  const now = new Date()
-  const [sh, sm] = (startTime || "06:00").split(":").map(Number)
-  const cur = new Date()
-
-  for (let i = 0; i < 14; i++) {
-    const dayOfWeek = cur.getDay()
-    if (selectedDays.includes(dayOfWeek)) {
-      const sessionStart = new Date(
-        cur.getFullYear(),
-        cur.getMonth(),
-        cur.getDate(),
-        sh,
-        sm,
-        0,
-      )
-      if (sessionStart > now) {
-        const yyyy = cur.getFullYear()
-        const mm = String(cur.getMonth() + 1).padStart(2, "0")
-        const dd = String(cur.getDate()).padStart(2, "0")
-        return `${yyyy}-${mm}-${dd}`
-      }
-    }
-    cur.setDate(cur.getDate() + 1)
-  }
-  return cur.toISOString().split("T")[0]
-}
-
-function generateProjectedSessions(
-  startDate,
-  selectedDays,
-  count,
-  startTime,
-  endTime,
-) {
-  if (!startDate || !selectedDays.length || count <= 0) return []
-  const sessions = []
-  const cur = new Date(startDate)
-  if (isNaN(cur.getTime())) return []
-
-  for (let i = 0; i < 365 && sessions.length < count; i++) {
-    if (selectedDays.includes(cur.getDay())) {
-      const dateStr = cur.toISOString().split("T")[0]
-      sessions.push({
-        index: sessions.length + 1,
-        dateStr,
-        formattedDate: formatViDateWithWeekday(dateStr),
-        time: `${startTime} - ${endTime}`,
-      })
-    }
-    cur.setDate(cur.getDate() + 1)
-  }
-  return sessions
-}
-
 // -------------------------------------------------------------
 // Component DatePicker tự dựng cố định dd/MM/yyyy không phụ thuộc OS locale
 // -------------------------------------------------------------
@@ -275,8 +225,7 @@ function DatePicker({ value, onChange, min, error }) {
 
   const dateObj = useMemo(() => {
     if (!value) return new Date()
-    const d = new Date(value)
-    return isNaN(d.getTime()) ? new Date() : d
+    return parseLocalDate(value) || new Date()
   }, [value])
 
   const [viewYear, setViewYear] = useState(() => dateObj.getFullYear())
@@ -284,8 +233,8 @@ function DatePicker({ value, onChange, min, error }) {
 
   useEffect(() => {
     if (value) {
-      const d = new Date(value)
-      if (!isNaN(d.getTime())) {
+      const d = parseLocalDate(value)
+      if (d) {
         setViewYear(d.getFullYear())
         setViewMonth(d.getMonth())
       }
@@ -706,13 +655,19 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
     // Forward start date by ~4 weeks (28 days) or next valid date to avoid collision
     if (cloneFrom.startDate || cloneFrom.date) {
-      const baseDate = new Date(cloneFrom.startDate || cloneFrom.date)
-      if (!isNaN(baseDate.getTime())) {
+      const baseDate = parseLocalDate(cloneFrom.startDate || cloneFrom.date)
+      if (baseDate) {
         baseDate.setDate(baseDate.getDate() + 28)
-        const yyyy = baseDate.getFullYear()
-        const mm = String(baseDate.getMonth() + 1).padStart(2, "0")
-        const dd = String(baseDate.getDate()).padStart(2, "0")
-        setStartDate(`${yyyy}-${mm}-${dd}`)
+        const candidateDate = formatLocalDate(baseDate)
+        const clonedDays = Array.isArray(cloneFrom.selectedDays) && cloneFrom.selectedDays.length
+          ? cloneFrom.selectedDays
+          : [1, 3, 5]
+        const clonedTime = cloneFrom.startTime || "06:00"
+        const [hour, minute] = clonedTime.split(":").map(Number)
+        const candidateStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), hour || 0, minute || 0)
+        setStartDate(candidateStart > new Date() && clonedDays.includes(baseDate.getDay())
+          ? candidateDate
+          : getNextValidUpcomingDate(clonedDays, clonedTime))
       }
     }
   }, [isOpen, cloneFrom, allAvailableRooms])
@@ -789,13 +744,15 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
   // Projected session dates
   const projectedSessions = useMemo(() => {
-    return generateProjectedSessions(
+    return generateNormalClassPreview(
       startDate,
       selectedDays,
       sessionCount,
-      startTime,
-      endTime,
-    )
+    ).map((session) => ({
+      ...session,
+      formattedDate: formatViDateWithWeekday(session.dateStr),
+      time: `${startTime} - ${endTime}`,
+    }))
   }, [startDate, selectedDays, sessionCount, startTime, endTime])
 
   const calculatedEndDate = useMemo(() => {
@@ -864,16 +821,19 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const isFirstSessionInPast = useMemo(() => {
     if (!startDate || !startTime) return false
     const [sh, sm] = startTime.split(":").map(Number)
-    const [yyyy, mm, dd] = startDate.split("-").map(Number)
-    const firstSession = new Date(yyyy, mm - 1, dd, sh || 0, sm || 0, 0)
+    const date = parseLocalDate(startDate)
+    if (!date) return true
+    const firstSession = new Date(date.getFullYear(), date.getMonth(), date.getDate(), sh || 0, sm || 0, 0)
     return firstSession < new Date()
   }, [startDate, startTime])
+
+  const startDateMatchesSchedule = selectedDays.includes(getLocalWeekday(startDate))
 
   // Selected weekday day of week for display
   const currentWeekdayLabel = useMemo(() => {
     if (!startDate) return ""
-    const d = new Date(startDate)
-    return isNaN(d.getTime()) ? "" : VI_WEEKDAYS_FULL[d.getDay()]
+    const weekday = getLocalWeekday(startDate)
+    return weekday === null ? "" : VI_WEEKDAYS_FULL[weekday]
   }, [startDate])
 
   // Field validation checks
@@ -1003,6 +963,10 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         "Buổi học đầu tiên đã qua giờ hiện tại. Vui lòng chọn ngày hoặc giờ trong tương lai.",
         "error",
       )
+      return
+    }
+    if (apiEnabled && !startDateMatchesSchedule) {
+      showToast("Ngày bắt đầu phải thuộc mẫu thứ đã chọn.", "error")
       return
     }
     if (!selectedDays.length) {
@@ -1345,9 +1309,14 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   setIsDirty(true)
                   setStartDate(v)
                 }}
-                min={new Date().toISOString().split("T")[0]}
+                min={formatLocalDate(new Date())}
                 error={dateError}
               />
+              {apiEnabled && !startDateMatchesSchedule && !isFirstSessionInPast && (
+                <p className="text-xs text-orange-600 mt-1 font-medium">
+                  Ngày bắt đầu phải thuộc mẫu thứ đã chọn.
+                </p>
+              )}
               <div className="text-xs text-stone-500 mt-1">
                 {currentWeekdayLabel}
               </div>
@@ -1369,7 +1338,16 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   value={startTime}
                   onChange={(e) => {
                     setIsDirty(true)
-                    setStartTime(e.target.value)
+                    const nextStartTime = e.target.value
+                    setStartTime(nextStartTime)
+                    const currentDate = parseLocalDate(startDate)
+                    const [hour, minute] = nextStartTime.split(":").map(Number)
+                    const currentSessionStart = currentDate
+                      ? new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), hour || 0, minute || 0)
+                      : null
+                    if (!currentSessionStart || currentSessionStart <= new Date() || !selectedDays.includes(currentDate.getDay())) {
+                      setStartDate(getNextValidUpcomingDate(selectedDays, nextStartTime))
+                    }
                   }}
                   className="w-full h-11 px-3.5 pr-10 bg-white border border-stone-300 rounded-xl text-sm text-stone-900 font-normal appearance-none focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800 cursor-pointer"
                 >
@@ -1559,6 +1537,11 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                     </div>
                   </button>
 
+                  {apiEnabled && (
+                    <p className="mt-2 text-[11px] leading-relaxed text-amber-700">
+                      Preview dự kiến theo mẫu đã chọn; Backend có thể điều chỉnh lịch quanh ngày nghỉ. Lịch thực tế được xác minh sau khi tạo.
+                    </p>
+                  )}
                   {showSessionList && (
                     <div className="mt-2 p-3.5 bg-stone-50 border border-stone-200 rounded-xl max-h-48 overflow-y-auto space-y-1.5 text-xs">
                       {projectedSessions.map((s) => (
@@ -1938,7 +1921,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             type="button"
             onClick={() => handleSubmit(status)}
             disabled={
-              isSubmitting || conflict?.hasConflict || conflict?.hasMissingSchedule || isFirstSessionInPast || isNormalClassApiCreationBlocked(apiEnabled)
+              isSubmitting || conflict?.hasConflict || conflict?.hasMissingSchedule || isFirstSessionInPast || (apiEnabled && !startDateMatchesSchedule) || isNormalClassApiCreationBlocked(apiEnabled)
             }
             className="h-10 px-6 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer flex items-center gap-2"
             title={
