@@ -1,7 +1,7 @@
 // Logic đăng ký lớp Normal của Member (màn Khóa học, chế độ thật), tách ra để kiểm bằng test .mjs không cần trình duyệt.
 // Quy tắc: registrationAllowed === false thì khóa nút và nêu lý do; === true thì mở nút (kể cả lớp đầy: kết quả là danh sách chờ);
 // thiếu field (null) thì giữ cách cũ và để Backend từ chối khi lưu. Không suy ra false từ field thiếu.
-import { translateErrorCode } from '../api/apiErrors.js'
+import { describeBlockReason } from '../api/apiErrors.js'
 import { parseBackendDate } from './datetime.js'
 
 const text = (value) => (typeof value === 'string' && value.trim() ? value.trim() : null)
@@ -37,12 +37,11 @@ export function formatRegistrationDeadline(value, language = 'vi') {
 export function decideNormalEnroll(courseClass, { checkEligible = false, cutoffPassed = false, hasPrice = true, language = 'vi' } = {}) {
   const { allowed, blockReason, deadline } = readNormalRegistration(courseClass)
   if (allowed === false) {
-    const known = translateErrorCode(blockReason, language)
     return {
       canEnroll: false,
       source: 'backend',
       reasonCode: blockReason,
-      reasonText: known || (language === 'vi' ? 'Lớp này hiện không nhận đăng ký.' : 'This class is not accepting registrations right now.'),
+      reasonText: describeBlockReason(blockReason, language),
       deadlineText: formatRegistrationDeadline(deadline, language),
     }
   }

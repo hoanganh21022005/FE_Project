@@ -40,10 +40,9 @@ assert.equal(state.reasonText, translateErrorCode('BOOKING_BLOCKED', 'en'))
 // Mã lạ hoặc thiếu mã: câu chung, không lộ mã kỹ thuật
 state = getPurchaseConfirmationState({ purchaseConfirmationAllowed: false, purchaseConfirmationBlockReason: 'MA_LA' }, { nowMs: NOW })
 assert.equal(state.canConfirm, false)
-assert.equal(state.reasonText, 'Chưa thể xác nhận mua gói lúc này.')
-assert.ok(!state.reasonText.includes('MA_LA'))
+assert.equal(state.reasonText, 'Thao tác hiện chưa khả dụng. (MA_LA)')
 state = getPurchaseConfirmationState({ purchaseConfirmationAllowed: false }, { nowMs: NOW, language: 'en' })
-assert.equal(state.reasonText, 'The purchase cannot be confirmed right now.')
+assert.equal(state.reasonText, 'This action is not available right now.')
 
 // C2.3 Backend cho phép (true): mở nút, không dùng riêng confirmationDeadline
 state = getPurchaseConfirmationState({ purchaseConfirmationAllowed: true }, { nowMs: NOW, confirmationDeadlineMs: PAST })

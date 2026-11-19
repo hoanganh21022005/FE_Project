@@ -41,9 +41,8 @@ assert.equal(d.reasonText, translateErrorCode('NORMAL_REGISTRATION_CLOSED', 'en'
 assert.equal(d.deadlineText, '')
 d = decideNormalEnroll({ registrationAllowed: false, registrationBlockReason: 'MA_LA' }, { checkEligible: true })
 assert.equal(d.canEnroll, false)
-assert.equal(d.reasonText, 'Lớp này hiện không nhận đăng ký.')
-assert.ok(!d.reasonText.includes('MA_LA'))
-assert.equal(decideNormalEnroll({ registrationAllowed: false }, { checkEligible: true, language: 'en' }).reasonText, 'This class is not accepting registrations right now.')
+assert.equal(d.reasonText, 'Thao tác hiện chưa khả dụng. (MA_LA)')
+assert.equal(decideNormalEnroll({ registrationAllowed: false }, { checkEligible: true, language: 'en' }).reasonText, 'This action is not available right now.')
 
 // C4m.3 Hạn không đọc được: không NaN lọt vào Intl
 assert.equal(formatRegistrationDeadline('', 'vi'), '')

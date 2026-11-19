@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
 import {
+  ERROR_CODE_TEXT,
+  describeBlockReason,
+  translateErrorCode,
   BACKEND_CODE_MESSAGES,
   BACKEND_FORBIDDEN_MESSAGES,
   createApiError,
@@ -8,7 +11,7 @@ import {
 } from '../src/api/apiErrors.js'
 
 const codes = Object.keys(BACKEND_CODE_MESSAGES)
-assert.equal(codes.length, 53)
+assert.equal(codes.length, 74)
 
 // AC-A1: mọi mã trong bảng khi có { code, message: "<MÃ>: English text" } hoặc chỉ { message: "MÃ: English text" }
 for (const code of codes) {
@@ -164,3 +167,40 @@ assert.equal(ac4Forbidden.code, 'NORMAL_CASH_COUNTER_ONLY')
 assert.equal(ac4Forbidden.message, BACKEND_CODE_MESSAGES.NORMAL_CASH_COUNTER_ONLY)
 
 console.log('api_error_codes_test.mjs (with W-A12): ALL PASSED')
+
+// E1: mọi mã trong bảng chung ra chuỗi không rỗng ở vi và en (số mã: 53 trước E1, 74 sau E1)
+assert.equal(Object.keys(ERROR_CODE_TEXT).length, 74)
+for (const [code, text] of Object.entries(ERROR_CODE_TEXT)) {
+  assert.ok(typeof text.vi === 'string' && text.vi.trim().length > 0, `${code}: vi rỗng`)
+  assert.ok(typeof text.en === 'string' && text.en.trim().length > 0, `${code}: en rỗng`)
+  assert.equal(translateErrorCode(code, 'vi'), text.vi)
+  assert.equal(translateErrorCode(code, 'en'), text.en)
+  assert.equal(describeBlockReason(code, 'vi'), text.vi)
+  assert.ok(!translateErrorCode(code, 'vi').includes(code), `${code}: câu chữ không được chứa mã thô`)
+}
+// 21 mã thêm ở E1 đều có chữ
+for (const code of [
+  'REGISTRATION_FORBIDDEN', 'CLASS_NOT_OPEN', 'CLASS_NOT_READY', 'SUBJECT_INACTIVE', 'MEMBER_REQUIRED',
+  'OPENING_CONFIRMATION_FORBIDDEN', 'NORMAL_INSUFFICIENT_PAID', 'NORMAL_MIN_CAPACITY_REQUIRED', 'NORMAL_NOT_AWAITING_OPENING',
+  'NORMAL_OPENING_BLOCKED', 'CANCELLATION_FORBIDDEN', 'ADVANCED_PACKAGE_EXPIRED', 'CREDIT_LIMIT_EXCEEDED', 'ATTENDANCE_FORBIDDEN',
+  'IDEMPOTENCY_CONFLICT', 'LEGACY_MEMBERSHIP_RETIRED', 'USE_INCIDENT_RECOVERY', 'ADVANCED_STATUS_WORKFLOW_REQUIRED',
+  'ADVANCED_CLASS_MISMATCH', 'USE_ATTENDANCE_CORRECTION', 'NOT_YOUR_CLASS',
+]) {
+  assert.ok(translateErrorCode(code, 'vi'), `${code}: thiếu vi`)
+  assert.ok(translateErrorCode(code, 'en'), `${code}: thiếu en`)
+}
+// Mã đã có chữ từ trước không bị sửa
+assert.equal(translateErrorCode('CLASS_FULL', 'vi'), 'Lớp đã đủ chỗ.')
+assert.equal(translateErrorCode('NORMAL_REGISTRATION_CLOSED', 'vi'), 'Lớp đã đóng đăng ký.')
+// Lớp lót: mã lạ, rỗng, null, chỉ khoảng trắng, không phải chuỗi
+assert.equal(describeBlockReason('MA_LA_CHUA_CO', 'vi'), 'Thao tác hiện chưa khả dụng. (MA_LA_CHUA_CO)')
+assert.equal(describeBlockReason('MA_LA_CHUA_CO', 'en'), 'This action is not available right now. (MA_LA_CHUA_CO)')
+for (const empty of ['', '   ', null, undefined, 0, {}, []]) {
+  assert.equal(describeBlockReason(empty, 'vi'), 'Thao tác hiện chưa khả dụng.')
+  assert.equal(describeBlockReason(empty, 'en'), 'This action is not available right now.')
+}
+// Chữ hoa thường của mã quen biết vẫn ra chữ trong bảng; lớp lót không đổi getErrorMessage toàn cục
+assert.equal(describeBlockReason(' class_full ', 'vi'), 'Lớp đã đủ chỗ.')
+assert.equal(readBackendMessage({ code: 'MA_LA_CHUA_CO', message: 'Custom' }, 400), 'Custom')
+
+console.log('api_error_codes_test.mjs (E1): ALL PASSED')

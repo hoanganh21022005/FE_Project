@@ -1,7 +1,7 @@
 // Logic "xác nhận mua gói Advanced" của Member (màn Khóa học), tách ra để kiểm bằng test .mjs không cần trình duyệt.
 // Quy tắc: purchaseConfirmationAllowed === false thì khóa nút và nêu lý do; === true thì mở nút;
 // thiếu field (null) thì giữ cách cũ (so hạn xác nhận) và để Backend từ chối khi lưu.
-import { translateErrorCode } from '../api/apiErrors.js'
+import { describeBlockReason, translateErrorCode } from '../api/apiErrors.js'
 import { parseBackendDate } from './datetime.js'
 
 const text = (value) => (typeof value === 'string' && value.trim() ? value.trim() : null)
@@ -55,18 +55,13 @@ export function getPurchaseConfirmationState(
     }
   }
   if (allowed === false) {
-    const known = translateErrorCode(blockReason, language)
     return {
       canConfirm: false,
       expired: blockReason === 'REGISTRATION_CONFIRMATION_EXPIRED',
       deadlineUnknown: false,
       source: 'backend',
       reasonCode: blockReason,
-      reasonText:
-        known ||
-        (language === 'vi'
-          ? 'Chưa thể xác nhận mua gói lúc này.'
-          : 'The purchase cannot be confirmed right now.'),
+      reasonText: describeBlockReason(blockReason, language),
     }
   }
   if (allowed === true) {
