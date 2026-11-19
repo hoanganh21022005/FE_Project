@@ -277,6 +277,18 @@ export const ERROR_CODE_TEXT = {
     vi: 'Credit của buổi tập này đã được hoàn trước đó.',
     en: 'The credit for this session was already returned.',
   },
+  COACH_ACCEPTANCE_REQUIRED: {
+    vi: 'Coach chưa chấp nhận yêu cầu đăng ký này nên chưa thể xác nhận mua gói.',
+    en: 'The Coach has not accepted this request yet, so the purchase cannot be confirmed.',
+  },
+  SUBJECT_UNAVAILABLE: {
+    vi: 'Môn học này hiện không còn mở bán gói Advanced.',
+    en: 'This subject is no longer available for Advanced packages.',
+  },
+  MEMBER_NOT_ACTIVE: {
+    vi: 'Tài khoản hội viên hiện không ở trạng thái hoạt động nên chưa thể mua gói.',
+    en: 'The member account is not active, so a package cannot be purchased.',
+  },
   SESSION_COMPLETED: {
     vi: 'Buổi tập đã hoàn thành nên không thể thực hiện thao tác này.',
     en: 'This session is already completed, so this action is not available.',
