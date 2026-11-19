@@ -1,10 +1,37 @@
-import { getErrorMessage } from './apiErrors.js'
+import { getErrorCode, getErrorMessage, translateErrorCode } from './apiErrors.js'
+import { optionalBoolean } from './mappers.js'
+import { parseBackendDate } from '../utils/datetime.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000
 
 const normalize = (value) => String(value ?? '').trim().toLowerCase()
 const validPositiveId = (value) => Number.isInteger(Number(value)) && Number(value) > 0
+
+const toFiniteTimestamp = (value) => {
+  const parsed = parseBackendDate(value)
+  return typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : null
+}
+
+export const formatOpeningDateTime = (value) => {
+  if (value === null || value === undefined || value === '') return ''
+  const ts =
+    value instanceof Date
+      ? value.getTime()
+      : typeof value === 'number'
+        ? value
+        : parseBackendDate(value)
+  if (typeof ts !== 'number' || !Number.isFinite(ts)) return ''
+  try {
+    return new Intl.DateTimeFormat('vi-VN', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'Asia/Ho_Chi_Minh',
+    }).format(new Date(ts))
+  } catch {
+    return ''
+  }
+}
 
 export const validNormalClassOpeningRequest = (payload = {}) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
@@ -134,17 +161,41 @@ export const evaluateNormalClassOpening = ({
     }
   }
 
+  const serverNow = toFiniteTimestamp(classItem?.serverTime)
+  const effectiveNow = serverNow !== null ? serverNow : now
   const timing = firstSessionEntry
-    ? getOpeningReasonRequirement({ firstSession: firstSessionEntry.session, now })
+    ? getOpeningReasonRequirement({ firstSession: firstSessionEntry.session, now: effectiveNow })
     : { known: false, reasonRequired: null, startsAt: null, hoursUntilStart: null }
-  if (!timing.known) {
-    unverified.push('Chưa xác minh thời điểm bắt đầu buổi học đầu tiên.')
-  } else if (timing.hoursUntilStart <= 0) {
-    blockers.push('Buổi học đầu tiên đã bắt đầu hoặc đã qua.')
+
+  const openingConfirmationAllowed = optionalBoolean(classItem?.openingConfirmationAllowed)
+  const apiReasonRequired = optionalBoolean(classItem?.openingReasonRequired)
+  const reasonRequired =
+    apiReasonRequired !== null
+      ? apiReasonRequired
+      : timing.known
+        ? timing.reasonRequired
+        : null
+  const openingConfirmationDueAt = toFiniteTimestamp(classItem?.openingConfirmationDueAt)
+  const openingConfirmationDeadline = toFiniteTimestamp(classItem?.openingConfirmationDeadline)
+
+  if (openingConfirmationAllowed === false) {
+    const rawReason = classItem?.openingConfirmationBlockReason
+    const translated = rawReason ? translateErrorCode(String(rawReason).trim(), 'vi') : null
+    blockers.push(
+      translated ||
+        (typeof rawReason === 'string' && rawReason.trim() ? rawReason.trim() : null) ||
+        'Không thể xác nhận khai giảng lớp học ở thời điểm hiện tại.',
+    )
+  } else if (openingConfirmationAllowed === null) {
+    if (!timing.known) {
+      unverified.push('Chưa xác minh thời điểm bắt đầu buổi học đầu tiên.')
+    } else if (timing.hoursUntilStart <= 0) {
+      blockers.push('Buổi học đầu tiên đã bắt đầu hoặc đã qua.')
+    }
   }
 
   const normalizedReason = String(reason ?? '').trim()
-  if (timing.reasonRequired && !normalizedReason) {
+  if (reasonRequired === true && !normalizedReason) {
     blockers.push('Cần nhập lý do khi xác nhận trong 24 giờ trước buổi đầu tiên.')
   }
 
@@ -153,25 +204,32 @@ export const evaluateNormalClassOpening = ({
   unverified.push('Backend cần xác nhận Coach, phòng, lịch và điều kiện khai giảng cuối cùng.')
 
   return {
-    canSubmit: blockers.length === 0,
+    canSubmit: openingConfirmationAllowed === false ? false : blockers.length === 0,
     eligibilityStatus: blockers.length ? 'not-ready' : unverified.length ? 'unverified' : 'prechecks-passed',
     isNormal,
     paidRegisteredCount,
     minimum: hasMinimum ? minimum : null,
     firstSession: firstSessionEntry?.session ?? null,
     firstSessionStartsAt: timing.startsAt,
-    reasonRequired: timing.known ? timing.reasonRequired : null,
-    payload: timing.reasonRequired && normalizedReason ? { reason: normalizedReason } : {},
+    reasonRequired,
+    openingConfirmationAllowed,
+    openingConfirmationDueAt,
+    openingConfirmationDeadline,
+    payload: reasonRequired && normalizedReason ? { reason: normalizedReason } : {},
     blockers,
     unverified,
     backendIsFinalAuthority: true,
   }
 }
 
-export const getNormalClassOpeningError = (error) => ({
-  status: Number(error?.status ?? error?.response?.status) || 0,
-  code: typeof error?.code === 'string' ? error.code : null,
-  message: getErrorMessage(error, 'Không thể xác nhận khai giảng. Vui lòng thử lại.'),
-  details: error?.details ?? error?.response?.data ?? null,
-})
+export const getNormalClassOpeningError = (error) => {
+  const code = getErrorCode(error)
+  const translated = code ? translateErrorCode(code, 'vi') : null
+  return {
+    status: Number(error?.status ?? error?.response?.status) || 0,
+    code,
+    message: translated || getErrorMessage(error, 'Không thể xác nhận khai giảng. Vui lòng thử lại.'),
+    details: error?.details ?? error?.response?.data ?? null,
+  }
+}
 
