@@ -6,7 +6,13 @@ import { attendanceApi } from "../../api/attendanceApi"
 import { updateTrainingResultContent } from "../../api/trainingResultApi"
 import { getErrorMessage, translateErrorCode } from "../../api/apiErrors"
 import { canLogResult } from "../../utils/permissions"
-import { formatDate, formatTime } from "../../utils/datetime"
+import {
+  decideTrainingResultSubmission,
+  getTrainingResultSaveErrorMessage,
+  isSessionPastEndTime,
+  resolveVerifiedAttendanceStatus,
+} from "../../utils/trainingResultSubmission"
+import { formatDate, formatTime, parseBackendDate } from "../../utils/datetime"
 import { formatMemberCode } from "../../utils/formatMember"
 import {
   normalizeScore,
@@ -314,7 +320,7 @@ export function CoachTrainingProgress() {
       setApiSessions(validSessions)
       setAdvancedRegs(Array.isArray(advList) ? advList : [])
       setApiAttendances(Array.isArray(attList) ? attList : [])
-      const completedOnly = validSessions.filter((s) => canLogResult(s))
+      const completedOnly = validSessions.filter((s) => isSessionPastEndTime(s))
       if (completedOnly.length > 0 && !selectedSessionId) {
         setSelectedSessionId(String(completedOnly[0].id))
       }
@@ -442,36 +448,21 @@ export function CoachTrainingProgress() {
   }, [coachClasses, selectedPlanClassId])
 
   const completedSessions = useMemo(
-    () => apiSessions.filter((s) => canLogResult(s)),
+    () => apiSessions.filter((s) => isSessionPastEndTime(s)),
     [apiSessions],
   )
 
   const readOnlyAttendanceStatus = useMemo(() => {
     const memberIdStr = String(selectedMemberId || selectedStudent?.id || "")
     const sessionIdStr = String(selectedSessionId || "")
-    if (!sessionIdStr || !memberIdStr) return "Present"
+    if (!sessionIdStr || !memberIdStr) return null
 
-    const matchedResult = apiResults.find(
-      (r) =>
-        String(r.sessionId) === sessionIdStr &&
-        String(r.memberId) === memberIdStr &&
-        r.attendanceStatus,
-    )
-    if (matchedResult?.attendanceStatus) return matchedResult.attendanceStatus
-
-    const matchedAtt = apiAttendances.find(
-      (a) =>
-        String(a.sessionId) === sessionIdStr &&
-        String(a.memberId) === memberIdStr,
-    )
-    if (matchedAtt?.state) {
-      const raw = String(matchedAtt.state).toLowerCase()
-      if (raw.includes("late")) return "Late"
-      if (raw.includes("excuse")) return "Excused"
-      if (raw.includes("absent")) return "Absent"
-      return "Present"
-    }
-    return "Present"
+    return resolveVerifiedAttendanceStatus({
+      sessionId: sessionIdStr,
+      memberId: memberIdStr,
+      results: apiResults,
+      attendances: apiAttendances,
+    })
   }, [
     selectedSessionId,
     selectedMemberId,
@@ -834,27 +825,65 @@ export function CoachTrainingProgress() {
       showToast(t("coachEmptyFieldValidationError"), "warning")
       return
     }
+    const memberIdNum = parseNumericId(
+      selectedMemberId || selectedStudent?.id,
+      1,
+    )
+    const selectedSessionObj =
+      apiSessions.find((s) => String(s.id) === String(selectedSessionId)) || {
+        id: Number(selectedSessionId),
+        status: "Completed",
+      }
+    const parsedServerTime = parseBackendDate(selectedSessionObj?.serverTime)
+    const nowMs = Number.isFinite(parsedServerTime) ? parsedServerTime : Date.now()
+    const decision = apiEnabled
+      ? decideTrainingResultSubmission({
+          session: selectedSessionObj,
+          memberId: memberIdNum,
+          results: apiResults,
+          attendances: apiAttendances,
+          content: resultContent,
+          language,
+          now: nowMs,
+        })
+      : { action: "mock" }
+
+    if (decision.action === "block") {
+      showToast(decision.message, "warning")
+      return
+    }
+
     setSavingResult(true)
     try {
-      const memberIdNum = parseNumericId(
-        selectedMemberId || selectedStudent?.id,
-        1,
-      )
       if (apiEnabled) {
-        await memberPortalApi.createTrainingResult({
-          sessionId: Number(selectedSessionId),
-          memberId: memberIdNum,
-          coachId: resolvedCoachId,
-          attendanceStatus: readOnlyAttendanceStatus,
-          content: resultContent.trim(),
-        })
-        setResultContent("")
-        await loadAllProgressData()
-        showToast("Đã ghi nhận kết quả buổi tập thành công!", "success")
+        if (decision.action === "patch") {
+          await updateTrainingResultContent(decision.resultId, decision.content, {
+            notifyForbidden: false,
+          })
+          setResultContent("")
+          await loadAllProgressData()
+          showToast(
+            language === "vi"
+              ? "Đã cập nhật nhận xét buổi tập."
+              : "Session comment updated.",
+            "success",
+          )
+        } else {
+          await memberPortalApi.createTrainingResult({
+            sessionId: Number(selectedSessionId),
+            memberId: memberIdNum,
+            coachId: resolvedCoachId,
+            attendanceStatus: decision.attendanceStatus,
+            content: decision.content,
+          })
+          setResultContent("")
+          await loadAllProgressData()
+          showToast("Đã ghi nhận kết quả buổi tập thành công!", "success")
+        }
       }
     } catch (err) {
       showToast(
-        getErrorMessage(err, "Không thể ghi nhận kết quả buổi tập."),
+        getTrainingResultSaveErrorMessage(err, language),
         "error",
       )
     } finally {
@@ -1483,10 +1512,16 @@ export function CoachTrainingProgress() {
                   {t("coachAttendanceReadOnlyLabel")}
                 </label>
                 <div className="h-9 w-full bg-bg-secondary border border-border-color rounded px-3 py-1.5 text-text-primary text-sm font-semibold flex items-center justify-between">
-                  <CoachStatusBadge
-                    domain="attendance"
-                    value={readOnlyAttendanceStatus}
-                  />
+                  {readOnlyAttendanceStatus ? (
+                    <CoachStatusBadge
+                      domain="attendance"
+                      value={readOnlyAttendanceStatus}
+                    />
+                  ) : (
+                    <span className="text-xs font-medium text-text-muted">
+                      {language === "vi" ? "Chưa có điểm danh" : "No attendance recorded"}
+                    </span>
+                  )}
                   <span className="text-xs leading-4 font-mono text-text-secondary uppercase">
                     {t("coachReadOnlyTag")}
                   </span>

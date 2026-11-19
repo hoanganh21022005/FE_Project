@@ -15,6 +15,8 @@ import * as classEnrollmentApi from "../api/classEnrollmentApi.js"
 import * as memberPortalApi from "../api/memberPortalApi.js"
 import * as attendanceApi from "../api/attendanceApi.js"
 import { getErrorMessage, sanitizeBackendMessage, UnauthorizedError } from "../api/apiErrors.js"
+import { selectMemberCreateRoute } from "../utils/memberCreationRoute.js"
+import { formatLegacyMembershipError } from "../utils/packageRetirement.js"
 import { UNAUTHORIZED_EVENT, FORBIDDEN_EVENT } from "../api/httpClient.js"
 import {
   normalizeRole,
@@ -873,7 +875,11 @@ export const SCMSProvider = ({ children }) => {
 
   const addMember = async (data) => {
     if (API_ENABLED) {
-      const created = await memberApi.createMember(data)
+      const route = selectMemberCreateRoute(currentUser?.authorities)
+      const created =
+        route === "register"
+          ? await memberApi.registerMemberProfile(data)
+          : await memberApi.createMember(data)
       setMembers((prev) => [
         created,
         ...prev.filter((m) => m.id !== created.id),
@@ -2189,11 +2195,15 @@ export const SCMSProvider = ({ children }) => {
       setPackages((prev) => [created, ...prev])
       return created
     }
-    const created = await managerApi.createPackage(data, {
-      notifyForbidden: false,
-    })
-    setPackages((prev) => [created, ...prev])
-    return created
+    try {
+      const created = await managerApi.createPackage(data, {
+        notifyForbidden: false,
+      })
+      setPackages((prev) => [created, ...prev])
+      return created
+    } catch (err) {
+      throw new Error(formatLegacyMembershipError(err, language))
+    }
   }
 
   const updatePackage = async (id, data) => {
@@ -2208,11 +2218,15 @@ export const SCMSProvider = ({ children }) => {
       )
       return updated
     }
-    const updated = await managerApi.updatePackage(id, data, {
-      notifyForbidden: false,
-    })
-    setPackages((prev) => prev.map((item) => (item.id === id ? updated : item)))
-    return updated
+    try {
+      const updated = await managerApi.updatePackage(id, data, {
+        notifyForbidden: false,
+      })
+      setPackages((prev) => prev.map((item) => (item.id === id ? updated : item)))
+      return updated
+    } catch (err) {
+      throw new Error(formatLegacyMembershipError(err, language))
+    }
   }
 
   const updatePackageStatus = async (id, status) => {
@@ -2223,11 +2237,15 @@ export const SCMSProvider = ({ children }) => {
       )
       return updated
     }
-    const updated = await managerApi.updatePackageStatus(id, status, {
-      notifyForbidden: false,
-    })
-    setPackages((prev) => prev.map((item) => (item.id === id ? updated : item)))
-    return updated
+    try {
+      const updated = await managerApi.updatePackageStatus(id, status, {
+        notifyForbidden: false,
+      })
+      setPackages((prev) => prev.map((item) => (item.id === id ? updated : item)))
+      return updated
+    } catch (err) {
+      throw new Error(formatLegacyMembershipError(err, language))
+    }
   }
 
   return (
