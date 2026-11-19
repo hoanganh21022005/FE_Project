@@ -295,7 +295,11 @@ export const buildNormalClassWithSessionsRequest = (
       }
     } else if (!isPayloadChanged) {
       resolvedRequestId = current.requestId
-    } else if (current.idempotencyConflict === true || !current.attemptLocked) {
+    } else if (
+      current.idempotencyConflict === true ||
+      !current.attemptLocked ||
+      (current.status === 'post_rejected' && isPayloadChanged)
+    ) {
       resolvedRequestId = createNormalClassRequestId()
       stateRef.current = {
         fingerprint,

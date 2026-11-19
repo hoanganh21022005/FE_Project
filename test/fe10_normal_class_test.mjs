@@ -594,14 +594,22 @@ async function runUnitSuite() {
     assert.equal(requests.filter((request) => request.options.method === 'POST').length, 2)
     assert.equal(requests.filter((request) => request.options.method === 'POST').at(-1).body.requestId, networkRequestId)
 
-    // Backend validation errors are surfaced without retry or follow-up writes.
+    // A definitive rejection keeps its requestId for an identical retry, but a corrected payload is a new attempt.
     requests.length = 0
+    const rejectedStateRef = { current: null }
     postResponseMode = 'validation_400'
     await assert.rejects(
-      () => createNormalClassWithSessions(baseInput, {}),
+      () => createNormalClassWithSessions(baseInput, {}, { idempotencyStateRef: rejectedStateRef }),
       (err) => err.status === 400 && /minCapacity is invalid/.test(err.message),
     )
     assert.equal(requests.length, 1, '400 validation error sends exactly one creation request')
+    const rejectedRequestId = requests[0].body.requestId
+    assert.equal(rejectedStateRef.current?.status, 'post_rejected')
+    const identicalRejectedRetry = buildNormalClassWithSessionsRequest(baseInput, { stateRef: rejectedStateRef })
+    assert.equal(identicalRejectedRetry.requestId, rejectedRequestId, 'Retrying an unchanged rejected payload keeps its requestId')
+    const correctedPayload = { ...baseInput, name: `${baseInput.name} corrected` }
+    const correctedRequest = buildNormalClassWithSessionsRequest(correctedPayload, { stateRef: rejectedStateRef })
+    assert.notEqual(correctedRequest.requestId, rejectedRequestId, 'A changed payload after a definitive rejection receives a new requestId')
     postResponseMode = 'success'
 
     // 7. Non-idempotency 409 (ROOM_CONFLICT / COACH_CONFLICT) MUST preserve requestId across retries
@@ -635,15 +643,15 @@ async function runUnitSuite() {
       'Retrying same payload after 409 room/coach conflict must keep the same requestId',
     )
 
-    // Even if payload is adjusted after non-idempotency 409 or uncertain 500, requestId stays stable until IDEMPOTENCY_CONFLICT is confirmed
+    // A changed payload after a definitive 409 rejection is a new attempt; uncertain 500 responses remain locked to their requestId.
     const adjustedAfterRoomConflict = buildNormalClassWithSessionsRequest(
       { ...baseInput, roomId: 2 },
       { stateRef: roomConflictStateRef },
     )
-    assert.equal(
+    assert.notEqual(
       adjustedAfterRoomConflict.requestId,
       roomConflictRequestId,
-      'Non-idempotency 409 keeps requestId stable until IDEMPOTENCY_CONFLICT is confirmed',
+      'A changed payload after a definitive room conflict gets a fresh requestId',
     )
 
     // 8. Uncertain server 500 outcome preserves requestId across retries
