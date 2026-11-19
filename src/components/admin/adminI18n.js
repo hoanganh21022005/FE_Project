@@ -131,6 +131,7 @@ export const ADMIN_AUDIT_ACTION_LABELS = {
     CREATE_USER: "Tạo tài khoản người dùng",
     CHANGE_USER_ROLE: "Đổi vai trò người dùng",
     REISSUE_TEMPORARY_PASSWORD: "Cấp lại mật khẩu tạm",
+    RESET_PASSWORD: "Đặt lại mật khẩu",
     UPDATE_STAFF: "Cập nhật nhân viên",
     CHANGE_USER_STATUS: "Đổi trạng thái tài khoản",
     UPDATE_USER: "Cập nhật thông tin người dùng",
@@ -139,12 +140,17 @@ export const ADMIN_AUDIT_ACTION_LABELS = {
     CREATE_CLASS: "Tạo lớp học mới",
     UPDATE_CLASS: "Cập nhật lớp học",
     CANCEL_CLASS: "Hủy lớp học",
+    DELETE_SESSION: "Xóa buổi học",
     ATTENDANCE_CORRECTION: "Điều chỉnh điểm danh",
     ENROLL_MEMBER: "Ghi danh hội viên",
     ENROLL_CLASS: "Ghi danh lớp học",
     CREATE_INVOICE: "Tạo hóa đơn",
     COLLECT_PAYMENT: "Thu tiền thanh toán",
     CONFIRM_PAYMENT: "Xác nhận thanh toán",
+    OPEN_PAYMENT_RESOLUTION: "Mở xử lý thanh toán",
+    BLOCK_PAYMENT_RESOLUTION: "Khóa xử lý thanh toán",
+    OPEN_CENTER_INCIDENT: "Mở sự cố trung tâm",
+    RESOLVE_CENTER_INCIDENT: "Giải quyết sự cố trung tâm",
     CREATE_REFUND: "Tạo yêu cầu hoàn tiền",
   },
   en: {
@@ -156,6 +162,7 @@ export const ADMIN_AUDIT_ACTION_LABELS = {
     CREATE_USER: "Create user account",
     CHANGE_USER_ROLE: "Change user role",
     REISSUE_TEMPORARY_PASSWORD: "Reissue temporary password",
+    RESET_PASSWORD: "Reset password",
     UPDATE_STAFF: "Update staff",
     CHANGE_USER_STATUS: "Change user status",
     UPDATE_USER: "Update user profile",
@@ -164,12 +171,17 @@ export const ADMIN_AUDIT_ACTION_LABELS = {
     CREATE_CLASS: "Create class",
     UPDATE_CLASS: "Update class",
     CANCEL_CLASS: "Cancel class",
+    DELETE_SESSION: "Delete session",
     ATTENDANCE_CORRECTION: "Adjust attendance",
     ENROLL_MEMBER: "Enroll member",
     ENROLL_CLASS: "Enroll in class",
     CREATE_INVOICE: "Create invoice",
     COLLECT_PAYMENT: "Collect payment",
     CONFIRM_PAYMENT: "Confirm payment",
+    OPEN_PAYMENT_RESOLUTION: "Open payment resolution",
+    BLOCK_PAYMENT_RESOLUTION: "Block payment resolution",
+    OPEN_CENTER_INCIDENT: "Open center incident",
+    RESOLVE_CENTER_INCIDENT: "Resolve center incident",
     CREATE_REFUND: "Create refund request",
   },
 }
@@ -956,7 +968,7 @@ export function getAdminAuditActionLabel(action, language = "vi") {
     return ADMIN_AUDIT_ACTION_LABELS[lang][action]
   }
   if (!action) return getAdminText(lang, "common.dash")
-  return lang === "en" ? "Other action" : "Thao tác khác"
+  return String(action)
 }
 
 export function getAdminStatusLabel(status, language = "vi") {

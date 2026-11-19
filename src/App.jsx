@@ -20,6 +20,7 @@ import {
   getMainHostAdminRedirectUrl,
   isAdminHost,
 } from "./components/admin/adminHost"
+import { canAccessAdminOpsPath } from "./components/admin/adminNav"
 import { ErrorBoundary } from "./components/common/ErrorBoundary"
 import { VnpayCheckoutHost } from "./components/common/VnpayCheckoutHost"
 import {
@@ -409,10 +410,21 @@ function AdminMemberDetailWrapper() {
   )
 }
 
+function AdminOpsGuard({ user, children }) {
+  const location = useLocation()
+  if (!canAccessAdminOpsPath(location.pathname, user)) {
+    return <Navigate to="/admin/dashboard" replace />
+  }
+  return children
+}
+
 function AdminManagerWildcardRedirect() {
   const location = useLocation()
   const subPath = location.pathname.replace(/^\/manager\/?/, "")
-  const targetPath = subPath ? `/admin/ops/${subPath}` : "/admin/ops/dashboard"
+  const targetPath =
+    subPath && subPath !== "dashboard" && subPath !== "reports"
+      ? `/admin/ops/${subPath}`
+      : "/admin/dashboard"
   return <Navigate to={`${targetPath}${location.search}`} replace />
 }
 
@@ -429,6 +441,7 @@ function SCMSApp() {
   const {
     role,
     setRole,
+    currentUser,
     t,
     language,
     isAuthenticated,
@@ -982,60 +995,108 @@ function SCMSApp() {
                   {/* Nhóm Quản lý trung tâm */}
                   <Route
                     path="/admin/ops"
-                    element={<Navigate to="/admin/ops/dashboard" replace />}
+                    element={<Navigate to="/admin/dashboard" replace />}
                   />
                   <Route
                     path="/admin/ops/dashboard"
-                    element={<ManagerDashboard />}
+                    element={<Navigate to="/admin/dashboard" replace />}
                   />
-                  <Route path="/admin/ops/staff" element={<StaffManagement />} />
+                  <Route
+                    path="/admin/ops/staff"
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <StaffManagement />
+                      </AdminOpsGuard>
+                    }
+                  />
                   <Route
                     path="/admin/ops/members"
                     element={
-                      <MemberManagement
-                        onSelectMemberDetail={(id) =>
-                          navigate(`/admin/ops/members/${id}`)
-                        }
-                      />
+                      <AdminOpsGuard user={currentUser}>
+                        <MemberManagement
+                          onSelectMemberDetail={(id) =>
+                            navigate(`/admin/ops/members/${id}`)
+                          }
+                        />
+                      </AdminOpsGuard>
                     }
                   />
                   <Route
                     path="/admin/ops/members/:id"
-                    element={<AdminMemberDetailWrapper />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <AdminMemberDetailWrapper />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/packages"
-                    element={<PackageManagement />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <PackageManagement />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/classes"
-                    element={<ClassManagement />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ClassManagement />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/holidays"
-                    element={<ManagerHolidaysView />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ManagerHolidaysView />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/session-incidents"
-                    element={<ManagerSessionIncidentsView />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ManagerSessionIncidentsView />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/advanced-schedule"
-                    element={<ManagerAdvancedScheduleView />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ManagerAdvancedScheduleView />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/resources"
-                    element={<ResourceManagement />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ResourceManagement />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/payments"
-                    element={<PaymentManagement />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <PaymentManagement />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/normal-refunds"
-                    element={<NormalRefundManagement />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <NormalRefundManagement />
+                      </AdminOpsGuard>
+                    }
                   />
-                  <Route path="/admin/ops/reports" element={<ReportsView />} />
+                  <Route
+                    path="/admin/ops/reports"
+                    element={<Navigate to="/admin/dashboard" replace />}
+                  />
                   <Route
                     path="/admin/ops/audit-logs"
                     element={<AuditLogView />}
@@ -1050,23 +1111,43 @@ function SCMSApp() {
                   />
                   <Route
                     path="/admin/ops/reception/dashboard"
-                    element={<ReceptionistDashboard />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ReceptionistDashboard />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/reception/checkin"
-                    element={<ReceptionCheckinView />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ReceptionCheckinView />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/reception/search"
-                    element={<ReceptionMemberSearch />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ReceptionMemberSearch />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/reception/booking"
-                    element={<ReceptionClassBooking />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ReceptionClassBooking />
+                      </AdminOpsGuard>
+                    }
                   />
                   <Route
                     path="/admin/ops/reception/payments"
-                    element={<ReceptionPaymentsView />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <ReceptionPaymentsView />
+                      </AdminOpsGuard>
+                    }
                   />
 
                   {/* Hồ sơ Admin riêng biệt */}
