@@ -15,6 +15,7 @@ import { optionalBoolean } from "../../api/mappers"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getCatalogClassSessions } from "../../api/managerApi"
 import { getErrorCode, getErrorMessage, translateErrorCode } from "../../api/apiErrors"
+import { getAttendanceActionErrorMessage } from "../../utils/attendanceErrors"
 import { isActiveNormalEnrollment } from "../../utils/memberScheduleUtils"
 import {
   canCheckIn,
@@ -37,45 +38,6 @@ import {
   Users,
   UserCheck,
 } from "lucide-react"
-
-function getAttendanceActionErrorMessage(err, language, fallbackVi, fallbackEn) {
-  const code = getErrorCode(err)
-  const rawMessage = String(
-    err?.details?.message ||
-      err?.response?.data?.message ||
-      err?.message ||
-      "",
-  ).trim()
-  const upperMsg = rawMessage.toUpperCase()
-
-  if (code === "CHECKIN_WINDOW_CLOSED" || upperMsg.includes("CHECKIN_WINDOW_CLOSED")) {
-    return formatAttendanceReasonCode("ATTENDANCE_WINDOW_CLOSED", language)
-  }
-
-  if (code) {
-    const translated = translateErrorCode(code, language, "attendance")
-    if (translated) return translated
-  }
-
-  for (const knownCode of [
-    "SESSION_NOT_HELD",
-    "NORMAL_NOT_STARTED",
-    "ATTENDANCE_WINDOW_CLOSED",
-    "SESSION_TIME_REQUIRED",
-    "COACH_REQUIRED",
-    "NOT_YOUR_CLASS",
-    "PACKAGE_EXPIRED",
-    "MEMBER_NOT_ACTIVE",
-    "INVALID_CHECKIN_CODE",
-  ]) {
-    if (upperMsg.includes(knownCode)) {
-      return translateErrorCode(knownCode, language, "attendance")
-    }
-  }
-
-  const fallback = language === "vi" ? fallbackVi : fallbackEn
-  return getErrorMessage(err, fallback)
-}
 
 export function CoachAttendanceView() {
   const {

@@ -338,6 +338,22 @@ export const CONTEXT_CODE_TEXT = {
       vi: 'Lớp học chưa khai giảng nên chưa thể điểm danh.',
       en: 'This class has not started yet, so attendance cannot be recorded.',
     },
+    NOT_YOUR_CLASS: {
+      vi: 'Bạn không phụ trách lớp học này.',
+      en: 'You are not assigned to this class.',
+    },
+    PACKAGE_EXPIRED: {
+      vi: 'Gói tập của hội viên đã hết hạn.',
+      en: "The member's package has expired.",
+    },
+    MEMBER_NOT_ACTIVE: {
+      vi: 'Tài khoản hội viên chưa được kích hoạt hoặc đang bị khóa.',
+      en: 'The member account is not active.',
+    },
+    INVALID_CHECKIN_CODE: {
+      vi: 'Mã điểm danh không hợp lệ hoặc đã hết hạn.',
+      en: 'Check-in code is invalid or has expired.',
+    },
   },
   resultContent: {
     RESULT_CONTENT_NOT_OPEN: {
