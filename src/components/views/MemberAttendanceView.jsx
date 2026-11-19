@@ -700,7 +700,7 @@ export function MemberAttendanceView() {
   const [apiLoading, setApiLoading] = useState(false)
   const [apiStatusFilter, setApiStatusFilter] = useState("all")
   const [liveQrPayload, setLiveQrPayload] = useState("")
-  const [liveQrSeconds, setLiveQrSeconds] = useState(60)
+  const [liveQrSeconds, setLiveQrSeconds] = useState(0)
   const [liveQrLoading, setLiveQrLoading] = useState(false)
 
   // Active sport tab: 'badminton' | 'pickleball' | 'archery'
@@ -1166,20 +1166,16 @@ export function MemberAttendanceView() {
     setLiveQrLoading(true)
     try {
       const res = await memberPortalApi.getMemberCheckinCode()
-      const ttl = Math.max(
-        1,
-        Math.min(
-          30,
-          Number(res?.expiresInSeconds || res?.validitySeconds || 30),
-        ),
-      )
+      const rawTtl = Number(res?.expiresInSeconds ?? res?.validitySeconds)
+      const ttl =
+        Number.isFinite(rawTtl) && rawTtl >= 1 ? Math.round(rawTtl) : 30
       if (res?.code || res?.payload) {
         setLiveQrPayload(res.code || res.payload)
         setLiveQrSeconds(ttl)
       }
     } catch {
       setLiveQrPayload("")
-      setLiveQrSeconds(30)
+      setLiveQrSeconds(0)
     } finally {
       setLiveQrLoading(false)
     }
@@ -1229,7 +1225,7 @@ export function MemberAttendanceView() {
       setLiveQrSeconds((prev) => {
         if (prev <= 1) {
           loadLiveQrCode()
-          return 30
+          return 0
         }
         return prev - 1
       })

@@ -613,16 +613,17 @@ export function MemberDashboard() {
       const payload =
         typeof response?.payload === "string" ? response.payload : ""
       const ttl = Number(response?.expiresInSeconds)
-      if (!payload || !Number.isFinite(ttl) || ttl < 1 || ttl > 30) {
+      if (!payload || !Number.isFinite(ttl) || ttl < 1) {
         throw new Error(
           isVi
             ? "Hệ thống chưa thể cấp mã QR hoặc thời hạn mã không hợp lệ."
             : "The system could not generate a valid QR code or expiry time.",
         )
       }
+      const normalizedTtl = Math.max(1, Math.round(ttl))
       setQrPayload(payload)
-      setQrSecondsLeft(ttl)
-      setQrExpiresAt(Date.now() + ttl * 1000)
+      setQrSecondsLeft(normalizedTtl)
+      setQrExpiresAt(Date.now() + normalizedTtl * 1000)
     } catch (error) {
       if (qrRequestId.current !== requestId) return
       setQrError(

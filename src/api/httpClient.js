@@ -111,9 +111,11 @@ export async function httpRequest(path, options = {}) {
     ).toLowerCase()
     const isTokenExpired =
       response.status === 401 ||
-      errorCode.includes("EXPIRED") ||
-      errorCode.includes("TOKEN_EXPIRED") ||
-      errorCode.includes("AUTH_EXPIRED") ||
+      // Chỉ mã hết phiên đăng nhập mới tính; mã hết hạn nghiệp vụ (REGISTRATION_CONFIRMATION_EXPIRED,
+      // PROPOSAL_EXPIRED, ADVANCED_PACKAGE_EXPIRED...) không được làm người dùng bị đăng xuất.
+      errorCode === "TOKEN_EXPIRED" ||
+      errorCode === "EXPIRED_TOKEN" ||
+      errorCode === "AUTH_EXPIRED" ||
       errorMsg.includes("token expired") ||
       errorMsg.includes("phiên đăng nhập hết hạn") ||
       errorMsg.includes("jwt expired")
