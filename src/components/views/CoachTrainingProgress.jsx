@@ -9,9 +9,10 @@ import { canLogResult } from "../../utils/permissions"
 import {
   decideTrainingResultSubmission,
   getTrainingResultSaveErrorMessage,
+  isSessionPastEndTime,
   resolveVerifiedAttendanceStatus,
 } from "../../utils/trainingResultSubmission"
-import { formatDate, formatTime } from "../../utils/datetime"
+import { formatDate, formatTime, parseBackendDate } from "../../utils/datetime"
 import { formatMemberCode } from "../../utils/formatMember"
 import {
   normalizeScore,
@@ -319,7 +320,7 @@ export function CoachTrainingProgress() {
       setApiSessions(validSessions)
       setAdvancedRegs(Array.isArray(advList) ? advList : [])
       setApiAttendances(Array.isArray(attList) ? attList : [])
-      const completedOnly = validSessions.filter((s) => canLogResult(s))
+      const completedOnly = validSessions.filter((s) => isSessionPastEndTime(s))
       if (completedOnly.length > 0 && !selectedSessionId) {
         setSelectedSessionId(String(completedOnly[0].id))
       }
@@ -447,7 +448,7 @@ export function CoachTrainingProgress() {
   }, [coachClasses, selectedPlanClassId])
 
   const completedSessions = useMemo(
-    () => apiSessions.filter((s) => canLogResult(s)),
+    () => apiSessions.filter((s) => isSessionPastEndTime(s)),
     [apiSessions],
   )
 
@@ -833,6 +834,8 @@ export function CoachTrainingProgress() {
         id: Number(selectedSessionId),
         status: "Completed",
       }
+    const parsedServerTime = parseBackendDate(selectedSessionObj?.serverTime)
+    const nowMs = Number.isFinite(parsedServerTime) ? parsedServerTime : Date.now()
     const decision = apiEnabled
       ? decideTrainingResultSubmission({
           session: selectedSessionObj,
@@ -841,6 +844,7 @@ export function CoachTrainingProgress() {
           attendances: apiAttendances,
           content: resultContent,
           language,
+          now: nowMs,
         })
       : { action: "mock" }
 

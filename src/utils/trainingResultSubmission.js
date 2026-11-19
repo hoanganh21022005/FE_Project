@@ -1,7 +1,52 @@
 import { getErrorCode, getErrorMessage, translateErrorCode } from "../api/apiErrors.js"
+import { parseBackendDate } from "./datetime.js"
 import { normalizeSessionStatus } from "./permissions.js"
 
 const VALID_ATTENDANCE_STATUSES = new Set(["Present", "Absent", "Late", "Excused"])
+
+function resolveNowMs(session, now) {
+  if (session?.serverTime != null) {
+    const serverMs = parseBackendDate(session.serverTime)
+    if (Number.isFinite(serverMs)) return serverMs
+  }
+  if (now instanceof Date) {
+    const t = now.getTime()
+    return Number.isFinite(t) ? t : Date.now()
+  }
+  if (typeof now === "number") {
+    return Number.isFinite(now) ? now : Date.now()
+  }
+  if (typeof now === "string") {
+    const parsed = parseBackendDate(now)
+    return Number.isFinite(parsed) ? parsed : Date.now()
+  }
+  return Date.now()
+}
+
+export function isSessionCancelledOrInvalidated(session) {
+  return (
+    session?.centerInvalidated === true ||
+    normalizeSessionStatus(session) === "Cancelled"
+  )
+}
+
+export function isSessionPastEndTime(session, now = Date.now()) {
+  if (!session || isSessionCancelledOrInvalidated(session)) return false
+  if (normalizeSessionStatus(session) === "Completed") return true
+
+  const rawDate = String(session?.sessionDate ?? "").trim().slice(0, 10)
+  const rawEndTime = String(session?.endTime ?? session?.end_time ?? "").trim()
+  const dateMatch = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  const timeMatch = rawEndTime.match(/^(\d{2}):(\d{2})(?::(\d{2}))?/)
+  if (!dateMatch || !timeMatch) return false
+
+  const [, hh, mm, ss = "00"] = timeMatch
+  const endMs = parseBackendDate(`${rawDate}T${hh}:${mm}:${ss}`)
+  if (!Number.isFinite(endMs)) return false
+
+  const nowMs = resolveNowMs(session, now)
+  return Number.isFinite(nowMs) && nowMs >= endMs
+}
 
 function normalizeAttendanceStatusValue(raw) {
   if (!raw) return null
@@ -56,8 +101,19 @@ export function decideTrainingResultSubmission({
   attendances = [],
   content = "",
   language = "vi",
+  now = Date.now(),
 } = {}) {
   const isVi = language === "vi"
+  if (isSessionCancelledOrInvalidated(session)) {
+    return {
+      action: "block",
+      reason: "SESSION_NOT_HELD",
+      message: isVi
+        ? "Buổi học đã bị hủy hoặc không diễn ra nên không thể ghi nhận xét."
+        : "This session was cancelled or not held, so comments cannot be saved.",
+    }
+  }
+
   const sessionId = session?.id ?? session?.sessionId ?? null
   const sessionIdStr = sessionId != null ? String(sessionId) : ""
   const memberIdStr = memberId != null ? String(memberId) : ""
@@ -73,7 +129,7 @@ export function decideTrainingResultSubmission({
     ? (existingResult.resultId ?? existingResult.id)
     : null
 
-  const isEnded = normalizeSessionStatus(session) === "Completed"
+  const isEnded = isSessionPastEndTime(session, now)
 
   if (isEnded) {
     if (existingResultId != null) {
