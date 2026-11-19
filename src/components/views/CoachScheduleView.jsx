@@ -1027,13 +1027,14 @@ export function CoachScheduleView() {
                 ))}
               </div>
             ) : filteredSessions.length === 0 ? (
-              <div className="p-6 text-center text-sm leading-5 text-text-secondary bg-bg-secondary border border-border-color rounded-lg">
-                Không có buổi dạy nào khớp với bộ lọc hiện tại.
+              <div className="flex min-h-40 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border-color bg-bg-secondary p-6 text-center text-sm leading-5 text-text-secondary">
+                <CalendarDays className="h-8 w-8 text-text-muted" aria-hidden="true" />
+                <p>{language === "vi" ? "Không có buổi dạy nào khớp với bộ lọc hiện tại." : "No sessions match the current filters."}</p>
               </div>
             ) : viewMode === "week" ? (
               /* Weekly 7 days x 8 slots Grid View */
-              <div className="w-full overflow-x-auto rounded-lg border border-border-color bg-bg-card">
-                <table className="w-full min-w-full text-left text-sm border-collapse">
+              <div className="w-full min-w-0 max-w-full touch-pan-x overscroll-x-contain scroll-smooth overflow-x-auto rounded-lg border border-border-color bg-bg-card">
+                <table className="w-full min-w-[900px] text-left text-sm border-collapse xl:min-w-full">
                   <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary">
                     <tr>
                       <th className="px-4 py-3 text-left align-middle border-r border-border-color w-32">

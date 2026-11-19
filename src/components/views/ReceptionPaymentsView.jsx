@@ -417,7 +417,7 @@ export function ReceptionPaymentsView() {
             <CreditCard className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug whitespace-nowrap">{t('payments')}</h1>
+            <h1 className="min-w-0 text-2xl font-semibold tracking-tight text-slate-900 leading-normal break-words">{t('payments')}</h1>
             <p className="mt-1 text-sm text-slate-500 leading-relaxed">
               {language === 'vi'
                 ? 'Thu tiền trực tiếp tại quầy, xác nhận thanh toán & kích hoạt Membership'

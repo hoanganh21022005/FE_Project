@@ -442,7 +442,7 @@ export function WeekGrid({
 
   return (
     <div className="space-y-2.5">
-      <div className="overflow-x-auto md:overflow-x-visible rounded-xl border border-slate-200 bg-white shadow-2xs">
+      <div className="min-w-0 max-w-full touch-pan-x overscroll-x-contain scroll-smooth overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs xl:overflow-x-visible">
         <div className="min-w-[1120px] xl:min-w-0">
           {/* Header Row: 88px + 7 cột đều nhau */}
           <div className="grid grid-cols-[88px_repeat(7,minmax(0,1fr))] border-b border-slate-200 bg-slate-50/90">

@@ -107,7 +107,7 @@ export function formatTimeRange(startTime, endTime) {
 }
 
 /**
- * formatDateTime(iso) -> HH:mm dd/MM/yyyy
+ * formatDateTime(iso) -> HH:mm - dd/MM/yyyy
  */
 export function formatDateTime(iso) {
   if (!iso) return '—';
@@ -115,7 +115,7 @@ export function formatDateTime(iso) {
   const localMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2})/);
   if (localMatch && !str.includes('Z') && !str.includes('+')) {
     const [, yyyy, mm, dd, hhmm] = localMatch;
-    return `${hhmm} ${dd}/${mm}/${yyyy}`;
+    return `${hhmm} - ${dd}/${mm}/${yyyy}`;
   }
   const parsed = parseIsoOrDate(iso);
   if (!parsed) return str || '—';
@@ -134,7 +134,7 @@ export function formatDateTime(iso) {
     const yyyy = parts.find((p) => p.type === 'year')?.value || '2026';
     const hh = parts.find((p) => p.type === 'hour')?.value || '00';
     const min = parts.find((p) => p.type === 'minute')?.value || '00';
-    return `${hh}:${min} ${dd}/${mm}/${yyyy}`;
+    return `${hh}:${min} - ${dd}/${mm}/${yyyy}`;
   } catch {
     return formatDate(iso);
   }

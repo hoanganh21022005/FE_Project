@@ -27,7 +27,7 @@ export function AboutView() {
           <div className="coaches-hero-grid" aria-hidden="true" />
           <div className="relative mx-auto w-full max-w-[1280px] px-5 py-20 sm:px-8 sm:py-28 lg:px-12">
             <p className="coaches-eyebrow">VIBE SPORT</p>
-            <h1 id="about-title" className="mt-7 font-display text-[clamp(3.5rem,7vw,6.5rem)] font-extrabold uppercase leading-none">{isVi ? "Về chúng tôi" : "About us"}</h1>
+            <h1 id="about-title" className="mt-7 font-display text-[clamp(3.5rem,7vw,6.5rem)] font-extrabold uppercase leading-normal break-words">{isVi ? "Về chúng tôi" : "About us"}</h1>
             <p className="mt-7 max-w-2xl border-l-[3px] border-mlc-red pl-5 text-base leading-8 text-white/85">{isVi ? "Lớn lên cùng thể thao. Khám phá môn học bạn yêu thích, xây dựng kỹ năng và tiến bộ theo nhịp độ của riêng mình cùng VIBE Sport." : "Grow through sport. Discover what you love, build skills and progress at your own pace with VIBE Sport."}</p>
           </div>
         </section>

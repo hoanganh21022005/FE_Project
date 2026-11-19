@@ -56,13 +56,13 @@ export function SportCourseView() {
           <div className="sport-course-container grid gap-8 lg:grid-cols-[0.8fr_1.4fr] lg:gap-10">
             <article className="sport-course-overview">
               <span className="sport-course-kicker">{isVi ? "Chương trình" : "Programme"}</span>
-              <h2 id="course-overview-title" className="mt-5 font-display text-4xl font-extrabold uppercase leading-none sm:text-5xl">{isVi ? "Tổng quan" : "Programme"}<br /><span className="sport-course-accent">{isVi ? "chương trình" : "overview"}</span></h2>
+              <h2 id="course-overview-title" className="mt-5 font-display text-4xl font-extrabold uppercase leading-normal sm:text-5xl">{isVi ? "Tổng quan" : "Programme"}<br /><span className="sport-course-accent">{isVi ? "chương trình" : "overview"}</span></h2>
               <div className="sport-course-rule" />
               <p className="text-base leading-8 text-mlc-muted">{isVi ? course.intro : course.introEn}</p>
               <p className="mt-6 border-t border-mlc-border pt-5 text-xs leading-6 text-mlc-muted">{isVi ? "Lộ trình được tư vấn theo độ tuổi, trình độ và mục tiêu của học viên." : "Your learning path is discussed according to age, experience and goals."}</p>
             </article>
             <div>
-              <h2 className="font-display text-4xl font-extrabold uppercase leading-none sm:text-5xl">{isVi ? "Danh sách" : "Course"} <span className="sport-course-accent">{isVi ? "khóa học" : "programme"}</span></h2>
+              <h2 className="font-display text-4xl font-extrabold uppercase leading-normal sm:text-5xl break-words">{isVi ? "Danh sách" : "Course"} <span className="sport-course-accent">{isVi ? "khóa học" : "programme"}</span></h2>
               <div className="sport-course-rule" />
               <article className="sport-course-programme">
                 <div className="sport-course-programme-head">
@@ -91,7 +91,7 @@ export function SportCourseView() {
                 <img src={coach.image} alt={isVi ? `Ảnh minh họa HLV ${coach.name} – ${title}` : `Illustrative image of coach ${coach.name} – ${title}`} width="768" height="1024" loading="lazy" decoding="async" />
                 <div className="sport-course-coach-copy">
                   <p className="sport-course-kicker text-white/60">{isVi ? "Huấn luyện viên" : "Your coach"}</p>
-                  <h3 className="mt-4 font-display text-4xl font-extrabold uppercase leading-none">{coach.name}</h3>
+                  <h3 className="mt-4 font-display text-4xl font-extrabold uppercase leading-normal break-words">{coach.name}</h3>
                   <p className="sport-course-accent mt-3 text-xs font-bold uppercase tracking-wider">{title}</p>
                   <p className="mt-5 text-sm leading-7 text-white/75">{isVi ? `Đồng hành cùng bạn trong từng bài tập ${title.toLocaleLowerCase("vi")}, hướng dẫn kỹ thuật nền tảng và góp ý để bạn cải thiện qua mỗi buổi học.` : `Guidance in ${title.toLowerCase()} foundations, with feedback to help you develop through each session.`}</p>
                   <div className="mt-6 space-y-3 border-t border-white/10 pt-5 text-xs text-white/75">

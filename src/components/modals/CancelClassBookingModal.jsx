@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Clock, MapPin, Users, X, AlertCircle, ShieldAlert, Calendar } from 'lucide-react';
 import { formatDate } from '../../locales/translations';
 
@@ -11,6 +11,17 @@ export function CancelClassBookingModal({
   language = 'vi',
 }) {
   const [cancelling, setCancelling] = useState(false);
+  const cancelButtonRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    cancelButtonRef.current?.focus();
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && !cancelling) onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, cancelling, onClose]);
 
   if (!isOpen || !classItem) return null;
 
@@ -51,6 +62,7 @@ export function CancelClassBookingModal({
             </span>
           </div>
           <button
+            ref={cancelButtonRef}
             type="button"
             onClick={onClose}
             disabled={cancelling}

@@ -1,3 +1,5 @@
+import { formatCurrency, formatDateTime } from '../../../locales/translations'
+
 export const STATUS_LABELS = {
   successful: {
     vi: "Đã thanh toán",
@@ -31,19 +33,10 @@ export const STATUS_LABELS = {
   },
 }
 
-export const formatMoney = (amount, isVi) =>
-  Number(amount || 0).toLocaleString(isVi ? "vi-VN" : "en-US", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  })
+export const formatMoney = (amount, isVi) => formatCurrency(amount, isVi ? 'vi' : 'en')
 export const formatDate = (value, isVi) =>
   value
-    ? new Date(value).toLocaleString(isVi ? "vi-VN" : "en-US", {
-        dateStyle: "medium",
-        timeStyle: "short",
-        timeZone: "Asia/Ho_Chi_Minh",
-      })
+    ? formatDateTime(value, isVi ? 'vi' : 'en')
     : "—"
 
 export const getLocalizedInvoiceStatus = (status, isVi) => {
@@ -107,3 +100,4 @@ export const getPaymentMethodLabel = (invoice, isVi) => {
     return "VNPay / Online"
   return method ? (isVi ? "Khác" : "Other") : "—"
 }
+

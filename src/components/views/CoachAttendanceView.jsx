@@ -320,6 +320,14 @@ export function CoachAttendanceView() {
   const rosterRequestId = useRef(0)
   const [bulkSaving, setBulkSaving] = useState(false)
   const [showBulkConfirmModal, setShowBulkConfirmModal] = useState(false)
+  useEffect(() => {
+    if (!showBulkConfirmModal || bulkSaving) return undefined
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setShowBulkConfirmModal(false)
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [showBulkConfirmModal, bulkSaving])
   const [quickMemberInput, setQuickMemberInput] = useState("")
   const [quickSaving, setQuickSaving] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -1663,7 +1671,8 @@ export function CoachAttendanceView() {
               ))}
             </div>
           ) : filteredMembers.length === 0 && !rosterError && !attendancesError && !trainingResultsError ? (
-            <div className="p-6 text-center text-sm leading-5 text-text-secondary bg-bg-secondary border border-border-color rounded-lg">
+            <div className="flex min-h-36 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border-color bg-bg-secondary p-6 text-center text-sm leading-5 text-text-secondary">
+              <Users className="h-8 w-8 text-text-muted" aria-hidden="true" />
               {attendanceMode === "advanced"
                 ? (
                   <div className="space-y-3">

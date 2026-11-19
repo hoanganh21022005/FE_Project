@@ -1230,7 +1230,7 @@ function SCMSApp() {
             onLogout={handleLogout}
             onOpenMobileMenu={() => setMobileSidebarOpen(true)}
           />
-          <main className="flex-1 min-w-0 p-3 sm:p-4 md:p-6 overflow-y-auto w-full bg-bg-main">
+          <main className="flex-1 min-w-0 p-3 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-4 sm:pb-20 md:p-6 md:pb-6 overflow-y-auto w-full bg-bg-main">
             <ErrorBoundary inline>
               <Suspense
                 fallback={
