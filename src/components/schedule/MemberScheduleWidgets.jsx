@@ -32,6 +32,8 @@ import {
   toDdMm,
   toDdMmYyyy,
 } from "../../utils/scheduleModel"
+import { describeCancellationBlock } from "../../utils/sessionCancellation"
+import { formatDateTime } from "../../utils/datetime"
 
 /**
  * 4.3 Bảng màu & nhãn trạng thái chuẩn (luôn kèm icon + chữ)
@@ -1384,7 +1386,9 @@ export function SessionDrawer({
                 </span>
                 <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${item.uiState === "completed_present" ? "bg-emerald-50 text-emerald-800" : item.uiState === "completed_absent" ? "bg-rose-50 text-rose-800" : item.uiState === "cancelled" ? "bg-slate-100 text-slate-700" : "bg-blue-50 text-blue-800"}`}>
                   <span className={`h-2 w-2 rounded-full ${item.uiState === "completed_present" ? "bg-emerald-500" : item.uiState === "completed_absent" ? "bg-rose-500" : item.uiState === "cancelled" ? "bg-slate-400" : "bg-blue-500"}`} />
-                  {sessionStatus.label}
+                  {item.kind === "pt" && item.status === "Cancelled"
+                    ? (item.creditReturned === true ? t("sessionCancelledRefundedBadge") : sessionStatus.label)
+                    : sessionStatus.label}
                 </span>
               </div>
               <h3 className="text-[18px] font-extrabold text-slate-950">
@@ -1600,11 +1604,22 @@ export function SessionDrawer({
               {item.canCancelPt && (
                 <button
                   type="button"
+                  // Chỉ khóa khi Backend nói rõ không được hủy; thiếu field thì giữ hành vi cũ.
+                  disabled={item.cancellationAllowed === false}
+                  aria-describedby={item.cancellationAllowed === false ? "session-cancel-block" : undefined}
                   onClick={() => onRequestCancelPt(item)}
-                  className="min-h-[40px] rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 px-3 py-2 text-[13px] font-bold text-rose-800 cursor-pointer"
+                  className="min-h-11 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed px-3 py-2 text-[13px] font-bold text-rose-800 cursor-pointer"
                 >
                   {t("schedulePtBtnCancel")}
                 </button>
+              )}
+              {item.canCancelPt && item.cancellationAllowed === false && (
+                <p id="session-cancel-block" className="col-span-2 text-[12px] leading-snug text-slate-700">
+                  {describeCancellationBlock(item, language).reasonText}
+                  {item.cancellationDeadline
+                    ? ` ${tr("sessionCancelDeadline", { datetime: formatDateTime(item.cancellationDeadline) })}`
+                    : ""}
+                </p>
               )}
             </div>
           )}

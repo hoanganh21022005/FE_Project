@@ -3,6 +3,8 @@
 // Múi giờ chuẩn: Asia/Ho_Chi_Minh, định dạng ngày dd/MM/yyyy, tuần bắt đầu Thứ Hai
 // ============================================================================
 
+import { readCancellationFields } from "./sessionCancellation.js"
+
 export const VN_TIMEZONE = "Asia/Ho_Chi_Minh"
 export const ABSENCE_MIN_HOURS_BEFORE = 2
 export const PT_CANCEL_REFUND_HOURS_BEFORE = 12
@@ -594,6 +596,10 @@ export function buildScheduleItems({
           ? toDateTimeDdMmYyyy(new Date(refundDeadlineMs).toISOString())
           : null,
       creditReturned: Boolean(raw.creditReturned),
+      // Hạn hủy theo Backend: thiếu field giữ null (khác với false); chỉ `false` mới khóa nút hủy.
+      cancellationAllowed: readCancellationFields(raw).allowed,
+      cancellationBlockReason: readCancellationFields(raw).blockReason,
+      cancellationDeadline: readCancellationFields(raw).deadline,
       deadlineAfterFormatted: raw.deadlineAfter
         ? toDdMmYyyy(raw.deadlineAfter)
         : null,
