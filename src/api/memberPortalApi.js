@@ -297,10 +297,6 @@ export const getCenterIncidents = async () => {
   }
 }
 
-export const bookPrivateSession = async (payload) => {
-  return httpClient.post("/api/sessions/book-private", payload)
-}
-
 export const createPrivateSessionProposal = async (payload) => {
   const requiredPositiveId = (value) => typeof value === "number" && Number.isInteger(value) && value > 0
   const standardSlots = [
@@ -488,7 +484,6 @@ export const memberPortalApi = {
   getRooms,
   getActiveHolidays,
   getCenterIncidents,
-  bookPrivateSession,
   createPrivateSessionProposal,
   getPrivateSessionProposals,
   getPrivateSessionProposalById,

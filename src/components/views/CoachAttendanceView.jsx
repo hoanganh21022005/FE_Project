@@ -8,7 +8,7 @@ import { classEnrollmentApi } from "../../api/classEnrollmentApi"
 import { attendanceApi, matchesSessionAttendance } from "../../api/attendanceApi"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getCatalogClassSessions } from "../../api/managerApi"
-import { getErrorMessage } from "../../api/apiErrors"
+import { getErrorCode, getErrorMessage, translateErrorCode } from "../../api/apiErrors"
 import { isActiveNormalEnrollment } from "../../utils/memberScheduleUtils"
 import {
   canCheckIn,
@@ -33,16 +33,7 @@ import {
 } from "lucide-react"
 
 function getAttendanceActionErrorMessage(err, language, fallbackVi, fallbackEn) {
-  const code = String(
-    err?.code ||
-      err?.details?.code ||
-      err?.details?.errorCode ||
-      err?.response?.data?.code ||
-      err?.response?.data?.errorCode ||
-      "",
-  )
-    .trim()
-    .toUpperCase()
+  const code = getErrorCode(err)
   const rawMessage = String(
     err?.details?.message ||
       err?.response?.data?.message ||
@@ -51,33 +42,14 @@ function getAttendanceActionErrorMessage(err, language, fallbackVi, fallbackEn) 
   ).trim()
   const upperMsg = rawMessage.toUpperCase()
 
-  if (code === "NORMAL_NOT_STARTED" || upperMsg.includes("NORMAL_NOT_STARTED")) {
-    if (
-      rawMessage &&
-      !upperMsg.includes("NORMAL_NOT_STARTED") &&
-      rawMessage !== code
-    ) {
-      return rawMessage
+  for (const knownCode of ["NORMAL_NOT_STARTED", "ATTENDANCE_WINDOW_CLOSED"]) {
+    if (code === knownCode || upperMsg.includes(knownCode)) {
+      // Câu tiếng người của Backend (không phải mã) được ưu tiên; thiếu thì dùng bảng chung.
+      if (rawMessage && !upperMsg.includes(knownCode) && rawMessage !== code) {
+        return rawMessage
+      }
+      return translateErrorCode(knownCode, language, "attendance")
     }
-    return language === "vi"
-      ? "Lớp học chưa khai giảng nên chưa thể điểm danh."
-      : "This class has not started yet, so attendance cannot be recorded."
-  }
-
-  if (
-    code === "ATTENDANCE_WINDOW_CLOSED" ||
-    upperMsg.includes("ATTENDANCE_WINDOW_CLOSED")
-  ) {
-    if (
-      rawMessage &&
-      !upperMsg.includes("ATTENDANCE_WINDOW_CLOSED") &&
-      rawMessage !== code
-    ) {
-      return rawMessage
-    }
-    return language === "vi"
-      ? "Đã hết thời gian điểm danh cho buổi học này."
-      : "The attendance window for this session has closed."
   }
 
   const fallback = language === "vi" ? fallbackVi : fallbackEn
