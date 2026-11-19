@@ -1,6 +1,6 @@
-# SCMS Frontend — FE_Project
+# AVT Sport Frontend — FE_Project
 
-Frontend repository của **Sports Center Management System (SCMS)**.
+Frontend repository của **AVT Sport**.
 
 Repo này là **source of truth của Frontend Team**. Sau khi baseline được merge vào `main`, tất cả thành viên FE phải clone/pull từ repo này và không tiếp tục code trên bản source ZIP/Figma cũ.
 

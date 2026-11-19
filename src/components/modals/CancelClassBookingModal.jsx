@@ -37,7 +37,7 @@ export function CancelClassBookingModal({
 
   const className = classItem.nameVi || classItem.name || classItem.className || 'Lớp thể thao';
   const category = classItem.category || 'Thể thao';
-  const room = classItem.roomVi || classItem.room || 'Sân tập VIBE Sport';
+  const room = classItem.roomVi || classItem.room || 'Sân tập AVT Sport';
   const coach = classItem.coachName || 'Huấn luyện viên';
   const dateStr = formatDate(classItem.date || classItem.startDate, language);
   const timeStr = `${classItem.startTime || '06:00'} - ${classItem.endTime || '07:30'}`;
@@ -121,7 +121,7 @@ export function CancelClassBookingModal({
           <div className="p-3.5 rounded-lg bg-amber-50/80 border border-amber-200 text-amber-900 text-[11px] space-y-1.5 leading-relaxed">
             <div className="font-bold flex items-center gap-1.5 text-amber-950">
               <ShieldAlert className="w-4 h-4 text-amber-700 shrink-0" />
-              <span>{language === 'vi' ? 'Chính sách hủy khóa học VIBE Sport:' : 'Cancellation Policy:'}</span>
+              <span>{language === 'vi' ? 'Chính sách hủy khóa học AVT Sport:' : 'Cancellation Policy:'}</span>
             </div>
             <ul className="list-disc list-inside space-y-1 pl-1 text-amber-900/90">
               <li>

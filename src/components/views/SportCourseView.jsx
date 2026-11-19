@@ -21,7 +21,7 @@ export function SportCourseView() {
     <div className="coaches-page min-h-screen bg-mlc-ink font-mlc text-white">
       <CoachesHeader showRegister={false} />
       <main className="mx-auto max-w-3xl px-5 py-24 text-center">
-        <p className="coaches-eyebrow">VIBE SPORT</p>
+        <p className="coaches-eyebrow">AVT SPORT</p>
         <h1 className="mt-6 font-display text-5xl font-bold">{isVi ? "Không tìm thấy môn học" : "Course not found"}</h1>
         <Link to="/#courses" className="mt-8 inline-flex items-center gap-3 text-mlc-red">{isVi ? "Khám phá các khóa học" : "Explore courses"}<ArrowRight className="h-4 w-4" /></Link>
       </main>
@@ -45,7 +45,7 @@ export function SportCourseView() {
               <Link to="/#courses">{isVi ? "Khóa học" : "Courses"}</Link><ChevronRight className="h-3 w-3" aria-hidden="true" />
               <span aria-current="page" className="text-white">{title}</span>
             </nav>
-            <p className="coaches-eyebrow">VIBE SPORT</p>
+            <p className="coaches-eyebrow">AVT SPORT</p>
             <h1 id="course-title" className="mt-7 max-w-4xl font-display text-[clamp(3.75rem,9vw,8rem)] font-extrabold uppercase leading-[0.95] tracking-tight">{title}</h1>
             <p className="mt-6 max-w-xl text-sm leading-7 text-white/80 sm:text-base">{isVi ? "Bắt đầu từ nền tảng. Tiến bộ cùng người hướng dẫn. Tìm nhịp vận động của riêng bạn." : "Start with the foundations. Grow with your coach. Find your own rhythm."}</p>
             <Link to="#course-overview" className="mt-8 inline-flex items-center gap-3 border-b border-white/50 pb-2 text-xs font-bold uppercase tracking-wider">{isVi ? "Khám phá chương trình" : "Explore the programme"}<ArrowDown className="h-4 w-4" /></Link>
@@ -98,7 +98,7 @@ export function SportCourseView() {
                     <p className="flex items-center gap-2"><Target className="sport-course-accent h-4 w-4 shrink-0" />{isVi ? "Hướng dẫn kỹ thuật nền tảng" : "Foundational technique guidance"}</p>
                     <p className="flex items-center gap-2"><Compass className="sport-course-accent h-4 w-4 shrink-0" />{isVi ? "Đồng hành theo mục tiêu học tập" : "Support for your learning goals"}</p>
                   </div>
-                  <Link to="/coaches" className="mt-6 inline-flex items-center gap-2 text-xs font-semibold hover:text-white/70">{isVi ? "Gặp đội ngũ VIBE Sport" : "Meet the VIBE Sport team"}<ArrowRight className="h-4 w-4" /></Link>
+                  <Link to="/coaches" className="mt-6 inline-flex items-center gap-2 text-xs font-semibold hover:text-white/70">{isVi ? "Gặp đội ngũ AVT Sport" : "Meet the AVT Sport team"}<ArrowRight className="h-4 w-4" /></Link>
                 </div>
               </article>
               <article className="sport-course-space">

@@ -749,7 +749,7 @@ function SCMSApp() {
         </div>
         <div className="text-center">
           <p className="font-bold tracking-wide text-slate-800">
-            VIBE SPORT CENTER
+            AVT SPORT CENTER
           </p>
           <p className="text-xs text-slate-500 mt-1">
             Đang kiểm tra phiên đăng nhập & nạp dữ liệu...

@@ -149,7 +149,7 @@ const DEFAULT_SPORT_META = {
   image: '/images/courses/badminton.jpg',
   badgeColor: 'bg-slate-800',
   lightBg: 'bg-slate-100 text-slate-800 border-slate-200',
-  defaultCourt: 'Sân thể thao chuyên dụng VIBE Sport',
+  defaultCourt: 'Sân thể thao chuyên dụng AVT Sport',
 };
 
 // Format selected days helper
@@ -542,7 +542,7 @@ function LegacyMemberClassCatalog() {
         image: `/images/courses/${item.id}.jpg`,
         intro: 'Chương trình rèn luyện thể thao chuyên nghiệp cùng HLV đạt chuẩn.',
         goals: ['Làm quen kỹ thuật căn bản', 'Thực hành cùng HLV', 'Phát triển phản xạ và thể lực'],
-        space: 'Khu phức hợp thể thao đa năng VIBE Sport',
+        space: 'Khu phức hợp thể thao đa năng AVT Sport',
       };
       const coach = publicCoaches.find(c => c.sportId === item.id) || {
         name: item.coachName,
@@ -826,7 +826,7 @@ function LegacyMemberClassCatalog() {
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-slate-300 hover:border-slate-900 text-slate-800 text-[13px] font-bold transition-all cursor-pointer shrink-0 bg-white hover:bg-slate-50 shadow-xs"
           >
             <Video className="w-4 h-4 text-mlc-red" />
-            <span>Video trung tâm VIBE Sport</span>
+            <span>Video trung tâm AVT Sport</span>
           </button>
         </div>
 
@@ -929,7 +929,7 @@ function LegacyMemberClassCatalog() {
               <span className="text-[#24A9D2]">CÁC MÔN</span>
             </h2>
             <span className="text-[11px] font-bold text-[#98D9E8] bg-brand-dark border border-brand-accent/40 px-2.5 py-0.5 rounded-full">
-              VIBE Sport Center
+              AVT Sport Center
             </span>
             <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
               &bull; <strong className="text-white font-bold tabular-nums">{openClassesCount}</strong> lớp đang mở đăng ký
@@ -940,7 +940,7 @@ function LegacyMemberClassCatalog() {
           <p className="text-xs sm:text-sm text-slate-400 max-w-2xl">
             {language === 'vi'
               ? 'Đăng ký các khóa đào tạo thể thao chuyên nghiệp cùng đội ngũ Huấn luyện viên đạt chuẩn quốc tế.'
-              : 'Enrol in high-performance sports training courses with certified coaches at VIBE Sport Center.'}
+              : 'Enrol in high-performance sports training courses with certified coaches at AVT Sport Center.'}
           </p>
         </div>
 
@@ -1789,7 +1789,7 @@ function LegacyMemberClassCatalog() {
                           <span>Khu vực sân tập tiêu chuẩn:</span>
                         </div>
                         <p className="pl-5 text-slate-400 leading-relaxed">
-                          {selectedSportForDetail.space || 'Khu phức hợp thể thao đa năng VIBE Sport'} &bull; Cửa từ Turnstile kiểm soát tự động.
+                          {selectedSportForDetail.space || 'Khu phức hợp thể thao đa năng AVT Sport'} &bull; Cửa từ Turnstile kiểm soát tự động.
                         </p>
                       </div>
                     </div>
@@ -1829,7 +1829,7 @@ function LegacyMemberClassCatalog() {
       )}
 
       {/* ============================================================== */}
-      {/* 4. MODAL: VIDEO TRUNG TÂM VIBE SPORT (CHỌN TẤT CẢ 9 MÔN)      */}
+      {/* 4. MODAL: VIDEO TRUNG TÂM AVT SPORT (CHỌN TẤT CẢ 9 MÔN)      */}
       {/* ============================================================== */}
       {showCenterVideoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -1837,10 +1837,10 @@ function LegacyMemberClassCatalog() {
             <div className="p-5 sm:p-6 border-b border-slate-800 flex items-center justify-between gap-4 sticky top-0 bg-slate-900/95 backdrop-blur-md z-10">
               <div>
                 <div className="text-xs font-bold uppercase tracking-wider text-mlc-red">
-                  Cơ sở vật chất &bull; VIBE Sport Center
+                  Cơ sở vật chất &bull; AVT Sport Center
                 </div>
                 <h3 className="text-xl sm:text-2xl font-black font-title text-white">
-                  Video Giới Thiệu Trung Tâm Thể Thao VIBE Sport
+                  Video Giới Thiệu Trung Tâm Thể Thao AVT Sport
                 </h3>
               </div>
 
@@ -1893,10 +1893,10 @@ function LegacyMemberClassCatalog() {
 
               <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 text-xs text-slate-300 space-y-2">
                 <div className="font-bold text-white text-sm">
-                  Trung tâm Thể thao Đa năng Chuẩn Quốc Tế VIBE Sport
+                  Trung tâm Thể thao Đa năng Chuẩn Quốc Tế AVT Sport
                 </div>
                 <p className="leading-relaxed text-slate-400">
-                  Hệ thống 9 bộ môn thể thao với mặt sân Taraflex, Plexicushion, DUPR tiêu chuẩn giải đấu. Kiểm soát vào sân tự động bằng mã QR động và thẻ điện tử VIBE Access tại các cổng Turnstile.
+                  Hệ thống 9 bộ môn thể thao với mặt sân Taraflex, Plexicushion, DUPR tiêu chuẩn giải đấu. Kiểm soát vào sân tự động bằng mã QR động và thẻ điện tử AVT Access tại các cổng Turnstile.
                 </p>
               </div>
             </div>

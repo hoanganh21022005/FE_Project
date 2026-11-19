@@ -231,7 +231,7 @@ const ADMIN_TEXT = {
     "shell.collapseSidebar": "Thu gọn thanh bên",
     "shell.expandSidebar": "Mở rộng thanh bên",
     "shell.adminPortal": "Cổng Quản Trị",
-    "shell.brand": "VIBE Athletic Club",
+    "shell.brand": "AVT Sport",
     "shell.langGroup": "Ngôn ngữ giao diện",
     "shell.langViLabel": "Tiếng Việt",
     "shell.langEnLabel": "Tiếng Anh",
@@ -544,7 +544,7 @@ const ADMIN_TEXT = {
     "profile.showPwd": "Hiện mật khẩu",
 
     // Admin Login View
-    "login.brandName": "VIBE Sport",
+    "login.brandName": "AVT Sport",
     "login.brandTagline": "Hệ thống quản trị trung tâm thể thao",
     "login.kicker": "KHU VỰC QUẢN TRỊ",
     "login.title": "Đăng nhập Quản trị",
@@ -595,7 +595,7 @@ const ADMIN_TEXT = {
     "shell.collapseSidebar": "Collapse sidebar",
     "shell.expandSidebar": "Expand sidebar",
     "shell.adminPortal": "Admin Portal",
-    "shell.brand": "VIBE Athletic Club",
+    "shell.brand": "AVT Sport",
     "shell.langGroup": "Interface language",
     "shell.langViLabel": "Vietnamese",
     "shell.langEnLabel": "English",
@@ -908,7 +908,7 @@ const ADMIN_TEXT = {
     "profile.showPwd": "Show password",
 
     // Admin Login View
-    "login.brandName": "VIBE Sport",
+    "login.brandName": "AVT Sport",
     "login.brandTagline": "Sports Center Administration",
     "login.kicker": "ADMINISTRATION",
     "login.title": "Admin sign-in",

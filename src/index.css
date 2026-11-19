@@ -250,7 +250,7 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.15;
   letter-spacing: 0.03em;
   opacity: 0;
-  animation: vibe-slogan-cycle 12s cubic-bezier(0.2, 0.75, 0.25, 1) infinite both;
+  animation: vibe-slogan-cycle 9s cubic-bezier(0.2, 0.75, 0.25, 1) infinite both;
   will-change: opacity, filter, transform;
 }
 

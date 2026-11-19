@@ -978,7 +978,7 @@ export function MemberInvoicesView() {
                 const service =
                   invoice.packageName ||
                   invoice.className ||
-                  (isVi ? "Dịch vụ VIBE Sport" : "VIBE Sport service")
+                  (isVi ? "Dịch vụ AVT Sport" : "AVT Sport service")
                 const code =
                   invoice.invoiceCode ||
                   invoice.code ||
@@ -1050,8 +1050,8 @@ export function MemberInvoicesView() {
                           {invoice.packageName ||
                             invoice.className ||
                             (isVi
-                              ? "Dịch vụ VIBE Sport"
-                              : "VIBE Sport service")}
+                              ? "Dịch vụ AVT Sport"
+                              : "AVT Sport service")}
                         </h3>
                         <InvoiceStatusBadge
                           label={getLocalizedInvoiceStatus(
@@ -1237,7 +1237,7 @@ export function MemberInvoicesView() {
                     />
                   </div>
                   <p className="mt-2 text-xs text-slate-500">
-                    VIBE Athletic Club
+                    AVT Sport
                   </p>
                 </div>
                 <div className="border-t border-dashed border-slate-300" />
@@ -1280,7 +1280,7 @@ export function MemberInvoicesView() {
                     <strong className="text-slate-900 text-right">
                       {selectedInvoice.packageName ||
                         selectedInvoice.className ||
-                        (isVi ? "Dịch vụ VIBE Sport" : "VIBE Sport Service")}
+                        (isVi ? "Dịch vụ AVT Sport" : "AVT Sport Service")}
                     </strong>
                   </div>
                   <div className="flex justify-between">

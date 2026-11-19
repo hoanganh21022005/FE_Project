@@ -891,7 +891,7 @@ export function MemberMyCoachView() {
                       {(String(c.bio || "").toLowerCase().includes("demo") ? "" : c.bio) ||
                         (isVi
                           ? `Huấn luyện viên chuyên sâu bộ môn ${(c.specializations?.[0] || c.specialization || "thể thao")} · Đào tạo kỹ thuật & chiến thuật 1:1`
-                          : "Professional personal trainer at VIBE Sport.")}
+                          : "Professional personal trainer at AVT Sport.")}
                     </p>
 
                     {/* Specializations tags */}
@@ -901,7 +901,7 @@ export function MemberMyCoachView() {
                         ? c.specializations
                         : c.specialization
                           ? [c.specialization]
-                          : ["VIBE Sport Coach"]
+                          : ["AVT Sport Coach"]
                       ).map((spec, sIdx) => (
                         <span
                           key={sIdx}
@@ -1075,7 +1075,7 @@ export function MemberMyCoachView() {
                       </span>
                       <span className="flex items-center gap-1">
                         <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                        {s.roomName || "Phòng PT VIBE Sport"}
+                        {s.roomName || "Phòng PT AVT Sport"}
                       </span>
                     </div>
                   </div>

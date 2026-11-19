@@ -197,7 +197,7 @@ export function AdminHeader({ title, onMenu, onLogout, onChangeLanguage }) {
           className="flex items-center gap-2 text-sm leading-5 min-w-0"
         >
           <span className="hidden sm:inline text-text-secondary font-medium whitespace-nowrap">
-            VIBE Athletic Club
+            AVT Sport
           </span>
           <ChevronRight
             className="hidden sm:inline w-4 h-4 text-text-muted shrink-0"

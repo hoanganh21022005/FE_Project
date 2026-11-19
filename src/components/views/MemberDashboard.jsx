@@ -1398,7 +1398,7 @@ export function MemberDashboard() {
 
             <section className="rounded-2xl border border-slate-200 bg-slate-900 p-5 text-white shadow-sm sm:p-6">
               <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-brand-accent-soft">
-                VIBE SPORT
+                AVT SPORT
               </p>
               <h2 className="mt-2 text-lg font-bold">
                 {isVi
@@ -1439,7 +1439,7 @@ export function MemberDashboard() {
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
                 <p className="text-[13px] font-bold uppercase tracking-wide text-brand-accent-dark">
-                  VIBE SPORT
+                  AVT SPORT
                 </p>
                 <h2
                   id="member-checkin-title"

@@ -1490,7 +1490,7 @@ export function MemberCheckinView() {
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-blue-800">
-              {session.subjectName || "VIBE SPORT"}
+              {session.subjectName || "AVT SPORT"}
             </span>
             {session.isPrivate && (
               <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-bold text-slate-700">
@@ -2065,7 +2065,7 @@ export function MemberCheckinView() {
                     <div className="mx-auto w-full max-w-2xl rounded-2xl border border-blue-200 bg-white p-4 text-left shadow-xs">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-blue-800">{nextFutureValidSession.subjectName || "VIBE SPORT"}</span>
+                          <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-blue-800">{nextFutureValidSession.subjectName || "AVT SPORT"}</span>
                           <h3 className="mt-2 text-base font-extrabold text-slate-900">{nextFutureValidSession.className || nextFutureValidSession.subjectName || (nextFutureValidSession.isPrivate ? t("schedulePtDefaultTitle") : `#${nextFutureValidSession.classId}`)}</h3>
                           <p className="mt-1 text-xs font-medium leading-relaxed text-slate-600">{toDateDdMmYyyy(nextFutureValidSession.sessionDate)} · {nextFutureValidSession.startTime}–{nextFutureValidSession.endTime} · {nextFutureValidSession.roomName || t("scheduleRoomTbd")}{nextFutureValidSession.coachName ? ` · ${nextFutureValidSession.coachName}` : ""}</p>
                         </div>

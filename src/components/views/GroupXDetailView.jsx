@@ -62,7 +62,7 @@ export function GroupXDetailView() {
             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-lg text-black transition-colors duration-1000 ${current.bgAccent}`}>
               <Music2 className="w-5 h-5" />
             </div>
-            <div className="text-xl font-black uppercase text-white tracking-widest">VIBE Sport GROUP X</div>
+            <div className="text-xl font-black uppercase text-white tracking-widest">AVT Sport GROUP X</div>
           </div>
           <button onClick={goBack} className="flex items-center gap-2 text-stone-400 hover:text-white transition-colors"><ArrowLeft className="w-5 h-5" />Quay lại</button>
         </div>

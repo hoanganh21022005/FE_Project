@@ -72,7 +72,7 @@ const getLocalizedNotificationText = (value, isVi) => {
   if (!isVi) return text
   const knownTranslations = {
     "New chat reply": "Phản hồi hỗ trợ mới",
-    "Staff replied to your support conversation.": "Chuyên viên lễ tân hoặc Trợ lý VIBE đã phản hồi cuộc trò chuyện của bạn.",
+    "Staff replied to your support conversation.": "Chuyên viên lễ tân hoặc Trợ lý AVT đã phản hồi cuộc trò chuyện của bạn.",
     "A concrete center proposal still needs your choice; silence does not waive refund rights": "Trung tâm đã gửi phương án xử lý cụ thể cần bạn xác nhận; việc chưa phản hồi không làm mất quyền hoàn tiền của bạn.",
   }
   return knownTranslations[text.trim()] || text
