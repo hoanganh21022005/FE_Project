@@ -15,6 +15,7 @@ import * as classEnrollmentApi from "../api/classEnrollmentApi.js"
 import * as memberPortalApi from "../api/memberPortalApi.js"
 import * as attendanceApi from "../api/attendanceApi.js"
 import { getErrorMessage, sanitizeBackendMessage, UnauthorizedError } from "../api/apiErrors.js"
+import { selectMemberCreateRoute } from "../utils/memberCreationRoute.js"
 import { UNAUTHORIZED_EVENT, FORBIDDEN_EVENT } from "../api/httpClient.js"
 import {
   normalizeRole,
@@ -873,7 +874,11 @@ export const SCMSProvider = ({ children }) => {
 
   const addMember = async (data) => {
     if (API_ENABLED) {
-      const created = await memberApi.createMember(data)
+      const route = selectMemberCreateRoute(currentUser?.authorities)
+      const created =
+        route === "register"
+          ? await memberApi.registerMemberProfile(data)
+          : await memberApi.createMember(data)
       setMembers((prev) => [
         created,
         ...prev.filter((m) => m.id !== created.id),
