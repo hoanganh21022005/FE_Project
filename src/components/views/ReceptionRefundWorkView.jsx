@@ -772,10 +772,10 @@ export function ReceptionRefundWorkView() {
             <ReceiptText className="h-5 w-5" aria-hidden="true" />
           </div>
           <div>
-            <h1 id={headingId} className="text-xl leading-7 font-bold text-text-primary text-balance">
+            <h1 id={headingId} className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug text-balance">
               {isVi ? 'Việc hoàn tiền' : 'Refund work'}
             </h1>
-            <p className="text-sm leading-5 text-text-secondary">
+            <p className="mt-1 text-sm text-slate-500 leading-relaxed">
               {isVi
                 ? 'Nhận hồ sơ đã duyệt, tải chứng từ và nộp kết quả chuyển khoản.'
                 : 'Claim approved refunds, upload transfer documents, and submit results.'}

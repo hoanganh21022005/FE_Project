@@ -1250,10 +1250,10 @@ export function CoachAttendanceView() {
             role="tab"
             aria-selected={attendanceMode === "advanced"}
             onClick={() => handleModeChange("advanced")}
-            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded px-4 text-xs font-semibold transition-all cursor-pointer ${
+            className={`inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3.5 text-xs font-semibold transition-all cursor-pointer ${
               attendanceMode === "advanced"
-                ? "bg-brand-primary text-text-inverse shadow-xs"
-                : "border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary"
+                ? "bg-brand-primary text-white shadow-sm"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
             }`}
           >
             <UserCheck className="w-4 h-4" />
@@ -1261,7 +1261,7 @@ export function CoachAttendanceView() {
             <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
               attendanceMode === "advanced"
                 ? "bg-white/20 text-white"
-                : "bg-bg-secondary text-text-secondary border border-border-color"
+                : "bg-slate-200 text-slate-600"
             }`}>
               {coachPtSessions.length}
             </span>
@@ -1270,7 +1270,7 @@ export function CoachAttendanceView() {
       </div>
 
       {/* Class Banner & Selector */}
-      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <CoachStatusBadge
@@ -1302,7 +1302,7 @@ export function CoachAttendanceView() {
                       sessionStorage.removeItem("scms_selected_attendance_session_id")
                     }
                   }}
-                  className="min-h-11 w-full sm:w-auto rounded border border-border-strong bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+                  className="h-10 w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
                 >
                   {selectedClassId && !normalClasses.some((c) => String(c.id) === String(selectedClassId)) && (
                     <option value="" disabled>
@@ -1340,7 +1340,7 @@ export function CoachAttendanceView() {
                     )
                   }
                 }}
-                className="min-h-11 w-full sm:w-auto rounded border border-border-strong bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+                className="h-10 w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-3 text-xs sm:text-sm text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
               >
                 {classSessions.map((ses, idx) => {
                   const isCancel = isSessionCancelled(ses)

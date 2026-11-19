@@ -512,9 +512,9 @@ export function ReceptionPaymentsView() {
       )}
 
       {/* Filter and Search Bar */}
-      <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         <div className="relative flex-1 min-w-[220px]">
-          <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             id={searchInputId}
             type="text"
@@ -525,17 +525,17 @@ export function ReceptionPaymentsView() {
                 ? 'Tìm mã hóa đơn, tên thành viên...'
                 : 'Search invoice code, member name...'
             }
-            className="min-h-11 w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+            className="h-10 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400"
           />
         </div>
 
         <div className="flex items-center gap-2">
-          <Filter className="w-3.5 h-3.5 text-text-secondary shrink-0" />
+          <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <select
             id={statusSelectId}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="min-h-11 w-full sm:w-auto rounded border border-border-strong bg-bg-card px-3 py-1.5 text-xs sm:text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted cursor-pointer"
+            className="h-10 w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-3 text-xs sm:text-sm text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
           >
             <option value="all">{language === 'vi' ? 'Tất cả trạng thái' : 'All statuses'}</option>
             <option value="pending">{language === 'vi' ? 'Chờ thu tiền (Pending)' : 'Pending'}</option>
@@ -687,19 +687,19 @@ export function ReceptionPaymentsView() {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-brand-dark/60 p-4 overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4 overflow-y-auto"
         >
-          <div className="rounded-lg border border-border-color bg-bg-card p-4 text-text-primary w-full max-w-md shadow-xl">
-            <div className="flex items-center justify-between border-b border-border-color pb-3 mb-4">
-              <div className="flex items-center gap-2 text-lg leading-7 font-semibold text-text-primary">
-                <DollarSign className="w-5 h-5 text-status-success" />
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+              <div className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+                <DollarSign className="w-5 h-5 text-emerald-600" />
                 <span>{language === 'vi' ? 'Xác nhận thu tiền mặt tại quầy' : 'Confirm Cash Payment'}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setConfirmingInvoice(null)}
                 aria-label="Đóng"
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-text-secondary transition-colors hover:bg-bg-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -746,23 +746,23 @@ export function ReceptionPaymentsView() {
                   onChange={(e) => setCashNotes(e.target.value)}
                   disabled={isConfirming}
                   placeholder={language === 'vi' ? 'Ví dụ: Đã nhận đủ tiền mặt từ hội viên...' : 'Receipt notes...'}
-                  className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                  className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border-color">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setConfirmingInvoice(null)}
                   disabled={isConfirming}
-                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none border border-border-color bg-bg-card text-text-primary hover:bg-bg-secondary cursor-pointer"
+                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer"
                 >
                   {language === 'vi' ? 'Hủy' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
                   disabled={isConfirming || !canConfirmCash}
-                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded px-4 text-xs font-semibold leading-5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none bg-brand-primary text-text-inverse hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer"
+                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
                 >
                   {isConfirming && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>

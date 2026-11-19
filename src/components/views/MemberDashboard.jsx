@@ -1268,36 +1268,36 @@ export function MemberDashboard() {
                   type="button"
                   onClick={handleOpenQr}
                   disabled={!apiEnabled}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-border-color px-3.5 py-3 text-left text-[15px] font-semibold text-text-primary transition hover:border-brand-accent hover:bg-brand-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-900 transition hover:border-brand-primary/40 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <QrCode className="h-4 w-4 text-brand-accent-dark" />
+                  <QrCode className="h-4 w-4 text-brand-primary" />
                   {isVi ? "Mã QR Check-in" : "Check-in QR"}
                   <ArrowRight className="ml-auto h-4 w-4 text-slate-400" />
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate("/member/schedule")}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-border-color px-3.5 py-3 text-left text-[15px] font-semibold text-text-primary transition hover:border-brand-accent hover:bg-brand-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark"
+                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-900 transition hover:border-brand-primary/40 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                 >
-                  <CalendarDays className="h-4 w-4 text-brand-accent-dark" />
+                  <CalendarDays className="h-4 w-4 text-brand-primary" />
                   {isVi ? "Lịch học của tôi" : "My schedule"}
                   <ArrowRight className="ml-auto h-4 w-4 text-slate-400" />
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate("/member/invoices")}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-border-color px-3.5 py-3 text-left text-[15px] font-semibold text-text-primary transition hover:border-brand-accent hover:bg-brand-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark"
+                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-900 transition hover:border-brand-primary/40 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                 >
-                  <CreditCard className="h-4 w-4 text-brand-accent-dark" />
+                  <CreditCard className="h-4 w-4 text-brand-primary" />
                   {isVi ? "Hóa đơn" : "Invoices"}
                   <ArrowRight className="ml-auto h-4 w-4 text-slate-400" />
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate("/member/my-membership")}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-border-color px-3.5 py-3 text-left text-[15px] font-semibold text-text-primary transition hover:border-brand-accent hover:bg-brand-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark"
+                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-900 transition hover:border-brand-primary/40 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                 >
-                  <Dumbbell className="h-4 w-4 text-brand-accent-dark" />
+                  <Dumbbell className="h-4 w-4 text-brand-primary" />
                   {isVi ? "Gói học của tôi" : "My memberships"}
                   <ArrowRight className="ml-auto h-4 w-4 text-slate-400" />
                 </button>
