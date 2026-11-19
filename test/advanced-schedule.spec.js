@@ -108,7 +108,7 @@ test.describe('Màn hình Lịch học Advanced của Manager (W-D1)', () => {
     await expect(table).toContainText('Chờ Member xác nhận');
   });
 
-  test('Tài khoản không có MANAGE_CLASSES (Admin): thấy cảnh báo quyền và không gọi /api/private-session-proposals', async ({ page }) => {
+  test('Tài khoản không có MANAGE_CLASSES (Admin): bị chuyển về tổng quan Admin và không gọi /api/private-session-proposals', async ({ page }) => {
     let proposalsCalled = false;
     await page.route((url) => isApiMatch(url, 'private-session-proposals'), (route) => {
       proposalsCalled = true;
@@ -118,9 +118,7 @@ test.describe('Màn hình Lịch học Advanced của Manager (W-D1)', () => {
     await loginAs(page, 'admin');
     await page.goto('/admin/ops/advanced-schedule');
 
-    const alert = page.locator('[role="alert"]');
-    await expect(alert).toBeVisible({ timeout: 10000 });
-    await expect(alert).toContainText('MANAGE_CLASSES');
+    await expect(page).toHaveURL(/\/admin\/dashboard/, { timeout: 10000 });
     await expect(page.locator('table')).toHaveCount(0);
     expect(proposalsCalled).toBe(false);
   });

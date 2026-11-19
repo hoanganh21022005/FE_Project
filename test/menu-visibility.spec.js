@@ -3,11 +3,13 @@ import { isApiMatch, setupDefaultApiMocks, loginAs } from './helpers/mockAuth.js
 import { mockUsers } from './helpers/mockData.js';
 
 const BASE_ADMIN = { ...mockUsers.admin, authorities: ['ROLE_ADMIN', 'MANAGE_USERS', 'MANAGE_RBAC', 'MANAGE_PERMISSIONS', 'VIEW_AUDIT_LOG'] };
-const OPS_ADMIN = { ...BASE_ADMIN, authorities: [...BASE_ADMIN.authorities, 'MANAGE_INVOICES', 'MANAGE_CLASSES'] };
+const OPS_ADMIN = { ...BASE_ADMIN, authorities: [...BASE_ADMIN.authorities, 'MANAGE_INVOICES', 'MANAGE_CLASSES', 'REGISTER_MEMBER'] };
 
 // Mục Admin chỉ hiện khi có quyền tương ứng (requiredAuthority trong adminNav.js).
 const GATED_ITEMS = ['Lớp Normal', 'Lớp Advanced', 'Thanh toán', 'Hoàn tiền Normal', 'Thu ngân'];
-const OPEN_ITEMS = ['Tổng quan quản lý', 'Nhân sự', 'Tổng quan lễ tân', 'Tra cứu hội viên'];
+const OPEN_ITEMS = ['Nhân sự', 'Tổng quan lễ tân', 'Tra cứu hội viên'];
+// Site Admin không còn hai mục này (BE không trả dữ liệu theo trung tâm cho tài khoản Admin).
+const REMOVED_ITEMS = ['Tổng quan quản lý', 'Báo cáo'];
 
 async function loginAsAdmin(page, user) {
   let loggedIn = false;
@@ -52,6 +54,9 @@ test.describe('Menu: Admin ẩn theo quyền, Member không còn Bảo lưu (L07
     await page.getByRole('button', { name: /^Lễ tân$/ }).click();
     for (const label of [...GATED_ITEMS, ...OPEN_ITEMS]) {
       await expect(nav.getByRole('button', { name: label, exact: true })).toBeVisible();
+    }
+    for (const label of REMOVED_ITEMS) {
+      await expect(nav.getByRole('button', { name: label, exact: true })).toHaveCount(0);
     }
   });
 
