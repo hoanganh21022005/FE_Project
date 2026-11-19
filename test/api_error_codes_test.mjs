@@ -203,4 +203,13 @@ for (const empty of ['', '   ', null, undefined, 0, {}, []]) {
 assert.equal(describeBlockReason(' class_full ', 'vi'), 'Lớp đã đủ chỗ.')
 assert.equal(readBackendMessage({ code: 'MA_LA_CHUA_CO', message: 'Custom' }, 400), 'Custom')
 
+// E1-r2: IDEMPOTENCY_CONFLICT và CLASS_NOT_READY dùng câu chung đúng nghĩa Backend
+for (const code of ['IDEMPOTENCY_CONFLICT', 'CLASS_NOT_READY']) {
+  for (const lang of ['vi', 'en']) {
+    const text = translateErrorCode(code, lang)
+    assert.ok(!text.includes('phương thức thanh toán'), `${code} (${lang}) không được chứa "phương thức thanh toán"`)
+    assert.ok(!text.includes('đã đóng đăng ký'), `${code} (${lang}) không được chứa "đã đóng đăng ký"`)
+  }
+}
+
 console.log('api_error_codes_test.mjs (E1): ALL PASSED')

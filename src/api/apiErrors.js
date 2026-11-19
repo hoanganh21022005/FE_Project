@@ -286,8 +286,8 @@ export const ERROR_CODE_TEXT = {
     en: 'The class is not open for registration.',
   },
   CLASS_NOT_READY: {
-    vi: 'Lớp Normal đã đóng đăng ký.',
-    en: 'Registration for this Normal class is closed.',
+    vi: 'Lớp chưa sẵn sàng nhận đăng ký (cần lớp đang mở và đủ 12 buổi hợp lệ trong tương lai).',
+    en: 'The class is not ready for registration (it must be open with 12 valid future sessions).',
   },
   SUBJECT_INACTIVE: {
     vi: 'Môn học này đã đóng nhận đăng ký mới.',
@@ -334,8 +334,8 @@ export const ERROR_CODE_TEXT = {
     en: 'You are not allowed to record attendance for this session, or it belongs to another center.',
   },
   IDEMPOTENCY_CONFLICT: {
-    vi: 'Đơn này đã được gửi trước đó với phương thức thanh toán khác.',
-    en: 'This order was already submitted with a different payment method.',
+    vi: 'Yêu cầu này trùng mã gửi trước đó nhưng nội dung khác. Vui lòng tải lại trang và thử lại.',
+    en: 'This request reuses an earlier request key with different content. Please reload and try again.',
   },
   LEGACY_MEMBERSHIP_RETIRED: {
     vi: 'Gói hội viên chung đã ngừng bán. Vui lòng dùng đăng ký Advanced theo môn.',
