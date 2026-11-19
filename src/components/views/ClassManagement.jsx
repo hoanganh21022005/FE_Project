@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import { SkeletonBlock, SkeletonRow, ErrorState } from "../ui/Skeleton"
 import { getSessions } from "../../api/managerApi.js"
+import { inferNormalClassWeekdaysFromSessions } from "../../api/mappers.js"
 import { formatDate } from "../../locales/translations"
 import { NewClassModal } from "../modals/NewClassModal"
 import { ClassEnrollmentsModal } from "../modals/ClassEnrollmentsModal"
@@ -545,7 +546,7 @@ function EditClassModal({
       }
     }
 
-    if (conflict?.hasConflict) {
+    if (conflict?.hasConflict || conflict?.hasMissingSchedule) {
       setError(conflict.message)
       return
     }
@@ -1017,6 +1018,11 @@ function EditClassModal({
               </p>
             </div>
           )}
+          {apiMode && conflict?.hasMissingSchedule && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900">
+              {conflict.message || "Chưa thể xác minh xung đột vì thiếu ngày học."}
+            </div>
+          )}
 
           {/* Footer Actions */}
           <div className="pt-4 border-t border-stone-200 flex items-center justify-end gap-3">
@@ -1029,9 +1035,9 @@ function EditClassModal({
             </button>
             <button
               type="submit"
-              disabled={saving || conflict?.hasConflict}
+              disabled={saving || conflict?.hasConflict || conflict?.hasMissingSchedule}
               className="px-5 py-2 text-xs font-semibold text-white bg-brand-primary hover:bg-brand-primary-hover rounded-xl transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              title={conflict?.hasConflict ? conflict.message : "Lưu thay đổi"}
+              title={conflict?.hasConflict || conflict?.hasMissingSchedule ? conflict.message : "Lưu thay đổi"}
             >
               {saving ? "Đang lưu..." : "Lưu thay đổi"}
             </button>
@@ -2495,6 +2501,23 @@ export function ClassManagement() {
                       const rawClassType = String(cls.classType || "")
                         .trim()
                         .toLowerCase()
+                      const displayWeekdays = Array.isArray(cls.selectedDays) && cls.selectedDays.length
+                        ? cls.selectedDays
+                        : apiEnabled
+                          ? rawClassType === "normal"
+                            ? inferNormalClassWeekdaysFromSessions(scheduledSessions, cls.totalSessions ?? 12) || []
+                            : []
+                          : cls.selectedDays
+                      const sessionTimePairs = new Set(scheduledSessions
+                        .map((session) => `${session.startTime || ""}|${session.endTime || ""}`)
+                        .filter((pair) => pair !== "|"))
+                      const displaySchedule = sessionTimePairs.size === 1
+                        ? {
+                            ...cls,
+                            startTime: cls.startTime || scheduledSessions[0]?.startTime,
+                            endTime: cls.endTime || scheduledSessions[0]?.endTime,
+                          }
+                        : cls
                       const classTypeLabel =
                         rawClassType === "normal"
                           ? "Normal"
@@ -2588,10 +2611,10 @@ export function ClassManagement() {
                           {columnVisibility.schedule !== false && (
                             <td className="py-4 px-4 align-middle">
                               <div className="space-y-1">
-                                {!isManager && (
+                                {(!isManager || (apiEnabled && rawClassType === "normal")) && (
                                   <div className="flex items-center gap-1 flex-wrap">
                                   {getWeekdaysArray(
-                                    cls.selectedDays,
+                                    displayWeekdays,
                                     cls.category,
                                     apiEnabled,
                                   ).map((day) => (
@@ -2602,13 +2625,16 @@ export function ClassManagement() {
                                       {day}
                                     </span>
                                   ))}
-                                  {(!apiEnabled || (cls.startTime && cls.endTime)) && (
+                                  {(!apiEnabled || (displaySchedule.startTime && displaySchedule.endTime)) && (
                                     <span
                                       className="text-xs font-semibold text-stone-800 ml-0.5"
-                                      title={`Khung giờ học: ${formatScheduleTime(cls, apiEnabled)}`}
+                                      title={`Khung giờ học: ${formatScheduleTime(displaySchedule, apiEnabled)}`}
                                     >
-                                      {formatScheduleTime(cls, apiEnabled)}
+                                      {formatScheduleTime(displaySchedule, apiEnabled)}
                                     </span>
+                                  )}
+                                  {apiEnabled && rawClassType === "normal" && displayWeekdays.length === 0 && (
+                                    <span className="text-xs text-amber-700">Chưa xác định lịch</span>
                                   )}
                                 </div>
                                 )}

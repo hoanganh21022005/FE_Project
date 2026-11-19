@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { httpClient } from "../../../api/httpClient.js"
+import { toFrontendDaysOfWeek } from "../../../api/mappers.js"
 
 export function parseTimeToMinutes(t) {
   if (!t || typeof t !== "string" || !t.includes(":")) return null
@@ -257,9 +258,9 @@ export function buildConflictNotification(targetClass, oppositeClass, overlap) {
   return { message, tooltip }
 }
 
-export function normalizeWeekdays(days, defaultDays = [1, 3, 5]) {
+export function normalizeWeekdays(days, defaultDays = []) {
   if (!days || !Array.isArray(days) || days.length === 0) return defaultDays
-  return days.map((d) => {
+  const normalizedDays = toFrontendDaysOfWeek(days.map((d) => {
     if (typeof d === "number") return d
     const str = String(d).toUpperCase().trim()
     if (str === "T2") return 1
@@ -270,8 +271,9 @@ export function normalizeWeekdays(days, defaultDays = [1, 3, 5]) {
     if (str === "T7") return 6
     if (str === "CN") return 0
     const num = Number(str)
-    return isNaN(num) ? 1 : num
-  })
+    return Number.isInteger(num) ? num : null
+  }))
+  return [...new Set(normalizedDays.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))]
 }
 
 const WEEKDAY_NAMES = {
@@ -328,7 +330,7 @@ export function checkSingleClassConflict(candidate, existing) {
         }
       }
     }
-    return null
+    if (hasValidScheduleData(candidate) && hasValidScheduleData(existing)) return null
   }
 
   // 1. Personnel / Facility match
@@ -375,15 +377,7 @@ export function checkSingleClassConflict(candidate, existing) {
   }
 
   // 2. Day of week overlap
-  const candDays = normalizeWeekdays(candidate.selectedDays)
-  const existDays = normalizeWeekdays(existing.selectedDays)
-  const sharedDays = candDays.filter((d) => existDays.includes(d))
-
-  if (sharedDays.length === 0) {
-    return null
-  }
-
-  // 3. Time window overlap
+  // 2. Time window overlap
   const cStart = parseTimeToMinutes(candidate.startTime || "06:00")
   const cEnd = parseTimeToMinutes(candidate.endTime || "07:30")
   const eStart = parseTimeToMinutes(existing.startTime || "06:00")
@@ -398,6 +392,23 @@ export function checkSingleClassConflict(candidate, existing) {
   if (!timeOverlaps) {
     return null
   }
+
+  // 3. Day of week overlap. Missing days are unknown, not an assumed MWF schedule.
+  const candDays = normalizeWeekdays(candidate.selectedDays)
+  const existDays = normalizeWeekdays(existing.selectedDays)
+  if (candDays.length === 0 || existDays.length === 0) {
+    return {
+      hasConflict: false,
+      hasMissingSchedule: true,
+      status: "unverified",
+      conflictingClass: existing,
+      message: "Chưa thể xác minh xung đột vì thiếu ngày học của một lớp.",
+      tooltip: "Thiếu dữ liệu ngày học để xác nhận lịch có trùng hay không.",
+    }
+  }
+
+  const sharedDays = candDays.filter((d) => existDays.includes(d))
+  if (sharedDays.length === 0) return null
 
   // Conflict confirmed!
   const sharedDaysStr = sharedDays.map((d) => WEEKDAY_NAMES[d] || d).join(", ")
@@ -564,7 +575,7 @@ export function useScheduleConflict({
   date,
   startTime,
   endTime,
-  selectedDays = [1, 3, 5],
+  selectedDays = [],
   excludeClassId = null,
   apiEnabled = false,
   existingClasses = [],
@@ -609,6 +620,7 @@ export function useScheduleConflict({
 
           // First: In-memory check against existingClasses
           let foundConflict = null
+          let unverifiedConflict = null
           for (const existing of existingClasses || []) {
             if (
               excludeClassId &&
@@ -616,10 +628,11 @@ export function useScheduleConflict({
             )
               continue
             const conf = checkSingleClassConflict(candidate, existing)
-            if (conf) {
+            if (conf?.hasConflict) {
               foundConflict = conf
               break
             }
+            if (conf?.hasMissingSchedule && !unverifiedConflict) unverifiedConflict = conf
           }
 
           if (foundConflict) {
@@ -662,7 +675,7 @@ export function useScheduleConflict({
           }
 
           // No conflict detected
-          setConflict({
+          setConflict(unverifiedConflict || {
             hasConflict: false,
             conflictCoach: false,
             conflictRoom: false,

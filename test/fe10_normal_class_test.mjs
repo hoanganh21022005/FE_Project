@@ -263,6 +263,13 @@ async function runUnitSuite() {
     assert.match(reqAttempt1.requestId, /^[0-9a-f-]{36}$/i, 'requestId must be a UUID')
     assert.equal(reqAttempt2Same.requestId, reqAttempt1.requestId, 'Retry with identical payload reuses same requestId')
     assert.deepEqual(reqAttempt1.daysOfWeek, [1, 3, 7], 'Sunday 0 converts to 7 in NormalClassCreationRequest')
+    for (const selectedDays of [[1, 3, 0], [2, 4, 0], [3, 5, 0]]) {
+      const sundayRequest = buildNormalClassWithSessionsRequest(
+        { ...baseInput, selectedDays },
+        { requestId: `sunday-${selectedDays[0]}` },
+      )
+      assert.deepEqual(sundayRequest.daysOfWeek, selectedDays.map((day) => day === 0 ? 7 : day))
+    }
     assert.equal(reqAttempt1.sportsClass.classType, 'Normal')
     assert.equal(reqAttempt1.sportsClass.totalSessions, 12)
     assert.equal(reqAttempt1.roomId, 1)

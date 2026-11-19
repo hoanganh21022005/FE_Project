@@ -2738,7 +2738,7 @@ export const SCMSProvider = ({ children }) => {
     // 1. Pre-flight in-memory validation against existing classes
     for (const existing of classes) {
       const conflict = checkSingleClassConflict(data, existing)
-      if (conflict) {
+      if (conflict?.hasConflict || conflict?.hasMissingSchedule) {
         return { success: false, message: conflict.message }
       }
     }

@@ -13,6 +13,7 @@ import { closePreparedVnpayPopup, prepareVnpayCheckoutPopup, startVnpayCheckout 
 import { getErrorMessage } from '../../api/apiErrors'
 import { getAuthoritativeProfileId, parseVietnamDateTime } from '../../utils/memberSafetyHelpers'
 import { isValidNumericId } from '../../api/schemaValidators.js'
+import { inferNormalClassWeekdaysFromSessions } from '../../api/mappers.js'
 import { COURSE_HERO_MEDIA, SPORT_MEDIA } from '../../data/memberCourseCatalog.js'
 import { hasSellablePrice, normalizeCatalogStatus, normalizeCatalogText, readAdmissionCapacity, resolveCatalogSubjects, verifyNormalCourseClass, coachIsActive, coachCanUseUnknownCapacity, coachMatchesSubject } from '../../utils/memberCourseCatalogRules.js'
 
@@ -37,6 +38,30 @@ const formatDate = (value, language) => {
   return date.toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' })
 }
 const formatTime = (value) => typeof value === 'string' ? value.slice(0, 5) : ''
+const WEEKDAY_LABELS = {
+  vi: { 1: 'T2', 2: 'T3', 3: 'T4', 4: 'T5', 5: 'T6', 6: 'T7', 0: 'CN' },
+  en: { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 0: 'Sun' },
+}
+const getNormalScheduleDays = (courseClass, sessions) => {
+  const selectedDays = Array.isArray(courseClass.selectedDays) && courseClass.selectedDays.length
+    ? courseClass.selectedDays
+    : inferNormalClassWeekdaysFromSessions(sessions, courseClass.totalSessions ?? 12)
+  return Array.isArray(selectedDays) && selectedDays.length
+    ? [...new Set(selectedDays)].sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b))
+    : null
+}
+const normalScheduleLabel = (courseClass, sessions, isVi) => {
+  const days = getNormalScheduleDays(courseClass, sessions)
+  const labels = WEEKDAY_LABELS[isVi ? 'vi' : 'en']
+  const dayText = days?.map((day) => labels[day] || String(day)).join(' · ')
+  const timeText = courseClass.startTime && courseClass.endTime
+    ? `${formatTime(courseClass.startTime)}–${formatTime(courseClass.endTime)}`
+    : ''
+  if (dayText) return [dayText, timeText].filter(Boolean).join(' · ')
+  if (courseClass.scheduleText) return courseClass.scheduleText
+  if (timeText) return `${isVi ? 'Chưa xác định ngày học' : 'Weekdays not verified'} · ${timeText}`
+  return isVi ? 'Chưa xác định lịch học' : 'Schedule not verified'
+}
 const paymentUrlIsSafe = (value) => {
   try {
     const parsed = new URL(value)
@@ -1269,13 +1294,19 @@ export function MemberCourseCatalog() {
           <InlineState loading={classesState.loading} error={classesState.error} retry={refreshClasses} empty={selectedSubject && !selectedClasses.length ? (isVi ? 'Hiện chưa có lớp Normal đang mở cho môn thể thao này.' : 'There are no Normal classes open for this sport.') : null} language={language}>
             {!selectedSubject ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">{isVi ? 'Chọn môn đã xác minh để xem lớp.' : 'Select a verified sport to view classes.'}</p> : !normalClassCards.length ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">{isVi ? 'Chưa có lớp Normal nào cho môn học này.' : 'There are no Normal classes for this sport.'}</p> : <div className="space-y-3">{visibleClasses.map((item) => {
               const schedule = scheduleStates[item.id] || { loading: true, error: '', sessions: [] }
+              const embeddedSessions = item.sessions ?? item.scheduleSessions ?? item.schedules
+              const scheduleSessions = schedule.sessions.length
+                ? schedule.sessions
+                : Array.isArray(embeddedSessions) ? embeddedSessions : []
+              const scheduleLoading = schedule.loading && scheduleSessions.length === 0
+              const scheduleError = schedule.error && scheduleSessions.length === 0
               const check = classVerification(item)
-              const futureIssue = normalFutureSessionIssue(item, schedule.sessions.length ? schedule.sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules))
+              const futureIssue = normalFutureSessionIssue(item, scheduleSessions)
               const existing = findExistingClassEnrollment(item.id)
               const cutoffPassed = !existing && classRegistrationClosed(item)
               const uncertain = normalUncertainClassIds.some((id) => String(id) === String(item.id))
-              const dates = schedule.sessions.map(sessionDate).filter(Boolean)
-              const scheduleText = item.scheduleText || (item.startTime && item.endTime ? item.startTime + '–' + item.endTime : isVi ? 'Xem chi tiết lịch bên dưới' : 'View schedule details below')
+              const dates = scheduleSessions.map(sessionDate).filter(Boolean)
+              const scheduleText = normalScheduleLabel(item, scheduleSessions, isVi)
               const enrolledCount = Number(item.enrolledCount || 0)
               const maxCapacity = Number(item.maxCapacity || 0)
               const remainingSeats = Math.max(0, maxCapacity - enrolledCount)
@@ -1284,8 +1315,8 @@ export function MemberCourseCatalog() {
                 <div className="mt-4 grid gap-2 sm:grid-cols-2"><Metric icon={CalendarDays} label={isVi ? 'Ngày bắt đầu – kết thúc' : 'Start – end'} value={(dates.length ? formatDate(dates[0], language) : formatDate(item.startDate, language)) + ' – ' + (dates.length ? formatDate(dates[dates.length - 1], language) : formatDate(item.endDate, language))} /><Metric icon={Clock3} label={isVi ? 'Lịch lớp' : 'Class schedule'} value={scheduleText} /><Metric icon={Users} label={isVi ? 'Số buổi' : 'Sessions'} value={String(item.totalSessions ?? 12) + (isVi ? ' buổi' : ' sessions')} /><Metric icon={CreditCard} label={isVi ? 'Sĩ số lớp' : 'Class capacity'} value={String(item.enrolledCount ?? '—') + '/' + String(item.maxCapacity ?? '—') + (isVi ? ' học viên' : ' students')} /></div>
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4"><span className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ' + (cutoffPassed ? 'bg-amber-50 text-amber-800' : remainingSeats > 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800')}><span className={'h-1.5 w-1.5 rounded-full ' + (cutoffPassed ? 'bg-amber-500' : remainingSeats > 1 ? 'bg-emerald-500' : 'bg-amber-500')} />{cutoffPassed ? (isVi ? 'Đã đóng đăng ký' : 'Registration closed') : isVi ? `Còn ${remainingSeats} chỗ` : `${remainingSeats} seats left`}</span><button type="button" aria-expanded={classDetailsId === item.id} onClick={() => setClassDetailsId((current) => current === item.id ? null : item.id)} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-brand-primary hover:border-blue-200 hover:bg-blue-50">{classDetailsId === item.id ? (isVi ? 'Ẩn lịch chi tiết' : 'Hide schedule') : (isVi ? 'Xem chi tiết lịch' : 'View schedule details')}</button></div>
                 {classDetailsId === item.id && <div className="mt-3 rounded-lg bg-slate-50 p-3">
-                  {schedule.loading ? <p className="flex items-center gap-2 text-sm text-slate-600"><LoaderCircle size={16} className="animate-spin" />{isVi ? 'Đang xác minh lịch…' : 'Verifying schedule…'}</p> : schedule.error ? <div role="alert" className="text-sm text-rose-800"><p>{schedule.error}</p><button type="button" onClick={() => retrySchedule(item.id)} className="mt-2 inline-flex min-h-9 items-center gap-2 font-semibold underline"><RefreshCw size={14} />{isVi ? 'Thử lại' : 'Retry'}</button></div> : schedule.sessions.length ? <ol className="grid gap-2 sm:grid-cols-2">{schedule.sessions.map((session, index) => <li key={session.id || session.sessionId || (String(sessionDate(session)) + '-' + index)} className="flex items-start gap-2 rounded-lg bg-white p-2 text-sm text-slate-700"><CalendarDays size={15} className="mt-0.5 shrink-0 text-brand-accent-dark" /><span>{formatDate(sessionDate(session), language)} · {formatTime(session.startTime || session.startAt)}–{formatTime(session.endTime || session.endAt)}</span></li>)}</ol> : <p className="text-sm text-slate-600">{isVi ? 'Chưa có thông tin lịch học chi tiết cho lớp này.' : 'Timetable not yet available for this class.'}</p>}
-                  {!schedule.loading && !schedule.error && <p className="mt-3 text-[13px] text-slate-600">{check.eligible ? (isVi ? 'Đã xác minh đủ 12 buổi và điều kiện lớp.' : 'All 12 sessions and class conditions are verified.') : check.reasons.join(' ')}</p>}
+                  {scheduleLoading ? <p className="flex items-center gap-2 text-sm text-slate-600"><LoaderCircle size={16} className="animate-spin" />{isVi ? 'Đang xác minh lịch…' : 'Verifying schedule…'}</p> : scheduleError ? <div role="alert" className="text-sm text-rose-800"><p>{schedule.error}</p><button type="button" onClick={() => retrySchedule(item.id)} className="mt-2 inline-flex min-h-9 items-center gap-2 font-semibold underline"><RefreshCw size={14} />{isVi ? 'Thử lại' : 'Retry'}</button></div> : scheduleSessions.length ? <ol className="grid gap-2 sm:grid-cols-2">{scheduleSessions.map((session, index) => <li key={session.id || session.sessionId || (String(sessionDate(session)) + '-' + index)} className="flex items-start gap-2 rounded-lg bg-white p-2 text-sm text-slate-700"><CalendarDays size={15} className="mt-0.5 shrink-0 text-brand-accent-dark" /><span>{formatDate(sessionDate(session), language)} · {formatTime(session.startTime || session.startAt)}–{formatTime(session.endTime || session.endAt)}</span></li>)}</ol> : <p className="text-sm text-slate-600">{isVi ? 'Chưa có thông tin lịch học chi tiết cho lớp này.' : 'Timetable not yet available for this class.'}</p>}
+                  {!scheduleLoading && !scheduleError && <p className="mt-3 text-[13px] text-slate-600">{check.eligible ? (isVi ? 'Đã xác minh đủ 12 buổi và điều kiện lớp.' : 'All 12 sessions and class conditions are verified.') : check.reasons.join(' ')}</p>}
                 </div>}
                 {futureIssue && !existing && <p className="mt-3 inline-flex rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-800">{normalSessionIssueMessage(futureIssue, isVi)}</p>}
                 {existing ? <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><span>{isVi ? 'Đăng ký hiện có:' : 'Existing enrollment:'} <strong>{statusText(existing.status, language)}</strong></span><div className="flex flex-wrap items-center gap-3">{['pending', 'pending_payment'].includes(normalizeCatalogStatus(existing.status)) && <button type="button" disabled={submitting} onClick={() => handleCancelPendingEnrollment(existing)} className="font-semibold text-rose-700 underline">{isVi ? 'Hủy đơn chờ & Chọn lại phương thức' : 'Cancel pending & re-enroll'}</button>}<button type="button" onClick={refreshEnrollments} className="font-semibold underline">{isVi ? 'Tải lại trạng thái' : 'Refresh status'}</button></div></div> : uncertain ? <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><p>{isVi ? 'Kết quả gửi trước chưa rõ; lớp đang khóa để tránh đăng ký trùng.' : 'Previous submission is unresolved; this class is locked to prevent a duplicate.'}</p><button type="button" onClick={() => reconcileNormalEnrollment(item.id)} className="mt-2 font-semibold underline">{isVi ? 'Đối soát trạng thái' : 'Reconcile status'}</button></div> : <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-600">{check.eligible ? (isVi ? 'Còn ' + (Number(item.maxCapacity) - Number(item.enrolledCount)) + ' chỗ' : (Number(item.maxCapacity) - Number(item.enrolledCount)) + ' seats left') : check.reasons[0] || (isVi ? 'Đang xác minh điều kiện lớp.' : 'Verifying class eligibility.')}</p><div className="flex flex-wrap items-center gap-2"><label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700"><span>{isVi ? 'Thanh toán:' : 'Payment:'}</span><select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} aria-label={isVi ? 'Phương thức thanh toán lớp học' : 'Class payment method'} className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 focus:border-brand-primary focus:outline-none"><option value="Cash">{isVi ? 'Tiền mặt tại quầy (Cash)' : 'Cash at counter'}</option><option value="VNPay">{isVi ? 'VNPay (Trực tuyến)' : 'VNPay (Online)'}</option></select></label><button type="button" disabled={cutoffPassed || !check.eligible || !hasSellablePrice(selectedSubject?.normalPrice) || !hasSellablePrice(item.tuitionFee)} onClick={() => { setConfirmClass(item); setSubmittingError('') }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-bold text-white hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300">{cutoffPassed ? (isVi ? 'Quá hạn đăng ký' : 'Registration closed') : isVi ? 'Đăng ký lớp' : 'Enroll in class'}<ArrowUpRight size={16} /></button></div></div>}

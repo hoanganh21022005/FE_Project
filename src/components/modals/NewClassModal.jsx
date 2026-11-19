@@ -1420,18 +1420,24 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   ? [
                       { id: "mon-wed-fri", label: "T2 · T4 · T6", days: [1, 3, 5] },
                       { id: "tue-thu-sat", label: "T3 · T5 · T7", days: [2, 4, 6] },
+                      { id: "mon-wed-sun", label: "T2 · T4 · CN", days: [1, 3, 0] },
+                      { id: "tue-thu-sun", label: "T3 · T5 · CN", days: [2, 4, 0] },
+                      { id: "wed-fri-sun", label: "T4 · T6 · CN", days: [3, 5, 0] },
                     ]
                   : WEEKDAYS.map((day) => ({ id: day.id, label: day.label, days: [day.dayOfWeek] }))
                 ).map((day) => {
-                  const isSelected = day.days.every((weekday) => selectedDays.includes(weekday))
+                  const isSelected =
+                    day.days.length === selectedDays.length &&
+                    day.days.every((weekday) => selectedDays.includes(weekday))
                   return (
                     <button
                       key={day.id}
                       type="button"
                       onClick={() => {
                         if (apiEnabled) {
-                          setSelectedDays(day.days)
+                          setSelectedDays([...day.days])
                           setStartDate(getNextValidUpcomingDate(day.days, startTime))
+                          setIsDirty(true)
                         } else {
                           toggleWeekday(day.days[0])
                         }
@@ -1887,6 +1893,10 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   tập khác để tiếp tục.
                 </p>
               </div>
+            ) : conflict?.hasMissingSchedule ? (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+                {conflict.message || "Chưa thể xác minh xung đột vì thiếu ngày học."}
+              </div>
             ) : (
               <div className="p-3 bg-[#EBFBEE] border border-emerald-200/80 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -1917,7 +1927,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
           <button
             type="button"
             onClick={() => handleSubmit("Draft")}
-            disabled={isSubmitting || conflict?.hasConflict || isNormalClassApiCreationBlocked(apiEnabled, "Draft")}
+            disabled={isSubmitting || conflict?.hasConflict || conflict?.hasMissingSchedule || isNormalClassApiCreationBlocked(apiEnabled, "Draft")}
             className="h-10 px-5 rounded-lg border border-stone-200 hover:bg-stone-50 text-stone-700 text-sm font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title={conflict?.hasConflict ? conflict.message : "Lưu bản nháp"}
           >
@@ -1928,7 +1938,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             type="button"
             onClick={() => handleSubmit(status)}
             disabled={
-              isSubmitting || conflict?.hasConflict || isFirstSessionInPast || isNormalClassApiCreationBlocked(apiEnabled)
+              isSubmitting || conflict?.hasConflict || conflict?.hasMissingSchedule || isFirstSessionInPast || isNormalClassApiCreationBlocked(apiEnabled)
             }
             className="h-10 px-6 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer flex items-center gap-2"
             title={
