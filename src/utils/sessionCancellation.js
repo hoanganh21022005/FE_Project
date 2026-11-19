@@ -1,7 +1,7 @@
 // Logic hủy buổi PT 1:1 của Member, dùng chung cho MemberMyCoachView và MemberScheduleView.
 // Buổi học phía Member đọc THÔ từ memberPortalApi (không qua mapSession), nên các hàm ở đây tự áp
 // quy tắc "thiếu field != false": chức năng cũ (hủy buổi) chỉ khóa khi cancellationAllowed === false.
-import { translateErrorCode } from '../api/apiErrors.js'
+import { describeBlockReason } from '../api/apiErrors.js'
 import { parseBackendDate } from './datetime.js'
 
 /** Đọc các field hạn hủy của một buổi học thô; field thiếu giữ null (không đổi thành false). */
@@ -34,12 +34,9 @@ export function referenceNowMs(raw, fallbackMs = Date.now()) {
  */
 export function describeCancellationBlock(raw, language = 'vi') {
   const fields = readCancellationFields(raw)
-  const reasonText = translateErrorCode(fields.blockReason, language)
   return {
     code: fields.blockReason,
-    reasonText:
-      reasonText ||
-      (language === 'vi' ? 'Không thể hủy buổi tập này.' : 'This session cannot be cancelled.'),
+    reasonText: describeBlockReason(fields.blockReason, language),
     deadline: fields.deadline,
   }
 }

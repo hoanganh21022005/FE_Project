@@ -35,6 +35,8 @@ import { resolveCoachAvatar } from "../../data/publicCoaches"
 import { PageHeader } from "../ui/PageHeader"
 import { PrivateSessionCancelDialog } from "../schedule/PrivateSessionCancelDialog"
 import { formatDateTime } from "../../utils/datetime"
+import { buildOrderCreatedMessage } from "../../utils/paymentDeadline"
+import { normalizeAdvancedOrderResponse } from "../../api/advancedRegistrationApi"
 import {
   describeCancellationBlock,
   isCancellationConfirmed,
@@ -519,10 +521,15 @@ export function MemberMyCoachView() {
       const orderRes = await memberPortalApi.orderAdvancedRegistration(reg.id, {
         paymentMethod,
       })
+      // Hạn thanh toán theo expiresAt của đơn do Backend lưu; không có thì không nêu số phút.
+      const createdOrder = normalizeAdvancedOrderResponse(orderRes)
       showToast?.(
-        isVi
-          ? `Đã tạo đơn thanh toán (${orderRes?.invoiceCode || paymentMethod}) thành công! Hạn thanh toán: 5 phút.`
-          : "Created payment order! 5-minute payment window active.",
+        buildOrderCreatedMessage({
+          invoiceCode: createdOrder.invoiceCode,
+          paymentMethod,
+          expiresAt: createdOrder.expiresAt,
+          language: isVi ? "vi" : "en",
+        }),
         "success",
       )
       await fetchAdvancedRegistrations()

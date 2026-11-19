@@ -96,9 +96,9 @@ assert.equal(tooLate.deadline, '2026-11-20T03:00:00+07:00')
 assert.match(describeCancellationBlock({ cancellationBlockReason: 'CANCEL_TOO_LATE' }, 'en').reasonText, /cancellation deadline/)
 assert.match(describeCancellationBlock({ cancellationBlockReason: 'SESSION_ALREADY_ATTENDED' }, 'vi').reasonText, /điểm danh/)
 const unknown = describeCancellationBlock({ cancellationBlockReason: 'MA_LA_CHUA_CO' }, 'vi')
-assert.equal(unknown.reasonText, 'Không thể hủy buổi tập này.')
-assert.ok(!unknown.reasonText.includes('MA_LA_CHUA_CO'))
-assert.equal(describeCancellationBlock({}, 'en').reasonText, 'This session cannot be cancelled.')
+// Mã lạ: câu chung kèm mã nhỏ trong ngoặc (lớp lót chung), không chỉ mã thô
+assert.equal(unknown.reasonText, 'Thao tác hiện chưa khả dụng. (MA_LA_CHUA_CO)')
+assert.equal(describeCancellationBlock({}, 'en').reasonText, 'This action is not available right now.')
 
 // C1.4 Credit: chỉ báo "X→Y" khi creditReturned === true và số đọc lại đúng bằng số trước + 1
 const adv = (credit, extra = {}) => ({ packageType: 'Advanced', status: 'active', remainingCredit: credit, ...extra })

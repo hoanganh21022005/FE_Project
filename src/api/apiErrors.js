@@ -277,6 +277,90 @@ export const ERROR_CODE_TEXT = {
     vi: 'Credit của buổi tập này đã được hoàn trước đó.',
     en: 'The credit for this session was already returned.',
   },
+  REGISTRATION_FORBIDDEN: {
+    vi: 'Tài khoản này không được đăng ký ở trung tâm hoặc lớp này.',
+    en: 'This account cannot register at this center or class.',
+  },
+  CLASS_NOT_OPEN: {
+    vi: 'Lớp chưa ở trạng thái nhận đăng ký.',
+    en: 'The class is not open for registration.',
+  },
+  CLASS_NOT_READY: {
+    vi: 'Lớp chưa sẵn sàng nhận đăng ký (cần lớp đang mở và đủ 12 buổi hợp lệ trong tương lai).',
+    en: 'The class is not ready for registration (it must be open with 12 valid future sessions).',
+  },
+  SUBJECT_INACTIVE: {
+    vi: 'Môn học này đã đóng nhận đăng ký mới.',
+    en: 'This subject is closed to new registrations.',
+  },
+  MEMBER_REQUIRED: {
+    vi: 'Tài khoản được chọn phải là hội viên.',
+    en: 'The selected account must be a member.',
+  },
+  OPENING_CONFIRMATION_FORBIDDEN: {
+    vi: 'Chỉ Quản lý trung tâm có quyền quản lý lớp, đúng trung tâm, mới xác nhận khai giảng được.',
+    en: 'Only a Center Manager with class-management permission for this center can confirm the opening.',
+  },
+  NORMAL_INSUFFICIENT_PAID: {
+    vi: 'Số hội viên đã đóng tiền chưa đạt mức tối thiểu để khai giảng.',
+    en: 'Not enough members have paid to reach the minimum for opening.',
+  },
+  NORMAL_MIN_CAPACITY_REQUIRED: {
+    vi: 'Lớp Normal chưa đủ sĩ số tối thiểu để khai giảng.',
+    en: 'The Normal class has not reached its minimum size to open.',
+  },
+  NORMAL_NOT_AWAITING_OPENING: {
+    vi: 'Lớp không ở trạng thái chờ khai giảng.',
+    en: 'The class is not awaiting opening.',
+  },
+  NORMAL_OPENING_BLOCKED: {
+    vi: 'Lớp tạm thời chưa khai giảng được.',
+    en: 'The class cannot be opened right now.',
+  },
+  CANCELLATION_FORBIDDEN: {
+    vi: 'Chỉ hội viên đã đặt buổi này, đúng trung tâm, mới hủy được.',
+    en: 'Only the member who booked this session, at the right center, can cancel it.',
+  },
+  ADVANCED_PACKAGE_EXPIRED: {
+    vi: 'Quyền học Advanced đã hết hạn nên không hoàn thêm credit.',
+    en: 'The Advanced package has expired, so no further credit is returned.',
+  },
+  CREDIT_LIMIT_EXCEEDED: {
+    vi: 'Credit hoàn lại vượt quá quyền học gốc.',
+    en: 'The refunded credit would exceed the original entitlement.',
+  },
+  ATTENDANCE_FORBIDDEN: {
+    vi: 'Bạn không có quyền điểm danh buổi này hoặc buổi thuộc trung tâm khác.',
+    en: 'You are not allowed to record attendance for this session, or it belongs to another center.',
+  },
+  IDEMPOTENCY_CONFLICT: {
+    vi: 'Yêu cầu này trùng mã gửi trước đó nhưng nội dung khác. Vui lòng tải lại trang và thử lại.',
+    en: 'This request reuses an earlier request key with different content. Please reload and try again.',
+  },
+  LEGACY_MEMBERSHIP_RETIRED: {
+    vi: 'Gói hội viên chung đã ngừng bán. Vui lòng dùng đăng ký Advanced theo môn.',
+    en: 'The general membership package is retired. Please use a per-subject Advanced registration.',
+  },
+  USE_INCIDENT_RECOVERY: {
+    vi: 'Thao tác này phải thực hiện qua quy trình xử lý sự cố.',
+    en: 'This action must go through the incident recovery process.',
+  },
+  ADVANCED_STATUS_WORKFLOW_REQUIRED: {
+    vi: 'Trạng thái Advanced phải được đổi qua quy trình riêng.',
+    en: 'The Advanced status must be changed through its own workflow.',
+  },
+  ADVANCED_CLASS_MISMATCH: {
+    vi: 'Lớp không khớp với lớp của đăng ký Advanced.',
+    en: 'The class does not match the Advanced registration class.',
+  },
+  USE_ATTENDANCE_CORRECTION: {
+    vi: 'Buổi đã có điểm danh hoặc nhận xét; muốn đổi hãy dùng chức năng sửa điểm danh.',
+    en: 'Attendance or comments already exist; use the attendance correction feature to change them.',
+  },
+  NOT_YOUR_CLASS: {
+    vi: 'Bạn không phụ trách lớp học này.',
+    en: 'You are not assigned to this class.',
+  },
   COACH_ACCEPTANCE_REQUIRED: {
     vi: 'Coach chưa chấp nhận yêu cầu đăng ký này nên chưa thể xác nhận mua gói.',
     en: 'The Coach has not accepted this request yet, so the purchase cannot be confirmed.',
@@ -437,6 +521,19 @@ export function translateErrorCode(code, language = 'vi', context = null) {
     (context && CONTEXT_CODE_TEXT[context]?.[key]) || ERROR_CODE_TEXT[key] || null;
   if (!entry) return null;
   return language === 'vi' ? entry.vi : entry.en;
+}
+
+/**
+ * Lớp lót cho chỗ hiển thị lý do khóa (`...BlockReason`) từ Backend: các GET chỉ trả MÃ, không có câu chữ.
+ * Mã có chữ trong bảng chung thì dùng chữ đó; mã lạ thì câu chung kèm mã nhỏ trong ngoặc; mã rỗng hoặc thiếu
+ * thì chỉ câu chung. Không bao giờ trả chuỗi rỗng hoặc chỉ mã thô. `context` như translateErrorCode.
+ */
+export function describeBlockReason(code, language = 'vi', context = null) {
+  const known = translateErrorCode(code, language, context)
+  if (known) return known
+  const generic = language === 'vi' ? 'Thao tác hiện chưa khả dụng.' : 'This action is not available right now.'
+  const key = typeof code === 'string' ? code.trim() : ''
+  return key ? `${generic} (${key})` : generic
 }
 
 const errorTextSources = (error) => {

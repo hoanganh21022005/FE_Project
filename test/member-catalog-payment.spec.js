@@ -24,6 +24,11 @@ async function setup(page, { registrations = [] } = {}) {
   await setupDefaultApiMocks(page, ['/api/public/subjects']);
   await page.route((url) => isApiMatch(url, 'subjects'), (r) => r.fulfill({ status: 200, json: subjects }));
   await page.route((url) => isApiMatch(url, 'classes') && new URL(url).pathname === '/api/classes', (r) => r.fulfill({ status: 200, json: [normalClass] }));
+  // Chi tiết lớp (Member đọc registrationAllowed...): Backend thật trả field đăng ký; ở đây không có field = hành vi cũ.
+  await page.route((url) => new URL(url).pathname === '/api/classes/51', (r) => {
+    if (r.request().method() !== 'GET') return r.fallback();
+    return r.fulfill({ status: 200, json: normalClass });
+  });
   await page.route((url) => new URL(url).pathname === '/api/sessions/catalog/51', (r) => r.fulfill({ status: 200, json: sessions }));
   await page.route((url) => isApiMatch(url, 'members'), (r) => r.fulfill({ status: 200, json: [] }));
   await page.route((url) => new URL(url).pathname === '/api/advanced-registrations', (r) => r.fulfill({ status: 200, json: registrations }));

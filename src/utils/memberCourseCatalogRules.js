@@ -49,7 +49,8 @@ export function resolveCatalogSubjects(subjects = []) {
 const dateOf = (session) => session?.sessionDate ?? session?.date ?? session?.startDate ?? null
 const timeOf = (session, keys) => keys.map((key) => session?.[key]).find((value) => typeof value === 'string' && /^\d{2}:\d{2}(:\d{2})?$/.test(value)) || null
 
-export function verifyNormalCourseClass(courseClass, sessions, subjectId) {
+// options.allowFull: Backend nói rõ được đăng ký (registrationAllowed === true) thì lớp đầy chỗ vẫn nhận đăng ký (vào danh sách chờ).
+export function verifyNormalCourseClass(courseClass, sessions, subjectId, options = {}) {
   const reasons = []
   if (!courseClass || !isNumericId(courseClass.id)) reasons.push('Mã lớp không hợp lệ.')
   if (!isNumericId(subjectId) || String(courseClass?.subjectId) !== String(subjectId)) reasons.push('Lớp không thuộc môn đang chọn.')
@@ -61,7 +62,7 @@ export function verifyNormalCourseClass(courseClass, sessions, subjectId) {
   const capacity = Number(courseClass?.maxCapacity)
   const enrolled = Number(courseClass?.enrolledCount)
   if (!hasCapacity || !hasEnrollmentCount || !Number.isFinite(capacity) || capacity <= 0 || !Number.isFinite(enrolled) || enrolled < 0) reasons.push('Thiếu dữ liệu sức chứa hoặc số học viên.')
-  else if (enrolled >= capacity) reasons.push('Lớp đã đủ chỗ.')
+  else if (enrolled >= capacity && options.allowFull !== true) reasons.push('Lớp đã đủ chỗ.')
   if (!hasSellablePrice(courseClass?.tuitionFee)) reasons.push('Lớp học chưa có thông tin học phí hợp lệ.')
   if (!Array.isArray(sessions) || sessions.length !== 12) reasons.push('Lịch lớp chưa xác minh đủ đúng 12 buổi.')
   else {
