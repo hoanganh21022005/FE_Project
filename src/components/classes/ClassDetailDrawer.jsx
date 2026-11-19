@@ -5,6 +5,7 @@ import { getErrorMessage } from "../../api/apiErrors"
 import { normalizeRole, ROLE_MANAGER } from "../../utils/navigation"
 import {
   evaluateNormalClassOpening,
+  formatOpeningDateTime,
   getFirstNormalClassSession,
   getNormalClassOpeningError,
 } from "../../api/normalClassOpening"
@@ -1195,30 +1196,22 @@ export function ClassDetailDrawer({
               </p>
             )}
 
-            {(openingEvaluation.openingConfirmationDueAt != null ||
-              openingEvaluation.openingConfirmationDeadline != null) && (
+            {(Number.isFinite(openingEvaluation.openingConfirmationDueAt) ||
+              Number.isFinite(openingEvaluation.openingConfirmationDeadline)) && (
               <div className="mt-3 rounded-lg border border-stone-200 bg-stone-50 p-3 text-xs text-stone-700 space-y-1">
-                {openingEvaluation.openingConfirmationDueAt != null && (
+                {Number.isFinite(openingEvaluation.openingConfirmationDueAt) && (
                   <p>
                     Hạn chuẩn xác nhận:{" "}
                     <strong className="font-mono text-stone-900">
-                      {new Intl.DateTimeFormat("vi-VN", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                        timeZone: "Asia/Ho_Chi_Minh",
-                      }).format(new Date(openingEvaluation.openingConfirmationDueAt))}
+                      {formatOpeningDateTime(openingEvaluation.openingConfirmationDueAt)}
                     </strong>
                   </p>
                 )}
-                {openingEvaluation.openingConfirmationDeadline != null && (
+                {Number.isFinite(openingEvaluation.openingConfirmationDeadline) && (
                   <p>
                     Hạn cuối xác nhận:{" "}
                     <strong className="font-mono text-stone-900">
-                      {new Intl.DateTimeFormat("vi-VN", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                        timeZone: "Asia/Ho_Chi_Minh",
-                      }).format(new Date(openingEvaluation.openingConfirmationDeadline))}
+                      {formatOpeningDateTime(openingEvaluation.openingConfirmationDeadline)}
                     </strong>
                   </p>
                 )}

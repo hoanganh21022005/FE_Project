@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import {
   evaluateNormalClassOpening,
+  formatOpeningDateTime,
   getNormalClassOpeningError,
 } from "../src/api/normalClassOpening.js"
 import { createApiError, getErrorMessage, translateErrorCode } from "../src/api/apiErrors.js"
@@ -78,9 +79,9 @@ const baseSessions = [
   assert.ok(Number.isFinite(withReason.openingConfirmationDeadline))
 }
 
-// 3. Thiếu field openingConfirmationAllowed -> giữ hành vi cũ (null)
+// 3. Thiếu field openingConfirmationAllowed & thiếu/rác dueAt/deadline -> trả null (không trả NaN)
 {
-  const legacy = evaluateNormalClassOpening({
+  const missingBoth = evaluateNormalClassOpening({
     classItem: {
       ...baseClass,
       openingConfirmationDueAt: undefined,
@@ -91,8 +92,46 @@ const baseSessions = [
     authorities: ["MANAGE_CLASSES"],
     reason: "Xác nhận trước giờ",
   })
-  assert.equal(legacy.openingConfirmationAllowed, null)
-  assert.equal(legacy.canSubmit, true)
+  assert.equal(missingBoth.openingConfirmationAllowed, null)
+  assert.equal(missingBoth.canSubmit, true)
+  assert.equal(missingBoth.openingConfirmationDueAt, null)
+  assert.equal(missingBoth.openingConfirmationDeadline, null)
+
+  const garbageBoth = evaluateNormalClassOpening({
+    classItem: {
+      ...baseClass,
+      openingConfirmationDueAt: "not-a-date",
+      openingConfirmationDeadline: NaN,
+    },
+    enrollments: baseEnrollments,
+    sessions: baseSessions,
+    authorities: ["MANAGE_CLASSES"],
+    reason: "Xác nhận trước giờ",
+  })
+  assert.equal(garbageBoth.openingConfirmationDueAt, null)
+  assert.equal(garbageBoth.openingConfirmationDeadline, null)
+
+  const validBoth = evaluateNormalClassOpening({
+    classItem: baseClass,
+    enrollments: baseEnrollments,
+    sessions: baseSessions,
+    authorities: ["MANAGE_CLASSES"],
+  })
+  assert.equal(typeof validBoth.openingConfirmationDueAt, "number")
+  assert.equal(typeof validBoth.openingConfirmationDeadline, "number")
+  assert.ok(Number.isFinite(validBoth.openingConfirmationDueAt))
+  assert.ok(Number.isFinite(validBoth.openingConfirmationDeadline))
+}
+
+// 3b. formatOpeningDateTime an toàn với null, NaN, chuỗi lạ và hợp lệ
+{
+  assert.equal(formatOpeningDateTime(null), "")
+  assert.equal(formatOpeningDateTime(undefined), "")
+  assert.equal(formatOpeningDateTime(NaN), "")
+  assert.equal(formatOpeningDateTime("chuoi-la"), "")
+  const formatted = formatOpeningDateTime(Date.parse("2026-11-19T18:00:00+07:00"))
+  assert.equal(typeof formatted, "string")
+  assert.ok(formatted.length > 0)
 }
 
 // 4. Dịch mã lỗi C4 qua apiErrors.js

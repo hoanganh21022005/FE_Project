@@ -8,6 +8,31 @@ const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000
 const normalize = (value) => String(value ?? '').trim().toLowerCase()
 const validPositiveId = (value) => Number.isInteger(Number(value)) && Number(value) > 0
 
+const toFiniteTimestamp = (value) => {
+  const parsed = parseBackendDate(value)
+  return typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : null
+}
+
+export const formatOpeningDateTime = (value) => {
+  if (value === null || value === undefined || value === '') return ''
+  const ts =
+    value instanceof Date
+      ? value.getTime()
+      : typeof value === 'number'
+        ? value
+        : parseBackendDate(value)
+  if (typeof ts !== 'number' || !Number.isFinite(ts)) return ''
+  try {
+    return new Intl.DateTimeFormat('vi-VN', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'Asia/Ho_Chi_Minh',
+    }).format(new Date(ts))
+  } catch {
+    return ''
+  }
+}
+
 export const validNormalClassOpeningRequest = (payload = {}) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new TypeError('Opening confirmation payload must be an object.')
@@ -136,9 +161,8 @@ export const evaluateNormalClassOpening = ({
     }
   }
 
-  const serverNow = parseBackendDate(classItem?.serverTime)
-  const effectiveNow =
-    serverNow !== null && Number.isFinite(serverNow) ? serverNow : now
+  const serverNow = toFiniteTimestamp(classItem?.serverTime)
+  const effectiveNow = serverNow !== null ? serverNow : now
   const timing = firstSessionEntry
     ? getOpeningReasonRequirement({ firstSession: firstSessionEntry.session, now: effectiveNow })
     : { known: false, reasonRequired: null, startsAt: null, hoursUntilStart: null }
@@ -151,8 +175,8 @@ export const evaluateNormalClassOpening = ({
       : timing.known
         ? timing.reasonRequired
         : null
-  const openingConfirmationDueAt = parseBackendDate(classItem?.openingConfirmationDueAt)
-  const openingConfirmationDeadline = parseBackendDate(classItem?.openingConfirmationDeadline)
+  const openingConfirmationDueAt = toFiniteTimestamp(classItem?.openingConfirmationDueAt)
+  const openingConfirmationDeadline = toFiniteTimestamp(classItem?.openingConfirmationDeadline)
 
   if (openingConfirmationAllowed === false) {
     const rawReason = classItem?.openingConfirmationBlockReason
