@@ -27,9 +27,9 @@ export function PublicFooter() {
               className="inline-flex rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
             >
               <img
-                src="/images/MainPage/vibe-sport-logo.png?v=4"
+                src="/images/MainPage/vibe-sport-logo.png?v=5"
                 alt="VIBE Sport"
-                className="h-12 w-auto object-contain object-left sm:h-14"
+                className="h-16 w-auto object-contain object-left sm:h-[72px]"
               />
             </Link>
             <p className="mt-4 max-w-sm text-sm leading-7 text-white/65">

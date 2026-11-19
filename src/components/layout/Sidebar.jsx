@@ -252,16 +252,16 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
         {/* Brand Header & Navigation */}
         <div>
           <div
-            className={`h-[56px] border-b border-brand-dark-hover flex items-center justify-between ${
+            className={`${collapsed ? "h-[56px]" : "h-[76px]"} border-b border-brand-dark-hover flex items-center justify-between ${
               collapsed ? "px-2" : "px-3.5"
             }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <img
-                src="/images/MainPage/vibe-sport-logo.png?v=4"
+                src="/images/MainPage/vibe-sport-logo.png?v=5"
                 alt="Vibe Sport"
                 className={`object-contain flex-shrink-0 ${
-                  collapsed ? "w-10 h-8" : "w-12 h-9"
+                  collapsed ? "w-10 h-8" : "h-16 w-auto sm:h-[72px]"
                 }`}
               />
               {(!collapsed || mobileOpen) && (
