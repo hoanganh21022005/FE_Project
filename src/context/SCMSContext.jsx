@@ -2736,8 +2736,9 @@ export const SCMSProvider = ({ children }) => {
 
   const addClassSession = async (data, options = {}) => {
     // 1. Pre-flight in-memory validation against existing classes
-    const isCreatedClassRecovery = options?.idempotencyStateRef?.current?.status === "created_unverified"
-    if (!isCreatedClassRecovery) {
+    const creationState = options?.idempotencyStateRef?.current?.status
+    const isNormalCreationRecovery = ["created_unverified", "post_unconfirmed", "post_pending"].includes(creationState)
+    if (!isNormalCreationRecovery) {
       for (const existing of classes) {
         const conflict = checkSingleClassConflict(data, existing)
         if (conflict?.hasConflict || conflict?.hasMissingSchedule) {
@@ -2748,9 +2749,9 @@ export const SCMSProvider = ({ children }) => {
 
     if (API_ENABLED) {
       try {
-        const isCreatedClassRecovery = options?.idempotencyStateRef?.current?.status === "created_unverified"
+        const isNormalCreationRecovery = ["created_unverified", "post_unconfirmed", "post_pending"].includes(options?.idempotencyStateRef?.current?.status)
         const isNormalAtomic =
-          isCreatedClassRecovery ||
+          isNormalCreationRecovery ||
           String(data?.classType || "Normal").toLowerCase() === "normal" &&
           String(data?.apiStatus || data?.status || "Open").toLowerCase() !==
             "draft" &&
@@ -2815,6 +2816,15 @@ export const SCMSProvider = ({ children }) => {
             requestId: error.requestId,
             message: error.message,
             code: error.code,
+          }
+        }
+        if (options?.idempotencyStateRef?.current?.status === "post_unconfirmed") {
+          return {
+            success: false,
+            postUnconfirmed: true,
+            requestId: options.idempotencyStateRef.current.requestId,
+            message: `Chưa xác nhận được kết quả POST tạo lớp (requestId ${options.idempotencyStateRef.current.requestId}). Có thể thử lại bằng cùng requestId; không tạo request mới.`,
+            code: "NORMAL_CLASS_POST_UNCONFIRMED",
           }
         }
         const errMsg = getErrorMessage(

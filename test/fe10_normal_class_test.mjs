@@ -1030,6 +1030,9 @@ async function runBrowserSuite() {
             window.__fe10Calls.normalCreatePosts.push({ url: urlStr, body: parsedBody });
             window.__fe10MockState.createPayload = parsedBody;
             const mode = window.__fe10MockState.postMode;
+            if (mode === 'missing_id_success') {
+              return new Response(JSON.stringify({ name: parsedBody?.sportsClass?.name, status: 'Open' }), { status: 201, headers: { 'Content-Type': 'application/json' } });
+            }
             if (mode === 'room_conflict_409') {
               return new Response(JSON.stringify({
                 code: 'ROOM_CONFLICT',
@@ -1159,7 +1162,9 @@ async function runBrowserSuite() {
     const clickSubmitModalButton = `
       (() => {
         const btn = Array.from(document.querySelectorAll('button')).find(
-          (b) => b.textContent.includes('Tạo & mở đăng ký')
+          (b) => b.textContent.includes('Tạo & mở đăng ký') ||
+            b.textContent.includes('Thử lại cùng requestId') ||
+            b.textContent.includes('Thử xác minh lại lịch')
         );
         if (!btn || btn.disabled) return false;
         btn.click();
@@ -1234,7 +1239,7 @@ async function runBrowserSuite() {
     await client.eval(clickSubmitModalButton)
     await client.waitFor(`window.__fe10Calls.normalCreatePosts.length === 3`)
     await client.waitFor(`window.__fe10Calls.sessionReadBacks.some(c => c.url.includes('classId=88'))`)
-    await client.waitFor(`document.body.innerText.includes('Đã tạo lớp học và khởi tạo đủ lịch 12 buổi thành công.')`)
+    await client.waitFor(`document.body.innerText.includes('Đã tạo lớp học và xác minh đủ 12 buổi cho lớp #88.')`)
     await client.waitFor(`!document.querySelector('#new-class-name')`)
 
     const thirdPost = await client.eval(`window.__fe10Calls.normalCreatePosts[2]`)
@@ -1343,6 +1348,12 @@ async function runBrowserSuite() {
     await client.waitFor(`document.querySelector('[role="alert"]')?.textContent.includes('#88')`)
     const postCountAfterUnverified = await client.eval(`window.__fe10Calls.normalCreatePosts.length`)
     assert.equal(postCountAfterUnverified, 1, 'A successful POST with failed schedule reads is still one creation attempt')
+    await client.eval(`window.confirm = () => true; Array.from(document.querySelectorAll('button')).find(b => b.title === 'Quay lại')?.click()`)
+    await client.waitFor(`!Boolean(document.querySelector('#new-class-name'))`)
+    await client.eval(clickCreateClassOpenButton)
+    await client.waitFor(`Boolean(document.querySelector('#new-class-name'))`)
+    await client.waitFor(`document.querySelector('[role="alert"]')?.textContent.includes('#88')`)
+    assert.equal(await client.eval(`window.__fe10Calls.normalCreatePosts.length`), 1, 'Closing and reopening the modal preserves known-class recovery without POST')
     await client.eval(`Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Thử xác minh lại lịch'))?.click()`)
     await client.waitFor(`document.querySelector('[role="alert"]')?.textContent.includes('#88')`)
     assert.equal(await client.eval(`window.__fe10Calls.normalCreatePosts.length`), 1, 'Retry while GET is unavailable must not POST again')
@@ -1350,7 +1361,29 @@ async function runBrowserSuite() {
     await client.eval(`Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Thử xác minh lại lịch'))?.click()`)
     await client.waitFor(`document.body.innerText.includes('Đã xác minh đủ 12 buổi cho lớp #88.')`)
     assert.equal(await client.eval(`window.__fe10Calls.normalCreatePosts.length`), 1, 'Successful GET-only retry must retain the single original POST')
-    console.log('[FE10-BROWSER-04] PASS: Created class remains identified after failed GET verification; retry performs GET only and never duplicates POST.')
+    console.log('[FE10-BROWSER-04] PASS: Created class remains identified across closing/reopening the modal; retries perform GET only and never duplicate POST.')
+
+    // Scenario 5: Persist ambiguous 2xx response without classId across page reload and block duplicate POST.
+    await client.eval(`window.__fe10MockState.postMode = 'missing_id_success'; window.__fe10Calls.normalCreatePosts = [];`)
+    await client.eval(clickCreateClassOpenButton)
+    await client.waitFor(`Boolean(document.querySelector('#new-class-name'))`)
+    await client.eval(`Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('T3') && b.textContent.includes('T5') && b.textContent.includes('T7'))?.click()`)
+    await client.eval(setClassNameInput('Cầu lông Normal chưa rõ kết quả'))
+    await client.eval(clickSubmitModalButton)
+    await client.waitFor(`window.__fe10Calls.normalCreatePosts.length === 1`)
+    assert.deepEqual((await client.eval(`window.__fe10Calls.normalCreatePosts[0].body.daysOfWeek`)), [2, 4, 6])
+    await client.waitFor(`document.querySelector('[role="alert"]')?.textContent.includes('requestId')`)
+    assert.equal(await client.eval(`Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Cần kiểm tra kết quả'))?.disabled`), true)
+    await client.eval(`window.confirm = () => true; Array.from(document.querySelectorAll('button')).find(b => b.title === 'Quay lại')?.click()`)
+    await client.waitFor(`!Boolean(document.querySelector('#new-class-name'))`)
+    await client.navigate(`http://localhost:${vitePort}/manager/classes`)
+    await client.waitFor(`Array.from(document.querySelectorAll('button')).some(b => b.textContent.includes('Tạo lớp học'))`, 10000)
+    await client.eval(clickCreateClassOpenButton)
+    await client.waitFor(`Boolean(document.querySelector('#new-class-name'))`)
+    await client.waitFor(`document.querySelector('[role="alert"]')?.textContent.includes('requestId')`)
+    assert.equal(await client.eval(`Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Cần kiểm tra kết quả'))?.disabled`), true)
+    assert.equal(await client.eval(`window.__fe10Calls.normalCreatePosts.length`), 0, 'Reloaded unknown outcome restores the block without submitting another POST')
+    console.log('[FE10-BROWSER-05] PASS: Unknown POST outcome survives page reload and blocks duplicate submission.')
   } finally {
     client.close()
     proc.kill()

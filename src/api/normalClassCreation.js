@@ -71,6 +71,41 @@ const NORMAL_CLASS_WEEKDAY_PATTERNS = [
   [3, 5, 0],
 ]
 
+const PENDING_NORMAL_CLASS_CREATION_KEY = 'scms_pending_normal_class_creation_v1'
+
+export const loadPendingNormalClassCreation = () => {
+  if (typeof window === 'undefined') return null
+  try {
+    const saved = window.sessionStorage.getItem(PENDING_NORMAL_CLASS_CREATION_KEY)
+    const state = saved ? JSON.parse(saved) : null
+    return state && typeof state === 'object' && typeof state.requestId === 'string'
+      ? state
+      : null
+  } catch {
+    return null
+  }
+}
+
+export const savePendingNormalClassCreation = (state) => {
+  if (typeof window === 'undefined') return
+  try {
+    if (state && typeof state === 'object' && typeof state.requestId === 'string') {
+      window.sessionStorage.setItem(PENDING_NORMAL_CLASS_CREATION_KEY, JSON.stringify(state))
+    }
+  } catch {
+    // Keep creation functional if browser storage is unavailable.
+  }
+}
+
+export const clearPendingNormalClassCreation = () => {
+  if (typeof window === 'undefined') return
+  try {
+    window.sessionStorage.removeItem(PENDING_NORMAL_CLASS_CREATION_KEY)
+  } catch {
+    // Storage cleanup is best effort.
+  }
+}
+
 export const normalizeNormalClassWeekdays = (days) => {
   if (!Array.isArray(days)) return null
   const normalized = [...new Set(days.map((day) => {

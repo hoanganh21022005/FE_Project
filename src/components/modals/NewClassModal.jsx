@@ -15,6 +15,7 @@ import {
   getNextValidUpcomingDate,
   getDefaultNormalMinCapacity,
   isNormalClassApiCreationBlocked,
+  loadPendingNormalClassCreation,
   NORMAL_CLASS_API_BLOCKED_MESSAGE,
   parseLocalDate,
   validateNormalClassCapacity,
@@ -482,12 +483,17 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     setClassName("")
     setTouched({})
     setIsDirty(false)
-    const pendingCreation = normalRequestIdStateRef.current
+    const pendingCreation = normalRequestIdStateRef.current || loadPendingNormalClassCreation()
+    if (!normalRequestIdStateRef.current && pendingCreation) {
+      normalRequestIdStateRef.current = pendingCreation
+    }
     setNormalCreationRecovery(
       pendingCreation?.status === "created_unverified"
         ? { status: pendingCreation.status, classId: pendingCreation.createdClassId, requestId: pendingCreation.requestId }
         : pendingCreation?.status === "outcome_unknown"
           ? { status: pendingCreation.status, requestId: pendingCreation.requestId }
+          : ["post_unconfirmed", "post_pending"].includes(pendingCreation?.status)
+            ? { status: "post_unconfirmed", requestId: pendingCreation.requestId }
           : null,
     )
   }, [isOpen])
@@ -956,7 +962,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
       )
       return
     }
-    if (apiEnabled && pendingCreation?.status === "created_unverified") {
+    if (apiEnabled && ["created_unverified", "post_unconfirmed", "post_pending"].includes(pendingCreation?.status)) {
       setIsSubmitting(true)
       try {
         const retryResult = await addClassSession({}, {
@@ -964,7 +970,12 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         })
         if (retryResult?.success && retryResult.data?.id) {
           setNormalCreationRecovery(null)
-          showToast(`Đã xác minh đủ 12 buổi cho lớp #${retryResult.data.id}.`, "success")
+          showToast(
+            pendingCreation.status === "created_unverified"
+              ? `Đã xác minh đủ 12 buổi cho lớp #${retryResult.data.id}.`
+              : `Đã tạo lớp học và xác minh đủ 12 buổi cho lớp #${retryResult.data.id}.`,
+            "success",
+          )
           onClose()
         } else if (retryResult?.createdButUnverified) {
           setNormalCreationRecovery({
@@ -972,6 +983,12 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             classId: retryResult.classId,
             requestId: retryResult.requestId,
           })
+          showToast(retryResult.message, "error")
+        } else if (retryResult?.postUnconfirmed) {
+          setNormalCreationRecovery({ status: "post_unconfirmed", requestId: retryResult.requestId })
+          showToast(retryResult.message, "error")
+        } else if (retryResult?.outcomeUnknown) {
+          setNormalCreationRecovery({ status: "outcome_unknown", requestId: retryResult.requestId })
           showToast(retryResult.message, "error")
         } else {
           showToast(retryResult?.message || "Chưa thể xác minh lại lịch lớp đã tạo.", "error")
@@ -1120,6 +1137,14 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
           showToast(createResult.message, "error")
           return
         }
+        if (createResult?.postUnconfirmed) {
+          setNormalCreationRecovery({
+            status: "post_unconfirmed",
+            requestId: createResult.requestId,
+          })
+          showToast(createResult.message, "error")
+          return
+        }
         if (!createResult?.success || !createResult.data?.id) {
           throw new Error(createResult?.message || "Hệ thống chưa thể xác nhận mã lớp học mới.")
         }
@@ -1190,6 +1215,11 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
           {normalCreationRecovery?.status === "outcome_unknown" && (
             <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
               Chưa xác định được kết quả tạo lớp (requestId {normalCreationRecovery.requestId}); response không có classId hợp lệ. Hãy kiểm tra danh sách lớp trên hệ thống trước khi tạo thao tác mới.
+            </div>
+          )}
+          {normalCreationRecovery?.status === "post_unconfirmed" && (
+            <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              Chưa xác nhận được kết quả POST tạo lớp (requestId {normalCreationRecovery.requestId}). Thử lại sẽ dùng đúng requestId và payload đã gửi.
             </div>
           )}
           {/* CARD 1: THÔNG TIN CƠ BẢN */}
@@ -1993,12 +2023,14 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             type="button"
             onClick={() => handleSubmit(status)}
             disabled={
-              isSubmitting || normalCreationRecovery?.status === "outcome_unknown" || (normalCreationRecovery?.status !== "created_unverified" && (conflict?.hasConflict || conflict?.hasMissingSchedule || isFirstSessionInPast || (apiEnabled && !startDateMatchesSchedule) || isNormalClassApiCreationBlocked(apiEnabled)))
+              isSubmitting || normalCreationRecovery?.status === "outcome_unknown" || (!["created_unverified", "post_unconfirmed"].includes(normalCreationRecovery?.status) && (conflict?.hasConflict || conflict?.hasMissingSchedule || isFirstSessionInPast || (apiEnabled && !startDateMatchesSchedule) || isNormalClassApiCreationBlocked(apiEnabled)))
             }
             className="h-10 px-6 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer flex items-center gap-2"
             title={
               normalCreationRecovery?.status === "created_unverified"
                 ? "Chỉ thử xác minh lịch của lớp đã tạo; không tạo lớp mới"
+                : normalCreationRecovery?.status === "post_unconfirmed"
+                  ? "Thử lại cùng payload và requestId đã gửi"
                 : normalCreationRecovery?.status === "outcome_unknown"
                   ? "Cần kiểm tra kết quả trên hệ thống trước"
                   : conflict?.hasConflict
@@ -2014,7 +2046,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                 <span>Đang xử lý...</span>
               </>
             ) : (
-              <span>{normalCreationRecovery?.status === "created_unverified" ? "Thử xác minh lại lịch" : normalCreationRecovery?.status === "outcome_unknown" ? "Cần kiểm tra kết quả" : "Tạo & mở đăng ký"}</span>
+              <span>{normalCreationRecovery?.status === "created_unverified" ? "Thử xác minh lại lịch" : normalCreationRecovery?.status === "post_unconfirmed" ? "Thử lại cùng requestId" : normalCreationRecovery?.status === "outcome_unknown" ? "Cần kiểm tra kết quả" : "Tạo & mở đăng ký"}</span>
             )}
           </button>
         </div>

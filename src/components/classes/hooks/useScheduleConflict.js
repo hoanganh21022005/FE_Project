@@ -352,15 +352,15 @@ export function checkSingleClassConflict(candidate, existing) {
           existCoachName.includes(candCoachName))),
   )
 
-  const candRoom = (
+  const candRoom = String(
     candidate.roomVi ||
-    candidate.room ||
-    candidate.roomId ||
-    ""
+      candidate.room ||
+      candidate.roomId ||
+      "",
   )
     .trim()
     .toLowerCase()
-  const existRoom = (existing.roomVi || existing.room || existing.roomId || "")
+  const existRoom = String(existing.roomVi || existing.room || existing.roomId || "")
     .trim()
     .toLowerCase()
 
