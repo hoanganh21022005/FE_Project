@@ -106,4 +106,31 @@ test.describe('Member: xác nhận mua gói Advanced theo purchaseConfirmationAl
     await expect(page.getByText('11', { exact: true }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: /Xác nhận và thanh toán/ })).toHaveCount(0);
   });
+  test('Khối credit chỉ hiện cho đăng ký Active; Requested/Rejected/Accepted chưa mua cùng môn + Coach thì không', async ({ page }) => {
+    const subscriptions = [{ subscriptionId: 77, id: 77, memberId: 101, status: 'Active', packageType: 'Advanced', subjectId: 2, primaryCoachId: 6, remainingCredit: 11, endDate: '2027-01-20' }];
+    await setup(page, {
+      registrations: [
+        registration({ id: 41, status: 'Rejected', confirmationDeadline: null }),
+        registration({ id: 42, status: 'Requested', confirmationDeadline: null }),
+        registration({ id: 43, status: 'Accepted' }),
+      ],
+      subscriptions,
+    });
+    await expect(page.getByText('HLV Quần vợt').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Credit còn lại:/)).toHaveCount(0);
+  });
+
+  test('Cùng cặp môn + Coach: chỉ đăng ký Active (subscriptionId trùng gói) hiện khối credit, đúng một lần', async ({ page }) => {
+    const subscriptions = [{ subscriptionId: 77, id: 77, memberId: 101, status: 'Active', packageType: 'Advanced', subjectId: 2, primaryCoachId: 6, remainingCredit: 11, endDate: '2027-01-20' }];
+    await setup(page, {
+      registrations: [
+        registration({ id: 41, status: 'Rejected', confirmationDeadline: null }),
+        registration({ id: 42, status: 'Requested', confirmationDeadline: null }),
+        registration({ id: 44, status: 'Active', subscriptionId: 77 }),
+      ],
+      subscriptions,
+    });
+    await expect(page.getByText(/Credit còn lại:/)).toHaveCount(1, { timeout: 15000 });
+    await expect(page.getByText(/Hạn dùng:/)).toHaveCount(1);
+  });
 });
