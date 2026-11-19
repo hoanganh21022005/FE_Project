@@ -5,7 +5,13 @@ import { CoachStatusBadge } from "../coach/StatusBadge"
 import { formatDate, formatTime, formatTimeRange } from "../../utils/datetime"
 import { formatMemberCode } from "../../utils/formatMember"
 import { classEnrollmentApi } from "../../api/classEnrollmentApi"
-import { attendanceApi, matchesSessionAttendance } from "../../api/attendanceApi"
+import {
+  attendanceApi,
+  formatAttendanceReasonCode,
+  matchesSessionAttendance,
+  resolveSessionAttendanceAccess,
+} from "../../api/attendanceApi"
+import { optionalBoolean } from "../../api/mappers"
 import { memberPortalApi } from "../../api/memberPortalApi"
 import { getCatalogClassSessions } from "../../api/managerApi"
 import { getErrorCode, getErrorMessage, translateErrorCode } from "../../api/apiErrors"
@@ -42,12 +48,27 @@ function getAttendanceActionErrorMessage(err, language, fallbackVi, fallbackEn) 
   ).trim()
   const upperMsg = rawMessage.toUpperCase()
 
-  for (const knownCode of ["NORMAL_NOT_STARTED", "ATTENDANCE_WINDOW_CLOSED"]) {
-    if (code === knownCode || upperMsg.includes(knownCode)) {
-      // Câu tiếng người của Backend (không phải mã) được ưu tiên; thiếu thì dùng bảng chung.
-      if (rawMessage && !upperMsg.includes(knownCode) && rawMessage !== code) {
-        return rawMessage
-      }
+  if (code === "CHECKIN_WINDOW_CLOSED" || upperMsg.includes("CHECKIN_WINDOW_CLOSED")) {
+    return formatAttendanceReasonCode("ATTENDANCE_WINDOW_CLOSED", language)
+  }
+
+  if (code) {
+    const translated = translateErrorCode(code, language, "attendance")
+    if (translated) return translated
+  }
+
+  for (const knownCode of [
+    "SESSION_NOT_HELD",
+    "NORMAL_NOT_STARTED",
+    "ATTENDANCE_WINDOW_CLOSED",
+    "SESSION_TIME_REQUIRED",
+    "COACH_REQUIRED",
+    "NOT_YOUR_CLASS",
+    "PACKAGE_EXPIRED",
+    "MEMBER_NOT_ACTIVE",
+    "INVALID_CHECKIN_CODE",
+  ]) {
+    if (upperMsg.includes(knownCode)) {
       return translateErrorCode(knownCode, language, "attendance")
     }
   }
@@ -313,6 +334,7 @@ export function CoachAttendanceView() {
   const [classTrainingPlans, setClassTrainingPlans] = useState([])
   const [sessionAbsenceNotices, setSessionAbsenceNotices] = useState([])
   const [classSessions, setClassSessions] = useState([])
+  const [sessionDetailOverrides, setSessionDetailOverrides] = useState({})
   const [selectedSessionId, setSelectedSessionId] = useState(() => {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search)
@@ -580,12 +602,15 @@ export function CoachAttendanceView() {
       }
 
       // STEP 3: Coach đã được xác minh quyền thực tế! Tiến hành tải danh sách học viên
+      const needsSessionDetail =
+        optionalBoolean(targetSession?.attendanceAllowed) === null
       const [
         rosterRes,
         attendancesRes,
         plans,
         trRes,
         nRes,
+        sessionDetail,
       ] = await Promise.all([
         isPtMode
           ? Promise.resolve({ enrollments: [] })
@@ -620,9 +645,18 @@ export function CoachAttendanceView() {
             (data) => ({ data: Array.isArray(data) ? data : [] }),
             (error) => ({ data: [], error }),
           ),
+        needsSessionDetail
+          ? attendanceApi.getSessionById(effectiveSessionId).catch(() => null)
+          : Promise.resolve(null),
       ])
 
       if (requestId !== rosterRequestId.current) return
+      if (sessionDetail && sessionDetail.id != null) {
+        setSessionDetailOverrides((prev) => ({
+          ...prev,
+          [String(sessionDetail.id)]: sessionDetail,
+        }))
+      }
       setApiEnrollments(rosterRes.enrollments || [])
       setRosterError(rosterRes.error || null)
       setApiAttendances(attendancesRes.data || [])
@@ -663,11 +697,12 @@ export function CoachAttendanceView() {
     if (classSessions.length === 0) {
       return { status: "Scheduled", computedOrderNumber: 1 }
     }
-    return (
+    const base =
       classSessions.find((s) => String(s.id) === String(selectedSessionId)) ||
       classSessions[0] || { status: "Scheduled", computedOrderNumber: 1 }
-    )
-  }, [classSessions, selectedSessionId])
+    const detail = base?.id != null ? sessionDetailOverrides[String(base.id)] : null
+    return detail ? { ...base, ...detail } : base
+  }, [classSessions, selectedSessionId, sessionDetailOverrides])
 
   const totalClassSessions = useMemo(() => {
     return Math.max(
@@ -934,7 +969,22 @@ export function CoachAttendanceView() {
     !rosterError &&
     !(selectedClassId && !selectedClass)
 
-  const allowCheckIn = isClassValid && sessionReady && hasSessionPermission && canCheckIn(activeSession)
+  const attendanceAccess = useMemo(
+    () => resolveSessionAttendanceAccess(activeSession, canCheckIn(activeSession)),
+    [activeSession],
+  )
+  const attendanceBlockMessage = useMemo(() => {
+    if (attendanceAccess.attendanceAllowed !== false) return ""
+    if (attendanceAccess.blockReason) {
+      return formatAttendanceReasonCode(attendanceAccess.blockReason, language)
+    }
+    return language === "vi"
+      ? "Chưa thể điểm danh cho buổi học này."
+      : "Attendance is currently unavailable for this session."
+  }, [attendanceAccess, language])
+
+  const allowCheckIn =
+    isClassValid && sessionReady && hasSessionPermission && attendanceAccess.allowed
   const allowCorrection = sessionReady && hasSessionPermission && canCorrectAttendance(activeSession)
   const resolvedSessionStatus = normalizeSessionStatus(activeSession) || "Scheduled"
 
@@ -986,8 +1036,7 @@ export function CoachAttendanceView() {
           sessionId: Number(selectedSessionId),
           coachId: resolvedCoachId,
           status: apiStatusMap[targetStatus] || "Present",
-          notes:
-            targetStatus === "absent" ? "Vắng mặt" : "Có mặt đúng giờ",
+          notes: "",
         })
         if (requestId === rosterRequestId.current) await loadClassRosterAndAttendance()
         setOptimisticStatusMap(({ [optKey]: _, ...remaining }) => remaining)
@@ -1027,6 +1076,9 @@ export function CoachAttendanceView() {
         ...prev,
         [optKey]: errorMsg,
       }))
+      if (apiEnabled && requestId === rosterRequestId.current) {
+        await loadClassRosterAndAttendance()
+      }
       showToast?.(errorMsg, "error")
     }
   }
@@ -1053,7 +1105,7 @@ export function CoachAttendanceView() {
           items: targets.map((m) => ({
             memberId: Number(m.id),
             attendanceStatus: "Present",
-            content: "Có mặt đầy đủ theo điểm danh lớp",
+            content: null,
           })),
         })
         if (!Array.isArray(results) || !targets.every((m) =>
@@ -1123,7 +1175,7 @@ export function CoachAttendanceView() {
             sessionId: selectedSessionId,
             coachId: resolvedCoachId,
             status: "Present",
-            notes: "Điểm danh nhanh theo mã hội viên",
+            notes: "",
           })
         }
         setQuickMemberInput("")
@@ -1162,6 +1214,9 @@ export function CoachAttendanceView() {
         showToast?.(`Đã quét mã điểm danh ${raw} thành công!`, "success")
       }
     } catch (err) {
+      if (apiEnabled && requestId === rosterRequestId.current) {
+        await loadClassRosterAndAttendance()
+      }
       showToast?.(
         getAttendanceActionErrorMessage(
           err,
@@ -1507,6 +1562,18 @@ export function CoachAttendanceView() {
           </div>
         </div>
       )}
+
+      {attendanceAccess.attendanceAllowed === false &&
+        !sessionCancelled &&
+        hasSessionPermission && (
+          <div
+            role="status"
+            className="p-3.5 bg-status-warning-bg border border-status-warning-border rounded-lg flex items-center gap-2.5 text-status-warning text-sm leading-5 font-medium"
+          >
+            <AlertCircle className="w-4 h-4 text-status-warning shrink-0" />
+            <span>{attendanceBlockMessage}</span>
+          </div>
+        )}
 
       {allowCorrection && !sessionCancelled && (
         <div className="p-3.5 bg-status-warning-bg border border-status-warning-border rounded-lg flex items-center gap-2.5 text-status-warning text-sm leading-5 font-medium">
