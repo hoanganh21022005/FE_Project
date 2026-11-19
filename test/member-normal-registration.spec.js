@@ -18,13 +18,25 @@ const sessions = Array.from({ length: 12 }, (_, i) => ({
   id: 500 + i, classId: 51, sessionDate: futureDate(10 + i * 7), startTime: '18:00', endTime: '19:30', status: 'Scheduled',
 }));
 
-async function setup(page, courseClass, enrollResponse = null) {
-  const counts = { enrollPosts: 0, payOnline: 0, invoices: 0, enrollmentGets: 0, classGets: 0 };
+const REGISTRATION_KEYS = ['registrationAllowed', 'registrationBlockReason', 'registrationDeadline', 'serverTime'];
+
+// Khớp Backend thật: GET /api/classes (danh sách) luôn trả 4 field đăng ký là null; chỉ GET /api/classes/{id} (chi tiết) mới đánh giá.
+// `detailStatus` khác 200 thì chi tiết lỗi (ví dụ 500).
+async function setup(page, courseClass, enrollResponse = null, { detailStatus = 200 } = {}) {
+  const counts = { enrollPosts: 0, payOnline: 0, invoices: 0, enrollmentGets: 0, classGets: 0, detailGets: 0 };
+  const listRow = { ...courseClass };
+  for (const key of REGISTRATION_KEYS) listRow[key] = null;
   await setupDefaultApiMocks(page, ['/api/public/subjects']);
   await page.route((url) => isApiMatch(url, 'subjects'), (r) => r.fulfill({ status: 200, json: subjects }));
   await page.route((url) => isApiMatch(url, 'classes') && new URL(url).pathname === '/api/classes', (r) => {
     counts.classGets += 1;
-    return r.fulfill({ status: 200, json: [courseClass] });
+    return r.fulfill({ status: 200, json: [listRow] });
+  });
+  await page.route((url) => new URL(url).pathname === '/api/classes/51', (r) => {
+    if (r.request().method() !== 'GET') return r.fallback();
+    counts.detailGets += 1;
+    if (detailStatus !== 200) return r.fulfill({ status: detailStatus, json: { message: 'Internal error' } });
+    return r.fulfill({ status: 200, json: courseClass });
   });
   await page.route((url) => new URL(url).pathname === '/api/sessions/catalog/51', (r) => r.fulfill({ status: 200, json: sessions }));
   await page.route((url) => isApiMatch(url, 'members'), (r) => r.fulfill({ status: 200, json: [] }));
@@ -33,7 +45,7 @@ async function setup(page, courseClass, enrollResponse = null) {
   await page.route((url) => isApiMatch(url, 'specializations'), (r) => r.fulfill({ status: 200, json: [] }));
   await page.route((url) => new URL(url).pathname === '/api/classes/51/enroll', (r) => {
     counts.enrollPosts += 1;
-    return r.fulfill(enrollResponse ?? { status: 200, json: { status: 'Waitlisted', enrollmentId: 88, classId: 51 } });
+    return r.fulfill(enrollResponse ?? { status: 200, json: { status: 'Waitlisted', enrollmentId: 88, classId: 51, waitlistPosition: 3 } });
   });
   await page.route((url) => /\/pay-online$/.test(new URL(url).pathname), (r) => { counts.payOnline += 1; return r.fulfill({ status: 500, json: {} }); });
   await page.route((url) => new URL(url).pathname === '/api/invoices', (r) => { counts.invoices += 1; return r.fulfill({ status: 500, json: {} }); });
@@ -102,12 +114,43 @@ test.describe('Member: đăng ký lớp Normal theo registrationAllowed (mock)',
       { status: 409, json: { code: 'WAITLIST_FULL', message: 'WAITLIST_FULL: waitlist is full' } },
     );
     await expect(page.getByText('Đã đủ chỗ · nhận danh sách chờ')).toBeVisible({ timeout: 15000 });
-    const getsBefore = counts.classGets;
+    const getsBefore = counts.detailGets;
     await page.getByRole('button', { name: /Đăng ký lớp/ }).first().click();
     await page.getByRole('dialog').getByRole('button', { name: 'Gửi đăng ký' }).click();
     await expect(page.getByRole('dialog').getByText('Danh sách chờ đã đầy.')).toBeVisible();
     await expect(page.getByText(/được vào danh sách chờ/)).toHaveCount(0);
-    await expect.poll(() => counts.classGets).toBeGreaterThan(getsBefore);
+    await expect.poll(() => counts.detailGets).toBeGreaterThan(getsBefore);
     expect(counts.payOnline).toBe(0);
+  });
+  test('Chi tiết lớp lỗi 500: giữ hành vi cũ, không khóa, không báo lỗi chặn', async ({ page }) => {
+    const counts = await setup(page, normalClass({ registrationAllowed: false, registrationBlockReason: 'NORMAL_REGISTRATION_CLOSED' }), null, { detailStatus: 500 });
+    await expect(page.getByRole('button', { name: /Đăng ký lớp/ }).first()).toBeEnabled({ timeout: 15000 });
+    await expect.poll(() => counts.detailGets).toBeGreaterThan(0);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByText('Lớp đã đóng đăng ký.')).toHaveCount(0);
+  });
+
+  test('Chi tiết trả ALREADY_ENROLLED: khóa nút, nhãn trung tính, câu chữ từ bảng chung', async ({ page }) => {
+    await setup(page, normalClass({ registrationAllowed: false, registrationBlockReason: 'ALREADY_ENROLLED' }));
+    await expect(page.getByRole('button', { name: 'Chưa thể đăng ký' })).toBeDisabled({ timeout: 15000 });
+    await expect(page.getByText('Bạn đã đăng ký lớp này.').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /Quá hạn đăng ký/ })).toHaveCount(0);
+  });
+
+  test('Chi tiết trả SCHEDULE_CONFLICT: khóa nút kèm câu chữ qua bảng chung', async ({ page }) => {
+    await setup(page, normalClass({ registrationAllowed: false, registrationBlockReason: 'SCHEDULE_CONFLICT' }));
+    await expect(page.getByRole('button', { name: 'Chưa thể đăng ký' })).toBeDisabled({ timeout: 15000 });
+    await expect(page.getByText(/Lịch học bị trùng/).first()).toBeVisible();
+  });
+
+  test('Chỉ gọi chi tiết cho lớp Normal đang Open của môn đang chọn; sau đăng ký tải lại chi tiết lớp đó', async ({ page }) => {
+    const counts = await setup(page, normalClass({ registrationAllowed: true, maxCapacity: 10, enrolledCount: 10 }));
+    await expect(page.getByText('Đã đủ chỗ · nhận danh sách chờ')).toBeVisible({ timeout: 15000 });
+    expect(counts.detailGets).toBe(1);
+    await page.getByRole('button', { name: /Đăng ký lớp/ }).first().click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Gửi đăng ký' }).click();
+    await expect.poll(() => counts.enrollPosts).toBe(1);
+    await expect.poll(() => counts.detailGets).toBeGreaterThan(1);
+    await expect(page.getByText(/vị trí 3/).first()).toBeVisible();
   });
 });

@@ -136,4 +136,50 @@ assert.equal(b.registrationDeadline, '2026-11-25T09:30:00+07:00')
 assert.equal(c.registrationAllowed, true)
 assert.equal(allowsFullClass(c), true)
 
+// C4m.10 Chi tiết lớp (GET /api/classes/{id}) là nơi duy nhất có giá trị theo Member; danh sách luôn null
+const { getMemberCourseClassRegistration } = await import('../src/api/memberCourseCatalogApi.js')
+const requested = []
+const respondDetail = (status, body) => {
+  globalThis.fetch = async (url) => {
+    requested.push(String(url))
+    return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+  }
+}
+// thiếu field: null, không đổi thành false
+respondDetail(200, { id: 51, name: 'Lớp' })
+let detail = await getMemberCourseClassRegistration(51)
+assert.deepEqual(detail, { registrationAllowed: null, registrationBlockReason: null, registrationDeadline: null, serverTime: null, loaded: true })
+assert.ok(requested.at(-1).endsWith('/api/classes/51'))
+// field danh sách là null (đúng BE thật) cũng là null
+respondDetail(200, { id: 51, registrationAllowed: null, registrationBlockReason: null, registrationDeadline: null, serverTime: null })
+detail = await getMemberCourseClassRegistration(51)
+assert.equal(detail.registrationAllowed, null)
+assert.equal(detail.loaded, true)
+// false + lý do + hạn giữ đúng
+respondDetail(200, { id: 51, registrationAllowed: false, registrationBlockReason: ' ALREADY_ENROLLED ', registrationDeadline: '2026-11-25T09:30:00+07:00', serverTime: '2026-11-20T08:00:00+07:00' })
+detail = await getMemberCourseClassRegistration(51)
+assert.equal(detail.registrationAllowed, false)
+assert.equal(detail.registrationBlockReason, 'ALREADY_ENROLLED')
+assert.equal(detail.registrationDeadline, '2026-11-25T09:30:00+07:00')
+assert.equal(detail.serverTime, '2026-11-20T08:00:00+07:00')
+// true giữ true
+respondDetail(200, { id: 51, registrationAllowed: true })
+assert.equal((await getMemberCourseClassRegistration(51)).registrationAllowed, true)
+// Thiết kế lỗi: không bao giờ ném; 500, 403, 404, 401 và lỗi mạng đều trả 4 field null và loaded: false
+for (const status of [500, 503, 403, 404, 401]) {
+  respondDetail(status, { message: 'lỗi' })
+  const failed = await getMemberCourseClassRegistration(51)
+  assert.deepEqual(failed, { registrationAllowed: null, registrationBlockReason: null, registrationDeadline: null, serverTime: null, loaded: false }, `HTTP ${status}`)
+}
+globalThis.fetch = async () => { throw new Error('network down') }
+assert.equal((await getMemberCourseClassRegistration(51)).loaded, false)
+// Phản hồi không phải đối tượng, id không hợp lệ: null, không gọi mạng
+respondDetail(200, [1, 2])
+assert.equal((await getMemberCourseClassRegistration(51)).loaded, false)
+requested.length = 0
+respondDetail(200, {})
+assert.equal((await getMemberCourseClassRegistration('abc')).loaded, false)
+assert.equal((await getMemberCourseClassRegistration(null)).registrationAllowed, null)
+assert.equal(requested.length, 0)
+
 console.log('contract_c4m_normal_test.mjs: ALL PASSED')
