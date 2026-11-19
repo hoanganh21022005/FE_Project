@@ -15,6 +15,7 @@ import { AdminResourceState } from "../AdminResourceState.jsx"
 import { useAdminData } from "../AdminDataContext.jsx"
 import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { updateRolePermissions } from "../../../api/adminApi.js"
+import { getErrorCode, translateErrorCode } from "../../../api/apiErrors.js"
 import { AdminConfirmDialog } from "../AdminConfirmDialog.jsx"
 import {
   getAdminPermissionLabel,
@@ -152,11 +153,20 @@ export function AdminRolesView() {
         message: getAdminText(language, "roles.saveSuccess"),
       })
     } catch (err) {
+      const code = getErrorCode(err)
+      const translated = code ? translateErrorCode(code, language) : null
       if (err?.status === 403) {
         setSaveError(getAdminText(language, "common.noPermission"))
       } else {
-        setSaveError(err?.message || getAdminText(language, "roles.saveError"))
+        setSaveError(
+          translated || err?.message || getAdminText(language, "roles.saveError"),
+        )
       }
+      // Sau khi bị từ chối: hủy bản nháp đã chỉnh và tải lại ma trận từ BE
+      setDraftPermissions({})
+      setIsEditing(false)
+      retry("roles")
+      retry("permissions")
       setIsConfirmOpen(false)
     } finally {
       setSaving(false)
