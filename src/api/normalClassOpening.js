@@ -1,4 +1,4 @@
-import { getErrorCode, getErrorMessage, translateErrorCode } from './apiErrors.js'
+import { describeBlockReason, getErrorCode, getErrorMessage, translateErrorCode } from './apiErrors.js'
 import { optionalBoolean } from './mappers.js'
 import { parseBackendDate } from '../utils/datetime.js'
 
@@ -180,11 +180,11 @@ export const evaluateNormalClassOpening = ({
 
   if (openingConfirmationAllowed === false) {
     const rawReason = classItem?.openingConfirmationBlockReason
-    const translated = rawReason ? translateErrorCode(String(rawReason).trim(), 'vi') : null
+    const reasonCode = typeof rawReason === 'string' ? rawReason.trim() : ''
     blockers.push(
-      translated ||
-        (typeof rawReason === 'string' && rawReason.trim() ? rawReason.trim() : null) ||
-        'Không thể xác nhận khai giảng lớp học ở thời điểm hiện tại.',
+      reasonCode
+        ? describeBlockReason(reasonCode, 'vi')
+        : 'Không thể xác nhận khai giảng lớp học ở thời điểm hiện tại.',
     )
   } else if (openingConfirmationAllowed === null) {
     if (!timing.known) {
