@@ -572,7 +572,9 @@ export function MemberFeedbackView({ embedded = false }) {
         {
           id: rec.sessionId,
           classId: rec.classId,
-          sessionDate: String(rec.sessionDate || rec.checkInTime || "").slice(
+          sessionDate: String(
+            rec.sessionDate || rec.date || rec.checkInTime || rec.createdAt || "",
+          ).slice(
             0,
             10,
           ),
@@ -584,10 +586,9 @@ export function MemberFeedbackView({ embedded = false }) {
         })),
       )
       if (!alreadyMatched) {
-        const dateIso = String(rec.sessionDate || rec.checkInTime || "").slice(
-          0,
-          10,
-        )
+        const dateIso = String(
+          rec.sessionDate || rec.date || rec.checkInTime || rec.createdAt || "",
+        ).slice(0, 10)
         if (dateIso) {
           const enrollmentFallback =
             rec.classId != null
@@ -630,6 +631,11 @@ export function MemberFeedbackView({ embedded = false }) {
                 rec.sessionEndTime ||
                 enrollmentFallback.endTime ||
                 null,
+              attendanceStatus:
+                rec.attendanceStatus || rec.state || rec.status || null,
+              isPresent: rec.isPresent,
+              present: rec.present,
+              attended: rec.attended,
               status: "Completed",
             },
             enrollmentFallback,
@@ -646,8 +652,6 @@ export function MemberFeedbackView({ embedded = false }) {
     const attended = []
     for (const session of collectedSessions) {
       if (isSessionCancelled(session)) continue
-      if (!session.sessionDate || session.sessionDate > todayIso) continue
-
       const attendanceRecord = findSessionAttendanceRecord(
         session,
         apiAttendances,
@@ -657,17 +661,9 @@ export function MemberFeedbackView({ embedded = false }) {
       )
 
       if (stateKey !== "present" && stateKey !== "late") continue
-
-      const hasTakenPlace =
-        session.sessionDate < todayIso ||
-        String(session.rawStatus || "").toLowerCase() === "completed" ||
-        (session.sessionDate === todayIso &&
-          ((session.endMs !== null && session.endMs <= nowMs) ||
-            (session.startMs !== null && session.startMs <= nowMs) ||
-            stateKey === "present" ||
-            stateKey === "late"))
-
-      if (!hasTakenPlace) continue
+      // A confirmed attendance record is authoritative, even if a demo session
+      // has a future date or its scheduled end time has not passed yet.
+      if (!session.sessionDate) continue
 
       const matchedClass =
         session.classId != null
@@ -1072,6 +1068,15 @@ export function MemberFeedbackView({ embedded = false }) {
   ])
 
   // Điểm trung bình từ các đánh giá đã gửi
+  useEffect(() => {
+    if (!import.meta.env.DEV || isLoadingApi) return
+    console.debug("[MemberFeedback] attendance mapping", {
+      attendanceRecords: apiAttendances.length,
+      attendedSessions: attendedSessions.length,
+      pendingCourses: pendingCourses.length,
+    })
+  }, [apiAttendances, attendedSessions, isLoadingApi, pendingCourses])
+
   const averageRating = useMemo(() => {
     if (submittedReviews.length === 0) return "—"
     const sum = submittedReviews.reduce(
