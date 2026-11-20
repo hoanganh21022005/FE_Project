@@ -1220,55 +1220,63 @@ export function CoachAssignedMembersView() {
                               />
                             </div>
 
-                            {/* Remaining sessions display (R2.2) */}
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between text-text-primary text-xs leading-4">
-                                <span className="font-medium text-text-secondary">
-                                  {t("coachRemainingSessionsLabel")}:
-                                </span>
-                                <span
-                                  className={`font-mono font-semibold tabular-nums ${
-                                    credit > 0 ? "text-status-success" : "text-status-danger"
-                                  }`}
-                                >
-                                  {totalCredit != null
-                                    ? `Còn ${credit}/${totalCredit} buổi (Đã tập ${usedCredit})`
-                                    : t("coachAvailableSessionsCount").replace(
-                                        "{count}",
-                                        String(credit),
-                                      )}
-                                </span>
-                              </div>
-                              {totalCredit != null && (
-                                <div className="w-full h-1.5 bg-border-color rounded overflow-hidden">
-                                  <div
-                                    style={{ width: `${progressPct}%` }}
-                                    className={`h-full rounded ${
-                                      credit > 0 ? "bg-status-success" : "bg-status-danger"
-                                    }`}
-                                  />
+                            {isAwaitingPayment ? (
+                              <p className="text-xs font-semibold text-amber-800">
+                                {language === "vi" ? "Chờ Member thanh toán" : "Waiting for Member payment"}
+                              </p>
+                            ) : (
+                              <>
+                                {/* Remaining sessions display (R2.2) */}
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between text-text-primary text-xs leading-4">
+                                    <span className="font-medium text-text-secondary">
+                                      {t("coachRemainingSessionsLabel")}:
+                                    </span>
+                                    <span
+                                      className={`font-mono font-semibold tabular-nums ${
+                                        credit > 0 ? "text-status-success" : "text-status-danger"
+                                      }`}
+                                    >
+                                      {totalCredit != null
+                                        ? `Còn ${credit}/${totalCredit} buổi (Đã tập ${usedCredit})`
+                                        : t("coachAvailableSessionsCount").replace(
+                                            "{count}",
+                                            String(credit),
+                                          )}
+                                    </span>
+                                  </div>
+                                  {totalCredit != null && (
+                                    <div className="w-full h-1.5 bg-border-color rounded overflow-hidden">
+                                      <div
+                                        style={{ width: `${progressPct}%` }}
+                                        className={`h-full rounded ${
+                                          credit > 0 ? "bg-status-success" : "bg-status-danger"
+                                        }`}
+                                      />
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
 
-                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs leading-4 text-text-secondary pt-1">
-                              <div className="flex flex-wrap items-center gap-3 font-mono">
-                                <span>
-                                  {t("coachPkgRegDateLabel")}:{" "}
-                                  <strong className="text-text-primary">{regDateLabel}</strong>
-                                </span>
-                                <span>
-                                  {t("coachExpiryDateLabel")}:{" "}
-                                  <strong className="text-text-primary">{formatVietnamDateOnly(item.expiresAt)}</strong>
-                                </span>
-                              </div>
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-xs leading-4 text-text-secondary pt-1">
+                                  <div className="flex flex-wrap items-center gap-3 font-mono">
+                                    <span>
+                                      {t("coachPkgRegDateLabel")}:{" "}
+                                      <strong className="text-text-primary">{regDateLabel}</strong>
+                                    </span>
+                                    <span>
+                                      {t("coachExpiryDateLabel")}:{" "}
+                                      <strong className="text-text-primary">{formatVietnamDateOnly(item.expiresAt)}</strong>
+                                    </span>
+                                  </div>
 
-                              {!canBook && unbookableReason && (
-                                <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border">
-                                  {unbookableReason}
-                                </span>
-                              )}
-                            </div>
+                                  {!canBook && unbookableReason && (
+                                    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border">
+                                      {unbookableReason}
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </div>
                         )
                       })}
@@ -1324,6 +1332,13 @@ export function CoachAssignedMembersView() {
                             </button>
                           </div>
                         </>
+                      ) : studentGroup.packages.every((pkg) => {
+                          const st = String(pkg.subscriptionStatus || pkg.status || "").toLowerCase()
+                          return st === "accepted" || st === "invoiced"
+                        }) ? (
+                        <div className="text-xs font-semibold text-amber-800">
+                          {language === "vi" ? "Chờ Member thanh toán" : "Waiting for Member payment"}
+                        </div>
                       ) : (
                         <div className="flex items-center justify-between w-full gap-2 text-sm leading-5 text-text-secondary">
                           <span>
