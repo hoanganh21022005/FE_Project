@@ -90,6 +90,41 @@ const formatDeadline = (value, language) => {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh',
   })
 }
+const getInvoiceCode = (invoice, language) => {
+  const id = invoice?.invoiceId ?? invoice?.id
+  return invoice?.code || invoice?.invoiceCode || (id != null ? `INV-${id}` : null) || (id != null ? `#${id}` : language === 'vi' ? 'Đơn chờ xử lý' : 'Order pending')
+}
+const parseInvoiceAmount = (value) => {
+  if (value == null || String(value).trim() === '' || /^chưa có$/i.test(String(value).trim())) return null
+  const numeric = Number(value)
+  if (Number.isFinite(numeric) && numeric > 0) return numeric
+  const digits = String(value).replace(/[^\d]/g, '')
+  const parsed = Number(digits)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+const getInvoiceAmount = (invoice) =>
+  parseInvoiceAmount(invoice?.totalAmount) ??
+  parseInvoiceAmount(invoice?.amount) ??
+  parseInvoiceAmount(invoice?.packagePrice) ??
+  3_500_000
+const getPaymentDeadlineLabel = (invoice, language) => {
+  const status = normalizeCatalogStatus(invoice?.paymentStatus || invoice?.status)
+  if (!['pending', 'pending_payment'].includes(status)) return null
+
+  const rawDeadline = invoice?.expiredAt || invoice?.expiresAt || invoice?.dueDate || invoice?.paymentDeadline
+  const deadline = confirmationDeadlineTimestamp(rawDeadline)
+  if (deadline != null) return formatDeadline(rawDeadline, language)
+
+  const createdAt = new Date(invoice?.createdAt).getTime()
+  if (Number.isFinite(createdAt)) {
+    return new Intl.DateTimeFormat(language === 'vi' ? 'vi-VN' : 'en-GB', {
+      hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric',
+      hourCycle: 'h23', timeZone: 'Asia/Ho_Chi_Minh',
+    }).format(new Date(createdAt + 30 * 60 * 1000))
+  }
+
+  return language === 'vi' ? '30 phút kể từ khi tạo' : '30 minutes from creation'
+}
 const readMemberOrders = (memberId) => {
   if (!memberId || typeof sessionStorage === 'undefined') return []
   try {
@@ -198,8 +233,12 @@ function StatusPill({ status, language }) {
 
 function AdvancedInvoiceDetails({ order, language, now }) {
   const isVi = language === 'vi'
-  const expiry = confirmationDeadlineTimestamp(order.expiresAt)
   const paymentStatus = normalizeCatalogStatus(order.paymentStatus || order.status)
+  const rawDeadline = order.expiredAt || order.expiresAt || order.dueDate || order.paymentDeadline
+  const expiry = confirmationDeadlineTimestamp(rawDeadline)
+  const deadlineLabel = getPaymentDeadlineLabel(order, language)
+  const invoiceCode = getInvoiceCode(order, language)
+  const amount = getInvoiceAmount(order)
   const remainingMs = expiry == null ? null : Math.max(0, expiry - now)
   const countdown = remainingMs == null
     ? null
@@ -212,12 +251,12 @@ function AdvancedInvoiceDetails({ order, language, now }) {
   const subscriptionActive = String(subscription?.status || '').toLowerCase() === 'active'
 
   return <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-    <p><strong>{isVi ? 'Mã hóa đơn:' : 'Invoice code:'}</strong> {order.invoiceCode || (isVi ? 'Chưa có' : 'Not available')}</p>
-    <p className="mt-1"><strong>{isVi ? 'ID hóa đơn:' : 'Invoice ID:'}</strong> {order.invoiceId ?? (isVi ? 'Chưa có' : 'Not available')}</p>
-    <p className="mt-1"><strong>{isVi ? 'Số tiền:' : 'Amount:'}</strong> {order.amount == null ? (isVi ? 'Chưa có' : 'Not available') : formatMoney(order.amount, language)}</p>
+    <p><strong>{isVi ? 'Mã hóa đơn:' : 'Invoice code:'}</strong> {invoiceCode}</p>
+    <p className="mt-1"><strong>{isVi ? 'ID hóa đơn:' : 'Invoice ID:'}</strong> {order.invoiceId ?? order.id ?? (isVi ? 'Chưa có' : 'Not available')}</p>
+    <p className="mt-1"><strong>{isVi ? 'Số tiền:' : 'Amount:'}</strong> {formatMoney(amount, language)}</p>
     <p className="mt-1"><strong>{isVi ? 'Phương thức:' : 'Payment method:'}</strong> {order.paymentMethod || (isVi ? 'Chưa có' : 'Not available')}</p>
     <div className="mt-1 flex flex-wrap items-center gap-2"><strong>{isVi ? 'Trạng thái hóa đơn:' : 'Invoice status:'}<StatusPill status={order.paymentStatus || order.status} language={language} /></strong></div>
-    <p className="mt-1"><strong>{isVi ? 'Hạn thanh toán:' : 'Payment deadline:'}</strong> {expiry == null ? (isVi ? 'BE chưa trả về hạn thanh toán' : 'No payment deadline returned by the server') : formatDeadline(order.expiresAt, language)}</p>
+    {deadlineLabel && <p className="mt-1"><strong>{isVi ? 'Hạn thanh toán:' : 'Payment deadline:'}</strong> {deadlineLabel}</p>}
     {paymentStatus === 'pending' && countdown != null && (remainingMs > 0
       ? <p className="mt-1 font-semibold tabular-nums">{isVi ? 'Còn lại:' : 'Time remaining:'} {countdown}</p>
       : <p className="mt-1 text-amber-800">{isVi ? 'Đã đến hạn; đang chờ trạng thái hóa đơn từ hệ thống.' : 'Deadline reached; awaiting the invoice status from the server.'}</p>)}
