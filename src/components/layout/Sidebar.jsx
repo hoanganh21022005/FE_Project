@@ -52,7 +52,12 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           },
           { path: "/manager/staff", labelKey: "staff", icon: Users },
           { path: "/manager/members", labelKey: "members", icon: UserCheck },
-          { path: "/manager/packages", labelKey: "packages", icon: Package },
+          {
+            path: "/manager/resources",
+            labelKey: "resources",
+            label: language === "vi" ? "Bộ môn & phòng" : "Subjects & Rooms",
+            icon: Library,
+          },
           {
             path: "/manager/classes",
             label: language === "vi" ? "Lớp Normal" : "Normal Classes",
@@ -72,12 +77,6 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             path: "/manager/session-incidents",
             label: language === "vi" ? "Sự cố lịch học" : "Session incidents",
             icon: Activity,
-          },
-          {
-            path: "/manager/resources",
-            labelKey: "resources",
-            label: language === "vi" ? "Bộ môn & phòng" : "Subjects & Rooms",
-            icon: Library,
           },
           { path: "/manager/payments", labelKey: "payments", icon: CreditCard },
           {

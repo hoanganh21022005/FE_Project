@@ -429,15 +429,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     if (!nextSlot) return
     setStartTime(nextSlot.startTime)
     setEndTime(nextSlot.endTime)
-    const currentDate = parseLocalDate(startDate)
-    const [hour, minute] = nextSlot.startTime.split(":").map(Number)
-    const currentSessionStart = currentDate
-      ? new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), hour || 0, minute || 0)
-      : null
-    if (!currentSessionStart || currentSessionStart <= new Date() || !selectedDays.includes(currentDate.getDay())) {
-      setStartDate(getNextValidUpcomingDate(selectedDays, nextSlot.startTime))
-    }
-  }, [isOutdoorClass, startTime, endTime, startDate, selectedDays])
+  }, [isOutdoorClass, startTime, endTime])
 
   useEffect(() => {
     if (apiEnabled && Number.isFinite(normalPrice) && normalPrice >= 0) {
@@ -508,7 +500,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
       nextDays = [...selectedDays, dayId].sort()
     }
     setSelectedDays(nextDays)
-    setStartDate(getNextValidUpcomingDate(nextDays, startTime))
   }
 
   // Safe Close with Confirmation if edited
@@ -533,6 +524,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   }, [startDate, startTime])
 
   const startDateMatchesSchedule = selectedDays.includes(getLocalWeekday(startDate))
+  const minimumStartDate = getNextValidUpcomingDate(selectedDays, startTime)
 
   // Selected weekday day of week for display
   const currentWeekdayLabel = useMemo(() => {
@@ -582,7 +574,9 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   }
   const dateError = isFirstSessionInPast
     ? "Buổi học đầu tiên đã qua giờ hiện tại."
-    : ""
+    : !startDateMatchesSchedule
+      ? "Vui lòng chọn ngày khớp với lịch học đã chọn."
+      : ""
 
   // Handle Price changes with two-way sync
   const handleNumericPriceChange = (num) => {
@@ -717,8 +711,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
       )
       return
     }
-    if (apiEnabled && !startDateMatchesSchedule) {
-      showToast("Ngày bắt đầu phải thuộc mẫu thứ đã chọn.", "error")
+    if (!startDateMatchesSchedule) {
+      showToast("Vui lòng chọn ngày khớp với lịch học đã chọn.", "error")
       return
     }
     if (!selectedDays.length) {
@@ -973,16 +967,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
               {nameError && <p id="new-class-name-error" role="alert" className="text-xs text-rose-600 mt-1">{nameError}</p>}
             </div>
 
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-3">
-              <div>
-                <p className="text-xs font-semibold text-stone-800">Loại lớp</p>
-                <p className="mt-0.5 text-xs text-stone-600">Form này tạo lớp Normal.</p>
-              </div>
-              <span className="inline-flex items-center rounded-md border border-sky-200 bg-white px-2 py-1 text-xs font-bold text-sky-700">
-                Normal
-              </span>
-            </div>
-
             {/* Mô tả khóa học (không bắt buộc) */}
             <div>
               <label className="text-sm font-medium text-stone-800 block mb-1.5">
@@ -1099,83 +1083,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
           <div className="bg-white rounded-2xl border border-stone-200/80 p-6 space-y-4 shadow-2xs">
             <h2 className="text-base font-bold text-stone-900">Lịch học</h2>
 
-            {/* Ngày bắt đầu */}
-            <div>
-              <label className="text-sm font-medium text-stone-800 block mb-1.5">
-                Ngày bắt đầu
-              </label>
-              <DatePicker
-                value={startDate}
-                onChange={(v) => {
-                  setIsDirty(true)
-                  setStartDate(v)
-                }}
-                min={formatLocalDate(new Date())}
-                error={dateError}
-              />
-              {apiEnabled && !startDateMatchesSchedule && !isFirstSessionInPast && (
-                <p className="text-xs text-orange-600 mt-1 font-medium">
-                  Ngày bắt đầu phải thuộc mẫu thứ đã chọn.
-                </p>
-              )}
-              <div className="text-xs text-stone-500 mt-1">
-                {currentWeekdayLabel}
-              </div>
-              {dateError && (
-                <p className="text-xs text-orange-600 mt-1 font-medium flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>{dateError}</span>
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-stone-800 block mb-2">
-                Ca học
-              </label>
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                {NORMAL_CLASS_TIME_SLOTS.map((slot) => {
-                  const disabled = isOutdoorClass && !slot.outdoorAllowed
-                  const selected = startTime === slot.startTime && endTime === slot.endTime
-                  return (
-                    <button
-                      key={slot.slotNumber}
-                      type="button"
-                      aria-pressed={selected}
-                      disabled={disabled}
-                      onClick={() => {
-                        setIsDirty(true)
-                        setStartTime(slot.startTime)
-                        setEndTime(slot.endTime)
-                        const currentDate = parseLocalDate(startDate)
-                        const [hour, minute] = slot.startTime.split(":").map(Number)
-                        const currentSessionStart = currentDate
-                          ? new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), hour || 0, minute || 0)
-                          : null
-                        if (!currentSessionStart || currentSessionStart <= new Date() || !selectedDays.includes(currentDate.getDay())) {
-                          setStartDate(getNextValidUpcomingDate(selectedDays, slot.startTime))
-                        }
-                      }}
-                      className={`aspect-square rounded-xl border px-2 py-3 text-center transition-colors focus:outline-none focus:ring-2 focus:ring-brand-primary/30 ${
-                        disabled
-                          ? "cursor-not-allowed border-stone-200 bg-stone-100 text-stone-400"
-                          : selected
-                            ? "border-brand-primary bg-blue-50 text-brand-primary shadow-sm"
-                            : "border-stone-300 bg-white text-stone-700 hover:border-brand-primary hover:bg-blue-50/50"
-                      }`}
-                    >
-                      <span className="block text-sm font-bold">{slot.name}</span>
-                      <span className="mt-1 block text-xs leading-4">{slot.startTime}–{slot.endTime}</span>
-                    </button>
-                  )
-                })}
-              </div>
-              <div className="text-xs text-stone-500 mt-2">
-                Mỗi ca kéo dài 90 phút. {isOutdoorClass ? "Ca 3 và Ca 4 không áp dụng cho sân ngoài trời." : ""}
-              </div>
-            </div>
-
-            {/* Lặp lại vào: Chips T2..CN (Nền đen than khi active chuẩn ảnh mẫu) */}
+            {/* Lịch học hằng tuần */}
             <div>
               <label className="text-sm font-medium text-stone-800 block mb-2">
                 Lịch học
@@ -1201,7 +1109,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                       onClick={() => {
                         if (apiEnabled) {
                           setSelectedDays([...day.days])
-                          setStartDate(getNextValidUpcomingDate(day.days, startTime))
                           setIsDirty(true)
                         } else {
                           toggleWeekday(day.days[0])
@@ -1218,6 +1125,72 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   )
                 })}
               </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-stone-800 block mb-2">
+                Ca học
+              </label>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                {NORMAL_CLASS_TIME_SLOTS.map((slot) => {
+                  const disabled = isOutdoorClass && !slot.outdoorAllowed
+                  const selected = startTime === slot.startTime && endTime === slot.endTime
+                  return (
+                    <button
+                      key={slot.slotNumber}
+                      type="button"
+                      aria-pressed={selected}
+                      disabled={disabled}
+                      onClick={() => {
+                        setIsDirty(true)
+                        setStartTime(slot.startTime)
+                        setEndTime(slot.endTime)
+                      }}
+                      className={`aspect-square rounded-xl border px-2 py-3 text-center transition-colors focus:outline-none focus:ring-2 focus:ring-brand-primary/30 ${
+                        disabled
+                          ? "cursor-not-allowed border-stone-200 bg-stone-100 text-stone-400"
+                          : selected
+                            ? "border-brand-primary bg-blue-50 text-brand-primary shadow-sm"
+                            : "border-stone-300 bg-white text-stone-700 hover:border-brand-primary hover:bg-blue-50/50"
+                      }`}
+                    >
+                      <span className="block text-sm font-bold">{slot.name}</span>
+                      <span className="mt-1 block text-xs leading-4">{slot.startTime}–{slot.endTime}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="text-xs text-stone-500 mt-2">
+                Mỗi ca kéo dài 90 phút. {isOutdoorClass ? "Ca 3 và Ca 4 không áp dụng cho sân ngoài trời." : ""}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-stone-800 block mb-1.5">
+                Ngày học đầu tiên
+              </label>
+              <DatePicker
+                value={startDate}
+                onChange={(v) => {
+                  setIsDirty(true)
+                  setStartDate(v)
+                }}
+                min={minimumStartDate}
+                weekdays={selectedDays}
+                error={Boolean(dateError)}
+              />
+              <div className="text-xs text-stone-500 mt-1">
+                {currentWeekdayLabel}
+              </div>
+              {dateError && (
+                <p role="alert" className="text-xs text-orange-600 mt-1 font-medium flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{dateError}</span>
+                </p>
+              )}
+              <p className="text-xs text-stone-500 mt-1">
+                Chỉ chọn được ngày tương lai khớp với lịch tuần và ca học. Nếu ngày đó là ngày nghỉ, Backend sẽ chuyển buổi học sang ngày phù hợp tiếp theo.
+              </p>
             </div>
 
             {/* Kết thúc: Theo số buổi vs Theo ngày */}
