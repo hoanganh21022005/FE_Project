@@ -2,6 +2,28 @@ import { createApiError } from "./apiErrors.js"
 
 export const UNAUTHORIZED_EVENT = "scms:unauthorized"
 export const FORBIDDEN_EVENT = "scms:forbidden"
+const AUTH_STORAGE_KEYS = [
+  "token",
+  "accessToken",
+  "auth_token",
+  "jwt",
+  "scms_token",
+  "scms_mock_authenticated",
+  "scms_mock_role",
+  "scms_intended_path",
+]
+
+export function clearStoredAuth() {
+  if (typeof window === "undefined") return
+  for (const storageName of ["localStorage", "sessionStorage"]) {
+    try {
+      const storage = window[storageName]
+      AUTH_STORAGE_KEYS.forEach((key) => storage.removeItem(key))
+    } catch {
+      // Storage can be unavailable in private browsing or restricted contexts.
+    }
+  }
+}
 
 const API_BASE_URL = String(import.meta?.env?.VITE_API_BASE_URL || "").replace(/\/+$/, "")
 
@@ -120,12 +142,11 @@ export async function httpRequest(path, options = {}) {
       errorMsg.includes("phiên đăng nhập hết hạn") ||
       errorMsg.includes("jwt expired")
 
-    if (
-      isTokenExpired &&
-      options.notifyUnauthorized !== false &&
-      typeof window !== "undefined"
-    ) {
-      window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT))
+    if (isTokenExpired && typeof window !== "undefined") {
+      clearStoredAuth()
+      if (options.notifyUnauthorized !== false) {
+        window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT))
+      }
     }
     if (
       response.status === 403 &&
