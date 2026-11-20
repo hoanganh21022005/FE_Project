@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import {
@@ -35,6 +35,24 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
   const location = useLocation()
   const { role, language, t } = useSCMS()
   const [collapsed, setCollapsed] = useState(false)
+
+  useEffect(() => {
+    if (!mobileOpen) return undefined
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [mobileOpen])
+
+  useEffect(() => {
+    if (!mobileOpen) return undefined
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onCloseMobile?.()
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [mobileOpen, onCloseMobile])
 
   const handleNav = (path) => {
     navigate(path)
@@ -224,21 +242,19 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
   return (
     <>
       {/* Mobile Backdrop */}
-      {mobileOpen && (
-        <div
-          role="button"
-          tabIndex={0}
-          aria-label={language === "vi" ? "Đóng menu" : "Close menu"}
-          onClick={onCloseMobile}
-          onKeyDown={(e) => {
-            if (e.key === "Escape" || e.key === "Enter") onCloseMobile?.()
-          }}
-          className="fixed inset-0 z-40 bg-stone-950/50 backdrop-blur-xs md:hidden cursor-pointer"
-        />
-      )}
+      <button
+        type="button"
+        disabled={!mobileOpen}
+        aria-hidden={!mobileOpen}
+        aria-label={language === "vi" ? "Đóng menu" : "Close menu"}
+        onClick={onCloseMobile}
+        className={`fixed inset-0 z-40 bg-stone-950/60 backdrop-blur-sm transition-opacity duration-300 ease-out md:hidden ${
+          mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      />
 
       <aside
-        className={`bg-bg-sidebar text-text-inverse border-r border-brand-dark-hover flex flex-col justify-between transition-all duration-200
+        className={`bg-bg-sidebar text-text-inverse border-r border-brand-dark-hover flex flex-col justify-between transition-[transform,width] duration-300 ease-out will-change-transform
           fixed inset-y-0 left-0 z-50 md:sticky md:top-0 md:bottom-auto md:h-screen md:self-start md:overflow-y-auto md:z-40
           ${
             mobileOpen
@@ -337,9 +353,10 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
                   onClick={() => handleNav(item.path)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all cursor-pointer ${
                     isActive
-                      ? "bg-brand-primary text-white font-semibold border-l-2 border-brand-accent shadow-2xs"
+                      ? "bg-brand-primary text-white font-semibold border-l-2 border-brand-accent shadow-md ring-1 ring-white/20"
                       : "text-slate-200 hover:text-white hover:bg-brand-dark-hover font-medium"
                   }`}
+                  aria-current={isActive ? "page" : undefined}
                   title={collapsed ? item.label || t(item.labelKey) : undefined}
                 >
                   <Icon
