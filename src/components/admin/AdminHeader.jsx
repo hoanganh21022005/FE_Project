@@ -65,6 +65,11 @@ export function AdminHeader({ title, onMenu, onLogout, onChangeLanguage }) {
   const userEmail = currentUser?.email || "admin@scms.com"
   const avatarUrl = currentUser?.avatarUrl || null
   const avatarInitial = getLastWordInitial(userName)
+  const [avatarFailed, setAvatarFailed] = useState(false)
+
+  useEffect(() => {
+    setAvatarFailed(false)
+  }, [avatarUrl])
 
   const [notifOpen, setNotifOpen] = useState(false)
   const [seenAt, setSeenAt] = useState(readSeenAt)
@@ -342,10 +347,11 @@ export function AdminHeader({ title, onMenu, onLogout, onChangeLanguage }) {
         </div>
 
         <div className="flex items-center gap-3 pl-3 sm:pl-4 border-l border-border-color">
-          {avatarUrl ? (
+          {avatarUrl && !avatarFailed ? (
             <img
               src={avatarUrl}
               alt={userName}
+              onError={() => setAvatarFailed(true)}
               className="w-9 h-9 rounded-full object-cover shrink-0 border border-border-color"
             />
           ) : (
