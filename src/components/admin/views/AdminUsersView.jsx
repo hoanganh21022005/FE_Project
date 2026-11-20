@@ -651,7 +651,7 @@ export function AdminUsersView() {
                       </th>
                       <th className="min-w-[190px] px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colEmail")}</th>
                       <th className="min-w-[145px] px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colRole")}</th>
-                      <th className="min-w-[130px] px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colStatus")}</th>
+                      <th className="min-w-[145px] px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colStatus")}</th>
                       <th className="min-w-[110px] px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colCreatedAt")}</th>
                       <th className="min-w-[68px] px-3.5 py-2.5 text-right align-middle whitespace-nowrap">{getAdminText(language, "users.colActions")}</th>
                     </tr>
@@ -683,7 +683,7 @@ export function AdminUsersView() {
                         </td>
                         <td className="px-3.5 py-2 align-middle text-sm text-text-primary">
                           <span
-                            className={`inline-flex items-center justify-center text-center whitespace-normal leading-4 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            className={`inline-flex items-center justify-center h-6 min-w-[116px] whitespace-nowrap rounded-full px-2.5 text-xs font-medium ${
                               user.status === "active"
                                 ? "bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border"
                                 : user.status === "locked"
