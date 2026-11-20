@@ -647,7 +647,7 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            aria-label="Close modal"
+            aria-label={language === 'vi' ? 'Đóng hộp thoại' : 'Close dialog'}
             className="text-stone-400 hover:text-stone-600 cursor-pointer disabled:opacity-50"
           >
             <X className="w-4 h-4" />

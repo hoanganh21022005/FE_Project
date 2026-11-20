@@ -2589,12 +2589,14 @@ export function ClassManagement() {
                                 >
                                   {cls.nameVi || cls.name}
                                 </div>
-                                <span
-                                  className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold leading-none shrink-0 ${classTypeClassName}`}
-                                  title="Loại lớp"
-                                >
-                                  {classTypeLabel}
-                                </span>
+                                {rawClassType !== "normal" && (
+                                  <span
+                                    className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold leading-none shrink-0 ${classTypeClassName}`}
+                                    title="Loại lớp"
+                                  >
+                                    {classTypeLabel}
+                                  </span>
+                                )}
                                 {hasConflict && (
                                   <span
                                     className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700 text-[10.5px] font-bold border border-rose-300 shadow-2xs shrink-0 cursor-help"

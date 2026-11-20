@@ -215,6 +215,7 @@ function NormalRefundActions({ refund, currentUser, onRefresh }) {
 }
 
 function NormalRefundDetail({ refundId, onClose, canViewFinancialData, currentUser, onRefreshList }) {
+  const { language } = useSCMS()
   const [refund, setRefund] = useState(null)
   const [history, setHistory] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -307,8 +308,8 @@ function NormalRefundDetail({ refundId, onClose, canViewFinancialData, currentUs
         {refund && <>
           <section><h3 className="mb-3 text-sm font-bold text-slate-800">Thông tin hồ sơ</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <InfoField label="Mã hồ sơ">{textOrMissing(refund.id)}</InfoField><InfoField label="Trạng thái">{textOrMissing(refund.status)}</InfoField><InfoField label="Nguồn phát sinh">{textOrMissing(refund.origin)}</InfoField>
-            <InfoField label="Invoice gốc">{textOrMissing(refund.invoiceId)}</InfoField><InfoField label="Lớp Normal">{textOrMissing(refund.classId)}</InfoField><InfoField label="Member">{textOrMissing(refund.memberId)}</InfoField>
-            <InfoField label="Số tiền hoàn">{moneyOrMissing(refund.amount)}</InfoField><InfoField label="Version Backend">{textOrMissing(refund.version)}</InfoField><InfoField label="Hạn hoàn">{dateOrMissing(refund.dueAt)}</InfoField>
+            <InfoField label={language === 'vi' ? 'Hóa đơn gốc' : 'Original invoice'}>{textOrMissing(refund.invoiceId)}</InfoField><InfoField label="Lớp Normal">{textOrMissing(refund.classId)}</InfoField><InfoField label={language === 'vi' ? 'Hội viên' : 'Member'}>{textOrMissing(refund.memberId)}</InfoField>
+            <InfoField label="Số tiền hoàn">{moneyOrMissing(refund.amount)}</InfoField><InfoField label={language === 'vi' ? 'Phiên bản máy chủ' : 'Backend version'}>{textOrMissing(refund.version)}</InfoField><InfoField label="Hạn hoàn">{dateOrMissing(refund.dueAt)}</InfoField>
             <InfoField label="Hạn hoàn ban đầu">{dateOrMissing(refund.firstDueAt)}</InfoField><InfoField label="Tình trạng quá hạn">{overdueLabel(refund.overdue)}</InfoField><InfoField label="Người nhận đã xác minh">{receiverVerifiedLabel(refund.receiverVerified)}</InfoField>
             <InfoField label="Ghi chú vấn đề"><span className="whitespace-pre-wrap">{textOrMissing(refund.issueNote)}</span></InfoField>
           </div></section>

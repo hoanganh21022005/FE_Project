@@ -124,11 +124,11 @@ export function ReceptionMemberSearch() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="h-10 w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
             >
-              <option value="all">Tất cả trạng thái (All Statuses)</option>
-              <option value="active">Hoạt động (Active)</option>
-              <option value="grace_period">Grace Period (72h)</option>
-              <option value="pending_payment">Chờ thanh toán (Pending)</option>
-              <option value="expired">Đã hết hạn (Expired)</option>
+              <option value="all">{language === "vi" ? "Tất cả trạng thái" : "All statuses"}</option>
+              <option value="active">{language === "vi" ? "Đang hoạt động" : "Active"}</option>
+              <option value="grace_period">{language === "vi" ? "Thời gian gia hạn (72 giờ)" : "Grace period (72 hours)"}</option>
+              <option value="pending_payment">{language === "vi" ? "Chờ thanh toán" : "Pending payment"}</option>
+              <option value="expired">{language === "vi" ? "Đã hết hạn" : "Expired"}</option>
             </select>
           </div>
         </div>

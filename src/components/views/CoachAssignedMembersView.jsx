@@ -1658,7 +1658,7 @@ export function CoachAssignedMembersView() {
                   {bookingBusy ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Sending proposal...</span>
+                      <span>{language === "vi" ? "Đang gửi đề xuất..." : "Sending proposal..."}</span>
                     </>
                   ) : (
                     <span>{language === "vi" ? "Gửi đề xuất lịch" : "Send schedule proposal"}</span>

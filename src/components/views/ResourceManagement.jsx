@@ -73,7 +73,7 @@ function ResourceModal({ type, item, language, onClose, onSave }) {
           <h3 className="text-sm font-bold text-slate-900">
             {item ? label(`Chỉnh sửa ${isRoom ? 'phòng' : 'bộ môn'}`, `Edit ${isRoom ? 'room' : 'subject'}`) : label(`Thêm ${isRoom ? 'phòng' : 'bộ môn'}`, `Create ${isRoom ? 'room' : 'subject'}`)}
           </h3>
-          <button type="button" onClick={onClose} aria-label="Close"><X className="w-4 h-4" /></button>
+          <button type="button" onClick={onClose} aria-label={vi ? 'Đóng' : 'Close'}><X className="w-4 h-4" /></button>
         </div>
 
         <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto">
@@ -107,9 +107,9 @@ function ResourceModal({ type, item, language, onClose, onSave }) {
               <label className="block text-xs font-bold text-slate-700">
                 {label('Trạng thái', 'Status')}
                 <select required value={form.status ?? ''} onChange={e => setForm({ ...form, status: e.target.value })} className={fieldClass}>
-                  <option value="available">Available</option>
-                  <option value="maintenance">Maintenance</option>
-                  <option value="closed">Closed</option>
+                  <option value="available">{label('Đang sử dụng', 'Available')}</option>
+                  <option value="maintenance">{label('Đang bảo trì', 'Maintenance')}</option>
+                  <option value="closed">{label('Đã đóng', 'Closed')}</option>
                 </select>
               </label>
             </>
@@ -248,8 +248,8 @@ export function ResourceManagement() {
                   <td className="p-3">{item.outdoor == null ? '—' : item.outdoor ? 'Outdoor' : 'Indoor'}</td>
                   <td className="p-3"><span className={`rounded px-2 py-1 text-xs font-bold uppercase ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{item.status || '—'}</span></td>
                   <td className="p-3"><div className="flex gap-2">
-                    <button onClick={() => setEditor({ type: 'subject', item })} className="p-2 rounded bg-slate-100" title="Edit"><Edit3 className="w-4 h-4" /></button>
-                    <button disabled={busyId === item.id} onClick={() => removeSubject(item)} className="p-2 rounded bg-rose-50 text-rose-700 disabled:opacity-50" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => setEditor({ type: 'subject', item })} className="p-2 rounded bg-slate-100" title={label('Chỉnh sửa', 'Edit')}><Edit3 className="w-4 h-4" /></button>
+                    <button disabled={busyId === item.id} onClick={() => removeSubject(item)} className="p-2 rounded bg-rose-50 text-rose-700 disabled:opacity-50" title={label('Xóa', 'Delete')}><Trash2 className="w-4 h-4" /></button>
                   </div></td>
                 </tr>
               ))}
@@ -269,9 +269,9 @@ export function ResourceManagement() {
                   <td className="p-3">{item.facilityType || (item.outdoor == null ? '—' : item.outdoor ? 'Outdoor' : 'Indoor')}</td>
                   <td className="p-3"><span className={`rounded px-2 py-1 text-xs font-bold uppercase ${item.status === 'available' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{item.status || '—'}</span></td>
                   <td className="p-3"><div className="flex items-center gap-2">
-                    <button onClick={() => setEditor({ type: 'room', item })} className="p-2 rounded bg-slate-100" title="Edit"><Edit3 className="w-4 h-4" /></button>
+                    <button onClick={() => setEditor({ type: 'room', item })} className="p-2 rounded bg-slate-100" title={label('Chỉnh sửa', 'Edit')}><Edit3 className="w-4 h-4" /></button>
                     <select aria-label={label(`Trạng thái ${item.name}`, `Status for ${item.name}`)} disabled={busyId === item.id} value={item.status || ''} onChange={event => changeRoomStatus(item, event.target.value)} className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50">
-                      <option value="available">Available</option><option value="maintenance">Maintenance</option><option value="closed">Closed</option>
+                      <option value="available">{label('Đang sử dụng', 'Available')}</option><option value="maintenance">{label('Đang bảo trì', 'Maintenance')}</option><option value="closed">{label('Đã đóng', 'Closed')}</option>
                     </select>
                   </div></td>
                 </tr>
