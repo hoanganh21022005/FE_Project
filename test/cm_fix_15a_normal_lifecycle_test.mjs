@@ -60,6 +60,8 @@ try {
   assert.deepEqual(postponeBody, { kind: 'Postpone', shiftDays: 7, version: 3, reason: 'Coach unavailable' })
   const transferBody = validateNormalClassProposalInput({ kind: 'Transfer', targetClassId: 99, version: 7 })
   assert.deepEqual(transferBody, { kind: 'Transfer', targetClassId: 99, version: 7 })
+  assert.deepEqual(validateNormalChangeDecision({ version: 1, reason: '  Cancelled by center  ' }), { version: 1, reason: 'Cancelled by center' })
+  assert.throws(() => validateNormalChangeDecision({ version: 1, reason: 'x'.repeat(2001) }), /2000 characters/)
   assert.throws(() => validateNormalClassProposalInput({ kind: 'Postpone', shiftDays: 3, targetClassId: 99, version: 1 }), /must not include targetClassId/)
   assert.throws(() => validateNormalClassProposalInput({ kind: 'Transfer', targetClassId: 99, shiftDays: 3, version: 1 }), /must not include shiftDays/)
   assert.throws(() => validateNormalClassProposalInput({ kind: 'Transfer', targetClassId: 99, version: 1, fingerprint: 'fake' }), /Unsupported request field/)

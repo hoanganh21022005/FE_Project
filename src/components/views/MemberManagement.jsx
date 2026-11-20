@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatDate } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
+import { AdminPagination } from '../admin/AdminPagination';
 import { NewMemberModal } from '../modals/NewMemberModal';
 import {
   UserCheck,
@@ -30,7 +31,10 @@ export function MemberManagement({ onSelectMemberDetail }) {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [membershipFilter, setMembershipFilter] = useState('all');
+  const [page, setPage] = useState(1);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const PAGE_SIZE = 10;
 
   // Quick stats: Count by membership package lifecycle only (account status is separate)
   const totalCount = members.length;
@@ -47,13 +51,23 @@ export function MemberManagement({ onSelectMemberDetail }) {
     const matchesSearch = nameMatch || emailMatch || phoneMatch;
 
     const matchesStatus =
-      statusFilter === 'all' ||
-      (statusFilter === 'none'
+      membershipFilter === 'all' ||
+      (membershipFilter === 'none'
         ? (!m.membershipStatus || m.membershipStatus === 'none' || !m.currentPackageId)
-        : m.membershipStatus === statusFilter);
+        : m.membershipStatus === membershipFilter);
+    const matchesAccountStatus = statusFilter === 'all' || m.accountStatus === statusFilter;
 
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && matchesAccountStatus;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, statusFilter, membershipFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const startIndex = (safePage - 1) * PAGE_SIZE;
+  const paginatedMembers = filteredMembers.slice(startIndex, startIndex + PAGE_SIZE);
 
   const getPackageName = (member) => {
     if (!member.currentPackageId) {
@@ -104,10 +118,10 @@ export function MemberManagement({ onSelectMemberDetail }) {
         {/* Active Members */}
         <button
           type="button"
-          aria-pressed={statusFilter === 'active'}
-          onClick={() => setStatusFilter('active')}
+          aria-pressed={membershipFilter === 'active'}
+          onClick={() => setMembershipFilter('active')}
           className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 ${
-            statusFilter === 'active' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
+            membershipFilter === 'active' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
           }`}
         >
           <div className="mb-2 flex items-start justify-between gap-2 text-xs font-medium text-slate-500">
@@ -130,10 +144,10 @@ export function MemberManagement({ onSelectMemberDetail }) {
         {/* 72h Grace Period */}
         <button
           type="button"
-          aria-pressed={statusFilter === 'grace_period'}
-          onClick={() => setStatusFilter('grace_period')}
+          aria-pressed={membershipFilter === 'grace_period'}
+          onClick={() => setMembershipFilter('grace_period')}
           className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 ${
-            statusFilter === 'grace_period' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
+            membershipFilter === 'grace_period' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
           }`}
         >
           <div className="mb-2 flex items-start justify-between gap-2 text-xs font-medium text-slate-500">
@@ -151,10 +165,10 @@ export function MemberManagement({ onSelectMemberDetail }) {
         {/* No Package */}
         <button
           type="button"
-          aria-pressed={statusFilter === 'none'}
-          onClick={() => setStatusFilter('none')}
+          aria-pressed={membershipFilter === 'none'}
+          onClick={() => setMembershipFilter('none')}
           className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 ${
-            statusFilter === 'none' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
+            membershipFilter === 'none' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
           }`}
         >
           <div className="mb-2 flex items-start justify-between gap-2 text-xs font-medium text-slate-500">
@@ -208,15 +222,14 @@ export function MemberManagement({ onSelectMemberDetail }) {
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            aria-label={language === 'vi' ? 'Lọc theo trạng thái gói' : 'Filter by membership status'}
+            aria-label={language === 'vi' ? 'Lọc theo trạng thái tài khoản' : 'Filter by account status'}
             className="h-10 w-full shrink-0 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 cursor-pointer sm:w-52"
           >
             <option value="all">{language === 'vi' ? 'Tất cả trạng thái' : 'All statuses'}</option>
-            <option value="active">{t('active')}</option>
-            <option value="grace_period">{t('grace_period')}</option>
-            <option value="pending_payment">{t('pending_payment')}</option>
-            <option value="expired">{t('expired')}</option>
-            <option value="none">{language === 'vi' ? 'Chưa đăng ký gói' : 'No package'}</option>
+            <option value="active">{language === 'vi' ? 'Đang hoạt động' : 'Active'}</option>
+            <option value="inactive">{language === 'vi' ? 'Ngưng hoạt động' : 'Inactive'}</option>
+            <option value="locked">{language === 'vi' ? 'Đã khóa' : 'Locked'}</option>
+            <option value="pending">{language === 'vi' ? 'Đang xử lý' : 'Pending'}</option>
           </select>
           <button
             type="button"
@@ -231,24 +244,20 @@ export function MemberManagement({ onSelectMemberDetail }) {
       {/* Member Data Table */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1180px] table-fixed text-left text-sm">
+          <table className="w-full min-w-[900px] table-fixed text-left text-sm">
             <colgroup>
               <col className="w-[5%]" />
-              <col className="w-[18%]" />
-              <col className="w-[19%]" />
-              <col className="w-[15%]" />
-              <col className="w-[12%]" />
-              <col className="w-[12%]" />
-              <col className="w-[8%]" />
-              <col className="w-[11%]" />
+              <col className="w-[24%]" />
+              <col className="w-[25%]" />
+              <col className="w-[17%]" />
+              <col className="w-[13%]" />
+              <col className="w-[16%]" />
             </colgroup>
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
               <tr className="[&>th]:border-r [&>th]:border-slate-200 [&>th:last-child]:border-r-0">
                 <th scope="col" className="px-3 py-3 text-center">STT</th>
                 <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Họ và tên' : 'Name'}</th>
                 <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Liên hệ' : 'Contact'}</th>
-                <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Gói hiện tại' : 'Current package'}</th>
-                <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Huấn luyện viên' : 'Coach'}</th>
                 <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Trạng thái' : 'Status'}</th>
                 <th scope="col" className="px-3 py-3">{language === 'vi' ? 'Ngày tham gia' : 'Joined'}</th>
                 <th scope="col" className="px-3 py-3 text-center">{language === 'vi' ? 'Thao tác' : 'Actions'}</th>
@@ -261,16 +270,14 @@ export function MemberManagement({ onSelectMemberDetail }) {
                     <td className="px-3 py-4"><div className="mx-auto h-4 w-5 rounded bg-slate-200" /></td>
                     <td className="px-4 py-4"><div className="h-4 w-32 rounded bg-slate-200" /><div className="mt-2 h-3 w-20 rounded bg-slate-100" /></td>
                     <td className="px-4 py-4"><div className="h-4 w-36 rounded bg-slate-200" /><div className="mt-2 h-3 w-24 rounded bg-slate-100" /></td>
-                    <td className="px-4 py-4"><div className="h-4 w-24 rounded bg-slate-200" /></td>
-                    <td className="px-4 py-4"><div className="h-4 w-24 rounded bg-slate-200" /></td>
                     <td className="px-4 py-4"><div className="h-5 w-20 rounded bg-slate-200" /></td>
                     <td className="px-3 py-4"><div className="h-4 w-16 rounded bg-slate-200" /></td>
                     <td className="px-3 py-4"><div className="mx-auto h-8 w-16 rounded bg-slate-200" /></td>
                   </tr>
                 ))
-              ) : filteredMembers.map((m, index) => (
+              ) : paginatedMembers.map((m, index) => (
                 <tr key={m.id} className="transition-colors hover:bg-slate-50">
-                  <td className="px-3 py-4 text-center text-xs tabular-nums text-slate-500">{index + 1}</td>
+                  <td className="px-3 py-4 text-center text-xs tabular-nums text-slate-500">{startIndex + index + 1}</td>
                   <td className="px-4 py-4">
                     <span className="block truncate font-semibold text-slate-900" title={m.name || ''}>{m.name || '—'}</span>
                   </td>
@@ -278,20 +285,21 @@ export function MemberManagement({ onSelectMemberDetail }) {
                     <div className="truncate text-slate-800" title={m.email || ''}>{m.email || '—'}</div>
                     <div className="mt-1 text-xs tabular-nums text-slate-500">{m.phone || '—'}</div>
                   </td>
-                  <td className="px-4 py-4 font-medium text-slate-800">
-                    {m.membershipStatus === 'none' || !m.currentPackageId ? (
-                      <span className="text-slate-400">{language === 'vi' ? 'Chưa đăng ký gói' : 'No package'}</span>
-                    ) : <span className="line-clamp-2">{getPackageName(m)}</span>}
-                  </td>
-                  <td className="px-4 py-4 text-slate-700">{m.primaryCoachName || (language === 'vi' ? 'Chưa phân công' : 'Unassigned')}</td>
                   <td className="px-4 py-4">
                     <div className="flex flex-col items-start gap-1">
-                      <StatusBadge type="membership" status={m.membershipStatus || 'none'} />
-                      {m.accountStatus && m.accountStatus !== 'active' && (
-                        <span className="text-xs font-medium text-rose-700">
-                          {m.accountStatus === 'locked' ? (language === 'vi' ? 'Khóa TK' : 'Locked') : m.accountStatus}
-                        </span>
-                      )}
+                      <StatusBadge
+                        type="membership"
+                        status={m.accountStatus || 'unknown'}
+                        label={m.accountStatus === 'locked'
+                          ? (language === 'vi' ? 'Đã khóa' : 'Locked')
+                          : m.accountStatus === 'inactive'
+                            ? (language === 'vi' ? 'Ngưng hoạt động' : 'Inactive')
+                            : m.accountStatus === 'pending'
+                              ? (language === 'vi' ? 'Đang xử lý' : 'Pending')
+                              : m.accountStatus === 'active'
+                                ? (language === 'vi' ? 'Đang hoạt động' : 'Active')
+                                : m.accountStatus || '—'}
+                      />
                     </div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-xs tabular-nums text-slate-600">{formatDate(m.joinDate, language)}</td>
@@ -331,6 +339,16 @@ export function MemberManagement({ onSelectMemberDetail }) {
             </tbody>
           </table>
         </div>
+        {!membersLoading && filteredMembers.length > 0 && (
+          <AdminPagination
+            page={safePage}
+            totalPages={totalPages}
+            totalItems={filteredMembers.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+            itemLabel={language === 'vi' ? 'thành viên' : 'members'}
+          />
+        )}
       </div>
 
       <NewMemberModal

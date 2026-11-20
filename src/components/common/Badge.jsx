@@ -4,7 +4,7 @@ import { useSCMS } from '../../context/SCMSContext';
 
 
 
-export function StatusBadge({ type, status }) {
+export function StatusBadge({ type, status, label: customLabel }) {
   const { t } = useSCMS();
   const normalizedStatus = String(status || '').toLowerCase().replace(/[ -]/g, '_');
 
@@ -30,6 +30,9 @@ export function StatusBadge({ type, status }) {
       case 'cancelled':
         colorClasses = 'bg-rose-50 text-rose-700 border-rose-200';
         break;
+      case 'inactive':
+        colorClasses = 'bg-stone-100 text-stone-700 border-stone-300';
+        break;
     }
   } else if (type === 'payment') {
     switch (normalizedStatus) {
@@ -50,6 +53,9 @@ export function StatusBadge({ type, status }) {
         break;
       case 'cancelled':
         colorClasses = 'bg-rose-50 text-rose-700 border-rose-200';
+        break;
+      case 'inactive':
+        colorClasses = 'bg-stone-100 text-stone-700 border-stone-300';
         break;
     }
   } else if (type === 'class') {
@@ -84,7 +90,7 @@ export function StatusBadge({ type, status }) {
     }
   }
 
-  const label = t(status) || status;
+  const label = customLabel || t(status) || status;
 
   return (
     <span className={`inline-flex items-center justify-center w-[112px] px-2 py-1 rounded text-[11px] font-bold border whitespace-nowrap shrink-0 text-center ${colorClasses}`}>

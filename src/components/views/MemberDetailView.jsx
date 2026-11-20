@@ -290,7 +290,19 @@ export function MemberDetailView({ memberId, onBack }) {
               <span className="font-mono text-[10px] font-bold text-stone-600 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
                 {member.code}
               </span>
-              <StatusBadge type="membership" status={member.membershipStatus || member.status} />
+              <StatusBadge
+                type="membership"
+                status={member.accountStatus || 'unknown'}
+                label={member.accountStatus === 'locked'
+                  ? (language === 'vi' ? 'Đã khóa' : 'Locked')
+                  : member.accountStatus === 'inactive'
+                    ? (language === 'vi' ? 'Ngưng hoạt động' : 'Inactive')
+                    : member.accountStatus === 'pending'
+                      ? (language === 'vi' ? 'Đang xử lý' : 'Pending')
+                      : member.accountStatus === 'active'
+                        ? (language === 'vi' ? 'Đang hoạt động' : 'Active')
+                        : member.accountStatus || '—'}
+              />
             </div>
             <div className="flex items-center gap-4 text-xs text-stone-500 flex-wrap">
               <span className="flex items-center gap-1">

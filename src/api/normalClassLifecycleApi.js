@@ -39,7 +39,11 @@ const normalizeReason = (value) => {
   if (typeof value !== 'string') {
     throw new NormalLifecycleValidationError('Reason must be a string when provided.')
   }
-  return value.trim()
+  const reason = value.trim()
+  if (reason.length > 2000) {
+    throw new NormalLifecycleValidationError('Reason must not exceed 2000 characters.')
+  }
+  return reason
 }
 
 const assertOnlyKeys = (payload, allowedKeys) => {

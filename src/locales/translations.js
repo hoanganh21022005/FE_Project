@@ -63,6 +63,7 @@ export const translations = {
     grace_period: 'Chờ gia hạn',
     expired: 'Hết hạn',
     cancelled: 'Đã hủy',
+    inactive: 'Ngưng hoạt động',
     enrolled: 'Đã đăng ký',
 
     // Statuses - Payment
@@ -863,6 +864,7 @@ export const translations = {
     grace_period: 'Grace Period',
     expired: 'Expired',
     cancelled: 'Cancelled',
+    inactive: 'Inactive',
     enrolled: 'Enrolled',
 
     // Statuses - Payment
