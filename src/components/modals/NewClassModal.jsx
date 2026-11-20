@@ -458,11 +458,11 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     coachName: selectedCoachObj?.name,
     roomId: selectedRoomObj?.backendId || selectedRoomObj?.id || roomId,
     roomName: selectedRoomObj?.name || selectedRoomObj?.nameVi,
-    date: startDate,
-    startTime,
-    endTime,
+    date: isOpen ? startDate : "",
+    startTime: isOpen ? startTime : "",
+    endTime: isOpen ? endTime : "",
     selectedDays,
-    apiEnabled,
+    apiEnabled: Boolean(isOpen && apiEnabled),
     existingClasses: classes,
   })
 
