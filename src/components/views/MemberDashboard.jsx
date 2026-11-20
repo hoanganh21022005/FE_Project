@@ -4,7 +4,6 @@ import {
   Activity,
   AlertCircle,
   ArrowRight,
-  Bell,
   CalendarDays,
   CheckCircle2,
   Clock3,
@@ -19,7 +18,6 @@ import {
 import { useSCMS } from "../../context/SCMSContext"
 import { httpClient } from "../../api/httpClient"
 import { extractList } from "../../api/schemaValidators"
-import { mapInvoice } from "../../api/invoiceMappers"
 import { getErrorMessage } from "../../api/apiErrors"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import {
@@ -31,7 +29,6 @@ import {
   getVietnamLocalDateTimeKey,
   isActiveAdvancedSubscription,
   isActiveNormalEnrollment,
-  isPayablePendingInvoice,
   isSubscriptionNearExpiry,
   normalizeState,
   toTimestamp,
@@ -42,8 +39,6 @@ const RESOURCE_KEYS = [
   "subscriptions",
   "sessions",
   "attendance",
-  "invoices",
-  "notifications",
 ]
 
 const EMPTY_RESOURCES = Object.fromEntries(
@@ -57,9 +52,6 @@ const extractRequiredList = (response, label) => {
   }
   return list
 }
-
-const isUnreadNotification = (item) =>
-  item?.isRead === false || item?.read === false || item?.unread === true
 
 const getDashboardSessionTitle = (session, fallback) =>
   session?.className ||
@@ -130,26 +122,6 @@ const formatDashboardDate = (value) => {
     month: "2-digit",
     year: "numeric",
   }).format(parsed)
-}
-
-const localizeDashboardNotificationText = (value, isVi) => {
-  const text = String(value || "")
-  if (!isVi) return text
-  const knownTranslations = {
-    "New chat reply": "Phản hồi hỗ trợ mới",
-    "Staff replied to your support conversation.":
-      "Nhân viên hỗ trợ đã phản hồi cuộc trò chuyện của bạn.",
-  }
-  return knownTranslations[text.trim()] || text
-}
-
-const getNotificationTitle = (item, isVi) => {
-  const title =
-    (isVi ? item?.titleVi : item?.titleEn) ||
-    item?.title ||
-    item?.subject ||
-    (isVi ? "Thông báo mới" : "New notification")
-  return localizeDashboardNotificationText(title, isVi)
 }
 
 const getStatusLabel = (status, isVi) => {
@@ -429,16 +401,6 @@ export function MemberDashboard() {
         }
       }
 
-      jobs.push(
-        loadResource("invoices", async () => {
-          const list = await listFrom("/api/members/me/invoices", "Hóa đơn")
-          return list.map(mapInvoice).filter(Boolean)
-        }),
-        loadResource("notifications", () =>
-          listFrom("/api/notifications/me", "Thông báo"),
-        ),
-      )
-
       Promise.allSettled(jobs)
     }, 0)
 
@@ -464,8 +426,6 @@ export function MemberDashboard() {
   const attendance = (resources.attendance.data || []).filter(
     (item) => String(item?.memberId ?? item?.userId ?? item?.profileId ?? item?.member_id ?? item?.user_id ?? "") === String(memberId),
   )
-  const invoices = resources.invoices.data || []
-  const notifications = resources.notifications.data || []
   const normalEnrollments = useMemo(
     () => enrollments.filter(isActiveNormalEnrollment),
     [enrollments],
@@ -539,22 +499,6 @@ export function MemberDashboard() {
     () => getActiveAdvancedCreditCount(subscriptions),
     [subscriptions],
   )
-  const payableInvoices = useMemo(
-    () => invoices.filter((invoice) => isPayablePendingInvoice(invoice)),
-    [invoices],
-  )
-  const unreadNotifications = useMemo(
-    () => notifications.filter(isUnreadNotification),
-    [notifications],
-  )
-  const nearExpirySubscriptions = useMemo(
-    () =>
-      advancedSubscriptions.filter((subscription) =>
-        isSubscriptionNearExpiry(subscription),
-      ),
-    [advancedSubscriptions],
-  )
-
   const allEnrolledSessions = useMemo(
     () =>
       enrollments.flatMap(
@@ -611,46 +555,6 @@ export function MemberDashboard() {
     normalEnrollments.length === 0 &&
     normalSubscriptions.length === 0 &&
     advancedSubscriptions.length === 0
-
-  const attentionItems = [
-    ...payableInvoices.map((invoice) => ({
-      key: `invoice-${invoice.invoiceId}`,
-      icon: CreditCard,
-      title: isVi
-        ? `Hóa đơn ${invoice.invoiceCode || `#${invoice.invoiceId}`} đang chờ thanh toán`
-        : `Invoice ${invoice.invoiceCode || `#${invoice.invoiceId}`} is awaiting payment`,
-      detail: invoice.expiresAt
-        ? `${
-            isVi ? "Hết hạn lúc" : "Expires"
-          } ${formatVietnamDateTime(invoice.expiresAt, null, locale)}`
-        : "",
-      action: isVi ? "Xem hóa đơn" : "View invoice",
-      onAction: () => navigate("/member/invoices"),
-    })),
-    ...unreadNotifications.slice(0, 2).map((notification, index) => ({
-      key: `notification-${notification.id || index}`,
-      icon: Bell,
-      title: getNotificationTitle(notification, isVi),
-      detail: localizeDashboardNotificationText(
-        notification.message || notification.description || "",
-        isVi,
-      ),
-      action: isVi ? "Mở thông báo" : "Open notifications",
-      onAction: () => navigate("/member/notifications"),
-    })),
-    ...nearExpirySubscriptions.map((subscription) => ({
-      key: `expiry-${subscription.subscriptionId || subscription.id}`,
-      icon: Clock3,
-      title: isVi
-        ? `Gói ${subscription.subjectName || unavailable} sắp hết hạn`
-        : `${subscription.subjectName || "Advanced"} package expires soon`,
-      detail: `${
-        isVi ? "Hạn sử dụng" : "Expires"
-      }: ${formatVietnamDateTime(subscription.expiresAt, null, locale)}`,
-      action: isVi ? "Xem gói học" : "View packages",
-      onAction: () => navigate("/member/my-membership"),
-    })),
-  ]
 
   const kpis = [
     {
@@ -1209,98 +1113,6 @@ export function MemberDashboard() {
                   <ArrowRight className="ml-auto h-4 w-4 text-slate-400" />
                 </button>
               </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.02] sm:p-6">
-              <SectionHeading
-                icon={Bell}
-                title={isVi ? "Cần bạn chú ý" : "Needs attention"}
-              />
-              {resources.invoices.loading ||
-              resources.notifications.loading ||
-              resources.subscriptions.loading ? (
-                <LoadingBlock rows={2} />
-              ) : (
-                <>
-                  {(resources.invoices.error ||
-                    resources.notifications.error ||
-                    resources.subscriptions.error) && (
-                    <div className="mb-3 space-y-2">
-                      {resources.invoices.error && (
-                        <ResourceError
-                          message={resources.invoices.error}
-                          onRetry={retryResource}
-                          compact
-                          isVi={isVi}
-                        />
-                      )}
-                      {resources.notifications.error && (
-                        <ResourceError
-                          message={resources.notifications.error}
-                          onRetry={retryResource}
-                          compact
-                          isVi={isVi}
-                        />
-                      )}
-                      {resources.subscriptions.error && (
-                        <ResourceError
-                          message={resources.subscriptions.error}
-                          onRetry={retryResource}
-                          compact
-                          isVi={isVi}
-                        />
-                      )}
-                    </div>
-                  )}
-                  {attentionItems.length === 0 ? (
-                    resources.invoices.error ||
-                    resources.notifications.error ||
-                    resources.subscriptions.error ? null : (
-                      <div className="rounded-xl bg-emerald-50 px-4 py-4 text-[15px] text-emerald-900">
-                        <p className="flex items-center gap-2 font-semibold">
-                          <CheckCircle2 className="h-4 w-4" />
-                          {isVi
-                            ? "Chưa có việc nào cần xử lý"
-                            : "Nothing needs your attention"}
-                        </p>
-                      </div>
-                    )
-                  ) : (
-                    <ul className="space-y-3">
-                      {attentionItems.map((item) => {
-                        const Icon = item.icon
-                        return (
-                          <li
-                            key={item.key}
-                            className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5"
-                          >
-                            <div className="flex items-start gap-2.5">
-                              <Icon className="mt-0.5 h-4 w-4 shrink-0 text-amber-800" />
-                              <div className="min-w-0">
-                                <p className="text-[15px] font-semibold text-amber-950">
-                                  {item.title}
-                                </p>
-                                {item.detail && (
-                                  <p className="mt-1 text-[13px] leading-5 text-amber-900">
-                                    {item.detail}
-                                  </p>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={item.onAction}
-                                  className="mt-2 text-[15px] font-semibold text-brand-primary underline underline-offset-2 hover:text-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark"
-                                >
-                                  {item.action}
-                                </button>
-                              </div>
-                            </div>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  )}
-                </>
-              )}
             </section>
 
             <section className="rounded-2xl border border-slate-200 bg-slate-900 p-5 text-white shadow-sm sm:p-6">
