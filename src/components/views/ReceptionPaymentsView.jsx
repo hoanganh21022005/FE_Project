@@ -633,7 +633,21 @@ export function ReceptionPaymentsView() {
                           {p.paymentDate || p.createdAt || '—'}
                         </td>
                         <td className="px-4 py-3 align-middle text-sm leading-5 text-text-primary text-center">
-                          <StatusBadge type="payment" status={status} label={isPending ? (language === 'vi' ? 'Chờ thu tiền' : 'Awaiting collection') : undefined} />
+                          <StatusBadge
+                            type="payment"
+                            status={status}
+                            label={
+                              isPending
+                                ? isCashMethod(p)
+                                  ? language === 'vi'
+                                    ? 'Chờ thu tiền'
+                                    : 'Collect cash'
+                                  : language === 'vi'
+                                    ? 'Chờ thanh toán'
+                                    : 'Pay pending'
+                                : undefined
+                            }
+                          />
                         </td>
                         <td className="px-4 py-1.5 align-middle text-sm leading-5 text-text-primary text-center">
                           {isPending && canConfirmCash && isCashMethod(p) && (!apiEnabled || isCashInvoiceConfirmable(p)) ? (
