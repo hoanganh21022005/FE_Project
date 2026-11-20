@@ -334,6 +334,7 @@ export function MemberCourseCatalog() {
   const classRegistrationInFlightRef = useRef(new Set())
   const [enrollments, setEnrollments] = useState([])
   const [registrations, setRegistrations] = useState([])
+  const [filterStatus, setFilterStatus] = useState('ALL')
   const [memberSubscriptions, setMemberSubscriptions] = useState([])
   const [memberSubscriptionsLoaded, setMemberSubscriptionsLoaded] = useState(false)
   const [subjectsState, setSubjectsState] = useState({ loading: true, error: '' })
@@ -421,6 +422,38 @@ export function MemberCourseCatalog() {
     const ownerId = item.memberId ?? item.ownerMemberId ?? item.member?.id
     return memberId != null && ownerId != null && String(ownerId) === String(memberId)
   }), [registrations, memberId])
+  const registrationFilterGroups = useMemo(() => visibleRegistrations.map((item) => {
+    const status = normalizeCatalogStatus(item.status)
+    const linkedOrder = orders.find((order) => String(order.registrationId) === String(item.id))
+    const paymentStatus = normalizeCatalogStatus(item.paymentStatus ?? item.invoiceStatus ?? linkedOrder?.paymentStatus ?? linkedOrder?.status)
+    const closedStatuses = ['expired', 'inactive', 'rejected', 'cancelled', 'canceled']
+    if (closedStatuses.includes(status) || ['expired', 'cancelled', 'canceled'].includes(paymentStatus)) return { item, group: 'CLOSED' }
+    const activePackage = memberSubscriptions.some((subscription) =>
+      normalizeCatalogStatus(subscription.status) === 'active'
+      && Number(subscription.remainingCredit) > 0
+      && (item.subscriptionId != null
+        ? String(subscription.subscriptionId ?? subscription.id) === String(item.subscriptionId)
+        : String(subscription.subjectId) === String(item.subjectId) && String(subscription.primaryCoachId) === String(item.primaryCoachId)))
+    if (activePackage || ['active', 'accepted', 'invoiced'].includes(status)) {
+      const deadline = confirmationDeadlineTimestamp(item.invoiceExpiresAt ?? item.expiresAt ?? linkedOrder?.expiresAt)
+      const confirmationDeadline = confirmationDeadlineTimestamp(item.confirmationDeadline)
+      const expired = ['accepted', 'invoiced'].includes(status)
+        && !activePackage
+        && (deadline != null && deadline <= trustedNow || confirmationDeadline != null && confirmationDeadline + 24 * 60 * 60 * 1000 <= trustedNow)
+      return { item, group: expired ? 'CLOSED' : 'ACTIVE_FLOW' }
+    }
+    if (['requested', 'pending', 'pending_approval', 'pending_coach'].includes(status)) return { item, group: 'PENDING' }
+    return { item, group: 'PENDING' }
+  }), [visibleRegistrations, orders, memberSubscriptions, trustedNow])
+  const registrationFilterCounts = useMemo(() => ({
+    ALL: registrationFilterGroups.length,
+    PENDING: registrationFilterGroups.filter(({ group }) => group === 'PENDING').length,
+    ACTIVE_FLOW: registrationFilterGroups.filter(({ group }) => group === 'ACTIVE_FLOW').length,
+    CLOSED: registrationFilterGroups.filter(({ group }) => group === 'CLOSED').length,
+  }), [registrationFilterGroups])
+  const filteredVisibleRegistrations = useMemo(() => registrationFilterGroups
+    .filter(({ group }) => filterStatus === 'ALL' || group === filterStatus)
+    .map(({ item }) => item), [registrationFilterGroups, filterStatus])
   const selectedCoachRegistrationLocked = useMemo(() => {
     if (!selectedSubject?.id || !selectedCoachId || !memberSubscriptionsLoaded) return false
     const activePackage = memberSubscriptions.some((subscription) =>
@@ -1516,9 +1549,14 @@ export function MemberCourseCatalog() {
       </aside>
     </section>
 
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-labelledby="orders-title"><div className="border-b border-slate-100 p-5"><h2 id="orders-title" className="text-2xl font-bold text-slate-950">{isVi ? 'Yêu cầu đăng ký' : 'Registration requests'}</h2></div><div className="space-y-4 p-4 sm:p-5">
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-labelledby="orders-title"><div className="border-b border-slate-100 p-5"><h2 id="orders-title" className="text-2xl font-bold text-slate-950">{isVi ? 'Yêu cầu đăng ký' : 'Registration requests'}</h2><div className="mt-4 flex gap-2 overflow-x-auto pb-1">{[
+      { value: 'ALL', label: isVi ? 'Tất cả' : 'All' },
+      { value: 'PENDING', label: isVi ? 'Chờ xử lý' : 'Pending' },
+      { value: 'ACTIVE_FLOW', label: isVi ? 'Đã chấp thuận / Thanh toán' : 'Approved / Payment' },
+      { value: 'CLOSED', label: isVi ? 'Đã từ chối / Đã hủy' : 'Rejected / Cancelled' },
+    ].map(({ value, label }) => <button key={value} type="button" onClick={() => setFilterStatus(value)} aria-pressed={filterStatus === value} className={'shrink-0 rounded-full px-3 py-2 text-sm transition-colors duration-200 sm:px-4 ' + (filterStatus === value ? 'bg-purple-600 font-medium text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')}>{label} <span className="ml-1 opacity-80">({registrationFilterCounts[value]})</span></button>)}</div></div><div className="space-y-4 p-4 sm:p-5">
       {tier === 'Advanced' && <InlineState loading={registrationsState.loading} error={registrationsState.error} retry={refreshRegistrations} empty={null} language={language}>
-        {registrations.length > 0 && visibleRegistrations.length === 0 ? <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{isVi ? 'Không thể xác định quyền sở hữu yêu cầu. Vui lòng liên hệ quầy lễ tân để được hỗ trợ.' : 'Unable to verify request ownership. Please contact the front desk for assistance.'}</p> : visibleRegistrations.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-600">{isVi ? 'Chưa có yêu cầu Advanced.' : 'No Advanced requests yet.'}</p> : <div className="space-y-3">{visibleRegistrations.map((item) => {
+        {registrations.length > 0 && visibleRegistrations.length === 0 ? <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{isVi ? 'Không thể xác định quyền sở hữu yêu cầu. Vui lòng liên hệ quầy lễ tân để được hỗ trợ.' : 'Unable to verify request ownership. Please contact the front desk for assistance.'}</p> : visibleRegistrations.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-600">{isVi ? 'Chưa có yêu cầu Advanced.' : 'No Advanced requests yet.'}</p> : filteredVisibleRegistrations.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-600">{isVi ? 'Không có yêu cầu trong trạng thái này.' : 'No requests in this status.'}</p> : <div className="space-y-3">{filteredVisibleRegistrations.map((item) => {
           const requested = normalizeCatalogStatus(item.status) === 'requested'
           const registrationStatus = normalizeCatalogStatus(item.status)
           const relatedOrder = orders.find((order) => String(order.registrationId) === String(item.id))
