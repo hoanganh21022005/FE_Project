@@ -454,6 +454,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
   // Conflict Checking Hook (Queries existing classes in memory + optional backend API)
   const { conflict, isChecking: isCheckingConflict } = useScheduleConflict({
+    classType: "Normal",
     coachId: selectedCoachObj?.id || coachId,
     coachName: selectedCoachObj?.name,
     roomId: selectedRoomObj?.backendId || selectedRoomObj?.id || roomId,
