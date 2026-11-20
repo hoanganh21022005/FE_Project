@@ -52,7 +52,7 @@ export function PaymentResultView({ language = 'vi', isAuthenticated = false }) 
   const [invoiceId, setInvoiceId] = useState(queryInvoiceId)
   const [invoice, setInvoice] = useState(null)
   const [subscription, setSubscription] = useState(null)
-  const [isNormalClassInvoice, setIsNormalClassInvoice] = useState(false)
+  const [invoiceKind, setInvoiceKind] = useState('generic')
   const [entitlementError, setEntitlementError] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -94,19 +94,45 @@ export function PaymentResultView({ language = 'vi', isAuthenticated = false }) 
           const subscriptionId = registration?.subscriptionId ?? cachedOrder?.subscriptionId
           const matchedSubscription = subscriptionId == null ? null : subscriptions.find((row) => String(row.subscriptionId) === String(subscriptionId))
           setSubscription(matchedSubscription || null)
-          const isNormal =
-            cachedOrder?.type === 'Normal' ||
-            (currentInvoice.classId != null && !registration && !matchedSubscription && cachedOrder?.type !== 'Advanced')
-          setIsNormalClassInvoice(Boolean(isNormal))
+          const certainAdvanced = Boolean(
+            registration ||
+            matchedSubscription ||
+            cachedOrder?.type === 'Advanced' ||
+            cachedOrder?.registrationId != null ||
+            currentInvoice.packageId != null,
+          )
+          if (certainAdvanced) {
+            setInvoiceKind('advanced')
+          } else if (cachedOrder?.type === 'Normal' || currentInvoice.classId != null) {
+            setInvoiceKind('normal')
+          } else {
+            setInvoiceKind('generic')
+          }
         } catch (syncError) {
           setSubscription(null)
-          const isNormal = cachedOrder?.type === 'Normal' || (currentInvoice.classId != null && cachedOrder?.type !== 'Advanced')
-          setIsNormalClassInvoice(Boolean(isNormal))
+          const certainAdvanced = Boolean(
+            cachedOrder?.type === 'Advanced' ||
+            cachedOrder?.registrationId != null ||
+            currentInvoice.packageId != null,
+          )
+          if (certainAdvanced) {
+            setInvoiceKind('advanced')
+          } else if (cachedOrder?.type === 'Normal' || currentInvoice.classId != null) {
+            setInvoiceKind('normal')
+          } else {
+            setInvoiceKind('generic')
+          }
           setEntitlementError(syncError?.message || (isVi ? 'Chưa tải được dữ liệu gói học từ hệ thống.' : 'Could not load subscription data from the server.'))
         }
       } else {
         setSubscription(null)
-        setIsNormalClassInvoice(cachedOrder?.type === 'Normal')
+        if (cachedOrder?.type === 'Advanced' || cachedOrder?.registrationId != null || currentInvoice.packageId != null) {
+          setInvoiceKind('advanced')
+        } else if (cachedOrder?.type === 'Normal' || currentInvoice.classId != null) {
+          setInvoiceKind('normal')
+        } else {
+          setInvoiceKind('generic')
+        }
       }
     } catch (requestError) {
       setError(requestError?.message || (isVi ? 'Không thể xác minh trạng thái hóa đơn.' : 'Could not verify the invoice status.'))
@@ -148,14 +174,16 @@ export function PaymentResultView({ language = 'vi', isAuthenticated = false }) 
           : state === 'expired' ? (isVi ? 'Hóa đơn đã hết hạn' : 'Invoice expired')
             : state === 'failed' || state === 'cancelled' ? (isVi ? 'Thanh toán chưa thành công' : 'Payment was not successful')
               : (isVi ? 'Chưa xác minh được hóa đơn' : 'Invoice could not be verified')
-  const description = error || (entitlementError && paid && !active && !isNormalClassInvoice ? entitlementError : '') || (state === 'pending' || state === 'checking' || state === 'unverified'
+  const description = error || (entitlementError && paid && !active && invoiceKind === 'advanced' ? entitlementError : '') || (state === 'pending' || state === 'checking' || state === 'unverified'
     ? (isVi ? 'Trạng thái bên dưới lấy từ hóa đơn trên hệ thống. Bạn có thể kiểm tra lại; hệ thống không tạo đơn mới.' : 'The status below comes from the server invoice. You can check again; no new order will be created.')
     : active
       ? (isVi ? 'Quyền học và thông tin gói được tải từ hồ sơ trên hệ thống.' : 'Access and subscription details were loaded from the server.')
       : paid
-        ? (isNormalClassInvoice
+        ? (invoiceKind === 'normal'
             ? (isVi ? 'Thanh toán thành công. Lớp của bạn đã được ghi nhận, xem tại Khóa học của tôi.' : 'Payment successful. Your class enrollment has been recorded; view it under My enrollments.')
-            : (isVi ? 'Hệ thống đang kích hoạt gói Advanced của bạn, vui lòng chờ ít phút.' : 'The system is activating your Advanced package, please wait a few minutes.'))
+            : invoiceKind === 'advanced'
+              ? (isVi ? 'Hệ thống đang kích hoạt gói Advanced của bạn, vui lòng chờ ít phút.' : 'The system is activating your Advanced package, please wait a few minutes.')
+              : (isVi ? 'Thanh toán thành công.' : 'Payment successful.'))
         : (isVi ? 'Trạng thái thanh toán hiển thị theo hóa đơn trên hệ thống.' : 'Payment status is shown from the server invoice.'))
 
   return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
