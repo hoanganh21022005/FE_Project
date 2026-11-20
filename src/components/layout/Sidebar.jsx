@@ -401,21 +401,23 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             )}
           </button>
 
-          <button
-            type="button"
-            onClick={() => handleNav("/support")}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all cursor-pointer ${
-              location.pathname.includes("/support")
-                ? "bg-brand-primary text-white font-semibold border-l-2 border-brand-accent shadow-2xs"
-                : "text-slate-200 hover:text-white hover:bg-brand-dark-hover"
-            }`}
-            title={collapsed ? t("support") : undefined}
-          >
-            <HelpCircle className="w-4 h-4 text-slate-300 flex-shrink-0" />
-            {(!collapsed || mobileOpen) && (
-              <span className="truncate">{t("support")}</span>
-            )}
-          </button>
+          {role !== "manager" && (
+            <button
+              type="button"
+              onClick={() => handleNav("/support")}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all cursor-pointer ${
+                location.pathname.includes("/support")
+                  ? "bg-brand-primary text-white font-semibold border-l-2 border-brand-accent shadow-2xs"
+                  : "text-slate-200 hover:text-white hover:bg-brand-dark-hover"
+              }`}
+              title={collapsed ? t("support") : undefined}
+            >
+              <HelpCircle className="w-4 h-4 text-slate-300 flex-shrink-0" />
+              {(!collapsed || mobileOpen) && (
+                <span className="truncate">{t("support")}</span>
+              )}
+            </button>
+          )}
         </div>
       </aside>
     </>

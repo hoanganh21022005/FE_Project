@@ -87,7 +87,9 @@ const formatChatTime = (value, isVi) => {
 export function SupportView() {
   const { t, language, apiEnabled, currentUser, role, showToast } = useSCMS()
   const isVi = language === "vi"
-  const isMember = String(role || currentUser?.role || "").toLowerCase() === "member"
+  const normalizedRole = String(role || currentUser?.role || "").toLowerCase()
+  const isMember = normalizedRole === "member"
+  const isManager = normalizedRole === "manager"
 
   const [conversation, setConversation] = useState(null)
   const [inboxList, setInboxList] = useState([])
@@ -119,7 +121,7 @@ export function SupportView() {
   }, [])
 
   const refreshSupportChat = useCallback(async () => {
-    if (!apiEnabled) {
+    if (!apiEnabled || isManager) {
       setLoading(false)
       return
     }

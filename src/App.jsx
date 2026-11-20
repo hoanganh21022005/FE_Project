@@ -1143,7 +1143,16 @@ function SCMSApp() {
                   {/* Hồ sơ Admin riêng biệt */}
                   <Route path="/profile" element={<AdminProfileView />} />
                   <Route path="/settings" element={<SettingsView />} />
-                  <Route path="/support" element={<SupportView />} />
+                  <Route
+                    path="/support"
+                    element={
+                      role === ROLE_MANAGER ? (
+                        <Navigate to="/manager/dashboard" replace />
+                      ) : (
+                        <SupportView />
+                      )
+                    }
+                  />
 
                   {/* Chuyển hướng các route /manager/* và /receptionist/* sang cổng Admin Ops */}
                   <Route
@@ -1796,7 +1805,16 @@ function SCMSApp() {
                   />
                   {/* Common Routes */}
                   <Route path="/settings" element={<SettingsView />} />
-                  <Route path="/support" element={<SupportView />} />
+                  <Route
+                    path="/support"
+                    element={
+                      role === ROLE_MANAGER ? (
+                        <Navigate to="/manager/dashboard" replace />
+                      ) : (
+                        <SupportView />
+                      )
+                    }
+                  />
                   <Route path="/profile" element={<PersonalProfileView />} />
                   <Route
                     path="/403"
