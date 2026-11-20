@@ -765,8 +765,8 @@ export function getFriendlyError(error, { language = 'vi' } = {}) {
     error?.message || error?.details?.message || error?.response?.data?.message || ''
   ).toUpperCase();
 
-  // Ghi mã lỗi gốc vào console để debug
-  if (error) console.warn('[getFriendlyError]', error);
+  // Log expected API failures only during local development.
+  if (import.meta.env?.DEV && error) console.warn('[getFriendlyError]', error);
 
   // 409 idempotency — lịch đã tồn tại
   if (
