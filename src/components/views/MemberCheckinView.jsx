@@ -12,12 +12,10 @@ import {
   ClipboardCheck,
   ClipboardList,
   Copy,
-  Info,
-  Lock,
-  QrCode,
   RefreshCw,
   Search,
   SlidersHorizontal,
+  UserRound,
   X,
 } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
@@ -206,57 +204,6 @@ const extractTimeFromIso = (value) => {
 }
 
 // Họa tiết ô vuông cố định giả lập QR (không có finder pattern / dữ liệu QR hợp lệ, không thể giải mã khi quét)
-const FAKE_QR_GRID_ROWS = [
-  "10110101011",
-  "01101011010",
-  "11010010101",
-  "10101101011",
-  "01010001010",
-  "11000000011",
-  "01010001010",
-  "10110101101",
-  "11001010011",
-  "01101101100",
-  "10110010111",
-]
-
-function LockedQrPlaceholderPattern({ size = 148 }) {
-  const gridSize = FAKE_QR_GRID_ROWS.length
-  const cellSize = 10
-  const gap = 2
-  const viewBoxSize = gridSize * cellSize + (gridSize - 1) * gap
-
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      {FAKE_QR_GRID_ROWS.map((rowStr, rIdx) =>
-        rowStr.split("").map((bit, cIdx) => {
-          if (bit !== "1") return null
-          const x = cIdx * (cellSize + gap)
-          const y = rIdx * (cellSize + gap)
-          return (
-            <rect
-              key={`${rIdx}-${cIdx}`}
-              x={x}
-              y={y}
-              width={cellSize}
-              height={cellSize}
-              rx={2.5}
-              className="fill-slate-800"
-            />
-          )
-        }),
-      )}
-    </svg>
-  )
-}
-
 function LocalDatePicker({ value, onChange, isVi, label, min, max, error }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
@@ -1570,19 +1517,19 @@ export function MemberCheckinView() {
           <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
             1
           </span>
-          <span>{t("checkinHowToStep1")}</span>
+          <span>{isVi ? "Đến sân trước giờ học" : "Arrive before your class starts"}</span>
         </li>
         <li className="flex items-start gap-2">
           <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
             2
           </span>
-          <span>{t("checkinHowToStep2")}</span>
+          <span>{isVi ? "Báo mã hội viên (Mã MB) hoặc số điện thoại" : "Provide your member code (MB code) or phone number"}</span>
         </li>
         <li className="flex items-start gap-2">
           <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
             3
           </span>
-          <span>{t("checkinHowToStep3")}</span>
+          <span>{isVi ? "Huấn luyện viên hoặc Lễ tân xác nhận điểm danh trên hệ thống" : "Your Coach or Receptionist will confirm your attendance in the system"}</span>
         </li>
       </ol>
     </div>
@@ -1661,296 +1608,47 @@ export function MemberCheckinView() {
 
       {/* 4.6 QR pass and schedule */}
       <section className="grid grid-cols-1 gap-6 items-stretch lg:grid-cols-12">
-        {/* 4.2 Card Mã QR điểm danh */}
-        <article className="flex w-full min-w-0 flex-col items-center rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:col-span-1 sm:items-stretch sm:p-6 lg:col-span-4">
-          <div className="flex w-full min-w-0 items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <QrCode className="h-5 w-5 text-brand-accent-dark shrink-0" />
-              <h2 className="text-lg font-extrabold text-slate-900">
-                {t("checkinQrCardTitle")}
-              </h2>
-            </div>
-
-            {/* 4.2.6 Liên kết "Gặp sự cố?" mở hộp nhỏ (popover) */}
-            <div className="relative" ref={helpPopoverRef}>
-              <button
-                type="button"
-                aria-expanded={showHelpPopover}
-                onClick={() => setShowHelpPopover((prev) => !prev)}
-                className="min-h-[40px] inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-              >
-                <Info className="h-3.5 w-3.5 shrink-0" />
-                <span>{t("checkinNeedHelp")}</span>
-              </button>
-
-              {showHelpPopover && (
-                <div
-                  role="dialog"
-                  aria-label={t("checkinHelpTitle")}
-                  className="absolute right-0 top-full z-40 mt-1.5 w-72 sm:w-80 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-700 shadow-xl space-y-3"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-bold text-slate-900">
-                      {t("checkinHelpTitle")}
-                    </p>
-                    <button
-                      type="button"
-                      aria-label={t("checkinclose")}
-                      onClick={() => setShowHelpPopover(false)}
-                      className="min-h-[32px] min-w-[32px] inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-
-                  <ul className="list-disc pl-4 space-y-1.5 leading-relaxed text-slate-600">
-                    <li>{t("checkinHelpTipBrightness")}</li>
-                    <li>{t("checkinHelpTipReload")}</li>
-                    <li>{t("checkinHelpTipManual")}</li>
-                  </ul>
-
-                  <div className="border-t border-slate-100 pt-2.5">
-                    <button
-                      type="button"
-                      onClick={(e) => openDisputeDrawer(e.currentTarget)}
-                      className="min-h-[36px] w-full inline-flex items-center justify-between rounded-lg bg-slate-50 hover:bg-slate-100 px-3 py-2 text-xs font-bold text-brand-accent-dark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-                    >
-                      <span>{t("checkinMissingSessionLink")}</span>
-                      <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 3.2 Nội dung Card QR theo 5 trạng thái */}
-          <div className="mt-4 flex w-full min-w-0 flex-1 flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 text-center sm:p-6">
-            <span className={`mb-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold ${isQrActiveMode ? "bg-emerald-100 text-emerald-900" : qrContext.mode === "checked_in" ? "bg-blue-100 text-blue-900" : "bg-slate-200 text-slate-700"}`}>
-              <span aria-hidden="true">●</span>{isQrActiveMode ? t("checkinWindowActiveBadge") : qrContext.mode === "checked_in" ? t("checkinStateCheckedInTitle") : isVi ? "Mã QR đang khóa" : "QR is locked"}
+        <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6 lg:col-span-4">
+          <div className="flex items-center gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700">
+              <UserRound className="h-5 w-5" />
             </span>
-            {scheduleLoading ? (
-              <div
-                aria-busy="true"
-                className="w-full max-w-[240px] space-y-3 py-6 animate-pulse"
-              >
-                <div className="mx-auto h-40 w-40 rounded-xl bg-slate-200" />
-                <div className="mx-auto h-5 w-32 rounded bg-slate-200" />
-                <div className="mx-auto h-3 w-44 rounded bg-slate-200" />
-              </div>
-            ) : qrContext.mode === "active" ? (
-              /* TRẠNG THÁI 1: ĐANG HOẠT ĐỘNG (Hoặc LỖI LÀM MỚI) */
-              <div className="w-full space-y-3">
-                {/* 4.2.3 Hiển thị rõ buổi đang áp dụng: tên lớp, giờ bắt đầu–kết thúc, sân */}
-                {qrContext.session && (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-950">
-                    <p className="font-extrabold">
-                      {qrContext.session.className ||
-                        qrContext.session.subjectName}
-                    </p>
-                    <p className="mt-0.5 font-medium text-emerald-800">
-                      {qrContext.session.startTime}–{qrContext.session.endTime}{" "}
-                      · {qrContext.session.roomName || t("scheduleRoomTbd")}
-                    </p>
-                  </div>
-                )}
-
-                {code && secondsLeft > 0 && !codeError ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setShowQrSpotlight(true)}
-                      aria-label={t("checkinEnlargeQrAria")}
-                      className="group relative mx-auto inline-flex flex-col items-center overflow-hidden rounded-xl bg-white p-3 shadow-xs ring-1 ring-slate-200 transition hover:shadow-md hover:ring-brand-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-                    >
-                      <QRCodeSVG
-                        value={code}
-                        size={188}
-                        level="M"
-                        includeMargin
-                        className="h-auto max-w-full"
-                      />
-                      <span className="mt-1 text-xs font-semibold text-slate-500 group-hover:text-brand-primary">
-                        {t("checkinEnlargeQr")}
-                      </span>
-                    </button>
-
-                    {/* 4.2.7 Mã số 6 chữ số kèm nhãn nhỏ "Mã nhập tay" & hỗ trợ trình đọc màn hình */}
-                    <div className="space-y-0.5">
-                      <span className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        {t("checkinManualCodeLabel")}
-                      </span>
-                      <p
-                        aria-label={`${t("checkinManualCodeLabel")}: ${String(code).split("").join(" ")}`}
-                        className="font-mono text-2xl font-black tracking-[.26em] text-slate-950"
-                      >
-                        {code}
-                      </p>
-                    </div>
-
-                    {/* 4.2.5 & 4.8 Thanh đếm ngược (không đọc mỗi giây) */}
-                    <div className="space-y-1.5">
-                      <p className="text-xs font-medium text-slate-600">
-                        {refreshingCode ? (
-                          <span>{t("checkinRefreshingCode")}</span>
-                        ) : (
-                          <>
-                            {t("checkinNewCodeIn")}{" "}
-                            <strong className="font-bold tabular-nums text-brand-primary">
-                              {secondsLeft}s
-                            </strong>
-                          </>
-                        )}
-                      </p>
-                      <div
-                        role="progressbar"
-                        aria-label={t("checkinNewCodeIn")}
-                        aria-valuenow={secondsLeft}
-                        aria-valuemin={0}
-                        aria-valuemax={codeDuration}
-                        className="mx-auto h-1.5 w-full max-w-[220px] overflow-hidden rounded-full bg-slate-200"
-                      >
-                        <div
-                          className="h-full bg-brand-primary transition-[width] duration-300"
-                          style={{
-                            width: `${Math.min(100, Math.max(0, (secondsLeft / codeDuration) * 100))}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  /* TRẠNG THÁI 5: LỖI LÀM MỚI — Làm mờ mã cũ, không bao giờ hiển thị mã hết hạn như còn hiệu lực */
-                  <div className="space-y-3 py-3" role="alert">
-                    <div className="relative mx-auto w-fit">
-                      <div
-                        aria-hidden="true"
-                        className="rounded-xl bg-white p-3 opacity-35 blur-[4px] select-none pointer-events-none"
-                      >
-                        <LockedQrPlaceholderPattern size={172} />
-                      </div>
-                      <div className=" inset-0 flex flex-col items-center justify-center">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-900 border border-rose-200">
-                          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                          <span>{t("checkinStateErrorTitle")}</span>
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-slate-600">
-                      {t("checkinStateErrorSub")}
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={refreshCode}
-                      disabled={refreshingCode}
-                      className="min-h-[40px] inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-primary hover:bg-brand-primary-hover px-4 py-2 text-xs font-bold text-white shadow-2xs disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-                    >
-                      <RefreshCw
-                        className={`h-3.5 w-3.5 ${refreshingCode ? "animate-spin" : ""}`}
-                      />
-                      <span>{t("checkinBtnRetry")}</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : qrContext.mode === "checked_in" ? (
-              /* TRẠNG THÁI 2: ĐÃ ĐIỂM DANH */
-              <div className="space-y-2.5 py-6">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                  <CheckCircle2 className="h-8 w-8" />
-                </div>
-                <h3 className="text-base font-extrabold text-slate-900">
-                  { qrContext.record &&
-                  extractTimeFromIso(
-                    qrContext.record.checkInTime ||
-                      qrContext.record.checkedInAt,
-                  )
-                    ? tr("checkinStateCheckedInTime", {
-                        time: extractTimeFromIso(
-                          qrContext.record.checkInTime ||
-                            qrContext.record.checkedInAt,
-                        ),
-                      })
-                    : t("checkinStateCheckedInTitle")}
-                </h3>
-                {qrContext.session && (
-                  <p className="text-xs font-medium text-slate-600">
-                    {qrContext.session.className ||
-                      qrContext.session.subjectName}{" "}
-                    · {qrContext.session.startTime}–{qrContext.session.endTime}{" "}
-                    · {qrContext.session.roomName || t("scheduleRoomTbd")}
-                  </p>
-                )}
-              </div>
-            ) : (
-              /* TRẠNG THÁI 3: KHÓA MÃ QR (Không có buổi trong khung điểm danh) */
-              <div className="w-full space-y-3.5 py-2">
-                {/* Hình QR mờ dạng placeholder (họa tiết giả cố định không giải mã được) với biểu tượng khóa ở giữa */}
-                <div className="relative mx-auto flex h-44 w-44 items-center justify-center rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs">
-                  <div
-                    aria-hidden="true"
-                    className="opacity-20 blur-[1.5px] select-none pointer-events-none"
-                  >
-                    <LockedQrPlaceholderPattern size={148} />
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-sm">
-                      <Lock className="h-5 w-5" />
-                    </span>
-                  </div>
-                </div>
-
-                {qrContext.nextLockedSession ? (
-                  <div className="space-y-1.5 px-2">
-                    <p className="text-sm font-bold text-slate-900">
-                      {tr("checkinQrLockedOpenAt", {
-                        time: qrContext.openTimeFormatted,
-                        date: qrContext.openDateFormatted,
-                      })}
-                    </p>
-                    {qrContext.countdown && (
-                      <p className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
-                        {qrContext.countdown.days >= 1
-                          ? tr("checkinQrLockedCountdownDays", {
-                              days: qrContext.countdown.days,
-                              hours: qrContext.countdown.hours,
-                            })
-                          : tr("checkinQrLockedCountdownHours", {
-                              hours: qrContext.countdown.hours,
-                              minutes: qrContext.countdown.minutes,
-                            })}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="px-2 text-sm font-bold text-slate-700">
-                    {t("checkinQrLockedNoSession")}
-                  </p>
-                )}
-              </div>
-            )}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">AVT SPORT</p>
+              <h2 className="mt-0.5 text-lg font-extrabold text-slate-900">{isVi ? "Thẻ Hội Viên" : "Member Card"}</h2>
+            </div>
           </div>
 
-          {/* 4.2.1 & 4.2.2 Ẩn dòng hướng dẫn quét/15s khi không có mã đang hoạt động */}
-          {isQrActiveMode && code && secondsLeft > 0 && !codeError && (
-            <p className="mt-3 text-center text-xs leading-relaxed text-slate-600">
-              {tr("checkinQrGuideShort", { seconds: codeDuration })}
-            </p>
-          )}
+          <dl className="mt-5 space-y-4">
+            <div>
+              <dt className="text-xs font-semibold text-slate-500">{isVi ? "Mã hội viên" : "Member code"}</dt>
+              <dd className="mt-1 font-mono text-lg font-extrabold tracking-wide text-slate-900">
+                {validMember ? `MB-${String(memberId).padStart(4, "0")}` : "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold text-slate-500">{isVi ? "Họ và tên" : "Full name"}</dt>
+              <dd className="mt-1 text-base font-bold text-slate-900">
+                {currentUser?.name || currentUser?.fullName || currentUser?.displayName || "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold text-slate-500">{isVi ? "Trạng thái hội viên" : "Membership status"}</dt>
+              <dd className="mt-1">
+                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  {validMember ? (isVi ? "Đang hoạt động" : "Active") : (isVi ? "Chưa liên kết" : "Not linked")}
+                </span>
+              </dd>
+            </div>
+          </dl>
 
-          {/* 4.2.8 Dòng "Cập nhật lúc HH:mm:ss" nhỏ, nhạt */}
-          {isQrActiveMode && codeUpdatedAt && (
-            <p className="mt-1 text-center text-xs text-slate-400">
-              {tr("checkinUpdatedAt", {
-                time: TIME_FORMATTER_HHMMSS.format(codeUpdatedAt),
-              })}
-            </p>
-          )}
-
+          <p className="mt-5 rounded-xl border border-blue-100 bg-blue-50/70 p-3.5 text-sm leading-6 text-blue-950">
+            {isVi
+              ? "Điểm danh: Vui lòng cung cấp mã hội viên hoặc thông tin cho Lễ tân / Huấn luyện viên khi vào ca tập."
+              : "Attendance: Please provide your member code or details to Reception or your Coach when arriving for training."}
+          </p>
         </article>
-
         {/* 4.3 Card Lịch trình học tập */}
         <article className="min-w-0 flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6 lg:col-span-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2041,39 +1739,11 @@ export function MemberCheckinView() {
                     renderScheduleRowItem(session, idx),
                   )}
                 </div>
-              ) : activeEnrollmentsCount === 0 ? (
-                /* 4.3 Trạng thái rỗng khi hội viên CHƯA có khóa nào: hiện nút Đăng ký khóa học */
-                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-5 py-6 text-center space-y-2.5">
-                  <p className="text-sm font-bold text-slate-800">
-                    {t("checkinEmptyNoCourse")}
-                  </p>
-                  <Link
-                    to="/member/catalog"
-                    className="min-h-[40px] inline-flex items-center justify-center rounded-lg bg-brand-primary hover:bg-brand-primary-hover px-4 py-2 text-xs font-bold text-white shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
-                  >
-                    {t("checkinBtnRegisterCourse")}
-                  </Link>
-                </div>
               ) : (
-                /* 4.3 Trạng thái rỗng khi hội viên ĐÃ có khóa nhưng hôm nay không có buổi: kèm buổi kế tiếp, KHÔNG có nút đăng ký */
-                <div className="flex min-h-[240px] flex-col justify-center rounded-2xl border border-slate-200 bg-slate-50/60 px-5 py-6 text-center space-y-3">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700"><CalendarDays className="h-6 w-6" /></div>
+                <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-slate-200 bg-slate-50/60 px-5 py-6 text-center">
                   <p className="text-sm font-bold text-slate-800">
                     {t("checkinEmptyTodayHasCourse")}
                   </p>
-                  {nextFutureValidSession && (
-                    <div className="mx-auto w-full max-w-2xl rounded-2xl border border-blue-200 bg-white p-4 text-left shadow-xs">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-blue-800">{nextFutureValidSession.subjectName || "AVT SPORT"}</span>
-                          <h3 className="mt-2 text-base font-extrabold text-slate-900">{nextFutureValidSession.className || nextFutureValidSession.subjectName || (nextFutureValidSession.isPrivate ? t("schedulePtDefaultTitle") : `#${nextFutureValidSession.classId}`)}</h3>
-                          <p className="mt-1 text-xs font-medium leading-relaxed text-slate-600">{toDateDdMmYyyy(nextFutureValidSession.sessionDate)} · {nextFutureValidSession.startTime}–{nextFutureValidSession.endTime} · {nextFutureValidSession.roomName || t("scheduleRoomTbd")}{nextFutureValidSession.coachName ? ` · ${nextFutureValidSession.coachName}` : ""}</p>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800">{isVi ? "Sắp diễn ra" : "Coming up"}</span>
-                      </div>
-                      <p className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700"><QrCode className="h-4 w-4 shrink-0 text-brand-accent-dark" />{isVi ? "Mã QR sẽ tự mở trước giờ học 15 phút" : "Your QR pass opens automatically 15 minutes before class"}</p>
-                    </div>
-                  )}
                 </div>
               )
             ) : upcomingValidSessions.length > 0 ? (
