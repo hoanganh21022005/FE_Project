@@ -98,7 +98,7 @@ function ProposalSchedule({ schedule }) {
   )
 }
 
-export default function NormalClassLifecyclePanel({ classItem, sessions = null, sessionsLoading = false, sessionsError = '', onRefreshClassDetail }) {
+export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Postpone', sessions = null, sessionsLoading = false, sessionsError = '', onRefreshClassDetail }) {
   const { apiEnabled, currentUser, classes, subjects, coaches, setClasses } = useSCMS()
   const classId = classItem?.id
   const authorities = Array.isArray(currentUser?.authorities) ? currentUser.authorities : []
@@ -109,7 +109,7 @@ export default function NormalClassLifecyclePanel({ classItem, sessions = null, 
   const [proposalLoading, setProposalLoading] = useState(false)
   const [proposalError, setProposalError] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
-  const [kind, setKind] = useState('Postpone')
+  const [kind, setKind] = useState(initialKind === 'Transfer' ? 'Transfer' : 'Postpone')
   const [shiftDays, setShiftDays] = useState('1')
   const [reason, setReason] = useState('')
   const [cancelReason, setCancelReason] = useState('')

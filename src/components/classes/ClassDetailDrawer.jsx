@@ -88,6 +88,7 @@ const WEEKDAY_NAMES_MAP = {
 export function ClassDetailDrawer({
   cls,
   conflictInfo,
+  initialLifecycleKind = "Postpone",
   onClose,
   onEdit,
   onDuplicate,
@@ -469,14 +470,14 @@ export function ClassDetailDrawer({
     }
   }
 
-  const handleRemoveMember = async (enrollmentId, memberName) => {
+  const handleRemoveMember = async (memberId, memberName) => {
     if (
       !window.confirm(`Bạn có chắc chắn muốn hủy đăng ký cho "${memberName}"?`)
     )
       return
     try {
       if (apiEnabled) {
-        await cancelMemberEnrollment(classId, enrollmentId)
+        await cancelMemberEnrollment(classId, memberId)
       }
       showToast("Đã hủy đăng ký thành công.", "info")
       await loadEnrollments()
@@ -862,6 +863,7 @@ export function ClassDetailDrawer({
 
             <NormalClassLifecyclePanel
               classItem={classDetail ?? cls}
+              initialKind={initialLifecycleKind}
               sessions={sessions}
               sessionsLoading={sessionsLoading}
               sessionsError={sessionsError}
@@ -1098,16 +1100,18 @@ export function ClassDetailDrawer({
                         <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
                           Đã thanh toán
                         </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleRemoveMember(enr.id, enr.memberName)
-                          }
-                          className="p-1 text-stone-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
-                          title="Hủy ghi danh học viên"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {(!normalClass || String(enr.status || "").toLowerCase() === "waitlisted") && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleRemoveMember(enr.memberId, enr.memberName)
+                            }
+                            className="p-1 text-stone-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
+                            title="Hủy ghi danh học viên"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}

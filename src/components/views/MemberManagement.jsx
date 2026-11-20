@@ -61,9 +61,10 @@ export function MemberManagement({ onSelectMemberDetail }) {
 
   const filteredMembers = members.filter(m => {
     const nameMatch = (m.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const codeMatch = (m.code || '').toLowerCase().includes(searchTerm.toLowerCase());
     const emailMatch = (m.email || '').toLowerCase().includes(searchTerm.toLowerCase());
     const phoneMatch = String(m.phone || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSearch = nameMatch || emailMatch || phoneMatch;
+    const matchesSearch = nameMatch || codeMatch || emailMatch || phoneMatch;
 
     const matchesStatus =
       membershipFilter === 'all' ||
@@ -185,7 +186,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
-              placeholder={language === 'vi' ? 'Tìm theo tên, email hoặc số điện thoại...' : 'Search by name, email or phone...'}
+              placeholder={language === 'vi' ? 'Tìm theo mã, tên, email hoặc số điện thoại...' : 'Search by ID, name, email or phone...'}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               aria-label={language === 'vi' ? 'Tìm thành viên' : 'Search members'}
@@ -217,18 +218,20 @@ export function MemberManagement({ onSelectMemberDetail }) {
       {/* Member Data Table */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] table-fixed text-left text-sm">
+          <table className="w-full min-w-[1050px] table-fixed text-left text-sm">
             <colgroup>
               <col className="w-[5%]" />
-              <col className="w-[24%]" />
-              <col className="w-[25%]" />
-              <col className="w-[17%]" />
-              <col className="w-[13%]" />
+              <col className="w-[14%]" />
+              <col className="w-[19%]" />
+              <col className="w-[23%]" />
               <col className="w-[16%]" />
+              <col className="w-[11%]" />
+              <col className="w-[12%]" />
             </colgroup>
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
               <tr className="[&>th]:border-r [&>th]:border-slate-200 [&>th:last-child]:border-r-0">
                 <th scope="col" className="px-3 py-3 text-center">STT</th>
+                <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Mã Thành Viên' : 'Member ID'}</th>
                 <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Họ và tên' : 'Name'}</th>
                 <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Liên hệ' : 'Contact'}</th>
                 <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Trạng thái' : 'Status'}</th>
@@ -241,6 +244,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
                 [...Array(5)].map((_, idx) => (
                   <tr key={idx} className="animate-pulse">
                     <td className="px-3 py-4"><div className="mx-auto h-4 w-5 rounded bg-slate-200" /></td>
+                    <td className="px-4 py-4"><div className="h-4 w-16 rounded bg-slate-200" /></td>
                     <td className="px-4 py-4"><div className="h-4 w-32 rounded bg-slate-200" /><div className="mt-2 h-3 w-20 rounded bg-slate-100" /></td>
                     <td className="px-4 py-4"><div className="h-4 w-36 rounded bg-slate-200" /><div className="mt-2 h-3 w-24 rounded bg-slate-100" /></td>
                     <td className="px-4 py-4"><div className="h-5 w-20 rounded bg-slate-200" /></td>
@@ -251,6 +255,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
               ) : paginatedMembers.map((m, index) => (
                 <tr key={m.id} className="transition-colors hover:bg-slate-50">
                   <td className="px-3 py-4 text-center text-xs tabular-nums text-slate-500">{startIndex + index + 1}</td>
+                  <td className="px-4 py-4 font-mono text-xs font-semibold text-blue-800">{m.code || '—'}</td>
                   <td className="px-4 py-4">
                     <span className="block truncate font-semibold text-slate-900" title={m.name || ''}>{m.name || '—'}</span>
                   </td>
@@ -291,7 +296,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
 
               {!membersLoading && filteredMembers.length === 0 && (
                 <tr>
-                  <td colSpan="8" className="px-4 py-12 text-center">
+                  <td colSpan="7" className="px-4 py-12 text-center">
                     <SearchX className="mx-auto h-8 w-8 text-slate-300" aria-hidden="true" />
                     <p className="mt-3 text-sm font-semibold text-slate-800">
                       {language === 'vi' ? 'Không tìm thấy thành viên phù hợp' : 'No matching members found'}

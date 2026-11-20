@@ -49,9 +49,10 @@ export function StaffManagement() {
 
   const filteredStaff = staff.filter(s => {
     const nameMatch = (s.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const codeMatch = (s.code || '').toLowerCase().includes(searchTerm.toLowerCase());
     const emailMatch = (s.email || '').toLowerCase().includes(searchTerm.toLowerCase());
     const phoneMatch = (s.phone || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSearch = nameMatch || emailMatch || phoneMatch;
+    const matchesSearch = nameMatch || codeMatch || emailMatch || phoneMatch;
     const matchesRole = roleFilter === 'all' || s.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -189,7 +190,7 @@ export function StaffManagement() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
-              placeholder={language === 'vi' ? 'Tìm theo tên, email hoặc số điện thoại...' : 'Search by name, email or phone...'}
+              placeholder={language === 'vi' ? 'Tìm theo mã, tên, email hoặc số điện thoại...' : 'Search by ID, name, email or phone...'}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               aria-label={language === 'vi' ? 'Tìm nhân viên' : 'Search staff'}
@@ -225,19 +226,21 @@ export function StaffManagement() {
       {/* Staff Data Table */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1180px] table-fixed text-left text-sm">
+          <table className="w-full min-w-[1280px] table-fixed text-left text-sm">
             <colgroup>
               <col className="w-[6%]" />
-              <col className="w-[18%]" />
-              <col className="w-[12%]" />
-              <col className="w-[17%]" />
-              <col className="w-[22%]" />
               <col className="w-[11%]" />
-              <col className="w-[14%]" />
+              <col className="w-[15%]" />
+              <col className="w-[11%]" />
+              <col className="w-[15%]" />
+              <col className="w-[19%]" />
+              <col className="w-[11%]" />
+              <col className="w-[12%]" />
             </colgroup>
             <thead className="bg-slate-50 text-slate-600 uppercase tracking-wide border-b border-slate-200 font-semibold text-[11px] [&_th]:border-r [&_th]:border-slate-200 [&_th:last-child]:border-r-0">
               <tr>
                 <th className="py-3 px-4 text-center">{language === 'vi' ? 'STT' : 'No.'}</th>
+                <th className="py-3 px-4">{language === 'vi' ? 'Mã nhân viên' : 'Staff ID'}</th>
                 <th className="py-3 px-4">{language === 'vi' ? 'Nhân viên' : 'Employee'}</th>
                 <th className="py-3 px-4">{language === 'vi' ? 'Vai trò' : 'Role'}</th>
                 <th className="py-3 px-4">{language === 'vi' ? 'Chuyên môn' : 'Specialization'}</th>
@@ -251,6 +254,7 @@ export function StaffManagement() {
                 [...Array(4)].map((_, idx) => (
                   <tr key={idx} className="animate-pulse h-[62px]">
                     <td className="py-3 px-5 text-center"><div className="h-4 bg-slate-100 rounded w-5 mx-auto" /></td>
+                    <td className="py-3 px-5"><div className="h-4 bg-slate-100 rounded w-16" /></td>
                     <td className="py-3 px-5"><div className="h-4 bg-slate-200 rounded w-32 mb-2" /><div className="h-3 bg-slate-100 rounded w-20" /></td>
                     <td className="py-3 px-5"><div className="h-6 bg-slate-100 rounded-full w-24" /></td>
                     <td className="py-3 px-5"><div className="h-4 bg-slate-100 rounded w-32" /></td>
@@ -263,6 +267,7 @@ export function StaffManagement() {
                 filteredStaff.map((s, index) => (
                   <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3.5 px-4 text-center text-xs tabular-nums text-slate-500">{index + 1}</td>
+                    <td className="py-3.5 px-5 font-mono text-xs font-semibold text-blue-800">{s.code || '—'}</td>
                     <td className="py-3.5 px-5">
                       <span className="block truncate font-semibold text-slate-900" title={s.name || undefined}>{s.name || '—'}</span>
                     </td>

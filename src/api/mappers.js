@@ -237,6 +237,7 @@ export function mapClass(
       code: null,
       minTierRequired: null,
       minCapacity: asNumber(item.minCapacity),
+      pricingDraft: item.pricingDraft === true,
       openingConfirmedAt: item.openingConfirmedAt,
       openingConfirmedBy: asNumber(item.openingConfirmedBy),
       postponementCount: asNumber(item.postponementCount),
@@ -522,6 +523,7 @@ export const toClassRequest = (item) => {
     tuitionFee: asNumber(item.tuitionFee ?? item.price),
     classType: item.classType ?? null,
     totalSessions: asNumber(item.totalSessions ?? item.sessionCount),
+    minCapacity: asNumber(item.minCapacity),
     // Keep unrecognized Backend values intact; never silently turn them into Open.
     status:
       normalizedStatus === "draft"
