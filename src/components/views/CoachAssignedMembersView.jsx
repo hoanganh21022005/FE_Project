@@ -42,6 +42,17 @@ import {
 export { verifySessionResponseMatch } from "./coach-assigned-members/privateSessionHelpers"
 export { isRoomAvailable, isRoomForSubject, formatRoomOptionLabel } from "./coach-assigned-members/roomHelpers"
 
+const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000
+
+const isSlotAtLeast12HoursAhead = (dateStr, slot) => {
+  if (!dateStr || !slot?.startTime) return true
+  const rawTime = String(slot.startTime).trim()
+  const hhmmss = rawTime.length === 5 ? `${rawTime}:00` : rawTime.slice(0, 8)
+  const startsAtMs = Date.parse(`${dateStr}T${hhmmss}+07:00`)
+  if (!Number.isFinite(startsAtMs)) return true
+  return startsAtMs - Date.now() >= TWELVE_HOURS_MS
+}
+
 export function CoachAssignedMembersView() {
   const {
     currentUser,
@@ -232,7 +243,9 @@ export function CoachAssignedMembersView() {
         const rawSlots = Array.isArray(slots) ? slots : []
         const validSlots = rawSlots.filter(isStandardPrivateSessionSlot)
         setAvailableSlots(validSlots)
-        const firstAvail = validSlots.find((s) => s.isAvailable === true)
+        const firstAvail = validSlots.find(
+          (s) => s.isAvailable === true && isSlotAtLeast12HoursAhead(date, s),
+        )
         if (firstAvail) {
           setSelectedSlot(firstAvail)
         }
