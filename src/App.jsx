@@ -13,7 +13,6 @@ import { Sidebar } from "./components/layout/Sidebar"
 import { Toast } from "./components/common/Toast"
 import { PublicPageScroll } from "./components/common/PublicPageScroll"
 import { ForbiddenView } from "./components/views/ForbiddenView"
-import { NotFoundView } from "./components/views/NotFoundView"
 import { RequireAuth, RequireRole } from "./components/auth/RouteGuard"
 import { AdminDataProvider } from "./components/admin/AdminDataContext"
 import { AdminLayout } from "./components/admin/AdminLayout"
@@ -946,7 +945,7 @@ function SCMSApp() {
               />
               <Route
                 path="*"
-                element={<NotFoundView language={language} onGoHome={() => navigate("/")} />}
+                element={<Navigate to="/" replace />}
               />
             </Routes>
           </Suspense>
@@ -1199,7 +1198,7 @@ function SCMSApp() {
                   />
                   <Route
                     path="*"
-                    element={<NotFoundView language={language} onGoHome={() => navigate("/admin/dashboard")} />}
+                    element={<Navigate to="/admin/dashboard" replace />}
                   />
                 </Routes>
               </Suspense>
@@ -1831,7 +1830,7 @@ function SCMSApp() {
                   {/* Fallback */}
                   <Route
                     path="*"
-                    element={<NotFoundView language={language} onGoHome={() => navigate(`/${role || "manager"}/dashboard`)} />}
+                    element={<Navigate to={`/${role || "manager"}/dashboard`} replace />}
                   />
                 </Routes>
               </Suspense>
