@@ -127,7 +127,7 @@ export function AdminSidebar({
       )}
       <aside
         className={`fixed inset-y-0 left-0 z-40 border-r border-brand-dark-hover bg-bg-sidebar text-text-inverse transition-[transform,width] duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 shrink-0 ${
-          collapsed ? "w-64 lg:w-16" : "w-64"
+          collapsed ? "w-[288px] lg:w-16" : "w-[288px]"
         } ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="h-full flex flex-col justify-between">
