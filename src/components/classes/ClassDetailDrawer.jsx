@@ -330,6 +330,24 @@ export function ClassDetailDrawer({
     }).format(new Date(parsed))
   }
 
+  const validMemberSummary = (() => {
+    if (hasVerifiedEnrollmentData) {
+      const count = openingEvaluation.paidRegisteredCount ?? 0
+      return classDetail?.minCapacity == null
+        ? String(count)
+        : `${count} / ${classDetail.minCapacity}`
+    }
+    const enrolledCount = Number.isFinite(Number(classDetail?.enrolledCount))
+      ? Number(classDetail.enrolledCount)
+      : null
+    if (enrolledCount !== null) {
+      return classDetail?.minCapacity != null
+        ? `${enrolledCount} / ${classDetail.minCapacity} học viên, tối thiểu ${classDetail.minCapacity}`
+        : `${enrolledCount} học viên`
+    }
+    return "Hệ thống sẽ kiểm tra số học viên đã thanh toán khi bạn xác nhận"
+  })()
+
   const submitOpeningConfirmation = async (event) => {
     event?.preventDefault?.()
     const currentCheck = evaluateNormalClassOpening({
@@ -804,9 +822,7 @@ export function ClassDetailDrawer({
                         <div>
                           <div className="text-stone-500">Member hợp lệ (Registered + Paid)</div>
                           <div className="mt-1 font-semibold tabular-nums text-stone-900">
-                            {!hasVerifiedEnrollmentData
-                              ? "Chưa xác minh"
-                              : `${openingEvaluation.paidRegisteredCount ?? 0}${classDetail.minCapacity == null ? "" : ` / ${classDetail.minCapacity}`}`}
+                            {validMemberSummary}
                           </div>
                         </div>
                         <div>
@@ -817,7 +833,9 @@ export function ClassDetailDrawer({
                         </div>
                       </div>
                       {openingEvaluation.blockers.length > 0 ? (
-                        <p className="mt-3 text-amber-800">{openingEvaluation.blockers[0]}</p>
+                        <p className="mt-3 text-rose-700">{openingEvaluation.blockers[0]}</p>
+                      ) : openingEvaluation.openingConfirmationAllowed === true ? (
+                        <p className="mt-3 font-medium text-emerald-700">Đủ điều kiện xác nhận khai giảng</p>
                       ) : (
                         <p className="mt-3 text-stone-600">
                           {openingEvaluation.unverified.length > 0
@@ -1166,7 +1184,7 @@ export function ClassDetailDrawer({
               <div>
                 <dt className="text-stone-500">Member hợp lệ</dt>
                 <dd className="mt-1 font-semibold text-stone-900">
-                  {!hasVerifiedEnrollmentData ? "Chưa xác minh" : openingEvaluation.paidRegisteredCount ?? 0}
+                  {validMemberSummary}
                 </dd>
               </div>
               <div>
@@ -1184,12 +1202,20 @@ export function ClassDetailDrawer({
               <div className="col-span-2">
                 <dt className="text-stone-500">Trạng thái xác nhận khai giảng</dt>
                 <dd className="mt-1 font-semibold text-stone-900">
-                  {classDetail?.openingConfirmedAt === undefined ? "Chưa xác minh" : classDetail.openingConfirmedAt === null ? "Chưa xác nhận" : "Đã xác nhận"}
+                  {classDetail?.openingConfirmedAt === undefined ? (
+                    "Chưa xác minh"
+                  ) : classDetail.openingConfirmedAt !== null ? (
+                    "Đã xác nhận"
+                  ) : openingEvaluation.openingConfirmationAllowed === true ? (
+                    <span className="text-emerald-700">Đủ điều kiện xác nhận khai giảng</span>
+                  ) : (
+                    "Chưa xác nhận"
+                  )}
                 </dd>
               </div>
             </dl>
 
-            {openingEvaluation.unverified.length > 0 && (
+            {openingEvaluation.openingConfirmationAllowed === null && openingEvaluation.unverified.length > 0 && (
               <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
                 <p className="font-semibold">Còn điều kiện cần xác minh</p>
                 <p className="mt-1">Hệ thống sẽ thẩm định điều kiện khi bạn gửi yêu cầu.</p>

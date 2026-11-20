@@ -255,8 +255,17 @@ export function ReceptionClassBooking() {
       }
 
       setLatestBookingResult(bookingSummary)
+      const isCashConfirmed =
+        String(dto.status || "").trim().toLowerCase() === "registered" &&
+        String(dto.paymentStatus || "").trim().toLowerCase() === "paid"
       showToast?.(
-        language === "vi" ? "Đặt lớp thành công." : "Class booking completed successfully.",
+        isCashConfirmed
+          ? language === "vi"
+            ? "Đã thu tiền mặt và ghi danh học viên thành công."
+            : "Cash payment and class enrollment confirmed."
+          : language === "vi"
+            ? "Đặt lớp thành công."
+            : "Class booking completed successfully.",
         "success",
       )
 
@@ -825,7 +834,7 @@ export function ReceptionClassBooking() {
                               enrollmentInvoiceCode,
                             )
                           }
-                          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
+                          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
                         >
                           <span>
                             {language === "vi" ? "Thu tiền" : "Collect"}
@@ -852,7 +861,7 @@ export function ReceptionClassBooking() {
                         type="button"
                         disabled={!canBook}
                         onClick={() => handleDeskBooking(cls)}
-                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
+                        className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
                       >
                         {isThisSubmitting ? (
                           <>
@@ -891,7 +900,7 @@ export function ReceptionClassBooking() {
                         type="button"
                         disabled={!canBook}
                         onClick={() => handleDeskBooking(cls)}
-                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
+                        className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active shadow-sm cursor-pointer"
                       >
                         {isThisSubmitting ? (
                           <>

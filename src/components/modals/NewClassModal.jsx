@@ -458,11 +458,11 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     coachName: selectedCoachObj?.name,
     roomId: selectedRoomObj?.backendId || selectedRoomObj?.id || roomId,
     roomName: selectedRoomObj?.name || selectedRoomObj?.nameVi,
-    date: startDate,
-    startTime,
-    endTime,
+    date: isOpen ? startDate : "",
+    startTime: isOpen ? startTime : "",
+    endTime: isOpen ? endTime : "",
     selectedDays,
-    apiEnabled,
+    apiEnabled: Boolean(isOpen && apiEnabled),
     existingClasses: classes,
   })
 
@@ -1317,7 +1317,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
                   {apiEnabled && (
                     <p className="mt-2 text-[11px] leading-relaxed text-amber-700">
-                      Preview dự kiến theo mẫu đã chọn; Backend có thể điều chỉnh lịch quanh ngày nghỉ. Lịch thực tế được xác minh sau khi tạo.
+                      Preview dự kiến theo mẫu đã chọn; hệ thống có thể điều chỉnh lịch quanh ngày nghỉ. Lịch thực tế được xác minh sau khi tạo.
                     </p>
                   )}
                   {showSessionList && (
@@ -1686,7 +1686,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
           <button
             type="button"
             onClick={() => handleSubmit("Draft")}
-            disabled={isSubmitting || conflict?.hasConflict || conflict?.hasMissingSchedule || isNormalClassApiCreationBlocked(apiEnabled, "Draft")}
+            disabled={isSubmitting || conflict?.hasConflict || isNormalClassApiCreationBlocked(apiEnabled, "Draft")}
             className="h-10 px-5 rounded-lg border border-stone-200 hover:bg-stone-50 text-stone-700 text-sm font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title={conflict?.hasConflict ? conflict.message : "Lưu bản nháp"}
           >
@@ -1697,7 +1697,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             type="button"
             onClick={() => handleSubmit(status)}
             disabled={
-              isSubmitting || normalCreationRecovery?.status === "outcome_unknown" || (!["created_unverified", "post_unconfirmed"].includes(normalCreationRecovery?.status) && (conflict?.hasConflict || conflict?.hasMissingSchedule || isFirstSessionInPast || (apiEnabled && !startDateMatchesSchedule) || isNormalClassApiCreationBlocked(apiEnabled)))
+              isSubmitting || normalCreationRecovery?.status === "outcome_unknown" || (!["created_unverified", "post_unconfirmed"].includes(normalCreationRecovery?.status) && (conflict?.hasConflict || isFirstSessionInPast || (apiEnabled && !startDateMatchesSchedule) || isNormalClassApiCreationBlocked(apiEnabled)))
             }
             className="h-10 px-6 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer flex items-center gap-2"
             title={

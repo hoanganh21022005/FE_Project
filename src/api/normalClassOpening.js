@@ -1,4 +1,4 @@
-import { getErrorCode, getErrorMessage, translateErrorCode } from './apiErrors.js'
+import { describeBlockReason, getErrorCode, getErrorMessage, translateErrorCode } from './apiErrors.js'
 import { optionalBoolean } from './mappers.js'
 import { parseBackendDate } from '../utils/datetime.js'
 
@@ -120,7 +120,7 @@ export const evaluateNormalClassOpening = ({
   else if (!authorities.includes('MANAGE_CLASSES')) blockers.push('Tài khoản chưa có quyền MANAGE_CLASSES.')
 
   const status = normalize(classItem?.apiStatus ?? classItem?.status)
-  if (!status) unverified.push('Chưa có trạng thái lớp từ Backend.')
+  if (!status) unverified.push('Chưa có trạng thái lớp từ hệ thống.')
   else if (status !== 'open' && status !== 'published') blockers.push('Trạng thái lớp hiện tại không cho phép xác nhận khai giảng.')
 
   if (classItem?.openingConfirmedAt === undefined) unverified.push('Chưa có metadata xác nhận khai giảng.')
@@ -148,7 +148,7 @@ export const evaluateNormalClassOpening = ({
   const hasMinimum = rawMinimum !== null && rawMinimum !== undefined && rawMinimum !== '' && Number.isInteger(minimum) && minimum >= 0
   let paidRegisteredCount = null
   if (!hasMinimum) {
-    unverified.push('Chưa có sĩ số tối thiểu từ Backend.')
+    unverified.push('Chưa có sĩ số tối thiểu từ hệ thống.')
   }
   if (!Array.isArray(enrollments)) {
     unverified.push('Chưa tải được danh sách đăng ký để xác minh sĩ số đã thanh toán.')
@@ -180,11 +180,11 @@ export const evaluateNormalClassOpening = ({
 
   if (openingConfirmationAllowed === false) {
     const rawReason = classItem?.openingConfirmationBlockReason
-    const translated = rawReason ? translateErrorCode(String(rawReason).trim(), 'vi') : null
+    const reasonCode = typeof rawReason === 'string' ? rawReason.trim() : ''
     blockers.push(
-      translated ||
-        (typeof rawReason === 'string' && rawReason.trim() ? rawReason.trim() : null) ||
-        'Không thể xác nhận khai giảng lớp học ở thời điểm hiện tại.',
+      reasonCode
+        ? describeBlockReason(reasonCode, 'vi')
+        : 'Không thể xác nhận khai giảng lớp học ở thời điểm hiện tại.',
     )
   } else if (openingConfirmationAllowed === null) {
     if (!timing.known) {
@@ -201,7 +201,7 @@ export const evaluateNormalClassOpening = ({
 
   // Coach state, room suitability, schedule conflicts and final opening eligibility
   // remain Backend checks; this result never claims those rules are satisfied.
-  unverified.push('Backend cần xác nhận Coach, phòng, lịch và điều kiện khai giảng cuối cùng.')
+  unverified.push('Hệ thống cần xác nhận Coach, phòng, lịch và điều kiện khai giảng cuối cùng.')
 
   return {
     canSubmit: openingConfirmationAllowed === false ? false : blockers.length === 0,

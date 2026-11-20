@@ -398,7 +398,7 @@ function CenterIncidentsPanel({ apiEnabled, currentUser, language, showToast, on
       {!apiEnabled && (
         <div role="status" className="flex items-center gap-2.5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
           <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600" />
-          <p>{vi ? 'Quản lý sự cố trung tâm cần kết nối API Backend.' : 'Center incident management requires the Backend API.'}</p>
+          <p>{vi ? 'Quản lý sự cố trung tâm cần kết nối máy chủ.' : 'Center incident management requires the Backend API.'}</p>
         </div>
       )}
       {apiEnabled && !hasManagerPermission && (

@@ -621,7 +621,7 @@ export function ReceptionPaymentsView() {
                           {p.memberPhone && <div className="text-xs leading-4 font-medium text-text-secondary">{p.memberPhone}</div>}
                         </td>
                         <td className="px-4 py-3 align-middle text-sm leading-5 text-text-primary">
-                          {p.packageName || 'Gói dịch vụ'}
+                          {p.packageName || p.className || p.subjectName || (p.classId ? `Lớp #${p.classId}` : p.packageId ? `Gói #${p.packageId}` : '—')}
                         </td>
                         <td className="px-4 py-3 align-middle text-sm leading-5 text-text-primary text-right font-mono font-semibold tabular-nums">
                           {p.amount == null ? '—' : formatCurrency(p.amount, language)}
@@ -633,7 +633,21 @@ export function ReceptionPaymentsView() {
                           {p.paymentDate || p.createdAt || '—'}
                         </td>
                         <td className="px-4 py-3 align-middle text-sm leading-5 text-text-primary text-center">
-                          <StatusBadge type="payment" status={status} />
+                          <StatusBadge
+                            type="payment"
+                            status={status}
+                            label={
+                              isPending
+                                ? isCashMethod(p)
+                                  ? language === 'vi'
+                                    ? 'Chờ thu tiền'
+                                    : 'Collect cash'
+                                  : language === 'vi'
+                                    ? 'Chờ thanh toán'
+                                    : 'Pay pending'
+                                : undefined
+                            }
+                          />
                         </td>
                         <td className="px-4 py-1.5 align-middle text-sm leading-5 text-text-primary text-center">
                           {isPending && canConfirmCash && isCashMethod(p) && (!apiEnabled || isCashInvoiceConfirmable(p)) ? (
@@ -726,7 +740,7 @@ export function ReceptionPaymentsView() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-secondary font-medium">{language === 'vi' ? 'Dịch Vụ / Lớp Học:' : 'Service / Class:'}</span>
-                  <span className="font-semibold text-text-primary">{confirmingInvoice.packageName || confirmingInvoice.className || (language === 'vi' ? 'Lớp học' : 'Class')}</span>
+                  <span className="font-semibold text-text-primary">{confirmingInvoice.packageName || confirmingInvoice.className || confirmingInvoice.subjectName || (confirmingInvoice.classId ? `Lớp #${confirmingInvoice.classId}` : confirmingInvoice.packageId ? `Gói #${confirmingInvoice.packageId}` : '—')}</span>
                 </div>
                 <div className="flex justify-between pt-2 border-t border-status-success-border">
                   <span className="text-text-primary font-semibold">Số tiền cần thu:</span>
