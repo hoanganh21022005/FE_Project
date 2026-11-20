@@ -145,6 +145,21 @@ const isSessionCancelled = (session) => {
 }
 
 const normalizeAttendanceStateKey = (rawState) => {
+  if (rawState && typeof rawState === "object") {
+    if (
+      rawState.isPresent === true ||
+      rawState.present === true ||
+      rawState.attended === true
+    ) {
+      return "present"
+    }
+    rawState =
+      rawState.attendanceStatus ||
+      rawState.state ||
+      rawState.status ||
+      rawState.attendance ||
+      ""
+  }
   const upper = String(rawState || "")
     .trim()
     .toUpperCase()
@@ -637,11 +652,9 @@ export function MemberFeedbackView({ embedded = false }) {
         session,
         apiAttendances,
       )
-      const stateKey = attendanceRecord
-        ? normalizeAttendanceStateKey(
-            attendanceRecord.state || attendanceRecord.status,
-          )
-        : "pending"
+      const stateKey = normalizeAttendanceStateKey(
+        attendanceRecord || session,
+      )
 
       if (stateKey !== "present" && stateKey !== "late") continue
 
