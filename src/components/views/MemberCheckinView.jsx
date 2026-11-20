@@ -1065,45 +1065,6 @@ export function MemberCheckinView() {
         </article>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6">
-        <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700">
-            <UserRound className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">AVT SPORT</p>
-            <h2 className="mt-0.5 text-lg font-extrabold text-slate-900">{isVi ? "Thẻ Hội Viên" : "Member Card"}</h2>
-          </div>
-        </div>
-        <dl className="mt-5 grid gap-4 sm:grid-cols-3">
-          <div>
-            <dt className="text-xs font-semibold text-slate-500">{isVi ? "Mã hội viên" : "Member code"}</dt>
-            <dd className="mt-1 font-mono text-lg font-extrabold tracking-wide text-slate-900">
-              {validMember ? `MB-${String(memberId).padStart(4, "0")}` : "—"}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold text-slate-500">{isVi ? "Họ và tên" : "Full name"}</dt>
-            <dd className="mt-1 text-base font-bold text-slate-900">
-              {currentUser?.name || currentUser?.fullName || currentUser?.displayName || "—"}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold text-slate-500">{isVi ? "Trạng thái hội viên" : "Membership status"}</dt>
-            <dd className="mt-1">
-              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                {validMember ? (isVi ? "Đang hoạt động" : "Active") : (isVi ? "Chưa liên kết" : "Not linked")}
-              </span>
-            </dd>
-          </div>
-        </dl>
-        <p className="mt-5 rounded-xl border border-blue-100 bg-blue-50/70 p-3.5 text-sm leading-6 text-blue-950">
-          {isVi
-            ? "Điểm danh: Vui lòng cung cấp mã hội viên hoặc thông tin cho Lễ tân / Huấn luyện viên khi vào ca tập."
-            : "Attendance: Please provide your member code or details to Reception or your Coach when arriving for training."}
-        </p>
-      </section>
       {/* 4.4 Lịch sử điểm danh */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
