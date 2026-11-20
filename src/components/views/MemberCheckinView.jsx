@@ -1229,7 +1229,7 @@ export function MemberCheckinView() {
     <div className="w-full space-y-6">
       {/* 4.1 Header */}
       <PageHeader
-        title={t("checkinPageTitle")}
+        title={isVi ? "Theo dõi chuyên cần" : t("checkinPageTitle")}
         description={t("checkinPageSubtitle")}
         actions={
           <button
@@ -1344,14 +1344,14 @@ export function MemberCheckinView() {
             <div className="flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-brand-accent-dark shrink-0" />
               <h2 className="text-lg font-extrabold text-slate-900">
-                {isVi ? "Lịch trình điểm danh" : "Check-in schedule"}
+                {isVi ? "Lịch học của tôi" : "Check-in schedule"}
               </h2>
             </div>
 
             <div
               className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1"
               role="tablist"
-              aria-label={isVi ? "Lịch trình điểm danh" : "Check-in schedule"}
+              aria-label={isVi ? "Lịch học của tôi" : "Check-in schedule"}
             >
               <button
                 type="button"

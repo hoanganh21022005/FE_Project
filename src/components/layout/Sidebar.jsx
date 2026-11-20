@@ -211,7 +211,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           },
           {
             path: "/member/attendance",
-            labelKey: "attendance",
+            label: language === "vi" ? "Chuyên cần" : "Attendance",
             icon: ClipboardCheck,
           },
           {
