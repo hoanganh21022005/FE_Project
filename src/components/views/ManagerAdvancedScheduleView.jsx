@@ -45,7 +45,7 @@ function StatusBadge({ status, isVi }) {
 }
 
 export default function ManagerAdvancedScheduleView() {
-  const { apiEnabled, currentUser, language } = useSCMS()
+  const { apiEnabled, currentUser, language, classes, classesLoading } = useSCMS()
   const isVi = language === 'vi'
   const canManage = canManageClasses(apiEnabled, currentUser?.authorities)
   const [proposals, setProposals] = useState([])
@@ -111,6 +111,10 @@ export default function ManagerAdvancedScheduleView() {
     closed: rows.filter((row) => ['rejected', 'expired'].includes(normalize(row.status))).length,
   }), [rows])
 
+  const advancedClasses = useMemo(() => (classes || []).filter(
+    (item) => normalize(item.classType) === 'advanced',
+  ), [classes])
+
   const filteredRows = useMemo(() => {
     const needle = normalize(query)
     return rows
@@ -147,6 +151,39 @@ export default function ManagerAdvancedScheduleView() {
   return (
     <div className="w-full space-y-6" aria-busy={loading}>
       <PageHeading isVi={isVi} />
+
+      <section className="overflow-hidden rounded-xl border border-border-color bg-bg-card shadow-sm">
+        <div className="border-b border-border-color p-4">
+          <h2 className="text-base font-bold text-text-primary">{isVi ? 'Danh sách lớp Advanced' : 'Advanced class list'}</h2>
+          <p className="mt-1 text-sm leading-5 text-text-secondary">
+            {isVi ? 'Các lớp huấn luyện cá nhân Advanced được tách khỏi danh sách lớp Normal.' : 'Advanced personal coaching classes, separated from Normal group classes.'}
+          </p>
+        </div>
+        {classesLoading ? (
+          <p role="status" className="p-6 text-sm text-text-secondary">{isVi ? 'Đang tải lớp Advanced…' : 'Loading Advanced classes…'}</p>
+        ) : advancedClasses.length === 0 ? (
+          <p className="p-6 text-sm text-text-secondary">{isVi ? 'Chưa có lớp Advanced.' : 'No Advanced classes yet.'}</p>
+        ) : (
+          <div className="divide-y divide-border-color">
+            {advancedClasses.map((item) => (
+              <article key={item.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-text-primary">{item.name || (isVi ? `Lớp #${item.id}` : `Class #${item.id}`)}</h3>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    {[item.category, item.coachName].filter(Boolean).join(' · ') || '—'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-text-secondary">
+                  <span>{item.sessionCount ?? item.totalSessions ?? '—'} {isVi ? 'buổi' : 'sessions'}</span>
+                  <span>{item.enrolledCount ?? '—'}/{item.capacity ?? '—'} {isVi ? 'học viên' : 'members'}</span>
+                  <span>{item.price == null ? '—' : new Intl.NumberFormat(isVi ? 'vi-VN' : 'en-US').format(item.price) + (isVi ? ' đ' : ' VND')}</span>
+                  <span className="rounded-full border border-border-color px-2.5 py-1 text-xs font-semibold">{item.status || '—'}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="rounded-xl border border-status-info-border bg-brand-blue-soft p-4 text-sm leading-6 text-text-primary">
         {isVi

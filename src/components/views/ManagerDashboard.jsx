@@ -7,9 +7,9 @@ import { ManagerDashboardInsights } from './ManagerDashboardInsights';
 import { PageHeader } from '../ui/PageHeader';
 import { Card, StatCard, SectionTitle } from '../ui/DesignSystem';
 import {
-  Users, Clock, Calendar, CreditCard,
+  Users, Clock, CreditCard,
   ArrowUpRight, AlertTriangle, Activity, UserRound, CalendarDays,
-  BadgeCheck, WalletCards, ReceiptText, CalendarClock
+  BadgeCheck, WalletCards, ReceiptText
 } from 'lucide-react';
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend
@@ -47,7 +47,6 @@ export function ManagerDashboard({ onNavigate }) {
     const secondaryMetrics = [
       { label: language === 'vi' ? 'Tổng doanh thu' : 'Total revenue', value: dashboard?.totalRevenue, icon: WalletCards, money: true },
       { label: language === 'vi' ? 'Hóa đơn đã thanh toán' : 'Paid invoices', value: dashboard?.totalInvoices, icon: ReceiptText },
-      { label: language === 'vi' ? 'Buổi tập hôm nay' : 'Sessions today', value: dashboard?.todaySessions, icon: CalendarClock },
     ];
 
     return (
@@ -75,7 +74,7 @@ export function ManagerDashboard({ onNavigate }) {
           })}
         </section>
 
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label={language === 'vi' ? 'Chỉ số tài chính và lịch học' : 'Financial and schedule metrics'}>
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label={language === 'vi' ? 'Chỉ số tài chính' : 'Financial metrics'}>
           {secondaryMetrics.map((metric) => {
             const Icon = metric.icon;
             return (
@@ -106,7 +105,7 @@ export function ManagerDashboard({ onNavigate }) {
       />
 
       {/* KPI Cards Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Total Members */}
         <StatCard
           label={t('totalMembers')}
@@ -157,21 +156,7 @@ export function ManagerDashboard({ onNavigate }) {
           }
         />
 
-        {/* Today Classes & Attendance */}
-        <StatCard
-          label={t('todayClasses')}
-          value={apiEnabled ? dashboard?.todaySessions ?? '—' : classes.length}
-          scope={language === 'vi' ? 'Hôm nay' : 'Today'}
-          icon={<Calendar className="w-4 h-4" />}
-          iconBg="bg-brand-sky-soft"
-          iconColor="text-brand-accent-dark"
-          footer={
-            <div className="text-xs text-slate-500 flex items-center gap-1.5 whitespace-nowrap">
-              <Activity className="w-3.5 h-3.5 text-brand-accent-dark shrink-0" />
-              <span>{language === 'vi' ? 'Tỷ lệ điểm danh:' : 'Attendance:'} <strong className="text-slate-900">{apiEnabled ? '—' : '94.5%'}</strong></span>
-            </div>
-          }
-        />
+
       </div>
       <p className="text-xs text-slate-400 -mt-1">
         {language === 'vi'

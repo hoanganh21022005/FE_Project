@@ -37,7 +37,7 @@ import {
   VI_WEEKDAYS_FULL,
   ROOM_ACTIVITY_TYPES,
   CATALOG_KEY_TO_SPORT_ID,
-  TIME_OPTIONS_15MIN,
+  NORMAL_CLASS_TIME_SLOTS,
 } from "./new-class/classFormConstants"
 import { DEFAULT_COACHES } from "../../mocks/defaultCoaches"
 import {
@@ -45,7 +45,6 @@ import {
   formatViDate,
   formatViDateWithWeekday,
   formatNumber,
-  getDurationLabel,
 } from "./new-class/classFormHelpers"
 import { DatePicker } from "./new-class/DatePicker"
 
@@ -99,8 +98,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const [roomId, setRoomId] = useState("")
 
   const [selectedDays, setSelectedDays] = useState([1, 3, 5]) // T2-T4-T6
-  const [startTime, setStartTime] = useState("06:00")
-  const [endTime, setEndTime] = useState("07:30")
+  const [startTime, setStartTime] = useState(NORMAL_CLASS_TIME_SLOTS[0].startTime)
+  const [endTime, setEndTime] = useState(NORMAL_CLASS_TIME_SLOTS[0].endTime)
 
   // Mặc định ngày bắt đầu: ngày hợp lệ tiếp theo khớp thứ và chưa qua giờ
   const [startDate, setStartDate] = useState(() =>
@@ -307,8 +306,14 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     ) {
       setSelectedDays(cloneFrom.selectedDays)
     }
-    if (cloneFrom.startTime) setStartTime(cloneFrom.startTime)
-    if (cloneFrom.endTime) setEndTime(cloneFrom.endTime)
+    const clonedTimeSlot = NORMAL_CLASS_TIME_SLOTS.find(
+      (slot) => slot.startTime === String(cloneFrom.startTime || "").slice(0, 5)
+        && slot.endTime === String(cloneFrom.endTime || "").slice(0, 5),
+    ) || NORMAL_CLASS_TIME_SLOTS.find(
+      (slot) => slot.startTime === String(cloneFrom.startTime || "").slice(0, 5),
+    ) || NORMAL_CLASS_TIME_SLOTS[0]
+    setStartTime(clonedTimeSlot.startTime)
+    setEndTime(clonedTimeSlot.endTime)
     if (cloneFrom.capacity) {
       const clonedCapacity = Number(cloneFrom.capacity)
       const clonedDefaultMin = getDefaultNormalMinCapacity(clonedCapacity)
@@ -351,7 +356,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         const clonedDays = Array.isArray(cloneFrom.selectedDays) && cloneFrom.selectedDays.length
           ? cloneFrom.selectedDays
           : [1, 3, 5]
-        const clonedTime = cloneFrom.startTime || "06:00"
+        const clonedTime = clonedTimeSlot.startTime
         const [hour, minute] = clonedTime.split(":").map(Number)
         const candidateStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), hour || 0, minute || 0)
         setStartDate(candidateStart > new Date() && clonedDays.includes(baseDate.getDay())
@@ -411,7 +416,28 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     () => (subjects || []).find((subject) => String(subject.id) === String(targetSubjectId)),
     [subjects, targetSubjectId],
   )
+  const isOutdoorClass = selectedSubject?.outdoor === true || selectedRoomObj?.outdoor === true
   const normalPrice = Number(selectedSubject?.normalPrice ?? selectedSubject?.normal_price)
+
+  useEffect(() => {
+    const currentSlot = NORMAL_CLASS_TIME_SLOTS.find(
+      (slot) => slot.startTime === startTime && slot.endTime === endTime,
+    )
+    if (!isOutdoorClass || !currentSlot || currentSlot.outdoorAllowed) return
+
+    const nextSlot = NORMAL_CLASS_TIME_SLOTS.find((slot) => slot.outdoorAllowed)
+    if (!nextSlot) return
+    setStartTime(nextSlot.startTime)
+    setEndTime(nextSlot.endTime)
+    const currentDate = parseLocalDate(startDate)
+    const [hour, minute] = nextSlot.startTime.split(":").map(Number)
+    const currentSessionStart = currentDate
+      ? new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), hour || 0, minute || 0)
+      : null
+    if (!currentSessionStart || currentSessionStart <= new Date() || !selectedDays.includes(currentDate.getDay())) {
+      setStartDate(getNextValidUpcomingDate(selectedDays, nextSlot.startTime))
+    }
+  }, [isOutdoorClass, startTime, endTime, startDate, selectedDays])
 
   useEffect(() => {
     if (apiEnabled && Number.isFinite(normalPrice) && normalPrice >= 0) {
@@ -446,11 +472,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     }
     return startDate
   }, [endMode, endDate, projectedSessions, startDate])
-
-  const durationLabel = useMemo(
-    () => getDurationLabel(startTime, endTime),
-    [startTime, endTime],
-  )
 
   // Conflict Checking Hook (Queries existing classes in memory + optional backend API)
   const { conflict, isChecking: isCheckingConflict } = useScheduleConflict({
@@ -726,8 +747,10 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         showToast("Môn học chưa được phân loại trong nhà/ngoài trời (outdoor = null) nên chưa thể xếp lịch.", "error")
         return
       }
-      const isOutdoor = selectedSubject?.outdoor === true
-      if (isOutdoor && ["09:30", "13:00"].includes(startTime)) {
+      const selectedTimeSlot = NORMAL_CLASS_TIME_SLOTS.find(
+        (slot) => slot.startTime === startTime && slot.endTime === endTime,
+      )
+      if (isOutdoorClass && selectedTimeSlot && !selectedTimeSlot.outdoorAllowed) {
         showToast("Môn ngoài trời không được xếp vào ca 3 hoặc ca 4.", "error")
         return
       }
@@ -1106,63 +1129,49 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
               )}
             </div>
 
-            {/* Giờ bắt đầu (full width dropdown select chuẩn 24h) */}
             <div>
-              <label className="text-sm font-medium text-stone-800 block mb-1.5">
-                Giờ bắt đầu
+              <label className="text-sm font-medium text-stone-800 block mb-2">
+                Ca học
               </label>
-              <div className="relative">
-                <select
-                  value={startTime}
-                  onChange={(e) => {
-                    setIsDirty(true)
-                    const nextStartTime = e.target.value
-                    setStartTime(nextStartTime)
-                    const currentDate = parseLocalDate(startDate)
-                    const [hour, minute] = nextStartTime.split(":").map(Number)
-                    const currentSessionStart = currentDate
-                      ? new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), hour || 0, minute || 0)
-                      : null
-                    if (!currentSessionStart || currentSessionStart <= new Date() || !selectedDays.includes(currentDate.getDay())) {
-                      setStartDate(getNextValidUpcomingDate(selectedDays, nextStartTime))
-                    }
-                  }}
-                  className="w-full h-11 px-3.5 pr-10 bg-white border border-stone-300 rounded-xl text-sm text-stone-900 font-normal appearance-none focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800 cursor-pointer"
-                >
-                  {TIME_OPTIONS_15MIN.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                {NORMAL_CLASS_TIME_SLOTS.map((slot) => {
+                  const disabled = isOutdoorClass && !slot.outdoorAllowed
+                  const selected = startTime === slot.startTime && endTime === slot.endTime
+                  return (
+                    <button
+                      key={slot.slotNumber}
+                      type="button"
+                      aria-pressed={selected}
+                      disabled={disabled}
+                      onClick={() => {
+                        setIsDirty(true)
+                        setStartTime(slot.startTime)
+                        setEndTime(slot.endTime)
+                        const currentDate = parseLocalDate(startDate)
+                        const [hour, minute] = slot.startTime.split(":").map(Number)
+                        const currentSessionStart = currentDate
+                          ? new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), hour || 0, minute || 0)
+                          : null
+                        if (!currentSessionStart || currentSessionStart <= new Date() || !selectedDays.includes(currentDate.getDay())) {
+                          setStartDate(getNextValidUpcomingDate(selectedDays, slot.startTime))
+                        }
+                      }}
+                      className={`aspect-square rounded-xl border px-2 py-3 text-center transition-colors focus:outline-none focus:ring-2 focus:ring-brand-primary/30 ${
+                        disabled
+                          ? "cursor-not-allowed border-stone-200 bg-stone-100 text-stone-400"
+                          : selected
+                            ? "border-brand-primary bg-blue-50 text-brand-primary shadow-sm"
+                            : "border-stone-300 bg-white text-stone-700 hover:border-brand-primary hover:bg-blue-50/50"
+                      }`}
+                    >
+                      <span className="block text-sm font-bold">{slot.name}</span>
+                      <span className="mt-1 block text-xs leading-4">{slot.startTime}–{slot.endTime}</span>
+                    </button>
+                  )
+                })}
               </div>
-            </div>
-
-            {/* Giờ kết thúc (full width dropdown select chuẩn 24h) */}
-            <div>
-              <label className="text-sm font-medium text-stone-800 block mb-1.5">
-                Giờ kết thúc
-              </label>
-              <div className="relative">
-                <select
-                  value={endTime}
-                  onChange={(e) => {
-                    setIsDirty(true)
-                    setEndTime(e.target.value)
-                  }}
-                  className="w-full h-11 px-3.5 pr-10 bg-white border border-stone-300 rounded-xl text-sm text-stone-900 font-normal appearance-none focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800 cursor-pointer"
-                >
-                  {TIME_OPTIONS_15MIN.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-              <div className="text-xs text-stone-500 mt-1">
-                Thời lượng {durationLabel}
+              <div className="text-xs text-stone-500 mt-2">
+                Mỗi ca kéo dài 90 phút. {isOutdoorClass ? "Ca 3 và Ca 4 không áp dụng cho sân ngoài trời." : ""}
               </div>
             </div>
 

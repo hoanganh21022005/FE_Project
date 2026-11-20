@@ -1251,6 +1251,12 @@ export function ClassManagement() {
 
   const location = useLocation()
   const isManager = role === 'manager' || currentUser?.role === 'manager' || location.pathname.startsWith('/manager')
+  const managerNormalClasses = useMemo(() => {
+    if (!isManager) return classes || []
+    return (classes || []).filter(
+      (cls) => String(cls.classType || '').trim().toLowerCase() === 'normal',
+    )
+  }, [classes, isManager])
 
   // Mode: 'table' (Mặc định chuẩn) | 'calendar' (Lịch tháng)
   const [viewMode, setViewMode] = useState("table")
@@ -1402,7 +1408,7 @@ export function ClassManagement() {
 
   // Calculate status counts
   const counts = useMemo(() => {
-    const list = classes || []
+    const list = managerNormalClasses
     const res = {
       all: list.length,
       open: 0,
@@ -1418,17 +1424,17 @@ export function ClassManagement() {
       }
     })
     return res
-  }, [classes])
+  }, [managerNormalClasses])
 
   // Unique sports and coaches for filter dropdowns
   const availableSports = useMemo(() => {
     const fromSubjects = (subjects || []).map((s) => s.nameVi || s.name)
-    const fromClasses = (classes || []).map((c) => c.category)
+    const fromClasses = managerNormalClasses.map((c) => c.category)
     const combined = Array.from(
       new Set([...fromSubjects, ...fromClasses]),
     ).filter(Boolean)
     return combined.sort()
-  }, [subjects, classes])
+  }, [subjects, managerNormalClasses])
 
   const availableCoaches = useMemo(() => {
     const fromStaff = (coaches && coaches.length > 0 ? coaches : staff)
@@ -1437,16 +1443,16 @@ export function ClassManagement() {
         return r.includes("coach") || r.includes("huấn")
       })
       .map((s) => s.name)
-    const fromClasses = (classes || [])
+    const fromClasses = managerNormalClasses
       .map((c) => c.coachName)
       .filter((n) => n && n !== "Chưa phân công")
     const combined = Array.from(new Set([...fromStaff, ...fromClasses]))
     return combined.sort()
-  }, [coaches, staff, classes])
+  }, [coaches, staff, managerNormalClasses])
 
   // Filtered & Sorted Classes list
   const filteredAndSortedClasses = useMemo(() => {
-    const list = (classes || []).filter((cls) => {
+    const list = managerNormalClasses.filter((cls) => {
       // Tab filter
       const normStatus = normalizeClassStatus(cls.status)
       if (activeTab !== "all" && normStatus !== activeTab) {
@@ -1543,7 +1549,7 @@ export function ClassManagement() {
       return sortConfig.direction === "desc" ? -cmp : cmp
     })
   }, [
-    classes,
+    managerNormalClasses,
     activeTab,
     filterSport,
     filterCoach,
@@ -1814,11 +1820,11 @@ export function ClassManagement() {
   const calendarEntries = useMemo(() => {
     const sessions = apiEnabled
       ? calendarSchedule?.sessions || []
-      : classes.flatMap((cls) => getClassSessions(cls).map((session) => ({
+      : managerNormalClasses.flatMap((cls) => getClassSessions(cls).map((session) => ({
           ...session, classId: session.classId ?? cls.id,
         })))
-    return buildClassCalendarEntries(classes, sessions)
-  }, [apiEnabled, calendarSchedule, classes])
+    return buildClassCalendarEntries(managerNormalClasses, sessions)
+  }, [apiEnabled, calendarSchedule, managerNormalClasses])
   const weekdaysCalendar = [
     "Thứ 2",
     "Thứ 3",
@@ -1831,7 +1837,7 @@ export function ClassManagement() {
 
   const urgentCoachAlerts = useMemo(() => {
     const nowTime = Date.now()
-    return (classes || []).filter((cls) => {
+    return managerNormalClasses.filter((cls) => {
       const isUnassigned =
         !cls.coachId ||
         cls.coachName === "Chưa phân công" ||
@@ -1842,7 +1848,7 @@ export function ClassManagement() {
       const hours = (startDate.getTime() - nowTime) / (1000 * 60 * 60)
       return hours > 0 && hours <= 48
     })
-  }, [classes])
+  }, [managerNormalClasses])
 
   // Loading skeleton — shown while context is fetching classes from API
   if (classesLoading) {

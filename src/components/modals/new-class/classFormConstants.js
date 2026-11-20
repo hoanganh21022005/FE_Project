@@ -34,12 +34,13 @@ export const ROOM_ACTIVITY_TYPES = {
 // Khóa môn của danh mục hệ thống (resolveCatalogSubjects) -> id của SPORT_DISCIPLINES.
 export const CATALOG_KEY_TO_SPORT_ID = { "table-tennis": "table_tennis" }
 
-// Generate 15-minute time options from 05:00 to 23:00
-export const TIME_OPTIONS_15MIN = []
-for (let h = 5; h <= 22; h++) {
-  const hh = String(h).padStart(2, "0")
-  for (const mm of ["00", "15", "30", "45"]) {
-    TIME_OPTIONS_15MIN.push(`${hh}:${mm}`)
-  }
-}
-TIME_OPTIONS_15MIN.push("23:00")
+// Standard Normal class times aligned with the Backend TimeSlot enum.
+export const NORMAL_CLASS_TIME_SLOTS = [
+  { slotNumber: 1, name: "Ca 1", startTime: "06:00", endTime: "07:30", outdoorAllowed: true },
+  { slotNumber: 2, name: "Ca 2", startTime: "07:45", endTime: "09:15", outdoorAllowed: true },
+  { slotNumber: 3, name: "Ca 3", startTime: "09:30", endTime: "11:00", outdoorAllowed: false },
+  { slotNumber: 4, name: "Ca 4", startTime: "13:00", endTime: "14:30", outdoorAllowed: false },
+  { slotNumber: 5, name: "Ca 5", startTime: "14:45", endTime: "16:15", outdoorAllowed: true },
+  { slotNumber: 6, name: "Ca 6", startTime: "16:30", endTime: "18:00", outdoorAllowed: true },
+  { slotNumber: 7, name: "Ca 7", startTime: "18:15", endTime: "19:45", outdoorAllowed: true },
+]
