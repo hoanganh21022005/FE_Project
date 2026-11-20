@@ -255,8 +255,17 @@ export function ReceptionClassBooking() {
       }
 
       setLatestBookingResult(bookingSummary)
+      const isCashConfirmed =
+        String(dto.status || "").trim().toLowerCase() === "registered" &&
+        String(dto.paymentStatus || "").trim().toLowerCase() === "paid"
       showToast?.(
-        language === "vi" ? "Đặt lớp thành công." : "Class booking completed successfully.",
+        isCashConfirmed
+          ? language === "vi"
+            ? "Đã thu tiền mặt và ghi danh học viên thành công."
+            : "Cash payment and class enrollment confirmed."
+          : language === "vi"
+            ? "Đặt lớp thành công."
+            : "Class booking completed successfully.",
         "success",
       )
 
