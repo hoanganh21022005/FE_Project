@@ -1525,39 +1525,47 @@ export function MemberCourseCatalog() {
 return (
   <article
     key={item.id}
-    className={'flex flex-col gap-4 rounded-xl border p-4 shadow-sm md:flex-row md:items-center md:justify-between ' + (expiredRequest ? 'border-slate-200 bg-slate-50/80' : 'border-slate-200 bg-white')}
+    className={'grid grid-cols-1 gap-x-6 gap-y-4 rounded-xl border p-4 shadow-sm md:grid-cols-[minmax(240px,256px)_minmax(220px,1fr)] 2xl:grid-cols-[minmax(240px,256px)_minmax(220px,1fr)_max-content] ' + (expiredRequest ? 'border-slate-200 bg-slate-50/80' : 'border-slate-200 bg-white')}
   >
-    <div className="min-w-0 flex-1">
-      <p className={'text-xs font-bold uppercase tracking-wide ' + (expiredRequest ? 'text-slate-400' : 'text-brand-purple-dark')}>
-        Advanced · {isVi ? 'đăng ký theo môn' : 'sport registration'}
+    <div className="w-64 min-w-[240px] shrink-0">
+      <p className={'whitespace-nowrap text-xs font-bold uppercase tracking-wide ' + (expiredRequest ? 'text-slate-400' : 'text-brand-purple-dark')}>
+        ADVANCED · {isVi ? 'ĐĂNG KÝ THEO MÔN' : 'SPORT REGISTRATION'}
       </p>
-      <h3 className={'mt-1 font-bold ' + (expiredRequest ? 'text-slate-500' : 'text-slate-900')}>
+      <h3 className={'mt-1 whitespace-nowrap text-lg font-bold ' + (expiredRequest ? 'text-slate-500' : 'text-slate-800')}>
         {item.subjectName || (item.subjectId ? (isVi ? 'Môn #' : 'Subject #') + item.subjectId : isVi ? 'Môn chưa xác định' : 'Unknown subject')}
       </h3>
-      <p className="mt-1 text-sm text-slate-600">
+      <p className="mt-1 whitespace-nowrap text-sm text-slate-500">
         {item.primaryCoachName || (item.primaryCoachId ? (isVi ? 'Coach #' : 'Coach #') + item.primaryCoachId : isVi ? 'Coach chưa xác định' : 'Unknown Coach')}
-      </p>
-      <p className="mt-1 text-xs font-medium text-slate-500">
-        {isVi ? 'PT 1-kèm-1 · 12 buổi' : '1-on-1 coaching · 12 sessions'}
+        {' · '}
+        {isVi ? 'PT 1-kèm-1 (12 buổi)' : '1-on-1 coaching (12 sessions)'}
       </p>
     </div>
 
-    <div className="flex min-w-0 flex-col items-start gap-2 md:min-w-[190px]">
+    <div className="min-w-[220px] flex-1 space-y-2">
       <StatusPill status={displayStatus} language={language} />
       {(item.confirmationDeadline || item.invoiceExpiresAt || item.expiresAt || relatedOrder?.expiresAt) && (
-        <p className={'text-xs ' + (expiredRequest ? 'text-slate-400' : 'text-slate-500')}>
+        <p className={'whitespace-nowrap text-xs ' + (expiredRequest ? 'text-slate-400' : 'text-slate-500')}>
           {isVi ? 'Hạn: ' : 'Deadline: '}
           {formatDeadline(item.confirmationDeadline || item.invoiceExpiresAt || item.expiresAt || relatedOrder?.expiresAt, language)}
         </p>
       )}
+      {accepted && !expiredRequest && (
+        <p className="text-xs text-slate-500">
+          {isVi ? 'Coach đồng ý nhận học viên PT 1-kèm-1' : 'Coach has accepted the member for 1-on-1 training'}
+        </p>
+      )}
     </div>
 
-    <div className="flex w-full flex-col gap-3 md:w-auto md:min-w-[300px] md:items-end">
-      <p className={'whitespace-nowrap text-lg font-extrabold ' + (expiredRequest ? 'text-slate-400' : 'text-slate-950')}>
+    <div className="flex shrink-0 flex-wrap items-center gap-3 md:col-span-2 2xl:col-span-1 2xl:justify-self-end">
+      <p className={'whitespace-nowrap text-base font-bold ' + (expiredRequest ? 'text-slate-400' : 'text-slate-900')}>
         {formatAdvancedMoney(approvedAmount, language)}
       </p>
-      {!expiredRequest && accepted && !hasOrder && !orderLocked && (
-        <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
+      {expiredRequest ? (
+        <span role="status" className="whitespace-nowrap rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-500">
+          {isVi ? 'Hết hạn thanh toán' : 'Payment expired'}
+        </span>
+      ) : accepted && !hasOrder && !orderLocked ? (
+        <>
           <label className="sr-only" htmlFor={'advanced-payment-' + item.id}>
             {isVi ? 'Phương thức thanh toán' : 'Payment method'}
           </label>
@@ -1565,7 +1573,7 @@ return (
             id={'advanced-payment-' + item.id}
             value={paymentMethod}
             onChange={(event) => setPaymentMethod(event.target.value)}
-            className="h-10 min-w-[150px] rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"
+            className="h-10 w-40 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"
           >
             <option value="VNPay">VNPay</option>
             <option value="Cash">{isVi ? 'Tiền mặt tại quầy' : 'Cash at counter'}</option>
@@ -1574,50 +1582,47 @@ return (
             type="button"
             disabled={submitting || !canConfirmPurchase}
             onClick={() => createOrder(item)}
-            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-violet-700 px-4 py-2 text-sm font-medium text-white hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-violet-700 px-4 text-sm font-medium text-white hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             {submitting ? (isVi ? 'Đang tạo hóa đơn...' : 'Creating invoice...') : (isVi ? 'Xác nhận và thanh toán' : 'Confirm and pay')}
             <ArrowUpRight size={16} />
           </button>
-        </div>
-      )}
+        </>
+      ) : !expiredRequest && hasInvoiceRecord && unpaidInvoice && isInvoicePending(invoiceStatus) ? (
+        <button type="button" onClick={() => openRegistrationInvoice(item, relatedOrder)} className="h-10 whitespace-nowrap rounded-lg border border-violet-300 bg-white px-4 text-sm font-bold text-violet-800 hover:bg-violet-50">
+          {isVi ? 'Mở hóa đơn đang chờ thanh toán' : 'Open pending invoice'}
+        </button>
+      ) : null}
     </div>
 
-    {expiredRequest && (
-      <p role="status" className="w-full rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-500 md:basis-full">
-        {isVi ? 'Yêu cầu đã hết hạn hoặc không còn hiệu lực; hiện không thể thanh toán.' : 'This request has expired or is no longer active and cannot be paid.'}
-      </p>
-    )}
-    {!expiredRequest && hasInvoiceRecord && unpaidInvoice && isInvoicePending(invoiceStatus) && (
-      <button type="button" onClick={() => openRegistrationInvoice(item, relatedOrder)} className="min-h-10 rounded-lg border border-violet-300 bg-white px-4 text-sm font-bold text-violet-800 hover:bg-violet-50">
-        {isVi ? 'Mở hóa đơn đang chờ thanh toán' : 'Open the pending invoice'}
-      </button>
-    )}
-    {activePackage && (
-      <p className="w-full rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
-        {isVi ? 'Gói đang hoạt động · Credit còn lại: ' : 'Active package · Credits left: '}
-        <strong>{activePackage.remainingCredit}</strong>
-        {(activePackage.endDate || activePackage.expiresAt) ? (isVi ? ' · Hạn dùng: ' : ' · Valid until: ') + formatDate(activePackage.endDate || activePackage.expiresAt, language) : ''}
-      </p>
-    )}
-    {!expiredRequest && accepted && !hasOrder && !orderLocked && purchaseState.source === 'backend' && !purchaseState.canConfirm && (
-      <p className="w-full rounded-lg bg-rose-50 p-3 text-sm font-medium text-rose-800" role="status">{purchaseState.reasonText}</p>
-    )}
-    {item.reason && (
-      <p className="w-full rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-        {rejected && <strong>{isVi ? 'Lí do: ' : 'Reason: '}</strong>}
-        {item.reason}
-      </p>
-    )}
-    {!expiredRequest && accepted && !hasOrder && orderLocked && (
-      <div className="w-full rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-        <p>{isVi ? 'Kết quả tạo đơn chưa thể xác minh. Không gửi lần nữa để tránh hóa đơn trùng.' : 'Order outcome is unresolved. Another order will not be sent to avoid a duplicate invoice.'}</p>
-        <button type="button" onClick={() => reconcileAdvancedOrder(item.id)} className="mt-2 font-semibold underline">
-          {isVi ? 'Đối soát đơn' : 'Reconcile order'}
-        </button>
+    {(activePackage || item.reason || (!expiredRequest && accepted && !hasOrder && !orderLocked && purchaseState.source === 'backend' && !purchaseState.canConfirm) || (!expiredRequest && accepted && !hasOrder && orderLocked)) && (
+      <div className="col-span-full space-y-2 border-t border-slate-100 pt-3">
+        {activePackage && (
+          <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
+            {isVi ? 'Gói đang hoạt động · Credit còn lại: ' : 'Active package · Credits left: '}
+            <strong>{activePackage.remainingCredit}</strong>
+            {(activePackage.endDate || activePackage.expiresAt) ? (isVi ? ' · Hạn dùng: ' : ' · Valid until: ') + formatDate(activePackage.endDate || activePackage.expiresAt, language) : ''}
+          </p>
+        )}
+        {!expiredRequest && accepted && !hasOrder && !orderLocked && purchaseState.source === 'backend' && !purchaseState.canConfirm && (
+          <p className="rounded-lg bg-rose-50 p-3 text-sm font-medium text-rose-800" role="status">{purchaseState.reasonText}</p>
+        )}
+        {item.reason && (
+          <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+            {rejected && <strong>{isVi ? 'Lí do: ' : 'Reason: '}</strong>}
+            {item.reason}
+          </p>
+        )}
+        {!expiredRequest && accepted && !hasOrder && orderLocked && (
+          <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+            <p>{isVi ? 'Kết quả tạo đơn chưa thể xác minh. Không gửi lần nữa để tránh hóa đơn trùng.' : 'Order outcome is unresolved. Another order will not be sent to avoid a duplicate invoice.'}</p>
+            <button type="button" onClick={() => reconcileAdvancedOrder(item.id)} className="mt-2 font-semibold underline">
+              {isVi ? 'Đối soát đơn' : 'Reconcile order'}
+            </button>
+          </div>
+        )}
       </div>
     )}
-
   </article>
 )
         })}</div>}
