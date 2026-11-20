@@ -8,6 +8,7 @@ import { invoiceApi } from '../../api/invoiceApi';
 import { getErrorMessage } from '../../api/apiErrors';
 import { isListAccessError, listLoadErrorMessage } from '../../api/listLoadState';
 import { canViewMemberSubscriptions } from '../../utils/paymentAccess.js';
+import { validateEmail, validatePhone } from '../../utils/formValidation.js';
 import {
   applyMockPaymentSettlements,
   createMockPendingPayment,
@@ -618,25 +619,32 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
 
   if (!isOpen) return null;
 
+  const validateField = (field, value) => {
+    if (field === 'email') return validateEmail(value, { required: true, language });
+    if (field === 'phone') return validatePhone(value, { language });
+    if (field === 'dateOfBirth' && value && value > new Date().toISOString().slice(0, 10)) {
+      return language === 'vi' ? 'Ngày sinh không thể ở tương lai' : 'Birth date cannot be in future';
+    }
+    return '';
+  };
+
+  const updateField = (field, value) => {
+    setFormData((previous) => ({ ...previous, [field]: value }));
+    if (errors[field]) setErrors((previous) => ({ ...previous, [field]: validateField(field, value) || undefined }));
+  };
+
   const validate = () => {
     const errs = {};
     if (!formData.name.trim()) {
       errs.name = language === 'vi' ? 'Họ và tên là bắt buộc' : 'Name is required';
     }
 
-    const trimmedEmail = formData.email.trim();
-    if (!trimmedEmail) {
-      errs.email = language === 'vi' ? 'Email là bắt buộc' : 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      errs.email = language === 'vi' ? 'Email không hợp lệ' : 'Invalid email';
-    }
-
-    if (formData.dateOfBirth) {
-      const today = new Date().toISOString().split('T')[0];
-      if (formData.dateOfBirth > today) {
-        errs.dateOfBirth = language === 'vi' ? 'Ngày sinh không thể ở tương lai' : 'Birth date cannot be in future';
-      }
-    }
+    const emailError = validateField('email', formData.email);
+    const phoneError = validateField('phone', formData.phone);
+    const dateError = validateField('dateOfBirth', formData.dateOfBirth);
+    if (emailError) errs.email = emailError;
+    if (phoneError) errs.phone = phoneError;
+    if (dateError) errs.dateOfBirth = dateError;
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -697,7 +705,7 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+        <form noValidate onSubmit={handleSubmit} className="space-y-3 text-xs">
           <div>
             <label className="block font-semibold text-stone-700 mb-1">
               {language === 'vi' ? 'Họ và tên' : 'Full Name'} <span className="text-rose-600">*</span>
@@ -719,10 +727,11 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
               <input
                 type="email"
                 value={formData.email}
-                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
+                onChange={e => updateField('email', e.target.value)}
+                onBlur={e => setErrors(previous => ({ ...previous, email: validateField('email', e.target.value) || undefined }))}
+                className={`w-full bg-stone-50 border rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary ${errors.email ? 'border-red-500' : 'border-slate-300'}`}
               />
-              {errors.email && <p className="text-rose-600 text-[11px] mt-0.5">{errors.email}</p>}
+              {errors.email && <p className="text-red-600 text-[11px] mt-0.5">{errors.email}</p>}
             </div>
 
             <div>
@@ -732,9 +741,11 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
               <input
                 type="text"
                 value={formData.phone}
-                onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
+                onChange={e => updateField('phone', e.target.value)}
+                onBlur={e => setErrors(previous => ({ ...previous, phone: validateField('phone', e.target.value) || undefined }))}
+                className={`w-full bg-stone-50 border rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary ${errors.phone ? 'border-red-500' : 'border-slate-300'}`}
               />
+              {errors.phone && <p className="text-red-600 text-[11px] mt-0.5">{errors.phone}</p>}
             </div>
           </div>
 
@@ -746,10 +757,11 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
               <input
                 type="date"
                 value={formData.dateOfBirth}
-                onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
+                onChange={e => updateField('dateOfBirth', e.target.value)}
+                onBlur={e => setErrors(previous => ({ ...previous, dateOfBirth: validateField('dateOfBirth', e.target.value) || undefined }))}
+                className={`w-full bg-stone-50 border rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary ${errors.dateOfBirth ? 'border-red-500' : 'border-slate-300'}`}
               />
-              {errors.dateOfBirth && <p className="text-rose-600 text-[11px] mt-0.5">{errors.dateOfBirth}</p>}
+              {errors.dateOfBirth && <p className="text-red-600 text-[11px] mt-0.5">{errors.dateOfBirth}</p>}
             </div>
 
             <div>

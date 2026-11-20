@@ -7,6 +7,7 @@ import { updateUserRole } from '../../api/adminApi';
 import { getErrorMessage } from '../../api/apiErrors';
 import { isValidNumericId } from '../../api/schemaValidators';
 import { saveStaffChanges } from '../../api/staffEditWorkflow';
+import { validateEmail, validatePhone } from '../../utils/formValidation';
 
 export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
   const { updateStaff, fetchStaff, showToast, currentUser, apiEnabled, language } = useSCMS();
@@ -58,13 +59,19 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
     [sport.title, sport.titleEn].some(value => value.toLocaleLowerCase() === currentSpecializationKey)
   );
 
+  const validateField = (field, value) => {
+    if (field === 'email') return validateEmail(value, { required: true, language });
+    if (field === 'phone') return validatePhone(value, { language });
+    return '';
+  };
+
   const handleChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
       [field]: value,
       ...(field === 'role' && value !== 'coach' && !apiEnabled ? { specialization: '' } : {})
     }));
-    if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }));
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: validateField(field, value) || null }));
     if (submitError && !needsReload) setSubmitError(null);
   };
 
@@ -81,8 +88,13 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
     const trimmedEmail = formData.email.trim();
     if (profileChanged && !trimmedEmail) {
       newErrors.email = language === 'vi' ? 'Email là bắt buộc' : 'Email is required';
-    } else if (profileChanged && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      newErrors.email = language === 'vi' ? 'Định dạng email không hợp lệ' : 'Invalid email format';
+    } else if (profileChanged && validateField('email', trimmedEmail)) {
+      newErrors.email = validateField('email', trimmedEmail);
+    }
+
+    if (profileChanged) {
+      const phoneError = validateField('phone', formData.phone);
+      if (phoneError) newErrors.phone = phoneError;
     }
 
     if (!formData.role) {
@@ -217,7 +229,7 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
         )}
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form noValidate onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="space-y-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -230,11 +242,11 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
                 disabled={apiEnabled && !canEditProfile}
                 onChange={e => handleChange('name', e.target.value)}
                 className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white ${
-                  errors.name ? 'border-rose-500 focus:border-rose-600 bg-rose-50/20' : 'border-slate-300 focus:border-brand-primary'
+                  errors.name ? 'border-red-500 focus:border-red-500 bg-rose-50/20' : 'border-slate-300 focus:border-brand-primary'
                 }`}
               />
               {errors.name && (
-                <p className="mt-1 text-[11px] text-rose-600 flex items-center gap-1 font-medium">
+                <p className="mt-1 text-[11px] text-red-600 flex items-center gap-1 font-medium">
                   <AlertCircle className="w-3 h-3 shrink-0" /> {errors.name}
                 </p>
               )}
@@ -251,12 +263,13 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
                   value={formData.email}
                   readOnly={apiEnabled}
                   onChange={e => handleChange('email', e.target.value)}
+                  onBlur={e => !apiEnabled && setErrors(prev => ({ ...prev, email: validateField('email', e.target.value) || null }))}
                   className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white ${
-                    errors.email ? 'border-rose-500 focus:border-rose-600 bg-rose-50/20' : 'border-slate-300 focus:border-brand-primary'
+                    errors.email ? 'border-red-500 focus:border-red-500 bg-rose-50/20' : 'border-slate-300 focus:border-brand-primary'
                   }`}
                 />
                 {errors.email && (
-                  <p className="mt-1 text-[11px] text-rose-600 flex items-center gap-1 font-medium">
+                  <p className="mt-1 text-[11px] text-red-600 flex items-center gap-1 font-medium">
                     <AlertCircle className="w-3 h-3 shrink-0" /> {errors.email}
                   </p>
                 )}
@@ -272,8 +285,10 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
                   value={formData.phone}
                   disabled={apiEnabled && !canEditProfile}
                   onChange={e => handleChange('phone', e.target.value)}
-                  className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white focus:border-brand-primary"
+                  onBlur={e => setErrors(prev => ({ ...prev, phone: validateField('phone', e.target.value) || null }))}
+                  className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white ${errors.phone ? 'border-red-500 focus:border-red-500 bg-rose-50/20' : 'border-slate-300 focus:border-brand-primary'}`}
                 />
+                {errors.phone && <p className="mt-1 text-[11px] text-red-600 flex items-center gap-1 font-medium"><AlertCircle className="w-3 h-3 shrink-0" />{errors.phone}</p>}
               </div>
             </div>
 

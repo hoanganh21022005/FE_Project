@@ -3,6 +3,7 @@ import { useSCMS } from '../../context/SCMSContext';
 import { X, Eye, EyeOff, UserPlus, AlertCircle } from 'lucide-react';
 import { publicSports } from '../../data/publicCoaches';
 import { validatePassword, getPasswordRuleHint } from '../../utils/passwordPolicy';
+import { validateEmail, validatePhone } from '../../utils/formValidation';
 
 export function NewStaffModal({ isOpen, onClose }) {
   const { staff, addStaff, t, language, apiEnabled, currentUser } = useSCMS();
@@ -31,6 +32,18 @@ export function NewStaffModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
+  const validateField = (field, value) => {
+    if (field === 'email') {
+      const emailError = validateEmail(value, { required: true, language });
+      if (emailError) return emailError;
+      if (!apiEnabled && staff.some(s => (s.email || '').toLowerCase() === value.trim().toLowerCase())) {
+        return language === 'vi' ? 'Email đã tồn tại trong hệ thống' : 'Email already exists';
+      }
+    }
+    if (field === 'phone') return validatePhone(value, { language });
+    return '';
+  };
+
   const handleChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -39,7 +52,7 @@ export function NewStaffModal({ isOpen, onClose }) {
     }));
     setIsDirty(true);
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: null }));
+      setErrors(prev => ({ ...prev, [field]: validateField(field, value) || null }));
     }
     if (submitError) setSubmitError(null);
   };
@@ -55,13 +68,10 @@ export function NewStaffModal({ isOpen, onClose }) {
 
     // Email validation (required by BE)
     const trimmedEmail = formData.email.trim();
-    if (!trimmedEmail) {
-      newErrors.email = language === 'vi' ? 'Email là bắt buộc' : 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      newErrors.email = language === 'vi' ? 'Định dạng email không hợp lệ' : 'Invalid email format';
-    } else if (!apiEnabled && staff.some(s => (s.email || '').toLowerCase() === trimmedEmail.toLowerCase())) {
-      newErrors.email = language === 'vi' ? 'Email đã tồn tại trong hệ thống' : 'Email already exists';
-    }
+    const emailError = validateField('email', trimmedEmail);
+    const phoneError = validateField('phone', formData.phone);
+    if (emailError) newErrors.email = emailError;
+    if (phoneError) newErrors.phone = phoneError;
 
     // Role validation (required by BE)
     if (!['coach', 'receptionist', 'manager'].includes(formData.role)) {
@@ -190,7 +200,7 @@ export function NewStaffModal({ isOpen, onClose }) {
         )}
 
         {/* Modal Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+        <form noValidate onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           {/* Basic Info Section */}
           <div className="space-y-3">
             <h4 className="text-xs font-bold text-brand-dark uppercase tracking-wider border-b border-slate-100 pb-1">
@@ -210,7 +220,7 @@ export function NewStaffModal({ isOpen, onClose }) {
                   value={formData.name}
                   onChange={e => handleChange('name', e.target.value)}
                   className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white ${
-                    errors.name ? 'border-rose-500 focus:border-rose-600 bg-rose-50/20' : 'border-slate-300 focus:border-brand-primary'
+                    errors.name ? 'border-red-500 focus:border-red-500 bg-rose-50/20' : 'border-slate-300 focus:border-brand-primary'
                   }`}
                 />
                 {errors.name && (
@@ -231,8 +241,9 @@ export function NewStaffModal({ isOpen, onClose }) {
                   placeholder="nhanvien@scms.com"
                   value={formData.email}
                   onChange={e => handleChange('email', e.target.value)}
+                  onBlur={e => setErrors(prev => ({ ...prev, email: validateField('email', e.target.value) || null }))}
                   className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white ${
-                    errors.email ? 'border-rose-500 focus:border-rose-600 bg-rose-50/20' : 'border-slate-300 focus:border-brand-primary'
+                    errors.email ? 'border-red-500 focus:border-red-500 bg-rose-50/20' : 'border-slate-300 focus:border-brand-primary'
                   }`}
                 />
                 {errors.email && (
@@ -248,12 +259,14 @@ export function NewStaffModal({ isOpen, onClose }) {
                   {language === 'vi' ? 'Số điện thoại' : 'Phone Number'}
                 </label>
                 <input
-                  type="text"
+                  type="tel"
                   placeholder="0912345678"
                   value={formData.phone}
                   onChange={e => handleChange('phone', e.target.value)}
-                  className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white focus:border-brand-primary"
+                  onBlur={e => setErrors(prev => ({ ...prev, phone: validateField('phone', e.target.value) || null }))}
+                  className={`w-full bg-stone-50 border rounded px-3 py-1.5 text-xs text-brand-dark focus:outline-none focus:bg-white ${errors.phone ? 'border-red-500 focus:border-red-500 bg-rose-50/20' : 'border-slate-300 focus:border-brand-primary'}`}
                 />
+                {errors.phone && <p className="mt-1 text-[11px] text-red-600 flex items-center gap-1 font-medium"><AlertCircle className="w-3 h-3 shrink-0" />{errors.phone}</p>}
               </div>
 
               {/* Role Selection */}
