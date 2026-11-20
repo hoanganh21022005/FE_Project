@@ -656,7 +656,7 @@ export function SupportView() {
                       onClick={handleCloseConversation}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors cursor-pointer"
                     >
-                      <XCircle className="w-3.5 w-3.5" />
+                      <XCircle className="w-3.5 h-3.5" />
                       <span>{isVi ? "Kết thúc" : "Close"}</span>
                     </button>
                   )
