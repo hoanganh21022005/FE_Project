@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatDate } from '../../locales/translations';
+import { ROLE_ADMIN } from '../../utils/navigation';
+import { getAdminStatusLabel } from '../admin/adminI18n';
 import { StatusBadge } from '../common/Badge';
 import { NewMemberModal } from '../modals/NewMemberModal';
 import {
@@ -23,10 +25,43 @@ export function MemberManagement({ onSelectMemberDetail }) {
     membersError,
     fetchMembers,
     packages,
+    role,
     t,
     language,
     apiEnabled
   } = useSCMS();
+
+  const isAdminView = role === ROLE_ADMIN;
+
+  const getAccountStatusBadge = (member) => {
+    const raw = String(member?.accountStatus || member?.status || 'active')
+      .trim()
+      .toLowerCase();
+    let colorClasses = 'bg-slate-100 text-slate-700 border-slate-300';
+    let label = getAdminStatusLabel(raw, language);
+
+    if (raw === 'active') {
+      colorClasses = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+      label = language === 'vi' ? 'Đang hoạt động' : 'Active';
+    } else if (raw === 'locked') {
+      colorClasses = 'bg-rose-50 text-rose-700 border-rose-200';
+      label = language === 'vi' ? 'Bị khóa' : 'Locked';
+    } else if (raw === 'pending') {
+      colorClasses = 'bg-amber-50 text-amber-800 border-amber-200';
+      label = language === 'vi' ? 'Chờ kích hoạt' : 'Pending activation';
+    } else if (raw === 'inactive') {
+      colorClasses = 'bg-slate-100 text-slate-700 border-slate-300';
+      label = language === 'vi' ? 'Không hoạt động' : 'Inactive';
+    }
+
+    return (
+      <span
+        className={`inline-flex items-center justify-center rounded border px-2.5 py-1 text-[11px] font-bold leading-4 text-center whitespace-normal ${colorClasses}`}
+      >
+        {label}
+      </span>
+    );
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -233,14 +268,14 @@ export function MemberManagement({ onSelectMemberDetail }) {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1180px] table-fixed text-left text-sm">
             <colgroup>
-              <col className="w-[5%]" />
-              <col className="w-[18%]" />
-              <col className="w-[19%]" />
-              <col className="w-[15%]" />
+              <col className="w-[4%]" />
+              <col className="w-[16%]" />
+              <col className="w-[23%]" />
+              <col className="w-[14%]" />
               <col className="w-[12%]" />
               <col className="w-[12%]" />
-              <col className="w-[8%]" />
-              <col className="w-[11%]" />
+              <col className="w-[9%]" />
+              <col className="w-[10%]" />
             </colgroup>
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
               <tr className="[&>th]:border-r [&>th]:border-slate-200 [&>th:last-child]:border-r-0">
@@ -275,7 +310,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
                     <span className="block truncate font-semibold text-slate-900" title={m.name || ''}>{m.name || '—'}</span>
                   </td>
                   <td className="px-4 py-4">
-                    <div className="truncate text-slate-800" title={m.email || ''}>{m.email || '—'}</div>
+                    <div className="break-words text-slate-800" title={m.email || ''}>{m.email || '—'}</div>
                     <div className="mt-1 text-xs tabular-nums text-slate-500">{m.phone || '—'}</div>
                   </td>
                   <td className="px-4 py-4 font-medium text-slate-800">
@@ -285,14 +320,18 @@ export function MemberManagement({ onSelectMemberDetail }) {
                   </td>
                   <td className="px-4 py-4 text-slate-700">{m.primaryCoachName || (language === 'vi' ? 'Chưa phân công' : 'Unassigned')}</td>
                   <td className="px-4 py-4">
-                    <div className="flex flex-col items-start gap-1">
-                      <StatusBadge type="membership" status={m.membershipStatus || 'none'} />
-                      {m.accountStatus && m.accountStatus !== 'active' && (
-                        <span className="text-xs font-medium text-rose-700">
-                          {m.accountStatus === 'locked' ? (language === 'vi' ? 'Khóa TK' : 'Locked') : m.accountStatus}
-                        </span>
-                      )}
-                    </div>
+                    {isAdminView ? (
+                      getAccountStatusBadge(m)
+                    ) : (
+                      <div className="flex flex-col items-start gap-1">
+                        <StatusBadge type="membership" status={m.membershipStatus || 'none'} />
+                        {m.accountStatus && m.accountStatus !== 'active' && (
+                          <span className="text-xs font-medium text-rose-700">
+                            {m.accountStatus === 'locked' ? (language === 'vi' ? 'Khóa TK' : 'Locked') : m.accountStatus}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-xs tabular-nums text-slate-600">{formatDate(m.joinDate, language)}</td>
                   <td className="px-3 py-4 text-center">

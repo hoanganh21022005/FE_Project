@@ -191,12 +191,14 @@ export const ADMIN_STATUS_LABELS = {
     active: "Hoạt động",
     inactive: "Không hoạt động",
     locked: "Đã khóa",
+    pending: "Chờ kích hoạt",
     unknown: "Không rõ",
   },
   en: {
     active: "Active",
     inactive: "Inactive",
     locked: "Locked",
+    pending: "Pending activation",
     unknown: "Unknown",
   },
 }
@@ -973,7 +975,8 @@ export function getAdminAuditActionLabel(action, language = "vi") {
 
 export function getAdminStatusLabel(status, language = "vi") {
   const lang = normalizeAdminLanguage(language)
-  return ADMIN_STATUS_LABELS[lang]?.[status] || status || ADMIN_STATUS_LABELS[lang].unknown
+  const key = String(status || "").trim().toLowerCase()
+  return ADMIN_STATUS_LABELS[lang]?.[key] || ADMIN_STATUS_LABELS[lang]?.[status] || ADMIN_STATUS_LABELS[lang].unknown
 }
 
 export function formatAdminNumber(value, language = "vi") {

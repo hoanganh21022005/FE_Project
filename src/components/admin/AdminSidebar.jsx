@@ -127,14 +127,14 @@ export function AdminSidebar({
       )}
       <aside
         className={`fixed inset-y-0 left-0 z-40 border-r border-brand-dark-hover bg-bg-sidebar text-text-inverse transition-[transform,width] duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 shrink-0 ${
-          collapsed ? "w-64 lg:w-16" : "w-64"
+          collapsed ? "w-64 lg:w-[76px]" : "w-64"
         } ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="h-full flex flex-col justify-between">
           <div className="flex-1 flex flex-col min-h-0">
             <div
               className={`h-[76px] flex items-center border-b border-brand-dark-hover shrink-0 ${
-                collapsed ? "px-3 lg:px-0 lg:justify-center" : "px-3 justify-between"
+                collapsed ? "px-3 lg:px-1.5 lg:justify-center lg:gap-1" : "px-3 justify-start gap-2"
               }`}
             >
               <button
@@ -143,15 +143,23 @@ export function AdminSidebar({
                 title="AVT Sport System"
                 aria-label={`AVT Sport System - ${getAdminText(language, "dash.title")}`}
                 className={`flex min-h-[44px] items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded cursor-pointer min-w-0 ${
-                  collapsed ? "lg:hidden" : "flex-1 pr-3"
+                  collapsed ? "lg:shrink-0" : "min-w-0"
                 }`}
               >
-                <img
-                  src="/images/MainPage/avt-sport-logo.png?v=6"
-                  alt="AVT Sport"
-                  className="h-16 w-auto object-contain shrink-0 sm:h-[72px]"
-                />
-                <div className="min-w-0">
+                <span
+                  className={`inline-flex items-center justify-center rounded-md bg-white shrink-0 shadow-xs ${
+                    collapsed ? "p-1 lg:p-0.5" : "p-1"
+                  }`}
+                >
+                  <img
+                    src="/images/MainPage/avt-sport-logo.png?v=6"
+                    alt="AVT Sport"
+                    className={`object-contain shrink-0 ${
+                      collapsed ? "h-9 w-auto lg:h-7 lg:w-7" : "h-9 w-auto"
+                    }`}
+                  />
+                </span>
+                <div className={`min-w-0 ${collapsed ? "lg:hidden" : ""}`}>
                   <p className="text-[11px] leading-4 font-bold uppercase tracking-tight text-text-inverse whitespace-nowrap">
                     AVT Sport System
                   </p>
@@ -175,9 +183,11 @@ export function AdminSidebar({
                     ? getAdminText(language, "shell.expandSidebar")
                     : getAdminText(language, "shell.collapseSidebar")
                 }
-                className="hidden lg:inline-flex w-11 h-11 shrink-0 items-center justify-center rounded text-text-inverse focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent cursor-pointer"
+                className={`hidden lg:inline-flex shrink-0 items-center justify-center rounded text-text-inverse focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent cursor-pointer ${
+                  collapsed ? "w-8 h-11" : "w-9 h-11"
+                }`}
               >
-                <span className="w-7 h-7 rounded-md border border-white/15 bg-brand-dark-hover flex items-center justify-center">
+                <span className="w-7 h-7 rounded-md border border-white/15 bg-brand-dark-hover flex items-center justify-center hover:bg-brand-primary/30 transition-colors">
                   {collapsed ? (
                     <ChevronRight className="w-3.5 h-3.5" />
                   ) : (
@@ -189,7 +199,7 @@ export function AdminSidebar({
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex w-11 h-11 shrink-0 items-center justify-center rounded text-text-inverse transition-colors hover:bg-brand-dark-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary lg:hidden cursor-pointer"
+                className="ml-auto inline-flex w-11 h-11 shrink-0 items-center justify-center rounded text-text-inverse transition-colors hover:bg-brand-dark-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary lg:hidden cursor-pointer"
                 aria-label={getAdminText(language, "shell.closeMenu")}
               >
                 <X className="w-5 h-5" />

@@ -563,7 +563,7 @@ export function AdminUsersView() {
                         const label = getAdminRoleLabel(role, language)
                         return (
                           <option key={role} value={role}>
-                            {label !== role ? `${label} (${role})` : role}
+                            {label}
                           </option>
                         )
                       })}
@@ -621,11 +621,11 @@ export function AdminUsersView() {
               </div>
 
               <div className="w-full overflow-x-auto">
-                <table className="w-full min-w-[760px] text-left text-sm">
+                <table className="w-full min-w-[860px] text-left text-sm">
                   <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary border-b border-border-color">
                     <tr>
                       <th
-                        className="px-3.5 py-0 text-left align-middle whitespace-nowrap"
+                        className="min-w-[160px] px-3.5 py-0 text-left align-middle whitespace-nowrap"
                         aria-sort={
                           sortOrder === "name_asc"
                             ? "ascending"
@@ -649,35 +649,41 @@ export function AdminUsersView() {
                           )}
                         </button>
                       </th>
-                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colEmail")}</th>
-                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colRole")}</th>
-                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colStatus")}</th>
-                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colCreatedAt")}</th>
-                      <th className="px-3.5 py-2.5 text-right align-middle whitespace-nowrap">{getAdminText(language, "users.colActions")}</th>
+                      <th className="min-w-[190px] px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colEmail")}</th>
+                      <th className="min-w-[145px] px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colRole")}</th>
+                      <th className="min-w-[130px] px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colStatus")}</th>
+                      <th className="min-w-[110px] px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colCreatedAt")}</th>
+                      <th className="min-w-[68px] px-3.5 py-2.5 text-right align-middle whitespace-nowrap">{getAdminText(language, "users.colActions")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border-color">
                     {paginatedUsers.map((user) => (
                       <tr
                         key={user.id ?? user.email}
-                        className="h-11 transition-colors hover:bg-bg-secondary/70"
+                        className="transition-colors hover:bg-bg-secondary/70"
                       >
-                        <td className="px-3.5 py-0 align-middle text-sm text-text-primary whitespace-nowrap max-w-[200px] truncate">
+                        <td
+                          className="px-3.5 py-2 align-middle text-sm text-text-primary max-w-[220px] truncate"
+                          title={user.fullName || undefined}
+                        >
                           <span className="font-semibold text-text-primary">
                             {user.fullName || getAdminText(language, "users.noName")}
                           </span>
                         </td>
-                        <td className="px-3.5 py-0 align-middle text-sm text-text-secondary whitespace-nowrap max-w-[220px] truncate">
+                        <td
+                          className="px-3.5 py-2 align-middle text-sm text-text-secondary max-w-[240px] truncate"
+                          title={user.email || undefined}
+                        >
                           {user.email || "—"}
                         </td>
-                        <td className="px-3.5 py-0 align-middle text-sm text-text-primary whitespace-nowrap">
-                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
+                        <td className="px-3.5 py-2 align-middle text-sm text-text-primary">
+                          <span className="inline-flex items-center justify-center text-center whitespace-normal leading-4 rounded-full px-2.5 py-0.5 text-xs font-medium bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
                             {getAdminRoleLabel(user.roleName, language) || `Role #${user.roleId ?? "?"}`}
                           </span>
                         </td>
-                        <td className="px-3.5 py-0 align-middle text-sm text-text-primary whitespace-nowrap">
+                        <td className="px-3.5 py-2 align-middle text-sm text-text-primary">
                           <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            className={`inline-flex items-center justify-center text-center whitespace-normal leading-4 rounded-full px-2.5 py-0.5 text-xs font-medium ${
                               user.status === "active"
                                 ? "bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border"
                                 : user.status === "locked"
@@ -688,10 +694,10 @@ export function AdminUsersView() {
                             {getAdminStatusLabel(user.status, language)}
                           </span>
                         </td>
-                        <td className="px-3.5 py-0 align-middle text-sm text-text-secondary tabular-nums font-mono whitespace-nowrap">
+                        <td className="px-3.5 py-2 align-middle text-sm text-text-secondary tabular-nums font-mono whitespace-nowrap">
                           {formatAdminDate(user.createdAt, undefined, undefined, language)}
                         </td>
-                        <td className="px-3.5 py-0 align-middle text-sm text-text-primary text-right whitespace-nowrap">
+                        <td className="px-3.5 py-1 align-middle text-sm text-text-primary text-right whitespace-nowrap">
                           <UserRowActions
                             user={user}
                             isCurrentIdValid={isCurrentIdValid}
