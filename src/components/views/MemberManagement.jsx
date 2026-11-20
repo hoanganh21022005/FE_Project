@@ -56,7 +56,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
 
     return (
       <span
-        className={`inline-flex items-center justify-center rounded border px-2.5 py-1 text-[11px] font-bold leading-4 text-center whitespace-normal ${colorClasses}`}
+        className={`inline-flex items-center justify-center w-[124px] h-7 px-2 rounded border text-[11px] font-bold whitespace-nowrap shrink-0 text-center ${colorClasses}`}
       >
         {label}
       </span>
@@ -269,13 +269,13 @@ export function MemberManagement({ onSelectMemberDetail }) {
           <table className="w-full min-w-[1180px] table-fixed text-left text-sm">
             <colgroup>
               <col className="w-[4%]" />
-              <col className="w-[16%]" />
+              <col className="w-[15%]" />
               <col className="w-[23%]" />
               <col className="w-[14%]" />
-              <col className="w-[12%]" />
-              <col className="w-[12%]" />
+              <col className="w-[11%]" />
+              <col className="w-[15%]" />
               <col className="w-[9%]" />
-              <col className="w-[10%]" />
+              <col className="w-[9%]" />
             </colgroup>
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
               <tr className="[&>th]:border-r [&>th]:border-slate-200 [&>th:last-child]:border-r-0">
