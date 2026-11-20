@@ -679,7 +679,18 @@ export function MemberCourseCatalog() {
       })))
       if (coachRequestInFlightRef.current !== requestKey) return
       const options = coachResults.flatMap((result) => result.coaches
-        .filter((coach) => coachMatchesSubject(coach, result.specialization))
+        .filter((coach) => {
+          const status = normalizeCatalogText(coach.status)
+          const coachName = coach.name || coach.fullName || ''
+          const unavailableStatuses = ['inactive', 'not ready', 'unavailable', 'disabled', 'full', 'pending', 'not active']
+          const unavailableFlags = ['available', 'isAvailable', 'canAcceptNewMembers', 'acceptingNewMembers', 'canAccept']
+          const isDemoCoach = /\b(demo|mock|test)\b/i.test(String(coachName))
+          return coachMatchesSubject(coach, result.specialization)
+            && coachIsActive(coach)
+            && !isDemoCoach
+            && !unavailableStatuses.includes(status)
+            && !unavailableFlags.some((key) => coach[key] === false)
+        })
         .map((coach) => ({ ...coach, matchedSpecialization: result.specialization })))
       const unique = Array.from(new Map(options.filter((coach) => coach.id != null).map((coach) => [String(coach.id), coach])).values())
       setCoachAvailabilityBySubject((current) => ({ ...current, [requestKey]: { coaches: unique, loaded: true } }))
