@@ -423,7 +423,10 @@ function AdminManagerWildcardRedirect() {
   const location = useLocation()
   const subPath = location.pathname.replace(/^\/manager\/?/, "")
   const targetPath =
-    subPath && subPath !== "dashboard" && subPath !== "reports"
+    subPath &&
+    subPath !== "dashboard" &&
+    subPath !== "reports" &&
+    !subPath.startsWith("reports/")
       ? `/admin/ops/${subPath}`
       : "/admin/dashboard"
   return <Navigate to={`${targetPath}${location.search}`} replace />
@@ -1098,7 +1101,11 @@ function SCMSApp() {
                   />
                   <Route
                     path="/admin/ops/audit-logs"
-                    element={<AuditLogView />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <AuditLogView />
+                      </AdminOpsGuard>
+                    }
                   />
 
                   {/* Nhóm Lễ tân */}
