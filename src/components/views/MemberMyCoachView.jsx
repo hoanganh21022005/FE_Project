@@ -59,6 +59,27 @@ const formatProposalDeadline = (value, isVi) => {
   })
 }
 
+const formatAdvancedStatus = (status, isVi) => {
+  const key = String(status || "").trim().toLowerCase()
+  const labels = {
+    requested: isVi ? "Chờ Coach duyệt" : "Requested",
+    accepted: isVi ? "Coach đã nhận" : "Accepted",
+    invoiced: isVi ? "Chờ thanh toán" : "Invoiced",
+    expired: isVi ? "Đã hết hạn" : "Expired",
+    pending: isVi ? "Chờ xác nhận" : "Pending",
+    scheduled: isVi ? "Đã lên lịch" : "Scheduled",
+    completed: isVi ? "Đã hoàn thành" : "Completed",
+    active: isVi ? "Đang hoạt động" : "Active",
+    rejected: isVi ? "Đã từ chối" : "Rejected",
+    declined: isVi ? "Đã từ chối" : "Declined",
+    cancelled: isVi ? "Đã hủy" : "Cancelled",
+    canceled: isVi ? "Đã hủy" : "Cancelled",
+    frozen: isVi ? "Đang bảo lưu" : "Frozen",
+    alternative_proposed: isVi ? "Đề xuất HLV thay thế" : "Alternative Coach Proposed",
+  }
+  return labels[key] || status || (isVi ? "Chờ xác nhận" : "Pending")
+}
+
 export function MemberMyCoachView() {
   const { language, currentUser, subjects, apiEnabled, showToast, t } = useSCMS()
   const isVi = language === "vi"
@@ -990,7 +1011,7 @@ export function MemberMyCoachView() {
                     </div>
                     <p className="mt-2 text-xs text-slate-600">{isVi ? "Hạn phản hồi: " : "Respond by: "}{formatProposalDeadline(proposal.respondBy, isVi)}</p>
                   </div>
-                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-extrabold uppercase text-amber-800">{proposal.status}</span>
+                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-extrabold uppercase text-amber-800">{formatAdvancedStatus(proposal.status, isVi)}</span>
                 </div>
                 <div className="mt-4 flex flex-wrap justify-end gap-2">
                   <button type="button" disabled={rejectingProposalId != null || acceptingProposalId != null} onClick={() => handleAcceptProposal(proposal)} className="min-h-10 rounded-lg bg-emerald-700 px-4 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60">{acceptingProposalId != null && String(acceptingProposalId) === String(proposal.id) ? (isVi ? "Đang xác nhận..." : "Confirming...") : (isVi ? "Đồng ý" : "Accept")}</button>
@@ -1004,7 +1025,7 @@ export function MemberMyCoachView() {
             <h3 id="closed-proposals-title" className="text-sm font-extrabold text-slate-900">{isVi ? "Đề xuất đã phản hồi" : "Responded proposals"}</h3>
             {closedSessionProposals.map((proposal) => <div key={proposal.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
               <span className="font-semibold text-slate-700">{proposal.sessionDate} · {String(proposal.startTime || "").slice(0, 5)}–{String(proposal.endTime || "").slice(0, 5)}</span>
-              <span className="font-bold text-slate-600">{proposal.status}</span>
+              <span className="font-bold text-slate-600">{formatAdvancedStatus(proposal.status, isVi)}</span>
             </div>)}
           </section>}
 
@@ -1059,7 +1080,7 @@ export function MemberMyCoachView() {
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700">
                         {["cancelled", "canceled"].includes(String(s.status || "").trim().toLowerCase())
                           ? (isCancelledWithRefund(s) ? t("sessionCancelledRefundedBadge") : t("sessionCancelledBadge"))
-                          : (s.status || "Scheduled")}
+                          : formatAdvancedStatus(s.status || "Scheduled", isVi)}
                       </span>
                     </div>
 
@@ -1212,7 +1233,7 @@ export function MemberMyCoachView() {
                                 : "bg-amber-50 text-amber-800 border border-amber-200"
                           }`}
                         >
-                          {reg.status || "Pending"}
+                          {formatAdvancedStatus(reg.status || "Pending", isVi)}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
@@ -1231,7 +1252,7 @@ export function MemberMyCoachView() {
                           )}
                         {reg.subscriptionStatus && (
                           <span>
-                            Gói: <strong>{reg.subscriptionStatus}</strong>
+                            Gói: <strong>{formatAdvancedStatus(reg.subscriptionStatus, isVi)}</strong>
                           </span>
                         )}
                         {(reg.reason || reg.note) && (
