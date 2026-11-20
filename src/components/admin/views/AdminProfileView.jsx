@@ -10,7 +10,11 @@ import {
 } from "lucide-react"
 import { useSCMS } from "../../../context/SCMSContext.jsx"
 import { authApi } from "../../../api/authApi.js"
-import { formatAdminErrorMessage, getAdminText } from "../adminI18n.js"
+import {
+  formatAdminErrorMessage,
+  getAdminPermissionLabel,
+  getAdminText,
+} from "../adminI18n.js"
 
 export function AdminProfileView() {
   const { authUser, currentUser, language } = useSCMS()
@@ -29,6 +33,7 @@ export function AdminProfileView() {
   const authorities = Array.isArray(rawAuthorities)
     ? rawAuthorities.map((a) => (typeof a === "string" ? a : a?.name || String(a)))
     : []
+  const visibleAuthorities = authorities.filter((auth) => auth && auth !== "LOCK_SUBJECTS")
 
   const [formData, setFormData] = useState({
     oldPassword: "",
@@ -167,21 +172,22 @@ export function AdminProfileView() {
                   {getAdminText(language, "profile.permissionsTitle")}
                 </h2>
               </div>
-              <span className="text-xs font-mono text-text-muted">
+              <span className="text-xs font-medium text-text-muted">
                 {getAdminText(language, "profile.permissionsCount", {
-                  count: authorities.length,
+                  count: visibleAuthorities.length,
                 })}
               </span>
             </div>
 
-            {authorities.length > 0 ? (
+            {visibleAuthorities.length > 0 ? (
               <div className="flex flex-wrap gap-1.5 max-h-56 overflow-y-auto p-1">
-                {authorities.map((auth) => (
+                {visibleAuthorities.map((auth) => (
                   <span
                     key={auth}
-                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-bg-secondary text-text-secondary border border-border-color"
+                    title={auth}
+                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-bg-secondary text-text-secondary border border-border-color"
                   >
-                    {auth}
+                    {getAdminPermissionLabel(auth, language)}
                   </span>
                 ))}
               </div>

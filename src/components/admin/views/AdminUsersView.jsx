@@ -856,7 +856,7 @@ export function AdminUsersView() {
                               return (
                                 <span
                                   key={permName}
-                                  className="inline-flex items-center rounded px-2 py-0.5 text-xs font-mono bg-bg-secondary text-brand-primary border border-border-color/60"
+                                  className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-bg-secondary text-brand-primary border border-border-color/60"
                                   title={permName}
                                 >
                                   {label}
