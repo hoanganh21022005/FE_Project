@@ -290,16 +290,6 @@ export function MemberDetailView({ memberId, onBack }) {
               <span className="font-mono text-[10px] font-bold text-stone-600 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
                 {member.code}
               </span>
-              {/* Account Status Badge */}
-              <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
-                member.accountStatus === 'locked' || member.status === 'inactive'
-                  ? 'bg-rose-50 text-rose-800 border-rose-200'
-                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              }`}>
-                {member.accountStatus === 'locked' || member.status === 'inactive'
-                  ? (language === 'vi' ? 'Tài khoản: Tạm khóa' : 'Account: Locked')
-                  : (language === 'vi' ? 'Tài khoản: Hoạt động' : 'Account: Active')}
-              </span>
               <StatusBadge type="membership" status={member.membershipStatus || member.status} />
             </div>
             <div className="flex items-center gap-4 text-xs text-stone-500 flex-wrap">
@@ -369,31 +359,6 @@ export function MemberDetailView({ memberId, onBack }) {
             <div className="min-w-0 space-y-1 py-1">
               <span className="text-stone-500 text-[11px] font-medium">{language === 'vi' ? 'Số điện thoại:' : 'Phone:'}</span>
               <p className="font-bold tabular-nums text-brand-dark">{member.phone || (language === 'vi' ? 'Chưa cập nhật' : 'Not updated')}</p>
-            </div>
-
-            <div className="min-w-0 space-y-1 py-1">
-              <span className="text-stone-500 text-[11px] font-medium">{language === 'vi' ? 'Ngày sinh:' : 'Birth Date:'}</span>
-              <p className="font-bold text-brand-dark">
-                {member.birthDate ? formatDate(member.birthDate, language) : (language === 'vi' ? 'Chưa cập nhật' : 'Not updated')}
-              </p>
-            </div>
-
-            <div className="min-w-0 space-y-1 py-1">
-              <span className="text-stone-500 text-[11px] font-medium">{language === 'vi' ? 'Giới tính:' : 'Gender:'}</span>
-              <p className="font-bold text-brand-dark">
-                {member.gender === 'male' || member.gender === 'Male'
-                  ? (language === 'vi' ? 'Nam' : 'Male')
-                  : member.gender === 'female' || member.gender === 'Female'
-                  ? (language === 'vi' ? 'Nữ' : 'Female')
-                  : (member.gender || (language === 'vi' ? 'Chưa cập nhật' : 'Not updated'))}
-              </p>
-            </div>
-
-            <div className="min-w-0 space-y-1 py-1">
-              <span className="text-stone-500 text-[11px] font-medium">{language === 'vi' ? 'Địa chỉ liên hệ:' : 'Address:'}</span>
-              <p className="font-bold text-brand-dark">
-                {member.address || (language === 'vi' ? 'Chưa cập nhật' : 'Not updated')}
-              </p>
             </div>
 
             <div className="min-w-0 space-y-1 py-1">
@@ -606,9 +571,6 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
     name: member.name || '',
     email: member.email || '',
     phone: member.phone || '',
-    dateOfBirth: member.dateOfBirth || member.birthDate || '',
-    address: member.address || '',
-    gender: member.gender || '',
     goal: member.goal || '',
     healthNote: member.healthNote || ''
   });
@@ -631,13 +593,6 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
       errs.email = language === 'vi' ? 'Email không hợp lệ' : 'Invalid email';
     }
 
-    if (formData.dateOfBirth) {
-      const today = new Date().toISOString().split('T')[0];
-      if (formData.dateOfBirth > today) {
-        errs.dateOfBirth = language === 'vi' ? 'Ngày sinh không thể ở tương lai' : 'Birth date cannot be in future';
-      }
-    }
-
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -655,9 +610,6 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
         name: formData.name.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim(),
-        dateOfBirth: formData.dateOfBirth || undefined,
-        address: formData.address.trim() || undefined,
-        gender: formData.gender || undefined,
         goal: formData.goal.trim() || undefined,
         healthNote: formData.healthNote.trim() || undefined
       };
@@ -736,49 +688,6 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
                 className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-semibold text-stone-700 mb-1">
-                {language === 'vi' ? 'Ngày sinh' : 'Birth Date'}
-              </label>
-              <input
-                type="date"
-                value={formData.dateOfBirth}
-                onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
-              />
-              {errors.dateOfBirth && <p className="text-rose-600 text-[11px] mt-0.5">{errors.dateOfBirth}</p>}
-            </div>
-
-            <div>
-              <label className="block font-semibold text-stone-700 mb-1">
-                {language === 'vi' ? 'Giới tính' : 'Gender'}
-              </label>
-              <select
-                value={formData.gender}
-                onChange={e => setFormData({ ...formData, gender: e.target.value })}
-                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
-              >
-                <option value="">{language === 'vi' ? 'Chọn giới tính...' : 'Select gender...'}</option>
-                <option value="Male">{language === 'vi' ? 'Nam' : 'Male'}</option>
-                <option value="Female">{language === 'vi' ? 'Nữ' : 'Female'}</option>
-                <option value="Other">{language === 'vi' ? 'Khác' : 'Other'}</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block font-semibold text-stone-700 mb-1">
-              {language === 'vi' ? 'Địa chỉ' : 'Address'}
-            </label>
-            <input
-              type="text"
-              value={formData.address}
-              onChange={e => setFormData({ ...formData, address: e.target.value })}
-              className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
-            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

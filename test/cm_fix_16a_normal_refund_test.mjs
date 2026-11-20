@@ -19,6 +19,7 @@ import {
   normalRefundVersionSemantics,
   recordNormalRefundIssue,
   requestNormalRefundInformation,
+  serializeNormalRefundPerformedAt,
   verifyNormalRefundAttempt,
   verifyNormalRefundReceiver,
 } from '../src/api/normalRefundApi.js'
@@ -32,7 +33,7 @@ const refund = {
   accountNumber: 'SENSITIVE-12345', accountName: 'Member Example', receiverVerified: true,
   dueAt: null, firstDueAt: '2026-11-20T04:00:00Z', overdue: false, issueNote: null,
   centerId: 1,
-  attempts: [{ id: 22, status: 'Submitted', receiverId: 10, amount: 125000, bankReference: 'BANK-REF-22', performedAt: '2026-11-10T04:00:00Z', claimedBy: 7, verifiedAt: null, documentIds: [55] }],
+  attempts: [{ id: 22, status: 'Submitted', receiverId: 10, amount: 125000, bankReference: 'BANK-REF-22', performedAt: '2026-11-10T04:00:00', claimedBy: 7, verifiedAt: null, documentIds: [55] }],
 }
 const history = { receivers: [], verifications: [] }
 const actor = { id: 4, role: 'CenterManager', authorities: ['MANAGE_INVOICES'], status: 'Active', authenticated: true, centerId: 1 }
@@ -103,12 +104,12 @@ try {
 
   const successVerification = {
     outcome: 'Success', bankSource: 'Bank portal transfer report', reference: 'BANK-REF-22', amount: 125000,
-    receiverId: 10, performedAt: '2026-11-10T04:00:00Z', note: 'Matched independent bank report',
+    receiverId: 10, performedAt: '2026-11-10T04:00:00', note: 'Matched independent bank report',
     independentBankCheckConfirmed: true, documentVerified: true,
   }
   assert.deepEqual(buildNormalRefundVerificationRequest(refund, refund.attempts[0], successVerification), {
     version: 4, outcome: 'Success', bankSource: 'Bank portal transfer report', reference: 'BANK-REF-22',
-    amount: 125000, receiverId: 10, performedAt: '2026-11-10T04:00:00Z', note: 'Matched independent bank report',
+    amount: 125000, receiverId: 10, performedAt: '2026-11-10T04:00:00', note: 'Matched independent bank report',
   })
   for (const outcome of ['Pending', 'Failed', 'Reversed']) {
     assert.deepEqual(buildNormalRefundVerificationRequest(refund, refund.attempts[0], { outcome, bankSource: 'Bank portal', note: 'Transfer not confirmed' }), { version: 4, outcome, bankSource: 'Bank portal', note: 'Transfer not confirmed' })
@@ -117,6 +118,11 @@ try {
   assert.throws(() => buildNormalRefundVerificationRequest(refund, refund.attempts[0], { ...successVerification, documentVerified: false }), (error) => error.code === 'TRANSFER_DOCUMENT_REQUIRED')
   assert.throws(() => buildNormalRefundVerificationRequest(refund, { ...refund.attempts[0], status: 'Claimed' }, successVerification), (error) => error.code === 'NORMAL_REFUND_ATTEMPT_NOT_SUBMITTED')
   assert.throws(() => buildNormalRefundVerificationRequest(refund, refund.attempts[0], { ...successVerification, amount: 124999 }), (error) => error.code === 'BANK_VERIFICATION_MISMATCH')
+  assert.equal(serializeNormalRefundPerformedAt('2026-11-10T04:00'), '2026-11-10T04:00:00')
+  assert.equal(serializeNormalRefundPerformedAt('2026-11-10T23:59'), '2026-11-10T23:59:00', 'local date and time are preserved near midnight')
+  assert.throws(() => serializeNormalRefundPerformedAt('2026-02-30T04:00'), (error) => error.code === 'NORMAL_REFUND_VERIFICATION_UNVERIFIED')
+  assert.throws(() => serializeNormalRefundPerformedAt('2026-11-10T04:00:00Z'), (error) => error.code === 'NORMAL_REFUND_VERIFICATION_UNVERIFIED')
+  assert.throws(() => buildNormalRefundVerificationRequest(refund, refund.attempts[0], { ...successVerification, performedAt: '2026-11-10T04:00:00Z' }), (error) => error.code === 'NORMAL_REFUND_VERIFICATION_UNVERIFIED')
 
   const receptionist = { ...actor, role: 'Receptionist' }
   const admin = { ...actor, role: 'Admin' }
@@ -163,7 +169,7 @@ try {
   ])
   assert.deepEqual(requests.at(-1).body, {
     version: 4, outcome: 'Success', bankSource: 'Bank portal transfer report', reference: 'BANK-REF-22',
-    amount: 125000, receiverId: 10, performedAt: '2026-11-10T04:00:00Z', note: 'Matched independent bank report',
+    amount: 125000, receiverId: 10, performedAt: '2026-11-10T04:00:00', note: 'Matched independent bank report',
   })
   assert.equal(requests.some(({ path }) => /\/(claim|submit|documents)$/.test(path) && !path.includes('/31/documents/')), false)
   assert.equal('claimNormalRefund' in normalRefundApi, false)

@@ -13,6 +13,7 @@ import {
   recordNormalRefundIssue,
   requestNormalRefundInformation,
   verifyNormalRefundAttempt,
+  serializeNormalRefundPerformedAt,
   verifyNormalRefundReceiver,
 } from '../../api/normalRefundApi.js'
 
@@ -145,7 +146,7 @@ function NormalRefundActions({ refund, currentUser, onRefresh }) {
           request.reference = reference
           request.amount = amount === '' ? '' : Number(amount)
           request.receiverId = receiverId === '' ? '' : Number(receiverId)
-          request.performedAt = performedAt ? new Date(performedAt).toISOString() : ''
+          request.performedAt = performedAt ? serializeNormalRefundPerformedAt(performedAt) : ''
           request.independentBankCheckConfirmed = independentBankCheckConfirmed
           request.documentVerified = Array.isArray(selectedAttempt?.documentIds) && selectedAttempt.documentIds.some((id) => verifiedDocumentIds.includes(id))
         }
@@ -372,7 +373,7 @@ export function NormalRefundManagement() {
   if (!canReviewNormalRefund(currentUser)) return <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-sm text-rose-900">Tài khoản cần vai trò Center Manager và quyền MANAGE_INVOICES để xem hồ sơ hoàn tiền.</div>
 
   return <div className="space-y-5 text-slate-900">
-    <header className="flex flex-col justify-between gap-3 rounded-lg border border-slate-200 bg-white p-5 shadow-xs sm:flex-row sm:items-center"><div><p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Tài chính · Center Manager</p><h1 className="mt-1 text-xl font-bold">Hoàn tiền Normal</h1><p className="mt-1 text-sm text-slate-500">Theo dõi hồ sơ và tiến độ hoàn tiền của trung tâm.</p></div><button type="button" onClick={loadRefunds} disabled={loading} className="inline-flex min-h-10 items-center justify-center gap-2 rounded border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"><RefreshCw size={15} className={loading ? 'animate-spin' : ''}/>Tải lại</button></header>
+    <header className="flex flex-col justify-between gap-3 rounded-lg border border-slate-200 bg-white p-5 shadow-xs sm:flex-row sm:items-center"><div><h1 className="text-xl font-bold">Hoàn tiền</h1><p className="mt-1 text-sm text-slate-500">Theo dõi hồ sơ và tiến độ hoàn tiền của trung tâm.</p></div><button type="button" onClick={loadRefunds} disabled={loading} className="inline-flex min-h-10 items-center justify-center gap-2 rounded border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"><RefreshCw size={15} className={loading ? 'animate-spin' : ''}/>Tải lại</button></header>
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xs">
       <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center"><label className="relative min-w-0 flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/><span className="sr-only">Tìm hồ sơ theo mã Member, lớp hoặc hóa đơn</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm mã hồ sơ, Member, lớp hoặc hóa đơn" className="min-h-10 w-full rounded border border-slate-300 pl-9 pr-3 text-sm outline-none focus:border-blue-600"/></label><label className="flex items-center gap-2 text-sm text-slate-600">Trạng thái<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="min-h-10 rounded border border-slate-300 bg-white px-3 text-sm text-slate-800"><option value="all">Tất cả</option>{statuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></label></div>
       {loading && refunds.length === 0 && <div className="p-8 text-center text-sm text-slate-500">Đang tải danh sách hồ sơ…</div>}

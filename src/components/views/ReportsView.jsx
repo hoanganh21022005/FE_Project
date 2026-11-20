@@ -3,9 +3,8 @@ import { useSCMS } from '../../context/SCMSContext';
 import { getErrorMessage } from '../../api/apiErrors';
 import * as managerApi from '../../api/managerApi';
 import { localDateString } from '../../api/sessionIncidentUtils';
-import { revenueSummaryCsvRows, revenueTimelineForDisplay, serializeCsvRows } from '../../api/reportUtils';
+import { revenueTimelineForDisplay } from '../../api/reportUtils';
 import { formatCurrency } from '../../locales/translations';
-import { BarChart3, Download } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -33,11 +32,19 @@ function buildMockRevenueReport(payments, startDate, endDate, groupBy) {
   });
   const timeline = [...grouped.values()].sort((a, b) => a.period.localeCompare(b.period));
   const totalRevenue = timeline.reduce((total, entry) => total + entry.revenue, 0);
+  const normalizedTimeline = timeline.map((entry) => ({
+    ...entry,
+    moneyReceived: entry.revenue,
+    moneyRefunded: 0,
+    netReceived: entry.revenue,
+  }));
   return {
     totalRevenue,
     moneyReceived: totalRevenue,
+    moneyRefunded: 0,
+    netReceived: totalRevenue,
     totalTransactions: timeline.reduce((total, entry) => total + entry.count, 0),
-    timeline,
+    timeline: normalizedTimeline,
   };
 }
 
@@ -118,76 +125,43 @@ export function ReportsView() {
       period,
       monthLabel: vi ? `T${monthNumber}` : new Intl.DateTimeFormat('en', { month: 'short' }).format(new Date(Number(currentYear), index, 1)),
       revenue: entry?.revenue ?? null,
+      moneyRefunded: entry?.moneyRefunded ?? null,
+      netReceived: entry?.netReceived ?? null,
       count: entry?.count ?? null,
     };
   });
   const monthlyTimelineTotal = monthlyTimeline.reduce((sum, entry) => sum + (Number(entry.revenue) || 0), 0);
   const monthlyTimelineCount = monthlyTimeline.reduce((sum, entry) => sum + (Number(entry.count) || 0), 0);
+  const monthlyRefundedTotal = monthlyTimeline.reduce((sum, entry) => sum + (Number(entry.moneyRefunded) || 0), 0);
+  const monthlyNetReceivedTotal = monthlyTimeline.reduce((sum, entry) => sum + (Number(entry.netReceived) || 0), 0);
   const monthlyGrowth = memberReport?.monthlyGrowth || [];
-  const noYearTransactions = currentYearReport?.totalTransactions === 0;
+  const noYearRevenueData = revenueTimelineForDisplay(currentYearReport).length === 0;
 
-  const moneyTooltip = (value) => [value == null ? '—' : formatCurrency(value, language), vi ? 'Doanh thu' : 'Revenue'];
+  const moneyTooltip = (value, name) => [value == null ? '—' : formatCurrency(value, language), name];
   const sectionError = (error) => error && <p role="alert" className="mb-4 rounded border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">{error}</p>;
   const chartTitleClass = 'text-sm font-bold text-slate-900';
   const chartContainerClass = 'bg-white border border-slate-200 p-5 rounded-lg shadow-xs';
   const axisProps = { tick: { fontSize: 10, fill: '#64748B' }, axisLine: false, tickLine: false };
 
-  const handleExportReport = () => {
-    const rows = [
-      ['Current month revenue', currentMonth],
-      ...revenueSummaryCsvRows(currentMonthReport),
-      ['Daily period', 'Revenue', 'Transactions'],
-      ...monthlyTimeline.map((item) => [item.period || '', item.revenue, item.count]),
-      [],
-      ['Annual revenue', currentYear],
-      ['Month', 'Revenue', 'Transactions'],
-      ...annualTimeline.map((item) => [item.period, item.revenue, item.count]),
-      [],
-      ['totalMembers', apiEnabled ? memberReport?.totalMembers ?? null : members.length],
-      ['activeMembers', apiEnabled ? memberReport?.activeMembers ?? null : members.filter((m) => m.status === 'active').length],
-      ['expiredMembers', apiEnabled ? memberReport?.expiredMembers ?? null : members.filter((m) => m.status === 'expired').length],
-    ];
-    const csvContent = serializeCsvRows(rows);
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `scms-report-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white border border-slate-200 p-4 rounded-lg shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-slate-100 text-slate-800 rounded border border-slate-200"><BarChart3 className="w-5 h-5" /></div>
-          <div>
-            <h2 className="text-sm font-bold text-slate-900 tracking-tight">{t('reports')}</h2>
-            <p className="text-xs text-slate-500">{vi ? 'Báo cáo doanh thu và tăng trưởng hội viên' : 'Revenue and member growth reports'}</p>
-          </div>
-        </div>
-        <button type="button" onClick={handleExportReport} className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 rounded text-xs font-bold flex items-center gap-1.5 border border-slate-300 shadow-xs cursor-pointer">
-          <Download className="w-3.5 h-3.5 text-slate-600" /><span>{t('exportReport')}</span>
-        </button>
-      </div>
-
       <section className={chartContainerClass}>
         <div className="mb-4 flex flex-col gap-1 border-b border-slate-100 pb-3">
-          <h3 className={chartTitleClass}>{vi ? 'Doanh thu tháng hiện tại' : 'Current month revenue'} · {new Intl.DateTimeFormat(vi ? 'vi-VN' : 'en-US', { month: 'long', year: 'numeric' }).format(new Date(`${currentMonth}-01T00:00:00`))}</h3>
+          <h3 className={chartTitleClass}>{vi ? 'Doanh thu' : 'Revenue'} {new Intl.DateTimeFormat(vi ? 'vi-VN' : 'en-US', { month: 'long', year: 'numeric' }).format(new Date(`${currentMonth}-01T00:00:00`))}</h3>
           <p className="text-xs text-slate-500">{vi ? 'Chi tiết doanh thu và số giao dịch theo từng ngày trong tháng.' : 'Revenue and transaction count by day for this month.'}</p>
         </div>
         {sectionError(revenueError)}
         {revenueLoading ? <p role="status" className="py-8 text-center text-xs text-slate-500">{vi ? 'Đang tải báo cáo doanh thu…' : 'Loading revenue report…'}</p>
           : monthlyTimeline.length === 0 ? <EmptyChart>{vi ? 'Tháng này chưa có giao dịch Paid.' : 'No paid transactions this month.'}</EmptyChart>
             : <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] text-left text-sm">
+              <table className="w-full min-w-[760px] text-left text-sm">
                 <thead className="border-b border-slate-200 text-xs text-slate-500">
                   <tr>
                     <th className="py-2.5 pr-3 font-semibold">{vi ? 'Ngày' : 'Date'}</th>
                     <th className="px-3 py-2.5 text-right font-semibold">{vi ? 'Giao dịch Paid' : 'Paid transactions'}</th>
-                    <th className="py-2.5 pl-3 text-right font-semibold">{vi ? 'Doanh thu' : 'Revenue'}</th>
+                    <th className="py-2.5 pl-3 text-right font-semibold">{vi ? 'Doanh thu gộp' : 'Gross revenue'}</th>
+                    <th className="py-2.5 pl-3 text-right font-semibold">{vi ? 'Tiền hoàn' : 'Refunds'}</th>
+                    <th className="py-2.5 pl-3 text-right font-semibold">{vi ? 'Tiền thực thu' : 'Net received'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -196,6 +170,8 @@ export function ReportsView() {
                       <td className="py-2.5 pr-3 text-slate-800">{item.period}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">{item.count ?? '—'}</td>
                       <td className="py-2.5 pl-3 text-right tabular-nums font-medium text-slate-900">{item.revenue == null ? '—' : formatCurrency(item.revenue, language)}</td>
+                      <td className="py-2.5 pl-3 text-right tabular-nums text-rose-700">{item.moneyRefunded == null ? '—' : formatCurrency(item.moneyRefunded, language)}</td>
+                      <td className="py-2.5 pl-3 text-right tabular-nums font-semibold text-slate-900">{item.netReceived == null ? '—' : formatCurrency(item.netReceived, language)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -204,6 +180,8 @@ export function ReportsView() {
                     <td className="py-3 pr-3">{vi ? 'Tổng theo dữ liệu từng ngày' : 'Daily timeline total'}</td>
                     <td className="px-3 py-3 text-right tabular-nums">{monthlyTimelineCount}</td>
                     <td className="py-3 pl-3 text-right tabular-nums">{formatCurrency(monthlyTimelineTotal, language)}</td>
+                    <td className="py-3 pl-3 text-right tabular-nums text-rose-700">{formatCurrency(monthlyRefundedTotal, language)}</td>
+                    <td className="py-3 pl-3 text-right tabular-nums">{formatCurrency(monthlyNetReceivedTotal, language)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -217,7 +195,7 @@ export function ReportsView() {
         </div>
         {sectionError(revenueError)}
         {revenueLoading ? <p role="status" className="py-8 text-center text-xs text-slate-500">{vi ? 'Đang tải báo cáo doanh thu…' : 'Loading revenue report…'}</p>
-          : noYearTransactions || !revenueTimelineForDisplay(currentYearReport).length ? <EmptyChart>{vi ? 'Năm nay chưa có giao dịch Paid.' : 'No paid transactions this year.'}</EmptyChart>
+          : noYearRevenueData ? <EmptyChart>{vi ? 'Năm nay chưa có giao dịch Paid hoặc hoàn tiền hoàn tất.' : 'No paid transactions or completed refunds this year.'}</EmptyChart>
             : <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={annualTimeline} margin={{ top: 8, right: 12, left: 12, bottom: 0 }}>
@@ -225,7 +203,9 @@ export function ReportsView() {
                   <XAxis dataKey="monthLabel" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
                   <YAxis {...axisProps} tickFormatter={(value) => formatCurrency(value, language)} />
                   <Tooltip formatter={moneyTooltip} contentStyle={{ backgroundColor: '#1E293B', borderRadius: '6px', color: '#fff', fontSize: '12px' }} />
-                  <Bar dataKey="revenue" name={vi ? 'Doanh thu' : 'Revenue'} fill="#2A5270" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="revenue" name={vi ? 'Doanh thu gộp' : 'Gross revenue'} fill="#2A5270" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="moneyRefunded" name={vi ? 'Tiền hoàn' : 'Refunds'} fill="#E11D48" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="netReceived" name={vi ? 'Tiền thực thu' : 'Net received'} fill="#059669" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>}

@@ -21,7 +21,7 @@ test('CM-FIX-16B manager review actions send contract bodies and reload Backend 
     overdue: false,
     issueNote: null,
     centerId: 1,
-    attempts: [{ id: 22, status: 'Submitted', receiverId: 10, amount: 125000, bankReference: 'BANK-REF-22', performedAt: '2026-11-10T04:00:00Z', claimedBy: 7, verifiedAt: null, documentIds: [] }],
+    attempts: [{ id: 22, status: 'Submitted', receiverId: 10, amount: 125000, bankReference: 'BANK-REF-22', performedAt: '2026-11-10T04:00:00', claimedBy: 7, verifiedAt: null, documentIds: [55] }],
   }
   const history = { receivers: [], verifications: [] }
   const posts = []
@@ -37,6 +37,7 @@ test('CM-FIX-16B manager review actions send contract bodies and reload Backend 
     if (request.method() === 'GET' && path === '/api/normal-refunds') return route.fulfill({ status: 200, json: [refund] })
     if (request.method() === 'GET' && path === '/api/normal-refunds/31') return route.fulfill({ status: 200, json: refund })
     if (request.method() === 'GET' && path === '/api/normal-refunds/31/history') return route.fulfill({ status: 200, json: history })
+    if (request.method() === 'GET' && path === '/api/normal-refunds/31/documents/55') return route.fulfill({ status: 200, contentType: 'application/pdf', body: '%PDF-1.4 mock proof' })
     if (request.method() === 'POST') {
       const body = request.postDataJSON()
       posts.push({ path, body })
@@ -93,4 +94,22 @@ test('CM-FIX-16B manager review actions send contract bodies and reload Backend 
   await expect.poll(() => posts.length).toBe(5)
   expect(posts[4]).toEqual({ path: '/api/normal-refunds/31/attempts/22/verify', body: { version: 8, outcome: 'Pending', bankSource: 'Independent bank transfer status page', note: 'Bank has not settled the transfer yet' } })
   await expect(page.getByRole('dialog')).not.toContainText('Đã chuyển thành công')
+
+  await page.getByRole('button', { name: 'Đối soát chuyển khoản' }).click()
+  await page.getByLabel(/Lần chuyển khoản/).selectOption('22')
+  await page.getByRole('button', { name: 'Tải chứng từ #55' }).click()
+  await page.getByLabel(/Kết quả đối soát/).selectOption('Success')
+  await page.getByLabel(/Nguồn đối soát ngân hàng/).fill('Independent bank settlement record')
+  await page.getByLabel(/Reference từ nguồn độc lập/).fill('BANK-REF-22')
+  await page.getByLabel(/Amount đã xác minh/).fill('125000')
+  await page.getByLabel(/Receiver ID đã xác minh/).fill('10')
+  await page.getByLabel(/Thời điểm giao dịch đã xác minh/).fill('2026-11-10T04:00')
+  await page.getByLabel(/nguồn ngân hàng độc lập/).check()
+  await page.getByLabel(/Ghi chú/).fill('Transfer matched independent bank record')
+  await page.getByRole('button', { name: 'Xác nhận và gửi' }).click()
+  await expect.poll(() => posts.length).toBe(6)
+  expect(posts[5]).toEqual({ path: '/api/normal-refunds/31/attempts/22/verify', body: {
+    version: 9, outcome: 'Success', bankSource: 'Independent bank settlement record', reference: 'BANK-REF-22',
+    amount: 125000, receiverId: 10, performedAt: '2026-11-10T04:00:00', note: 'Transfer matched independent bank record',
+  } })
 })

@@ -12,7 +12,7 @@ const makeRefund = (overrides = {}) => ({
   ...overrides,
 });
 
-async function setup(page, { refunds = [makeRefund()], post } = {}) {
+async function setup(page, { refunds = [makeRefund()], listStatus = 200, post } = {}) {
   await setupDefaultApiMocks(page, ['/api/classes']);
   await page.route((url) => new URL(url).pathname === '/api/members/101/subscriptions', (r) => r.fulfill({ status: 200, json: [] }));
   const state = { list: 0, posts: [], current: refunds };
@@ -20,7 +20,7 @@ async function setup(page, { refunds = [makeRefund()], post } = {}) {
   await page.route((url) => new URL(url).pathname === '/api/payment-resolutions', (r) => r.fulfill({ status: 200, json: [] }));
   await page.route((url) => new URL(url).pathname === '/api/normal-refunds', (r) => {
     state.list += 1;
-    return r.fulfill({ status: 200, json: state.current });
+    return r.fulfill({ status: listStatus, json: listStatus >= 400 ? { message: `HTTP ${listStatus}` } : state.current });
   });
   await page.route((url) => new URL(url).pathname === '/api/normal-refunds/31/receiver', async (route) => {
     state.posts.push(route.request().postDataJSON());
@@ -112,7 +112,15 @@ test.describe('Member khai tài khoản nhận hoàn tiền Normal (L16, phía M
     await expect(panel(page)).toHaveCount(0);
   });
 
-  test('REFUND-06: ở 375x667 không tràn ngang và các ô, nút cao tối thiểu 44px', async ({ page }) => {
+  for (const status of [403, 404]) {
+    test(`REFUND-06-${status}: lỗi ${status} khi tải danh sách được báo, không bị hiểu nhầm là danh sách rỗng`, async ({ page }) => {
+      await setup(page, { refunds: [], listStatus: status });
+      await navigateTo(page, '/member/invoices');
+      await expect(page.getByRole('alert')).toBeVisible({ timeout: 15000 });
+    });
+  }
+
+  test('REFUND-07: ở 375x667 không tràn ngang và các ô, nút cao tối thiểu 44px', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     await setup(page);
     await navigateTo(page, '/member/invoices');

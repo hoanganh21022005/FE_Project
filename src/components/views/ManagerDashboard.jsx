@@ -34,7 +34,7 @@ export function ManagerDashboard({ onNavigate }) {
   const gracePeriodCount = apiEnabled ? null : visibleMembers.filter(m => m.membershipStatus === 'grace_period').length;
 
   const successfulPayments = visiblePayments.filter(p => p.status === 'successful');
-  const totalRevenue = apiEnabled ? dashboard?.totalRevenue ?? null : successfulPayments.reduce((acc, p) => acc + p.amount, 0);
+  const netReceived = apiEnabled ? dashboard?.netReceived ?? null : null;
   const pendingPaymentsCount = apiEnabled ? null : visiblePayments.filter(p => p.status === 'pending').length;
 
   if (apiEnabled) {
@@ -45,7 +45,7 @@ export function ManagerDashboard({ onNavigate }) {
       { label: language === 'vi' ? 'Subscription đang hoạt động' : 'Active subscriptions', value: dashboard?.activeSubscriptions, icon: BadgeCheck },
     ];
     const secondaryMetrics = [
-      { label: language === 'vi' ? 'Tổng doanh thu' : 'Total revenue', value: dashboard?.totalRevenue, icon: WalletCards, money: true },
+      { label: language === 'vi' ? 'Tiền thực thu' : 'Net received', value: dashboard?.netReceived, icon: WalletCards, money: true },
       { label: language === 'vi' ? 'Hóa đơn đã thanh toán' : 'Paid invoices', value: dashboard?.totalInvoices, icon: ReceiptText },
     ];
 
@@ -141,8 +141,8 @@ export function ManagerDashboard({ onNavigate }) {
 
         {/* Revenue Card */}
         <StatCard
-          label={t('totalRevenue')}
-          value={totalRevenue === null ? '—' : formatCurrency(totalRevenue, language)}
+          label={language === 'vi' ? 'Tiền thực thu' : 'Net received'}
+          value={netReceived === null ? '—' : formatCurrency(netReceived, language)}
           valueClassName="text-brand-teal"
           scope={language === 'vi' ? 'Tổng tích lũy *' : 'All-time total *'}
           icon={<CreditCard className="w-4 h-4" />}

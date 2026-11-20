@@ -82,7 +82,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           { path: "/manager/payments", labelKey: "payments", icon: CreditCard },
           {
             path: "/manager/normal-refunds",
-            label: language === "vi" ? "Hoàn tiền Normal" : "Normal refunds",
+            label: language === "vi" ? "Hoàn tiền" : "Refunds",
             icon: ReceiptText,
           },
           { path: "/manager/reports", labelKey: "reports", icon: BarChart3 },

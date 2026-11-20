@@ -84,7 +84,26 @@ export const buildNormalRefundNoteRequest = (refund, input = {}) => {
   return { version: current.version, note: requiredText(input.note, 'note') }
 }
 
-const isValidDateTime = (value) => typeof value === 'string' && value.trim() !== '' && Number.isFinite(Date.parse(value))
+const normalizeLocalDateTime = (value) => {
+  if (typeof value !== 'string') return null
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.\d{1,9})?)?$/.exec(value)
+  if (!match) return null
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText = '00', fraction = ''] = match
+  const [year, month, day, hour, minute, second] = [yearText, monthText, dayText, hourText, minuteText, secondText].map(Number)
+  const date = new Date(0)
+  date.setUTCFullYear(year, month - 1, day)
+  date.setUTCHours(hour, minute, second, 0)
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day
+    || hour > 23 || minute > 59 || second > 59) return null
+  const normalizedFraction = fraction.replace(/0+$/, '')
+  return `${yearText}-${monthText}-${dayText}T${hourText}:${minuteText}:${secondText}${normalizedFraction}`
+}
+
+export const serializeNormalRefundPerformedAt = (value) => {
+  const normalized = normalizeLocalDateTime(value)
+  if (!normalized) throw new NormalRefundValidationError('performedAt must be a valid local date-time without a timezone.', 'NORMAL_REFUND_VERIFICATION_UNVERIFIED')
+  return normalized
+}
 
 export const buildNormalRefundVerificationRequest = (refund, attempt, input = {}) => {
   const current = requireRefund(refund, refund?.id)
@@ -132,7 +151,8 @@ export const buildNormalRefundVerificationRequest = (refund, attempt, input = {}
   const receiverId = Number(input.receiverId)
   if (!positiveInt32(receiverId)) throw new NormalRefundValidationError('An independently verified receiverId is required.', 'NORMAL_REFUND_RECEIVER_UNVERIFIED')
   const performedAt = requiredText(input.performedAt, 'performedAt')
-  if (!isValidDateTime(performedAt)) throw new NormalRefundValidationError('performedAt must be a valid date-time.', 'NORMAL_REFUND_VERIFICATION_UNVERIFIED')
+  const normalizedPerformedAt = normalizeLocalDateTime(performedAt)
+  if (!normalizedPerformedAt) throw new NormalRefundValidationError('performedAt must be a valid local date-time without a timezone.', 'NORMAL_REFUND_VERIFICATION_UNVERIFIED')
   if (amount !== current.amount) {
     throw new NormalRefundValidationError('Reconciled amount does not exactly match the Backend refund amount.', 'BANK_VERIFICATION_MISMATCH')
   }
@@ -152,7 +172,7 @@ export const buildNormalRefundVerificationRequest = (refund, attempt, input = {}
   if (!attempt.bankReference || reference !== attempt.bankReference) {
     throw new NormalRefundValidationError('Reconciled reference does not match the submitted transfer reference.', 'BANK_VERIFICATION_MISMATCH')
   }
-  if (!isValidDateTime(attempt.performedAt) || Date.parse(performedAt) !== Date.parse(attempt.performedAt)) {
+  if (!normalizeLocalDateTime(attempt.performedAt) || normalizedPerformedAt !== normalizeLocalDateTime(attempt.performedAt)) {
     throw new NormalRefundValidationError('Reconciled performedAt does not match the submitted transfer time.', 'BANK_VERIFICATION_MISMATCH')
   }
   return { version: current.version, outcome, bankSource, reference, amount, receiverId, performedAt, note }

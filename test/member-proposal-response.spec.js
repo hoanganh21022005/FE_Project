@@ -17,7 +17,7 @@ const makeProposal = (overrides = {}) => ({
   ...overrides,
 });
 
-async function setup(page, { proposals, respond } = {}) {
+async function setup(page, { proposals, listStatus = 200, respond } = {}) {
   await setupDefaultApiMocks(page, ['/api/classes', '/api/sessions', '/api/holidays/active']);
   const calls = { list: 0, respond: [] };
   let current = proposals ?? [makeProposal()];
@@ -29,7 +29,7 @@ async function setup(page, { proposals, respond } = {}) {
   }));
   await page.route((url) => new URL(url).pathname === '/api/classes/51/normal-proposals', (r) => {
     calls.list += 1;
-    return r.fulfill({ status: 200, json: current });
+    return r.fulfill({ status: listStatus, json: listStatus >= 400 ? { message: `HTTP ${listStatus}` } : current });
   });
   await page.route((url) => new URL(url).pathname === '/api/normal-proposals/25/respond', async (route) => {
     calls.respond.push(route.request().postDataJSON());
@@ -115,4 +115,12 @@ test.describe('Member phản hồi đề xuất dời khai giảng/chuyển lớ
     await page.waitForTimeout(800);
     await expect(panel(page)).toHaveCount(0);
   });
+
+  for (const status of [403, 404]) {
+    test(`PROP-06-${status}: lỗi ${status} khi tải đề xuất được báo, không bị hiểu nhầm là không có đề xuất`, async ({ page }) => {
+      await setup(page, { listStatus: status });
+      await navigateTo(page, '/member/enrollments');
+      await expect(page.getByRole('alert')).toBeVisible({ timeout: 15000 });
+    });
+  }
 });

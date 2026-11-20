@@ -90,9 +90,7 @@ export function NormalProposalResponsePanel({ enrollments, language, showToast, 
     let failure = null
     for (const result of results) {
       if (result.error) {
-        const status = Number(result.error?.status ?? result.error?.response?.status) || 0
-        // 403/404: lớp không có đề xuất dành cho Member này, không phải lỗi cần báo.
-        if (![403, 404].includes(status)) failure = failure || result.error
+        failure = failure || result.error
         continue
       }
       for (const proposal of result.list) {

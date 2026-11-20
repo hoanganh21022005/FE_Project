@@ -9,6 +9,7 @@ const dashboard = mapDashboard({
   totalClasses: 2,
   totalPackages: 3,
   totalRevenue: 0,
+  netReceived: 0,
   totalInvoices: 0,
   activeSubscriptions: 0,
   todaySessions: 4,
@@ -19,11 +20,13 @@ assert.deepEqual(dashboard, {
   totalClasses: 2,
   totalPackages: 3,
   totalRevenue: 0,
+  netReceived: 0,
   totalInvoices: 0,
   activeSubscriptions: 0,
   todaySessions: 4,
 })
 assert.equal(mapDashboard({ totalRevenue: null }).totalRevenue, null)
+assert.equal(mapDashboard({ netReceived: null }).netReceived, null)
 
 const dailyRevenue = mapRevenueReport({
   totalRevenue: '180000',

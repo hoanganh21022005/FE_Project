@@ -1,5 +1,5 @@
 export function revenueTimelineForDisplay(report) {
-  if (!report || report.totalTransactions === 0) return []
+  if (!report || (report.totalTransactions === 0 && !(Number(report.moneyRefunded) > 0))) return []
   return Array.isArray(report.timeline) ? report.timeline : []
 }
 

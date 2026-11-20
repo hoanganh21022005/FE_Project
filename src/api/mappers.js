@@ -432,6 +432,7 @@ export const mapDashboard = (item) => ({
   totalClasses: asNumber(item.totalClasses),
   totalPackages: asNumber(item.totalPackages),
   totalRevenue: asNumber(item.totalRevenue),
+  netReceived: asNumber(item.netReceived),
   totalInvoices: asNumber(item.totalInvoices),
   activeSubscriptions: asNumber(item.activeSubscriptions),
   todaySessions: asNumber(item.todaySessions),
@@ -465,6 +466,9 @@ export const mapRevenueReport = (item = {}) => ({
         period: entry?.period ?? null,
         revenue: asNumber(entry?.revenue),
         count: asNumber(entry?.count),
+        moneyReceived: asNumber(entry?.moneyReceived),
+        moneyRefunded: asNumber(entry?.moneyRefunded),
+        netReceived: asNumber(entry?.netReceived),
       }))
     : [],
 })

@@ -71,12 +71,8 @@ export function MemberRefundPanel({ language, showToast }) {
       setRefunds(list)
     } catch (error) {
       if (requestId !== requestRef.current) return
-      const status = Number(error?.status ?? error?.response?.status) || 0
       setRefunds([])
-      // 403/404: tài khoản không có hồ sơ hoàn tiền, không phải lỗi cần báo.
-      if (![403, 404].includes(status)) {
-        setLoadError(getErrorMessage(error, isVi ? "Không tải được các khoản hoàn tiền." : "Could not load refunds."))
-      }
+      setLoadError(getErrorMessage(error, isVi ? "Không tải được các khoản hoàn tiền." : "Could not load refunds."))
     } finally {
       if (requestId === requestRef.current) setLoading(false)
     }
