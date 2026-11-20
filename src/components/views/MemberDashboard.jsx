@@ -1266,12 +1266,11 @@ export function MemberDashboard() {
               <div className="grid grid-cols-1 gap-2">
                 <button
                   type="button"
-                  onClick={handleOpenQr}
-                  disabled={!apiEnabled}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-900 transition hover:border-brand-primary/40 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => navigate("/member/attendance")}
+                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-900 transition hover:border-brand-primary/40 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                 >
-                  <QrCode className="h-4 w-4 text-brand-primary" />
-                  {isVi ? "Mã QR Check-in" : "Check-in QR"}
+                  <UserRound className="h-4 w-4 text-brand-primary" />
+                  {isVi ? "Thẻ hội viên" : "Member card"}
                   <ArrowRight className="ml-auto h-4 w-4 text-slate-400" />
                 </button>
                 <button

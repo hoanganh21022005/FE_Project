@@ -339,7 +339,7 @@ export const translations = {
     // Member Check-in View (Điểm danh)
     checkinBrand: 'AVT SPORT · MEMBER',
     checkinPageTitle: 'Điểm danh',
-    checkinPageSubtitle: 'Đưa mã QR cho Coach hoặc lễ tân quét khi bạn đến buổi tập, đồng thời theo dõi lịch sử điểm danh.',
+    checkinPageSubtitle: 'Theo dõi lịch sử điểm danh của bạn.',
     checkinBtnRefresh: 'Tải lại dữ liệu',
     checkinRefreshShortcutHint: 'Làm mới dữ liệu (Phím R)',
     checkinUnlinkedAccount: 'Tài khoản chưa được liên kết với hồ sơ hội viên. Vui lòng liên hệ lễ tân để cập nhật hồ sơ.',
@@ -1139,7 +1139,7 @@ export const translations = {
     // Member Check-in View (Check-in)
     checkinBrand: 'AVT SPORT · MEMBER',
     checkinPageTitle: 'Check-in',
-    checkinPageSubtitle: 'Show your QR code to your coach or reception when you arrive, and track your attendance history.',
+    checkinPageSubtitle: 'View your attendance history.',
     checkinBtnRefresh: 'Refresh data',
     checkinRefreshShortcutHint: 'Refresh data (Key R)',
     checkinUnlinkedAccount: 'This account is not linked to a member profile. Please contact reception.',
