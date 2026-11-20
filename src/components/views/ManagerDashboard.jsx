@@ -227,12 +227,7 @@ export function ManagerDashboard({ onNavigate }) {
           </div>
 
           {/* Table Pagination Footer */}
-          <div className="flex items-center justify-between text-xs text-slate-500 mt-3 pt-3 border-t border-slate-200">
-            <span>
-              {language === 'vi'
-                ? `Hiển thị 1-${classes.length} của ${classes.length} bản ghi`
-                : `Showing 1-${classes.length} of ${classes.length} records`}
-            </span>
+          <div className="flex items-center justify-end text-xs text-slate-500 mt-3 pt-3 border-t border-slate-200">
             <div className="flex items-center gap-1 text-xs tabular-nums">
               <button disabled className="px-2 py-1 bg-slate-100 border border-slate-200 rounded opacity-50 cursor-not-allowed">
                 {language === 'vi' ? 'Trang trước' : 'Previous'}

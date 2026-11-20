@@ -320,6 +320,8 @@ export function checkSingleClassConflict(candidate, existing) {
             isMissingSchedule: false,
             conflictCoach: overlap.coachConflict,
             conflictRoom: overlap.roomConflict,
+            conflictCoachName: overlap.coachName,
+            conflictRoomName: overlap.roomName,
             conflictingClass: existing,
             conflictingClassName:
               existing.nameVi || existing.name || existing.code,
@@ -397,13 +399,34 @@ export function checkSingleClassConflict(candidate, existing) {
   const candDays = normalizeWeekdays(candidate.selectedDays)
   const existDays = normalizeWeekdays(existing.selectedDays)
   if (candDays.length === 0 || existDays.length === 0) {
+    const existingName = existing.nameVi || existing.name || existing.code || `Lớp #${existing.id}`
+    const coachLabel = candidate.coachName || existing.coachName || "đã phân công"
+    const roomLabel = candidate.roomVi || candidate.room || existing.roomVi || existing.room || "đã phân công"
+    const sharedResource = coachConflict && roomConflict
+      ? `huấn luyện viên ${coachLabel} và sân ${roomLabel}`
+      : coachConflict
+        ? `huấn luyện viên ${coachLabel}`
+        : `sân ${roomLabel}`
+    const candidateTime = `${candidate.startTime || "06:00"}–${candidate.endTime || "07:30"}`
+    const existingTime = `${existing.startTime || "06:00"}–${existing.endTime || "07:30"}`
+    const missingScheduleName = candDays.length === 0 && existDays.length === 0
+      ? `lớp mới và lớp “${existingName}”`
+      : candDays.length === 0
+        ? "lớp mới"
+        : `lớp “${existingName}”`
+
     return {
       hasConflict: false,
       hasMissingSchedule: true,
       status: "unverified",
       conflictingClass: existing,
-      message: "Chưa thể xác minh xung đột vì thiếu ngày học của một lớp.",
-      tooltip: "Thiếu dữ liệu ngày học để xác nhận lịch có trùng hay không.",
+      conflictCoach,
+      conflictRoom,
+      conflictCoachName: coachLabel,
+      conflictRoomName: roomLabel,
+      conflictingClassName: existingName,
+      message: `Khung giờ lớp mới (${candidateTime}) chồng lấn với lớp “${existingName}” (${existingTime}), dùng chung ${sharedResource}. Chưa xác nhận được trùng lịch vì thiếu ngày học của ${missingScheduleName}.`,
+      tooltip: `Khung giờ bị chồng lấn; cần bổ sung ngày học của ${missingScheduleName} để xác nhận trùng lịch.`,
     }
   }
 
@@ -440,6 +463,8 @@ export function checkSingleClassConflict(candidate, existing) {
     hasConflict: true,
     conflictCoach: coachConflict,
     conflictRoom: roomConflict,
+    conflictCoachName: coachName,
+    conflictRoomName: roomName,
     conflictingClass: existing,
     sharedDays,
     sharedDaysStr,

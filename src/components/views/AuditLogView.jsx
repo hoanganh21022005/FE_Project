@@ -200,13 +200,6 @@ export function AuditLogView() {
           </table>
         </div>
 
-        <div className="flex items-center justify-between text-xs text-slate-500 p-3 border-t border-slate-200 bg-slate-50">
-          <span>
-            {language === 'vi'
-              ? `Hiển thị 1-${filteredLogs.length} của ${filteredLogs.length} nhật ký`
-              : `Showing 1-${filteredLogs.length} of ${filteredLogs.length} log entries`}
-          </span>
-        </div>
       </div>
       )}
     </div>

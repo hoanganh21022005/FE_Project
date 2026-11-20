@@ -414,12 +414,7 @@ export function PaymentManagement() {
           )}
 
           {/* Table Pagination Footer */}
-          <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 p-4 border-t border-slate-200 bg-slate-50 gap-3">
-            <span>
-              {language === 'vi'
-                ? `Hiển thị ${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredList.length)} trên ${filteredList.length} giao dịch`
-                : `Showing ${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredList.length)} of ${filteredList.length} transactions`}
-            </span>
+          <div className="flex flex-col sm:flex-row items-center justify-end text-xs text-slate-500 p-4 border-t border-slate-200 bg-slate-50 gap-3">
             <div className="flex items-center gap-2 text-[11px] tabular-nums">
               <button
                 type="button"

@@ -15,9 +15,7 @@ import {
   getLocalWeekday,
   getNextValidUpcomingDate,
   getDefaultNormalMinCapacity,
-  isNormalClassApiCreationBlocked,
   loadPendingNormalClassCreation,
-  NORMAL_CLASS_API_BLOCKED_MESSAGE,
   parseLocalDate,
   validateNormalClassCapacity,
 } from "../../api/normalClassCreation.js"
@@ -47,6 +45,24 @@ import {
   formatNumber,
 } from "./new-class/classFormHelpers"
 import { DatePicker } from "./new-class/DatePicker"
+
+function formatConflictDetail(detail) {
+  let formatted = detail.trim()
+  const timeMatch = formatted.match(/từ\s+(\d{1,2}:\d{2}(?::\d{2})?)\s+đến\s+(\d{1,2}:\d{2}(?::\d{2})?)/i)
+
+  if (timeMatch) {
+    const start = timeMatch[1].slice(0, 5)
+    const end = timeMatch[2].slice(0, 5)
+    const slot = NORMAL_CLASS_TIME_SLOTS.find(
+      (entry) => entry.startTime === start && entry.endTime === end,
+    )
+    const slotLabel = slot ? `ca ${slot.slotNumber}` : `ca chưa xác định (${start}–${end})`
+    formatted = formatted.replace(timeMatch[0], slotLabel)
+  }
+
+  formatted = formatted.replace(/ngày\s+(\d{4}-\d{2}-\d{2})/i, (_, date) => `ngày ${formatViDate(date)}`)
+  return /[.!?]$/.test(formatted) ? formatted : `${formatted}.`
+}
 
 // -------------------------------------------------------------
 // MAIN MODAL COMPONENT (Match 100% Reference Screenshots)
@@ -122,7 +138,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const [perSessionPriceInput, setPerSessionPriceInput] = useState(
     () => Math.round(650000 / 12 / 1000) * 1000,
   )
-  const [status, setStatus] = useState("Open") // 'Open' = Mở đăng ký ngay, 'Draft' = Bản nháp
 
   const [touched, setTouched] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -637,8 +652,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     }
   }
 
-  // Handle Submit (Draft or Open)
-  const handleSubmit = async (targetStatus = status) => {
+  // Handle class creation
+  const handleSubmit = async () => {
     const pendingCreation = normalRequestIdStateRef.current
     if (apiEnabled && pendingCreation?.status === "outcome_unknown") {
       showToast(
@@ -683,11 +698,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
       } finally {
         setIsSubmitting(false)
       }
-      return
-    }
-
-    if (isNormalClassApiCreationBlocked(apiEnabled, targetStatus)) {
-      showToast(NORMAL_CLASS_API_BLOCKED_MESSAGE, "error")
       return
     }
 
@@ -756,7 +766,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         }
       }
     }
-    if (apiEnabled && targetStatus !== "Draft") {
+    if (apiEnabled) {
       const missing = []
       if (!targetSubjectId) missing.push(`không tìm thấy môn "${currentSport.name}" trong danh mục hệ thống`)
       else if (!Number.isFinite(normalPrice)) missing.push(`môn "${currentSport.name}" chưa có học phí hợp lệ`)
@@ -794,8 +804,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         minCapacity: Number(minCapacity),
         roomCapacity: selectedRoomObj?.capacity,
         requireRoomCapacity: apiEnabled,
-        status: targetStatus === "Draft" ? "draft" : "published",
-        apiStatus: targetStatus,
+        status: "published",
+        apiStatus: "Open",
         price: apiEnabled ? normalPrice : isFreeClass ? 0 : Number(price),
         isFree: apiEnabled ? false : isFreeClass,
         sessionCount: apiEnabled ? 12 : Number(sessionCount),
@@ -806,7 +816,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         daysOfWeek: selectedDays.map(Number),
       }
 
-      if (apiEnabled && targetStatus !== "Draft") {
+      if (apiEnabled) {
         if (!Number.isInteger(payload.roomId) || payload.roomId <= 0) {
           throw new Error("Thông tin sân/phòng đã chọn không hợp lệ.")
         }
@@ -858,9 +868,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         showToast(result.message || "Không thể tạo lớp học.", "error")
       } else {
         showToast(
-          targetStatus === "Draft"
-            ? "Đã lưu lớp học dạng bản nháp thành công!"
-            : "Đã tạo và mở đăng ký lớp học thành công!",
+          "Đã tạo và mở đăng ký lớp học thành công!",
           "success",
         )
         onClose()
@@ -1080,12 +1088,12 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
           </div>
 
           {/* CARD 3: LỊCH HỌC */}
-          <div className="bg-white rounded-2xl border border-stone-200/80 p-6 space-y-4 shadow-2xs">
+          <div className="bg-white rounded-2xl border border-stone-200/80 p-5 space-y-4 shadow-2xs">
             <h2 className="text-base font-bold text-stone-900">Lịch học</h2>
 
             {/* Lịch học hằng tuần */}
             <div>
-              <label className="text-sm font-medium text-stone-800 block mb-2">
+              <label className="text-xs font-semibold text-stone-700 block mb-2">
                 Lịch học
               </label>
               <div className="flex items-center gap-2 flex-wrap">
@@ -1114,10 +1122,10 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                           toggleWeekday(day.days[0])
                         }
                       }}
-                      className={`${apiEnabled ? "w-auto px-4" : "w-12"} h-10 text-sm rounded-xl transition-colors cursor-pointer text-center font-medium ${
+                      className={`${apiEnabled ? "w-auto px-3.5" : "w-11"} h-9 text-xs sm:text-sm rounded-lg transition-colors cursor-pointer text-center font-medium ${
                         isSelected
-                          ? "bg-[#18181B] text-white border border-stone-900"
-                          : "bg-white text-stone-800 border border-stone-200 hover:bg-stone-50"
+                          ? "bg-[#18181B] text-white border border-stone-900 shadow-2xs"
+                          : "bg-white text-stone-700 border border-stone-200 hover:bg-stone-50"
                       }`}
                     >
                       {day.label}
@@ -1128,10 +1136,10 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-stone-800 block mb-2">
+              <label className="text-xs font-semibold text-stone-700 block mb-2">
                 Ca học
               </label>
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {NORMAL_CLASS_TIME_SLOTS.map((slot) => {
                   const disabled = isOutdoorClass && !slot.outdoorAllowed
                   const selected = startTime === slot.startTime && endTime === slot.endTime
@@ -1146,23 +1154,25 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                         setStartTime(slot.startTime)
                         setEndTime(slot.endTime)
                       }}
-                      className={`aspect-square rounded-xl border px-2 py-3 text-center transition-colors focus:outline-none focus:ring-2 focus:ring-brand-primary/30 ${
+                      className={`rounded-lg border px-2.5 py-2 text-center transition-all focus:outline-none focus:ring-2 focus:ring-brand-primary/30 ${
                         disabled
                           ? "cursor-not-allowed border-stone-200 bg-stone-100 text-stone-400"
                           : selected
-                            ? "border-brand-primary bg-blue-50 text-brand-primary shadow-sm"
-                            : "border-stone-300 bg-white text-stone-700 hover:border-brand-primary hover:bg-blue-50/50"
+                            ? "border-brand-primary bg-blue-50/80 text-brand-primary ring-1 ring-brand-primary/20 shadow-2xs cursor-pointer"
+                            : "border-stone-200 bg-white text-stone-700 hover:border-brand-primary/60 hover:bg-blue-50/40 cursor-pointer"
                       }`}
                     >
-                      <span className="block text-sm font-bold">{slot.name}</span>
-                      <span className="mt-1 block text-xs leading-4">{slot.startTime}–{slot.endTime}</span>
+                      <span className="block text-xs font-bold">{slot.name}</span>
+                      <span className="mt-0.5 block text-[11px] tabular-nums opacity-85">{slot.startTime}–{slot.endTime}</span>
                     </button>
                   )
                 })}
               </div>
-              <div className="text-xs text-stone-500 mt-2">
-                Mỗi ca kéo dài 90 phút. {isOutdoorClass ? "Ca 3 và Ca 4 không áp dụng cho sân ngoài trời." : ""}
-              </div>
+              {isOutdoorClass && (
+                <div className="text-xs text-stone-500 mt-1.5">
+                  Ca 3 và Ca 4 không áp dụng cho sân ngoài trời.
+                </div>
+              )}
             </div>
 
             <div>
@@ -1179,9 +1189,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                 weekdays={selectedDays}
                 error={Boolean(dateError)}
               />
-              <div className="text-xs text-stone-500 mt-1">
-                {currentWeekdayLabel}
-              </div>
               {dateError && (
                 <p role="alert" className="text-xs text-orange-600 mt-1 font-medium flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -1496,35 +1503,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
               </label>}
             </div>
 
-            {/* Toggle Switch: Mở đăng ký ngay */}
-            <div className="flex items-center gap-3 pt-3 border-t border-stone-100">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={status === "Open"}
-                onClick={() => {
-                  setIsDirty(true)
-                  setStatus(status === "Open" ? "Draft" : "Open")
-                }}
-                className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors shrink-0 ${
-                  status === "Open" ? "bg-[#18181B]" : "bg-stone-300"
-                }`}
-              >
-                <div
-                  className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
-                    status === "Open" ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-              <div>
-                <div className="text-sm font-semibold text-stone-900">
-                  Mở đăng ký ngay
-                </div>
-                <div className="text-xs text-stone-500">
-                  Học viên thấy và đăng ký được sau khi tạo lớp.
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* CARD 5: TÓM TẮT */}
@@ -1624,18 +1602,26 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
               <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 space-y-1.5 shadow-2xs">
                 <div className="flex items-center gap-1.5 font-bold text-rose-800">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>Xung đột lịch dạy hoặc sân tập</span>
+                  <span>Lớp mới bị trùng lịch</span>
                 </div>
-                <p className="text-xs text-rose-700 leading-relaxed font-medium">
-                  {conflict.message}
-                </p>
+                <ol className="list-decimal space-y-1 pl-5 text-xs text-rose-700 leading-relaxed font-medium">
+                  {String(conflict.message || "Lịch học bị trùng với một lớp hiện có.")
+                    .split(/\s*\|\s*|\r?\n/)
+                    .filter((detail) => detail.trim())
+                    .map((detail, index) => (
+                      <li key={`${index}-${detail}`}>
+                        <strong>{formatConflictDetail(detail)}</strong>
+                      </li>
+                    ))}
+                </ol>
                 <p className="text-[11px] text-rose-600 italic">
                   Vui lòng thay đổi khung giờ, ngày học hoặc phân công HLV/sân
                   tập khác để tiếp tục.
                 </p>
               </div>
             ) : conflict?.hasMissingSchedule ? (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+                <p className="font-semibold">Khung giờ chồng lấn — chưa xác nhận trùng ngày</p>
                 {conflict.message || "Chưa thể xác minh xung đột vì thiếu ngày học."}
               </div>
             ) : (
@@ -1659,27 +1645,11 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             Hủy
           </button>
 
-          {isNormalClassApiCreationBlocked(apiEnabled, "Draft") && (
-            <p role="alert" className="mr-auto max-w-xl text-left text-xs text-amber-800">
-              {NORMAL_CLASS_API_BLOCKED_MESSAGE}
-            </p>
-          )}
-
           <button
             type="button"
-            onClick={() => handleSubmit("Draft")}
-            disabled={isSubmitting || conflict?.hasConflict || conflict?.hasMissingSchedule || isNormalClassApiCreationBlocked(apiEnabled, "Draft")}
-            className="h-10 px-5 rounded-lg border border-stone-200 hover:bg-stone-50 text-stone-700 text-sm font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            title={conflict?.hasConflict ? conflict.message : "Lưu bản nháp"}
-          >
-            {isSubmitting ? "Đang lưu..." : "Lưu nháp"}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSubmit(status)}
+            onClick={() => handleSubmit()}
             disabled={
-              isSubmitting || normalCreationRecovery?.status === "outcome_unknown" || (!["created_unverified", "post_unconfirmed"].includes(normalCreationRecovery?.status) && (conflict?.hasConflict || conflict?.hasMissingSchedule || isFirstSessionInPast || (apiEnabled && !startDateMatchesSchedule) || isNormalClassApiCreationBlocked(apiEnabled)))
+              isSubmitting || normalCreationRecovery?.status === "outcome_unknown" || (!["created_unverified", "post_unconfirmed"].includes(normalCreationRecovery?.status) && (conflict?.hasConflict || conflict?.hasMissingSchedule || isFirstSessionInPast || (apiEnabled && !startDateMatchesSchedule)))
             }
             className="h-10 px-6 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer flex items-center gap-2"
             title={

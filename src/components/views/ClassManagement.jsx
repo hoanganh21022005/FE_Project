@@ -6,6 +6,7 @@ import { getSessions } from "../../api/managerApi.js"
 import { inferNormalClassWeekdaysFromSessions } from "../../api/mappers.js"
 import { formatDate } from "../../locales/translations"
 import { NewClassModal } from "../modals/NewClassModal"
+import { NORMAL_CLASS_TIME_SLOTS } from "../modals/new-class/classFormConstants.js"
 import { ClassEnrollmentsModal } from "../modals/ClassEnrollmentsModal"
 import { ClassDetailDrawer } from "../classes/ClassDetailDrawer"
 import { ImportClassesModal } from "../modals/ImportClassesModal"
@@ -136,6 +137,19 @@ function formatScheduleTime(cls, apiMode = false) {
   const end = (cls.endTime && String(cls.endTime).trim()) || defaultEnd
 
   return `${start} - ${end}`
+}
+
+function formatScheduleSlot(cls, apiMode = false) {
+  if (apiMode && (!cls?.startTime || !cls?.endTime)) return "—"
+  if (!cls) return NORMAL_CLASS_TIME_SLOTS[0].name
+
+  const start = String(cls.startTime || "06:00").trim().slice(0, 5)
+  const end = String(cls.endTime || "07:30").trim().slice(0, 5)
+  const slot = NORMAL_CLASS_TIME_SLOTS.find(
+    (entry) => entry.startTime === start && entry.endTime === end,
+  )
+
+  return slot?.name || "Ca chưa xác định"
 }
 
 function SortIcon({ sortKey, currentConfig }) {
@@ -1019,7 +1033,8 @@ function EditClassModal({
             </div>
           )}
           {apiMode && conflict?.hasMissingSchedule && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900 space-y-1">
+              <p className="font-semibold">Khung giờ chồng lấn — chưa xác nhận trùng ngày</p>
               {conflict.message || "Chưa thể xác minh xung đột vì thiếu ngày học."}
             </div>
           )}
@@ -1341,7 +1356,7 @@ export function ClassManagement() {
   const [selectedClassIds, setSelectedClassIds] = useState([])
 
   // Filters state
-  const [activeTab, setActiveTab] = useState("all") // 'all' | 'open' | 'ongoing' | 'draft' | 'closed' | 'cancelled'
+  const [activeTab, setActiveTab] = useState("all") // 'all' | 'open' | 'ongoing' | 'closed' | 'cancelled'
   const [searchTerm, setSearchTerm] = useState("")
   const [filterSport, setFilterSport] = useState("all")
   const [filterCoach, setFilterCoach] = useState("all")
@@ -1413,7 +1428,6 @@ export function ClassManagement() {
       all: list.length,
       open: 0,
       ongoing: 0,
-      draft: 0,
       closed: 0,
       cancelled: 0,
     }
@@ -1972,7 +1986,6 @@ export function ClassManagement() {
             count: counts.open,
           },
           { id: "ongoing", label: "Đang diễn ra", count: counts.ongoing },
-          { id: "draft", label: "Bản nháp", count: counts.draft },
           { id: "closed", label: "Đã kết thúc", count: counts.closed },
           { id: "cancelled", label: "Đã hủy", count: counts.cancelled },
         ].map((tab) => {
@@ -2616,48 +2629,54 @@ export function ClassManagement() {
                           {/* Cột 2: Ngày khai giảng cho Manager */}
                           {columnVisibility.schedule !== false && (
                             <td className="py-4 px-4 align-middle">
-                              <div className="space-y-1">
+                              <div className="space-y-1.5">
+                                {isManager ? (
+                                  <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-900 tabular-nums">
+                                    <Calendar className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+                                    <span>{formatViDate(cls.startDate || cls.date)}</span>
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-stone-500">
+                                    {isOngoing && rawClassType === "normal" ? (
+                                      <span className="text-sm font-semibold text-emerald-700">Đang diễn ra</span>
+                                    ) : isOngoing ? (
+                                      <span className="text-emerald-700 font-medium">{`Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`}</span>
+                                    ) : (
+                                      <span>
+                                        {rawClassType !== "normal" && <>Khai giảng: </>}
+                                        <span className="text-sm font-semibold text-stone-900">{formatViDate(cls.startDate || cls.date)}</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                                 {(!isManager || (apiEnabled && rawClassType === "normal")) && (
                                   <div className="flex items-center gap-1 flex-wrap">
-                                  {getWeekdaysArray(
-                                    displayWeekdays,
-                                    cls.category,
-                                    apiEnabled,
-                                  ).map((day) => (
-                                    <span
-                                      key={day}
-                                      className="px-1.5 py-0.5 rounded text-[10.5px] font-bold bg-stone-100 text-stone-700 border border-stone-200/80 tracking-tight"
-                                    >
-                                      {day}
-                                    </span>
-                                  ))}
-                                  {(!apiEnabled || (displaySchedule.startTime && displaySchedule.endTime)) && (
-                                    <span
-                                      className="text-xs font-semibold text-stone-800 ml-0.5"
-                                      title={`Khung giờ học: ${formatScheduleTime(displaySchedule, apiEnabled)}`}
-                                    >
-                                      {formatScheduleTime(displaySchedule, apiEnabled)}
-                                    </span>
-                                  )}
-                                  {apiEnabled && rawClassType === "normal" && displayWeekdays.length === 0 && (
-                                    <span className="text-xs text-amber-700">Chưa xác định lịch</span>
-                                  )}
-                                </div>
+                                    {getWeekdaysArray(
+                                      displayWeekdays,
+                                      cls.category,
+                                      apiEnabled,
+                                    ).map((day) => (
+                                      <span
+                                        key={day}
+                                        className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/80 tracking-tight"
+                                      >
+                                        {day}
+                                      </span>
+                                    ))}
+                                    {(!apiEnabled || (displaySchedule.startTime && displaySchedule.endTime)) && (
+                                      <span
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200/80"
+                                        title={`Khung giờ học: ${formatScheduleTime(displaySchedule, apiEnabled)}`}
+                                      >
+                                        <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                        {formatScheduleSlot(displaySchedule, apiEnabled)}
+                                      </span>
+                                    )}
+                                    {apiEnabled && rawClassType === "normal" && displayWeekdays.length === 0 && (
+                                      <span className="text-xs text-amber-700">Chưa xác định lịch</span>
+                                    )}
+                                  </div>
                                 )}
-                                <div className={isManager ? "text-sm font-semibold text-stone-900" : "text-xs text-stone-500"}>
-                                  {isManager ? (
-                                    formatViDate(cls.startDate || cls.date)
-                                  ) : isOngoing && rawClassType === "normal" ? (
-                                    <span className="text-sm font-semibold text-emerald-700">Đang diễn ra</span>
-                                  ) : isOngoing ? (
-                                    <span className="text-emerald-700 font-medium">{`Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`}</span>
-                                  ) : (
-                                    <span>
-                                      {rawClassType !== "normal" && <>Khai giảng: </>}
-                                      <span className="text-sm font-semibold text-stone-900">{formatViDate(cls.startDate || cls.date)}</span>
-                                    </span>
-                                  )}
-                                </div>
                               </div>
                             </td>
                           )}
@@ -2869,21 +2888,7 @@ export function ClassManagement() {
               </div>
 
               {/* Bảng footer: Phân trang chuẩn & bộ chọn số dòng */}
-              <div className="px-5 py-3.5 border-t border-[#F1F3F5] bg-[#FBFBFC] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-500">
-                <div className="flex items-center gap-3">
-                  <span>
-                    Hiển thị{" "}
-                    <strong className="font-semibold text-stone-800">
-                      {totalItems > 0 ? startIdx + 1 : 0} - {endIdx}
-                    </strong>{" "}
-                    trên tổng số{" "}
-                    <strong className="font-semibold text-stone-800">
-                      {totalItems}
-                    </strong>{" "}
-                    lớp học
-                  </span>
-                </div>
-
+              <div className="px-5 py-3.5 border-t border-[#F1F3F5] bg-[#FBFBFC] flex flex-col sm:flex-row items-center justify-end gap-3 text-xs text-stone-500">
                 <div className="flex items-center gap-4">
                   {/* Bộ chọn số dòng trên 1 trang */}
                   <div className="flex items-center gap-2">

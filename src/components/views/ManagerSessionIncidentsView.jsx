@@ -739,12 +739,7 @@ function SessionIncidentsView() {
 
             {/* Pagination Controls */}
             {!loading && filteredSessions.length > pageSize && (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xs">
-                <span className="text-xs text-slate-500">
-                  {vi
-                    ? `Hiển thị ${(currentPage - 1) * pageSize + 1} - ${Math.min(currentPage * pageSize, filteredSessions.length)} trên tổng số ${filteredSessions.length} buổi`
-                    : `Showing ${(currentPage - 1) * pageSize + 1} - ${Math.min(currentPage * pageSize, filteredSessions.length)} of ${filteredSessions.length} sessions`}
-                </span>
+              <div className="flex flex-wrap items-center justify-end gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xs">
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"

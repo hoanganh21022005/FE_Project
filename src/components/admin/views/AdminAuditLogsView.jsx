@@ -495,13 +495,7 @@ export function AdminAuditLogsView() {
           )}
 
           {/* Phân trang server: kích thước 20, Trang sau chỉ bật khi trả về đúng 20 */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3.5 py-2.5 border-t border-border-color bg-bg-secondary/50">
-            <span className="text-xs leading-4 text-text-secondary tabular-nums">
-              {getAdminText(language, "audit.pageIndicator", {
-                page,
-                count: filteredLogs.length,
-              })}
-            </span>
+          <div className="flex flex-col sm:flex-row items-center justify-end gap-3 px-3.5 py-2.5 border-t border-border-color bg-bg-secondary/50">
             <div className="flex items-center gap-2">
               <button
                 type="button"

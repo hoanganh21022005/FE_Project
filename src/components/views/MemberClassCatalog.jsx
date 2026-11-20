@@ -1466,18 +1466,7 @@ function LegacyMemberClassCatalog() {
 
           {/* Pagination Controls on Dark Theme */}
           {totalPages > 1 && (
-            <div className="bg-[#303B58] border border-slate-800 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
-              <div>
-                {language === 'vi' ? (
-                  <>
-                    Hiển thị <strong className="text-white font-bold tabular-nums">{(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredAndSortedClasses.length)}</strong> trên tổng số <strong className="text-white font-bold tabular-nums">{filteredAndSortedClasses.length}</strong> lớp học
-                  </>
-                ) : (
-                  <>
-                    Showing <strong className="text-white font-bold tabular-nums">{(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredAndSortedClasses.length)}</strong> of <strong className="text-white font-bold tabular-nums">{filteredAndSortedClasses.length}</strong> classes
-                  </>
-                )}
-              </div>
+            <div className="bg-[#303B58] border border-slate-800 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-end gap-3 text-xs text-slate-400">
 
               <div className="flex items-center gap-1.5">
                 <button
