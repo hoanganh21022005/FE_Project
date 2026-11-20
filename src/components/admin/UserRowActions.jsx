@@ -1,7 +1,10 @@
-import React, { useEffect, useRef, useState } from "react"
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Eye, KeyRound, MoreVertical, PenLine, ShieldCheck, UserCheck } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext.jsx"
 import { getAdminText } from "./adminI18n.js"
+
+const MENU_WIDTH = 208 // w-52
 
 export function UserRowActions({
   user,
@@ -14,8 +17,35 @@ export function UserRowActions({
 }) {
   const { language } = useSCMS()
   const [open, setOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
   const menuRef = useRef(null)
   const buttonRef = useRef(null)
+
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) return
+    const updatePosition = () => {
+      if (!buttonRef.current) return
+      const rect = buttonRef.current.getBoundingClientRect()
+      const menuHeight = menuRef.current?.offsetHeight || 240
+      const spaceBelow = window.innerHeight - rect.bottom
+      const openAbove = spaceBelow < menuHeight + 12 && rect.top > menuHeight + 12
+      const top = openAbove
+        ? Math.max(8, rect.top - menuHeight - 4)
+        : Math.min(window.innerHeight - menuHeight - 8, rect.bottom + 4)
+      const left = Math.max(
+        8,
+        Math.min(window.innerWidth - MENU_WIDTH - 8, rect.right - MENU_WIDTH),
+      )
+      setMenuPos({ top, left })
+    }
+    updatePosition()
+    window.addEventListener("scroll", updatePosition, true)
+    window.addEventListener("resize", updatePosition)
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true)
+      window.removeEventListener("resize", updatePosition)
+    }
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -110,13 +140,15 @@ export function UserRowActions({
           <MoreVertical className="w-5 h-5" />
         </button>
 
-        {open && (
-          <div
-            ref={menuRef}
-            role="menu"
-            aria-orientation="vertical"
-            className="absolute right-0 top-full mt-1 z-30 w-52 rounded-lg border border-border-color bg-bg-card p-1.5 shadow-lg text-text-primary animate-in fade-in duration-100"
-          >
+        {open &&
+          createPortal(
+            <div
+              ref={menuRef}
+              role="menu"
+              aria-orientation="vertical"
+              style={{ top: `${menuPos.top}px`, left: `${menuPos.left}px` }}
+              className="fixed z-50 w-52 rounded-lg border border-border-color bg-bg-card p-1.5 shadow-lg text-text-primary animate-in fade-in duration-100"
+            >
             {onViewDetails && (
               <button
                 type="button"
@@ -199,7 +231,8 @@ export function UserRowActions({
               <KeyRound className="w-4 h-4 text-status-warning shrink-0" />
               <span>{getAdminText(language, "rowActions.reissuePwd")}</span>
             </button>
-          </div>
+          </div>,
+          document.body,
         )}
       </div>
     </div>

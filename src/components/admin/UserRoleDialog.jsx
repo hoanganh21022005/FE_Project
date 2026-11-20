@@ -194,7 +194,7 @@ export function UserRoleDialog({
                 const label = getAdminRoleLabel(r.name, language)
                 return (
                   <option key={r.id} value={r.id}>
-                    {label !== r.name ? `${label} (${r.name})` : r.name}
+                    {label}
                   </option>
                 )
               })}
