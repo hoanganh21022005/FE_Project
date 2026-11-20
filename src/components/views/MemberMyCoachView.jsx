@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { formatAdvancedStatus } from "../../utils/status"
 import {
   UserCheck,
   Mail,
@@ -57,27 +58,6 @@ const formatProposalDeadline = (value, isVi) => {
     timeStyle: "short",
     timeZone: "Asia/Ho_Chi_Minh",
   })
-}
-
-const formatAdvancedStatus = (status, isVi) => {
-  const key = String(status || "").trim().toLowerCase()
-  const labels = {
-    requested: isVi ? "Chờ Coach duyệt" : "Requested",
-    accepted: isVi ? "Coach đã nhận" : "Accepted",
-    invoiced: isVi ? "Chờ thanh toán" : "Invoiced",
-    expired: isVi ? "Đã hết hạn" : "Expired",
-    pending: isVi ? "Chờ xác nhận" : "Pending",
-    scheduled: isVi ? "Đã lên lịch" : "Scheduled",
-    completed: isVi ? "Đã hoàn thành" : "Completed",
-    active: isVi ? "Đang hoạt động" : "Active",
-    rejected: isVi ? "Đã từ chối" : "Rejected",
-    declined: isVi ? "Đã từ chối" : "Declined",
-    cancelled: isVi ? "Đã hủy" : "Cancelled",
-    canceled: isVi ? "Đã hủy" : "Cancelled",
-    frozen: isVi ? "Đang bảo lưu" : "Frozen",
-    alternative_proposed: isVi ? "Đề xuất HLV thay thế" : "Alternative Coach Proposed",
-  }
-  return labels[key] || status || (isVi ? "Chờ xác nhận" : "Pending")
 }
 
 export function MemberMyCoachView() {

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import { CoachStatusBadge } from "../coach/StatusBadge"
+import { formatAdvancedStatus } from "../../utils/status"
 import { formatMemberCode } from "../../utils/formatMember"
 import { formatDate } from "../../utils/datetime"
 import { memberApi } from "../../api/memberApi"
@@ -879,7 +880,7 @@ export function CoachAssignedMembersView() {
                 const statusLabel = normalizedStatus === "pending" ? (language === "vi" ? "Đang chờ" : "Pending")
                   : normalizedStatus === "accepted" ? (language === "vi" ? "Đã xác nhận" : "Accepted")
                     : normalizedStatus === "rejected" ? (language === "vi" ? "Đã từ chối" : "Rejected")
-                      : normalizedStatus === "expired" ? (language === "vi" ? "Đã hết hạn" : "Expired") : status
+                      : normalizedStatus === "expired" ? (language === "vi" ? "Đã hết hạn" : "Expired") : formatAdvancedStatus(status, language === "vi")
                 return (
                   <article key={proposal.id} className="grid gap-2 py-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center">
                     <div className="space-y-1">
@@ -1301,7 +1302,7 @@ export function CoachAssignedMembersView() {
                         <>
                           <div className="space-y-1 text-sm leading-5">
                             <div className="text-text-primary font-medium">
-                              {language === "vi" ? `Gói ${formatPkgName(activeSelectedPkg)} còn ${activeSelectedPkg.remainingCredit ?? 0} buổi. Đề xuất Pending không giữ sân hoặc trừ credit.` : `${formatPkgName(activeSelectedPkg)} has ${activeSelectedPkg.remainingCredit ?? 0} credits. A Pending proposal reserves no room and consumes no credit.`}
+                              {language === "vi" ? `Gói ${formatPkgName(activeSelectedPkg)} còn ${activeSelectedPkg.remainingCredit ?? 0} buổi. Đề xuất đang chờ không giữ sân hoặc trừ credit.` : `${formatPkgName(activeSelectedPkg)} has ${activeSelectedPkg.remainingCredit ?? 0} credits. A Pending proposal reserves no room and consumes no credit.`}
                             </div>
                             {bookablePackages.length > 1 && (
                               <div className="flex items-center gap-2">
