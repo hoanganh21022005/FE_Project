@@ -5,10 +5,8 @@ import {
   AlertCircle,
   CalendarDays,
   CheckCircle2,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
   ClipboardCheck,
   ClipboardList,
   Copy,
@@ -28,7 +26,6 @@ import {
 } from "../../api/memberPortalApi"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import {
-  CHECKIN_WINDOW_MINUTES_BEFORE,
   DEFAULT_NORMAL_REQUIRED_SESSIONS,
   normalizeScheduleSession,
   toDateDdMmYyyy,
@@ -39,12 +36,6 @@ import {
 // ============================================================================
 // HẰNG SỐ CẤU HÌNH NGHIỆP VỤ
 // ============================================================================
-// [Cần xác nhận #1] Tab "Sắp tới" hiển thị các buổi hợp lệ từ ngày mai trở đi trong vòng 14 ngày
-export const UPCOMING_SCHEDULE_LOOKAHEAD_DAYS = 14
-
-// [Cần xác nhận #2] Khung điểm danh: từ 30 phút trước giờ bắt đầu đến hết giờ kết thúc (đồng bộ với MemberScheduleView)
-export const CHECKIN_OPEN_MINUTES_BEFORE = CHECKIN_WINDOW_MINUTES_BEFORE || 30
-
 // [Cần xác nhận #7] Số bản ghi lịch sử điểm danh mỗi trang trước khi bấm "Tải thêm"
 export const HISTORY_PAGE_SIZE = 10
 
@@ -95,13 +86,6 @@ const isSessionCancelled = (session) => {
     raw === "canceled" ||
     session?.centerInvalidated === true
   )
-}
-
-const isSessionInCheckinWindow = (session, nowMs) => {
-  if (!session || isSessionCancelled(session)) return false
-  if (session.startMs === null || session.endMs === null) return false
-  const openMs = session.startMs - CHECKIN_OPEN_MINUTES_BEFORE * 60 * 1000
-  return nowMs >= openMs && nowMs <= session.endMs
 }
 
 // Chuẩn hóa mã trạng thái điểm danh từ API (Mục 3.4)
@@ -401,15 +385,12 @@ export function MemberCheckinView() {
   const [activeEnrollmentsCount, setActiveEnrollmentsCount] = useState(0)
   const [allNormalizedSessions, setAllNormalizedSessions] = useState([])
   const [attendanceRows, setAttendanceRows] = useState([])
-  const [scheduleLoading, setScheduleLoading] = useState(true)
+  const [sessionsLoading, setSessionsLoading] = useState(true)
   const [historyLoading, setHistoryLoading] = useState(true)
-  const [scheduleError, setScheduleError] = useState("")
   const [historyError, setHistoryError] = useState("")
-  const [scheduleFailed, setScheduleFailed] = useState(false)
   const [historyFailed, setHistoryFailed] = useState(false)
 
-  // Tab Lịch trình & Bộ lọc Lịch sử
-  const [scheduleTab, setScheduleTab] = useState("today")
+  // Bộ lọc lịch sử điểm danh
   const [historySearch, setHistorySearch] = useState("")
   const [historyStatus, setHistoryStatus] = useState("all")
   const [historyDateFrom, setHistoryDateFrom] = useState("")
@@ -417,11 +398,8 @@ export function MemberCheckinView() {
   const [visibleHistoryCount, setVisibleHistoryCount] =
     useState(HISTORY_PAGE_SIZE)
 
-  // Hộp trợ giúp, Hướng dẫn 3 bước và Ngăn "Báo thiếu buổi tập"
+  // Hộp trợ giúp và ngăn "Báo thiếu buổi tập"
   const [showHelpPopover, setShowHelpPopover] = useState(false)
-  const [showHowToSteps, setShowHowToSteps] = useState(() =>
-    typeof window === "undefined" ? true : window.innerWidth >= 640,
-  )
   const [showDisputeDrawer, setShowDisputeDrawer] = useState(false)
   const [selectedDisputeSessionKey, setSelectedDisputeSessionKey] = useState("")
   const [disputeNote, setDisputeNote] = useState("")
@@ -436,18 +414,14 @@ export function MemberCheckinView() {
   const mountedRef = useRef(true)
 
   // Tải danh sách khóa học & toàn bộ buổi học (đồng bộ nguồn dữ liệu và quy tắc buổi hợp lệ với MemberScheduleView)
-  const refreshSchedule = useCallback(async () => {
+  const refreshSessionContext = useCallback(async () => {
     if (!apiEnabled || !validMember) {
-      setScheduleLoading(false)
-      setScheduleError("")
-      setScheduleFailed(false)
+      setSessionsLoading(false)
       setActiveEnrollmentsCount(0)
       setAllNormalizedSessions([])
       return
     }
-    setScheduleLoading(true)
-    setScheduleError("")
-    setScheduleFailed(false)
+    setSessionsLoading(true)
     try {
       const [enrollments, globalSessions] = await Promise.all([
         getMemberClasses(memberId),
@@ -579,11 +553,9 @@ export function MemberCheckinView() {
       if (mountedRef.current) {
         setActiveEnrollmentsCount(0)
         setAllNormalizedSessions([])
-        setScheduleError(t("checkinScheduleLoadError"))
-        setScheduleFailed(true)
       }
     } finally {
-      if (mountedRef.current) setScheduleLoading(false)
+      if (mountedRef.current) setSessionsLoading(false)
     }
   }, [apiEnabled, memberId, validMember, t])
 
@@ -626,16 +598,12 @@ export function MemberCheckinView() {
   }, [apiEnabled, memberId, validMember, t])
 
   const refreshPage = useCallback(
-    () => Promise.all([refreshSchedule(), refreshHistory()]),
-    [refreshSchedule, refreshHistory],
+    () => Promise.all([refreshSessionContext(), refreshHistory()]),
+    [refreshSessionContext, refreshHistory],
   )
 
   // Tính toán các nhóm buổi học theo múi giờ Asia/Ho_Chi_Minh
   const todayIso = getTodayIsoInVn(clockNow)
-  const maxUpcomingIso = useMemo(
-    () => addDaysToIsoDate(todayIso, UPCOMING_SCHEDULE_LOOKAHEAD_DAYS),
-    [todayIso],
-  )
   const minDisputeIso = useMemo(
     () => addDaysToIsoDate(todayIso, -DISPUTE_PAST_SESSIONS_DAYS),
     [todayIso],
@@ -653,44 +621,6 @@ export function MemberCheckinView() {
     }
     return { byId, byClassAndDate }
   }, [allNormalizedSessions])
-
-  // Tất cả buổi học hôm nay
-  const todayAllSessions = useMemo(
-    () => allNormalizedSessions.filter((s) => s.sessionDate === todayIso),
-    [allNormalizedSessions, todayIso],
-  )
-
-  // Buổi hợp lệ hôm nay (không tính buổi hủy; buổi bù tính như buổi thường)
-  const todayValidSessions = useMemo(
-    () => todayAllSessions.filter((s) => !isSessionCancelled(s)),
-    [todayAllSessions],
-  )
-
-  // Buổi hợp lệ sắp tới: từ ngày mai trở đi, trong vòng 14 ngày, không tính buổi hủy
-  const upcomingValidSessions = useMemo(
-    () =>
-      allNormalizedSessions.filter(
-        (s) =>
-          !isSessionCancelled(s) &&
-          s.sessionDate > todayIso &&
-          s.sessionDate <= maxUpcomingIso,
-      ),
-    [allNormalizedSessions, todayIso, maxUpcomingIso],
-  )
-
-  // Buổi hợp lệ tiếp theo gần nhất (cho card Lịch trình học tập khi hôm nay không có buổi)
-  const nextFutureValidSession = useMemo(
-    () =>
-      allNormalizedSessions.find(
-        (s) =>
-          !isSessionCancelled(s) &&
-          (s.sessionDate > todayIso ||
-            (s.sessionDate === todayIso &&
-              s.endMs !== null &&
-              s.endMs >= clockNow)),
-      ) || null,
-    [allNormalizedSessions, todayIso, clockNow],
-  )
 
   const reloadAll = useCallback(() => {
     refreshPage()
@@ -1064,185 +994,24 @@ export function MemberCheckinView() {
     }
   }
 
-  // Render dòng buổi học trong card Lịch trình học tập (Mục 4.3)
-  const renderScheduleRowItem = (session, index) => {
-    const record = findSessionAttendanceRecord(session, attendanceRows)
-    const cancelled = isSessionCancelled(session)
-    const inWindow = isSessionInCheckinWindow(session, clockNow)
-    const recordStateKey = record
-      ? normalizeAttendanceStateKey(record.state)
-      : null
-    const isCheckedIn =
-      recordStateKey === "present" || recordStateKey === "late"
-    const isOngoing =
-      !cancelled &&
-      session.startMs !== null &&
-      session.endMs !== null &&
-      clockNow >= session.startMs &&
-      clockNow <= session.endMs
-
-    let statusBadge = {
-      icon: "○",
-      label: t("checkinStatusUpcoming"),
-      className: "bg-slate-100 text-slate-800 border-slate-300",
-    }
-    if (cancelled) {
-      statusBadge = {
-        icon: "✕",
-        label: t("checkinStatusCancelled"),
-        className: "bg-rose-50 text-rose-800 border-rose-200",
-      }
-    } else if (isCheckedIn) {
-      statusBadge = {
-        icon: "✓",
-        label: t("checkinStatusCheckedIn"),
-        className: "bg-emerald-50 text-emerald-800 border-emerald-200",
-      }
-    } else if (isOngoing) {
-      statusBadge = {
-        icon: "●",
-        label: t("checkinStatusOngoing"),
-        className: "bg-blue-50 text-blue-800 border-blue-200",
-      }
-    }
-
-    const timeRange =
-      session.startTime !== "—" && session.endTime !== "—"
-        ? `${session.startTime}–${session.endTime}`
-        : session.startTime
-    const sessionTitle =
-      session.className ||
-      (session.isPrivate
-        ? t("schedulePtDefaultTitle")
-        : session.subjectName || `#${session.classId}`)
-
-    return (
-      <article
-        key={session.id || `${session.classId}-${session.sessionDate}-${index}`}
-        className={`rounded-xl border p-3.5 transition-colors flex flex-wrap items-center justify-between gap-3 ${
-          inWindow && !isCheckedIn
-            ? "border-emerald-300 bg-emerald-50/50 ring-1 ring-emerald-200"
-            : cancelled
-              ? "border-slate-200 bg-slate-50/70 text-slate-400"
-              : "border-slate-200/90 bg-slate-50/40"
-        }`}
-      >
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-blue-800">
-              {session.subjectName || "AVT SPORT"}
-            </span>
-            {session.isPrivate && (
-              <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-bold text-slate-700">
-                {t("checkinPtSessionBadge")}
-              </span>
-            )}
-            {inWindow && !isCheckedIn && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-900">
-                <span aria-hidden="true">●</span>
-                <span>{t("checkinWindowActiveBadge")}</span>
-              </span>
-            )}
-          </div>
-
-          <h3
-            className={`text-sm font-extrabold ${
-              cancelled ? "line-through text-slate-400" : "text-slate-900"
-            }`}
-          >
-            {sessionTitle}
-          </h3>
-
-          <p className="text-xs font-medium text-slate-700">
-            {toDateDdMmYyyy(session.sessionDate)} · {timeRange} ·{" "}
-            {session.roomName || t("scheduleRoomTbd")}
-            {session.coachName ? ` · ${session.coachName}` : ""}
-          </p>
-
-          {cancelled && session.replacedByDate && (
-            <p className="text-xs font-semibold text-slate-600">
-              {tr("scheduleReplacedByDate", { date: session.replacedByDate })}
-            </p>
-          )}
-        </div>
-
-        <span
-          className={`inline-flex items-center gap-1 shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${statusBadge.className}`}
-        >
-          <span aria-hidden="true">{statusBadge.icon}</span>
-          <span>{statusBadge.label}</span>
-        </span>
-      </article>
-    )
-  }
-
-  // Khối "Cách điểm danh" (3 bước ngắn):
-  const renderHowToStepsBox = (extraClassName = "") => (
-    <div
-      className={`rounded-xl border border-slate-200/80 bg-slate-50/70 px-3.5 py-3 ${extraClassName}`}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-bold text-slate-800">
-          {t("checkinHowToTitle")}
-        </p>
-        <button
-          type="button"
-          aria-expanded={showHowToSteps}
-          onClick={() => setShowHowToSteps((prev) => !prev)}
-          className="sm:hidden inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-        >
-          {showHowToSteps ? (
-            <ChevronUp className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5" />
-          )}
-        </button>
-      </div>
-      <ol
-        className={`${
-          showHowToSteps ? "mt-2 grid" : "hidden sm:mt-2 sm:grid"
-        } grid-cols-1 gap-2 text-xs text-slate-600 lg:grid-cols-3 lg:gap-4`}
-      >
-        <li className="flex items-start gap-2">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
-            1
-          </span>
-          <span>{isVi ? "Đến sân trước giờ học" : "Arrive before your class starts"}</span>
-        </li>
-        <li className="flex items-start gap-2">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
-            2
-          </span>
-          <span>{isVi ? "Báo mã hội viên (Mã MB) hoặc số điện thoại" : "Provide your member code (MB code) or phone number"}</span>
-        </li>
-        <li className="flex items-start gap-2">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
-            3
-          </span>
-          <span>{isVi ? "Huấn luyện viên hoặc Lễ tân xác nhận điểm danh trên hệ thống" : "Your Coach or Receptionist will confirm your attendance in the system"}</span>
-        </li>
-      </ol>
-    </div>
-  )
-
   return (
     <div className="w-full space-y-6">
       {/* 4.1 Header */}
       <PageHeader
-        title={t("checkinPageTitle")}
+        title={isVi ? "Theo dõi chuyên cần" : t("checkinPageTitle")}
         description={t("checkinPageSubtitle")}
         actions={
           <button
             type="button"
             onClick={reloadAll}
-            disabled={scheduleLoading || historyLoading}
+            disabled={sessionsLoading || historyLoading}
             aria-label={t("checkinBtnRefresh")}
             title={t("checkinRefreshShortcutHint")}
             className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 p-2 text-slate-700 disabled:opacity-60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
           >
             <RefreshCw
               className={`h-4 w-4 ${
-                scheduleLoading || historyLoading
+                sessionsLoading || historyLoading
                   ? "animate-spin"
                   : ""
               }`}
@@ -1296,189 +1065,45 @@ export function MemberCheckinView() {
         </article>
       </section>
 
-      <section className="grid grid-cols-1 gap-6 items-stretch lg:grid-cols-12">
-        <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6 lg:col-span-4">
-          <div className="flex items-center gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700">
-              <UserRound className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">AVT SPORT</p>
-              <h2 className="mt-0.5 text-lg font-extrabold text-slate-900">{isVi ? "Thẻ Hội Viên" : "Member Card"}</h2>
-            </div>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6">
+        <div className="flex items-center gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700">
+            <UserRound className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">AVT SPORT</p>
+            <h2 className="mt-0.5 text-lg font-extrabold text-slate-900">{isVi ? "Thẻ Hội Viên" : "Member Card"}</h2>
           </div>
-
-          <dl className="mt-5 space-y-4">
-            <div>
-              <dt className="text-xs font-semibold text-slate-500">{isVi ? "Mã hội viên" : "Member code"}</dt>
-              <dd className="mt-1 font-mono text-lg font-extrabold tracking-wide text-slate-900">
-                {validMember ? `MB-${String(memberId).padStart(4, "0")}` : "—"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold text-slate-500">{isVi ? "Họ và tên" : "Full name"}</dt>
-              <dd className="mt-1 text-base font-bold text-slate-900">
-                {currentUser?.name || currentUser?.fullName || currentUser?.displayName || "—"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold text-slate-500">{isVi ? "Trạng thái hội viên" : "Membership status"}</dt>
-              <dd className="mt-1">
-                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  {validMember ? (isVi ? "Đang hoạt động" : "Active") : (isVi ? "Chưa liên kết" : "Not linked")}
-                </span>
-              </dd>
-            </div>
-          </dl>
-
-          <p className="mt-5 rounded-xl border border-blue-100 bg-blue-50/70 p-3.5 text-sm leading-6 text-blue-950">
-            {isVi
-              ? "Điểm danh: Vui lòng cung cấp mã hội viên hoặc thông tin cho Lễ tân / Huấn luyện viên khi vào ca tập."
-              : "Attendance: Please provide your member code or details to Reception or your Coach when arriving for training."}
-          </p>
-        </article>
-        {/* 4.3 Card Lịch trình học tập */}
-        <article className="min-w-0 flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6 lg:col-span-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-brand-accent-dark shrink-0" />
-              <h2 className="text-lg font-extrabold text-slate-900">
-                {isVi ? "Lịch trình điểm danh" : "Check-in schedule"}
-              </h2>
-            </div>
-
-            <div
-              className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1"
-              role="tablist"
-              aria-label={isVi ? "Lịch trình điểm danh" : "Check-in schedule"}
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={scheduleTab === "today"}
-                onClick={() => setScheduleTab("today")}
-                className={`min-h-[36px] rounded-lg px-3 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer ${
-                  scheduleTab === "today"
-                    ? "bg-white text-slate-900 shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                {t("checkinTabToday")} (
-                {scheduleLoading || scheduleFailed
-                  ? "–"
-                  : todayValidSessions.length}
-                )
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={scheduleTab === "upcoming"}
-                onClick={() => setScheduleTab("upcoming")}
-                className={`min-h-[36px] rounded-lg px-3 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer ${
-                  scheduleTab === "upcoming"
-                    ? "bg-white text-slate-900 shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                {t("checkinTabUpcoming")} (
-                {scheduleLoading || scheduleFailed
-                  ? "–"
-                  : upcomingValidSessions.length}
-                )
-              </button>
-            </div>
+        </div>
+        <dl className="mt-5 grid gap-4 sm:grid-cols-3">
+          <div>
+            <dt className="text-xs font-semibold text-slate-500">{isVi ? "Mã hội viên" : "Member code"}</dt>
+            <dd className="mt-1 font-mono text-lg font-extrabold tracking-wide text-slate-900">
+              {validMember ? `MB-${String(memberId).padStart(4, "0")}` : "—"}
+            </dd>
           </div>
-
-          <div className="mt-4 flex-1">
-            {scheduleLoading ? (
-              <div
-                aria-busy="true"
-                className="space-y-3 py-2"
-              >
-                {[0, 1].map((key) => (
-                  <div
-                    key={key}
-                    className="animate-pulse rounded-xl bg-slate-100 p-4 space-y-2"
-                  >
-                    <div className="h-3 w-1/4 rounded bg-slate-200" />
-                    <div className="h-4 w-2/3 rounded bg-slate-200" />
-                    <div className="h-3 w-1/2 rounded bg-slate-200" />
-                  </div>
-                ))}
-              </div>
-            ) : scheduleFailed ? (
-              <div
-                role="alert"
-                className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-status-error flex flex-wrap items-center justify-between gap-3"
-              >
-                <span>{scheduleError}</span>
-                <button
-                  type="button"
-                  onClick={refreshSchedule}
-                  className="min-h-[36px] rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-                >
-                  {t("checkinBtnRetry")}
-                </button>
-              </div>
-            ) : scheduleTab === "today" ? (
-              todayValidSessions.length > 0 ? (
-                <div className="space-y-2.5">
-                  {todayValidSessions.map((session, idx) =>
-                    renderScheduleRowItem(session, idx),
-                  )}
-                </div>
-              ) : (
-                <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-slate-200 bg-slate-50/60 px-5 py-6 text-center">
-                  <p className="text-sm font-bold text-slate-800">
-                    {t("checkinEmptyTodayHasCourse")}
-                  </p>
-                </div>
-              )
-            ) : upcomingValidSessions.length > 0 ? (
-              <div className="max-h-[300px] space-y-2.5 overflow-y-auto pr-1">
-                {upcomingValidSessions.map((session, idx) =>
-                  renderScheduleRowItem(session, idx),
-                )}
-              </div>
-            ) : activeEnrollmentsCount === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-5 py-6 text-center space-y-2.5">
-                <p className="text-sm font-bold text-slate-800">
-                  {t("checkinEmptyNoCourse")}
-                </p>
-                <Link
-                  to="/member/catalog"
-                  className="min-h-[40px] inline-flex items-center justify-center rounded-lg bg-brand-primary hover:bg-brand-primary-hover px-4 py-2 text-xs font-bold text-white shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
-                >
-                  {t("checkinBtnRegisterCourse")}
-                </Link>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-5 py-5 text-center space-y-1.5">
-                <p className="text-sm font-bold text-slate-800">
-                  {tr("checkinEmptyUpcomingHasCourse", {
-                    days: UPCOMING_SCHEDULE_LOOKAHEAD_DAYS,
-                  })}
-                </p>
-                {nextFutureValidSession && (
-                  <p className="text-xs font-medium text-slate-600">
-                    {tr("checkinNextSessionLabel", {
-                      date: toDateDdMmYyyy(nextFutureValidSession.sessionDate),
-                      time: `${nextFutureValidSession.startTime}–${nextFutureValidSession.endTime}`,
-                      room:
-                        nextFutureValidSession.roomName ||
-                        t("scheduleRoomTbd"),
-                    })}
-                  </p>
-                )}
-              </div>
-            )}
+          <div>
+            <dt className="text-xs font-semibold text-slate-500">{isVi ? "Họ và tên" : "Full name"}</dt>
+            <dd className="mt-1 text-base font-bold text-slate-900">
+              {currentUser?.name || currentUser?.fullName || currentUser?.displayName || "—"}
+            </dd>
           </div>
-          {scheduleTab === "today" && !scheduleLoading && !scheduleFailed && todayValidSessions.length === 0 && activeEnrollmentsCount > 0 && renderHowToStepsBox("mt-5")}
-
-        </article>
+          <div>
+            <dt className="text-xs font-semibold text-slate-500">{isVi ? "Trạng thái hội viên" : "Membership status"}</dt>
+            <dd className="mt-1">
+              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                {validMember ? (isVi ? "Đang hoạt động" : "Active") : (isVi ? "Chưa liên kết" : "Not linked")}
+              </span>
+            </dd>
+          </div>
+        </dl>
+        <p className="mt-5 rounded-xl border border-blue-100 bg-blue-50/70 p-3.5 text-sm leading-6 text-blue-950">
+          {isVi
+            ? "Điểm danh: Vui lòng cung cấp mã hội viên hoặc thông tin cho Lễ tân / Huấn luyện viên khi vào ca tập."
+            : "Attendance: Please provide your member code or details to Reception or your Coach when arriving for training."}
+        </p>
       </section>
-
       {/* 4.4 Lịch sử điểm danh */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

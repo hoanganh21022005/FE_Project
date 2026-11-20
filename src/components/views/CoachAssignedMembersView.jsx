@@ -54,20 +54,39 @@ const isSlotAtLeast12HoursAhead = (dateStr, slot) => {
   return startsAtMs - Date.now() >= TWELVE_HOURS_MS
 }
 
+const getCoachPackageStatuses = (item) => [
+  item?.subscriptionStatus,
+  item?.status,
+  item?.paymentStatus,
+  item?.invoiceStatus,
+  item?.orderStatus,
+].filter(Boolean).map((value) =>
+  String(value).trim().toLowerCase().replace(/[\s-]+/g, '_'),
+)
+
+const DEAD_PACKAGE_STATUSES = new Set(['cancelled', 'canceled', 'expired', 'rejected', 'inactive'])
+const ACTIVE_PACKAGE_STATUSES = new Set(['active'])
+const MEMBER_PAYMENT_PENDING_STATUSES = new Set([
+  'pending_payment', 'waiting_payment', 'awaiting_payment', 'awaitingpayment', 'payment_pending',
+])
+
+const hasDeadPackageStatus = (item) =>
+  getCoachPackageStatuses(item).some((status) => DEAD_PACKAGE_STATUSES.has(status))
+
+const isActiveCoachPackage = (item) =>
+  !hasDeadPackageStatus(item) &&
+  getCoachPackageStatuses(item).some((status) => ACTIVE_PACKAGE_STATUSES.has(status))
+
 const isAwaitingMemberPayment = (item) => {
-  if (!item) return false
-  const paymentStatus = String(item.paymentStatus || '').trim().toLowerCase()
-  const subscriptionStatus = String(item.subscriptionStatus || '').trim().toLowerCase()
-  if (subscriptionStatus === 'active' || ['paid', 'successful', 'success', 'completed'].includes(paymentStatus)) return false
-  const statuses = [item.subscriptionStatus, item.status, item.invoiceStatus, item.orderStatus]
-    .filter(Boolean)
-    .map((value) => String(value).trim().toLowerCase().replace(/[\s-]+/g, '_'))
-  if (statuses.some((status) => [
-    'accepted', 'approved', 'invoiced', 'pending_payment', 'awaiting_payment',
-    'awaitingpayment', 'payment_pending', 'accepted_pending_payment',
-  ].includes(status))) return true
-  return Boolean(item.acceptedAt || item.invoiceId)
+  if (!item || hasDeadPackageStatus(item)) return false
+  const statuses = getCoachPackageStatuses(item)
+  if (statuses.some((status) => ACTIVE_PACKAGE_STATUSES.has(status))) return false
+  if (['paid', 'successful', 'success', 'completed'].includes(String(item.paymentStatus || '').trim().toLowerCase())) return false
+  return statuses.some((status) => MEMBER_PAYMENT_PENDING_STATUSES.has(status))
 }
+
+const isVisibleCoachPackage = (item) =>
+  isActiveCoachPackage(item) || isAwaitingMemberPayment(item)
 
 export function CoachAssignedMembersView() {
   const {
@@ -619,24 +638,16 @@ export function CoachAssignedMembersView() {
   const pendingAdvancedRequests = useMemo(() => {
     if (!Array.isArray(advancedRequests)) return []
     return advancedRequests.filter((r) => {
-      const st = String(r.status || "").toLowerCase()
+      if (hasDeadPackageStatus(r) || isAwaitingMemberPayment(r)) return false
+      const st = String(r.status || "").trim().toLowerCase().replace(/[\s-]+/g, "_")
       return st.includes("pending") || st.includes("request")
     })
   }, [advancedRequests])
 
-  // API mode booking candidates from registrations (ACCEPTED / INVOICED / ACTIVE)
+  // Chỉ gộp gói đang hoạt động hoặc thật sự chờ Member thanh toán.
   const apiBookingCandidates = useMemo(() => {
     if (!apiEnabled || !Array.isArray(advancedRequests)) return []
-    return advancedRequests.filter((r) => {
-      const st = String(r.status || "").toLowerCase()
-      return (
-        r.subscriptionId ||
-        (st !== "requested" &&
-          st !== "pending" &&
-          st !== "rejected" &&
-          st !== "declined")
-      )
-    })
+    return advancedRequests.filter(isVisibleCoachPackage)
   }, [apiEnabled, advancedRequests])
 
   const availableSubjects = useMemo(() => {
@@ -663,21 +674,8 @@ export function CoachAssignedMembersView() {
         if (sub !== subjectFilter) return false
       }
       if (statusFilter !== "all") {
-        const st = String(item.subscriptionStatus || item.status || "").toLowerCase()
-        if (statusFilter === "active" && st !== "active") return false
-        if (
-          statusFilter === "awaiting" &&
-          st !== "accepted" &&
-          st !== "invoiced"
-        )
-          return false
-        if (
-          statusFilter === "expired" &&
-          st !== "expired" &&
-          st !== "cancelled" &&
-          st !== "frozen"
-        )
-          return false
+        if (statusFilter === "active" && !isActiveCoachPackage(item)) return false
+        if (statusFilter === "awaiting" && !isAwaitingMemberPayment(item)) return false
       }
       return true
     })
@@ -965,7 +963,6 @@ export function CoachAssignedMembersView() {
                 <option value="all">{t("coachFilterAllStatuses")}</option>
                 <option value="active">{t("coachStatusActive")}</option>
                 <option value="awaiting">{t("coachPtAwaitingPackagePayment")}</option>
-                <option value="expired">{t("coachStatusExpired")}</option>
               </select>
 
               <button
@@ -1188,8 +1185,7 @@ export function CoachAssignedMembersView() {
                               ? 100
                               : 0
 
-                        const rawStatus = String(item.subscriptionStatus || item.status || "").toLowerCase()
-                        const isSubActive = rawStatus === "active"
+                        const isSubActive = isActiveCoachPackage(item)
                         const isAwaitingPayment = !isSubActive && isAwaitingMemberPayment(item)
 
                         const isSelectedForBooking =

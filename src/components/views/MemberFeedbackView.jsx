@@ -145,6 +145,21 @@ const isSessionCancelled = (session) => {
 }
 
 const normalizeAttendanceStateKey = (rawState) => {
+  if (rawState && typeof rawState === "object") {
+    if (
+      rawState.isPresent === true ||
+      rawState.present === true ||
+      rawState.attended === true
+    ) {
+      return "present"
+    }
+    rawState =
+      rawState.attendanceStatus ||
+      rawState.state ||
+      rawState.status ||
+      rawState.attendance ||
+      ""
+  }
   const upper = String(rawState || "")
     .trim()
     .toUpperCase()
@@ -557,7 +572,9 @@ export function MemberFeedbackView({ embedded = false }) {
         {
           id: rec.sessionId,
           classId: rec.classId,
-          sessionDate: String(rec.sessionDate || rec.checkInTime || "").slice(
+          sessionDate: String(
+            rec.sessionDate || rec.date || rec.checkInTime || rec.createdAt || "",
+          ).slice(
             0,
             10,
           ),
@@ -569,10 +586,9 @@ export function MemberFeedbackView({ embedded = false }) {
         })),
       )
       if (!alreadyMatched) {
-        const dateIso = String(rec.sessionDate || rec.checkInTime || "").slice(
-          0,
-          10,
-        )
+        const dateIso = String(
+          rec.sessionDate || rec.date || rec.checkInTime || rec.createdAt || "",
+        ).slice(0, 10)
         if (dateIso) {
           const enrollmentFallback =
             rec.classId != null
@@ -615,6 +631,11 @@ export function MemberFeedbackView({ embedded = false }) {
                 rec.sessionEndTime ||
                 enrollmentFallback.endTime ||
                 null,
+              attendanceStatus:
+                rec.attendanceStatus || rec.state || rec.status || null,
+              isPresent: rec.isPresent,
+              present: rec.present,
+              attended: rec.attended,
               status: "Completed",
             },
             enrollmentFallback,
@@ -631,30 +652,18 @@ export function MemberFeedbackView({ embedded = false }) {
     const attended = []
     for (const session of collectedSessions) {
       if (isSessionCancelled(session)) continue
-      if (!session.sessionDate || session.sessionDate > todayIso) continue
-
       const attendanceRecord = findSessionAttendanceRecord(
         session,
         apiAttendances,
       )
-      const stateKey = attendanceRecord
-        ? normalizeAttendanceStateKey(
-            attendanceRecord.state || attendanceRecord.status,
-          )
-        : "pending"
+      const stateKey = normalizeAttendanceStateKey(
+        attendanceRecord || session,
+      )
 
       if (stateKey !== "present" && stateKey !== "late") continue
-
-      const hasTakenPlace =
-        session.sessionDate < todayIso ||
-        String(session.rawStatus || "").toLowerCase() === "completed" ||
-        (session.sessionDate === todayIso &&
-          ((session.endMs !== null && session.endMs <= nowMs) ||
-            (session.startMs !== null && session.startMs <= nowMs) ||
-            stateKey === "present" ||
-            stateKey === "late"))
-
-      if (!hasTakenPlace) continue
+      // A confirmed attendance record is authoritative, even if a demo session
+      // has a future date or its scheduled end time has not passed yet.
+      if (!session.sessionDate) continue
 
       const matchedClass =
         session.classId != null
@@ -1059,6 +1068,15 @@ export function MemberFeedbackView({ embedded = false }) {
   ])
 
   // Điểm trung bình từ các đánh giá đã gửi
+  useEffect(() => {
+    if (!import.meta.env.DEV || isLoadingApi) return
+    console.debug("[MemberFeedback] attendance mapping", {
+      attendanceRecords: apiAttendances.length,
+      attendedSessions: attendedSessions.length,
+      pendingCourses: pendingCourses.length,
+    })
+  }, [apiAttendances, attendedSessions, isLoadingApi, pendingCourses])
+
   const averageRating = useMemo(() => {
     if (submittedReviews.length === 0) return "—"
     const sum = submittedReviews.reduce(
@@ -1584,13 +1602,19 @@ export function MemberFeedbackView({ embedded = false }) {
 
                       {/* CTA Button */}
                       <div className="shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenReviewDrawer(course)}
-                          className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all active:scale-[0.98] bg-brand-primary hover:bg-brand-primary-hover text-white shadow-xs"
-                        >
-                          {t("feedbackBtnWriteReview")}
-                        </button>
+                        {apiEnabled ? (
+                          <span className="inline-flex items-center rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-500">
+                            {t("feedbackNoRatingYet")}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReviewDrawer(course)}
+                            className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all active:scale-[0.98] bg-brand-primary hover:bg-brand-primary-hover text-white shadow-xs"
+                          >
+                            {t("feedbackBtnWriteReview")}
+                          </button>
+                        )}
                       </div>
                     </motion.div>
                   )
