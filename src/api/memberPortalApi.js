@@ -99,16 +99,6 @@ export const getMemberAttendances = async (memberId, params = {}) => {
     (r) => r?.memberId == null || String(r.memberId) === String(numId),
   )
 }
-export const getMemberCheckinCode = async () => {
-  try {
-    return await httpClient.get("/api/attendances/me/checkin-code")
-  } catch (error) {
-    if (error?.status === 404) {
-      return httpClient.get("/api/members/me/checkin-code")
-    }
-    throw error
-  }
-}
 export const getMemberTrainingPlans = (memberId) =>
   list(`/api/training-plans?memberId=${encodeURIComponent(memberId)}`)
 export const getTrainingPlans = (params = {}) => {
@@ -471,7 +461,6 @@ export const memberPortalApi = {
   checkSessionConflict,
   getClassCatalogSessions,
   getMemberAttendances,
-  getMemberCheckinCode,
   getMemberTrainingPlans,
   getTrainingPlans,
   createTrainingPlan,

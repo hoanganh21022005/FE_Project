@@ -18,11 +18,9 @@ import {
   UserRound,
   X,
 } from "lucide-react"
-import { QRCodeSVG } from "qrcode.react"
 import { Link } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import {
-  getMemberCheckinCode,
   getMemberAttendances,
   getMemberClasses,
   getClassSessions,
@@ -52,12 +50,6 @@ export const HISTORY_PAGE_SIZE = 10
 
 // Số ngày quá khứ tối đa để chọn buổi học trong ngăn "Báo thiếu buổi tập" (Mục 4.5.3)
 export const DISPUTE_PAST_SESSIONS_DAYS = 30
-
-// Ngưỡng làm mới mã QR sớm trước khi hết hạn để tránh nhấp nháy (Mục 4.2.5)
-const QR_PRE_EXPIRY_REFRESH_SECONDS = 3
-
-// Thời hạn mặc định hiển thị trong hướng dẫn ngắn nếu chưa lấy từ phản hồi (Mục 4.2.2)
-const DEFAULT_QR_TTL_SECONDS = 15
 
 const VN_TIMEZONE = "Asia/Ho_Chi_Minh"
 
@@ -203,7 +195,6 @@ const extractTimeFromIso = (value) => {
   return TIME_FORMATTER_HHMM.format(parsed)
 }
 
-// Họa tiết ô vuông cố định giả lập QR (không có finder pattern / dữ liệu QR hợp lệ, không thể giải mã khi quét)
 function LocalDatePicker({ value, onChange, isVi, label, min, max, error }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
@@ -403,15 +394,6 @@ export function MemberCheckinView() {
   const memberId = contextMemberId ?? fetchedMemberId
   const validMember = Number.isInteger(memberId) && memberId > 0
 
-  // Trạng thái mã QR
-  const [code, setCode] = useState(null)
-  const [secondsLeft, setSecondsLeft] = useState(0)
-  const [codeDuration, setCodeDuration] = useState(DEFAULT_QR_TTL_SECONDS)
-  const [codeExpiresAt, setCodeExpiresAt] = useState(0)
-  const [codeUpdatedAt, setCodeUpdatedAt] = useState(null)
-  const [refreshingCode, setRefreshingCode] = useState(false)
-  const [codeError, setCodeError] = useState("")
-
   // Đồng hồ thời gian thực cho tính toán khung điểm danh
   const [clockNow, setClockNow] = useState(() => Date.now())
 
@@ -435,9 +417,8 @@ export function MemberCheckinView() {
   const [visibleHistoryCount, setVisibleHistoryCount] =
     useState(HISTORY_PAGE_SIZE)
 
-  // Hộp trợ giúp (Popover "Gặp sự cố?"), Phóng to QR, Hướng dẫn 3 bước và Ngăn "Báo thiếu buổi tập"
+  // Hộp trợ giúp, Hướng dẫn 3 bước và Ngăn "Báo thiếu buổi tập"
   const [showHelpPopover, setShowHelpPopover] = useState(false)
-  const [showQrSpotlight, setShowQrSpotlight] = useState(false)
   const [showHowToSteps, setShowHowToSteps] = useState(() =>
     typeof window === "undefined" ? true : window.innerWidth >= 640,
   )
@@ -453,12 +434,6 @@ export function MemberCheckinView() {
   const disputeSelectRef = useRef(null)
   const lastDisputeTriggerRef = useRef(null)
   const mountedRef = useRef(true)
-  const visibleRef = useRef(
-    typeof document === "undefined" || document.visibilityState === "visible",
-  )
-  const refreshingCodeRef = useRef(false)
-  const retryTimerRef = useRef(null)
-  const retryResolveRef = useRef(null)
 
   // Tải danh sách khóa học & toàn bộ buổi học (đồng bộ nguồn dữ liệu và quy tắc buổi hợp lệ với MemberScheduleView)
   const refreshSchedule = useCallback(async () => {
@@ -717,308 +692,28 @@ export function MemberCheckinView() {
     [allNormalizedSessions, todayIso, clockNow],
   )
 
-  // Xác định trạng thái Card QR:
-  // - Khi CÓ buổi trong khung điểm danh [start - 30p, end]: "active" (hoặc "checked_in" nếu buổi đang mở đã điểm danh).
-  // - Khi KHÔNG có buổi trong khung điểm danh: "locked" (hiển thị QR mờ + icon khóa + giờ mở + đếm ngược tới buổi hợp lệ kế tiếp).
-  const qrContext = useMemo(() => {
-    const openSessions = todayValidSessions
-      .filter((s) => isSessionInCheckinWindow(s, clockNow))
-      .sort((a, b) => (a.startMs || 0) - (b.startMs || 0))
-
-    // 1. Có buổi trong khung chưa điểm danh -> trạng thái Đang hoạt động
-    const activeUnchecked = openSessions.find((s) => {
-      const rec = findSessionAttendanceRecord(s, attendanceRows)
-      const stateKey = rec ? normalizeAttendanceStateKey(rec.state) : null
-      return stateKey !== "present" && stateKey !== "late"
-    })
-
-    if (activeUnchecked) {
-      return {
-        mode: "active",
-        session: activeUnchecked,
-        record: null,
-        openMs: null,
-      }
-    }
-
-    // 2. Buổi đang trong khung điểm danh hôm nay đã được ghi nhận có mặt
-    if (openSessions.length > 0) {
-      const checkedSession = openSessions[0]
-      const rec = findSessionAttendanceRecord(checkedSession, attendanceRows)
-      return {
-        mode: "checked_in",
-        session: checkedSession,
-        record: rec,
-        openMs: null,
-      }
-    }
-
-    // 3. Không có buổi nào đang trong khung điểm danh -> trạng thái Khóa ("locked")
-    // Tìm buổi hợp lệ kế tiếp có mốc mở QR (30 phút trước giờ bắt đầu) ở tương lai
-    const nextLockedSession =
-      allNormalizedSessions.find(
-        (s) =>
-          !isSessionCancelled(s) &&
-          s.startMs !== null &&
-          clockNow < s.startMs - CHECKIN_OPEN_MINUTES_BEFORE * 60 * 1000,
-      ) || null
-
-    if (nextLockedSession && nextLockedSession.startMs !== null) {
-      const openMs =
-        nextLockedSession.startMs - CHECKIN_OPEN_MINUTES_BEFORE * 60 * 1000
-      const openDateObj = new Date(openMs)
-      const openTimeFormatted = TIME_FORMATTER_HHMM.format(openDateObj)
-      const openDateFormatted = toDateDdMmYyyy(openDateObj.toISOString())
-      const diffMs = Math.max(0, openMs - clockNow)
-      const totalMinutes = Math.max(1, Math.ceil(diffMs / (60 * 1000)))
-      const totalHours = Math.floor(totalMinutes / 60)
-      const days = Math.floor(totalHours / 24)
-      const hours = totalHours % 24
-      const minutes = totalMinutes % 60
-
-      return {
-        mode: "locked",
-        session: null,
-        nextLockedSession,
-        openMs,
-        openTimeFormatted,
-        openDateFormatted,
-        countdown: { days, hours, minutes },
-      }
-    }
-
-    return {
-      mode: "locked",
-      session: null,
-      nextLockedSession: null,
-      openMs: null,
-      openTimeFormatted: null,
-      openDateFormatted: null,
-      countdown: null,
-    }
-  }, [todayValidSessions, allNormalizedSessions, clockNow, attendanceRows])
-
-  const isQrActiveMode = qrContext.mode === "active"
-
-  // Hàm lấy mã QR mới từ server — CHỈ gọi khi đang ở trạng thái hoạt động (có buổi trong khung điểm danh)
-  const refreshCode = useCallback(async () => {
-    if (!visibleRef.current || refreshingCodeRef.current) return
-    if (!isQrActiveMode || !apiEnabled || !validMember) return
-
-    refreshingCodeRef.current = true
-    setRefreshingCode(true)
-    setCodeError("")
-
-    try {
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        if (!mountedRef.current || !visibleRef.current) return
-        try {
-          const result = await getMemberCheckinCode()
-          if (!result?.payload) throw new Error("Mã QR không khả dụng")
-          if (!mountedRef.current || !visibleRef.current) return
-
-          const receivedAt = Date.now()
-          const rawExpiresAt = result.expiresAt
-          const parsedExpiresAt =
-            typeof rawExpiresAt === "number" && rawExpiresAt < 1e12
-              ? rawExpiresAt * 1000
-              : new Date(rawExpiresAt).getTime()
-          const serverDurationSec = Number(result.expiresInSeconds)
-          const ttlMs =
-            Number.isFinite(serverDurationSec) && serverDurationSec > 0
-              ? serverDurationSec * 1000
-              : Number.isFinite(parsedExpiresAt) && parsedExpiresAt > receivedAt
-                ? parsedExpiresAt - receivedAt
-                : DEFAULT_QR_TTL_SECONDS * 1000
-
-          const expiry = receivedAt + ttlMs
-          const durationSec = Math.max(1, Math.round(ttlMs / 1000))
-
-          setCode(String(result.payload))
-          setCodeDuration(durationSec)
-          setCodeExpiresAt(expiry)
-          setCodeUpdatedAt(new Date(receivedAt))
-          setSecondsLeft(durationSec)
-          setCodeError("")
-          return
-        } catch (err) {
-          logAttendanceError("/api/attendances/me/checkin-code", err)
-          const status = Number(err?.status || 0)
-          if (attempt >= 2 || (status > 0 && status < 500)) break
-          if (!visibleRef.current) break
-          await new Promise((resolve) => {
-            retryResolveRef.current = resolve
-            retryTimerRef.current = window.setTimeout(
-              () => {
-                retryTimerRef.current = null
-                retryResolveRef.current = null
-                resolve()
-              },
-              500 * 2 ** attempt,
-            )
-          })
-        }
-      }
-      if (mountedRef.current) {
-        // Không bao giờ hiển thị mã hết hạn như còn hiệu lực
-        setCodeError(t("checkinStateErrorTitle"))
-        setSecondsLeft(0)
-      }
-    } finally {
-      refreshingCodeRef.current = false
-      if (mountedRef.current) setRefreshingCode(false)
-    }
-  }, [apiEnabled, isQrActiveMode, validMember, t])
-
   const reloadAll = useCallback(() => {
     refreshPage()
-    if (isQrActiveMode) {
-      refreshCode()
-    }
-  }, [refreshPage, isQrActiveMode, refreshCode])
+  }, [refreshPage])
 
   useEffect(() => {
     refreshPage()
   }, [refreshPage])
 
-  // Khi không ở trạng thái Đang hoạt động, xóa mã cũ và không gọi API lấy mã QR
   useEffect(() => {
-    if (!isQrActiveMode) {
-      setShowQrSpotlight(false)
-      setCode(null)
-      setSecondsLeft(0)
-      setCodeExpiresAt(0)
-      setCodeError("")
-      return
-    }
-    if (!scheduleLoading && !code && !refreshingCode && !codeError) {
-      refreshCode()
-    }
-  }, [
-    isQrActiveMode,
-    scheduleLoading,
-    code,
-    refreshingCode,
-    codeError,
-    refreshCode,
-  ])
-
-  // Đếm ngược thời hạn mã QR (15 giây) — CHỈ chạy khi đang ở trạng thái hoạt động và có mã hợp lệ
-  useEffect(() => {
-    if (!isQrActiveMode || !code || !codeExpiresAt) return undefined
-    let timer = null
-    const stopTimer = () => {
-      if (timer) window.clearInterval(timer)
-      timer = null
-    }
-    const tick = () => {
-      const remaining = Math.max(
-        0,
-        Math.ceil((codeExpiresAt - Date.now()) / 1000),
-      )
-      setSecondsLeft(remaining)
-      if (
-        remaining <= QR_PRE_EXPIRY_REFRESH_SECONDS &&
-        !refreshingCodeRef.current
-      ) {
-        refreshCode()
-      }
-    }
-    const startTimer = () => {
-      stopTimer()
-      if (!visibleRef.current) return
-      tick()
-      timer = window.setInterval(tick, 250)
-    }
-    const onVisibilityChange = () => {
-      visibleRef.current = document.visibilityState === "visible"
-      if (visibleRef.current) {
-        if (
-          !code ||
-          Date.now() >= codeExpiresAt - QR_PRE_EXPIRY_REFRESH_SECONDS * 1000
-        ) {
-          refreshCode()
-        }
-        startTimer()
-      } else {
-        stopTimer()
-      }
-    }
-    startTimer()
-    document.addEventListener("visibilitychange", onVisibilityChange)
+    const updateClock = () => setClockNow(Date.now())
+    const intervalId = window.setInterval(updateClock, 30000)
+    document.addEventListener("visibilitychange", updateClock)
     return () => {
-      stopTimer()
-      document.removeEventListener("visibilitychange", onVisibilityChange)
+      window.clearInterval(intervalId)
+      document.removeEventListener("visibilitychange", updateClock)
     }
-  }, [isQrActiveMode, code, codeExpiresAt, refreshCode])
-
-  // Cập nhật đồng hồ mỗi phút (và tự động kích hoạt ngay tại thời điểm mở khung điểm danh)
-  useEffect(() => {
-    let intervalId = null
-    let exactOpenTimeoutId = null
-
-    const clearTimers = () => {
-      if (intervalId) window.clearInterval(intervalId)
-      if (exactOpenTimeoutId) window.clearTimeout(exactOpenTimeoutId)
-      intervalId = null
-      exactOpenTimeoutId = null
-    }
-
-    const startTimers = () => {
-      clearTimers()
-      if (
-        typeof document !== "undefined" &&
-        document.visibilityState !== "visible"
-      ) {
-        return
-      }
-      const now = Date.now()
-      setClockNow(now)
-
-      // Cập nhật định kỳ để bộ đếm ngược phút luôn chính xác
-      intervalId = window.setInterval(() => {
-        setClockNow(Date.now())
-      }, 30000)
-
-      // Nếu đang khóa và có mốc mở sắp tới (trong vòng 24 giờ), đặt hẹn giờ chính xác đến mili-giây mở khung để tự chuyển sang active ngay lập tức
-      if (
-        qrContext.openMs &&
-        qrContext.openMs > now &&
-        qrContext.openMs - now <= 24 * 60 * 60 * 1000
-      ) {
-        exactOpenTimeoutId = window.setTimeout(
-          () => {
-            setClockNow(Date.now())
-          },
-          Math.max(100, qrContext.openMs - now + 50),
-        )
-      }
-    }
-
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        startTimers()
-      } else {
-        clearTimers()
-      }
-    }
-
-    startTimers()
-    document.addEventListener("visibilitychange", onVisibility)
-    return () => {
-      clearTimers()
-      document.removeEventListener("visibilitychange", onVisibility)
-    }
-  }, [qrContext.openMs])
+  }, [])
 
   useEffect(() => {
     mountedRef.current = true
     return () => {
       mountedRef.current = false
-      if (retryTimerRef.current) window.clearTimeout(retryTimerRef.current)
-      retryTimerRef.current = null
-      retryResolveRef.current?.()
-      retryResolveRef.current = null
     }
   }, [])
 
@@ -1063,7 +758,6 @@ export function MemberCheckinView() {
     }
   }, [showHelpPopover])
 
-  // Quản lý đóng ngăn "Báo thiếu buổi tập" / QR spotlight bằng Esc, khóa cuộn & giữ tiêu điểm
   const closeDisputeDrawer = useCallback(() => {
     setShowDisputeDrawer(false)
     window.setTimeout(() => {
@@ -1082,7 +776,7 @@ export function MemberCheckinView() {
   }, [])
 
   useEffect(() => {
-    if (!showDisputeDrawer && !showQrSpotlight) return undefined
+    if (!showDisputeDrawer) return undefined
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = "hidden"
 
@@ -1094,7 +788,6 @@ export function MemberCheckinView() {
 
     const onKeyDown = (event) => {
       if (event.key === "Escape") {
-        if (showQrSpotlight) setShowQrSpotlight(false)
         if (showDisputeDrawer) closeDisputeDrawer()
         return
       }
@@ -1124,7 +817,7 @@ export function MemberCheckinView() {
       document.body.style.overflow = previousOverflow
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [showDisputeDrawer, showQrSpotlight, closeDisputeDrawer])
+  }, [showDisputeDrawer, closeDisputeDrawer])
 
   // Danh sách các buổi đã qua trong 30 ngày gần nhất của các khóa hội viên đang học (Mục 4.5.3)
   // Không đưa buổi đã hủy vào danh sách. Gắn trạng thái điểm danh hiện tại, xếp buổi chưa có trạng thái "Có mặt" lên đầu, sau đó giảm dần theo thời gian.
@@ -1217,7 +910,7 @@ export function MemberCheckinView() {
       const checkInTimeHhMm = extractTimeFromIso(
         row.checkInTime || row.checkedInAt || row.recordedAt,
       )
-      const scannerName =
+      const confirmedByName =
         row.scannedByName ||
         row.recordedByName ||
         row.checkedInBy ||
@@ -1233,7 +926,7 @@ export function MemberCheckinView() {
         endTime,
         roomName,
         checkInTimeHhMm,
-        scannerName,
+        confirmedByName,
         stateKey,
       }
     })
@@ -1484,9 +1177,6 @@ export function MemberCheckinView() {
   }
 
   // Khối "Cách điểm danh" (3 bước ngắn):
-  // - Khi QR khóa trên màn hình lớn (lg): đặt trong card "Lịch trình học tập" (dưới danh sách buổi) để hai card cân chiều cao.
-  // - Khi QR hoạt động trên màn hình lớn (lg): đặt trong card QR như cũ.
-  // - Trên mobile 1 cột (< lg): luôn nằm ngay sau QR, trước Lịch trình học tập.
   const renderHowToStepsBox = (extraClassName = "") => (
     <div
       className={`rounded-xl border border-slate-200/80 bg-slate-50/70 px-3.5 py-3 ${extraClassName}`}
@@ -1545,14 +1235,14 @@ export function MemberCheckinView() {
           <button
             type="button"
             onClick={reloadAll}
-            disabled={refreshingCode || scheduleLoading || historyLoading}
+            disabled={scheduleLoading || historyLoading}
             aria-label={t("checkinBtnRefresh")}
             title={t("checkinRefreshShortcutHint")}
             className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 p-2 text-slate-700 disabled:opacity-60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
           >
             <RefreshCw
               className={`h-4 w-4 ${
-                refreshingCode || scheduleLoading || historyLoading
+                scheduleLoading || historyLoading
                   ? "animate-spin"
                   : ""
               }`}
@@ -1606,7 +1296,6 @@ export function MemberCheckinView() {
         </article>
       </section>
 
-      {/* 4.6 QR pass and schedule */}
       <section className="grid grid-cols-1 gap-6 items-stretch lg:grid-cols-12">
         <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6 lg:col-span-4">
           <div className="flex items-center gap-3">
@@ -1931,7 +1620,7 @@ export function MemberCheckinView() {
             <div className="hidden lg:grid lg:grid-cols-[minmax(220px,1.15fr)_minmax(180px,0.9fr)_minmax(220px,1.1fr)_auto] gap-4 rounded-t-xl bg-slate-50 px-4 py-3 text-[11px] font-extrabold uppercase tracking-wide text-slate-500">
               <span>{isVi ? "Khóa học" : "Course"}</span>
               <span>{isVi ? "Ngày & Khung giờ" : "Date & Time"}</span>
-              <span>{isVi ? "Sân tập & Người quét" : "Court & Scanned by"}</span>
+              <span>{isVi ? "Sân tập & Người xác nhận" : "Court & Confirmed by"}</span>
               <span className="text-right">{isVi ? "Trạng thái" : "Status"}</span>
             </div>
             <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
@@ -1977,8 +1666,8 @@ export function MemberCheckinView() {
                     <div className="space-y-1 text-xs">
                       <p className="font-semibold text-slate-800">{row.roomName || t("scheduleRoomTbd")}</p>
                       <p className="text-slate-500">
-                        <span className="font-medium">{isVi ? "Người quét" : "Scanned by"}: </span>
-                        {row.scannerName || (isVi ? "Chưa ghi nhận" : "Not recorded")}
+                        <span className="font-medium">{isVi ? "Người xác nhận" : "Confirmed by"}: </span>
+                        {row.confirmedByName || (isVi ? "Chưa ghi nhận" : "Not recorded")}
                         {row.checkInTimeHhMm && (
                           <span>
                             {" · "}
@@ -2069,81 +1758,6 @@ export function MemberCheckinView() {
       </section>
 
       <AnimatePresence>
-        {/* Modal phóng to mã QR */}
-        {showQrSpotlight && isQrActiveMode && code && secondsLeft > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/60 p-4"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget)
-                setShowQrSpotlight(false)
-            }}
-          >
-            <motion.section
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.16 }}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="qr-spotlight-title"
-              className="relative flex w-full max-w-md flex-col items-center rounded-3xl bg-white p-6 text-center shadow-2xl"
-            >
-              <button
-                type="button"
-                onClick={() => setShowQrSpotlight(false)}
-                aria-label={t("checkinCloseSpotlightAria")}
-                className="min-h-[40px] min-w-[40px] absolute right-3 top-3 inline-flex items-center justify-center rounded-full p-2 text-slate-500 hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-
-              <p
-                id="qr-spotlight-title"
-                className="text-xs font-bold uppercase tracking-wider text-brand-accent-dark"
-              >
-                {t("checkinQrCardTitle")}
-              </p>
-
-              {qrContext.session && (
-                <p className="mt-1 text-xs font-bold text-slate-800">
-                  {qrContext.session.className ||
-                    qrContext.session.subjectName}{" "}
-                  · {qrContext.session.startTime}–{qrContext.session.endTime}
-                </p>
-              )}
-
-              <div className="mt-4 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-                <QRCodeSVG
-                  value={code}
-                  size={
-                    typeof window === "undefined"
-                      ? 260
-                      : Math.min(280, window.innerWidth - 80)
-                  }
-                  level="M"
-                  includeMargin
-                />
-              </div>
-
-              <span className="mt-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                {t("checkinManualCodeLabel")}
-              </span>
-              <p className="font-mono text-3xl font-black tracking-[.28em] text-slate-950">
-                {code}
-              </p>
-              <p className="mt-2 text-xs text-slate-600">
-                {t("checkinNewCodeIn")}{" "}
-                <strong className="tabular-nums text-brand-primary">
-                  {secondsLeft}s
-                </strong>
-              </p>
-            </motion.section>
-          </motion.div>
-        )}
-
         {/* 4.5 Ngăn trượt "Báo thiếu buổi tập" (Mobile rộng toàn màn hình w-full sm:max-w-md) */}
         {showDisputeDrawer && (
           <motion.div

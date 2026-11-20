@@ -92,11 +92,9 @@ export const getPaymentMethodLabel = (invoice, isVi) => {
     .toLowerCase()
   if (method.includes("cash") || method.includes("tiền mặt"))
     return isVi ? "Tiền mặt tại quầy" : "Cash at counter"
-  if (
-    method.includes("vnpay") ||
-    method.includes("online") ||
-    method.includes("qr")
-  )
+  if (method.includes("bank_transfer") || method.includes("transfer"))
+    return isVi ? "Chuyển khoản" : "Bank transfer"
+  if (method.includes("vnpay") || method.includes("online"))
     return "VNPay / Online"
   return method ? (isVi ? "Khác" : "Other") : "—"
 }

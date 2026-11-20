@@ -11,8 +11,8 @@ export const INITIAL_AUDIT_LOGS = [
     targetEn: "Member Nguyen Minh Anh",
     previousValue: "Pending Payment",
     newValue: "Active",
-    reason: "Thanh toán thành công qua Chuyển khoản VietQR",
-    reasonEn: "Successful payment via VietQR Bank Transfer",
+    reason: "Thanh toán thành công qua chuyển khoản ngân hàng",
+    reasonEn: "Successful payment via bank transfer",
   },
   {
     id: "log-2",

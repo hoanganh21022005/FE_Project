@@ -144,17 +144,8 @@ export function LoginView({
   }
 
   // --- INTERACTIVE LEFT COLUMN & SPORT ONBOARDING STATE ---
-  const [activeGlassTab, setActiveGlassTab] = useState("qr") // 'qr' | 'schedule' | 'inbody'
-  const [qrDemoSeconds, setQrDemoSeconds] = useState(58)
   const [selectedSportId, setSelectedSportId] = useState("badminton")
   const isClubOpen = checkIsClubOpenNow()
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setQrDemoSeconds((prev) => (prev <= 1 ? 60 : prev - 1))
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [])
 
   // --- FORGOT PASSWORD STATE ---
   const [isForgotMode, setIsForgotMode] = useState(false)
@@ -1195,8 +1186,8 @@ export function LoginView({
               </div>
               <p className="mt-0.5 text-[11px] font-medium text-white/70">
                 {isVi
-                  ? "Đặt lịch tập, PT 1:1 & QR không thẻ cứng"
-                  : "Cardless QR pass & online booking"}
+                  ? "Đặt lịch tập, PT 1:1 & theo dõi điểm danh trực tuyến"
+                  : "Online booking and attendance tracking"}
               </p>
             </div>
           </div>

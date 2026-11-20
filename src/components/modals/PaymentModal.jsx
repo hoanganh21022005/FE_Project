@@ -776,7 +776,7 @@ export function PaymentModal({ isOpen, onClose, preselectedMemberId, onSuccess }
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { key: 'cash', label: language === 'vi' ? 'Tiền mặt tại quầy' : 'Cash at Desk' },
-                  { key: 'bank_transfer', label: language === 'vi' ? 'Chuyển khoản / VietQR' : 'Bank Transfer' },
+                  { key: 'bank_transfer', label: language === 'vi' ? 'Chuyển khoản' : 'Bank Transfer' },
                   { key: 'online', label: language === 'vi' ? 'Trực tuyến' : 'Online' },
                 ].map((item) => (
                   <button

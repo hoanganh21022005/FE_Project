@@ -1895,7 +1895,7 @@ function LegacyMemberClassCatalog() {
                   Trung tâm Thể thao Đa năng Chuẩn Quốc Tế AVT Sport
                 </div>
                 <p className="leading-relaxed text-slate-400">
-                  Hệ thống 9 bộ môn thể thao với mặt sân Taraflex, Plexicushion, DUPR tiêu chuẩn giải đấu. Kiểm soát vào sân tự động bằng mã QR động và thẻ điện tử AVT Access tại các cổng Turnstile.
+                  Hệ thống 9 bộ môn thể thao với mặt sân Taraflex, Plexicushion, DUPR tiêu chuẩn giải đấu. Huấn luyện viên và Lễ tân hỗ trợ xác nhận điểm danh tại sân.
                 </p>
               </div>
             </div>
