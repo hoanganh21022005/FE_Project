@@ -111,12 +111,12 @@ export function MemberTrainingView() {
           {isVi ? 'Tài khoản chưa được liên kết với hồ sơ hội viên.' : 'This account is not linked to a member profile.'}
         </div>
       )}
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {[
-          { label: isVi ? 'Giáo án đang áp dụng' : 'Current training plans', value: plans.length, Icon: ClipboardList, tone: 'bg-blue-50 text-blue-700' },
-          { label: isVi ? 'Buổi tập đã ghi nhận' : 'Recorded sessions', value: results.length, Icon: Activity, tone: 'bg-emerald-50 text-emerald-700' },
-          { label: isVi ? 'Điểm đánh giá TB / Định kỳ' : 'Average periodic score', value: evaluations.length ? (evaluations.reduce((sum, item) => sum + Number(item.progressScore || 0), 0) / evaluations.length).toFixed(1) : '—', Icon: Award, tone: 'bg-violet-50 text-violet-700' },
-        ].map(({ label, value, Icon, tone }) => <article key={label} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs"><span className={`grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl ${tone}`}><Icon className="h-5 w-5" /></span><div><p className="text-xs font-bold text-slate-500">{label}</p><p className="text-2xl font-extrabold text-slate-900">{value}</p></div></article>)}
+          { label: isVi ? 'Giáo án đang áp dụng' : 'Current training plans', value: plans.length, Icon: ClipboardList, tone: 'bg-blue-50 text-blue-600' },
+          { label: isVi ? 'Buổi tập đã ghi nhận' : 'Recorded sessions', value: results.length, Icon: Activity, tone: 'bg-emerald-50 text-emerald-600' },
+          { label: isVi ? 'Điểm đánh giá TB / Định kỳ' : 'Average periodic score', value: evaluations.length ? (evaluations.reduce((sum, item) => sum + Number(item.progressScore || 0), 0) / evaluations.length).toFixed(1) : '—', Icon: Award, tone: 'bg-purple-50 text-purple-600' },
+        ].map(({ label, value, Icon, tone }) => <article key={label} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"><span className={`grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl p-2.5 ${tone}`}><Icon className="h-5 w-5" /></span><div><p className="text-xs font-bold text-slate-500">{label}</p>{Icon === Award && !evaluations.length ? <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{isVi ? 'Chưa đánh giá' : 'Not rated yet'}</span> : <p className="text-2xl font-bold text-slate-800">{value}</p>}</div></article>)}
       </section>
       {error && (
         <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -136,7 +136,7 @@ export function MemberTrainingView() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
             <section className="space-y-6 lg:col-span-5">
-              <div className="space-y-3">
+              <div className="space-y-3 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2">
                 <ClipboardList className="h-5 w-5 text-brand-teal-dark" />
                 <h2 className="text-lg font-extrabold text-slate-900">{isVi ? 'Kế hoạch huấn luyện' : 'Training plans'}</h2>
@@ -174,12 +174,12 @@ export function MemberTrainingView() {
                   </article>
                 ))
               ) : (
-                <Empty text={isVi ? 'Huấn luyện viên chưa giao kế hoạch.' : 'No coach plan assigned yet.'} />
+                <Empty text={isVi ? 'Huấn luyện viên chưa giao kế hoạch.' : 'No coach plan assigned yet.'} isVi={isVi} />
               )}
               </div>
-              <section className="space-y-3">
+              <section className="space-y-3 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
                 <div className="flex items-center gap-2"><Award className="h-5 w-5 text-brand-teal-dark" /><h2 className="text-lg font-extrabold text-slate-900">{isVi ? 'Đánh giá định kỳ từ Huấn luyện viên' : 'Periodic Coach Evaluations'}</h2></div>
-                {evaluations.length ? evaluations.map((ev) => <article key={ev.evaluationId || ev.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs"><div className="flex items-center justify-between gap-2"><span className="text-xs font-bold text-slate-500">{ev.evaluationDate || '—'}</span>{ev.progressScore != null && <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-800">{Number(ev.progressScore).toFixed(1)} / 10</span>}</div>{ev.progressScore != null && <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-violet-500" style={{ width: `${Math.min(100, Math.max(0, Number(ev.progressScore) * 10))}%` }} /></div>}<p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{cleanText(ev.comment || ev.comments || ev.feedback)}</p><p className="mt-3 text-xs text-slate-500">{ev.coachName || (isVi ? 'Huấn luyện viên' : 'Coach')}</p></article>) : <Empty text={isVi ? 'Chưa có đánh giá định kỳ từ huấn luyện viên.' : 'No periodic coach evaluations yet.'} />}
+                {evaluations.length ? evaluations.map((ev) => <article key={ev.evaluationId || ev.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs"><div className="flex items-center justify-between gap-2"><span className="text-xs font-bold text-slate-500">{ev.evaluationDate || '—'}</span>{ev.progressScore != null && <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-800">{Number(ev.progressScore).toFixed(1)} / 10</span>}</div>{ev.progressScore != null && <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-violet-500" style={{ width: `${Math.min(100, Math.max(0, Number(ev.progressScore) * 10))}%` }} /></div>}<p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{cleanText(ev.comment || ev.comments || ev.feedback)}</p><p className="mt-3 text-xs text-slate-500">{ev.coachName || (isVi ? 'Huấn luyện viên' : 'Coach')}</p></article>) : <Empty text={isVi ? 'Chưa có đánh giá định kỳ từ huấn luyện viên.' : 'No periodic coach evaluations yet.'} isVi={isVi} />}
               </section>
             </section>
             <section className="space-y-3 lg:col-span-7">
@@ -187,32 +187,32 @@ export function MemberTrainingView() {
                 <Activity className="h-5 w-5 text-brand-teal-dark" />
                 <h2 className="text-lg font-extrabold text-slate-900">{isVi ? 'Kết quả tập luyện' : 'Session results'}</h2>
               </div>
-              <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xs sm:flex-row sm:items-center">
-                <label className="relative block sm:w-64"><Filter className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><select aria-label={isVi ? 'Lọc theo khóa học' : 'Filter by course'} value={courseFilter} onChange={(event) => setCourseFilter(event.target.value)} className="h-9 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 pl-8 pr-7 text-xs font-semibold text-slate-700 hover:bg-white focus:border-blue-500 focus:outline-none"><option value="all">{isVi ? 'Tất cả khóa học' : 'All courses'}</option>{courseNames.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
-                <label className="relative block min-w-0 flex-1"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={resultSearch} onChange={(event) => setResultSearch(event.target.value)} placeholder={isVi ? 'Tìm kết quả...' : 'Search results...'} className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-8 pr-3 text-xs font-semibold text-slate-700 outline-none hover:bg-white focus:border-blue-500" /></label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <label className="relative block min-w-0 sm:w-64"><Filter className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><select aria-label={isVi ? 'Lọc theo khóa học' : 'Filter by course'} value={courseFilter} onChange={(event) => setCourseFilter(event.target.value)} className="h-10 w-full appearance-none rounded-xl border border-slate-200 bg-white pl-8 pr-7 text-sm text-slate-700 focus:border-blue-500 focus:outline-none"><option value="all">{isVi ? 'Tất cả khóa học' : 'All courses'}</option>{courseNames.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
+                <label className="relative block min-w-0 flex-1"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={resultSearch} onChange={(event) => setResultSearch(event.target.value)} placeholder={isVi ? 'Tìm kết quả...' : 'Search results...'} className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-sm text-slate-700 outline-none focus:border-blue-500" /></label>
                 {(courseFilter !== 'all' || resultSearch.trim()) && <button type="button" onClick={() => { setCourseFilter('all'); setResultSearch('') }} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100"><X className="h-3.5 w-3.5" />{isVi ? 'Xóa lọc' : 'Clear'}</button>}
               </div>
               {visibleResults.length ? (
                 <div className="max-h-[620px] space-y-3 overflow-y-auto pr-1">{visibleResults.map((r) => (
-                  <article key={r.resultId || r.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+                  <article key={r.resultId || r.id} className="space-y-3 rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
                     <div className="flex justify-between gap-3">
-                      <h3 className="font-bold text-slate-900">{cleanText(r.className) || (isVi ? 'Buổi tập' : 'Training session')}</h3>
-                      <span className="text-xs text-slate-500">{r.sessionDate ? new Date(r.sessionDate).toLocaleDateString(isVi ? 'vi-VN' : 'en-GB') : ''}</span>
+                      <h3 className="font-semibold text-slate-800">{cleanText(r.className) || (isVi ? 'Buổi tập' : 'Training session')}</h3>
+                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{r.sessionDate ? new Date(r.sessionDate).toLocaleDateString(isVi ? 'vi-VN' : 'en-GB') : ''}</span>
                     </div>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{cleanText(r.content) || '—'}</p>
-                    <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
+                    <p className="whitespace-pre-wrap text-sm leading-6 text-slate-600">{cleanText(r.content) || <span className="italic text-xs text-slate-400">{isVi ? 'Chưa có nhận xét từ HLV' : 'No coach feedback yet'}</span>}</p>
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs text-slate-500">
                       <span className="inline-flex items-center gap-1">
                         <UserRound className="h-3.5 w-3.5" />
                         {r.coachName || (isVi ? 'Huấn luyện viên' : 'Coach')}
                       </span>
                       {r.attendanceStatus && (
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${String(r.attendanceStatus).toLowerCase() === 'present' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}`}>• {String(r.attendanceStatus).toLowerCase() === 'present' ? (isVi ? 'Có mặt' : 'Present') : (isVi ? 'Vắng mặt' : 'Absent')}</span>
+                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${String(r.attendanceStatus).toLowerCase() === 'present' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>{String(r.attendanceStatus).toLowerCase() === 'present' ? (isVi ? 'Có mặt' : 'Present') : (isVi ? 'Vắng mặt' : 'Absent')}</span>
                       )}
                     </div>
                   </article>
                 ))}</div>
               ) : (
-                <Empty text={isVi ? 'Chưa có kết quả tập luyện được ghi nhận.' : 'No training results recorded yet.'} />
+                <Empty text={isVi ? 'Chưa có kết quả tập luyện được ghi nhận.' : 'No training results recorded yet.'} isVi={isVi} />
               )}
             </section>
           </div>
@@ -247,6 +247,6 @@ export function MemberTrainingView() {
   );
 }
 
-function Empty({ text }) {
-  return <div className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500"><ClipboardList className="h-7 w-7 text-slate-300" aria-hidden="true" /><p>{text}</p></div>;
+function Empty({ text, isVi }) {
+  return <div className="flex min-h-32 flex-col items-center justify-center gap-1 rounded-xl bg-slate-50 p-6 text-center"><ClipboardList className="mb-1 h-7 w-7 text-slate-300" aria-hidden="true" /><p className="text-sm font-medium text-slate-600">{text}</p><p className="text-xs text-slate-400">{isVi ? 'Thông tin sẽ hiển thị tại đây khi có dữ liệu.' : 'Information will appear here when available.'}</p></div>;
 }
