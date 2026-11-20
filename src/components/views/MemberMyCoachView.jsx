@@ -1431,7 +1431,7 @@ export function MemberMyCoachView() {
                 <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200 grid grid-cols-3 gap-2 text-center text-xs">
                   <div>
                     <div className="text-[10px] text-slate-500 uppercase font-bold">
-                      {isVi ? "Slot trống" : "Available"}
+                      {isVi ? "Còn nhận thêm" : "Available slots"}
                     </div>
                     <div className="text-base font-extrabold text-blue-900 font-mono">
                       {coachCapacity.availableSlots ?? "—"}
@@ -1439,7 +1439,7 @@ export function MemberMyCoachView() {
                   </div>
                   <div>
                     <div className="text-[10px] text-slate-500 uppercase font-bold">
-                      {isVi ? "Đang dạy (Credits)" : "Outstanding"}
+                      {isVi ? "Buổi đang dạy" : "Active sessions"}
                     </div>
                     <div className="text-base font-extrabold text-slate-900 font-mono">
                       {coachCapacity.outstandingCredits ?? "—"}
@@ -1447,7 +1447,7 @@ export function MemberMyCoachView() {
                   </div>
                   <div>
                     <div className="text-[10px] text-slate-500 uppercase font-bold">
-                      {isVi ? "Đang chờ duyệt" : "Requested"}
+                      {isVi ? "Chờ HLV duyệt" : "Pending requests"}
                     </div>
                     <div className="text-base font-extrabold text-amber-800 font-mono">
                       {coachCapacity.requestedCredits ?? "—"}
