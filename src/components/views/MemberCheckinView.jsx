@@ -5,10 +5,8 @@ import {
   AlertCircle,
   CalendarDays,
   CheckCircle2,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
   ClipboardCheck,
   ClipboardList,
   Copy,
@@ -417,11 +415,8 @@ export function MemberCheckinView() {
   const [visibleHistoryCount, setVisibleHistoryCount] =
     useState(HISTORY_PAGE_SIZE)
 
-  // Hộp trợ giúp, Hướng dẫn 3 bước và Ngăn "Báo thiếu buổi tập"
+  // Hộp trợ giúp và ngăn "Báo thiếu buổi tập"
   const [showHelpPopover, setShowHelpPopover] = useState(false)
-  const [showHowToSteps, setShowHowToSteps] = useState(() =>
-    typeof window === "undefined" ? true : window.innerWidth >= 640,
-  )
   const [showDisputeDrawer, setShowDisputeDrawer] = useState(false)
   const [selectedDisputeSessionKey, setSelectedDisputeSessionKey] = useState("")
   const [disputeNote, setDisputeNote] = useState("")
@@ -677,6 +672,22 @@ export function MemberCheckinView() {
       ),
     [allNormalizedSessions, todayIso, maxUpcomingIso],
   )
+
+  useEffect(() => {
+    if (
+      !scheduleLoading &&
+      !scheduleFailed &&
+      todayValidSessions.length === 0 &&
+      upcomingValidSessions.length > 0
+    ) {
+      setScheduleTab("upcoming")
+    }
+  }, [
+    scheduleLoading,
+    scheduleFailed,
+    todayValidSessions.length,
+    upcomingValidSessions.length,
+  ])
 
   // Buổi hợp lệ tiếp theo gần nhất (cho card Lịch trình học tập khi hôm nay không có buổi)
   const nextFutureValidSession = useMemo(
@@ -1176,55 +1187,6 @@ export function MemberCheckinView() {
     )
   }
 
-  // Khối "Cách điểm danh" (3 bước ngắn):
-  const renderHowToStepsBox = (extraClassName = "") => (
-    <div
-      className={`rounded-xl border border-slate-200/80 bg-slate-50/70 px-3.5 py-3 ${extraClassName}`}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-bold text-slate-800">
-          {t("checkinHowToTitle")}
-        </p>
-        <button
-          type="button"
-          aria-expanded={showHowToSteps}
-          onClick={() => setShowHowToSteps((prev) => !prev)}
-          className="sm:hidden inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-        >
-          {showHowToSteps ? (
-            <ChevronUp className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5" />
-          )}
-        </button>
-      </div>
-      <ol
-        className={`${
-          showHowToSteps ? "mt-2 grid" : "hidden sm:mt-2 sm:grid"
-        } grid-cols-1 gap-2 text-xs text-slate-600 lg:grid-cols-3 lg:gap-4`}
-      >
-        <li className="flex items-start gap-2">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
-            1
-          </span>
-          <span>{isVi ? "Đến sân trước giờ học" : "Arrive before your class starts"}</span>
-        </li>
-        <li className="flex items-start gap-2">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
-            2
-          </span>
-          <span>{isVi ? "Báo mã hội viên (Mã MB) hoặc số điện thoại" : "Provide your member code (MB code) or phone number"}</span>
-        </li>
-        <li className="flex items-start gap-2">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
-            3
-          </span>
-          <span>{isVi ? "Huấn luyện viên hoặc Lễ tân xác nhận điểm danh trên hệ thống" : "Your Coach or Receptionist will confirm your attendance in the system"}</span>
-        </li>
-      </ol>
-    </div>
-  )
-
   return (
     <div className="w-full space-y-6">
       {/* 4.1 Header */}
@@ -1339,7 +1301,7 @@ export function MemberCheckinView() {
           </p>
         </article>
         {/* 4.3 Card Lịch trình học tập */}
-        <article className="min-w-0 flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6 lg:col-span-8">
+        <article className="min-w-0 flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6 lg:col-span-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-brand-accent-dark shrink-0" />
@@ -1474,8 +1436,6 @@ export function MemberCheckinView() {
               </div>
             )}
           </div>
-          {scheduleTab === "today" && !scheduleLoading && !scheduleFailed && todayValidSessions.length === 0 && activeEnrollmentsCount > 0 && renderHowToStepsBox("mt-5")}
-
         </article>
       </section>
 
