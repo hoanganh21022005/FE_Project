@@ -12,6 +12,7 @@ import {
   Send
 } from 'lucide-react';
 import { formatDate } from '../../locales/translations';
+import { getErrorMessage } from '../../api/apiErrors';
 
 export function LeaveRequestModal({
   isOpen,
@@ -32,6 +33,7 @@ export function LeaveRequestModal({
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   React.useEffect(() => {
     if (isOpen) {
@@ -50,18 +52,25 @@ export function LeaveRequestModal({
     e.preventDefault();
     if (!targetSession) return;
     setSubmitting(true);
+    setSubmitError('');
     try {
-      if (typeof onSubmitLeave === 'function') {
-        await onSubmitLeave({
-          session: targetSession,
-          type: requestType,
-          reason,
-          note,
-        });
+      if (typeof onSubmitLeave !== 'function') {
+        throw new Error(language === 'vi' ? 'Không thể gửi yêu cầu lúc này.' : 'Unable to submit the request right now.');
       }
+      await onSubmitLeave({
+        session: targetSession,
+        type: requestType,
+        reason,
+        note,
+      });
       setIsSuccess(true);
     } catch (err) {
-      console.error(err);
+      setSubmitError(getErrorMessage(
+        err,
+        language === 'vi'
+          ? 'Không thể gửi yêu cầu xin nghỉ. Vui lòng thử lại.'
+          : 'Could not submit the leave request. Please try again.',
+      ));
     } finally {
       setSubmitting(false);
     }
@@ -69,6 +78,7 @@ export function LeaveRequestModal({
 
   const handleClose = () => {
     setIsSuccess(false);
+    setSubmitError('');
     setNote('');
     onClose();
   };
@@ -127,6 +137,12 @@ export function LeaveRequestModal({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            {submitError && (
+              <div role="alert" aria-live="assertive" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{submitError}</span>
+              </div>
+            )}
             {/* Absence Quota Reminder Banner */}
             <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl flex items-center justify-between text-amber-900">
               <div className="flex items-center gap-2">
