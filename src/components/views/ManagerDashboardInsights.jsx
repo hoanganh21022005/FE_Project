@@ -33,7 +33,7 @@ const CLASS_STATUSES = [
 
 function Panel({ title, subtitle, icon: Icon, action, children, className = '' }) {
   return (
-    <section className={`min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-xs sm:p-5 ${className}`}>
+    <section className={`min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-5 ${className}`}>
       <header className="mb-4 flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
         <div className="flex min-w-0 items-start gap-3">
           {Icon && <span className="rounded-md bg-brand-blue-soft p-2 text-brand-primary"><Icon className="h-4 w-4" /></span>}
