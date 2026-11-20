@@ -87,7 +87,9 @@ const formatChatTime = (value, isVi) => {
 export function SupportView() {
   const { t, language, apiEnabled, currentUser, role, showToast } = useSCMS()
   const isVi = language === "vi"
-  const isMember = String(role || currentUser?.role || "").toLowerCase() === "member"
+  const normalizedRole = String(role || currentUser?.role || "").toLowerCase()
+  const isMember = normalizedRole === "member"
+  const isManager = normalizedRole === "manager"
 
   const [conversation, setConversation] = useState(null)
   const [inboxList, setInboxList] = useState([])
@@ -119,7 +121,7 @@ export function SupportView() {
   }, [])
 
   const refreshSupportChat = useCallback(async () => {
-    if (!apiEnabled) {
+    if (!apiEnabled || isManager) {
       setLoading(false)
       return
     }
@@ -647,15 +649,17 @@ export function SupportView() {
                 )}
 
                 {!isClosed ? (
-                  <button
-                    type="button"
-                    disabled={actionBusy}
-                    onClick={handleCloseConversation}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors cursor-pointer"
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                    <span>{isVi ? "Kết thúc" : "Close"}</span>
-                  </button>
+                  isMember && (
+                    <button
+                      type="button"
+                      disabled={actionBusy}
+                      onClick={handleCloseConversation}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors cursor-pointer"
+                    >
+                      <XCircle className="w-3.5 w-3.5" />
+                      <span>{isVi ? "Kết thúc" : "Close"}</span>
+                    </button>
+                  )
                 ) : (
                   <>
                     {isMember && (
