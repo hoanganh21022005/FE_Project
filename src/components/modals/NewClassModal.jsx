@@ -17,7 +17,6 @@ import {
   getDefaultNormalMinCapacity,
   isNormalClassApiCreationBlocked,
   loadPendingNormalClassCreation,
-  NORMAL_CLASS_API_BLOCKED_MESSAGE,
   parseLocalDate,
   validateNormalClassCapacity,
 } from "../../api/normalClassCreation.js"
@@ -673,7 +672,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     }
 
     if (isNormalClassApiCreationBlocked(apiEnabled, targetStatus)) {
-      showToast(NORMAL_CLASS_API_BLOCKED_MESSAGE, "error")
+      showToast("Lớp Normal cần có lịch trình đầy đủ 12 buổi học.", "error")
       return
     }
 
@@ -1676,22 +1675,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
             className="h-10 px-5 rounded-lg border border-stone-200 hover:bg-stone-50 text-stone-700 text-sm font-medium transition-colors cursor-pointer"
           >
             Hủy
-          </button>
-
-          {isNormalClassApiCreationBlocked(apiEnabled, "Draft") && (
-            <p role="alert" className="mr-auto max-w-xl text-left text-xs text-amber-800">
-              {NORMAL_CLASS_API_BLOCKED_MESSAGE}
-            </p>
-          )}
-
-          <button
-            type="button"
-            onClick={() => handleSubmit("Draft")}
-            disabled={isSubmitting || conflict?.hasConflict || isNormalClassApiCreationBlocked(apiEnabled, "Draft")}
-            className="h-10 px-5 rounded-lg border border-stone-200 hover:bg-stone-50 text-stone-700 text-sm font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            title={conflict?.hasConflict ? conflict.message : "Lưu bản nháp"}
-          >
-            {isSubmitting ? "Đang lưu..." : "Lưu nháp"}
           </button>
 
           <button
