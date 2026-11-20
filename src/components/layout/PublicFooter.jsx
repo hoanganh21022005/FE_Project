@@ -60,24 +60,40 @@ export function PublicFooter() {
             </ul>
           </nav>
 
-          <nav aria-label={isVi ? "Khám phá AVT Sport" : "Explore AVT Sport"}>
-            <h2 className="text-xs font-extrabold uppercase tracking-[0.18em] text-white">
-              {isVi ? "Khám phá" : "Explore"}
-            </h2>
-            <ul className="mt-5 space-y-3 text-sm text-white/65">
-              {exploreLinks.map(([href, vi, en]) => (
-                <li key={href}>
-                  <Link
-                    to={href}
-                    className="inline-flex items-center gap-1 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                  >
-                    {isVi ? vi : en}
-                    <ArrowUpRight className="h-3.5 w-3.5 opacity-50" aria-hidden="true" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
+          <div className="space-y-7">
+            <nav aria-label={isVi ? "Khám phá AVT Sport" : "Explore AVT Sport"}>
+              <h2 className="text-xs font-extrabold uppercase tracking-[0.18em] text-white">
+                {isVi ? "Khám phá" : "Explore"}
+              </h2>
+              <ul className="mt-5 space-y-3 text-sm text-white/65">
+                {exploreLinks.map(([href, vi, en]) => (
+                  <li key={href}>
+                    <Link
+                      to={href}
+                      className="inline-flex items-center gap-1 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                    >
+                      {isVi ? vi : en}
+                      <ArrowUpRight className="h-3.5 w-3.5 opacity-50" aria-hidden="true" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+
+            <section aria-label={isVi ? "Liên hệ" : "Contact"}>
+              <h2 className="text-xs font-extrabold uppercase tracking-[0.18em] text-white">
+                {isVi ? "Liên hệ" : "Contact"}
+              </h2>
+              <div className="mt-4 text-sm text-white/65">
+                <a
+                  href="mailto:avtsport.info@gmail.com"
+                  className="break-all transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                >
+                  avtsport.info@gmail.com
+                </a>
+              </div>
+            </section>
+          </div>
 
         </div>
 
