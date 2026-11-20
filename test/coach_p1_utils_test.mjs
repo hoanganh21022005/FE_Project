@@ -24,7 +24,7 @@ assert.equal(statusTone('session', 'Scheduled'), 'blue');
 // P1.3 Date/Time
 assert.equal(formatDate('2026-11-04'), '04/11/2026');
 assert.equal(formatTime('06:00:00'), '06:00');
-assert.equal(formatDateTime('2026-11-04T14:45:00'), '14:45 04/11/2026');
+assert.equal(formatDateTime('2026-11-04T14:45:00'), '14:45 - 04/11/2026');
 assert.equal(formatWeekday('2026-11-04', 'vi'), 'Thứ Tư, 04/11/2026');
 
 // P1.4 Score
