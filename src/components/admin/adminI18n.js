@@ -56,6 +56,7 @@ export const ADMIN_ROLE_SHORT_LABELS = {
 
 export const ADMIN_PERMISSION_LABELS = {
   vi: {
+    ROLE_ADMIN: "Vai trò Quản trị viên hệ thống",
     MANAGE_USERS: "Quản lý người dùng",
     MANAGE_RBAC: "Quản lý vai trò & quyền",
     MANAGE_PERMISSIONS: "Quản trị phân quyền",
@@ -88,6 +89,7 @@ export const ADMIN_PERMISSION_LABELS = {
     VIEW_REPORTS: "Xem báo cáo thống kê",
   },
   en: {
+    ROLE_ADMIN: "System Administrator role",
     MANAGE_USERS: "Manage users",
     MANAGE_RBAC: "Manage roles & permissions",
     MANAGE_PERMISSIONS: "Manage permissions",
