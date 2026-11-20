@@ -75,7 +75,7 @@ export function MemberMyCoachView() {
   )
 
   // Navigation tab: 'coaches' | 'my_sessions' | 'advanced_pt'
-  const [activeTab, setActiveTab] = useState("coaches")
+  const [activeTab, setActiveTab] = useState("my_sessions")
 
   // Advanced PT Registration & Coach Work Schedule state
   const [advancedRegistrations, setAdvancedRegistrations] = useState([])
@@ -744,21 +744,10 @@ export function MemberMyCoachView() {
     <div className="w-full space-y-6 font-sans antialiased">
       {/* Header */}
       <PageHeader
-        title={isVi ? "Huấn Luyện Viên & Đặt Lịch 1:1" : "Personal Coaches & 1-on-1 Sessions"}
-        description={isVi ? "Xem danh sách HLV, khung giờ trống và đặt lịch tập riêng 1:1." : "Browse coaches, view available slots, and book private 1-on-1 sessions."}
+        title={isVi ? "Lịch tập 1-1 & Đề xuất ca học" : "1-on-1 Schedule & Session Proposals"}
+        description={isVi ? "Theo dõi lịch tập riêng 1:1 và phản hồi các đề xuất ca học từ huấn luyện viên." : "Manage your 1-on-1 schedule and respond to session proposals from your coach."}
         actions={
           <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 p-1">
-            <button
-              type="button"
-              onClick={() => setActiveTab("coaches")}
-              className={`px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                activeTab === "coaches"
-                  ? "bg-white text-slate-900 shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              {isVi ? "Danh bạ Huấn luyện viên" : "Coach directory"} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">{coaches.length}</span>
-            </button>
             <button
               type="button"
               onClick={() => setActiveTab("my_sessions")}
@@ -769,6 +758,17 @@ export function MemberMyCoachView() {
               }`}
             >
               {isVi ? "Lịch 1:1 & đề xuất" : "1:1 schedule & proposals"} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">{upcomingPrivateSessions + privateSessionProposals.filter((proposal) => String(proposal.status || "").toLowerCase() === "pending" && proposal.sessionId == null).length}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("coaches")}
+              className={`px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                activeTab === "coaches"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              {isVi ? "Danh bạ Huấn luyện viên" : "Coach directory"} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">{coaches.length}</span>
             </button>
             <button
               type="button"
@@ -994,7 +994,7 @@ export function MemberMyCoachView() {
                   <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-extrabold uppercase text-amber-800">{formatAdvancedStatus(proposal.status, isVi)}</span>
                 </div>
                 <div className="mt-4 flex flex-wrap justify-end gap-2">
-                  <button type="button" disabled={rejectingProposalId != null || acceptingProposalId != null} onClick={() => handleAcceptProposal(proposal)} className="min-h-10 rounded-lg bg-emerald-700 px-4 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60">{acceptingProposalId != null && String(acceptingProposalId) === String(proposal.id) ? (isVi ? "Đang xác nhận..." : "Confirming...") : (isVi ? "Đồng ý" : "Accept")}</button>
+                  <button type="button" disabled={rejectingProposalId != null || acceptingProposalId != null} onClick={() => handleAcceptProposal(proposal)} className="min-h-10 rounded-lg bg-emerald-700 px-4 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60">{acceptingProposalId != null && String(acceptingProposalId) === String(proposal.id) ? (isVi ? "Đang xác nhận..." : "Confirming...") : (isVi ? "Chấp nhận" : "Accept")}</button>
                   <button type="button" disabled={rejectingProposalId != null || acceptingProposalId != null} onClick={() => handleRejectProposal(proposal)} className="min-h-10 rounded-lg border border-rose-300 bg-white px-4 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60">{rejectingProposalId != null && String(rejectingProposalId) === String(proposal.id) ? (isVi ? "Đang gửi..." : "Sending...") : (isVi ? "Từ chối" : "Reject")}</button>
                 </div>
               </article>

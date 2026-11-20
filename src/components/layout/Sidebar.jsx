@@ -216,7 +216,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
           },
           {
             path: "/member/my-coach",
-            label: language === "vi" ? "Huấn luyện viên của tôi" : "My Coach",
+            label: language === "vi" ? "Lịch tập 1-1" : "1-on-1 Schedule",
             icon: UserCheck,
           },
           {
