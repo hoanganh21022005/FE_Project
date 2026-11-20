@@ -9,6 +9,7 @@ import {
   Search,
   ShieldAlert,
   User,
+  X,
 } from "lucide-react"
 import { useAdminData } from "../AdminDataContext.jsx"
 import { useSCMS } from "../../../context/SCMSContext.jsx"
@@ -84,6 +85,12 @@ export function AdminAuditLogsView() {
 
   // Ô tìm kiếm chữ client trên trang hiện tại
   const [query, setQuery] = useState("")
+  const [debouncedQuery, setDebouncedQuery] = useState("")
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedQuery(query), 300)
+    return () => window.clearTimeout(timeout)
+  }, [query])
 
   // Bộ lọc đổi (do người dùng hoặc do URL đổi từ bên ngoài) thì quay về trang 1
   useEffect(() => {
@@ -227,7 +234,7 @@ export function AdminAuditLogsView() {
 
   // Lọc client trên danh sách của trang đang xem
   const filteredLogs = useMemo(() => {
-    const normalized = query.trim().toLowerCase()
+    const normalized = debouncedQuery.trim().toLowerCase()
     if (!normalized) return serverLogs
 
     return serverLogs.filter((log) => {
@@ -245,7 +252,7 @@ export function AdminAuditLogsView() {
         detailStr.includes(normalized)
       )
     })
-  }, [serverLogs, query, getUserName, language])
+  }, [serverLogs, debouncedQuery, getUserName, language])
 
   const dateRangeSummary = useMemo(() => {
     if (startDate && endDate) {
@@ -377,10 +384,11 @@ export function AdminAuditLogsView() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => { setQuery(e.target.value); setPage(1) }}
               placeholder={getAdminText(language, "audit.searchPlaceholder")}
-              className="min-h-11 w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary"
+              className="min-h-11 w-full rounded border border-border-strong bg-bg-card pl-9 pr-9 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary"
             />
+            {query && <button type="button" onClick={() => { setQuery(""); setDebouncedQuery(""); setPage(1) }} aria-label={isEn ? "Clear search" : "Xóa tìm kiếm"} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-text-muted hover:bg-bg-secondary hover:text-text-primary"><X className="h-4 w-4" /></button>}
           </label>
         </div>
 

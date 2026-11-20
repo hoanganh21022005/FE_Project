@@ -2,12 +2,15 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import { useSCMS } from "../../context/SCMSContext"
 import { attendanceApi } from "../../api/attendanceApi"
 import { getErrorMessage } from "../../api/apiErrors"
+import { serializeCsvRows } from "../../api/reportUtils"
 import {
   QrCode,
   RefreshCw,
   CheckCircle2,
   ClipboardCheck,
   Clock,
+  Download,
+  LoaderCircle,
 } from "lucide-react"
 
 const getCheckinErrorMessage = (err, fallback) => {
@@ -48,6 +51,7 @@ export function ReceptionCheckinView() {
   const [attendances, setAttendances] = useState([])
   const [loadingAttendances, setLoadingAttendances] = useState(false)
   const [stateFilter, setStateFilter] = useState("all")
+  const [exportingAttendance, setExportingAttendance] = useState(false)
 
   const parseNumericId = (rawId) => {
     const match = String(rawId || "").match(/(\d+)$/)
@@ -174,6 +178,40 @@ export function ReceptionCheckinView() {
           (a) =>
             String(a.state || "").toLowerCase() === stateFilter.toLowerCase(),
         )
+
+  const handleExportAttendance = async () => {
+    if (exportingAttendance) return
+    setExportingAttendance(true)
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      const headers = language === "vi"
+        ? ["Mã hội viên", "Mã thành viên", "Họ tên", "Lớp", "Giờ vào", "Giờ ra", "Trạng thái"]
+        : ["Member ID", "Member code", "Member name", "Class", "Check-in time", "Check-out time", "Status"]
+      const rows = [
+        headers,
+        ...filteredAttendances.map((attendance) => [
+          attendance.memberId ?? "",
+          attendance.memberCode ?? "",
+          attendance.memberName || "",
+          attendance.className || (language === "vi" ? "Check-in tại quầy/cổng" : "Reception / gate check-in"),
+          attendance.checkInTime || "",
+          attendance.checkOutTime || "",
+          attendance.state || "Present",
+        ]),
+      ]
+      const blob = new Blob([serializeCsvRows(rows)], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `scms-attendance-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.setTimeout(() => URL.revokeObjectURL(url), 0)
+    } finally {
+      setExportingAttendance(false)
+    }
+  }
 
   return (
     <div className="space-y-6 font-sans">
@@ -345,7 +383,7 @@ export function ReceptionCheckinView() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <select
                 value={stateFilter}
                 onChange={(e) => setStateFilter(e.target.value)}
@@ -357,6 +395,15 @@ export function ReceptionCheckinView() {
                 <option value="Absent">Absent (Vắng mặt)</option>
               </select>
 
+              <button
+                type="button"
+                onClick={handleExportAttendance}
+                disabled={exportingAttendance || loadingAttendances}
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-50 transition-colors"
+              >
+                {exportingAttendance ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> : <Download className="w-3.5 h-3.5" aria-hidden="true" />}
+                <span>{exportingAttendance ? (language === "vi" ? "Đang chuẩn bị…" : "Preparing…") : (language === "vi" ? "Xuất CSV" : "Export CSV")}</span>
+              </button>
               <button
                 type="button"
                 onClick={loadAttendances}

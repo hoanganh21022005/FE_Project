@@ -17,7 +17,7 @@ import * as attendanceApi from "../api/attendanceApi.js"
 import { getErrorMessage, sanitizeBackendMessage, UnauthorizedError } from "../api/apiErrors.js"
 import { selectMemberCreateRoute } from "../utils/memberCreationRoute.js"
 import { formatLegacyMembershipError } from "../utils/packageRetirement.js"
-import { UNAUTHORIZED_EVENT, FORBIDDEN_EVENT } from "../api/httpClient.js"
+import { UNAUTHORIZED_EVENT, FORBIDDEN_EVENT, clearStoredAuth } from "../api/httpClient.js"
 import {
   normalizeRole,
   getDefaultTab,
@@ -298,11 +298,13 @@ export const SCMSProvider = ({ children }) => {
   useEffect(() => {
     const handleUnauthorized = () => {
       setAuthUser(null)
+      setRole(ROLE_MANAGER)
+      setCurrentTab(getDefaultTab(ROLE_MANAGER))
       setAuthError(null)
+      setAuthLoading(false)
       setLocalAuthenticated(false)
       if (typeof window !== "undefined") {
-        sessionStorage.removeItem("scms_mock_authenticated")
-        sessionStorage.removeItem("scms_mock_role")
+        clearStoredAuth()
       }
     }
     const handleForbidden = (event) => {
@@ -824,19 +826,20 @@ export const SCMSProvider = ({ children }) => {
 
   const logout = async () => {
     authRequestEpochRef.current += 1
+    const logoutRequest = API_ENABLED
+      ? authApi.logout().catch(() => {})
+      : Promise.resolve()
+
+    setAuthUser(null)
+    setRole(ROLE_MANAGER)
+    setCurrentTab(getDefaultTab(ROLE_MANAGER))
+    setAuthError(null)
+    setAuthLoading(false)
+    setLocalAuthenticated(false)
+    clearStoredAuth()
+
     if (API_ENABLED) {
-      try {
-        await authApi.logout()
-      } finally {
-        setAuthUser(null)
-        setAuthError(null)
-      }
-    } else {
-      setLocalAuthenticated(false)
-      if (typeof window !== "undefined") {
-        sessionStorage.removeItem("scms_mock_authenticated")
-        sessionStorage.removeItem("scms_mock_role")
-      }
+      await logoutRequest
     }
   }
 

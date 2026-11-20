@@ -4,6 +4,7 @@ import { useSCMS } from '../../context/SCMSContext'
 import { getErrorMessage } from '../../api/apiErrors.js'
 import { createHoliday, getHolidays, getSessions, previewHoliday, toggleHoliday } from '../../api/managerApi.js'
 import { canManageClasses, holidayRequestFromForm, validateHolidayForm } from '../../api/holidayUtils.js'
+import { validateRequiredDate } from '../../utils/formValidation.js'
 
 const MOCK_HOLIDAYS = [
   { id: 'mock-holiday-1', holidayDate: '2026-12-25', holidayName: 'Center holiday', tag: 'CENTER_EVENT', active: true },
@@ -56,6 +57,7 @@ export function ManagerHolidaysView() {
   const [error, setError] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [formError, setFormError] = useState('')
+  const [dateError, setDateError] = useState('')
   const [saving, setSaving] = useState(false)
   const [busyHolidayId, setBusyHolidayId] = useState(null)
   const [sessionsOnDate, setSessionsOnDate] = useState(null)
@@ -106,6 +108,9 @@ export function ManagerHolidaysView() {
   const submitHoliday = async (event) => {
     event.preventDefault()
     if (submitLock.current || saving) return
+    const requiredDateError = validateRequiredDate(form.holidayDate, { language })
+    setDateError(requiredDateError)
+    if (requiredDateError) return
     const validation = validateHolidayForm(form, holidays)
     if (validation) {
       setFormError(language === 'vi'
@@ -204,8 +209,8 @@ export function ManagerHolidaysView() {
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-xs">
         <h2 className="mb-4 text-sm font-bold">{vi ? 'Thêm ngày nghỉ' : 'Add a holiday'}</h2>
         {!canManage ? <p className="text-sm text-slate-500">{vi ? 'Thao tác quản lý bị ẩn do thiếu quyền.' : 'Management actions are hidden because permission is missing.'}</p> : (
-          <form onSubmit={submitHoliday} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <label className="text-xs font-semibold text-slate-700">{vi ? 'Ngày nghỉ' : 'Date'}<input type="date" required value={form.holidayDate} onChange={(event) => { setForm((old) => ({ ...old, holidayDate: event.target.value })); setFormError('') }} className="mt-1 min-h-11 w-full rounded border border-slate-300 bg-slate-50 px-3 text-sm" /></label>
+          <form noValidate onSubmit={submitHoliday} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <label className="text-xs font-semibold text-slate-700">{vi ? 'Ngày nghỉ' : 'Date'}<input type="date" required value={form.holidayDate} onBlur={() => setDateError(validateRequiredDate(form.holidayDate, { language }))} onChange={(event) => { setForm((old) => ({ ...old, holidayDate: event.target.value })); setDateError(''); setFormError('') }} aria-invalid={Boolean(dateError)} className={`mt-1 min-h-11 w-full rounded border bg-slate-50 px-3 text-sm ${dateError ? 'border-red-500' : 'border-slate-300'}`} />{dateError && <span className="mt-1 block text-xs font-normal text-red-600">{dateError}</span>}</label>
             <label className="text-xs font-semibold text-slate-700 lg:col-span-2">{vi ? 'Tên ngày nghỉ' : 'Holiday name'}<input type="text" required maxLength={120} value={form.holidayName} onChange={(event) => { setForm((old) => ({ ...old, holidayName: event.target.value })); setFormError('') }} className="mt-1 min-h-11 w-full rounded border border-slate-300 bg-slate-50 px-3 text-sm" /></label>
             <label className="text-xs font-semibold text-slate-700">Tag<input type="text" maxLength={50} value={form.tag} onChange={(event) => setForm((old) => ({ ...old, tag: event.target.value }))} className="mt-1 min-h-11 w-full rounded border border-slate-300 bg-slate-50 px-3 text-sm" /></label>
             <label className="flex items-center gap-2 self-end pb-3 text-xs font-semibold text-slate-700"><input type="checkbox" checked={form.active} onChange={(event) => setForm((old) => ({ ...old, active: event.target.checked }))} />{vi ? 'Đang áp dụng' : 'Active'}</label>

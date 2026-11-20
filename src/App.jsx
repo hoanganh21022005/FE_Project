@@ -13,6 +13,7 @@ import { Sidebar } from "./components/layout/Sidebar"
 import { Toast } from "./components/common/Toast"
 import { PublicPageScroll } from "./components/common/PublicPageScroll"
 import { ForbiddenView } from "./components/views/ForbiddenView"
+import { NotFoundView } from "./components/views/NotFoundView"
 import { RequireAuth, RequireRole } from "./components/auth/RouteGuard"
 import { AdminDataProvider } from "./components/admin/AdminDataContext"
 import { AdminLayout } from "./components/admin/AdminLayout"
@@ -23,6 +24,7 @@ import {
 import { canAccessAdminOpsPath } from "./components/admin/adminNav"
 import { ErrorBoundary } from "./components/common/ErrorBoundary"
 import { VnpayCheckoutHost } from "./components/common/VnpayCheckoutHost"
+import { UNAUTHORIZED_EVENT } from "./api/httpClient"
 import {
   ROLE_ADMIN,
   ROLE_MANAGER,
@@ -470,6 +472,14 @@ function SCMSApp() {
     setMobileSidebarOpen(false)
   }, [location.pathname])
 
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      navigate("/login", { replace: true })
+    }
+    window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)
+  }, [navigate])
+
   const handleLoginSuccess = (userOrRole) => {
     const savedIntended =
       typeof window !== "undefined"
@@ -530,6 +540,13 @@ function SCMSApp() {
   }
 
   const handleLogout = async () => {
+    const confirmed = typeof window === "undefined" || window.confirm(
+      language === "vi"
+        ? "Bạn có chắc chắn muốn đăng xuất không?"
+        : "Are you sure you want to log out?",
+    )
+    if (!confirmed) return
+
     const adminSession = role === ROLE_ADMIN
     await logout()
     if (typeof window !== "undefined") {
@@ -540,7 +557,7 @@ function SCMSApp() {
     if (adminSession) {
       navigate("/admin/login")
     } else {
-      navigate("/")
+      navigate("/login")
     }
   }
 
@@ -929,14 +946,7 @@ function SCMSApp() {
               />
               <Route
                 path="*"
-                element={
-                  <LoginView
-                    key={location.pathname}
-                    onLoginSuccess={handleLoginSuccess}
-                    onBackToHome={() => navigate("/")}
-                    initialMode="login"
-                  />
-                }
+                element={<NotFoundView language={language} onGoHome={() => navigate("/")} />}
               />
             </Routes>
           </Suspense>
@@ -1189,7 +1199,7 @@ function SCMSApp() {
                   />
                   <Route
                     path="*"
-                    element={<Navigate to="/admin/dashboard" replace />}
+                    element={<NotFoundView language={language} onGoHome={() => navigate("/admin/dashboard")} />}
                   />
                 </Routes>
               </Suspense>
@@ -1821,12 +1831,7 @@ function SCMSApp() {
                   {/* Fallback */}
                   <Route
                     path="*"
-                    element={
-                      <Navigate
-                        to={`/${role || "manager"}/dashboard`}
-                        replace
-                      />
-                    }
+                    element={<NotFoundView language={language} onGoHome={() => navigate(`/${role || "manager"}/dashboard`)} />}
                   />
                 </Routes>
               </Suspense>
