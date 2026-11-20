@@ -4,7 +4,7 @@ import { getErrorMessage } from '../../api/apiErrors';
 import * as managerApi from '../../api/managerApi';
 import { revenueSummaryCsvRows, revenueTimelineForDisplay, serializeCsvRows } from '../../api/reportUtils';
 import { formatCurrency } from '../../locales/translations';
-import { BarChart3, Download } from 'lucide-react';
+import { BarChart3, Download, LoaderCircle } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -43,6 +43,7 @@ export function ReportsView() {
   const [endDate, setEndDate] = useState('');
   const [groupBy, setGroupBy] = useState('month');
   const [filterError, setFilterError] = useState('');
+  const [exporting, setExporting] = useState(false);
   const vi = language === 'vi';
 
   useEffect(() => {
@@ -108,30 +109,43 @@ export function ReportsView() {
   const chartContainerClass = 'bg-white border border-slate-200 p-5 rounded-lg shadow-xs';
   const axisProps = { tick: { fontSize: 10, fill: '#64748B' }, axisLine: false, tickLine: false };
 
-  const handleExportReport = () => {
-    const revenueCsvReport = apiEnabled ? revenueReport : { totalRevenue: mockRevenue };
-    const rows = [
-      ['Metric', 'Value'],
-      ...revenueSummaryCsvRows(revenueCsvReport),
-      ['totalTransactions', apiEnabled ? revenueReport?.totalTransactions ?? null : payments.filter((p) => p.status === 'successful').length],
-      ['averageTransactionValue', apiEnabled ? revenueReport?.averageTransactionValue ?? null : null],
-      ['totalMembers', apiEnabled ? memberReport?.totalMembers ?? null : members.length],
-      ['activeMembers', apiEnabled ? memberReport?.activeMembers ?? null : members.filter((m) => m.status === 'active').length],
-      ['expiredMembers', apiEnabled ? memberReport?.expiredMembers ?? null : members.filter((m) => m.status === 'expired').length],
-      [],
-      ['Period', 'Revenue', 'Transactions'],
-      ...timeline.map((item) => [item.period || item.month || '', item.revenue, item.count]),
-    ];
-    const csvContent = serializeCsvRows(rows);
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `scms-report-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const handleExportReport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const revenueCsvReport = apiEnabled ? revenueReport : { totalRevenue: mockRevenue };
+      const rows = [
+        ['Metric', 'Value'],
+        ...revenueSummaryCsvRows(revenueCsvReport),
+        ['totalTransactions', apiEnabled ? revenueReport?.totalTransactions ?? null : payments.filter((p) => p.status === 'successful').length],
+        ['averageTransactionValue', apiEnabled ? revenueReport?.averageTransactionValue ?? null : null],
+        ['totalMembers', apiEnabled ? memberReport?.totalMembers ?? null : members.length],
+        ['activeMembers', apiEnabled ? memberReport?.activeMembers ?? null : members.filter((m) => m.status === 'active').length],
+        ['expiredMembers', apiEnabled ? memberReport?.expiredMembers ?? null : members.filter((m) => m.status === 'expired').length],
+        [],
+        ['Period', 'Revenue', 'Transactions'],
+        ...timeline.map((item) => [item.period || item.month || '', item.revenue, item.count]),
+        [],
+        [vi ? 'Gói' : 'Package', vi ? 'Giao dịch' : 'Transactions', vi ? 'Doanh thu' : 'Revenue'],
+        ...packageRevenue.map((item) => [item.packageName || '', item.count, item.totalRevenue]),
+        [],
+        [vi ? 'Phương thức' : 'Payment method', vi ? 'Giao dịch' : 'Transactions', vi ? 'Doanh thu' : 'Revenue'],
+        ...methodRevenue.map((item) => [item.method || '', item.count, item.totalRevenue]),
+      ];
+      const csvContent = serializeCsvRows(rows);
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `scms-report-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -144,8 +158,8 @@ export function ReportsView() {
             <p className="text-xs text-slate-500">{vi ? 'Báo cáo doanh thu và tăng trưởng hội viên' : 'Revenue and member growth reports'}</p>
           </div>
         </div>
-        <button type="button" onClick={handleExportReport} className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 rounded text-xs font-bold flex items-center gap-1.5 border border-slate-300 shadow-xs cursor-pointer">
-          <Download className="w-3.5 h-3.5 text-slate-600" /><span>{t('exportReport')}</span>
+        <button type="button" onClick={handleExportReport} disabled={exporting} className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 rounded text-xs font-bold flex items-center gap-1.5 border border-slate-300 shadow-xs cursor-pointer disabled:cursor-wait disabled:opacity-60">
+          {exporting ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> : <Download className="w-3.5 h-3.5 text-slate-600" aria-hidden="true" />}<span>{exporting ? (vi ? 'Đang chuẩn bị…' : 'Preparing…') : (vi ? 'Xuất CSV' : 'Export CSV')}</span>
         </button>
       </div>
 
