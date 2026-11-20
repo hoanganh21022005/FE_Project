@@ -9,7 +9,7 @@ import {
   UserPlus,
   CreditCard,
   Activity,
-  QrCode,
+  ClipboardCheck,
   Calendar,
   RefreshCw,
 } from "lucide-react"
@@ -106,9 +106,9 @@ export function ReceptionistDashboard() {
             onClick={() => navigate("/receptionist/checkin")}
             className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer shadow-sm"
           >
-            <QrCode className="w-4 h-4" />
+            <ClipboardCheck className="w-4 h-4" />
             <span>
-              {language === "vi" ? "Điểm Danh & Check-in" : "Check-in Desk"}
+              {language === "vi" ? "Lịch sử điểm danh" : "Attendance history"}
             </span>
           </button>
 
@@ -130,14 +130,14 @@ export function ReceptionistDashboard() {
           className="text-left rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm hover:bg-slate-50/70 hover:border-brand-primary/40 transition-colors cursor-pointer flex items-start gap-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
         >
           <div className="p-2.5 bg-brand-blue-soft text-brand-primary rounded-xl shrink-0">
-            <QrCode className="w-4 h-4" />
+            <ClipboardCheck className="w-4 h-4" />
           </div>
           <div>
             <div className="text-sm font-semibold text-slate-900">
-              Điểm danh &amp; Check-in
+              Lịch sử điểm danh
             </div>
             <p className="text-xs leading-relaxed text-slate-500 mt-1">
-              Quét mã QR cổng vào, Check-in / Check-out thủ công và xem lịch sử
+              Theo dõi lịch sử điểm danh tại quầy
               điểm danh
             </p>
           </div>

@@ -54,6 +54,21 @@ const isSlotAtLeast12HoursAhead = (dateStr, slot) => {
   return startsAtMs - Date.now() >= TWELVE_HOURS_MS
 }
 
+const isAwaitingMemberPayment = (item) => {
+  if (!item) return false
+  const paymentStatus = String(item.paymentStatus || '').trim().toLowerCase()
+  const subscriptionStatus = String(item.subscriptionStatus || '').trim().toLowerCase()
+  if (subscriptionStatus === 'active' || ['paid', 'successful', 'success', 'completed'].includes(paymentStatus)) return false
+  const statuses = [item.subscriptionStatus, item.status, item.invoiceStatus, item.orderStatus]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase().replace(/[\s-]+/g, '_'))
+  if (statuses.some((status) => [
+    'accepted', 'approved', 'invoiced', 'pending_payment', 'awaiting_payment',
+    'awaitingpayment', 'payment_pending', 'accepted_pending_payment',
+  ].includes(status))) return true
+  return Boolean(item.acceptedAt || item.invoiceId)
+}
+
 export function CoachAssignedMembersView() {
   const {
     currentUser,
@@ -1173,13 +1188,9 @@ export function CoachAssignedMembersView() {
                               ? 100
                               : 0
 
-                        const rawStatus = String(
-                          item.subscriptionStatus || item.status || "",
-                        ).toLowerCase()
+                        const rawStatus = String(item.subscriptionStatus || item.status || "").toLowerCase()
                         const isSubActive = rawStatus === "active"
-                        const isAwaitingPayment =
-                          !isSubActive &&
-                          (rawStatus === "accepted" || rawStatus === "invoiced")
+                        const isAwaitingPayment = !isSubActive && isAwaitingMemberPayment(item)
 
                         const isSelectedForBooking =
                           activeSelectedPkg &&
@@ -1346,10 +1357,7 @@ export function CoachAssignedMembersView() {
                             </button>
                           </div>
                         </>
-                      ) : studentGroup.packages.every((pkg) => {
-                          const st = String(pkg.subscriptionStatus || pkg.status || "").toLowerCase()
-                          return st === "accepted" || st === "invoiced"
-                        }) ? (
+                      ) : studentGroup.packages.some(isAwaitingMemberPayment) ? (
                         <div className="text-xs font-semibold text-amber-800">
                           {language === "vi" ? "Chờ Member thanh toán" : "Waiting for Member payment"}
                         </div>

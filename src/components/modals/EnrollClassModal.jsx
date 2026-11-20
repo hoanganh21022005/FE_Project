@@ -6,7 +6,6 @@ import {
   Users,
   CheckCircle2,
   ShieldCheck,
-  QrCode,
   ArrowRight,
   X,
   AlertCircle,
@@ -97,7 +96,7 @@ export function EnrollClassModal({
               </h3>
               <p className="text-xs text-slate-600 max-w-sm mx-auto">
                 {language === 'vi'
-                  ? 'Bạn đã đăng ký thành công! Buổi học đã được đưa vào Lịch điểm danh và kích hoạt mã QR tự động.'
+                  ? 'Bạn đã đăng ký thành công! Buổi học đã được đưa vào Lịch điểm danh.'
                   : 'You are successfully enrolled! Your session is now synced to your Attendance schedule.'}
               </p>
             </div>
@@ -128,8 +127,8 @@ export function EnrollClassModal({
                 }}
                 className="w-full sm:flex-1 py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
               >
-                <QrCode className="w-4 h-4 text-emerald-400" />
-                <span>{language === 'vi' ? 'Xem mã QR điểm danh' : 'Go to QR Check-in'}</span>
+                <Calendar className="w-4 h-4 text-emerald-400" />
+                <span>{language === 'vi' ? 'Xem lịch điểm danh' : 'View attendance schedule'}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
 
@@ -198,7 +197,7 @@ export function EnrollClassModal({
             </div>
 
             <div className="space-y-1 text-[11px] text-slate-500 leading-normal pl-1">
-              <div>&bull; Mã QR điểm danh tự động hiển thị trước giờ học 30 phút.</div>
+              <div>&bull; Huấn luyện viên hoặc Lễ tân sẽ xác nhận điểm danh trên hệ thống.</div>
               <div>&bull; Bạn có thể hủy đăng ký miễn phí trước giờ học tối thiểu 2 giờ.</div>
             </div>
 

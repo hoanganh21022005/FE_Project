@@ -302,6 +302,7 @@ export function ClassDetailDrawer({
     authorities,
     reason: openingReason,
   })
+  const openingPermissionGranted = openingEvaluation.openingConfirmationAllowed === true
   const openingReasonNeedsInput = openingEvaluation.reasonRequired === true && !openingReason.trim()
   const openingActionBlockers = openingReasonNeedsInput
     ? openingEvaluation.blockers.slice(0, -1)
@@ -359,7 +360,7 @@ export function ClassDetailDrawer({
       now: new Date(),
     })
     setOpeningActionError(null)
-    if (!hasManagerRole || !currentCheck.canSubmit || openingSubmitting || confirmationAccepted) {
+    if (!hasManagerRole || (!currentCheck.canSubmit && currentCheck.openingConfirmationAllowed !== true) || (currentCheck.reasonRequired === true && !openingReason.trim()) || openingSubmitting || confirmationAccepted) {
       setOpeningActionError({
         status: 0,
         code: null,
@@ -822,7 +823,7 @@ export function ClassDetailDrawer({
                         <div>
                           <div className="text-stone-500">Member hợp lệ (Registered + Paid)</div>
                           <div className="mt-1 font-semibold tabular-nums text-stone-900">
-                            {validMemberSummary}
+                            {openingPermissionGranted ? "Đủ điều kiện khai giảng" : validMemberSummary}
                           </div>
                         </div>
                         <div>
@@ -832,10 +833,10 @@ export function ClassDetailDrawer({
                           </div>
                         </div>
                       </div>
-                      {openingEvaluation.blockers.length > 0 ? (
+                      {!openingPermissionGranted && openingEvaluation.blockers.length > 0 ? (
                         <p className="mt-3 text-rose-700">{openingEvaluation.blockers[0]}</p>
-                      ) : openingEvaluation.openingConfirmationAllowed === true ? (
-                        <p className="mt-3 font-medium text-emerald-700">Đủ điều kiện xác nhận khai giảng</p>
+                      ) : openingPermissionGranted ? (
+                        <p className="mt-3 font-medium text-emerald-700">Đủ điều kiện khai giảng</p>
                       ) : (
                         <p className="mt-3 text-stone-600">
                           {openingEvaluation.unverified.length > 0
@@ -1184,7 +1185,7 @@ export function ClassDetailDrawer({
               <div>
                 <dt className="text-stone-500">Member hợp lệ</dt>
                 <dd className="mt-1 font-semibold text-stone-900">
-                  {validMemberSummary}
+                  {openingPermissionGranted ? "Đủ điều kiện khai giảng" : validMemberSummary}
                 </dd>
               </div>
               <div>
@@ -1202,12 +1203,12 @@ export function ClassDetailDrawer({
               <div className="col-span-2">
                 <dt className="text-stone-500">Trạng thái xác nhận khai giảng</dt>
                 <dd className="mt-1 font-semibold text-stone-900">
-                  {classDetail?.openingConfirmedAt === undefined ? (
+                  {classDetail?.openingConfirmedAt === undefined && !openingPermissionGranted ? (
                     "Chưa xác minh"
                   ) : classDetail.openingConfirmedAt !== null ? (
                     "Đã xác nhận"
-                  ) : openingEvaluation.openingConfirmationAllowed === true ? (
-                    <span className="text-emerald-700">Đủ điều kiện xác nhận khai giảng</span>
+                  ) : openingPermissionGranted ? (
+                    <span className="text-emerald-700">Đủ điều kiện khai giảng</span>
                   ) : (
                     "Chưa xác nhận"
                   )}
@@ -1221,7 +1222,7 @@ export function ClassDetailDrawer({
                 <p className="mt-1">Hệ thống sẽ thẩm định điều kiện khi bạn gửi yêu cầu.</p>
               </div>
             )}
-            {openingEvaluation.blockers.length > 0 && (
+            {!openingPermissionGranted && openingEvaluation.blockers.length > 0 && (
               <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
                 {openingEvaluation.blockers[0]}
               </p>
@@ -1284,7 +1285,7 @@ export function ClassDetailDrawer({
               <button type="button" disabled={openingSubmitting} onClick={() => setOpeningDialogOpen(false)} className="rounded-lg border border-stone-300 px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">
                 Hủy
               </button>
-              <button type="button" disabled={openingSubmitting || !openingEvaluation.canSubmit || (openingEvaluation.reasonRequired === true && !openingReason.trim())} onClick={submitOpeningConfirmation} className="rounded-lg bg-indigo-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50">
+              <button type="button" disabled={openingSubmitting || (!openingPermissionGranted && !openingEvaluation.canSubmit) || (openingEvaluation.reasonRequired === true && !openingReason.trim())} onClick={submitOpeningConfirmation} className="rounded-lg bg-indigo-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50">
                 {openingSubmitting ? "Đang xác nhận…" : "Xác nhận khai giảng"}
               </button>
             </div>

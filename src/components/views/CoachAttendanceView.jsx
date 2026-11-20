@@ -1123,31 +1123,18 @@ export function CoachAttendanceView() {
     setQuickSaving(true)
     try {
       if (apiEnabled) {
-        const match = raw.match(/^(MB-\d+)(?:\s+(\d{6}))?$/i)
+        const match = raw.match(/^(MB-\d+)$/i)
         const member = match && enrolledMembers.find((m) => m.code.toUpperCase() === match[1].toUpperCase())
         if (!member) {
-          throw new Error("Nhập mã MB của học viên trong danh sách. Nếu quét QR, nhập mã MB rồi đến mã QR 6 số.")
+          throw new Error("Nhập mã hội viên MB của học viên trong danh sách.")
         }
-        if (match[2]) {
-          const result = await attendanceApi.scanAttendance({
-            code: match[2],
-            memberId: Number(member.id),
-            sessionId: Number(selectedSessionId),
-          })
-          if (Number(result?.sessionId) !== Number(selectedSessionId) ||
-              Number(result?.memberId) !== Number(member.id) ||
-              result?.state !== "Present") {
-            throw new Error("Chưa xác nhận được kết quả quét QR. Hãy làm mới danh sách trước khi thử lại.")
-          }
-        } else {
-          await attendanceApi.recordSessionAttendance({
-            memberId: member.id,
-            sessionId: selectedSessionId,
-            coachId: resolvedCoachId,
-            status: "Present",
-            notes: "",
-          })
-        }
+        await attendanceApi.recordSessionAttendance({
+          memberId: member.id,
+          sessionId: selectedSessionId,
+          coachId: resolvedCoachId,
+          status: "Present",
+          notes: "",
+        })
         setQuickMemberInput("")
         if (requestId === rosterRequestId.current) await loadClassRosterAndAttendance()
         showToast?.(`Đã điểm danh Có mặt cho ${member.code}!`, "success")
@@ -1175,13 +1162,7 @@ export function CoachAttendanceView() {
           "success",
         )
       } else {
-        await attendanceApi.scanAttendance({
-          checkinCode: raw,
-          sessionId: selectedSessionId ? Number(selectedSessionId) : undefined,
-        })
-        setQuickMemberInput("")
-        await loadClassRosterAndAttendance()
-        showToast?.(`Đã quét mã điểm danh ${raw} thành công!`, "success")
+        throw new Error("Nhập mã hội viên MB hợp lệ để điểm danh.")
       }
     } catch (err) {
       if (apiEnabled && requestId === rosterRequestId.current) {
@@ -1192,7 +1173,7 @@ export function CoachAttendanceView() {
           err,
           language,
           "Không thể điểm danh cho mã hội viên / mã check-in này.",
-          "Could not record attendance for this member code / check-in code.",
+          "Could not record attendance for this member code.",
         ),
         "error",
       )
@@ -1571,8 +1552,8 @@ export function CoachAttendanceView() {
             <span className="text-sm leading-5 text-text-secondary">
               {apiEnabled
                 ? language === "vi"
-                  ? "Chọn Có mặt hoặc Vắng mặt trong giờ học. Để quét QR, nhập mã hội viên rồi đến mã 6 số."
-                  : "Mark present or absent during the session. To scan, enter the member code followed by the six-digit QR code."
+                  ? "Chọn Có mặt hoặc Vắng mặt trong giờ học. Bạn cũng có thể nhập mã hội viên để điểm danh nhanh."
+                  : "Mark members present or absent during the session, or enter a member code for quick attendance."
                 : language === "vi"
                   ? "Bấm một chạm để điểm danh trong buổi học hoặc sửa điểm danh kèm lý do khi buổi đã kết thúc"
                   : "One-tap check-in for scheduled sessions or edit with mandatory reason for completed sessions"}
@@ -1599,10 +1580,10 @@ export function CoachAttendanceView() {
               >
                 <input
                   type="text"
-                  aria-label={language === "vi" ? "Mã hội viên và mã QR điểm danh" : "Member code and attendance QR code"}
+                  aria-label={language === "vi" ? "Mã hội viên để điểm danh nhanh" : "Member code for quick attendance"}
                   value={quickMemberInput}
                   onChange={(e) => setQuickMemberInput(e.target.value)}
-                  placeholder={apiEnabled ? "MB-1002 hoặc MB-1002 123456" : "Quét QR / nhập MB-xxxx..."}
+                  placeholder="MB-1002"
                   className="min-h-11 w-full sm:w-52 rounded border border-border-strong bg-bg-card px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                 />
                 <button
@@ -1697,7 +1678,7 @@ export function CoachAttendanceView() {
                 : enrolledMembers.length > 0
                   ? "Không tìm thấy học viên khớp với từ khóa."
                   : Number(selectedClass?.enrolledCount || 0) > 0
-                    ? `Lớp đã có ${selectedClass.enrolledCount} học viên đăng ký. Bạn có thể nhập mã hội viên (MB-xxxx) hoặc quét QR ở ô "Điểm danh nhanh" phía trên để ghi nhận buổi học.`
+                    ? `Lớp đã có ${selectedClass.enrolledCount} học viên đăng ký. Bạn có thể nhập mã hội viên (MB-xxxx) ở ô "Điểm danh nhanh" phía trên để ghi nhận buổi học.`
                     : "Lớp học này hiện chưa có học viên nào đăng ký chính thức."}
             </div>
           ) : (

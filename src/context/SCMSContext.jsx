@@ -1636,11 +1636,11 @@ export const SCMSProvider = ({ children }) => {
     }))
     if (meta.className) {
       addAuditLog(
-        "QR_GATE_CHECKIN",
+        "MANUAL_GATE_CHECKIN",
         `Check-in Fast Track: ${meta.className} (Buổi ${meta.sessionNum || 1})`,
         "Check-in Open",
         `Present (${checkinTime})`,
-        "Hội viên quét mã QR qua cổng soát vé tự động",
+        "Nhân viên xác nhận điểm danh thủ công tại cổng",
       )
     }
   }

@@ -108,10 +108,6 @@ export const registerMemberProfile = async (data) => {
   return mapMember(created)
 }
 
-export const getMyCheckinCode = async () => {
-  return httpClient.get("/api/members/me/checkin-code")
-}
-
 export const memberApi = {
   getMembers,
   getMemberById,
@@ -124,7 +120,6 @@ export const memberApi = {
   getMyMemberProfile,
   patchMyMemberProfile,
   registerMemberProfile,
-  getMyCheckinCode,
 }
 
 export default memberApi

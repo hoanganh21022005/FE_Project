@@ -25,14 +25,14 @@ import {
 const QUICK_TOPICS_VI = [
   { label: "Thanh toán & đối soát hóa đơn VNPay", subject: "Thanh toán & hóa đơn VNPay", prompt: "Hướng dẫn ngắn gọn cách thanh toán và đối soát hóa đơn VNPay tại trung tâm." },
   { label: "Tư vấn khóa Normal & HLV 1:1 Advanced", subject: "Tư vấn khóa học", prompt: "Tư vấn ngắn gọn sự khác nhau và mức học phí giữa lớp Normal và gói HLV 1:1 Advanced." },
-  { label: "Điểm danh mã QR & lịch tập", subject: "Điểm danh và lịch tập", prompt: "Hướng dẫn ngắn gọn cách quét mã QR điểm danh và kiểm tra lịch tập hàng tuần." },
+  { label: "Điểm danh thủ công & lịch tập", subject: "Điểm danh và lịch tập", prompt: "Hướng dẫn cách cung cấp mã hội viên hoặc số điện thoại để huấn luyện viên, lễ tân xác nhận điểm danh và cách kiểm tra lịch tập." },
   { label: "Bảo lưu & gia hạn gói hội viên", subject: "Bảo lưu và gia hạn gói", prompt: "Cho biết ngắn gọn điều kiện và quy trình bảo lưu hoặc gia hạn gói tập." },
 ]
 
 const QUICK_TOPICS_EN = [
   { label: "Payment & VNPay invoice reconciliation", subject: "Payment & VNPay invoice", prompt: "Briefly explain how to pay and reconcile a VNPay invoice at the center." },
   { label: "Normal & 1-on-1 Advanced consultation", subject: "Course consultation", prompt: "Briefly compare Normal and 1-on-1 Advanced, including price and key differences." },
-  { label: "QR check-in & training schedule", subject: "Check-in and schedule", prompt: "Briefly explain QR check-in and how to view my weekly training schedule." },
+  { label: "Manual attendance & training schedule", subject: "Attendance and schedule", prompt: "Explain how to provide my member code or phone number for attendance confirmation and view my weekly training schedule." },
   { label: "Membership freeze & extension", subject: "Membership freeze or extension", prompt: "Briefly explain the eligibility and process for freezing or extending a membership." },
 ]
 

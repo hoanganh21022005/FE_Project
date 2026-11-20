@@ -185,7 +185,7 @@ export function SettingsView() {
             <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-blue-700"><ShieldCheck className="h-5 w-5" /></span><h2 className="text-base font-black text-slate-900">{isVi ? "Chính sách Hội viên AVT Sport" : "AVT Sport member policies"}</h2></div>
             <div className="mt-5 space-y-3 text-xs leading-5 text-slate-600">
               <p className="flex gap-2"><Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />{isVi ? "Thời gian ân hạn gia hạn gói tập sau khi hết hạn: 72 giờ." : "Membership renewal grace period after expiry: 72 hours."}</p>
-              <p className="flex gap-2"><CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />{isVi ? "Check-in mã QR tại quầy trước giờ tập." : "Check in with the QR code at reception before your session."}</p>
+              <p className="flex gap-2"><CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />{isVi ? "Báo mã hội viên hoặc số điện thoại cho Lễ tân / Huấn luyện viên để xác nhận điểm danh." : "Provide your member code or phone number to Reception or your Coach for attendance confirmation."}</p>
               <p className="flex gap-2"><CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />{isVi ? "Chính sách bảo lưu và hoàn phí áp dụng theo quy định của từng gói." : "Freeze and refund policies follow the terms of each membership package."}</p>
             </div>
           </section>

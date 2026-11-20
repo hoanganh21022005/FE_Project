@@ -303,6 +303,15 @@ export function checkSingleClassConflict(candidate, existing) {
     return null
   }
   const existType = String(existing.classType ?? "").trim().toLowerCase()
+  const candidateType = String(candidate.classType ?? "").trim().toLowerCase()
+  const existingRecurringDays = normalizeWeekdays(
+    existing.selectedDays ?? existing.daysOfWeek ?? existing.weekdays,
+  )
+  // Normal creation validates recurring slots. One-off Advanced sessions and
+  // classes without a recurring weekday pattern do not establish a recurrence.
+  if (candidateType === "normal" && (existType === "advanced" || existingRecurringDays.length === 0)) {
+    return null
+  }
   if (existType === "advanced" && !hasValidScheduleData(existing)) {
     const existDaysCheck = normalizeWeekdays(existing.selectedDays)
     if (!existing.startTime || !existing.endTime || existDaysCheck.length === 0) {
@@ -595,6 +604,7 @@ export function useScheduleConflict({
   startTime,
   endTime,
   selectedDays = [],
+  classType = null,
   excludeClassId = null,
   apiEnabled = false,
   existingClasses = [],
@@ -635,6 +645,7 @@ export function useScheduleConflict({
             startTime,
             endTime,
             selectedDays,
+            classType,
           }
 
           // First: In-memory check against existingClasses
