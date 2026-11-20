@@ -835,28 +835,35 @@ export function AdminUsersView() {
                         <ShieldCheck className="w-3.5 h-3.5 text-brand-primary" />
                         <span>{getAdminText(language, "users.detailRolesSection")}</span>
                       </div>
-                      {(detailUser || selectedUserSummary).permissions &&
-                      (detailUser || selectedUserSummary).permissions.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {(detailUser || selectedUserSummary).permissions.map((perm) => {
-                            const permName = typeof perm === "string" ? perm : perm.name
-                            const label = getAdminPermissionLabel(permName, language)
-                            return (
-                              <span
-                                key={permName}
-                                className="inline-flex items-center rounded px-2 py-0.5 text-xs font-mono bg-bg-secondary text-brand-primary border border-border-color/60"
-                                title={permName}
-                              >
-                                {label}
-                              </span>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-xs leading-4 text-text-muted italic">
-                          {getAdminText(language, "users.detailNoPerms")}
-                        </p>
-                      )}
+                      {(() => {
+                        const visiblePerms = (
+                          (detailUser || selectedUserSummary).permissions || []
+                        ).filter((perm) => {
+                          const permName = typeof perm === "string" ? perm : perm?.name
+                          return permName && permName !== "LOCK_SUBJECTS"
+                        })
+                        return visiblePerms.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {visiblePerms.map((perm) => {
+                              const permName = typeof perm === "string" ? perm : perm.name
+                              const label = getAdminPermissionLabel(permName, language)
+                              return (
+                                <span
+                                  key={permName}
+                                  className="inline-flex items-center rounded px-2 py-0.5 text-xs font-mono bg-bg-secondary text-brand-primary border border-border-color/60"
+                                  title={permName}
+                                >
+                                  {label}
+                                </span>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-xs leading-4 text-text-muted italic">
+                            {getAdminText(language, "users.detailNoPerms")}
+                          </p>
+                        )
+                      })()}
                     </div>
 
                     {/* Thao tác quản trị tài khoản trên panel chi tiết */}

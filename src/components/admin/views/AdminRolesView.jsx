@@ -39,7 +39,12 @@ export function AdminRolesView() {
   const getPermissionDisplayName = (name) => getAdminPermissionLabel(name, language)
 
   const rolesData = roles.data || []
-  const permissionsData = permissions.data || []
+  const permissionsData = useMemo(() => permissions.data || [], [permissions.data])
+  // Ẩn LOCK_SUBJECTS khỏi giao diện Admin nhưng giữ nguyên trong dữ liệu phân quyền
+  const visiblePermissions = useMemo(
+    () => permissionsData.filter((p) => p?.name !== "LOCK_SUBJECTS"),
+    [permissionsData],
+  )
 
   // Trạng thái chế độ chỉnh sửa phân quyền
   const [isEditing, setIsEditing] = useState(false)
@@ -93,10 +98,10 @@ export function AdminRolesView() {
         )
         const currentIds = new Set(draftPermissions[role.id] || [])
 
-        const added = permissionsData.filter(
+        const added = visiblePermissions.filter(
           (p) => currentIds.has(Number(p.id)) && !originalIds.has(Number(p.id)),
         )
-        const removed = permissionsData.filter(
+        const removed = visiblePermissions.filter(
           (p) => !currentIds.has(Number(p.id)) && originalIds.has(Number(p.id)),
         )
 
@@ -109,7 +114,7 @@ export function AdminRolesView() {
         }
       })
       .filter((item) => item.hasChange)
-  }, [isEditing, rolesData, permissionsData, draftPermissions])
+  }, [isEditing, rolesData, visiblePermissions, draftPermissions])
 
   const handleConfirmSave = async () => {
     if (changedRolesSummary.length === 0) return
@@ -304,7 +309,7 @@ export function AdminRolesView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-color">
-                {permissionsData.map((permission) => (
+                {visiblePermissions.map((permission) => (
                   <tr
                     key={permission.id ?? permission.name}
                     className="transition-colors hover:bg-bg-secondary/60"
@@ -312,7 +317,10 @@ export function AdminRolesView() {
                     <td className="px-3.5 py-2 align-middle text-sm leading-5 text-text-primary">
                       <div className="flex items-center gap-2">
                         <KeyRound className="w-3.5 h-3.5 text-brand-primary shrink-0 opacity-80" />
-                        <p className="font-medium text-text-primary text-sm leading-5">
+                        <p
+                          className="font-medium text-text-primary text-sm leading-5"
+                          title={permission.name}
+                        >
                           {getPermissionDisplayName(permission.name)}
                         </p>
                       </div>
