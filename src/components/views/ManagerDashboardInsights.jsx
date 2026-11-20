@@ -281,7 +281,7 @@ export function ManagerDashboardInsights({ navigate }) {
           icon={CalendarClock}
           action={<div className="flex items-center gap-1">
             <button type="button" onClick={() => goTo('/manager/session-incidents')} className="inline-flex items-center gap-1 rounded px-2 py-1.5 text-xs font-semibold text-brand-primary hover:bg-brand-blue-soft">{vi ? 'Xem tất cả' : 'View all'}<ArrowRight className="h-3 w-3" /></button>
-            <button type="button" onClick={() => setSessionReload((value) => value + 1)} aria-label={vi ? 'Tải lại lịch học' : 'Refresh schedule'} className="rounded p-2 text-slate-500 hover:bg-slate-100"><RefreshCw className="h-4 w-4" /></button>
+            <button type="button" onClick={() => setSessionReload((value) => value + 1)} disabled={!apiEnabled || sessionsLoading} aria-label={vi ? 'Tải lại lịch học' : 'Refresh schedule'} title={vi ? 'Tải lại lịch học' : 'Refresh schedule'} className="rounded p-2 text-slate-500 transition-colors hover:bg-slate-100 disabled:cursor-wait disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${sessionsLoading ? 'animate-spin' : ''}`} /></button>
           </div>}
         >
           {sessionsLoading ? (

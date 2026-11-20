@@ -301,7 +301,7 @@ export function ReceptionistDashboard() {
       </div>
 
       {/* Recent Attendances Snapshot */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
+      <div aria-busy={apiEnabled && loadingAttendances} className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <h3 className="text-base font-semibold text-slate-800">
             Lượt Điểm Danh &amp; Check-in Gần Nhất
@@ -313,14 +313,15 @@ export function ReceptionistDashboard() {
                 type="button"
                 onClick={loadAttendances}
                 disabled={loadingAttendances}
-                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                aria-label={language === "vi" ? "Làm mới lượt điểm danh" : "Refresh recent check-ins"}
+                title={language === "vi" ? "Làm mới lượt điểm danh" : "Refresh recent check-ins"}
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-wait disabled:opacity-50"
               >
                 <RefreshCw
                   className={`w-3.5 h-3.5 ${
                     loadingAttendances ? "animate-spin" : ""
                   }`}
                 />
-                <span>Làm mới</span>
               </button>
             )}
             <button
