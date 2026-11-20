@@ -19,7 +19,6 @@ import {
 } from 'recharts'
 import { useSCMS } from '../../context/SCMSContext'
 import * as managerApi from '../../api/managerApi'
-import { getErrorMessage } from '../../api/apiErrors'
 import { addDays, localDateString } from '../../api/sessionIncidentUtils'
 import { revenueTimelineForDisplay } from '../../api/reportUtils'
 import { formatCurrency } from '../../locales/translations'
@@ -49,30 +48,6 @@ function Panel({ title, subtitle, icon: Icon, action, children, className = '' }
   )
 }
 
-function Notice({ children, error = false }) {
-  return (
-    <div className={`rounded-md border p-3 text-xs ${error ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
-      {children}
-    </div>
-  )
-}
-
-function formatRequestError(error, language) {
-  const status = error?.status ?? error?.response?.status
-  const message = getErrorMessage(error)
-  if (status === 404) {
-    return language === 'vi'
-      ? `Dữ liệu chưa sẵn sàng: ${message}`
-      : `Data not available: ${message}`
-  }
-  if (status === 403) {
-    return language === 'vi'
-      ? `Tài khoản không có quyền đọc dữ liệu này. ${message}`
-      : `This account cannot read this data. ${message}`
-  }
-  return message
-}
-
 function shortPeriod(value) {
   const match = String(value ?? '').match(/^\d{4}-(\d{2})-(\d{2})/)
   return match ? `${match[2]}/${match[1]}` : String(value ?? '—')
@@ -92,28 +67,27 @@ export function ManagerDashboardInsights({ navigate }) {
   const today = localDateString()
   const [sessions, setSessions] = useState([])
   const [sessionsLoading, setSessionsLoading] = useState(apiEnabled)
-  const [sessionsError, setSessionsError] = useState('')
   const [sessionReload, setSessionReload] = useState(0)
   const [revenueRange, setRevenueRange] = useState(7)
   const [revenueReport, setRevenueReport] = useState(null)
   const [revenueLoading, setRevenueLoading] = useState(apiEnabled)
-  const [revenueError, setRevenueError] = useState('')
   const [revenueReload, setRevenueReload] = useState(0)
 
+  const dashboardClasses = managerDataError ? [] : (classes || [])
+  const classDashboard = managerDataError ? null : dashboard
   const revenueStartDate = addDays(today, -(revenueRange - 1))
 
   useEffect(() => {
     if (!apiEnabled) return undefined
     let active = true
     setSessionsLoading(true)
-    setSessionsError('')
     managerApi.getSessions(
       { startDate: today, endDate: today },
       { notifyForbidden: false },
     ).then((items) => {
       if (active) setSessions(Array.isArray(items) ? items : [])
-    }).catch((error) => {
-      if (active) setSessionsError(error)
+    }).catch(() => {
+      if (active) setSessions([])
     }).finally(() => {
       if (active) setSessionsLoading(false)
     })
@@ -124,14 +98,13 @@ export function ManagerDashboardInsights({ navigate }) {
     if (!apiEnabled) return undefined
     let active = true
     setRevenueLoading(true)
-    setRevenueError('')
     managerApi.getRevenueReport(
       { startDate: revenueStartDate, endDate: today, groupBy: 'day' },
       { notifyForbidden: false },
     ).then((report) => {
       if (active) setRevenueReport(report)
-    }).catch((error) => {
-      if (active) setRevenueError(error)
+    }).catch(() => {
+      if (active) setRevenueReport(null)
     }).finally(() => {
       if (active) setRevenueLoading(false)
     })
@@ -159,7 +132,7 @@ export function ManagerDashboardInsights({ navigate }) {
   const sportGroups = useMemo(() => {
     const map = {}
     todaySessions.forEach((session) => {
-      const classInfo = classes.find((item) => String(item.id) === String(session.classId))
+      const classInfo = dashboardClasses.find((item) => String(item.id) === String(session.classId))
       const sportName = session.subjectName || classInfo?.category || (vi ? 'Bộ môn khác' : 'Other Sport')
       if (!map[sportName]) {
         map[sportName] = {
@@ -175,25 +148,21 @@ export function ManagerDashboardInsights({ navigate }) {
       }
     })
     return Object.values(map)
-  }, [todaySessions, classes, vi])
+  }, [todaySessions, dashboardClasses, vi])
 
   const activeSportTab = sportGroups.some((g) => g.name === selectedSportTab) ? selectedSportTab : 'all'
 
-  const classListComplete = !managerDataLoading
-    && !managerDataError
-    && Number.isInteger(dashboard?.totalClasses)
-    && classes.length === dashboard.totalClasses
   const classStatusCounts = CLASS_STATUSES.map((status) => ({
     ...status,
-    count: classes.filter((item) => String(item.apiStatus ?? '').trim().toLowerCase() === status.value).length,
+    count: dashboardClasses.filter((item) => String(item.apiStatus ?? '').trim().toLowerCase() === status.value).length,
   }))
-  const unknownClassStatusCount = classes.filter((item) => !CLASS_STATUSES.some(
+  const unknownClassStatusCount = dashboardClasses.filter((item) => !CLASS_STATUSES.some(
     (status) => String(item.apiStatus ?? '').trim().toLowerCase() === status.value,
   )).length
   const revenueTimeline = revenueTimelineForDisplay(revenueReport).filter(
     (item) => item.period && item.revenue != null,
   )
-  const classTotal = dashboard?.totalClasses
+  const classTotal = classDashboard?.totalClasses ?? dashboardClasses.length ?? 0
   const goTo = (path) => navigate?.(path)
   const sessionStatusLabel = (status) => {
     const normalized = String(status ?? '').trim().toLowerCase()
@@ -204,7 +173,7 @@ export function ManagerDashboardInsights({ navigate }) {
   }
 
   const renderSessionCard = (session) => {
-    const classInfo = classes.find((item) => String(item.id) === String(session.classId))
+    const classInfo = dashboardClasses.find((item) => String(item.id) === String(session.classId))
     const room = session.roomName || rooms.find((item) => String(item.id) === String(session.roomId))?.name
     const status = String(session.status ?? '').toLowerCase()
     const isCancelled = status === 'cancelled' || status === 'canceled'
@@ -266,13 +235,6 @@ export function ManagerDashboardInsights({ navigate }) {
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      {managerDataError && (
-        <Notice error>
-          {vi ? 'Một số dữ liệu vận hành chưa tải được; các thống kê liên quan sẽ không được xem là 0.' : 'Some operational data did not load; related statistics will not be treated as zero.'}
-          <p className="mt-1 whitespace-pre-line">{managerDataError}</p>
-        </Notice>
-      )}
-
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
         <Panel
           className="xl:col-span-5"
@@ -288,12 +250,11 @@ export function ManagerDashboardInsights({ navigate }) {
             <p role="status" className="py-8 text-center text-xs text-slate-500">
               {vi ? 'Đang tải buổi học…' : 'Loading sessions…'}
             </p>
-          ) : sessionsError ? (
-            <Notice error>{formatRequestError(sessionsError, language)}</Notice>
           ) : todaySessions.length === 0 ? (
-            <p className="py-8 text-center text-xs text-slate-500">
-              {vi ? 'Hôm nay chưa có buổi học.' : 'No sessions scheduled for today.'}
-            </p>
+            <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-9 text-center text-slate-500">
+              <CalendarClock className="h-6 w-6 text-slate-400" aria-hidden="true" />
+              <p className="text-xs">{vi ? 'Chưa có lịch học hôm nay.' : 'No schedule for today.'}</p>
+            </div>
           ) : (
             <div className="space-y-3">
               {/* Filter Tabs Bar */}
@@ -407,9 +368,7 @@ export function ManagerDashboardInsights({ navigate }) {
           </div>}
         >
           {revenueLoading ? <p role="status" className="py-8 text-center text-xs text-slate-500">{vi ? 'Đang tải báo cáo doanh thu…' : 'Loading revenue report…'}</p>
-            : revenueError ? <Notice error>{formatRequestError(revenueError, language)}</Notice>
-              : revenueReport?.totalTransactions === 0 ? <p className="py-8 text-center text-xs text-slate-500">{vi ? 'Không có giao dịch Paid trong khoảng thời gian này.' : 'No paid transactions in this period.'}</p>
-                : revenueTimeline.length === 0 ? <Notice>{vi ? 'Dữ liệu chưa sẵn sàng: Báo cáo chưa cung cấp chuỗi doanh thu theo ngày.' : 'Data not available: The report does not provide a daily revenue timeline.'}</Notice>
+            : revenueReport?.totalTransactions === 0 || revenueTimeline.length === 0 ? <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-9 text-center text-slate-500"><TrendingUp className="h-6 w-6 text-slate-400" aria-hidden="true" /><p className="text-xs">{vi ? 'Chưa có dữ liệu doanh thu trong khoảng thời gian này.' : 'No revenue data for this period.'}</p></div>
                   : <>
                     <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                       <span className="text-xs text-slate-500">{revenueStartDate} – {today}</span>
@@ -442,8 +401,7 @@ export function ManagerDashboardInsights({ navigate }) {
           action={<button type="button" onClick={() => goTo('/manager/classes')} aria-label={vi ? 'Mở quản lý lớp' : 'Open class management'} className="rounded p-2 text-brand-primary hover:bg-brand-blue-soft"><ArrowRight className="h-4 w-4" /></button>}
         >
           {managerDataLoading ? <p role="status" className="py-8 text-center text-xs text-slate-500">{vi ? 'Đang tải danh sách lớp…' : 'Loading classes…'}</p>
-            : !classListComplete ? <Notice>{vi ? 'Danh sách lớp học đang được cập nhật…' : 'Class list is being updated…'}</Notice>
-              : classTotal === 0 ? <p className="py-8 text-center text-xs text-slate-500">{vi ? 'Chưa có lớp học.' : 'No classes found.'}</p>
+            : classTotal === 0 ? <p className="py-8 text-center text-xs text-slate-500">{vi ? 'Chưa có lớp học.' : 'No classes found.'}</p>
                 : <div className="space-y-3">
                   {classStatusCounts.map((status) => {
                     const percent = classTotal > 0 ? (status.count / classTotal) * 100 : 0
