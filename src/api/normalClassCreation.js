@@ -423,7 +423,7 @@ export const verifyNormalClassSessions = async (
     throw err
   }
   if (!validExpectedDays) {
-    failVerification('Không đủ dữ liệu ngày mẫu để xác minh lịch Backend trả về.', 'MISSING_NORMAL_CLASS_WEEKDAYS')
+    failVerification('Không đủ dữ liệu ngày mẫu để xác minh lịch hệ thống trả về.', 'MISSING_NORMAL_CLASS_WEEKDAYS')
   }
 
   const normalizedSessions = validSessions.map((session) => {
@@ -451,15 +451,15 @@ export const verifyNormalClassSessions = async (
   if (normalizedSessions.some(({ date, startSeconds, endSeconds }) =>
     !date || startSeconds === null || endSeconds === null || endSeconds <= startSeconds,
   )) {
-    failVerification('Lịch Backend trả về có ngày hoặc khung giờ không hợp lệ; chưa thể xác minh đủ 12 buổi.')
+    failVerification('Lịch hệ thống trả về có ngày hoặc khung giờ không hợp lệ; chưa thể xác minh đủ 12 buổi.')
   }
 
   const sortedSessions = [...normalizedSessions].sort((a, b) => a.dateStr.localeCompare(b.dateStr))
   if (new Set(sortedSessions.map(({ dateStr }) => dateStr)).size !== expectedCount) {
-    failVerification('Lịch Backend trả về có ngày học trùng; chưa thể xác minh đủ 12 buổi.')
+    failVerification('Lịch hệ thống trả về có ngày học trùng; chưa thể xác minh đủ 12 buổi.')
   }
   if (sortedSessions.some(({ date }) => !expectedDays.includes(date.getDay()))) {
-    failVerification('Lịch Backend trả về có ngày ngoài mẫu lịch đã chọn; cần kiểm tra ngoại lệ ngày nghỉ trước khi xác nhận.')
+    failVerification('Lịch hệ thống trả về có ngày ngoài mẫu lịch đã chọn; cần kiểm tra ngoại lệ ngày nghỉ trước khi xác nhận.')
   }
 
   return {

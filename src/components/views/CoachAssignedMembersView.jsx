@@ -461,7 +461,7 @@ export function CoachAssignedMembersView() {
     e.preventDefault()
     if (isSubmittingRef.current || bookingBusy || proposalResponse || !bookingReg) return
     if (!apiEnabled) {
-      setProposalError(language === "vi" ? "Kết nối Backend để gửi đề xuất lịch." : "Connect to the server to send a schedule proposal.")
+      setProposalError(language === "vi" ? "Kết nối máy chủ để gửi đề xuất lịch." : "Connect to the server to send a schedule proposal.")
       return
     }
 
@@ -505,7 +505,7 @@ export function CoachAssignedMembersView() {
     const sessionEndMs = parseVietnamDateTime(bookingDate + "T" + endTime)
     const expiresAtMs = parseVietnamDateTime(bookingReg.expiresAt)
     if (Number.isNaN(sessionStartMs) || Number.isNaN(sessionEndMs) || Number.isNaN(expiresAtMs)) {
-      setProposalError(language === "vi" ? "Không xác minh được ngày học hoặc hạn gói từ Backend." : "Could not verify the session date or subscription expiry from the server.")
+      setProposalError(language === "vi" ? "Không xác minh được ngày học hoặc hạn gói từ hệ thống." : "Could not verify the session date or subscription expiry from the server.")
       return
     }
     if (sessionStartMs - Date.now() < 12 * 60 * 60 * 1000) {
@@ -560,7 +560,7 @@ export function CoachAssignedMembersView() {
           if (matchingProposal) {
             setProposalResponse(matchingProposal)
             message = language === "vi"
-              ? "Đã tìm thấy đề xuất trên Backend khi đối soát; không gửi thêm đề xuất."
+              ? "Đã tìm thấy đề xuất trên hệ thống khi đối soát; không gửi thêm đề xuất."
               : "The proposal was found during reconciliation; no duplicate was sent."
             didReconcileProposal = true
           } else {

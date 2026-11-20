@@ -267,7 +267,7 @@ export function MemberMyCoachView() {
     try {
       const response = await memberPortalApi.respondToPrivateSessionProposal(proposal.id, false)
       if (String(response?.status || "").toLowerCase() !== "rejected" || response?.sessionId != null) {
-        throw new Error(isVi ? "Backend chưa xác nhận trạng thái Từ chối." : "The server did not confirm the Rejected state.")
+        throw new Error(isVi ? "Hệ thống chưa xác nhận trạng thái Từ chối." : "The server did not confirm the Rejected state.")
       }
       setPrivateSessionProposals((current) => current.map((item) =>
         String(item.id) === String(response.id) ? response : item,
@@ -347,7 +347,7 @@ export function MemberMyCoachView() {
         || String(acceptedResponse.session.id) !== String(acceptedSessionId)
         || String(acceptedResponse.session.status || "").toLowerCase() !== "scheduled"
       ) {
-        throw new Error(isVi ? "Backend chưa xác nhận buổi tập đã lên lịch." : "The server did not confirm a Scheduled session.")
+        throw new Error(isVi ? "Hệ thống chưa xác nhận buổi tập đã lên lịch." : "The server did not confirm a Scheduled session.")
       }
       setPrivateSessionProposals((current) => current.map((item) =>
         String(item.id) === String(acceptedResponse.id) ? acceptedResponse : item,
@@ -370,7 +370,7 @@ export function MemberMyCoachView() {
         || !confirmedSubscription
         || confirmedSubscription.remainingCredit == null
       ) {
-        throw new Error(isVi ? "Chưa thể xác minh đầy đủ lịch và số credit mới từ Backend." : "The updated schedule and subscription credits could not be fully verified.")
+        throw new Error(isVi ? "Chưa thể xác minh đầy đủ lịch và số credit mới từ hệ thống." : "The updated schedule and subscription credits could not be fully verified.")
       }
 
       const successMessage = isVi ? "Đã xác nhận lịch tập thành công" : "Schedule confirmed successfully."
