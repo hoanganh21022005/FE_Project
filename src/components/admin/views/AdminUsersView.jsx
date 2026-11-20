@@ -81,6 +81,7 @@ export function AdminUsersView() {
   const initialRoleParam = searchParams.get("role")
 
   const [query, setQuery] = useState("")
+  const [debouncedQuery, setDebouncedQuery] = useState("")
   const [roleFilter, setRoleFilter] = useState(initialRoleParam || "all")
   const [statusFilter, setStatusFilter] = useState(
     VALID_STATUS_FILTERS.has(initialStatusParam) ? initialStatusParam : "all",
@@ -115,6 +116,11 @@ export function AdminUsersView() {
   const closeBtnRef = useRef(null)
   const lastTriggerRef = useRef(null)
   const roleFilterSeqRef = useRef(0)
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedQuery(query), 300)
+    return () => window.clearTimeout(timeout)
+  }, [query])
 
   const isSmallScreen = () =>
     typeof window !== "undefined" &&
@@ -379,7 +385,7 @@ export function AdminUsersView() {
   const baseUsers = serverUsers !== null ? serverUsers : (resources.users.data || [])
 
   const filteredUsers = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase()
+    const normalizedQuery = debouncedQuery.trim().toLowerCase()
     const filtered = baseUsers.filter((user) => {
       const matchesQuery =
         !normalizedQuery ||
@@ -407,7 +413,7 @@ export function AdminUsersView() {
       })
     }
     return sorted
-  }, [baseUsers, language, query, statusFilter, sortOrder])
+  }, [baseUsers, language, debouncedQuery, statusFilter, sortOrder])
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
@@ -539,8 +545,9 @@ export function AdminUsersView() {
                       setPage(1)
                     }}
                     placeholder={getAdminText(language, "users.searchPlaceholder")}
-                    className="min-h-[44px] w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                    className="min-h-[44px] w-full rounded border border-border-strong bg-bg-card pl-9 pr-9 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                   />
+                  {query && <button type="button" onClick={() => { setQuery(""); setDebouncedQuery(""); setPage(1) }} aria-label={language === "vi" ? "Xóa tìm kiếm" : "Clear search"} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-text-muted hover:bg-bg-secondary hover:text-text-primary"><X className="h-4 w-4" /></button>}
                 </label>
                 <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                   <label className="flex-1 sm:flex-none sm:w-44">
