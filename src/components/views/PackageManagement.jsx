@@ -56,12 +56,6 @@ export function PackageManagement() {
         {apiEnabled && <button type="button" disabled={subjectLoading} onClick={refresh} className="inline-flex min-h-10 items-center gap-2 rounded border border-stone-300 px-3 text-xs font-bold text-stone-700 hover:bg-stone-50 disabled:opacity-50"><RefreshCw className="h-4 w-4" />{vi ? 'Tải lại' : 'Refresh'}</button>}
       </header>
 
-      {arePackageWritesHidden(apiEnabled) && (
-        <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-900">
-          {t('packageWritesRetiredNotice')}
-        </p>
-      )}
-
       <div role="tablist" aria-label={vi ? 'Loại gói thành viên' : 'Membership package type'} className="flex gap-2 border-b border-stone-200">
         {['Normal', 'Advanced'].map((type) => <button key={type} type="button" role="tab" aria-selected={activeType === type} aria-controls="package-type-panel" onClick={() => setActiveType(type)} className={activeType === type ? 'min-h-11 border-b-2 px-5 text-sm font-bold ' + (type === 'Advanced' ? 'border-brand-purple text-brand-purple-dark' : 'border-brand-primary text-brand-primary') : 'min-h-11 border-b-2 border-transparent px-5 text-sm font-bold text-stone-500 hover:text-stone-900'}>{type}</button>)}
       </div>

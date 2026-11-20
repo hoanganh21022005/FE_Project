@@ -36,6 +36,7 @@ const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), 
   status,
   headers: { 'Content-Type': 'application/json' },
 })
+const requestPath = (url) => new URL(String(url), 'http://localhost').pathname
 
 try {
   globalThis.fetch = async (url, options) => {
@@ -46,7 +47,7 @@ try {
 
   const listCall = getNormalClassProposals(12)
   await new Promise((resolve) => setTimeout(resolve, 0))
-  assert.equal(new URL(requests.at(-1).url).pathname, '/api/classes/12/normal-proposals')
+  assert.equal(requestPath(requests.at(-1).url), '/api/classes/12/normal-proposals')
   assert.equal(requests.at(-1).method, 'GET')
   resolveFetch(jsonResponse([proposal]))
   const listed = await listCall
@@ -71,7 +72,7 @@ try {
   const createCall = createNormalClassProposal(12, { kind: 'Postpone', shiftDays: 7, version: 3 })
   const duplicateCreateCall = createNormalClassProposal(12, { kind: 'Postpone', shiftDays: 7, version: 3 })
   await new Promise((resolve) => setTimeout(resolve, 0))
-  assert.equal(new URL(requests.at(-1).url).pathname, '/api/classes/12/normal-proposals')
+  assert.equal(requestPath(requests.at(-1).url), '/api/classes/12/normal-proposals')
   assert.equal(requests.filter((item) => item.method === 'POST' && item.url.includes('/classes/12/normal-proposals')).length, 1,
     'identical concurrent proposal submissions share one in-flight request')
   assert.equal(requests.at(-1).method, 'POST')
@@ -87,7 +88,7 @@ try {
 
   const applyCall = applyNormalClassProposal(25, { version: 7, reason: 'Members agreed' })
   await new Promise((resolve) => setTimeout(resolve, 0))
-  assert.equal(new URL(requests.at(-1).url).pathname, '/api/normal-proposals/25/apply')
+  assert.equal(requestPath(requests.at(-1).url), '/api/normal-proposals/25/apply')
   assert.deepEqual(requests.at(-1).body, { version: 7, reason: 'Members agreed' })
   resolveFetch(jsonResponse(proposal))
   const appliedResponse = await applyCall
@@ -97,7 +98,7 @@ try {
 
   const cancelCall = cancelNormalClassBeforeOpening(12, { version: 4, reason: 'Unsafe venue' })
   await new Promise((resolve) => setTimeout(resolve, 0))
-  assert.equal(new URL(requests.at(-1).url).pathname, '/api/classes/12/cancel-before-opening')
+  assert.equal(requestPath(requests.at(-1).url), '/api/classes/12/cancel-before-opening')
   assert.deepEqual(requests.at(-1).body, { version: 4, reason: 'Unsafe venue' })
   const classResponse = { id: 12, classType: 'Normal', status: 'Cancelled', lifecycleVersion: 5 }
   resolveFetch(jsonResponse(classResponse))
@@ -127,7 +128,8 @@ try {
   assert.equal(evaluateNormalProposalApply({ ...proposal, choices: undefined }).state, 'unverified')
   assert.equal(evaluateNormalProposalApply({ ...proposal, choices: [{ memberId: 4, choice: 'UnrecognizedChoice' }] }).state, 'unverified')
   assert.equal(inspectNormalClassProposal({ ...proposal, status: 'BackendReview', choices: [] }).state, 'unverified')
-  assert.equal(normalLifecycleVersionSemantics.applyDecision.startsWith('NEED_BE_CONFIRMATION'), true)
+  assert.equal(normalLifecycleVersionSemantics.applyDecision, 'Use version from the selected proposal in GET /api/classes/{id}/normal-proposals.')
+  assert.equal(normalLifecycleVersionSemantics.cancelDecision, 'Use lifecycleVersion from the latest GET /api/classes/{id}.')
 
   await assert.rejects(() => getNormalClassProposals(0), /positive int32/)
   assert.throws(() => createNormalClassProposal(12, { kind: 'Postpone', shiftDays: 1, version: 1.5 }), /safe integer version/)

@@ -26,6 +26,7 @@ export function AdminPagination({
   pageSize,
   onPageChange,
   summaryText,
+  hideSummary = false,
   prevLabel,
   nextLabel,
   navLabel,
@@ -47,18 +48,20 @@ export function AdminPagination({
   )
 
   return (
-    <div className="px-4 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-2.5 border-t border-border-color bg-bg-card">
-      <p className="text-sm leading-5 text-text-secondary tabular-nums">
-        {summaryText || (
-          <>
-            {language === "en" ? "Showing " : "Hiển thị "}
-            <strong className="font-semibold text-text-primary">
-              {startItem}–{endItem}
-            </strong>{" "}
-            {language === "en" ? `of ${totalItems} ${resolvedUnit}` : `trên ${totalItems} ${resolvedUnit}`}
-          </>
-        )}
-      </p>
+    <div className={`px-4 py-2.5 flex flex-col sm:flex-row items-center gap-2.5 border-t border-border-color bg-bg-card ${hideSummary ? "justify-end" : "justify-between"}`}>
+      {!hideSummary && (
+        <p className="text-sm leading-5 text-text-secondary tabular-nums">
+          {summaryText || (
+            <>
+              {language === "en" ? "Showing " : "Hiển thị "}
+              <strong className="font-semibold text-text-primary">
+                {startItem}–{endItem}
+              </strong>{" "}
+              {language === "en" ? `of ${totalItems} ${resolvedUnit}` : `trên ${totalItems} ${resolvedUnit}`}
+            </>
+          )}
+        </p>
+      )}
       <nav aria-label={resolvedNav} className="flex items-center gap-1.5">
         <button
           type="button"

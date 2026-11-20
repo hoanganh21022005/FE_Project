@@ -52,7 +52,7 @@ try {
   console.error = (...args) => logged.push(args.join(' '))
 
   globalThis.fetch = async (url, options) => {
-    const path = new URL(String(url)).pathname
+    const path = new URL(String(url), 'http://localhost').pathname
     const method = options.method
     const body = options.body ? JSON.parse(options.body) : null
     requests.push({ path, method, body, credentials: options.credentials })

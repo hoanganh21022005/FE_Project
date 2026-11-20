@@ -4,6 +4,7 @@ import { formatDate } from '../../locales/translations';
 import { StatusBadge } from '../common/Badge';
 import { AdminPagination } from '../admin/AdminPagination';
 import { NewMemberModal } from '../modals/NewMemberModal';
+import * as managerApi from '../../api/managerApi';
 import {
   UserCheck,
   UserPlus,
@@ -11,8 +12,6 @@ import {
   ChevronRight,
   SearchX,
   Users,
-  Clock,
-  PackagePlus,
   AlertTriangle,
   RefreshCw,
 } from 'lucide-react';
@@ -34,13 +33,29 @@ export function MemberManagement({ onSelectMemberDetail }) {
   const [membershipFilter, setMembershipFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [participatingCount, setParticipatingCount] = useState(null);
   const PAGE_SIZE = 10;
 
-  // Quick stats: Count by membership package lifecycle only (account status is separate)
+  useEffect(() => {
+    let active = true;
+    if (!apiEnabled) {
+      setParticipatingCount(null);
+      return () => { active = false; };
+    }
+    managerApi.getMemberReport({ notifyForbidden: false })
+      .then((report) => {
+        if (active && Number.isFinite(report?.activeMembers)) setParticipatingCount(report.activeMembers);
+      })
+      .catch(() => {
+        if (active) setParticipatingCount(null);
+      });
+    return () => { active = false; };
+  }, [apiEnabled]);
+
+  // Quick stats: Count by account status
   const totalCount = members.length;
-  const activeCount = members.filter(m => m.membershipStatus === 'active').length;
+  const activeCount = members.filter(m => m.accountStatus === 'active').length;
   const graceCount = members.filter(m => m.membershipStatus === 'grace_period').length;
-  const noPackageCount = members.filter(m => !m.membershipStatus || m.membershipStatus === 'none' || !m.currentPackageId).length;
   const memberMetricsReady = !membersLoading && !membersError;
   const activeRatio = totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0;
 
@@ -97,14 +112,14 @@ export function MemberManagement({ onSelectMemberDetail }) {
       </div>
 
       {/* 1. Quick Stats KPI Bar */}
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {/* Total Members */}
         <button
           type="button"
-          aria-pressed={statusFilter === 'all'}
-          onClick={() => setStatusFilter('all')}
+          aria-pressed={statusFilter === 'all' && membershipFilter === 'all'}
+          onClick={() => { setStatusFilter('all'); setMembershipFilter('all'); }}
           className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 ${
-            statusFilter === 'all' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
+            statusFilter === 'all' && membershipFilter === 'all' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
           }`}
         >
           <div className="mb-2 flex items-start justify-between gap-2 text-xs font-medium text-slate-500">
@@ -118,10 +133,10 @@ export function MemberManagement({ onSelectMemberDetail }) {
         {/* Active Members */}
         <button
           type="button"
-          aria-pressed={membershipFilter === 'active'}
-          onClick={() => setMembershipFilter('active')}
+          aria-pressed={statusFilter === 'active' && membershipFilter === 'all'}
+          onClick={() => { setStatusFilter('active'); setMembershipFilter('all'); }}
           className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 ${
-            membershipFilter === 'active' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
+            statusFilter === 'active' && membershipFilter === 'all' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
           }`}
         >
           <div className="mb-2 flex items-start justify-between gap-2 text-xs font-medium text-slate-500">
@@ -133,54 +148,12 @@ export function MemberManagement({ onSelectMemberDetail }) {
           <div className="text-2xl font-semibold tracking-tight text-emerald-800 tabular-nums">
             {memberMetricsReady ? activeCount : '—'}
           </div>
-          <p className="mt-1 text-xs text-slate-500">{language === 'vi' ? 'Gói hội viên đang hoạt động' : 'Active memberships'}</p>
+          <p className="mt-1 text-xs text-slate-500">{language === 'vi' ? 'Tài khoản đang hoạt động' : 'Active accounts'}</p>
           {memberMetricsReady && (
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-emerald-100" aria-label={`${activeRatio}% active`}>
               <div className="h-full rounded-full bg-emerald-600 transition-[width]" style={{ width: `${activeRatio}%` }} />
             </div>
           )}
-        </button>
-
-        {/* 72h Grace Period */}
-        <button
-          type="button"
-          aria-pressed={membershipFilter === 'grace_period'}
-          onClick={() => setMembershipFilter('grace_period')}
-          className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 ${
-            membershipFilter === 'grace_period' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
-          }`}
-        >
-          <div className="mb-2 flex items-start justify-between gap-2 text-xs font-medium text-slate-500">
-            <span>
-              {language === 'vi' ? 'Chờ gia hạn (72h)' : '72h Grace Period'}
-            </span>
-            <span className="rounded-lg bg-amber-50 p-2 text-amber-700"><Clock className="h-4 w-4" aria-hidden="true" /></span>
-          </div>
-          <div className="text-2xl font-semibold tracking-tight text-amber-800 tabular-nums">
-            {memberMetricsReady ? graceCount : '—'}
-          </div>
-          <p className="mt-1 text-xs text-slate-500">{language === 'vi' ? 'Đang trong thời gian gia hạn' : 'Within grace period'}</p>
-        </button>
-
-        {/* No Package */}
-        <button
-          type="button"
-          aria-pressed={membershipFilter === 'none'}
-          onClick={() => setMembershipFilter('none')}
-          className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 ${
-            membershipFilter === 'none' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
-          }`}
-        >
-          <div className="mb-2 flex items-start justify-between gap-2 text-xs font-medium text-slate-500">
-            <span>
-              {language === 'vi' ? 'Chưa đăng ký gói' : 'No Package'}
-            </span>
-            <span className="rounded-lg bg-orange-50 p-2 text-orange-700"><PackagePlus className="h-4 w-4" aria-hidden="true" /></span>
-          </div>
-          <div className="text-2xl font-semibold tracking-tight text-orange-800 tabular-nums">
-            {memberMetricsReady ? noPackageCount : '—'}
-          </div>
-          <p className="mt-1 text-xs text-slate-500">{language === 'vi' ? 'Chưa có gói hội viên' : 'No active package'}</p>
         </button>
       </div>
 
@@ -346,6 +319,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
             totalItems={filteredMembers.length}
             pageSize={PAGE_SIZE}
             onPageChange={setPage}
+            hideSummary
             itemLabel={language === 'vi' ? 'thành viên' : 'members'}
           />
         )}
