@@ -28,13 +28,13 @@ const cachedOrderForInvoice = (memberId, invoiceId, invoiceCode) => {
 const formatInvoiceStatus = (status, isVi) => {
   const normalized = String(status || '').trim().toLowerCase()
   if (normalized === 'successful' || normalized === 'paid') {
-    return isVi ? 'Thanh toán thành công' : 'Payment successful'
+    return isVi ? '\u0110\u00e3 thanh to\u00e1n' : 'Payment successful'
   }
   if (normalized === 'pending' || normalized === 'pending_payment') {
     return isVi ? 'Đang chờ thanh toán' : 'Pending payment'
   }
   if (normalized === 'failed' || normalized === 'cancelled' || normalized === 'expired') {
-    return isVi ? 'Thanh toán thất bại' : 'Payment failed'
+    return isVi ? 'Thanh to\u00e1n th\u1ea5t b\u1ea1i' : 'Payment failed'
   }
   return status || (isVi ? 'Chưa có thông tin' : 'Not provided')
 }
@@ -168,7 +168,7 @@ export function PaymentResultView({ language = 'vi', isAuthenticated = false }) 
   const Icon = loading ? LoaderCircle : paid ? CheckCircle2 : ['failed', 'cancelled', 'expired'].includes(state) ? XCircle : CircleHelp
   const tone = paid ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : ['failed', 'cancelled', 'expired'].includes(state) ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-amber-200 bg-amber-50 text-amber-900'
   const title = loading ? (isVi ? 'Đang xác minh thanh toán' : 'Verifying payment')
-    : state === 'paid' ? (active ? (isVi ? 'Thanh toán thành công · Gói Advanced đang hoạt động' : 'Payment successful · Advanced subscription active') : (isVi ? 'Hệ thống đã xác nhận thanh toán' : 'Payment confirmed by the server'))
+    : state === 'paid' ? (invoiceKind === 'normal' ? (isVi ? '\u0110\u0103ng k\u00fd l\u1edbp h\u1ecdc th\u00e0nh c\u00f4ng' : 'Class registration successful') : (isVi ? 'Thanh to\u00e1n th\u00e0nh c\u00f4ng' : 'Payment successful'))
       : state === 'reconciliation' ? (isVi ? 'Đã nhận thanh toán, đang đối soát' : 'Payment received; reconciliation is pending')
         : state === 'pending' || state === 'checking' || state === 'unverified' ? (isVi ? 'Đang chờ hệ thống xác minh' : 'Waiting for server verification')
           : state === 'expired' ? (isVi ? 'Hóa đơn đã hết hạn' : 'Invoice expired')
@@ -209,6 +209,8 @@ export function PaymentResultView({ language = 'vi', isAuthenticated = false }) 
       {!isPopup && <>
         <button type="button" disabled={loading || !isAuthenticated} onClick={checkBackendStatus} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-violet-300 bg-white px-4 text-sm font-bold text-violet-800 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"><RefreshCw size={16} />{isVi ? 'Kiểm tra lại trạng thái' : 'Check again with server'}</button>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">{destinations.map((destination, index) => <button key={destination.path} type="button" onClick={() => goTo(destination.path)} className={index === 0 ? 'min-h-11 rounded-xl bg-violet-700 px-3 text-sm font-bold text-white hover:bg-violet-800' : 'min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 hover:bg-slate-50'}>{isVi ? destination.vi : destination.en}</button>)}</div>
+
+        <button type="button" onClick={() => navigate('/portal/home')} className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-medium text-white shadow-md transition hover:bg-blue-700"><span>Về trang chủ / Bảng điều khiển</span></button>
       </>}
       {!isAuthenticated && <p className="mt-4 text-center text-xs leading-5 text-slate-500">{isVi ? 'Đăng nhập để xem hóa đơn và trạng thái thanh toán đã đối soát.' : 'Sign in to view your invoice and reconciled payment status.'}</p>}
     </section>
