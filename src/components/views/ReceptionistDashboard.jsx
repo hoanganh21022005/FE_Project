@@ -370,18 +370,18 @@ export function ReceptionistDashboard() {
                 key={att.attendanceId || `${att.memberId}-${att.checkInTime}`}
                 className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs"
               >
-                <div>
-                  <div className="font-semibold text-slate-900">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-semibold text-slate-900" title={att.memberName || `Hội viên #${att.memberId}`}>
                     {att.memberName || `Hội viên #${att.memberId}`}
                   </div>
-                  <div className="text-xs text-slate-500 tabular-nums mt-0.5">
+                  <div className="truncate text-xs text-slate-500 tabular-nums mt-0.5">
                     {att.className || "Check-in Cổng"} &bull;{" "}
                     {att.checkInTime
                       ? String(att.checkInTime).slice(0, 16).replace("T", " ")
                       : "Hôm nay"}
                   </div>
                 </div>
-                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                   {att.state || "Present"}
                 </span>
               </div>
