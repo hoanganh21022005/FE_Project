@@ -6,7 +6,6 @@ import { getErrorMessage } from "../../api/apiErrors"
 import { normalizeRole, ROLE_MANAGER } from "../../utils/navigation"
 import {
   evaluateNormalClassOpening,
-  formatOpeningDateTime,
   getFirstNormalClassSession,
   getNormalClassOpeningError,
 } from "../../api/normalClassOpening"
@@ -89,6 +88,7 @@ export function ClassDetailDrawer({
   cls,
   conflictInfo,
   initialLifecycleKind = "Postpone",
+  initialLifecycleAction = "details",
   onClose,
   onEdit,
   onDuplicate,
@@ -117,7 +117,14 @@ export function ClassDetailDrawer({
   const [confirmationAccepted, setConfirmationAccepted] = useState(false)
 
   const classId = cls?.id
+  const lifecycleActionOnly = ["opening", "transfer", "cancel"].includes(initialLifecycleAction)
+  const lifecycleActionTitle = initialLifecycleAction === "opening"
+    ? "Xác nhận khai giảng"
+    : initialLifecycleAction === "transfer"
+      ? "Thay đổi lớp"
+      : "Hủy lớp"
   const classIdRef = useRef(classId)
+  const lifecyclePanelRef = useRef(null)
   const openingDataGeneration = useRef(0)
   classIdRef.current = classId
 
@@ -176,13 +183,14 @@ export function ClassDetailDrawer({
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
         if (openingSubmitting) return
-        if (openingDialogOpen) setOpeningDialogOpen(false)
+        if (openingDialogOpen && initialLifecycleAction === "opening") onClose()
+        else if (openingDialogOpen) setOpeningDialogOpen(false)
         else onClose()
       }
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [onClose, openingDialogOpen, openingSubmitting])
+  }, [initialLifecycleAction, onClose, openingDialogOpen, openingSubmitting])
 
   // Load registered members
   const loadEnrollments = async () => {
@@ -320,6 +328,22 @@ export function ClassDetailDrawer({
     !classDetailLoading && !classDetailError && classDetail != null &&
     classDetail.openingConfirmedAt == null && !confirmationAccepted
 
+  useEffect(() => {
+    if (!["opening", "transfer", "cancel"].includes(initialLifecycleAction)) return undefined
+    const timer = window.setTimeout(() => {
+      lifecyclePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }, 120)
+    return () => window.clearTimeout(timer)
+  }, [classId, initialLifecycleAction])
+
+  useEffect(() => {
+    if (initialLifecycleAction === "opening" && !classDetailLoading) {
+      setOpeningActionError(null)
+      setOpeningReason("")
+      setOpeningDialogOpen(true)
+    }
+  }, [initialLifecycleAction, classDetailLoading, classId])
+
   const formatOpeningSession = (item) => {
     if (!item) return "Chưa xác minh"
     const parsed = openingEvaluation.firstSessionStartsAt
@@ -353,13 +377,19 @@ export function ClassDetailDrawer({
 
     setOpeningSubmitting(true)
     try {
-      await managerApi.confirmNormalClassOpening(classId, currentCheck.payload, { notifyForbidden: false })
+      await managerApi.confirmNormalClassOpening(classId, currentCheck.payload, {
+        notifyForbidden: false,
+        timeoutMs: 25000,
+      })
       confirmationAcceptedButUnrefreshed.add(String(classId))
       setConfirmationAccepted(true)
       setOpeningDialogOpen(false)
       setOpeningReason("")
       showToast("Khai giảng lớp học thành công.", "success")
-      await refreshOpeningData({ afterConfirmation: true })
+      onClose()
+      managerApi.getClasses({ subjects, coaches }, { notifyForbidden: false })
+        .then((items) => setClasses?.(items))
+        .catch(() => {})
     } catch (error) {
       const normalized = getNormalClassOpeningError(error)
       setOpeningActionError(normalized)
@@ -407,6 +437,12 @@ export function ClassDetailDrawer({
   )
 
   if (!cls) return null
+
+  const dismissOpeningDialog = () => {
+    if (openingSubmitting) return
+    setOpeningDialogOpen(false)
+    if (initialLifecycleAction === "opening") onClose()
+  }
 
   const capacity = apiEnabled ? classDetail?.maxCapacity ?? null : cls.capacity ?? 8
   const enrolled = apiEnabled
@@ -535,15 +571,20 @@ export function ClassDetailDrawer({
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
+      {!lifecycleActionOnly && <>
       {/* Backdrop */}
       <div
         onClick={onClose}
         className="fixed inset-0 bg-stone-900/50 transition-opacity animate-in fade-in duration-200"
       />
 
-      {/* Slide-over Drawer Panel */}
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10 pointer-events-none">
-        <div className="w-screen max-w-xl bg-white shadow-2xl border-l border-stone-200/80 pointer-events-auto flex flex-col animate-in slide-in-from-right duration-300 ease-out">
+      {/* Centered Modal Panel */}
+      <div className="fixed inset-0 flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="w-full max-w-4xl max-h-[90vh] bg-white rounded-2xl shadow-2xl border border-stone-200/80 pointer-events-auto flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        >
           {/* HEADER */}
           <div className="px-6 py-4 border-b border-stone-200 bg-stone-50/60 flex items-start justify-between gap-4 shrink-0">
             <div className="space-y-1.5 flex-1 min-w-0">
@@ -565,15 +606,6 @@ export function ClassDetailDrawer({
               </h2>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => onEdit && onEdit(cls)}
-                className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Chỉnh sửa thông tin lớp học"
-              >
-                <Edit3 className="w-3.5 h-3.5 text-stone-600" />
-                <span>Chỉnh sửa</span>
-              </button>
               <button
                 type="button"
                 onClick={onClose}
@@ -643,480 +675,161 @@ export function ClassDetailDrawer({
           )}
 
           {/* SCROLLABLE BODY */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {/* KEY METRICS GRID (4 Thẻ chỉ số SaaS) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              <div className="p-3 bg-stone-50/80 border border-stone-200/80 rounded-xl">
-                <span className="text-[11px] text-stone-500 font-medium block">
-                  Sĩ số lớp
-                </span>
-                <div className="text-base font-bold text-stone-900 mt-0.5">
-                  {enrolled}{" "}
-                  <span className="text-xs font-normal text-stone-500">
-                    / {capacity}
-                  </span>
-                </div>
-                <div className="w-full bg-stone-200 rounded-full h-1.5 mt-2 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      percent !== null && percent >= 80
-                        ? "bg-[#2B8A3E]"
-                        : percent !== null && percent >= 40
-                          ? "bg-amber-500"
-                          : "bg-stone-400"
-                    }`}
-                    style={{ width: percent === null ? "0%" : percent + "%" }}
-                  />
-                </div>
-              </div>
-
-              <div className="p-3 bg-stone-50/80 border border-stone-200/80 rounded-xl">
-                <span className="text-[11px] text-stone-500 font-medium block">
-                  Tỷ lệ lấp đầy
-                </span>
-                <div className="text-base font-bold text-stone-900 mt-0.5">
-                  {percent === null ? "—" : percent + "%"}
-                </div>
-                <span className="text-[10px] text-stone-500 block mt-1">
-                  {minCap === null ? "Chưa có thông tin sĩ số tối thiểu" : `Tối thiểu ${minCap} học viên`}
-                </span>
-              </div>
-
-              <div className="p-3 bg-stone-50/80 border border-stone-200/80 rounded-xl">
-                <span className="text-[11px] text-stone-500 font-medium block">
-                  Doanh thu tạm tính
-                </span>
-                <div className="text-base font-bold text-emerald-800 mt-0.5 tabular-nums">
-                  {formatNumber(estimatedRevenue)}{" "}
-                  <span className="text-[10px] font-normal">đ</span>
-                </div>
-                <span className="text-[10px] text-stone-500 block mt-1">
-                  {enrolled} học viên nộp
-                </span>
-              </div>
-
-              <div className="p-3 bg-stone-50/80 border border-stone-200/80 rounded-xl">
-                <span className="text-[11px] text-stone-500 font-medium block">
-                  Học phí / Buổi
-                </span>
-                <div className="text-base font-bold text-stone-900 mt-0.5 tabular-nums">
-                  {price === null ? (
-                    "—"
-                  ) : price === 0 ? (
-                    <span className="text-emerald-700 font-semibold text-sm">
-                      Miễn phí
-                    </span>
-                  ) : (
-                    <>
-                      {formatNumber(perSessionPrice)}{" "}
-                      <span className="text-[10px] font-normal">đ</span>
-                    </>
-                  )}
-                </div>
-                <span className="text-[10px] text-stone-500 block mt-1">
-                  Tổng {sessionCount ?? "—"} buổi
-                </span>
-              </div>
-            </div>
-
-            {apiEnabled && (
-              <section className="rounded-xl border border-stone-200 bg-white p-4" aria-labelledby="class-lifecycle-heading" aria-busy={classDetailLoading}>
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 id="class-lifecycle-heading" className="text-sm font-semibold text-stone-900">
-                    Vòng đời lớp học
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    {classDetailLoading && <span role="status" className="text-xs text-stone-500">Đang tải…</span>}
-                    <button type="button" disabled={classDetailLoading || loading || sessionsLoading} onClick={() => refreshOpeningData()} className="rounded-md border border-stone-300 px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">
-                      Tải lại
-                    </button>
-                  </div>
-                </div>
-
-                {classDetailError ? (
-                  <>
-                    <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
-                      <span>Không tải được thông tin vòng đời. {classDetailError}</span>
-                      <button type="button" onClick={() => refreshOpeningData({ afterConfirmation: confirmationAccepted })} className="rounded border border-rose-200 bg-white px-2.5 py-1.5 font-semibold hover:bg-rose-50">
-                        Tải lại
-                      </button>
-                    </div>
-                    {confirmationAccepted && (
-                      <p role="status" className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-medium text-amber-900">
-                        Hệ thống đã ghi nhận yêu cầu. Vui lòng tải lại dữ liệu nếu trạng thái chưa cập nhật.
-                      </p>
-                    )}
-                  </>
-                ) : classDetailLoading || !classDetail ? (
-                  <p className="text-xs text-stone-500">{classDetailLoading ? "Đang tải thông tin lớp…" : "Chưa có thông tin"}</p>
-                ) : (
-                  <>
-                  <dl className="grid grid-cols-2 gap-x-5 gap-y-3 text-xs sm:grid-cols-3">
-                    <div>
-                      <dt className="text-stone-500">Trạng thái hiện tại</dt>
-                      <dd className="mt-1 font-semibold text-stone-900">{currentStatus.label}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-stone-500">Sĩ số tối thiểu / tối đa</dt>
-                      <dd className="mt-1 font-semibold tabular-nums text-stone-900">
-                        {classDetail.minCapacity == null ? "Chưa có thông tin" : classDetail.minCapacity}
-                        {" / "}
-                        {classDetail.maxCapacity == null ? "Chưa có thông tin" : classDetail.maxCapacity}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-stone-500">Xác nhận khai giảng</dt>
-                      <dd className="mt-1 font-semibold text-stone-900">
-                        {classDetail.openingConfirmedAt === undefined
-                          ? "Chưa có thông tin"
-                          : classDetail.openingConfirmedAt === null
-                            ? "Chưa xác nhận"
-                            : "Đã xác nhận"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-stone-500">Thời điểm xác nhận</dt>
-                      <dd className="mt-1 font-semibold text-stone-900">
-                        {formatLifecycleDateTime(classDetail.openingConfirmedAt)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-stone-500">Người xác nhận</dt>
-                      <dd className="mt-1 font-semibold tabular-nums text-stone-900">
-                        {classDetail.openingConfirmedBy == null ? "Chưa có thông tin" : `Mã người dùng #${classDetail.openingConfirmedBy}`}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-stone-500">Số lần dời khai giảng</dt>
-                      <dd className="mt-1 font-semibold tabular-nums text-stone-900">
-                        {classDetail.postponementCount == null ? "Chưa có thông tin" : classDetail.postponementCount}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-stone-500">Phương án thay đổi đang chờ</dt>
-                      <dd className="mt-1 font-semibold text-stone-900">
-                        {classDetail.changePending === true ? "Có" : classDetail.changePending === false ? "Không" : "Chưa có thông tin"}
-                      </dd>
-                    </div>
-                  </dl>
-                  {String(classDetail?.classType ?? "").trim().toLowerCase() === "normal" && (
-                    <div className="mt-4 rounded-lg border border-stone-200 bg-stone-50 p-3 text-xs">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <div className="text-stone-500">Member hợp lệ (Registered + Paid)</div>
-                          <div className="mt-1 font-semibold tabular-nums text-stone-900">
-                            {!hasVerifiedEnrollmentData
-                              ? "Chưa xác minh"
-                              : `${openingEvaluation.paidRegisteredCount ?? 0}${classDetail.minCapacity == null ? "" : ` / ${classDetail.minCapacity}`}`}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-stone-500">Buổi học đầu tiên</div>
-                          <div className="mt-1 font-semibold text-stone-900">
-                            {sessionsLoading || sessionsError ? "Chưa xác minh" : formatOpeningSession(firstOpeningSession)}
-                          </div>
-                        </div>
-                      </div>
-                      {openingEvaluation.blockers.length > 0 ? (
-                        <p className="mt-3 text-amber-800">{openingEvaluation.blockers[0]}</p>
-                      ) : (
-                        <p className="mt-3 text-stone-600">
-                          {openingEvaluation.unverified.length > 0
-                            ? "Hệ thống sẽ thẩm định và hoàn tất điều kiện khi gửi yêu cầu."
-                            : "Hệ thống sẽ xác nhận điều kiện khi gửi yêu cầu."}
-                        </p>
-                      )}
-                      {sessionsError && <p role="alert" className="mt-2 text-rose-700">Không tải được lịch học: {sessionsError}</p>}
-                      {enrollmentLoadFailed && <p role="alert" className="mt-2 text-rose-700">Không tải được enrollment và trạng thái thanh toán.</p>}
-
-                      {openingRefreshWarning && (
-                        <div role="alert" className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-amber-900">
-                          <span>{openingRefreshWarning}</span>
-                          <button type="button" disabled={classDetailLoading || loading || sessionsLoading} onClick={() => refreshOpeningData({ afterConfirmation: confirmationAccepted })} className="rounded border border-amber-300 bg-white px-2.5 py-1.5 font-semibold disabled:opacity-50">
-                            Tải lại dữ liệu
-                          </button>
-                        </div>
-                      )}
-
-                      {confirmationAccepted && (
-                        <p role="status" className="mt-3 font-medium text-emerald-800">
-                          Hệ thống đã nhận yêu cầu xác nhận và đang cập nhật trạng thái mới.
-                        </p>
-                      )}
-
-                      {canShowOpeningAction && !confirmationAccepted && (
-                        <button
-                          type="button"
-                          disabled={openingSubmitting || classDetailLoading || loading || sessionsLoading || openingActionBlockers.length > 0}
-                          onClick={() => { setOpeningActionError(null); setOpeningReason(""); setOpeningDialogOpen(true) }}
-                          className="mt-3 inline-flex min-h-9 items-center justify-center rounded-lg bg-indigo-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          Xác nhận khai giảng
+          <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+            <div className="space-y-4">
+                {apiEnabled && (
+                  <section className="rounded-xl border border-stone-200 bg-white p-4" aria-labelledby="class-lifecycle-heading" aria-busy={classDetailLoading}>
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h3 id="class-lifecycle-heading" className="text-sm font-semibold text-stone-900">
+                        Vòng đời lớp học
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        {classDetailLoading && <span role="status" className="text-xs text-stone-500">Đang tải…</span>}
+                        <button type="button" disabled={classDetailLoading || loading || sessionsLoading} onClick={() => refreshOpeningData()} className="rounded-md border border-stone-300 px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">
+                          Tải lại
                         </button>
-                      )}
-                    </div>
-                  )}
-                  </>
-                )}
-              </section>
-            )}
-
-            <NormalClassLifecyclePanel
-              classItem={classDetail ?? cls}
-              initialKind={initialLifecycleKind}
-              sessions={sessions}
-              sessionsLoading={sessionsLoading}
-              sessionsError={sessionsError}
-              onRefreshClassDetail={() => refreshOpeningData()}
-            />
-
-            {/* SECTION: LỊCH HỌC VÀ SÂN TẬP */}
-            <div className="p-4 bg-stone-50/50 border border-stone-200/70 rounded-xl space-y-3.5">
-              <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-stone-600" />
-                <span>Lịch học & Địa điểm đào tạo</span>
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="flex items-start gap-2.5">
-                  <Clock className="w-4 h-4 text-stone-400 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="text-stone-500 block text-[11px]">
-                      Khung giờ & Các thứ
-                    </span>
-                    <div className="font-semibold text-stone-800 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                      <div className="flex items-center gap-1">
-                        {weekdays.length === 0 ? <span>—</span> : weekdays.map((day) => (
-                          <span
-                            key={day}
-                            className="px-1.5 py-0.5 rounded text-[10.5px] font-bold bg-white text-stone-800 border border-stone-200 shadow-2xs"
-                          >
-                            {day}
-                          </span>
-                        ))}
                       </div>
-                      <span className="text-stone-900 font-bold ml-1">
-                        {cls.startTime || (apiEnabled ? "—" : "06:00")} - {cls.endTime || (apiEnabled ? "—" : "07:30")}
-                      </span>
                     </div>
-                  </div>
-                </div>
 
-                <div className="flex items-start gap-2.5">
-                  <MapPin className="w-4 h-4 text-stone-400 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="text-stone-500 block text-[11px]">
-                      Sân tập & Tiêu chuẩn
-                    </span>
-                    <p className="font-semibold text-stone-800 mt-0.5">
-                      {cls.roomVi || cls.room || (apiEnabled ? "—" : "Sân tập tiêu chuẩn")}
-                    </p>
-                    <p className="text-[11px] text-stone-500">
-                      {cls.roomSpec || (apiEnabled ? "—" : "Sức chứa tiêu chuẩn 8 - 12 người")}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2.5">
-                  <Calendar className="w-4 h-4 text-stone-400 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="text-stone-500 block text-[11px]">
-                      Ngày khai giảng
-                    </span>
-                    <p className="font-semibold text-stone-800 mt-0.5">
-                      {formatViDate(cls.startDate || cls.date)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2.5">
-                  <Calendar className="w-4 h-4 text-stone-400 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="text-stone-500 block text-[11px]">
-                      Dự kiến kết thúc
-                    </span>
-                    <p className="font-semibold text-stone-800 mt-0.5">
-                      {cls.endDate ? formatViDate(cls.endDate) : apiEnabled ? "—" : "Theo lộ trình 12 buổi"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* SECTION: HUẤN LUYỆN VIÊN PHỤ TRÁCH */}
-            <div className="p-4 bg-white border border-stone-200/80 rounded-xl space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Award className="w-3.5 h-3.5 text-stone-600" />
-                  <span>Huấn luyện viên phụ trách</span>
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => onEdit && onEdit(cls)}
-                  className="text-xs text-[#BA1A1A] hover:underline font-semibold cursor-pointer"
-                >
-                  Đổi HLV
-                </button>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-stone-100 border border-stone-200 text-stone-700 font-bold flex items-center justify-center shrink-0 text-sm">
-                  {(cls.coachName || "H").slice(0, 1).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-bold text-stone-900 text-sm">
-                    {cls.coachName || "Chưa phân công"}
-                  </div>
-                  <div className="text-xs text-stone-500">
-                    Chuyên môn:{" "}
-                    {cls.coachSpecialty || (apiEnabled ? "—" : cls.category || "Thể thao chuyên nghiệp")}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* SECTION: DANH SÁCH HỌC VIÊN ĐÃ ĐĂNG KÝ */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-stone-600" />
-                  <span>
-                    Danh sách học viên ({enrolled}/{capacity})
-                  </span>
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setIsAddingMember(!isAddingMember)}
-                  className="text-xs px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Thêm học viên</span>
-                </button>
-              </div>
-
-              {/* Form thêm học viên nhanh */}
-              {isAddingMember && (
-                <form
-                  onSubmit={handleAddMember}
-                  className="p-3 bg-stone-50 border border-stone-200 rounded-xl space-y-2.5 animate-in fade-in duration-150"
-                >
-                  <div className="text-xs font-semibold text-stone-800">
-                    Ghi danh học viên mới vào lớp:
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={selectedNewMemberId}
-                      onChange={(e) => setSelectedNewMemberId(e.target.value)}
-                      className="flex-1 h-9 px-3 bg-white border border-stone-300 rounded-lg text-xs"
-                      required
-                    >
-                      <option value="">Chọn hội viên từ hệ thống...</option>
-                      {availableMembers.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name} ({m.code || m.id}) -{" "}
-                          {m.phone || "Chưa có SĐT"}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="submit"
-                      disabled={actionLoading || !selectedNewMemberId}
-                      className="h-9 px-3.5 bg-[#BA1A1A] hover:bg-[#991313] text-white rounded-lg text-xs font-semibold disabled:opacity-50 cursor-pointer"
-                    >
-                      {actionLoading ? "Đang thêm..." : "Ghi danh"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingMember(false)}
-                      className="h-9 px-2.5 border border-stone-300 rounded-lg text-xs hover:bg-stone-100 text-stone-600 cursor-pointer"
-                    >
-                      Hủy
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* Ô tìm kiếm trong danh sách học viên */}
-              {enrollments.length > 3 && (
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Tìm theo tên, mã hoặc SĐT học viên..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full h-8 pl-8 pr-3 bg-stone-50 border border-stone-200 rounded-lg text-xs placeholder-stone-400"
-                  />
-                </div>
-              )}
-
-              {/* Bảng học viên */}
-              {loading ? (
-                <div className="py-8 text-center text-xs text-stone-500">
-                  Đang tải danh sách học viên...
-                </div>
-              ) : filteredEnrollments.length === 0 ? (
-                <div className="py-8 px-4 border border-dashed border-stone-200 rounded-xl text-center space-y-2 bg-stone-50/50">
-                  <Users className="w-8 h-8 text-stone-300 mx-auto" />
-                  <p className="text-xs text-stone-500 font-medium">
-                    {searchTerm
-                      ? "Không tìm thấy học viên phù hợp."
-                      : "Chưa có học viên nào đăng ký lớp này."}
-                  </p>
-                  {!searchTerm && (
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingMember(true)}
-                      className="text-xs text-[#BA1A1A] font-semibold hover:underline cursor-pointer"
-                    >
-                      + Ghi danh học viên đầu tiên
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="border border-stone-200/90 rounded-xl overflow-hidden divide-y divide-stone-100 bg-white shadow-2xs">
-                  {filteredEnrollments.map((enr, idx) => (
-                    <div
-                      key={enr.id || idx}
-                      className="p-3 flex items-center justify-between gap-3 hover:bg-stone-50/60 transition-colors"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-7 h-7 rounded-full bg-rose-50 text-[#BA1A1A] font-bold text-xs flex items-center justify-center shrink-0">
-                          {(enr.memberName || "H").slice(0, 1).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-semibold text-xs text-stone-900 truncate">
-                            {enr.memberName}
-                          </div>
-                          <div className="text-[11px] text-stone-500 flex items-center gap-1.5">
-                            <span>{enr.memberCode || "MB-000"}</span>
-                            <span>&bull;</span>
-                            <span>{enr.memberPhone || "—"}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
-                          Đã thanh toán
-                        </span>
-                        {(!normalClass || String(enr.status || "").toLowerCase() === "waitlisted") && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleRemoveMember(enr.memberId, enr.memberName)
-                            }
-                            className="p-1 text-stone-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
-                            title="Hủy ghi danh học viên"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
+                    {classDetailError ? (
+                      <>
+                        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                          <span>Không tải được thông tin vòng đời. {classDetailError}</span>
+                          <button type="button" onClick={() => refreshOpeningData({ afterConfirmation: confirmationAccepted })} className="rounded border border-rose-200 bg-white px-2.5 py-1.5 font-semibold hover:bg-rose-50">
+                            Tải lại
                           </button>
+                        </div>
+                        {confirmationAccepted && (
+                          <p role="status" className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-medium text-amber-900">
+                            Hệ thống đã ghi nhận yêu cầu. Vui lòng tải lại dữ liệu nếu trạng thái chưa cập nhật.
+                          </p>
                         )}
-                      </div>
-                    </div>
-                  ))}
+                      </>
+                    ) : classDetailLoading || !classDetail ? (
+                      <p className="text-xs text-stone-500">{classDetailLoading ? "Đang tải thông tin lớp…" : "Chưa có thông tin"}</p>
+                    ) : (
+                      <>
+                      <dl className="grid grid-cols-2 gap-x-5 gap-y-3 text-xs sm:grid-cols-3">
+                        <div>
+                          <dt className="text-stone-500">Trạng thái hiện tại</dt>
+                          <dd className="mt-1 font-semibold text-stone-900">{currentStatus.label}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-stone-500">Sĩ số tối thiểu / tối đa</dt>
+                          <dd className="mt-1 font-semibold tabular-nums text-stone-900">
+                            {classDetail.minCapacity == null ? "Chưa có thông tin" : classDetail.minCapacity}
+                            {" / "}
+                            {classDetail.maxCapacity == null ? "Chưa có thông tin" : classDetail.maxCapacity}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-stone-500">Xác nhận khai giảng</dt>
+                          <dd className="mt-1 font-semibold text-stone-900">
+                            {classDetail.openingConfirmedAt === undefined
+                              ? "Chưa có thông tin"
+                              : classDetail.openingConfirmedAt === null
+                                ? "Chưa xác nhận"
+                                : "Đã xác nhận"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-stone-500">Thời điểm xác nhận</dt>
+                          <dd className="mt-1 font-semibold text-stone-900">
+                            {formatLifecycleDateTime(classDetail.openingConfirmedAt)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-stone-500">Người xác nhận</dt>
+                          <dd className="mt-1 font-semibold tabular-nums text-stone-900">
+                            {classDetail.openingConfirmedBy == null ? "Chưa có thông tin" : `Mã người dùng #${classDetail.openingConfirmedBy}`}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-stone-500">Số lần dời khai giảng</dt>
+                          <dd className="mt-1 font-semibold tabular-nums text-stone-900">
+                            {classDetail.postponementCount == null ? "Chưa có thông tin" : classDetail.postponementCount}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-stone-500">Phương án thay đổi đang chờ</dt>
+                          <dd className="mt-1 font-semibold text-stone-900">
+                            {classDetail.changePending === true ? "Có" : classDetail.changePending === false ? "Không" : "Chưa có thông tin"}
+                          </dd>
+                        </div>
+                      </dl>
+                      {String(classDetail?.classType ?? "").trim().toLowerCase() === "normal" && (
+                        <div className="mt-4 rounded-lg border border-stone-200 bg-stone-50 p-3 text-xs">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <div className="text-stone-500">Member hợp lệ (Registered + Paid)</div>
+                              <div className="mt-1 font-semibold tabular-nums text-stone-900">
+                                {!hasVerifiedEnrollmentData
+                                  ? "Chưa xác minh"
+                                  : `${openingEvaluation.paidRegisteredCount ?? 0}${classDetail.minCapacity == null ? "" : ` / ${classDetail.minCapacity}`}`}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-stone-500">Buổi học đầu tiên</div>
+                              <div className="mt-1 font-semibold text-stone-900">
+                                {sessionsLoading || sessionsError ? "Chưa xác minh" : formatOpeningSession(firstOpeningSession)}
+                              </div>
+                            </div>
+                          </div>
+                          {openingEvaluation.blockers.length > 0 ? (
+                            <p className="mt-3 text-amber-800">{openingEvaluation.blockers[0]}</p>
+                          ) : (
+                            <p className="mt-3 text-stone-600">
+                              {openingEvaluation.unverified.length > 0
+                                ? "Hệ thống sẽ thẩm định và hoàn tất điều kiện khi gửi yêu cầu."
+                                : "Hệ thống sẽ xác nhận điều kiện khi gửi yêu cầu."}
+                            </p>
+                          )}
+                          {sessionsError && <p role="alert" className="mt-2 text-rose-700">Không tải được lịch học: {sessionsError}</p>}
+                          {enrollmentLoadFailed && <p role="alert" className="mt-2 text-rose-700">Không tải được enrollment và trạng thái thanh toán.</p>}
+
+                          {openingRefreshWarning && (
+                            <div role="alert" className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-amber-900">
+                              <span>{openingRefreshWarning}</span>
+                              <button type="button" disabled={classDetailLoading || loading || sessionsLoading} onClick={() => refreshOpeningData({ afterConfirmation: confirmationAccepted })} className="rounded border border-amber-300 bg-white px-2.5 py-1.5 font-semibold disabled:opacity-50">
+                                Tải lại dữ liệu
+                              </button>
+                            </div>
+                          )}
+
+                          {confirmationAccepted && (
+                            <p role="status" className="mt-3 font-medium text-emerald-800">
+                              Hệ thống đã nhận yêu cầu xác nhận và đang cập nhật trạng thái mới.
+                            </p>
+                          )}
+
+                          {canShowOpeningAction && !confirmationAccepted && (
+                            <button
+                              type="button"
+                              disabled={openingSubmitting || classDetailLoading || loading || sessionsLoading || openingActionBlockers.length > 0}
+                              onClick={() => { setOpeningActionError(null); setOpeningReason(""); setOpeningDialogOpen(true) }}
+                              className="mt-3 inline-flex min-h-9 items-center justify-center rounded-lg bg-indigo-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Xác nhận khai giảng
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      </>
+                    )}
+                  </section>
+                )}
+
+                <div ref={lifecyclePanelRef}>
+                <NormalClassLifecyclePanel
+                  classItem={classDetail ?? cls}
+                  initialKind={initialLifecycleKind}
+                  initialAction={initialLifecycleAction}
+                  sessions={sessions}
+                  sessionsLoading={sessionsLoading}
+                  sessionsError={sessionsError}
+                  onRefreshClassDetail={() => refreshOpeningData()}
+                />
                 </div>
-              )}
             </div>
           </div>
 
@@ -1140,19 +853,35 @@ export function ClassDetailDrawer({
                 <Copy className="w-3.5 h-3.5 text-stone-600" />
                 <span>Nhân bản</span>
               </button>
-
-              <button
-                type="button"
-                onClick={() => onEdit && onEdit(cls)}
-                className="h-9 px-4 bg-[#BA1A1A] hover:bg-[#991313] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>Chỉnh sửa</span>
-              </button>
             </div>
           </div>
         </div>
       </div>
+      </>}
+      {lifecycleActionOnly && initialLifecycleAction !== "opening" && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-stone-950/45 p-4" onClick={onClose} role="presentation">
+          <div role="dialog" aria-modal="true" aria-labelledby="lifecycle-action-title" onClick={(event) => event.stopPropagation()} className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 id="lifecycle-action-title" className="text-base font-bold text-stone-900">{lifecycleActionTitle}</h2>
+                <p className="mt-1 text-sm text-stone-600">{classDetail?.name || cls.name}</p>
+              </div>
+              <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100" aria-label="Đóng">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <NormalClassLifecyclePanel
+              classItem={classDetail ?? cls}
+              initialKind={initialLifecycleKind}
+              initialAction={initialLifecycleAction}
+              sessions={sessions}
+              sessionsLoading={sessionsLoading}
+              sessionsError={sessionsError}
+              onRefreshClassDetail={() => refreshOpeningData()}
+            />
+          </div>
+        </div>
+      )}
       {openingDialogOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-stone-950/45 p-4" role="presentation">
           <div role="dialog" aria-modal="true" aria-labelledby="opening-confirm-title" className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl">
@@ -1161,70 +890,36 @@ export function ClassDetailDrawer({
                 <h3 id="opening-confirm-title" className="text-base font-bold text-stone-900">Xác nhận khai giảng</h3>
                 <p className="mt-1 text-sm text-stone-600">{classDetail?.name || cls.name}</p>
               </div>
-              <button type="button" disabled={openingSubmitting} onClick={() => setOpeningDialogOpen(false)} className="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100 disabled:opacity-50" aria-label="Đóng hộp xác nhận">
+              <button type="button" disabled={openingSubmitting} onClick={dismissOpeningDialog} className="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100 disabled:opacity-50" aria-label="Đóng hộp xác nhận">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs">
+            <dl className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs sm:grid-cols-3">
               <div>
-                <dt className="text-stone-500">Member hợp lệ</dt>
+                <dt className="text-stone-500">Học viên đã thanh toán / sĩ số tối thiểu</dt>
                 <dd className="mt-1 font-semibold text-stone-900">
-                  {!hasVerifiedEnrollmentData ? "Chưa xác minh" : openingEvaluation.paidRegisteredCount ?? 0}
+                  {!hasVerifiedEnrollmentData
+                    ? "Chưa xác minh"
+                    : `${openingEvaluation.paidRegisteredCount ?? 0} / ${classDetail?.minCapacity ?? "Chưa xác minh"}`}
                 </dd>
               </div>
               <div>
-                <dt className="text-stone-500">Sĩ số tối thiểu</dt>
-                <dd className="mt-1 font-semibold text-stone-900">{classDetail?.minCapacity ?? "Chưa xác minh"}</dd>
-              </div>
-              <div>
                 <dt className="text-stone-500">Buổi học đầu tiên</dt>
-                <dd className="mt-1 font-semibold text-stone-900">{sessionsLoading || sessionsError ? "Chưa xác minh" : formatOpeningSession(firstOpeningSession)}</dd>
+                <dd className="mt-1 font-semibold text-stone-900">
+                  {sessionsLoading || sessionsError ? "Chưa xác minh" : formatOpeningSession(firstOpeningSession)}
+                </dd>
               </div>
               <div>
                 <dt className="text-stone-500">Trạng thái lớp</dt>
                 <dd className="mt-1 font-semibold text-stone-900">{currentStatus.label}</dd>
               </div>
-              <div className="col-span-2">
-                <dt className="text-stone-500">Trạng thái xác nhận khai giảng</dt>
-                <dd className="mt-1 font-semibold text-stone-900">
-                  {classDetail?.openingConfirmedAt === undefined ? "Chưa xác minh" : classDetail.openingConfirmedAt === null ? "Chưa xác nhận" : "Đã xác nhận"}
-                </dd>
-              </div>
             </dl>
 
-            {openingEvaluation.unverified.length > 0 && (
-              <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
-                <p className="font-semibold">Còn điều kiện cần xác minh</p>
-                <p className="mt-1">Hệ thống sẽ thẩm định điều kiện khi bạn gửi yêu cầu.</p>
-              </div>
-            )}
-            {openingEvaluation.blockers.length > 0 && (
-              <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
-                {openingEvaluation.blockers[0]}
+            {!canShowOpeningAction && !classDetailLoading && (
+              <p role="status" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                {classDetailError || openingEvaluation.blockers[0] || "Lớp hiện không đủ điều kiện xác nhận khai giảng."}
               </p>
-            )}
-
-            {(Number.isFinite(openingEvaluation.openingConfirmationDueAt) ||
-              Number.isFinite(openingEvaluation.openingConfirmationDeadline)) && (
-              <div className="mt-3 rounded-lg border border-stone-200 bg-stone-50 p-3 text-xs text-stone-700 space-y-1">
-                {Number.isFinite(openingEvaluation.openingConfirmationDueAt) && (
-                  <p>
-                    Hạn chuẩn xác nhận:{" "}
-                    <strong className="font-mono text-stone-900">
-                      {formatOpeningDateTime(openingEvaluation.openingConfirmationDueAt)}
-                    </strong>
-                  </p>
-                )}
-                {Number.isFinite(openingEvaluation.openingConfirmationDeadline) && (
-                  <p>
-                    Hạn cuối xác nhận:{" "}
-                    <strong className="font-mono text-stone-900">
-                      {formatOpeningDateTime(openingEvaluation.openingConfirmationDeadline)}
-                    </strong>
-                  </p>
-                )}
-              </div>
             )}
 
             {openingEvaluation.reasonRequired === true && (
@@ -1240,6 +935,12 @@ export function ClassDetailDrawer({
                   placeholder="Nhập lý do xác nhận trong 24 giờ trước buổi đầu tiên"
                 />
               </label>
+            )}
+
+            {canShowOpeningAction && openingEvaluation.blockers.length > 0 && (
+              <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                {openingEvaluation.blockers[0]}
+              </p>
             )}
 
             {openingActionError && (
@@ -1259,7 +960,7 @@ export function ClassDetailDrawer({
             )}
 
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" disabled={openingSubmitting} onClick={() => setOpeningDialogOpen(false)} className="rounded-lg border border-stone-300 px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">
+              <button type="button" disabled={openingSubmitting} onClick={dismissOpeningDialog} className="rounded-lg border border-stone-300 px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">
                 Hủy
               </button>
               <button type="button" disabled={openingSubmitting || !openingEvaluation.canSubmit || (openingEvaluation.reasonRequired === true && !openingReason.trim())} onClick={submitOpeningConfirmation} className="rounded-lg bg-indigo-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50">

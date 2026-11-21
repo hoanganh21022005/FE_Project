@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { useLocation } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import { SkeletonBlock, SkeletonRow, ErrorState } from "../ui/Skeleton"
@@ -51,7 +52,6 @@ import {
   AlertTriangle,
   AlertCircle,
   RotateCcw,
-  Eye,
   Check,
   Sparkles,
   ArrowUpDown,
@@ -1289,56 +1289,71 @@ function EditClassModal({
 // -------------------------------------------------------------
 function RowActionMenu({
   cls,
-  onQuickView,
   onViewMembers,
   onEdit,
-  onMergeClass,
+  onLifecycleAction,
   alignUp = false,
 }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [menuPosition, setMenuPosition] = useState(null)
   const menuRef = useRef(null)
+  const buttonRef = useRef(null)
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
+      if (!menuRef.current?.contains(e.target) && !buttonRef.current?.contains(e.target)) {
         setIsOpen(false)
       }
     }
+    const handleViewportChange = () => setIsOpen(false)
     if (isOpen) {
       document.addEventListener("mousedown", handleOutsideClick)
+      window.addEventListener("resize", handleViewportChange)
+      window.addEventListener("scroll", handleViewportChange, true)
     }
-    return () => document.removeEventListener("mousedown", handleOutsideClick)
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick)
+      window.removeEventListener("resize", handleViewportChange)
+      window.removeEventListener("scroll", handleViewportChange, true)
+    }
   }, [isOpen])
+
+  const toggleMenu = (event) => {
+    event.stopPropagation()
+    if (isOpen) {
+      setIsOpen(false)
+      return
+    }
+    const rect = buttonRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const openUp = alignUp || window.innerHeight - rect.bottom < 240
+    setMenuPosition({
+      top: openUp ? undefined : rect.bottom + 6,
+      bottom: openUp ? window.innerHeight - rect.top + 6 : undefined,
+      right: Math.max(8, window.innerWidth - rect.right),
+    })
+    setIsOpen(true)
+  }
 
   return (
     <div className="relative inline-block text-left" ref={menuRef}>
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleMenu}
         className="w-8 h-8 rounded-lg hover:bg-stone-100 flex items-center justify-center text-stone-500 hover:text-stone-900 transition-colors cursor-pointer"
         title="Thao tác"
       >
         <MoreHorizontal className="w-4 h-4" />
       </button>
 
-      {isOpen && (
+      {isOpen && menuPosition && createPortal(
         <div
-          className={`absolute right-0 ${
-            alignUp ? "bottom-full mb-1.5" : "top-full mt-1.5"
-          } w-52 bg-white border border-stone-200 rounded-xl shadow-xl py-1.5 z-50 text-xs font-medium animate-in fade-in zoom-in-95 duration-100`}
+          ref={menuRef}
+          style={{ ...menuPosition, position: "fixed", zIndex: 1000, width: 208, maxHeight: "min(320px, calc(100vh - 16px))", overflowY: "auto" }}
+          className="bg-white border border-stone-200 rounded-xl shadow-xl py-1.5 text-xs font-medium animate-in fade-in zoom-in-95 duration-100"
+          onClick={(event) => event.stopPropagation()}
         >
-          <button
-            type="button"
-            onClick={() => {
-              setIsOpen(false)
-              onQuickView && onQuickView(cls)
-            }}
-            className="w-full px-3.5 py-2 text-left text-stone-700 hover:bg-stone-50 flex items-center gap-2.5 transition-colors cursor-pointer"
-          >
-            <Eye className="w-3.5 h-3.5 text-stone-500" />
-            <span>Xem chi tiết</span>
-          </button>
-
           <button
             type="button"
             onClick={() => {
@@ -1367,14 +1382,39 @@ function RowActionMenu({
             type="button"
             onClick={() => {
               setIsOpen(false)
-              onMergeClass && onMergeClass(cls)
+              onLifecycleAction && onLifecycleAction(cls, "opening")
+            }}
+            className="w-full px-3.5 py-2 text-left text-stone-700 hover:bg-stone-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 text-stone-500" />
+            <span>Xác nhận khai giảng</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false)
+              onLifecycleAction && onLifecycleAction(cls, "transfer")
             }}
             className="w-full px-3.5 py-2 text-left text-stone-700 hover:bg-stone-50 flex items-center gap-2.5 transition-colors cursor-pointer"
           >
             <ArrowLeftRight className="w-3.5 h-3.5 text-stone-500" />
-            <span>Ghép lớp</span>
+            <span>Thay đổi lớp</span>
           </button>
-        </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false)
+              onLifecycleAction && onLifecycleAction(cls, "cancel")
+            }}
+            className="w-full px-3.5 py-2 text-left text-rose-700 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+          >
+            <Ban className="w-3.5 h-3.5 text-rose-600" />
+            <span>Hủy lớp</span>
+          </button>
+        </div>,
+        document.body,
       )}
     </div>
   )
@@ -3063,10 +3103,9 @@ export function ClassManagement() {
                                 paginatedClasses.length > 3 &&
                                 idx >= paginatedClasses.length - 2
                               }
-                              onQuickView={(c) => { setQuickViewIntent("details"); setQuickViewClass(c) }}
                               onViewMembers={(c) => { setQuickViewClass(null); setEnrollingClass(c) }}
                               onEdit={(c) => setEditingClass(c)}
-                              onMergeClass={(c) => { setQuickViewIntent("transfer"); setQuickViewClass(c) }}
+                              onLifecycleAction={(c, action) => { setQuickViewIntent(action); setQuickViewClass(c) }}
                             />
                           </td>
                         </tr>
@@ -3300,6 +3339,7 @@ export function ClassManagement() {
         <ClassDetailDrawer
           cls={quickViewClass}
           initialLifecycleKind={quickViewIntent === "transfer" ? "Transfer" : "Postpone"}
+          initialLifecycleAction={quickViewIntent}
           conflictInfo={classConflictsMap[quickViewClass.id]}
           onClose={() => setQuickViewClass(null)}
           onEdit={(c) => {
