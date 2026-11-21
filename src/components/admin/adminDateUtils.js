@@ -179,8 +179,10 @@ export function formatAdminDate(
   if (parsed.empty) return emptyText
   if (!parsed.valid) return invalidText
 
-  return new Intl.DateTimeFormat(isEn ? "en-US" : VIETNAM_LOCALE, {
-    dateStyle: "medium",
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
     timeZone: VIETNAM_TIMEZONE,
   }).format(parsed.date)
 }
@@ -207,9 +209,14 @@ export function formatAdminDateTime(
   if (parsed.empty) return emptyText
   if (!parsed.valid) return invalidText
 
-  return new Intl.DateTimeFormat(isEn ? "en-US" : VIETNAM_LOCALE, {
-    dateStyle: "short",
-    timeStyle: "medium",
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
     timeZone: VIETNAM_TIMEZONE,
   }).format(parsed.date)
 }

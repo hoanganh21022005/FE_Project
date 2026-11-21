@@ -86,8 +86,8 @@ try {
     nextSession: `${nextMonth}-15`,
     openingSessionDate: `${openingTimeParts.year}-${openingTimeParts.month}-${openingTimeParts.day}`,
     openingSessionTime: `${openingTimeParts.hour}:${openingTimeParts.minute}:00`,
-    classInfo: { id: 71, name: 'Lớp kiểm thử lịch', subjectId: 1, coachId: 2, maxCapacity: 12, startDate: today, endDate: `${nextMonth}-20`, status: 'Ongoing', classType: 'Normal', totalSessions: 12, tuitionFee: 650000 },
-    classDetail: { id: 71, name: 'Lớp kiểm thử lịch', subjectId: 1, subjectName: 'Cầu lông', coachId: 2, maxCapacity: 12, minCapacity: 2, startDate: today, endDate: `${nextMonth}-20`, status: 'Open', classType: 'Normal', totalSessions: 12, tuitionFee: 650000, openingConfirmedAt: null, openingConfirmedBy: null, changePending: false },
+    classInfo: { id: 71, name: 'Lớp kiểm thử lịch', subjectId: 1, coachId: 2, minCapacity: 2, maxCapacity: 12, enrolledCount: 2, startDate: today, endDate: `${nextMonth}-20`, status: 'Ongoing', classType: 'Normal', totalSessions: 12, tuitionFee: 650000 },
+    classDetail: { id: 71, name: 'Lớp kiểm thử lịch', subjectId: 1, subjectName: 'Cầu lông', coachId: 2, maxCapacity: 12, minCapacity: 2, startDate: today, endDate: `${nextMonth}-20`, status: 'Open', classType: 'Normal', totalSessions: 12, tuitionFee: 650000, openingConfirmedAt: null, openingConfirmedBy: null, changePending: false, openingConfirmationAllowed: true, openingReasonRequired: true },
   }
   fixture.classDetail.postponementCount = 0
   fixture.classDetail.lifecycleVersion = 2
@@ -113,7 +113,7 @@ try {
         window.__cmWrites.push({ url, method, body });
         if (method === 'POST' && url.includes('/api/classes/71/confirm-opening')) {
           window.__cmFixture.classDetail = { ...window.__cmFixture.classDetail, openingConfirmedAt: new Date().toISOString(), openingConfirmedBy: 1 };
-          window.__cmFailNextClassDetail = true;
+          window.__cmFixture.classInfo = { ...window.__cmFixture.classInfo, status: 'Open', openingConfirmedAt: window.__cmFixture.classDetail.openingConfirmedAt };
           return response(window.__cmFixture.classDetail);
         }
         if (method === 'PUT' && url.includes('/api/classes/71')) return response({ ...window.__cmFixture.classInfo, ...body });
@@ -157,69 +157,47 @@ try {
   await evaluate(`(() => { const select = document.querySelector('select:has(option[value="today"])'); select.value = 'today'; select.dispatchEvent(new Event('change', { bubbles: true })); })()`)
   await waitFor("document.body.textContent.includes('Lớp kiểm thử lịch')")
   await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.trim() === 'Lịch tháng').click()`)
-  await waitFor("document.querySelector('[title=\"Buổi học: Lớp kiểm thử lịch\"]')")
+  await waitFor("document.querySelector('[title^=\"08:00 · Lớp kiểm thử lịch\"]')")
   assert.ok(await evaluate(`document.body.textContent.includes(${JSON.stringify(`Lịch lớp tháng ${month.slice(5)}/${month.slice(0, 4)}`)})`))
   await evaluate(`document.querySelector('[aria-label="Tháng sau"]').click()`)
   await waitFor(`document.body.textContent.includes(${JSON.stringify(`Lịch lớp tháng ${nextMonth.slice(5)}/${nextMonth.slice(0, 4)}`)})`)
-  assert.ok(await evaluate(`Array.from(document.querySelectorAll('[title="Buổi học: Lớp kiểm thử lịch"]')).some((entry) => entry.textContent.includes('10:00'))`))
+  assert.ok(await evaluate(`Array.from(document.querySelectorAll('[title^="10:00 · Lớp kiểm thử lịch"]')).some((entry) => entry.textContent.includes('10:00'))`))
   await evaluate(`document.querySelector('[aria-label="Tháng trước"]').click()`)
   await waitFor(`document.body.textContent.includes(${JSON.stringify(`Lịch lớp tháng ${month.slice(5)}/${month.slice(0, 4)}`)})`)
-  assert.ok(await evaluate(`Array.from(document.querySelectorAll('[title="Buổi học: Lớp kiểm thử lịch"]')).some((entry) => entry.textContent.includes('08:00'))`))
+  assert.ok(await evaluate(`Array.from(document.querySelectorAll('[title^="08:00 · Lớp kiểm thử lịch"]')).some((entry) => entry.textContent.includes('08:00'))`))
   assert.deepEqual(await evaluate('window.__cmWrites'), [])
   console.log('PASS: Bộ lọc và lịch tháng trên trình duyệt dùng dữ liệu API cục bộ, điều hướng không gửi ghi dữ liệu')
 
   await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.trim() === 'Danh sách').click()`)
   await waitFor(`document.querySelector('button[title="Thao tác"]')`)
+  assert.ok(await evaluate(`!document.querySelector('tbody')?.textContent.includes('Đã đủ điều kiện mở')`), 'ongoing classes do not show opening-readiness text even when the minimum is met')
   await evaluate(`document.querySelector('button[title="Thao tác"]').click()`)
-  await waitFor(`Array.from(document.querySelectorAll('button')).some((button) => button.textContent.includes('Xem chi tiết nhanh'))`)
-  await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.includes('Xem chi tiết nhanh')).click()`)
-  await waitFor(`document.body.textContent.includes('Vòng đời lớp học') && document.body.textContent.includes('Member hợp lệ (Registered + Paid)')`)
-  await waitFor(`document.body.textContent.includes('Lifecycle test')`)
-  assert.ok(await evaluate(`document.body.textContent.includes('Waiting') && document.body.textContent.includes('Accept')`), 'Member choices are shown as read-only response data')
-  assert.ok(await evaluate(`document.body.textContent.includes('Proposal version: 4')`), 'proposal version is visible and remains distinct from lifecycleVersion')
-  assert.ok(await evaluate(`Array.from(document.querySelectorAll('section[aria-labelledby="normal-proposals-heading"] button')).find((button) => button.textContent.includes('Tạo đề xuất')).disabled`), 'proposal creation is blocked while version semantics need BE confirmation')
-  assert.ok(await evaluate(`Array.from(document.querySelectorAll('section[aria-labelledby="normal-proposals-heading"] button')).find((button) => button.textContent.includes('Áp dụng (đang khóa)')).disabled`), 'apply is blocked while version semantics need BE confirmation')
-  assert.ok(await evaluate(`Array.from(document.querySelectorAll('section[aria-labelledby="normal-proposals-heading"] button')).find((button) => button.textContent.includes('Hủy lớp (đang chờ')).disabled`), 'class cancellation is blocked while version semantics need BE confirmation')
-  await evaluate(`window.__cmFailNextProposalList = true; document.querySelector('section[aria-labelledby="normal-proposals-heading"] > div button').click()`)
-  await waitFor(`document.querySelector('section[aria-labelledby="normal-proposals-heading"] [role="alert"]')`)
-  assert.ok(await evaluate(`document.querySelector('section[aria-labelledby="normal-proposals-heading"]').textContent.includes('Lifecycle test')`), 'a proposal load error does not replace the existing list with an empty state')
-  await evaluate(`Array.from(document.querySelectorAll('section[aria-labelledby="normal-proposals-heading"] [role="alert"] button')).find((button) => button.textContent.includes('Thử lại')).click()`)
-  await waitFor(`!document.querySelector('section[aria-labelledby="normal-proposals-heading"] [role="alert"]')`)
-  await evaluate(`window.__cmEmptyProposalList = true; document.querySelector('section[aria-labelledby="normal-proposals-heading"] > div button').click()`)
-  await waitFor(`document.querySelector('section[aria-labelledby="normal-proposals-heading"]')?.textContent.includes('Chưa có phương án thay đổi cho lớp này')`)
-  await evaluate(`window.__cmEmptyProposalList = false; document.querySelector('section[aria-labelledby="normal-proposals-heading"] > div button').click()`)
-  await waitFor(`document.querySelector('section[aria-labelledby="normal-proposals-heading"]')?.textContent.includes('Lifecycle test')`)
-  await evaluate(`Array.from(document.querySelectorAll('section[aria-labelledby="normal-proposals-heading"] button')).find((button) => button.textContent.includes('Kiểm tra proposal mới nhất')).click()`)
-  await waitFor(`Array.from(document.querySelectorAll('section[aria-labelledby="normal-proposals-heading"] [role="status"]')).some((node) => node.textContent.includes('Đã tải proposal mới nhất'))`)
-  assert.deepEqual(await evaluate('window.__cmWrites'), [], 'proposal browsing and refresh do not send mutation requests')
-  assert.ok(await evaluate(`document.body.textContent.includes('2 / 2')`), 'only Registered + Paid enrollments count toward minCapacity')
-  await waitFor(`Array.from(document.querySelectorAll('button')).some((button) => button.textContent.includes('Xác nhận khai giảng') && !button.disabled)`)
-  assert.ok(await evaluate(`Array.from(document.querySelectorAll('button')).some((button) => button.textContent.includes('Xác nhận khai giảng'))`), 'Manager with MANAGE_CLASSES sees Normal opening action')
-  await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.includes('Xác nhận khai giảng')).click()`)
-  await waitFor(`document.querySelector('[role="dialog"]')`)
-  assert.ok(await evaluate(`document.querySelector('[role="dialog"]').textContent.includes('Lớp kiểm thử lịch')`))
-  assert.ok(await evaluate(`document.querySelector('[role="dialog"]').textContent.includes('Member hợp lệ')`))
-  assert.ok(await evaluate(`document.querySelector('[role="dialog"]').textContent.includes('Sĩ số tối thiểu')`))
-  assert.ok(await evaluate(`Boolean(document.querySelector('[role="dialog"] textarea[required]'))`), 'reason is required within 24 hours of the first session')
-  assert.ok(await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find((button) => button.textContent.trim() === 'Xác nhận với Backend').disabled`), 'blank reason cannot submit')
-  await evaluate(`(() => { const input = document.querySelector('[role="dialog"] textarea[required]'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'Test reason'); input.dispatchEvent(new Event('input', { bubbles: true })); })()`)
-  await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find((button) => button.textContent.trim() === 'Xác nhận với Backend').click()`)
+  assert.ok(await evaluate(`!Array.from(document.querySelectorAll('button')).some((button) => button.textContent.trim() === 'Hủy lớp')`), 'ongoing class does not offer before-opening cancellation')
+  await evaluate(`document.querySelector('button[title="Thao tác"]').click()`)
+  await evaluate(`Array.from(document.querySelectorAll('tbody tr')).find((row) => row.textContent.includes('Lớp kiểm thử lịch')).click()`)
+  await delay(200)
+  assert.ok(await evaluate(`!document.querySelector('[aria-labelledby="class-lifecycle-heading"]') && !document.querySelector('[aria-labelledby="lifecycle-action-title"]')`), 'clicking a class row or name does not open an action screen')
+  await evaluate(`document.querySelector('button[title="Thao tác"]').click()`)
+  await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.trim() === 'Xác nhận khai giảng').click()`)
+  await waitFor(`document.querySelector('[aria-labelledby="opening-confirm-title"]')`)
+  assert.ok(await evaluate(`document.querySelector('[aria-labelledby="opening-confirm-title"]').textContent.includes('Lớp kiểm thử lịch')`))
+  assert.ok(await evaluate(`!document.querySelector('[aria-labelledby="opening-confirm-title"]').textContent.includes('Member hợp lệ')`), 'confirmation dialog omits the non-authoritative enrollment count')
+  assert.ok(await evaluate(`!Array.from(document.querySelector('[aria-labelledby="opening-confirm-title"]').querySelectorAll('dt')).some((label) => label.textContent.includes('Sĩ số'))`), 'confirmation dialog omits the non-authoritative paid-count summary')
+  assert.ok(await evaluate(`Boolean(document.querySelector('[aria-labelledby="opening-confirm-title"] textarea[required]'))`), 'reason is required within 24 hours of the first session')
+  assert.ok(await evaluate(`Array.from(document.querySelectorAll('[aria-labelledby="opening-confirm-title"] button')).find((button) => button.textContent.trim() === 'Xác nhận khai giảng').disabled`), 'blank reason cannot submit')
+  await evaluate(`(() => { const input = document.querySelector('[aria-labelledby="opening-confirm-title"] textarea[required]'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'Test reason'); input.dispatchEvent(new Event('input', { bubbles: true })); })()`)
+  await evaluate(`Array.from(document.querySelectorAll('[aria-labelledby="opening-confirm-title"] button')).find((button) => button.textContent.trim() === 'Xác nhận khai giảng').click()`)
   await waitFor(`window.__cmWrites.some((write) => write.method === 'POST' && write.url.includes('/confirm-opening'))`)
   const openingWrite = await evaluate(`window.__cmWrites.find((write) => write.method === 'POST' && write.url.includes('/confirm-opening'))`)
   assert.deepEqual(openingWrite.body, { reason: 'Test reason' })
-  await waitFor(`document.body.textContent.includes('Backend đã nhận yêu cầu xác nhận nhưng chưa đồng bộ được dữ liệu mới')`)
-  assert.equal(await evaluate(`window.__cmWrites.filter((write) => write.method === 'POST' && write.url.includes('/confirm-opening')).length`), 1, 'a failed refresh must not repeat the successful POST')
-  await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.trim() === 'Tải lại').click()`)
-  await waitFor(`document.body.textContent.includes('Đã xác nhận')`)
-  assert.ok(await evaluate(`document.body.textContent.includes('Mở đăng ký')`), 'confirmation refresh does not change Open to Ongoing')
-  assert.ok(await evaluate(`!document.body.textContent.includes('Đang chờ đồng bộ trạng thái mới')`), 'successful refresh clears the pending-sync warning')
-  assert.equal(await evaluate(`window.__cmWrites.filter((write) => write.method === 'POST' && write.url.includes('/confirm-opening')).length`), 1)
+  await waitFor(`document.body.textContent.includes('Khai giảng lớp học thành công.')`)
+  assert.ok(await evaluate(`document.body.textContent.includes('Đã xác nhận khai giảng · Còn nhận đăng ký')`), 'confirmed opening is shown while the class remains Open for registration')
+  assert.equal(await evaluate(`window.__cmWrites.filter((write) => write.method === 'POST' && write.url.includes('/confirm-opening')).length`), 1, 'confirmation is submitted once')
   await evaluate(`window.__cmWrites = []`)
-  await evaluate(`document.querySelector('button[title="Đóng (Esc)"]').click()`)
 
   await evaluate(`document.querySelector('button[title="Thao tác"]').click()`)
-  await waitFor(`Array.from(document.querySelectorAll('button')).some((button) => button.textContent.includes('Sửa lớp học'))`)
-  await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.includes('Sửa lớp học')).click()`)
+  await waitFor(`Array.from(document.querySelectorAll('button')).some((button) => button.textContent.includes('Chỉnh sửa lớp học'))`)
+  await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.includes('Chỉnh sửa lớp học')).click()`)
   await waitFor(`document.body.textContent.includes('Chỉnh sửa thông tin lớp học')`)
   await evaluate(`(() => { const form = Array.from(document.querySelectorAll('form')).find((item) => item.textContent.includes('Lưu thay đổi')); const input = form.querySelector('input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Lớp kiểm thử đã sửa'); input.dispatchEvent(new Event('input', { bubbles: true })); })()`)
   await evaluate(`Array.from(document.querySelectorAll('button')).find((button) => button.textContent.trim() === 'Lưu thay đổi').click()`)
@@ -229,7 +207,7 @@ try {
   assert.equal(writes[0].body.name, 'Lớp kiểm thử đã sửa')
   assert.equal(writes[0].body.maxCapacity, 12)
   assert.equal(writes[0].body.coachId, 2)
-  assert.equal(writes[0].body.status, 'Ongoing')
+  assert.equal(writes[0].body.status, 'Open')
   console.log('PASS: Form sửa lớp gửi đúng dữ liệu cho API giả lập cục bộ')
 } finally {
   socket?.close()

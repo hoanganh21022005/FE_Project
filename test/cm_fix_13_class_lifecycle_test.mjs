@@ -27,7 +27,7 @@ try {
 
   const result = await getClassById(71, {}, { notifyForbidden: false })
   assert.equal(calls.length, 1)
-  assert.equal(new URL(calls[0].url).pathname, '/api/classes/71')
+  assert.equal(new URL(calls[0].url, 'http://localhost').pathname, '/api/classes/71')
   assert.equal(calls[0].method, 'GET')
   assert.equal(result.status, 'open')
   assert.equal(result.apiStatus, 'Open')

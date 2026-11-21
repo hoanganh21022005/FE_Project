@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { getErrorMessage } from '../../api/apiErrors.js'
+import { formatDate } from '../../locales/translations'
 import { getCoaches, getRooms, getSessions, getSubjects } from '../../api/managerApi.js'
 import {
   canManageCenterIncident,
@@ -31,7 +32,14 @@ import {
 
 const cardClass = 'rounded-lg border border-slate-200 bg-white p-4 shadow-xs'
 const fieldClass = 'mt-1 min-h-11 w-full rounded border border-slate-300 bg-white px-3 text-sm'
-const localDateTime = (value) => typeof value === 'string' ? value.replace('T', ' ').slice(0, 19) : '—'
+const localDateTime = (value) => {
+  if (typeof value !== 'string' || !value.trim()) return '—'
+  const normalized = value.trim().replace('T', ' ')
+  const [datePart, timePart = ''] = normalized.split(' ')
+  const formattedDate = formatDate(datePart)
+  const shortTime = timePart.slice(0, 5)
+  return shortTime ? `${formattedDate} ${shortTime}` : formattedDate
+}
 const present = (value) => value === null || value === undefined || value === '' ? 'Chưa có thông tin' : String(value)
 const memberCount = (ids) => Array.isArray(ids) && ids.every((id) => Number.isInteger(id) && id > 0) ? ids.length : null
 const knownIncidentStatus = (status) => status === 'WaitingForRecovery' || status === 'Resolved'
@@ -587,7 +595,7 @@ function CenterIncidentsPanel({ apiEnabled, currentUser, language, showToast, on
                   <div className="mt-1">
                     {existingMakeup ? (
                       <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700 border border-blue-200">
-                        #{existingMakeup.id} · {existingMakeup.sessionDate || '—'}
+                        #{existingMakeup.id} · {formatDate(existingMakeup.sessionDate, language)}
                       </span>
                     ) : (
                       <span className="text-xs text-slate-400">{vi ? 'Chưa xếp lịch bù' : 'No makeup'}</span>
@@ -643,7 +651,7 @@ function CenterIncidentsPanel({ apiEnabled, currentUser, language, showToast, on
           {validSessions.length > 0
             ? validSessions.map((session) => (
               <option key={session.id} value={session.id}>
-                #{session.id} · {session.className || (vi ? 'Lớp chưa có tên' : 'Unnamed class')} · {session.sessionDate || '—'} {String(session.startTime || '').slice(0, 5)}{session.isPrivate === false ? ' · Normal' : session.isPrivate === true ? ' · Advanced' : ''}
+                #{session.id} · {session.className || (vi ? 'Lớp chưa có tên' : 'Unnamed class')} · {formatDate(session.sessionDate, language)} {String(session.startTime || '').slice(0, 5)}{session.isPrivate === false ? ' · Normal' : session.isPrivate === true ? ' · Advanced' : ''}
               </option>
             ))
             : <option disabled>{vi ? 'Chưa có buổi học' : 'No sessions'}</option>}

@@ -45,6 +45,10 @@ import {
   formatNumber,
 } from "./new-class/classFormHelpers"
 import { DatePicker } from "./new-class/DatePicker"
+import {
+  suggestNormalClassName,
+  hasDuplicateClassName,
+} from "./new-class/classNameSuggestion"
 
 function formatConflictDetail(detail) {
   let formatted = detail.trim()
@@ -75,9 +79,12 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     subjects,
     rooms,
     classes,
+    classesLoading,
+    language = "vi",
     apiEnabled,
     showToast,
   } = useSCMS()
+  const isVi = language !== "en"
 
   const coaches = useMemo(() => {
     if (contextCoaches && contextCoaches.length > 0) return contextCoaches
@@ -108,6 +115,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   // Form states
   const [selectedSportId, setSelectedSportId] = useState("badminton")
   const [className, setClassName] = useState("")
+  const [isAutoName, setIsAutoName] = useState(true)
+  const [submitError, setSubmitError] = useState("")
   const [description, setDescription] = useState("")
 
   const [coachId, setCoachId] = useState("")
@@ -148,6 +157,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   useEffect(() => {
     if (!isOpen) return
     setClassName("")
+    setIsAutoName(true)
+    setSubmitError("")
     setTouched({})
     setIsDirty(false)
     const pendingCreation = normalRequestIdStateRef.current || loadPendingNormalClassCreation()
@@ -193,6 +204,11 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
       setSelectedSportId(sportOptions[0].id)
     }
   }, [sportOptions, selectedSportId])
+
+  useEffect(() => {
+    if (!isOpen || !isAutoName || classesLoading || !currentSport?.name) return
+    setClassName(suggestNormalClassName({ sportName: currentSport.name, classes }))
+  }, [isOpen, isAutoName, classesLoading, currentSport?.name, classes])
 
   const sportCourts = useMemo(() => currentSport.courts || [], [currentSport])
 
@@ -779,6 +795,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     }
 
     setIsSubmitting(true)
+    setSubmitError("")
     try {
       const roomBackendId = Number(selectedRoomObj?.backendId ?? selectedRoomObj?.id)
       const payload = {
@@ -875,7 +892,9 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         onClose()
       }
     } catch (err) {
-      showToast(err?.message || "Lỗi khi tạo lớp học.", "error")
+      const msg = err?.message || (isVi ? "Lỗi khi tạo lớp học." : "Failed to create class.")
+      setSubmitError(msg)
+      showToast(msg, "error")
     } finally {
       setIsSubmitting(false)
     }
@@ -956,7 +975,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
             <div>
               <label htmlFor="new-class-name" className="text-sm font-medium text-stone-800 block mb-1.5">
-                  Tên lớp học
+                {isVi ? "Tên lớp học" : "Class name"}
               </label>
               <input
                 id="new-class-name"
@@ -964,16 +983,35 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                 value={className}
                 maxLength={MAX_CLASS_NAME_LENGTH}
                 onChange={(event) => {
+                  setIsAutoName(false)
                   setIsDirty(true)
+                  setSubmitError("")
                   setClassName(event.target.value)
                 }}
                 onBlur={() => setTouched((prev) => ({ ...prev, className: true }))}
                 aria-invalid={Boolean(nameError)}
                 aria-describedby={nameError ? "new-class-name-error" : undefined}
-                placeholder="Nhập tên lớp học"
+                placeholder={isVi ? "Nhập tên lớp học" : "Enter class name"}
                 className={`w-full h-11 px-3.5 text-sm font-semibold bg-white border ${nameError ? "border-rose-400" : "border-stone-300"} text-stone-800 rounded-xl focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800`}
               />
               {nameError && <p id="new-class-name-error" role="alert" className="text-xs text-rose-600 mt-1">{nameError}</p>}
+              {!nameError && !classesLoading && hasDuplicateClassName(className, classes) && (
+                <p role="status" className="text-xs text-amber-700 mt-1">
+                  {isVi
+                    ? "Tên lớp này đã tồn tại trong danh sách hiện có. Bạn có thể sửa lại hoặc nhấn Gợi ý tên."
+                    : "This class name already exists in the current list. You can edit it or click Suggest name."}
+                </p>
+              )}
+              {!nameError && isAutoName && className && (
+                <p className="text-[11px] text-stone-500 mt-1">
+                  {isVi
+                    ? "Tên gợi ý từ FE theo danh sách lớp hiện có."
+                    : "Suggested by FE based on the current class list."}
+                </p>
+              )}
+              {submitError && (
+                <p role="alert" className="text-xs text-rose-600 mt-1 font-medium">{submitError}</p>
+              )}
             </div>
 
             {/* Mô tả khóa học (không bắt buộc) */}

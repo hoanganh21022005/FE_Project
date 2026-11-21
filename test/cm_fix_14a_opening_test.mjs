@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { confirmNormalClassOpening } from '../src/api/managerApi.js'
 import {
+  canSubmitNormalClassOpening,
   evaluateNormalClassOpening,
   getFirstNormalClassSession,
   getNormalClassOpeningError,
@@ -56,10 +57,11 @@ const regularWindow = evaluateNormalClassOpening({
   classItem, sessions: [session], enrollments, authorities,
   now: new Date('2026-01-01T02:59:00Z'),
 })
-assert.equal(regularWindow.paidRegisteredCount, 2, 'pending enrollment/payment do not count')
+assert.equal(regularWindow.paidRegisteredCount, null, 'enrollment rows do not prove Backend payment eligibility')
 assert.equal(regularWindow.reasonRequired, false, '48-hour member cutoff does not gate manager confirmation')
 assert.equal(regularWindow.canSubmit, true)
 assert.equal(regularWindow.eligibilityStatus, 'unverified', 'Backend eligibility remains authoritative')
+assert.ok(!regularWindow.blockers.some((item) => item.includes('minimum')))
 assert.deepEqual(regularWindow.payload, {})
 
 const lateWithoutReason = evaluateNormalClassOpening({
@@ -81,8 +83,18 @@ const pendingOnly = evaluateNormalClassOpening({
   classItem, sessions: [session], enrollments: enrollments.slice(2), authorities,
   now: new Date('2026-01-01T02:00:00Z'),
 })
-assert.equal(pendingOnly.paidRegisteredCount, 0)
-assert.equal(pendingOnly.canSubmit, false)
+assert.equal(pendingOnly.paidRegisteredCount, null)
+assert.equal(pendingOnly.canSubmit, true, 'Frontend enrollment snapshots cannot veto Backend confirmation')
+
+const backendInsufficient = evaluateNormalClassOpening({
+  classItem: { ...classItem, openingConfirmationAllowed: false, openingConfirmationBlockReason: 'NORMAL_INSUFFICIENT_PAID' },
+  sessions: [session], enrollments, authorities,
+})
+assert.equal(backendInsufficient.canSubmit, false, 'Backend opening eligibility blocks an insufficient paid count')
+assert.equal(canSubmitNormalClassOpening({ canSubmit: false, openingConfirmationAllowed: false }), false)
+assert.equal(canSubmitNormalClassOpening({ canSubmit: false, openingConfirmationAllowed: true }), true, 'Backend readiness overrides incomplete local checks')
+assert.equal(canSubmitNormalClassOpening({ canSubmit: false, openingConfirmationAllowed: true, reasonRequired: true }), false, 'required reason remains a FE input requirement')
+assert.equal(canSubmitNormalClassOpening({ canSubmit: false, openingConfirmationAllowed: true, reasonRequired: true, reason: 'Reviewed' }), true)
 
 const alreadyStarted = evaluateNormalClassOpening({
   classItem, sessions: [session], enrollments, authorities,
@@ -146,6 +158,8 @@ assert.deepEqual(validNormalClassOpeningRequest({ reason: '  reviewed  ' }), { r
 assert.deepEqual(validNormalClassOpeningRequest({ reason: '' }), {})
 assert.throws(() => validNormalClassOpeningRequest({ reason: 'ok', unexpected: true }), /Unsupported/)
 assert.equal(getNormalClassOpeningError({ status: 409, code: 'STALE_VERSION', message: 'Conflict' }).status, 409)
+assert.equal(getNormalClassOpeningError({ status: 0, message: 'Request timed out' }).uncertain, true, 'network timeout requires status reconciliation before another mutation')
+assert.equal(getNormalClassOpeningError({ status: 409, code: 'CONFLICT', message: 'Conflict' }).uncertain, false)
 
 const originalFetch = globalThis.fetch
 const requests = []
@@ -159,7 +173,7 @@ try {
   const duplicateCall = confirmNormalClassOpening(71, { reason: 'different reason' })
   await new Promise((resolve) => setTimeout(resolve, 0))
   assert.equal(requests.length, 1, 'concurrent duplicate requests are coalesced')
-  assert.equal(new URL(requests[0].url).pathname, '/api/classes/71/confirm-opening')
+  assert.equal(new URL(requests[0].url, 'http://localhost').pathname, '/api/classes/71/confirm-opening')
   assert.equal(requests[0].method, 'POST')
   assert.deepEqual(requests[0].body, { reason: 'approved' })
   const response = { id: 71, status: 'Open', openingConfirmedAt: '2026-01-01T03:30:00Z' }

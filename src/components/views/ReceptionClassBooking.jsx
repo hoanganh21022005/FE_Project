@@ -778,9 +778,13 @@ export function ReceptionClassBooking() {
                         <span className="font-mono tabular-nums">
                           {language === "vi" ? "Hạn đăng ký:" : "Registration closes:"}{" "}
                           <strong className="text-text-primary">
-                            {new Intl.DateTimeFormat(language === "vi" ? "vi-VN" : "en-US", {
-                              dateStyle: "short",
-                              timeStyle: "short",
+                            {new Intl.DateTimeFormat("en-GB", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: false,
                               timeZone: "Asia/Ho_Chi_Minh",
                             }).format(new Date(regDeadline))}
                           </strong>

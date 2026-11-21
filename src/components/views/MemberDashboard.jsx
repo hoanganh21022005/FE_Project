@@ -20,6 +20,7 @@ import { httpClient } from "../../api/httpClient"
 import { extractList } from "../../api/schemaValidators"
 import { getErrorMessage } from "../../api/apiErrors"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
+import MemberNormalProposalInbox from "../classes/MemberNormalProposalInbox.jsx"
 import {
   formatVietnamDateTime,
   getActiveAdvancedCreditCount,
@@ -637,6 +638,13 @@ export function MemberDashboard() {
             />
           ))}
         </section>
+
+        <MemberNormalProposalInbox
+          enrollments={normalEnrollments}
+          memberId={memberId}
+          isVi={isVi}
+          onRefresh={retryDashboard}
+        />
 
         <section className="grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
           <div className="min-w-0 space-y-6 xl:col-span-8">

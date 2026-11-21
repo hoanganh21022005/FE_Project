@@ -187,9 +187,18 @@ export const evaluateNormalClassLifecycle = (classItem, { action = 'proposal', k
   }
   const status = normalize(classItem.apiStatus ?? classItem.status)
   if (!status) unverified.push('Backend class status is unavailable.')
-  else if (status !== 'open') blockers.push('The class is not Open; this operation is only for before-opening lifecycle.')
+  else if (status !== 'open') {
+    const statusMessage = status === 'published'
+      ? 'Lớp đang ở trạng thái “Đã xuất bản”; Backend chỉ cho phép hủy trước khai giảng khi lớp ở trạng thái “Mở đăng ký”.'
+      : status === 'ongoing'
+        ? 'Lớp đang diễn ra nên không thể hủy theo luồng trước khai giảng.'
+        : status === 'cancelled' || status === 'canceled'
+          ? 'Lớp đã bị hủy.'
+          : 'Chỉ có thể hủy lớp trước khai giảng khi trạng thái lớp là “Mở đăng ký”.'
+    blockers.push(statusMessage)
+  }
 
-  if (action === 'proposal' && classItem.changePending === true) blockers.push('A class change proposal is already pending.')
+  if (action === 'proposal' && classItem.changePending === true) blockers.push('Đã gửi đề xuất.')
   else if (action === 'proposal' && classItem.changePending !== false) unverified.push('Pending-change state is unavailable.')
 
   if (!validVersion(classItem.lifecycleVersion)) {
@@ -221,6 +230,33 @@ export const evaluateNormalClassLifecycle = (classItem, { action = 'proposal', k
     blockers,
     unverified,
     backendIsFinalAuthority: true,
+  }
+}
+
+export const evaluateNormalTransferTargetCutoff = (classItem) => {
+  const deadline = Date.parse(String(classItem?.registrationDeadline ?? ''))
+  const serverTime = Date.parse(String(classItem?.serverTime ?? ''))
+  if (!Number.isFinite(deadline) || !Number.isFinite(serverTime)) {
+    return {
+      state: 'unverified',
+      canAttempt: false,
+      registrationDeadline: null,
+      message: 'Chưa xác minh được hạn đăng ký của lớp đích. Hãy tải lại thông tin lớp.',
+    }
+  }
+  if (deadline <= serverTime) {
+    return {
+      state: 'closed',
+      canAttempt: false,
+      registrationDeadline: classItem.registrationDeadline,
+      message: 'Lớp đích đã đóng đăng ký vì đã đến hạn 48 giờ trước buổi đầu tiên. Hãy chọn lớp khác.',
+    }
+  }
+  return {
+    state: 'open',
+    canAttempt: true,
+    registrationDeadline: classItem.registrationDeadline,
+    message: null,
   }
 }
 

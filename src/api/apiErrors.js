@@ -225,8 +225,8 @@ export const ERROR_CODE_TEXT = {
     en: 'This schedule overlaps another one. Choose a different class or time slot.',
   },
   NORMAL_REGISTRATION_CLOSED: {
-    vi: 'Lớp đã đóng đăng ký.',
-    en: 'Registration for this class is closed.',
+    vi: 'Lớp đã đóng đăng ký vì đã đến hạn 48 giờ trước buổi học đầu tiên.',
+    en: 'Registration closed 48 hours before the first session.',
   },
   BOOKING_BLOCKED: {
     vi: 'Tài khoản đang bị tạm khóa đặt lịch. Vui lòng liên hệ quầy lễ tân.',
@@ -318,7 +318,7 @@ export const ERROR_CODE_TEXT = {
     en: 'The manager account and class must belong to the same center.',
   },
   NORMAL_INSUFFICIENT_PAID: {
-    vi: 'Số hội viên đã đóng tiền chưa đạt mức tối thiểu để khai giảng.',
+    vi: 'Chưa đạt sĩ số tối thiểu',
     en: 'Not enough members have paid to reach the minimum for opening.',
   },
   NORMAL_MIN_CAPACITY_REQUIRED: {

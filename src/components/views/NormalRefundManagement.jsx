@@ -21,7 +21,7 @@ const textOrMissing = (value) => value === null || value === undefined || value 
 const dateOrMissing = (value) => {
   if (value === null || value === undefined || value === '') return 'Chưa có thông tin'
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? 'Chưa có thông tin' : new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' }).format(date)
+  return Number.isNaN(date.getTime()) ? 'Chưa có thông tin' : new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Ho_Chi_Minh' }).format(date)
 }
 const moneyOrMissing = (value) => {
   if (value === null || value === undefined || value === '') return 'Chưa có thông tin'

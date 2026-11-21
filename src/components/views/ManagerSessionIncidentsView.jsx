@@ -18,6 +18,33 @@ import {
 } from 'lucide-react'
 import { useSCMS } from '../../context/SCMSContext'
 import { getErrorMessage } from '../../api/apiErrors.js'
+import { formatDate } from '../../locales/translations'
+
+function sessionStatusMeta(status, vi) {
+  const normalized = String(status || '').trim().toLowerCase()
+  if (normalized === 'completed') {
+    return {
+      label: vi ? 'Hoàn thành' : 'Completed',
+      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    }
+  }
+  if (normalized === 'cancelled' || normalized === 'canceled') {
+    return {
+      label: vi ? 'Đã hủy' : 'Cancelled',
+      badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
+    }
+  }
+  if (normalized === 'scheduled') {
+    return {
+      label: vi ? 'Đã lên lịch' : 'Scheduled',
+      badgeClass: 'bg-brand-blue-soft text-brand-primary border-blue-200',
+    }
+  }
+  return {
+    label: status || '—',
+    badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
+  }
+}
 import {
   getCoaches,
   getHolidays,
@@ -595,9 +622,9 @@ function SessionIncidentsView() {
                   className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 text-xs text-slate-800 focus:border-brand-primary focus:bg-white focus:outline-hidden"
                 >
                   <option value="">{vi ? 'Tất cả' : 'All'}</option>
-                  <option value="Scheduled">{vi ? 'Đã lên lịch (Scheduled)' : 'Scheduled'}</option>
-                  <option value="Completed">{vi ? 'Hoàn thành (Completed)' : 'Completed'}</option>
-                  <option value="Cancelled">{vi ? 'Đã hủy (Cancelled)' : 'Cancelled'}</option>
+                  <option value="Scheduled">{vi ? 'Đã lên lịch' : 'Scheduled'}</option>
+                  <option value="Completed">{vi ? 'Hoàn thành' : 'Completed'}</option>
+                  <option value="Cancelled">{vi ? 'Đã hủy' : 'Cancelled'}</option>
                 </select>
               </label>
 
@@ -656,14 +683,15 @@ function SessionIncidentsView() {
               const status = String(session.status || '').toLowerCase()
               const completed = status === 'completed'
               const cancelled = status === 'cancelled' || status === 'canceled'
+              const statusInfo = sessionStatusMeta(session.status, vi)
 
               return (
                 <article
                   key={session.id}
                   className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs transition hover:border-slate-300 hover:shadow-sm"
                 >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0 space-y-2">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1 space-y-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-bold text-slate-900 text-sm">
                           {session.className || (vi ? 'Buổi học' : 'Session')}
@@ -673,39 +701,51 @@ function SessionIncidentsView() {
                             {session.subjectName}
                           </span>
                         )}
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
-                          completed
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : cancelled
-                              ? 'bg-rose-50 text-rose-700 border-rose-200'
-                              : 'bg-brand-blue-soft text-brand-primary border-blue-200'
-                        }`}>
-                          {session.status || '—'}
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border ${statusInfo.badgeClass}`}>
+                          {statusInfo.label}
                         </span>
                         {session.enrolledCount != null && session.maxCapacity != null && (
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 border border-slate-200">
+                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 border border-slate-200">
                             {vi ? `Học viên: ${session.enrolledCount}/${session.maxCapacity}` : `Enrolled: ${session.enrolledCount}/${session.maxCapacity}`}
                           </span>
                         )}
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-600">
-                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
-                          <CalendarClock className="h-3.5 w-3.5 text-slate-400" />
-                          {session.sessionDate || '—'}
-                        </span>
-                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
-                          <Clock3 className="h-3.5 w-3.5 text-slate-400" />
-                          {String(session.startTime || '').slice(0, 5) || '—'} – {String(session.endTime || '').slice(0, 5) || '—'}
-                        </span>
-                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
-                          <UserRound className="h-3.5 w-3.5 text-slate-400" />
-                          {session.coachName || (vi ? 'Chưa phân công Coach' : 'No Coach assigned')}
-                        </span>
-                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
-                          <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                          {session.roomName || (vi ? 'Chưa xếp phòng' : 'No room assigned')}
-                        </span>
+                      <div className="grid grid-cols-1 gap-2.5 rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 text-xs sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="flex items-start gap-2">
+                          <CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-medium text-slate-500">{vi ? 'Ngày học' : 'Date'}</p>
+                            <p className="font-semibold text-slate-800">{formatDate(session.sessionDate, language)}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-medium text-slate-500">{vi ? 'Khung giờ' : 'Time'}</p>
+                            <p className="font-semibold text-slate-800">
+                              {String(session.startTime || '').slice(0, 5) || '—'} – {String(session.endTime || '').slice(0, 5) || '—'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <UserRound className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-medium text-slate-500">{vi ? 'Huấn luyện viên' : 'Coach'}</p>
+                            <p className="truncate font-semibold text-slate-800">
+                              {session.coachName || (vi ? 'Chưa phân công' : 'Unassigned')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-medium text-slate-500">{vi ? 'Phòng / Sân' : 'Room / Court'}</p>
+                            <p className="truncate font-semibold text-slate-800">
+                              {session.roomName || (vi ? 'Chưa xếp phòng' : 'Unassigned')}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -769,9 +809,9 @@ function SessionIncidentsView() {
         </div>
       )}
 
-      {rescheduleSessionItem && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4"><section className="w-full max-w-xl rounded-lg bg-white p-5 shadow-xl"><header className="mb-4 flex items-center justify-between border-b border-slate-200 pb-3"><div><h2 className="font-bold">{vi ? 'Dời lịch buổi học' : 'Reschedule session'}</h2><p className="mt-1 text-xs text-slate-500">{rescheduleSessionItem.className} · {rescheduleSessionItem.sessionDate} · {String(rescheduleSessionItem.startTime || '').slice(0, 5)}–{String(rescheduleSessionItem.endTime || '').slice(0, 5)}</p></div><button type="button" onClick={() => !busy && setRescheduleSessionItem(null)} disabled={busy} aria-label={vi ? 'Đóng' : 'Close'} className="rounded p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"><X className="h-5 w-5" /></button></header><form onSubmit={submitReschedule} className="space-y-3"><label className="block text-xs font-semibold">{vi ? 'Ngày mới' : 'New date'}<input type="date" required min={localDateString()} value={rescheduleForm.newDate} onChange={(event) => { setRescheduleForm((old) => ({ ...old, newDate: event.target.value })); setFormError('') }} className="mt-1 min-h-11 w-full rounded border border-slate-300 px-3" /></label><label className="block text-xs font-semibold">{vi ? 'Ca học chuẩn' : 'Standard time slot'}<select required value={rescheduleForm.slot} onChange={(event) => { setRescheduleForm((old) => ({ ...old, slot: event.target.value })); setFormError('') }} className="mt-1 min-h-11 w-full rounded border border-slate-300 px-3"><option value="">{vi ? 'Chọn ca' : 'Select a slot'}</option>{timeSlots.map((slot) => <option key={slot.slotNumber} value={`${slot.startTime}|${slot.endTime}`}>{slot.displayName || `${slot.name} (${String(slot.startTime).slice(0, 5)}–${String(slot.endTime).slice(0, 5)})`}</option>)}</select>{rescheduleOutdoor && <span className="mt-1 block text-xs text-slate-500">{vi ? 'Các ca học ngoài trời đã được tự động giới hạn khung giờ phù hợp.' : 'Time slots for outdoor sessions have been automatically adjusted.'}</span>}</label><label className="block text-xs font-semibold">{vi ? 'Phòng mới (không bắt buộc)' : 'New room (optional)'}<select value={rescheduleForm.newRoomId} onChange={(event) => { setRescheduleForm((old) => ({ ...old, newRoomId: event.target.value })); setFormError('') }} className="mt-1 min-h-11 w-full rounded border border-slate-300 px-3"><option value="">{vi ? `Giữ phòng hiện tại: ${rescheduleSessionItem.roomName || '—'}` : `Keep current room: ${rescheduleSessionItem.roomName || '—'}`}</option>{rescheduleForm.newRoomId && !rooms.some((r) => String(r.id) === String(rescheduleForm.newRoomId) && String(r.status || '').trim().toLowerCase() === 'available') && <option key={rescheduleForm.newRoomId} value={rescheduleForm.newRoomId} disabled>{vi ? `Phòng #${rescheduleForm.newRoomId} (không còn khả dụng)` : `Room #${rescheduleForm.newRoomId} (not available)`}</option>}{rooms.filter((room) => String(room.status || '').trim().toLowerCase() === 'available' && String(room.id) !== String(rescheduleSessionItem.roomId)).map((room) => { const roomLabel = room.roomCode ? `${String(room.roomCode).trim()} - ${room.name}` : room.name; return <option key={room.id} value={room.id}>{roomLabel}{room.location ? ` · ${room.location}` : ''}</option> })}</select></label><label className="block text-xs font-semibold">{vi ? 'Phân loại nguyên nhân' : 'Reason category'}<select required value={rescheduleForm.cause} onChange={(event) => { setRescheduleForm((old) => ({ ...old, cause: event.target.value })); setFormError('') }} className="mt-1 min-h-11 w-full rounded border border-slate-300 px-3"><option value="CENTER_INCIDENT">{vi ? 'Sự cố từ trung tâm / HLV' : 'Center / Coach incident'}</option><option value="MEMBER_EARLY">{vi ? 'Học viên báo sớm' : 'Member gave early notice'}</option><option value="MEMBER_EMERGENCY">{vi ? 'Học viên có việc khẩn cấp' : 'Member emergency'}</option></select></label><label className="block text-xs font-semibold">{vi ? 'Lý do chi tiết *' : 'Detailed reason *'}<textarea required maxLength={2000} value={rescheduleForm.reason} onChange={(event) => { setRescheduleForm((old) => ({ ...old, reason: event.target.value })); setFormError('') }} className="mt-1 min-h-20 w-full rounded border border-slate-300 p-3" /></label>{rescheduleSessionItem.isPrivate && <p className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">{vi ? 'Đối với gói kèm riêng, thời hạn gói có thể được hệ thống tự động gia hạn nếu ngày học mới vượt quá hạn dùng hiện tại.' : 'For private packages, package validity may be automatically extended by the system if the new date exceeds the current package expiry.'}</p>}{formError && <p role="alert" className="rounded bg-rose-50 p-3 text-xs text-rose-800">{formError}</p>}<footer className="flex justify-end gap-2 border-t border-slate-200 pt-3"><button type="button" disabled={busy} onClick={() => setRescheduleSessionItem(null)} className="min-h-11 rounded border border-slate-300 px-4 text-xs font-bold">{vi ? 'Hủy' : 'Cancel'}</button><button type="submit" disabled={busy || !timeSlots.length || !canManage} className="inline-flex min-h-11 items-center gap-2 rounded bg-brand-primary px-4 text-xs font-bold text-white disabled:opacity-50">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}{vi ? 'Xác nhận dời lịch' : 'Confirm reschedule'}</button></footer></form></section></div>}
+      {rescheduleSessionItem && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4"><section className="w-full max-w-xl rounded-lg bg-white p-5 shadow-xl"><header className="mb-4 flex items-center justify-between border-b border-slate-200 pb-3"><div><h2 className="font-bold">{vi ? 'Dời lịch buổi học' : 'Reschedule session'}</h2><p className="mt-1 text-xs text-slate-500">{rescheduleSessionItem.className} · {formatDate(rescheduleSessionItem.sessionDate, language)} · {String(rescheduleSessionItem.startTime || '').slice(0, 5)}–{String(rescheduleSessionItem.endTime || '').slice(0, 5)}</p></div><button type="button" onClick={() => !busy && setRescheduleSessionItem(null)} disabled={busy} aria-label={vi ? 'Đóng' : 'Close'} className="rounded p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"><X className="h-5 w-5" /></button></header><form onSubmit={submitReschedule} className="space-y-3"><label className="block text-xs font-semibold">{vi ? 'Ngày mới' : 'New date'}<input type="date" required min={localDateString()} value={rescheduleForm.newDate} onChange={(event) => { setRescheduleForm((old) => ({ ...old, newDate: event.target.value })); setFormError('') }} className="mt-1 min-h-11 w-full rounded border border-slate-300 px-3" /></label><label className="block text-xs font-semibold">{vi ? 'Ca học chuẩn' : 'Standard time slot'}<select required value={rescheduleForm.slot} onChange={(event) => { setRescheduleForm((old) => ({ ...old, slot: event.target.value })); setFormError('') }} className="mt-1 min-h-11 w-full rounded border border-slate-300 px-3"><option value="">{vi ? 'Chọn ca' : 'Select a slot'}</option>{timeSlots.map((slot) => <option key={slot.slotNumber} value={`${slot.startTime}|${slot.endTime}`}>{slot.displayName || `${slot.name} (${String(slot.startTime).slice(0, 5)}–${String(slot.endTime).slice(0, 5)})`}</option>)}</select>{rescheduleOutdoor && <span className="mt-1 block text-xs text-slate-500">{vi ? 'Các ca học ngoài trời đã được tự động giới hạn khung giờ phù hợp.' : 'Time slots for outdoor sessions have been automatically adjusted.'}</span>}</label><label className="block text-xs font-semibold">{vi ? 'Phòng mới (không bắt buộc)' : 'New room (optional)'}<select value={rescheduleForm.newRoomId} onChange={(event) => { setRescheduleForm((old) => ({ ...old, newRoomId: event.target.value })); setFormError('') }} className="mt-1 min-h-11 w-full rounded border border-slate-300 px-3"><option value="">{vi ? `Giữ phòng hiện tại: ${rescheduleSessionItem.roomName || '—'}` : `Keep current room: ${rescheduleSessionItem.roomName || '—'}`}</option>{rescheduleForm.newRoomId && !rooms.some((r) => String(r.id) === String(rescheduleForm.newRoomId) && String(r.status || '').trim().toLowerCase() === 'available') && <option key={rescheduleForm.newRoomId} value={rescheduleForm.newRoomId} disabled>{vi ? `Phòng #${rescheduleForm.newRoomId} (không còn khả dụng)` : `Room #${rescheduleForm.newRoomId} (not available)`}</option>}{rooms.filter((room) => String(room.status || '').trim().toLowerCase() === 'available' && String(room.id) !== String(rescheduleSessionItem.roomId)).map((room) => { const roomLabel = room.roomCode ? `${String(room.roomCode).trim()} - ${room.name}` : room.name; return <option key={room.id} value={room.id}>{roomLabel}{room.location ? ` · ${room.location}` : ''}</option> })}</select></label><label className="block text-xs font-semibold">{vi ? 'Phân loại nguyên nhân' : 'Reason category'}<select required value={rescheduleForm.cause} onChange={(event) => { setRescheduleForm((old) => ({ ...old, cause: event.target.value })); setFormError('') }} className="mt-1 min-h-11 w-full rounded border border-slate-300 px-3"><option value="CENTER_INCIDENT">{vi ? 'Sự cố từ trung tâm / HLV' : 'Center / Coach incident'}</option><option value="MEMBER_EARLY">{vi ? 'Học viên báo sớm' : 'Member gave early notice'}</option><option value="MEMBER_EMERGENCY">{vi ? 'Học viên có việc khẩn cấp' : 'Member emergency'}</option></select></label><label className="block text-xs font-semibold">{vi ? 'Lý do chi tiết *' : 'Detailed reason *'}<textarea required maxLength={2000} value={rescheduleForm.reason} onChange={(event) => { setRescheduleForm((old) => ({ ...old, reason: event.target.value })); setFormError('') }} className="mt-1 min-h-20 w-full rounded border border-slate-300 p-3" /></label>{rescheduleSessionItem.isPrivate && <p className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">{vi ? 'Đối với gói kèm riêng, thời hạn gói có thể được hệ thống tự động gia hạn nếu ngày học mới vượt quá hạn dùng hiện tại.' : 'For private packages, package validity may be automatically extended by the system if the new date exceeds the current package expiry.'}</p>}{formError && <p role="alert" className="rounded bg-rose-50 p-3 text-xs text-rose-800">{formError}</p>}<footer className="flex justify-end gap-2 border-t border-slate-200 pt-3"><button type="button" disabled={busy} onClick={() => setRescheduleSessionItem(null)} className="min-h-11 rounded border border-slate-300 px-4 text-xs font-bold">{vi ? 'Hủy' : 'Cancel'}</button><button type="submit" disabled={busy || !timeSlots.length || !canManage} className="inline-flex min-h-11 items-center gap-2 rounded bg-brand-primary px-4 text-xs font-bold text-white disabled:opacity-50">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}{vi ? 'Xác nhận dời lịch' : 'Confirm reschedule'}</button></footer></form></section></div>}
 
-      {substituteSessionItem && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4"><section className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl"><header className="mb-4 flex items-center justify-between border-b border-slate-200 pb-3"><div><h2 className="font-bold">{vi ? 'Thay Coach' : 'Substitute coach'}</h2><p className="mt-1 text-xs text-slate-500">{substituteSessionItem.className} · {substituteSessionItem.sessionDate} · {substituteSessionItem.coachName || '—'}</p></div><button type="button" onClick={() => !busy && setSubstituteSessionItem(null)} disabled={busy} aria-label={vi ? 'Đóng' : 'Close'} className="rounded p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5" /></button></header><form onSubmit={submitSubstitute} className="space-y-3"><label className="block text-xs font-semibold">{vi ? 'Coach thay thế' : 'Replacement coach'}<select required value={substituteForm.newCoachId} onChange={(event) => { setSubstituteForm((old) => ({ ...old, newCoachId: event.target.value })); setFormError('') }} className="mt-1 min-h-11 w-full rounded border border-slate-300 px-3"><option value="">{vi ? 'Chọn Coach' : 'Select coach'}</option>{rescheduleCoachCandidates.coaches.map((coach) => <option key={coach.id} value={coach.id}>{coach.name}{coach.specializations?.length ? ` · ${coach.specializations.join(', ')}` : ''}</option>)}</select></label>{rescheduleCoachCandidates.specializationMatched === false && <p className="text-xs text-amber-800">{vi ? 'Chưa tìm thấy huấn luyện viên có chuyên môn tương ứng với môn học này.' : 'No coach with matching specialization was found for this subject.'}</p>}<label className="block text-xs font-semibold">{vi ? 'Lý do thay Coach' : 'Reason'}<textarea required maxLength={500} value={substituteForm.reason} onChange={(event) => { setSubstituteForm((old) => ({ ...old, reason: event.target.value })); setFormError('') }} className="mt-1 min-h-20 w-full rounded border border-slate-300 p-3" /></label>{formError && <p role="alert" className="rounded bg-rose-50 p-3 text-xs text-rose-800">{formError}</p>}<footer className="flex justify-end gap-2 border-t border-slate-200 pt-3"><button type="button" disabled={busy} onClick={() => setSubstituteSessionItem(null)} className="min-h-11 rounded border border-slate-300 px-4 text-xs font-bold">{vi ? 'Hủy' : 'Cancel'}</button><button type="submit" disabled={busy || !substituteForm.newCoachId || !canManage} className="inline-flex min-h-11 items-center gap-2 rounded bg-brand-primary px-4 text-xs font-bold text-white disabled:opacity-50">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}{vi ? 'Xác nhận thay Coach' : 'Confirm coach change'}</button></footer></form></section></div>}
+      {substituteSessionItem && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4"><section className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl"><header className="mb-4 flex items-center justify-between border-b border-slate-200 pb-3"><div><h2 className="font-bold">{vi ? 'Thay Coach' : 'Substitute coach'}</h2><p className="mt-1 text-xs text-slate-500">{substituteSessionItem.className} · {formatDate(substituteSessionItem.sessionDate, language)} · {substituteSessionItem.coachName || '—'}</p></div><button type="button" onClick={() => !busy && setSubstituteSessionItem(null)} disabled={busy} aria-label={vi ? 'Đóng' : 'Close'} className="rounded p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5" /></button></header><form onSubmit={submitSubstitute} className="space-y-3"><label className="block text-xs font-semibold">{vi ? 'Coach thay thế' : 'Replacement coach'}<select required value={substituteForm.newCoachId} onChange={(event) => { setSubstituteForm((old) => ({ ...old, newCoachId: event.target.value })); setFormError('') }} className="mt-1 min-h-11 w-full rounded border border-slate-300 px-3"><option value="">{vi ? 'Chọn Coach' : 'Select coach'}</option>{rescheduleCoachCandidates.coaches.map((coach) => <option key={coach.id} value={coach.id}>{coach.name}{coach.specializations?.length ? ` · ${coach.specializations.join(', ')}` : ''}</option>)}</select></label>{rescheduleCoachCandidates.specializationMatched === false && <p className="text-xs text-amber-800">{vi ? 'Chưa tìm thấy huấn luyện viên có chuyên môn tương ứng với môn học này.' : 'No coach with matching specialization was found for this subject.'}</p>}<label className="block text-xs font-semibold">{vi ? 'Lý do thay Coach' : 'Reason'}<textarea required maxLength={500} value={substituteForm.reason} onChange={(event) => { setSubstituteForm((old) => ({ ...old, reason: event.target.value })); setFormError('') }} className="mt-1 min-h-20 w-full rounded border border-slate-300 p-3" /></label>{formError && <p role="alert" className="rounded bg-rose-50 p-3 text-xs text-rose-800">{formError}</p>}<footer className="flex justify-end gap-2 border-t border-slate-200 pt-3"><button type="button" disabled={busy} onClick={() => setSubstituteSessionItem(null)} className="min-h-11 rounded border border-slate-300 px-4 text-xs font-bold">{vi ? 'Hủy' : 'Cancel'}</button><button type="submit" disabled={busy || !substituteForm.newCoachId || !canManage} className="inline-flex min-h-11 items-center gap-2 rounded bg-brand-primary px-4 text-xs font-bold text-white disabled:opacity-50">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}{vi ? 'Xác nhận thay Coach' : 'Confirm coach change'}</button></footer></form></section></div>}
     </div>
   )
 }
