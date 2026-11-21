@@ -1234,9 +1234,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   <span>{dateError}</span>
                 </p>
               )}
-              <p className="text-xs text-stone-500 mt-1">
-                Chỉ chọn được ngày tương lai khớp với lịch tuần và ca học. Nếu ngày đó là ngày nghỉ, Backend sẽ chuyển buổi học sang ngày phù hợp tiếp theo.
-              </p>
             </div>
 
             {/* Kết thúc: Theo số buổi vs Theo ngày */}
