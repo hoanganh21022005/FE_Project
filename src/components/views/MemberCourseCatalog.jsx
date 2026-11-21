@@ -35,7 +35,7 @@ const SPORT_LABELS = {
 }
 const formatMoney = (value, language) => hasSellablePrice(value)
   ? Number(value).toLocaleString(language === 'vi' ? 'vi-VN' : 'en-US') + (language === 'vi' ? ' ₫' : ' VND')
-  : language === 'vi' ? 'Chưa có giá hợp lệ' : 'Price unavailable'
+  : '—'
 const formatAdvancedMoney = (value, language) => hasSellablePrice(value)
   ? `${Number(value).toLocaleString(language === 'vi' ? 'vi-VN' : 'en-US')} ${language === 'vi' ? 'VNĐ' : 'VND'}`
   : formatMoney(value, language)
@@ -293,7 +293,9 @@ function AdvancedInvoiceDetails({ order, language, now }) {
   return <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
     <p><strong>{isVi ? 'Mã hóa đơn:' : 'Invoice code:'}</strong> {invoiceCode}</p>
     <p className="mt-1"><strong>{isVi ? 'ID hóa đơn:' : 'Invoice ID:'}</strong> {order.invoiceId ?? order.id ?? (isVi ? 'Chưa có' : 'Not available')}</p>
-    <p className="mt-1"><strong>{isVi ? 'Số tiền:' : 'Amount:'}</strong> {formatMoney(amount, language)}</p>
+    {amount != null && Number.isFinite(Number(amount)) && Number(amount) > 0 && (
+      <p className="mt-1"><strong>{isVi ? 'Số tiền:' : 'Amount:'}</strong> {Number(amount).toLocaleString(isVi ? 'vi-VN' : 'en-US')} {isVi ? 'VNĐ' : 'VND'}</p>
+    )}
     <p className="mt-1"><strong>{isVi ? 'Phương thức:' : 'Payment method:'}</strong> {order.paymentMethod === 'Cash' ? (isVi ? 'Tiền mặt tại quầy' : 'Cash at counter') : order.paymentMethod || (isVi ? 'Chưa có' : 'Not available')}</p>
     <div className="mt-1 flex flex-wrap items-center gap-2"><strong>{isVi ? 'Trạng thái hóa đơn:' : 'Invoice status:'}<StatusPill status={order.paymentStatus || order.status} language={language} /></strong></div>
     {deadlineLabel && <p className="mt-1"><strong>{isVi ? 'Hạn thanh toán:' : 'Payment deadline:'}</strong> {deadlineLabel}</p>}
@@ -1657,7 +1659,7 @@ return (
     {registrationInvoiceOrder && (
       <div id={registrationInvoiceOrder.invoiceId ? 'advanced-invoice-' + String(registrationInvoiceOrder.invoiceId) : undefined} className="col-span-full border-t border-slate-100 pt-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-bold text-slate-800">{isVi ? 'Chi tiết hóa đơn' : 'Invoice details'} · {formatAdvancedMoney(approvedAmount, language)}</p>
+          <p className="text-sm font-bold text-slate-800">{isVi ? 'Chi tiết hóa đơn' : 'Invoice details'}{approvedAmount != null && Number.isFinite(Number(approvedAmount)) && Number(approvedAmount) > 0 ? ` · ${Number(approvedAmount).toLocaleString('vi-VN')} VNĐ` : ''}</p>
           <StatusPill status={registrationInvoiceOrder.paymentStatus || registrationInvoiceOrder.status} language={language} />
         </div>
         <AdvancedInvoiceDetails order={registrationInvoiceOrder} language={language} now={trustedNow} />
