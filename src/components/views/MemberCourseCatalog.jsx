@@ -1474,7 +1474,187 @@ export function MemberCourseCatalog({ requestsOnly = false } = {}) {
 
   if (requestsOnly) return <div className="w-full space-y-6" aria-labelledby="orders-title">
     <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-accent-dark">AVT SPORT · MEMBER</p><h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-900">{isVi ? '\u0059\u00EAu c\u1EA7u \u0111\u0103ng k\u00FD' : 'Registration requests'}</h1><p className="mt-1 text-sm text-slate-500">{isVi ? 'Theo d\u00F5i tr\u1EA1ng th\u00E1i y\u00EAu c\u1EA7u \u0111\u0103ng k\u00FD v\u00E0 thanh to\u00E1n c\u1EE7a b\u1EA1n.' : 'Track your registration requests and payment status.'}</p></div><button type="button" onClick={() => Promise.allSettled([refreshEnrollments(), refreshRegistrations(), refreshMemberSubscriptions()])} className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"><RefreshCw size={16} />{isVi ? 'T\u1EA3i l\u1EA1i' : 'Refresh'}</button></header>
-    {block}
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-labelledby="orders-title"><div className="border-b border-slate-100 p-5"><h2 id="orders-title" className="text-2xl font-bold text-slate-950">{isVi ? 'Yêu cầu đăng ký' : 'Registration requests'}</h2><div className="mt-4 flex gap-2 overflow-x-auto pb-1">{[
+      { value: 'ALL', label: isVi ? 'Tất cả' : 'All' },
+      { value: 'PENDING', label: isVi ? 'Chờ xử lý' : 'Pending' },
+      { value: 'ACTIVE_FLOW', label: isVi ? 'Đã chấp thuận / Thanh toán' : 'Approved / Payment' },
+      { value: 'CLOSED', label: isVi ? 'Đã từ chối / Đã hủy' : 'Rejected / Cancelled' },
+    ].map(({ value, label }) => <button key={value} type="button" onClick={() => setFilterStatus(value)} aria-pressed={filterStatus === value} className={'shrink-0 rounded-full px-3 py-2 text-sm transition-colors duration-200 sm:px-4 ' + (filterStatus === value ? 'bg-purple-600 font-medium text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')}>{label} <span className="ml-1 opacity-80">({registrationFilterCounts[value]})</span></button>)}</div></div><div className="space-y-4 p-4 sm:p-5">
+      {tier === 'Advanced' && <InlineState loading={registrationsState.loading} error={registrationsState.error} retry={refreshRegistrations} empty={null} language={language}>
+        {registrations.length > 0 && visibleRegistrations.length === 0 && filteredOrders.length === 0 ? <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{isVi ? 'Không thể xác định quyền sở hữu yêu cầu. Vui lòng liên hệ quầy lễ tân để được hỗ trợ.' : 'Unable to verify request ownership. Please contact the front desk for assistance.'}</p> : visibleRegistrations.length === 0 && filteredOrders.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-600">{isVi ? 'Chưa có yêu cầu Advanced.' : 'No Advanced requests yet.'}</p> : filteredVisibleRegistrations.length === 0 && filteredOrders.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-600">{isVi ? 'Không có yêu cầu trong trạng thái này.' : 'No requests in this status.'}</p> : filteredVisibleRegistrations.length > 0 ? <div className="space-y-3">{filteredVisibleRegistrations.map((item) => {
+          const requested = normalizeCatalogStatus(item.status) === 'requested'
+          const registrationStatus = normalizeCatalogStatus(item.status)
+          const relatedOrder = orders.find((order) => String(order.registrationId) === String(item.id))
+          const invoiceStatus = normalizeCatalogStatus(item.paymentStatus ?? item.invoiceStatus ?? relatedOrder?.paymentStatus ?? relatedOrder?.status)
+          const invoiceExpiry = confirmationDeadlineTimestamp(item.invoiceExpiresAt ?? item.expiresAt ?? relatedOrder?.expiresAt)
+          const confirmationDeadline = confirmationDeadlineTimestamp(item.confirmationDeadline)
+          const hasInvoiceRecord = Boolean(item.invoiceId ?? relatedOrder?.invoiceId)
+          const unpaidInvoice = !['paid', 'successful', 'completed'].includes(invoiceStatus)
+          const invoiceExpiredByStatus = ['expired', 'cancelled', 'canceled'].includes(invoiceStatus)
+          const invoiceExpired = invoiceExpiry != null && invoiceExpiry <= trustedNow
+          const confirmationExpiredByGrace = confirmationDeadline != null && confirmationDeadline + 24 * 60 * 60 * 1000 <= trustedNow
+          const hasActivePackageForRegistration = memberSubscriptions.some((subscription) =>
+            String(subscription.subjectId) === String(item.subjectId)
+            && String(subscription.primaryCoachId) === String(item.primaryCoachId)
+            && normalizeCatalogStatus(subscription.status) === 'active'
+            && Number(subscription.remainingCredit) > 0)
+          const staleInvoiced = ['accepted', 'invoiced'].includes(registrationStatus) && hasInvoiceRecord && unpaidInvoice && !hasActivePackageForRegistration && (invoiceExpiredByStatus || invoiceExpired || confirmationExpiredByGrace)
+          const accepted = registrationStatus === 'accepted' || registrationStatus === 'invoiced'
+          const rejected = registrationStatus === 'rejected'
+          const hasOrder = Boolean(item.invoiceId || item.subscriptionId || relatedOrder)
+          const orderLocked = lockedOrderIds.includes(String(item.id)) || orderInFlightRef.current.has(String(item.id))
+          // Nút mua theo purchaseConfirmationAllowed của Backend (=== false khóa, === true mở); thiếu field thì so hạn như cũ.
+          const purchaseState = getPurchaseConfirmationState(item, { nowMs: trustedNow, confirmationDeadlineMs: confirmationDeadline, expiredByRejection: expiredConfirmationIds.includes(String(item.id)), language })
+          const confirmationExpired = purchaseState.expired
+          const expiredRequest = staleInvoiced || (accepted && confirmationExpired) || ['expired', 'inactive', 'rejected', 'cancelled', 'canceled'].includes(registrationStatus)
+          const displayStatus = staleInvoiced || (accepted && confirmationExpired) || registrationStatus === 'expired' ? 'expired' : item.status
+          const canConfirmPurchase = accepted && !hasOrder && !orderLocked && purchaseState.canConfirm
+          // Chỉ hiện gói đang hoạt động cho đăng ký ở trạng thái Active, hoặc đăng ký có subscriptionId trùng đúng gói;
+          // không hiện cho Requested, Rejected hay Accepted chưa mua (dù cùng môn + Coach có gói Active khác).
+          const activePackage = (registrationStatus === 'active' || item.subscriptionId != null) && !['requested', 'rejected'].includes(registrationStatus)
+            ? memberSubscriptions.find((subscription) =>
+              normalizeCatalogStatus(subscription.status) === 'active'
+              && Number(subscription.remainingCredit) > 0
+              && (item.subscriptionId != null
+                ? String(subscription.subscriptionId ?? subscription.id) === String(item.subscriptionId)
+                : String(subscription.subjectId) === String(item.subjectId) && String(subscription.primaryCoachId) === String(item.primaryCoachId)))
+            : null
+          const registrationSubject = subjects.find((subject) =>
+            String(subject?.id) === String(item.subjectId),
+          ) ?? resolvedSubjects.find((row) =>
+            String(row.subject?.id) === String(item.subjectId),
+          )?.subject
+          const approvedAmount = [
+            item.price,
+            item.totalAmount,
+            item.packagePrice,
+            item.amount,
+            item.subject?.price,
+            item.course?.price,
+          ].find(hasSellablePrice)
+            ?? [registrationSubject?.advancedPrice, registrationSubject?.price]
+              .find(hasSellablePrice)
+            ?? DEFAULT_ADVANCED_PACKAGE_PRICE
+return (
+  <article
+    key={item.id}
+    className={'grid grid-cols-1 gap-x-6 gap-y-4 rounded-xl border p-4 shadow-sm md:grid-cols-[minmax(240px,256px)_minmax(220px,1fr)] 2xl:grid-cols-[minmax(240px,256px)_minmax(220px,1fr)_max-content] ' + (expiredRequest ? 'border-slate-200 bg-slate-50/80' : 'border-slate-200 bg-white')}
+  >
+    <div className="w-64 min-w-[240px] shrink-0">
+      <p className={'whitespace-nowrap text-xs font-bold uppercase tracking-wide ' + (expiredRequest ? 'text-slate-400' : 'text-brand-purple-dark')}>
+        ADVANCED · {isVi ? 'ĐĂNG KÝ THEO MÔN' : 'SPORT REGISTRATION'}
+      </p>
+      <h3 className={'mt-1 whitespace-nowrap text-lg font-bold ' + (expiredRequest ? 'text-slate-500' : 'text-slate-800')}>
+        {item.subjectName || (item.subjectId ? (isVi ? 'Môn #' : 'Subject #') + item.subjectId : isVi ? 'Môn chưa xác định' : 'Unknown subject')}
+      </h3>
+      <p className="mt-1 whitespace-nowrap text-sm text-slate-500">
+        {item.primaryCoachName || (item.primaryCoachId ? (isVi ? 'Coach #' : 'Coach #') + item.primaryCoachId : isVi ? 'Coach chưa xác định' : 'Unknown Coach')}
+        {' · '}
+        {isVi ? 'PT 1-kèm-1 (12 buổi)' : '1-on-1 coaching (12 sessions)'}
+      </p>
+    </div>
+
+    <div className="min-w-[220px] flex-1 space-y-2">
+      <StatusPill status={displayStatus} language={language} />
+      {(item.confirmationDeadline || item.invoiceExpiresAt || item.expiresAt || relatedOrder?.expiresAt) && (
+        <p className={'whitespace-nowrap text-xs ' + (expiredRequest ? 'text-slate-400' : 'text-slate-500')}>
+          {isVi ? 'Hạn: ' : 'Deadline: '}
+          {formatDeadline(item.confirmationDeadline || item.invoiceExpiresAt || item.expiresAt || relatedOrder?.expiresAt, language)}
+        </p>
+      )}
+      {accepted && !expiredRequest && (
+        <p className="text-xs text-slate-500">
+          {isVi ? 'Coach đồng ý nhận học viên PT 1-kèm-1' : 'Coach has accepted the member for 1-on-1 training'}
+        </p>
+      )}
+    </div>
+
+    <div className="flex shrink-0 flex-wrap items-center gap-3 md:col-span-2 2xl:col-span-1 2xl:justify-self-end">
+      <p className={'whitespace-nowrap text-base font-bold ' + (expiredRequest ? 'text-slate-400' : 'text-slate-900')}>
+        {formatAdvancedMoney(approvedAmount, language)}
+      </p>
+      {expiredRequest ? (
+        <span role="status" className="whitespace-nowrap rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-500">
+          {isVi ? 'Hết hạn thanh toán' : 'Payment expired'}
+        </span>
+      ) : accepted && !hasOrder && !orderLocked ? (
+        <>
+          <label className="sr-only" htmlFor={'advanced-payment-' + item.id}>
+            {isVi ? 'Phương thức thanh toán' : 'Payment method'}
+          </label>
+          <select
+            id={'advanced-payment-' + item.id}
+            value={paymentMethod}
+            onChange={(event) => setPaymentMethod(event.target.value)}
+            className="h-10 w-40 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"
+          >
+            <option value="VNPay">VNPay</option>
+            <option value="Cash">{isVi ? 'Tiền mặt tại quầy' : 'Cash at counter'}</option>
+          </select>
+          <button
+            type="button"
+            disabled={submitting || !canConfirmPurchase}
+            onClick={() => createOrder(item)}
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-violet-700 px-4 text-sm font-medium text-white hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {submitting ? (isVi ? 'Đang tạo hóa đơn...' : 'Creating invoice...') : (isVi ? 'Xác nhận và thanh toán' : 'Confirm and pay')}
+            <ArrowUpRight size={16} />
+          </button>
+        </>
+      ) : !expiredRequest && hasInvoiceRecord && unpaidInvoice && isInvoicePending(invoiceStatus) ? (
+        <button type="button" onClick={() => openRegistrationInvoice(item, relatedOrder)} className="h-10 whitespace-nowrap rounded-lg border border-violet-300 bg-white px-4 text-sm font-bold text-violet-800 hover:bg-violet-50">
+          {isVi ? 'Mở hóa đơn đang chờ thanh toán' : 'Open pending invoice'}
+        </button>
+      ) : null}
+    </div>
+
+    {(activePackage || item.reason || (!expiredRequest && accepted && !hasOrder && !orderLocked && purchaseState.source === 'backend' && !purchaseState.canConfirm) || (!expiredRequest && accepted && !hasOrder && orderLocked)) && (
+      <div className="col-span-full space-y-2 border-t border-slate-100 pt-3">
+        {activePackage && (
+          <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
+            {isVi ? 'Gói đang hoạt động · Credit còn lại: ' : 'Active package · Credits left: '}
+            <strong>{activePackage.remainingCredit}</strong>
+            {(activePackage.endDate || activePackage.expiresAt) ? (isVi ? ' · Hạn dùng: ' : ' · Valid until: ') + formatDate(activePackage.endDate || activePackage.expiresAt, language) : ''}
+          </p>
+        )}
+        {!expiredRequest && accepted && !hasOrder && !orderLocked && purchaseState.source === 'backend' && !purchaseState.canConfirm && (
+          <p className="rounded-lg bg-rose-50 p-3 text-sm font-medium text-rose-800" role="status">{purchaseState.reasonText}</p>
+        )}
+        {item.reason && (
+          <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+            {rejected && <strong>{isVi ? 'Lí do: ' : 'Reason: '}</strong>}
+            {item.reason}
+          </p>
+        )}
+        {!expiredRequest && accepted && !hasOrder && orderLocked && (
+          <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+            <p>{isVi ? 'Kết quả tạo đơn chưa thể xác minh. Không gửi lần nữa để tránh hóa đơn trùng.' : 'Order outcome is unresolved. Another order will not be sent to avoid a duplicate invoice.'}</p>
+            <button type="button" onClick={() => reconcileAdvancedOrder(item.id)} className="mt-2 font-semibold underline">
+              {isVi ? 'Đối soát đơn' : 'Reconcile order'}
+            </button>
+          </div>
+        )}
+      </div>
+    )}
+  </article>
+)
+        })}</div> : null}
+      </InlineState>}
+      {enrollmentsState.error && tier === 'Normal' && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900" role="alert"><p>{enrollmentsState.error}</p><button type="button" onClick={refreshEnrollments} className="mt-2 font-semibold underline">{isVi ? 'Thử lại' : 'Retry'}</button></div>}
+      {tier === 'Normal' && !enrollmentsState.loading && !enrollmentsState.error && displayedOrders.length === 0 && filteredVisibleRegistrations.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-5 text-sm text-slate-600">{filterStatus === 'ALL' ? (isVi ? 'Chưa có yêu cầu hoặc đơn hàng. Các đăng ký đã gửi sẽ xuất hiện tại đây.' : 'No requests or orders yet. Your submitted enrollments will appear here.') : (isVi ? 'Không có yêu cầu trong trạng thái này.' : 'No requests in this status.')}</div>}
+      {displayedOrders.length > 0 && <div className="space-y-3">{displayedOrders.map((order) => <article key={order.key} id={order.invoiceId ? 'advanced-invoice-' + String(order.invoiceId) : undefined} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[13px] font-bold uppercase tracking-wide text-slate-500">{order.type} · {getInvoiceCode(order, language)} · {order.paymentMethod === 'Cash' ? (isVi ? 'Tiền mặt tại quầy' : 'Cash at counter') : 'VNPay'}</p><h3 className="mt-1 font-bold text-slate-900">{order.className || order.subjectName || (isVi ? 'Đăng ký khóa học' : 'Course enrollment')}</h3><p className="mt-1 text-sm text-slate-600">{formatMoney(getInvoiceAmount(order), language)}{getPaymentDeadlineLabel(order, language) ? ' · ' + (isVi ? 'Hạn thanh toán ' : 'Invoice deadline ') + getPaymentDeadlineLabel(order, language) : ''}</p></div><StatusPill status={order.paymentStatus || order.status} language={language} /></div>{order.type === 'Advanced' && <AdvancedInvoiceDetails order={order} language={language} now={trustedNow} />}{order.reconciliationRequired && <p className="mt-3 text-sm font-semibold text-amber-800">{isVi ? 'Đã ghi nhận Paid nhưng đang cần đối soát; chưa xác nhận quyền.' : 'Paid is recorded but reconciliation is required; entitlement is not confirmed.'}</p>}{['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <p className="mt-3 text-sm text-slate-700">{order.type === 'Advanced' ? (String(order.subscription?.status || '').toLowerCase() === 'active' ? (isVi ? 'Hệ thống xác nhận gói Advanced đang hoạt động.' : 'The server confirms the Advanced subscription is active.') : (isVi ? 'Hệ thống đã xác nhận thanh toán; đang chờ kích hoạt gói Advanced.' : 'Payment is confirmed by the server; waiting for subscription sync.')) : (isVi ? 'Đã ghi nhận thanh toán thành công và kích hoạt quyền học chính thức.' : 'Payment confirmed and official course access activated.')}</p>}<div className="mt-4 flex flex-wrap gap-2">{order.paymentMethod !== 'Cash' && ['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" onClick={() => beginPayment(order)} className="min-h-10 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white">{isVi ? 'Tiếp tục thanh toán VNPay' : 'Continue to VNPay'}</button>}{['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" disabled={submitting} onClick={() => handleCancelPendingEnrollment(order)} className="min-h-10 rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100">{isVi ? 'Hủy đơn chờ & Đăng ký lại' : 'Cancel pending & re-enroll'}</button>}{['pending', 'pending_payment'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && <button type="button" disabled={orderChecks[order.key]?.loading} onClick={() => checkOrderStatus(order)} className="min-h-10 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">{orderChecks[order.key]?.loading ? (isVi ? "Đang kiểm tra..." : "Checking...") : (isVi ? "Kiểm tra trạng thái" : "Check status")}</button>}{!['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status)) && orderChecks[order.key]?.message && <p role="status" className={"mt-3 w-full rounded-lg p-3 text-sm " + (orderChecks[order.key].tone === "success" ? "bg-emerald-50 text-emerald-800" : orderChecks[order.key].tone === "error" ? "bg-rose-50 text-rose-800" : "bg-blue-50 text-blue-800")}>{orderChecks[order.key].message}</p>}</div></article>)}</div>}
+      </div>
+    </section>
+
+    {registrationToCancel && <CatalogDialog title={isVi ? 'Hủy yêu cầu đăng ký' : 'Cancel registration request'} onClose={() => cancelingRegistrationId == null && setRegistrationToCancel(null)} language={language}>
+      <p className="text-sm leading-6 text-slate-700">{registrationToCancel.cancelStale
+        ? (isVi ? 'Hủy đơn đã hết hạn để đăng ký lại khóa học với Coach này?' : 'Cancel this expired registration so you can register with this Coach again?')
+        : (isVi ? 'Bạn có chắc chắn muốn hủy yêu cầu đăng ký khóa học này không?' : 'Are you sure you want to cancel this course registration request?')}</p>
+      <div className="mt-5 flex justify-end gap-2">
+        <button type="button" disabled={cancelingRegistrationId != null} onClick={() => setRegistrationToCancel(null)} className="min-h-10 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700">{isVi ? 'Để sau' : 'Keep request'}</button>
+        <button type="button" disabled={cancelingRegistrationId != null} onClick={cancelRegistration} className="min-h-10 rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50">{cancelingRegistrationId != null ? (isVi ? 'Đang hủy...' : 'Cancelling...') : (isVi ? 'Hủy yêu cầu' : 'Cancel request')}</button>
+      </div>
+    </CatalogDialog>}
   </div>
 
   return <div className="w-full space-y-6" aria-labelledby="course-catalog-title">
