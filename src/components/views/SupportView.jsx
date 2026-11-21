@@ -498,7 +498,7 @@ export function SupportView() {
             <div className="space-y-2">
               {quickTopics.map((topic, idx) => {
                 const TopicIcon = quickTopicIcons[idx]
-                const tones = ["bg-blue-50 text-blue-700", "bg-violet-50 text-violet-700", "bg-emerald-50 text-emerald-700", "bg-amber-50 text-amber-700"]
+                const tones = ["bg-blue-50 text-blue-700", "bg-emerald-50 text-emerald-700", "bg-amber-50 text-amber-700"]
                 return (
                   <button key={topic.subject} type="button" disabled={actionBusy || sending} onClick={() => handleSendMessage(null, topic)} className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-white px-3 py-3 text-left transition hover:border-slate-200 hover:bg-slate-50 hover:shadow-sm disabled:opacity-50">
                     <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tones[idx]}`}><TopicIcon className="h-4.5 w-4.5" /></span>
