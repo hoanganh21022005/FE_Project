@@ -72,7 +72,7 @@ export default function ManagerAdvancedScheduleView() {
   const [classQuery, setClassQuery] = useState('')
   const [classStatusFilter, setClassStatusFilter] = useState('all')
   const [classPage, setClassPage] = useState(1)
-  const [activeTab, setActiveTab] = useState('all')
+  const [activeTab, setActiveTab] = useState('classes')
   const [schedulePage, setSchedulePage] = useState(1)
   const CLASS_PAGE_SIZE = 10
   const SCHEDULE_PAGE_SIZE = 10
@@ -200,7 +200,6 @@ export default function ManagerAdvancedScheduleView() {
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-color bg-bg-card p-2 shadow-2xs">
         <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label={isVi ? 'Chế độ hiển thị Lớp Advanced' : 'Advanced Classes view tabs'}>
           {[
-            { id: 'all', label: isVi ? 'Tất cả' : 'All', count: null },
             { id: 'classes', label: isVi ? 'Danh sách lớp Advanced' : 'Advanced classes', count: advancedClasses.length },
             { id: 'schedules', label: isVi ? 'Lịch tập & Xác nhận' : 'Schedules & Confirmations', count: rows.length },
           ].map((tab) => {
@@ -241,23 +240,18 @@ export default function ManagerAdvancedScheduleView() {
         </button>
       </div>
 
-      {(activeTab === 'all' || activeTab === 'classes') && (
+      {activeTab === 'classes' && (
         <section className="overflow-hidden rounded-xl border border-border-color bg-bg-card shadow-sm">
           <div className="flex flex-col gap-3 border-b border-border-color bg-slate-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100">
                 <Layers className="h-4 w-4" aria-hidden="true" />
               </span>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-bold text-text-primary">{isVi ? 'Danh sách lớp Advanced' : 'Advanced class list'}</h2>
-                  <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 tabular-nums">
-                    {filteredAdvancedClasses.length}
-                  </span>
-                </div>
-                <p className="mt-0.5 text-xs leading-5 text-text-secondary">
-                  {isVi ? 'Các lớp huấn luyện cá nhân 1-1 tách biệt với lớp Normal.' : 'Personal 1-on-1 coaching classes separated from Normal group classes.'}
-                </p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-text-primary">{isVi ? 'Danh sách lớp Advanced' : 'Advanced class list'}</h2>
+                <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 tabular-nums">
+                  {filteredAdvancedClasses.length}
+                </span>
               </div>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -357,7 +351,7 @@ export default function ManagerAdvancedScheduleView() {
         </section>
       )}
 
-      {(activeTab === 'all' || activeTab === 'schedules') && (
+      {activeTab === 'schedules' && (
         <div className="space-y-4">
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label={isVi ? 'Tổng quan lịch Advanced' : 'Advanced schedule overview'}>
             <SummaryCard label={isVi ? 'Tổng lịch đề xuất' : 'Total schedules'} value={counts.all} tone="stone" Icon={CalendarDays} />
