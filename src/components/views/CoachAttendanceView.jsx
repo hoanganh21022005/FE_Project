@@ -1196,8 +1196,8 @@ export function CoachAttendanceView() {
             </h1>
             <p className="mt-1 text-sm text-slate-500 leading-relaxed">
               {language === "vi"
-                ? "Tách biệt rõ ràng giữa điểm danh Lớp học thường (Normal) và Buổi tập kèm riêng 1:1 (Advanced)"
-                : "Clear separation between Normal group classes and Advanced 1:1 private sessions"}
+                ? "Quản lý điểm danh học viên theo từng buổi học"
+                : "Manage session attendance"}
             </p>
           </div>
         </div>
@@ -1251,9 +1251,20 @@ export function CoachAttendanceView() {
       </div>
 
       {/* Class Banner & Selector */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className={`rounded-2xl border bg-white p-5 md:p-6 text-slate-900 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+        attendanceMode === "advanced" ? "border-amber-200/90" : "border-slate-200"
+      }`}>
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
+            <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+              attendanceMode === "advanced"
+                ? "border-amber-200 bg-amber-50 text-amber-800"
+                : "border-blue-200 bg-blue-50 text-blue-700"
+            }`}>
+              {attendanceMode === "advanced"
+                ? (language === "vi" ? "Advanced 1:1" : "Advanced 1:1")
+                : (language === "vi" ? "Lớp Normal" : "Normal Class")}
+            </span>
             <CoachStatusBadge
               type="session"
               value={
@@ -1407,9 +1418,9 @@ export function CoachAttendanceView() {
               selectedClass?.room ||
               "Sân tập trung tâm"
             return (
-              <p className="text-sm leading-5 text-text-secondary mt-0.5 font-mono tabular-nums">
-                Buổi {orderNum}/{totalClassSessions} &bull; Ngày: {sesDate} &bull;
-                Ca: {sesTime} &bull; Sân: {sesRoom}
+              <p className="text-sm leading-5 text-text-secondary mt-0.5 tabular-nums">
+                {attendanceMode === "normal" && <>Buổi {orderNum}/{totalClassSessions} &bull; </>}
+                Ngày: {sesDate} &bull; Ca: {sesTime} &bull; Sân: {sesRoom}
               </p>
             )
           })()}
@@ -1466,16 +1477,27 @@ export function CoachAttendanceView() {
               />
             </button>
           )}
-          <div className="p-3 bg-bg-secondary rounded-lg border border-border-color text-right">
-            <div className="text-xs leading-4 font-medium text-text-secondary uppercase whitespace-nowrap">
-              {language === "vi" ? "Sĩ số lớp" : "Enrolled Capacity"}
+          {attendanceMode === "normal" ? (
+            <div className="p-3 bg-bg-secondary rounded-lg border border-border-color text-right">
+              <div className="text-xs leading-4 font-medium text-text-secondary uppercase whitespace-nowrap">
+                {language === "vi" ? "Sĩ số lớp" : "Enrolled Capacity"}
+              </div>
+              <div className="text-lg leading-7 font-semibold text-text-primary tabular-nums whitespace-nowrap">
+                {enrolledMembers.length || selectedClass?.enrolledCount || 0}/
+                {selectedClass?.capacity || 12}{" "}
+                {language === "vi" ? "Học viên" : "Members"}
+              </div>
             </div>
-            <div className="text-lg leading-7 font-semibold text-text-primary tabular-nums whitespace-nowrap">
-              {enrolledMembers.length || selectedClass?.enrolledCount || 0}/
-              {selectedClass?.capacity || 12}{" "}
-              {language === "vi" ? "Học viên" : "Members"}
+          ) : (
+            <div className="p-3 bg-amber-50/70 rounded-lg border border-amber-200/80 text-right">
+              <div className="text-xs leading-4 font-medium text-amber-800 uppercase whitespace-nowrap">
+                {language === "vi" ? "Hình thức" : "Session Type"}
+              </div>
+              <div className="text-base leading-6 font-semibold text-amber-950 whitespace-nowrap">
+                {language === "vi" ? "Kèm riêng 1:1" : "1:1 Private"}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -1549,15 +1571,6 @@ export function CoachAttendanceView() {
                   : "Attendance roster"}
               </span>
             </h3>
-            <span className="text-sm leading-5 text-text-secondary">
-              {apiEnabled
-                ? language === "vi"
-                  ? "Chọn Có mặt hoặc Vắng mặt trong giờ học. Bạn cũng có thể nhập mã hội viên để điểm danh nhanh."
-                  : "Mark members present or absent during the session, or enter a member code for quick attendance."
-                : language === "vi"
-                  ? "Bấm một chạm để điểm danh trong buổi học hoặc sửa điểm danh kèm lý do khi buổi đã kết thúc"
-                  : "One-tap check-in for scheduled sessions or edit with mandatory reason for completed sessions"}
-            </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
