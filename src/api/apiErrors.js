@@ -301,6 +301,22 @@ export const ERROR_CODE_TEXT = {
     vi: 'Chỉ Quản lý trung tâm có quyền quản lý lớp, đúng trung tâm, mới xác nhận khai giảng được.',
     en: 'Only a Center Manager with class-management permission for this center can confirm the opening.',
   },
+  OPENING_ACCOUNT_INACTIVE: {
+    vi: 'Tài khoản quản lý trung tâm chưa hoạt động.',
+    en: 'The center manager account is inactive.',
+  },
+  OPENING_MANAGER_ROLE_REQUIRED: {
+    vi: 'Chỉ Quản lý trung tâm mới được xác nhận khai giảng.',
+    en: 'Only a Center Manager can confirm class opening.',
+  },
+  OPENING_MANAGE_CLASSES_REQUIRED: {
+    vi: 'Tài khoản chưa có quyền Quản lý lớp học.',
+    en: 'The account does not have class-management permission.',
+  },
+  OPENING_CENTER_MISMATCH: {
+    vi: 'Tài khoản quản lý và lớp học phải thuộc cùng một trung tâm.',
+    en: 'The manager account and class must belong to the same center.',
+  },
   NORMAL_INSUFFICIENT_PAID: {
     vi: 'Số hội viên đã đóng tiền chưa đạt mức tối thiểu để khai giảng.',
     en: 'Not enough members have paid to reach the minimum for opening.',

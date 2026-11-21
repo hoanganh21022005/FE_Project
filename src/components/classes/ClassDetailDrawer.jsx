@@ -923,17 +923,24 @@ export function ClassDetailDrawer({
                 <dt className="text-stone-500">Sĩ số</dt>
                 <dd className="mt-1 font-semibold text-stone-900">
                   {!hasVerifiedEnrollmentData
-                    ? openingDataLoading ? "Đang tải…" : "Chưa xác minh"
+                    ? openingDataLoading ? "Đang tải…" : enrollmentLoadFailed ? "Không tải được" : "Chưa đủ dữ liệu"
                     : `${openingEvaluation.paidRegisteredCount ?? 0} / ${classDetail?.minCapacity ?? "Chưa xác minh"}`}
                 </dd>
               </div>
               <div>
                 <dt className="text-stone-500">Buổi học đầu tiên</dt>
                 <dd className="mt-1 font-semibold text-stone-900">
-                  {sessionsLoading ? "Đang tải…" : sessionsError ? "Chưa xác minh" : formatOpeningSession(firstOpeningSession)}
+                  {sessionsLoading ? "Đang tải…" : sessionsError ? "Không tải được" : formatOpeningSession(firstOpeningSession)}
                 </dd>
               </div>
             </dl>
+
+            {!openingDataLoading && (enrollmentLoadFailed || sessionsError) && (
+              <p role="alert" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                {[enrollmentLoadFailed && "Không tải được danh sách học viên.", sessionsError && `Không tải được lịch học: ${sessionsError}`].filter(Boolean).join(" ")}
+                <button type="button" disabled={openingSubmitting} onClick={() => refreshOpeningData()} className="ml-2 font-semibold underline disabled:opacity-50">Tải lại</button>
+              </p>
+            )}
 
             {openingDataLoading ? (
               <p role="status" className="mt-3 text-center text-xs text-stone-500">Đang tải thông tin khai giảng…</p>
