@@ -111,7 +111,6 @@ function TransferClassComparison({ source, target, sourceSessions, targetSession
     {[{ title: sideTitles[0], item: source, sessions: sourceSessions, tone: 'border-stone-200 bg-white' }, { title: sideTitles[1], item: target, sessions: targetSessions, tone: 'border-indigo-200 bg-indigo-50/50' }].map((side) => <section key={side.title} className={`rounded-lg border p-3 ${side.tone}`}>
       <h4 className="text-xs font-semibold text-stone-800">{side.title}: {side.item?.name ?? copy(isVi, 'Chưa xác minh', 'Unverified')}</h4>
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-[11px] text-stone-600">{rows.map((row) => <div key={row.label} className="contents"><dt>{row.label}</dt><dd className="font-medium text-stone-800">{row[side.title === sideTitles[0] ? 'source' : 'target'] ?? copy(isVi, 'Chưa xác minh', 'Unverified')}</dd></div>)}</dl>
-      {side.title === sideTitles[1] && <p className="mt-2 text-[11px] text-amber-800">{getNormalTransferRemainingSeats(side.item) === null ? copy(isVi, 'Số chỗ còn lại cần Backend xác minh.', 'Backend must verify available seats.') : copy(isVi, `Còn khoảng ${getNormalTransferRemainingSeats(side.item)} chỗ; Backend sẽ kiểm tra lại khi hội viên đồng ý.`, `About ${getNormalTransferRemainingSeats(side.item)} seats remain; Backend will recheck when a member accepts.`)}</p>}
       <details className="mt-2"><summary className="cursor-pointer text-[11px] font-semibold text-indigo-700">{copy(isVi, 'Lịch học', 'Schedule')} ({Array.isArray(side.sessions) ? side.sessions.length : 0})</summary><ol className="mt-1 max-h-28 space-y-1 overflow-auto text-[11px] text-stone-600">{Array.isArray(side.sessions) && side.sessions.length ? side.sessions.map((item, index) => <li key={item.id ?? item.sessionId ?? index}>{scheduleText(item)}</li>) : <li>{copy(isVi, 'Chưa tải được lịch chi tiết.', 'Schedule details could not be loaded.')}</li>}</ol></details>
     </section>)}</div>
 }
@@ -136,7 +135,7 @@ function ProposalSchedule({ schedule, isVi }) {
 }
 
 export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Postpone', initialAction = 'details', sessions = null, sessionsLoading = false, sessionsError = '', onRefreshClassDetail }) {
-  const { apiEnabled, currentUser, classes, subjects, coaches, setClasses, language } = useSCMS()
+  const { apiEnabled, currentUser, classes, subjects, coaches, setClasses, language, showToast } = useSCMS()
   const isVi = language !== 'en'
   const classId = classItem?.id
   const authorities = Array.isArray(currentUser?.authorities) ? currentUser.authorities : []
@@ -396,10 +395,12 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
           : { targetClassId: Number(targetClassId) }),
       }, { notifyForbidden: false })
       setReason('')
+      const sentMessage = copy(isVi, 'Đã gửi đề xuất.', 'Proposal sent.')
+      showToast?.(sentMessage, 'success')
       const refreshed = await refreshAllReadData()
       setActionStatus(refreshed
-        ? 'Đã tạo đề xuất. Dữ liệu lớp và proposal đã được tải lại.'
-        : 'Đã tạo đề xuất nhưng chưa tải lại được toàn bộ dữ liệu. Hãy tải lại trước thao tác tiếp theo.')
+        ? sentMessage
+        : copy(isVi, 'Đã gửi đề xuất nhưng chưa tải lại được toàn bộ dữ liệu. Hãy tải lại trước thao tác tiếp theo.', 'Proposal sent, but not all data could be refreshed. Please reload before the next action.'))
     } catch (error) {
       await handleActionFailure(error)
     } finally {
@@ -581,7 +582,6 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
               <p className="text-emerald-700">{copy(isVi, 'Lớp đích còn nhận đăng ký đến', 'Target registration is open until')} {localDateTime(targetCutoffCheck.registrationDeadline)}.</p>
             )}
             {validTransferTarget && <TransferClassComparison source={classItem} target={targetClassDetail ?? validTransferTarget} sourceSessions={sessions} targetSessions={targetSessions} isVi={isVi} />}
-            <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-amber-900">{copy(isVi, 'Đây là đề xuất, chưa chuyển học viên ngay. Khi hội viên chọn đồng ý, Backend sẽ chuyển quyền học ngay lập tức; nếu chọn yêu cầu hoàn tiền thì hệ thống ghi nhận nghĩa vụ hoàn tiền, chưa xác nhận đã chuyển tiền.', 'This is a proposal; learners are not moved when it is sent. When a member accepts, the Backend transfers the entitlement immediately. A refund choice creates a refund obligation but does not confirm that money has been sent.')}</p>
           </div>
         )}
         {(lifecycleCheck.blockers.length > 0 || lifecycleCheck.unverified.length > 0) && (
