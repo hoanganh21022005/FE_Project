@@ -291,6 +291,7 @@ const ROUTE_TAB_MAP = {
     tab: "member_my_membership",
   },
   "/member/catalog": { role: ROLE_MEMBER, tab: "member_class_catalog" },
+  "/member/registration-requests": { role: ROLE_MEMBER, tab: "member_registration_requests" },
   "/member/courses": { role: ROLE_MEMBER, tab: "member_class_catalog" },
   "/member/class-catalog": { role: ROLE_MEMBER, tab: "member_class_catalog" },
   "/member/attendance": {
@@ -363,6 +364,7 @@ const TAB_ROUTE_MAP = {
   member_enrollments: "/member/enrollments",
   member_schedule: "/member/schedule",
   member_class_catalog: "/member/class-catalog",
+  member_registration_requests: "/member/registration-requests",
   member_attendance_history: "/member/attendance-history",
   member_feedback: "/member/feedback",
   member_training_plan: "/member/training-plan",

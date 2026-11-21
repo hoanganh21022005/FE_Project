@@ -227,6 +227,11 @@ const MemberClassCatalog = React.lazy(() =>
     default: module.MemberClassCatalog,
   })),
 )
+const MemberRegistrationRequestsView = React.lazy(() =>
+  import("./components/views/MemberRegistrationRequestsView").then((module) => ({
+    default: module.MemberRegistrationRequestsView,
+  })),
+)
 const MemberCheckinView = React.lazy(() =>
   import("./components/views/MemberCheckinView").then((module) => ({
     default: module.MemberCheckinView,
@@ -1674,6 +1679,19 @@ function SCMSApp() {
                         onForbidden={() => navigate(`/${role}/dashboard`)}
                       >
                         <MemberClassCatalog />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/member/registration-requests"
+                    element={
+                      <RequireRole
+                        allowedRoles={[ROLE_MEMBER]}
+                        currentRole={role}
+                        attemptedPath={location.pathname}
+                        onForbidden={() => navigate(`/${role}/dashboard`)}
+                      >
+                        <MemberRegistrationRequestsView />
                       </RequireRole>
                     }
                   />
