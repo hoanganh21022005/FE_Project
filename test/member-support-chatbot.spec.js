@@ -80,7 +80,7 @@ async function setupSupportMocks(page, roleKey = 'member') {
 }
 
 test.describe('Member: giao diện chatbot hỗ trợ (mock)', () => {
-  test('Member vào /support thấy bong bóng chào AVT AI và đúng 4 chip trong khung chat', async ({ page }) => {
+  test('Member vào /support thấy bong bóng chào AVT AI và đúng 3 chip trong khung chat', async ({ page }) => {
     await setupSupportMocks(page, 'member');
 
     await expect(
@@ -89,7 +89,7 @@ test.describe('Member: giao diện chatbot hỗ trợ (mock)', () => {
 
     const chipContainer = page.getByTestId('support-quick-chips');
     await expect(chipContainer).toBeVisible();
-    await expect(chipContainer.locator('button')).toHaveCount(4);
+    await expect(chipContainer.locator('button')).toHaveCount(3);
   });
 
   test('Bấm một chip hiện tin của Member và tin trả lời của AVT AI kèm ảnh đại diện', async ({ page }) => {
