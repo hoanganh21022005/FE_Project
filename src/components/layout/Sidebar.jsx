@@ -110,6 +110,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
         return [
           {
             path: "/coach/dashboard",
+            labelKey: "dashboard",
             label: language === "vi" ? "Tổng quan" : "Dashboard",
             icon: LayoutDashboard,
           },
@@ -237,6 +238,19 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
   }
 
   const navItems = getNavItems()
+  const dashboardPath = navItems.find(
+    (item) => item.labelKey === "dashboard",
+  )?.path
+
+  const handleLogoClick = () => {
+    if (!dashboardPath) return
+    const isSameRoute = location.pathname === dashboardPath
+    handleNav(dashboardPath)
+    if (isSameRoute) {
+      document.querySelector("main")?.scrollTo?.({ top: 0, behavior: "smooth" })
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+  }
 
   return (
     <>
@@ -270,7 +284,13 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
               collapsed ? "px-2" : "px-3.5"
             }`}
           >
-            <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              type="button"
+              onClick={handleLogoClick}
+              title="AVT Sport System"
+              aria-label={`AVT Sport System - ${t("dashboard")}`}
+              className="flex items-center gap-2.5 min-w-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded cursor-pointer"
+            >
               <img
                 src="/images/MainPage/avt-sport-logo.png?v=6"
                 alt="AVT Sport"
@@ -288,7 +308,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
                   </div>
                 </div>
               )}
-            </div>
+            </button>
 
             {/* Mobile close button (visible on mobile drawer) */}
             <button
