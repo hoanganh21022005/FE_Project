@@ -315,6 +315,7 @@ export function ClassDetailDrawer({
   const openingEnrollmentShortfall = hasVerifiedEnrollmentData
     && openingEvaluation.minimum != null
     && (openingEvaluation.paidRegisteredCount ?? 0) < openingEvaluation.minimum
+  const openingDataLoading = classDetailLoading || sessionsLoading || loading
   const openingPermissionGranted = openingEvaluation.openingConfirmationAllowed === true
   const openingReasonNeedsInput = openingEvaluation.reasonRequired === true && !openingReason.trim()
   const openingActionBlockers = openingReasonNeedsInput
@@ -331,7 +332,7 @@ export function ClassDetailDrawer({
   const canShowOpeningAction = apiEnabled && hasManagerRole && hasManageClasses && normalClass &&
     !["cancelled", "canceled", "closed", "completed", "ongoing"].includes(lifecycleStatus) &&
     !classDetailLoading && !classDetailError && classDetail != null &&
-    classDetail.openingConfirmedAt == null && !confirmationAccepted
+    classDetail.openingConfirmedAt == null && !confirmationAccepted && openingPermissionGranted !== false
 
   useEffect(() => {
     if (!["opening", "transfer", "cancel"].includes(initialLifecycleAction)) return undefined
@@ -917,30 +918,36 @@ export function ClassDetailDrawer({
               </button>
             </div>
 
-            <dl className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs sm:grid-cols-2">
+            <dl className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs sm:grid-cols-2" aria-busy={openingDataLoading}>
               <div>
                 <dt className="text-stone-500">Sĩ số</dt>
                 <dd className="mt-1 font-semibold text-stone-900">
                   {!hasVerifiedEnrollmentData
-                    ? "Chưa xác minh"
+                    ? openingDataLoading ? "Đang tải…" : "Chưa xác minh"
                     : `${openingEvaluation.paidRegisteredCount ?? 0} / ${classDetail?.minCapacity ?? "Chưa xác minh"}`}
                 </dd>
               </div>
               <div>
                 <dt className="text-stone-500">Buổi học đầu tiên</dt>
                 <dd className="mt-1 font-semibold text-stone-900">
-                  {sessionsLoading || sessionsError ? "Chưa xác minh" : formatOpeningSession(firstOpeningSession)}
+                  {sessionsLoading ? "Đang tải…" : sessionsError ? "Chưa xác minh" : formatOpeningSession(firstOpeningSession)}
                 </dd>
               </div>
             </dl>
 
-            {openingEnrollmentShortfall ? (
+            {openingDataLoading ? (
+              <p role="status" className="mt-3 text-center text-xs text-stone-500">Đang tải thông tin khai giảng…</p>
+            ) : openingEnrollmentShortfall ? (
               <p role="status" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
                 Chưa đủ sĩ số.
               </p>
-            ) : !canShowOpeningAction && !classDetailLoading ? (
+            ) : !canShowOpeningAction ? (
               <p role="status" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
                 {classDetailError || openingEvaluation.blockers[0] || "Lớp hiện không đủ điều kiện xác nhận khai giảng."}
+              </p>
+            ) : openingEvaluation.blockers.length > 0 ? (
+              <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                {openingEvaluation.blockers[0]}
               </p>
             ) : null}
 
@@ -957,12 +964,6 @@ export function ClassDetailDrawer({
                   placeholder="Nhập lý do xác nhận trong 24 giờ trước buổi đầu tiên"
                 />
               </label>
-            )}
-
-            {!openingEnrollmentShortfall && canShowOpeningAction && openingEvaluation.blockers.length > 0 && (
-              <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
-                {openingEvaluation.blockers[0]}
-              </p>
             )}
 
             {openingActionError && (
@@ -985,8 +986,8 @@ export function ClassDetailDrawer({
               <button type="button" disabled={openingSubmitting} onClick={dismissOpeningDialog} className="rounded-lg border border-stone-300 px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">
                 Hủy
               </button>
-              <button type="button" disabled={openingSubmitting || (!openingPermissionGranted && !openingEvaluation.canSubmit) || (openingEvaluation.reasonRequired === true && !openingReason.trim())} onClick={submitOpeningConfirmation} className="rounded-lg bg-indigo-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50">
-                {openingSubmitting ? "Đang xác nhận…" : "Xác nhận khai giảng"}
+              <button type="button" disabled={openingSubmitting || openingDataLoading || !canShowOpeningAction || !openingEvaluation.canSubmit || (openingEvaluation.reasonRequired === true && !openingReason.trim())} onClick={submitOpeningConfirmation} className="rounded-lg bg-indigo-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50">
+                {openingSubmitting ? "Đang xác nhận…" : openingDataLoading ? "Đang tải…" : "Xác nhận khai giảng"}
               </button>
             </div>
           </div>
