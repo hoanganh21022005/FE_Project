@@ -311,6 +311,7 @@ export function ClassDetailDrawer({
     authorities,
     reason: openingReason,
   })
+  const openingPermissionGranted = openingEvaluation.openingConfirmationAllowed === true
   const openingReasonNeedsInput = openingEvaluation.reasonRequired === true && !openingReason.trim()
   const openingActionBlockers = openingReasonNeedsInput
     ? openingEvaluation.blockers.slice(0, -1)
@@ -355,6 +356,24 @@ export function ClassDetailDrawer({
     }).format(new Date(parsed))
   }
 
+  const validMemberSummary = (() => {
+    if (hasVerifiedEnrollmentData) {
+      const count = openingEvaluation.paidRegisteredCount ?? 0
+      return classDetail?.minCapacity == null
+        ? String(count)
+        : `${count} / ${classDetail.minCapacity}`
+    }
+    const enrolledCount = Number.isFinite(Number(classDetail?.enrolledCount))
+      ? Number(classDetail.enrolledCount)
+      : null
+    if (enrolledCount !== null) {
+      return classDetail?.minCapacity != null
+        ? `${enrolledCount} / ${classDetail.minCapacity} học viên, tối thiểu ${classDetail.minCapacity}`
+        : `${enrolledCount} học viên`
+    }
+    return "Hệ thống sẽ kiểm tra số học viên đã thanh toán khi bạn xác nhận"
+  })()
+
   const submitOpeningConfirmation = async (event) => {
     event?.preventDefault?.()
     const currentCheck = evaluateNormalClassOpening({
@@ -366,7 +385,7 @@ export function ClassDetailDrawer({
       now: new Date(),
     })
     setOpeningActionError(null)
-    if (!hasManagerRole || !currentCheck.canSubmit || openingSubmitting || confirmationAccepted) {
+    if (!hasManagerRole || (!currentCheck.canSubmit && currentCheck.openingConfirmationAllowed !== true) || (currentCheck.reasonRequired === true && !openingReason.trim()) || openingSubmitting || confirmationAccepted) {
       setOpeningActionError({
         status: 0,
         code: null,
@@ -963,7 +982,7 @@ export function ClassDetailDrawer({
               <button type="button" disabled={openingSubmitting} onClick={dismissOpeningDialog} className="rounded-lg border border-stone-300 px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">
                 Hủy
               </button>
-              <button type="button" disabled={openingSubmitting || !openingEvaluation.canSubmit || (openingEvaluation.reasonRequired === true && !openingReason.trim())} onClick={submitOpeningConfirmation} className="rounded-lg bg-indigo-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50">
+              <button type="button" disabled={openingSubmitting || (!openingPermissionGranted && !openingEvaluation.canSubmit) || (openingEvaluation.reasonRequired === true && !openingReason.trim())} onClick={submitOpeningConfirmation} className="rounded-lg bg-indigo-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50">
                 {openingSubmitting ? "Đang xác nhận…" : "Xác nhận khai giảng"}
               </button>
             </div>

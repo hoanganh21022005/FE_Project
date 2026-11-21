@@ -5,26 +5,20 @@ import {
   AlertCircle,
   CalendarDays,
   CheckCircle2,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
   ClipboardCheck,
   ClipboardList,
   Copy,
-  Info,
-  Lock,
-  QrCode,
   RefreshCw,
   Search,
   SlidersHorizontal,
+  UserRound,
   X,
 } from "lucide-react"
-import { QRCodeSVG } from "qrcode.react"
 import { Link } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import {
-  getMemberCheckinCode,
   getMemberAttendances,
   getMemberClasses,
   getClassSessions,
@@ -32,7 +26,6 @@ import {
 } from "../../api/memberPortalApi"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import {
-  CHECKIN_WINDOW_MINUTES_BEFORE,
   DEFAULT_NORMAL_REQUIRED_SESSIONS,
   normalizeScheduleSession,
   toDateDdMmYyyy,
@@ -43,23 +36,11 @@ import {
 // ============================================================================
 // HẰNG SỐ CẤU HÌNH NGHIỆP VỤ
 // ============================================================================
-// [Cần xác nhận #1] Tab "Sắp tới" hiển thị các buổi hợp lệ từ ngày mai trở đi trong vòng 14 ngày
-export const UPCOMING_SCHEDULE_LOOKAHEAD_DAYS = 14
-
-// [Cần xác nhận #2] Khung điểm danh: từ 30 phút trước giờ bắt đầu đến hết giờ kết thúc (đồng bộ với MemberScheduleView)
-export const CHECKIN_OPEN_MINUTES_BEFORE = CHECKIN_WINDOW_MINUTES_BEFORE || 30
-
 // [Cần xác nhận #7] Số bản ghi lịch sử điểm danh mỗi trang trước khi bấm "Tải thêm"
 export const HISTORY_PAGE_SIZE = 10
 
 // Số ngày quá khứ tối đa để chọn buổi học trong ngăn "Báo thiếu buổi tập" (Mục 4.5.3)
 export const DISPUTE_PAST_SESSIONS_DAYS = 30
-
-// Ngưỡng làm mới mã QR sớm trước khi hết hạn để tránh nhấp nháy (Mục 4.2.5)
-const QR_PRE_EXPIRY_REFRESH_SECONDS = 3
-
-// Thời hạn mặc định hiển thị trong hướng dẫn ngắn nếu chưa lấy từ phản hồi (Mục 4.2.2)
-const DEFAULT_QR_TTL_SECONDS = 15
 
 const VN_TIMEZONE = "Asia/Ho_Chi_Minh"
 
@@ -105,13 +86,6 @@ const isSessionCancelled = (session) => {
     raw === "canceled" ||
     session?.centerInvalidated === true
   )
-}
-
-const isSessionInCheckinWindow = (session, nowMs) => {
-  if (!session || isSessionCancelled(session)) return false
-  if (session.startMs === null || session.endMs === null) return false
-  const openMs = session.startMs - CHECKIN_OPEN_MINUTES_BEFORE * 60 * 1000
-  return nowMs >= openMs && nowMs <= session.endMs
 }
 
 // Chuẩn hóa mã trạng thái điểm danh từ API (Mục 3.4)
@@ -203,58 +177,6 @@ const extractTimeFromIso = (value) => {
   const parsed = new Date(str)
   if (Number.isNaN(parsed.getTime())) return null
   return TIME_FORMATTER_HHMM.format(parsed)
-}
-
-// Họa tiết ô vuông cố định giả lập QR (không có finder pattern / dữ liệu QR hợp lệ, không thể giải mã khi quét)
-const FAKE_QR_GRID_ROWS = [
-  "10110101011",
-  "01101011010",
-  "11010010101",
-  "10101101011",
-  "01010001010",
-  "11000000011",
-  "01010001010",
-  "10110101101",
-  "11001010011",
-  "01101101100",
-  "10110010111",
-]
-
-function LockedQrPlaceholderPattern({ size = 148 }) {
-  const gridSize = FAKE_QR_GRID_ROWS.length
-  const cellSize = 10
-  const gap = 2
-  const viewBoxSize = gridSize * cellSize + (gridSize - 1) * gap
-
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      {FAKE_QR_GRID_ROWS.map((rowStr, rIdx) =>
-        rowStr.split("").map((bit, cIdx) => {
-          if (bit !== "1") return null
-          const x = cIdx * (cellSize + gap)
-          const y = rIdx * (cellSize + gap)
-          return (
-            <rect
-              key={`${rIdx}-${cIdx}`}
-              x={x}
-              y={y}
-              width={cellSize}
-              height={cellSize}
-              rx={2.5}
-              className="fill-slate-800"
-            />
-          )
-        }),
-      )}
-    </svg>
-  )
 }
 
 function LocalDatePicker({ value, onChange, isVi, label, min, max, error }) {
@@ -456,15 +378,6 @@ export function MemberCheckinView() {
   const memberId = contextMemberId ?? fetchedMemberId
   const validMember = Number.isInteger(memberId) && memberId > 0
 
-  // Trạng thái mã QR
-  const [code, setCode] = useState(null)
-  const [secondsLeft, setSecondsLeft] = useState(0)
-  const [codeDuration, setCodeDuration] = useState(DEFAULT_QR_TTL_SECONDS)
-  const [codeExpiresAt, setCodeExpiresAt] = useState(0)
-  const [codeUpdatedAt, setCodeUpdatedAt] = useState(null)
-  const [refreshingCode, setRefreshingCode] = useState(false)
-  const [codeError, setCodeError] = useState("")
-
   // Đồng hồ thời gian thực cho tính toán khung điểm danh
   const [clockNow, setClockNow] = useState(() => Date.now())
 
@@ -472,15 +385,12 @@ export function MemberCheckinView() {
   const [activeEnrollmentsCount, setActiveEnrollmentsCount] = useState(0)
   const [allNormalizedSessions, setAllNormalizedSessions] = useState([])
   const [attendanceRows, setAttendanceRows] = useState([])
-  const [scheduleLoading, setScheduleLoading] = useState(true)
+  const [sessionsLoading, setSessionsLoading] = useState(true)
   const [historyLoading, setHistoryLoading] = useState(true)
-  const [scheduleError, setScheduleError] = useState("")
   const [historyError, setHistoryError] = useState("")
-  const [scheduleFailed, setScheduleFailed] = useState(false)
   const [historyFailed, setHistoryFailed] = useState(false)
 
-  // Tab Lịch trình & Bộ lọc Lịch sử
-  const [scheduleTab, setScheduleTab] = useState("today")
+  // Bộ lọc lịch sử điểm danh
   const [historySearch, setHistorySearch] = useState("")
   const [historyStatus, setHistoryStatus] = useState("all")
   const [historyDateFrom, setHistoryDateFrom] = useState("")
@@ -488,12 +398,8 @@ export function MemberCheckinView() {
   const [visibleHistoryCount, setVisibleHistoryCount] =
     useState(HISTORY_PAGE_SIZE)
 
-  // Hộp trợ giúp (Popover "Gặp sự cố?"), Phóng to QR, Hướng dẫn 3 bước và Ngăn "Báo thiếu buổi tập"
+  // Hộp trợ giúp và ngăn "Báo thiếu buổi tập"
   const [showHelpPopover, setShowHelpPopover] = useState(false)
-  const [showQrSpotlight, setShowQrSpotlight] = useState(false)
-  const [showHowToSteps, setShowHowToSteps] = useState(() =>
-    typeof window === "undefined" ? true : window.innerWidth >= 640,
-  )
   const [showDisputeDrawer, setShowDisputeDrawer] = useState(false)
   const [selectedDisputeSessionKey, setSelectedDisputeSessionKey] = useState("")
   const [disputeNote, setDisputeNote] = useState("")
@@ -506,26 +412,16 @@ export function MemberCheckinView() {
   const disputeSelectRef = useRef(null)
   const lastDisputeTriggerRef = useRef(null)
   const mountedRef = useRef(true)
-  const visibleRef = useRef(
-    typeof document === "undefined" || document.visibilityState === "visible",
-  )
-  const refreshingCodeRef = useRef(false)
-  const retryTimerRef = useRef(null)
-  const retryResolveRef = useRef(null)
 
   // Tải danh sách khóa học & toàn bộ buổi học (đồng bộ nguồn dữ liệu và quy tắc buổi hợp lệ với MemberScheduleView)
-  const refreshSchedule = useCallback(async () => {
+  const refreshSessionContext = useCallback(async () => {
     if (!apiEnabled || !validMember) {
-      setScheduleLoading(false)
-      setScheduleError("")
-      setScheduleFailed(false)
+      setSessionsLoading(false)
       setActiveEnrollmentsCount(0)
       setAllNormalizedSessions([])
       return
     }
-    setScheduleLoading(true)
-    setScheduleError("")
-    setScheduleFailed(false)
+    setSessionsLoading(true)
     try {
       const [enrollments, globalSessions] = await Promise.all([
         getMemberClasses(memberId),
@@ -657,11 +553,9 @@ export function MemberCheckinView() {
       if (mountedRef.current) {
         setActiveEnrollmentsCount(0)
         setAllNormalizedSessions([])
-        setScheduleError(t("checkinScheduleLoadError"))
-        setScheduleFailed(true)
       }
     } finally {
-      if (mountedRef.current) setScheduleLoading(false)
+      if (mountedRef.current) setSessionsLoading(false)
     }
   }, [apiEnabled, memberId, validMember, t])
 
@@ -704,16 +598,12 @@ export function MemberCheckinView() {
   }, [apiEnabled, memberId, validMember, t])
 
   const refreshPage = useCallback(
-    () => Promise.all([refreshSchedule(), refreshHistory()]),
-    [refreshSchedule, refreshHistory],
+    () => Promise.all([refreshSessionContext(), refreshHistory()]),
+    [refreshSessionContext, refreshHistory],
   )
 
   // Tính toán các nhóm buổi học theo múi giờ Asia/Ho_Chi_Minh
   const todayIso = getTodayIsoInVn(clockNow)
-  const maxUpcomingIso = useMemo(
-    () => addDaysToIsoDate(todayIso, UPCOMING_SCHEDULE_LOOKAHEAD_DAYS),
-    [todayIso],
-  )
   const minDisputeIso = useMemo(
     () => addDaysToIsoDate(todayIso, -DISPUTE_PAST_SESSIONS_DAYS),
     [todayIso],
@@ -732,346 +622,28 @@ export function MemberCheckinView() {
     return { byId, byClassAndDate }
   }, [allNormalizedSessions])
 
-  // Tất cả buổi học hôm nay
-  const todayAllSessions = useMemo(
-    () => allNormalizedSessions.filter((s) => s.sessionDate === todayIso),
-    [allNormalizedSessions, todayIso],
-  )
-
-  // Buổi hợp lệ hôm nay (không tính buổi hủy; buổi bù tính như buổi thường)
-  const todayValidSessions = useMemo(
-    () => todayAllSessions.filter((s) => !isSessionCancelled(s)),
-    [todayAllSessions],
-  )
-
-  // Buổi hợp lệ sắp tới: từ ngày mai trở đi, trong vòng 14 ngày, không tính buổi hủy
-  const upcomingValidSessions = useMemo(
-    () =>
-      allNormalizedSessions.filter(
-        (s) =>
-          !isSessionCancelled(s) &&
-          s.sessionDate > todayIso &&
-          s.sessionDate <= maxUpcomingIso,
-      ),
-    [allNormalizedSessions, todayIso, maxUpcomingIso],
-  )
-
-  // Buổi hợp lệ tiếp theo gần nhất (cho card Lịch trình học tập khi hôm nay không có buổi)
-  const nextFutureValidSession = useMemo(
-    () =>
-      allNormalizedSessions.find(
-        (s) =>
-          !isSessionCancelled(s) &&
-          (s.sessionDate > todayIso ||
-            (s.sessionDate === todayIso &&
-              s.endMs !== null &&
-              s.endMs >= clockNow)),
-      ) || null,
-    [allNormalizedSessions, todayIso, clockNow],
-  )
-
-  // Xác định trạng thái Card QR:
-  // - Khi CÓ buổi trong khung điểm danh [start - 30p, end]: "active" (hoặc "checked_in" nếu buổi đang mở đã điểm danh).
-  // - Khi KHÔNG có buổi trong khung điểm danh: "locked" (hiển thị QR mờ + icon khóa + giờ mở + đếm ngược tới buổi hợp lệ kế tiếp).
-  const qrContext = useMemo(() => {
-    const openSessions = todayValidSessions
-      .filter((s) => isSessionInCheckinWindow(s, clockNow))
-      .sort((a, b) => (a.startMs || 0) - (b.startMs || 0))
-
-    // 1. Có buổi trong khung chưa điểm danh -> trạng thái Đang hoạt động
-    const activeUnchecked = openSessions.find((s) => {
-      const rec = findSessionAttendanceRecord(s, attendanceRows)
-      const stateKey = rec ? normalizeAttendanceStateKey(rec.state) : null
-      return stateKey !== "present" && stateKey !== "late"
-    })
-
-    if (activeUnchecked) {
-      return {
-        mode: "active",
-        session: activeUnchecked,
-        record: null,
-        openMs: null,
-      }
-    }
-
-    // 2. Buổi đang trong khung điểm danh hôm nay đã được ghi nhận có mặt
-    if (openSessions.length > 0) {
-      const checkedSession = openSessions[0]
-      const rec = findSessionAttendanceRecord(checkedSession, attendanceRows)
-      return {
-        mode: "checked_in",
-        session: checkedSession,
-        record: rec,
-        openMs: null,
-      }
-    }
-
-    // 3. Không có buổi nào đang trong khung điểm danh -> trạng thái Khóa ("locked")
-    // Tìm buổi hợp lệ kế tiếp có mốc mở QR (30 phút trước giờ bắt đầu) ở tương lai
-    const nextLockedSession =
-      allNormalizedSessions.find(
-        (s) =>
-          !isSessionCancelled(s) &&
-          s.startMs !== null &&
-          clockNow < s.startMs - CHECKIN_OPEN_MINUTES_BEFORE * 60 * 1000,
-      ) || null
-
-    if (nextLockedSession && nextLockedSession.startMs !== null) {
-      const openMs =
-        nextLockedSession.startMs - CHECKIN_OPEN_MINUTES_BEFORE * 60 * 1000
-      const openDateObj = new Date(openMs)
-      const openTimeFormatted = TIME_FORMATTER_HHMM.format(openDateObj)
-      const openDateFormatted = toDateDdMmYyyy(openDateObj.toISOString())
-      const diffMs = Math.max(0, openMs - clockNow)
-      const totalMinutes = Math.max(1, Math.ceil(diffMs / (60 * 1000)))
-      const totalHours = Math.floor(totalMinutes / 60)
-      const days = Math.floor(totalHours / 24)
-      const hours = totalHours % 24
-      const minutes = totalMinutes % 60
-
-      return {
-        mode: "locked",
-        session: null,
-        nextLockedSession,
-        openMs,
-        openTimeFormatted,
-        openDateFormatted,
-        countdown: { days, hours, minutes },
-      }
-    }
-
-    return {
-      mode: "locked",
-      session: null,
-      nextLockedSession: null,
-      openMs: null,
-      openTimeFormatted: null,
-      openDateFormatted: null,
-      countdown: null,
-    }
-  }, [todayValidSessions, allNormalizedSessions, clockNow, attendanceRows])
-
-  const isQrActiveMode = qrContext.mode === "active"
-
-  // Hàm lấy mã QR mới từ server — CHỈ gọi khi đang ở trạng thái hoạt động (có buổi trong khung điểm danh)
-  const refreshCode = useCallback(async () => {
-    if (!visibleRef.current || refreshingCodeRef.current) return
-    if (!isQrActiveMode || !apiEnabled || !validMember) return
-
-    refreshingCodeRef.current = true
-    setRefreshingCode(true)
-    setCodeError("")
-
-    try {
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        if (!mountedRef.current || !visibleRef.current) return
-        try {
-          const result = await getMemberCheckinCode()
-          if (!result?.payload) throw new Error("Mã QR không khả dụng")
-          if (!mountedRef.current || !visibleRef.current) return
-
-          const receivedAt = Date.now()
-          const rawExpiresAt = result.expiresAt
-          const parsedExpiresAt =
-            typeof rawExpiresAt === "number" && rawExpiresAt < 1e12
-              ? rawExpiresAt * 1000
-              : new Date(rawExpiresAt).getTime()
-          const serverDurationSec = Number(result.expiresInSeconds)
-          const ttlMs =
-            Number.isFinite(serverDurationSec) && serverDurationSec > 0
-              ? serverDurationSec * 1000
-              : Number.isFinite(parsedExpiresAt) && parsedExpiresAt > receivedAt
-                ? parsedExpiresAt - receivedAt
-                : DEFAULT_QR_TTL_SECONDS * 1000
-
-          const expiry = receivedAt + ttlMs
-          const durationSec = Math.max(1, Math.round(ttlMs / 1000))
-
-          setCode(String(result.payload))
-          setCodeDuration(durationSec)
-          setCodeExpiresAt(expiry)
-          setCodeUpdatedAt(new Date(receivedAt))
-          setSecondsLeft(durationSec)
-          setCodeError("")
-          return
-        } catch (err) {
-          logAttendanceError("/api/attendances/me/checkin-code", err)
-          const status = Number(err?.status || 0)
-          if (attempt >= 2 || (status > 0 && status < 500)) break
-          if (!visibleRef.current) break
-          await new Promise((resolve) => {
-            retryResolveRef.current = resolve
-            retryTimerRef.current = window.setTimeout(
-              () => {
-                retryTimerRef.current = null
-                retryResolveRef.current = null
-                resolve()
-              },
-              500 * 2 ** attempt,
-            )
-          })
-        }
-      }
-      if (mountedRef.current) {
-        // Không bao giờ hiển thị mã hết hạn như còn hiệu lực
-        setCodeError(t("checkinStateErrorTitle"))
-        setSecondsLeft(0)
-      }
-    } finally {
-      refreshingCodeRef.current = false
-      if (mountedRef.current) setRefreshingCode(false)
-    }
-  }, [apiEnabled, isQrActiveMode, validMember, t])
-
   const reloadAll = useCallback(() => {
     refreshPage()
-    if (isQrActiveMode) {
-      refreshCode()
-    }
-  }, [refreshPage, isQrActiveMode, refreshCode])
+  }, [refreshPage])
 
   useEffect(() => {
     refreshPage()
   }, [refreshPage])
 
-  // Khi không ở trạng thái Đang hoạt động, xóa mã cũ và không gọi API lấy mã QR
   useEffect(() => {
-    if (!isQrActiveMode) {
-      setShowQrSpotlight(false)
-      setCode(null)
-      setSecondsLeft(0)
-      setCodeExpiresAt(0)
-      setCodeError("")
-      return
-    }
-    if (!scheduleLoading && !code && !refreshingCode && !codeError) {
-      refreshCode()
-    }
-  }, [
-    isQrActiveMode,
-    scheduleLoading,
-    code,
-    refreshingCode,
-    codeError,
-    refreshCode,
-  ])
-
-  // Đếm ngược thời hạn mã QR (15 giây) — CHỈ chạy khi đang ở trạng thái hoạt động và có mã hợp lệ
-  useEffect(() => {
-    if (!isQrActiveMode || !code || !codeExpiresAt) return undefined
-    let timer = null
-    const stopTimer = () => {
-      if (timer) window.clearInterval(timer)
-      timer = null
-    }
-    const tick = () => {
-      const remaining = Math.max(
-        0,
-        Math.ceil((codeExpiresAt - Date.now()) / 1000),
-      )
-      setSecondsLeft(remaining)
-      if (
-        remaining <= QR_PRE_EXPIRY_REFRESH_SECONDS &&
-        !refreshingCodeRef.current
-      ) {
-        refreshCode()
-      }
-    }
-    const startTimer = () => {
-      stopTimer()
-      if (!visibleRef.current) return
-      tick()
-      timer = window.setInterval(tick, 250)
-    }
-    const onVisibilityChange = () => {
-      visibleRef.current = document.visibilityState === "visible"
-      if (visibleRef.current) {
-        if (
-          !code ||
-          Date.now() >= codeExpiresAt - QR_PRE_EXPIRY_REFRESH_SECONDS * 1000
-        ) {
-          refreshCode()
-        }
-        startTimer()
-      } else {
-        stopTimer()
-      }
-    }
-    startTimer()
-    document.addEventListener("visibilitychange", onVisibilityChange)
+    const updateClock = () => setClockNow(Date.now())
+    const intervalId = window.setInterval(updateClock, 30000)
+    document.addEventListener("visibilitychange", updateClock)
     return () => {
-      stopTimer()
-      document.removeEventListener("visibilitychange", onVisibilityChange)
+      window.clearInterval(intervalId)
+      document.removeEventListener("visibilitychange", updateClock)
     }
-  }, [isQrActiveMode, code, codeExpiresAt, refreshCode])
-
-  // Cập nhật đồng hồ mỗi phút (và tự động kích hoạt ngay tại thời điểm mở khung điểm danh)
-  useEffect(() => {
-    let intervalId = null
-    let exactOpenTimeoutId = null
-
-    const clearTimers = () => {
-      if (intervalId) window.clearInterval(intervalId)
-      if (exactOpenTimeoutId) window.clearTimeout(exactOpenTimeoutId)
-      intervalId = null
-      exactOpenTimeoutId = null
-    }
-
-    const startTimers = () => {
-      clearTimers()
-      if (
-        typeof document !== "undefined" &&
-        document.visibilityState !== "visible"
-      ) {
-        return
-      }
-      const now = Date.now()
-      setClockNow(now)
-
-      // Cập nhật định kỳ để bộ đếm ngược phút luôn chính xác
-      intervalId = window.setInterval(() => {
-        setClockNow(Date.now())
-      }, 30000)
-
-      // Nếu đang khóa và có mốc mở sắp tới (trong vòng 24 giờ), đặt hẹn giờ chính xác đến mili-giây mở khung để tự chuyển sang active ngay lập tức
-      if (
-        qrContext.openMs &&
-        qrContext.openMs > now &&
-        qrContext.openMs - now <= 24 * 60 * 60 * 1000
-      ) {
-        exactOpenTimeoutId = window.setTimeout(
-          () => {
-            setClockNow(Date.now())
-          },
-          Math.max(100, qrContext.openMs - now + 50),
-        )
-      }
-    }
-
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        startTimers()
-      } else {
-        clearTimers()
-      }
-    }
-
-    startTimers()
-    document.addEventListener("visibilitychange", onVisibility)
-    return () => {
-      clearTimers()
-      document.removeEventListener("visibilitychange", onVisibility)
-    }
-  }, [qrContext.openMs])
+  }, [])
 
   useEffect(() => {
     mountedRef.current = true
     return () => {
       mountedRef.current = false
-      if (retryTimerRef.current) window.clearTimeout(retryTimerRef.current)
-      retryTimerRef.current = null
-      retryResolveRef.current?.()
-      retryResolveRef.current = null
     }
   }, [])
 
@@ -1116,7 +688,6 @@ export function MemberCheckinView() {
     }
   }, [showHelpPopover])
 
-  // Quản lý đóng ngăn "Báo thiếu buổi tập" / QR spotlight bằng Esc, khóa cuộn & giữ tiêu điểm
   const closeDisputeDrawer = useCallback(() => {
     setShowDisputeDrawer(false)
     window.setTimeout(() => {
@@ -1135,7 +706,7 @@ export function MemberCheckinView() {
   }, [])
 
   useEffect(() => {
-    if (!showDisputeDrawer && !showQrSpotlight) return undefined
+    if (!showDisputeDrawer) return undefined
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = "hidden"
 
@@ -1147,7 +718,6 @@ export function MemberCheckinView() {
 
     const onKeyDown = (event) => {
       if (event.key === "Escape") {
-        if (showQrSpotlight) setShowQrSpotlight(false)
         if (showDisputeDrawer) closeDisputeDrawer()
         return
       }
@@ -1177,7 +747,7 @@ export function MemberCheckinView() {
       document.body.style.overflow = previousOverflow
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [showDisputeDrawer, showQrSpotlight, closeDisputeDrawer])
+  }, [showDisputeDrawer, closeDisputeDrawer])
 
   // Danh sách các buổi đã qua trong 30 ngày gần nhất của các khóa hội viên đang học (Mục 4.5.3)
   // Không đưa buổi đã hủy vào danh sách. Gắn trạng thái điểm danh hiện tại, xếp buổi chưa có trạng thái "Có mặt" lên đầu, sau đó giảm dần theo thời gian.
@@ -1270,7 +840,7 @@ export function MemberCheckinView() {
       const checkInTimeHhMm = extractTimeFromIso(
         row.checkInTime || row.checkedInAt || row.recordedAt,
       )
-      const scannerName =
+      const confirmedByName =
         row.scannedByName ||
         row.recordedByName ||
         row.checkedInBy ||
@@ -1286,7 +856,7 @@ export function MemberCheckinView() {
         endTime,
         roomName,
         checkInTimeHhMm,
-        scannerName,
+        confirmedByName,
         stateKey,
       }
     })
@@ -1424,188 +994,24 @@ export function MemberCheckinView() {
     }
   }
 
-  // Render dòng buổi học trong card Lịch trình học tập (Mục 4.3)
-  const renderScheduleRowItem = (session, index) => {
-    const record = findSessionAttendanceRecord(session, attendanceRows)
-    const cancelled = isSessionCancelled(session)
-    const inWindow = isSessionInCheckinWindow(session, clockNow)
-    const recordStateKey = record
-      ? normalizeAttendanceStateKey(record.state)
-      : null
-    const isCheckedIn =
-      recordStateKey === "present" || recordStateKey === "late"
-    const isOngoing =
-      !cancelled &&
-      session.startMs !== null &&
-      session.endMs !== null &&
-      clockNow >= session.startMs &&
-      clockNow <= session.endMs
-
-    let statusBadge = {
-      icon: "○",
-      label: t("checkinStatusUpcoming"),
-      className: "bg-slate-100 text-slate-800 border-slate-300",
-    }
-    if (cancelled) {
-      statusBadge = {
-        icon: "✕",
-        label: t("checkinStatusCancelled"),
-        className: "bg-rose-50 text-rose-800 border-rose-200",
-      }
-    } else if (isCheckedIn) {
-      statusBadge = {
-        icon: "✓",
-        label: t("checkinStatusCheckedIn"),
-        className: "bg-emerald-50 text-emerald-800 border-emerald-200",
-      }
-    } else if (isOngoing) {
-      statusBadge = {
-        icon: "●",
-        label: t("checkinStatusOngoing"),
-        className: "bg-blue-50 text-blue-800 border-blue-200",
-      }
-    }
-
-    const timeRange =
-      session.startTime !== "—" && session.endTime !== "—"
-        ? `${session.startTime}–${session.endTime}`
-        : session.startTime
-    const sessionTitle =
-      session.className ||
-      (session.isPrivate
-        ? t("schedulePtDefaultTitle")
-        : session.subjectName || `#${session.classId}`)
-
-    return (
-      <article
-        key={session.id || `${session.classId}-${session.sessionDate}-${index}`}
-        className={`rounded-xl border p-3.5 transition-colors flex flex-wrap items-center justify-between gap-3 ${
-          inWindow && !isCheckedIn
-            ? "border-emerald-300 bg-emerald-50/50 ring-1 ring-emerald-200"
-            : cancelled
-              ? "border-slate-200 bg-slate-50/70 text-slate-400"
-              : "border-slate-200/90 bg-slate-50/40"
-        }`}
-      >
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-blue-800">
-              {session.subjectName || "AVT SPORT"}
-            </span>
-            {session.isPrivate && (
-              <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-bold text-slate-700">
-                {t("checkinPtSessionBadge")}
-              </span>
-            )}
-            {inWindow && !isCheckedIn && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-900">
-                <span aria-hidden="true">●</span>
-                <span>{t("checkinWindowActiveBadge")}</span>
-              </span>
-            )}
-          </div>
-
-          <h3
-            className={`text-sm font-extrabold ${
-              cancelled ? "line-through text-slate-400" : "text-slate-900"
-            }`}
-          >
-            {sessionTitle}
-          </h3>
-
-          <p className="text-xs font-medium text-slate-700">
-            {toDateDdMmYyyy(session.sessionDate)} · {timeRange} ·{" "}
-            {session.roomName || t("scheduleRoomTbd")}
-            {session.coachName ? ` · ${session.coachName}` : ""}
-          </p>
-
-          {cancelled && session.replacedByDate && (
-            <p className="text-xs font-semibold text-slate-600">
-              {tr("scheduleReplacedByDate", { date: session.replacedByDate })}
-            </p>
-          )}
-        </div>
-
-        <span
-          className={`inline-flex items-center gap-1 shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${statusBadge.className}`}
-        >
-          <span aria-hidden="true">{statusBadge.icon}</span>
-          <span>{statusBadge.label}</span>
-        </span>
-      </article>
-    )
-  }
-
-  // Khối "Cách điểm danh" (3 bước ngắn):
-  // - Khi QR khóa trên màn hình lớn (lg): đặt trong card "Lịch trình học tập" (dưới danh sách buổi) để hai card cân chiều cao.
-  // - Khi QR hoạt động trên màn hình lớn (lg): đặt trong card QR như cũ.
-  // - Trên mobile 1 cột (< lg): luôn nằm ngay sau QR, trước Lịch trình học tập.
-  const renderHowToStepsBox = (extraClassName = "") => (
-    <div
-      className={`rounded-xl border border-slate-200/80 bg-slate-50/70 px-3.5 py-3 ${extraClassName}`}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-bold text-slate-800">
-          {t("checkinHowToTitle")}
-        </p>
-        <button
-          type="button"
-          aria-expanded={showHowToSteps}
-          onClick={() => setShowHowToSteps((prev) => !prev)}
-          className="sm:hidden inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-        >
-          {showHowToSteps ? (
-            <ChevronUp className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5" />
-          )}
-        </button>
-      </div>
-      <ol
-        className={`${
-          showHowToSteps ? "mt-2 grid" : "hidden sm:mt-2 sm:grid"
-        } grid-cols-1 gap-2 text-xs text-slate-600 lg:grid-cols-3 lg:gap-4`}
-      >
-        <li className="flex items-start gap-2">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
-            1
-          </span>
-          <span>{t("checkinHowToStep1")}</span>
-        </li>
-        <li className="flex items-start gap-2">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
-            2
-          </span>
-          <span>{t("checkinHowToStep2")}</span>
-        </li>
-        <li className="flex items-start gap-2">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200/80 text-xs font-bold text-slate-700">
-            3
-          </span>
-          <span>{t("checkinHowToStep3")}</span>
-        </li>
-      </ol>
-    </div>
-  )
-
   return (
     <div className="w-full space-y-6">
       {/* 4.1 Header */}
       <PageHeader
-        title={t("checkinPageTitle")}
+        title={isVi ? "Theo dõi chuyên cần" : t("checkinPageTitle")}
         description={t("checkinPageSubtitle")}
         actions={
           <button
             type="button"
             onClick={reloadAll}
-            disabled={refreshingCode || scheduleLoading || historyLoading}
+            disabled={sessionsLoading || historyLoading}
             aria-label={t("checkinBtnRefresh")}
             title={t("checkinRefreshShortcutHint")}
             className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 p-2 text-slate-700 disabled:opacity-60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
           >
             <RefreshCw
               className={`h-4 w-4 ${
-                refreshingCode || scheduleLoading || historyLoading
+                sessionsLoading || historyLoading
                   ? "animate-spin"
                   : ""
               }`}
@@ -1656,467 +1062,6 @@ export function MemberCheckinView() {
             </div>
           </div>
           {attendanceSummary.excused > 0 && <p className="mt-3 text-xs font-medium text-slate-600">{isVi ? "Có phép" : "Excused"} {attendanceSummary.excused}</p>}
-        </article>
-      </section>
-
-      {/* 4.6 QR pass and schedule */}
-      <section className="grid grid-cols-1 gap-6 items-stretch lg:grid-cols-12">
-        {/* 4.2 Card Mã QR điểm danh */}
-        <article className="flex w-full min-w-0 flex-col items-center rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:col-span-1 sm:items-stretch sm:p-6 lg:col-span-4">
-          <div className="flex w-full min-w-0 items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <QrCode className="h-5 w-5 text-brand-accent-dark shrink-0" />
-              <h2 className="text-lg font-extrabold text-slate-900">
-                {t("checkinQrCardTitle")}
-              </h2>
-            </div>
-
-            {/* 4.2.6 Liên kết "Gặp sự cố?" mở hộp nhỏ (popover) */}
-            <div className="relative" ref={helpPopoverRef}>
-              <button
-                type="button"
-                aria-expanded={showHelpPopover}
-                onClick={() => setShowHelpPopover((prev) => !prev)}
-                className="min-h-[40px] inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-              >
-                <Info className="h-3.5 w-3.5 shrink-0" />
-                <span>{t("checkinNeedHelp")}</span>
-              </button>
-
-              {showHelpPopover && (
-                <div
-                  role="dialog"
-                  aria-label={t("checkinHelpTitle")}
-                  className="absolute right-0 top-full z-40 mt-1.5 w-72 sm:w-80 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-700 shadow-xl space-y-3"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-bold text-slate-900">
-                      {t("checkinHelpTitle")}
-                    </p>
-                    <button
-                      type="button"
-                      aria-label={t("checkinclose")}
-                      onClick={() => setShowHelpPopover(false)}
-                      className="min-h-[32px] min-w-[32px] inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-
-                  <ul className="list-disc pl-4 space-y-1.5 leading-relaxed text-slate-600">
-                    <li>{t("checkinHelpTipBrightness")}</li>
-                    <li>{t("checkinHelpTipReload")}</li>
-                    <li>{t("checkinHelpTipManual")}</li>
-                  </ul>
-
-                  <div className="border-t border-slate-100 pt-2.5">
-                    <button
-                      type="button"
-                      onClick={(e) => openDisputeDrawer(e.currentTarget)}
-                      className="min-h-[36px] w-full inline-flex items-center justify-between rounded-lg bg-slate-50 hover:bg-slate-100 px-3 py-2 text-xs font-bold text-brand-accent-dark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-                    >
-                      <span>{t("checkinMissingSessionLink")}</span>
-                      <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 3.2 Nội dung Card QR theo 5 trạng thái */}
-          <div className="mt-4 flex w-full min-w-0 flex-1 flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 text-center sm:p-6">
-            <span className={`mb-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold ${isQrActiveMode ? "bg-emerald-100 text-emerald-900" : qrContext.mode === "checked_in" ? "bg-blue-100 text-blue-900" : "bg-slate-200 text-slate-700"}`}>
-              <span aria-hidden="true">●</span>{isQrActiveMode ? t("checkinWindowActiveBadge") : qrContext.mode === "checked_in" ? t("checkinStateCheckedInTitle") : isVi ? "Mã QR đang khóa" : "QR is locked"}
-            </span>
-            {scheduleLoading ? (
-              <div
-                aria-busy="true"
-                className="w-full max-w-[240px] space-y-3 py-6 animate-pulse"
-              >
-                <div className="mx-auto h-40 w-40 rounded-xl bg-slate-200" />
-                <div className="mx-auto h-5 w-32 rounded bg-slate-200" />
-                <div className="mx-auto h-3 w-44 rounded bg-slate-200" />
-              </div>
-            ) : qrContext.mode === "active" ? (
-              /* TRẠNG THÁI 1: ĐANG HOẠT ĐỘNG (Hoặc LỖI LÀM MỚI) */
-              <div className="w-full space-y-3">
-                {/* 4.2.3 Hiển thị rõ buổi đang áp dụng: tên lớp, giờ bắt đầu–kết thúc, sân */}
-                {qrContext.session && (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs text-emerald-950">
-                    <p className="font-extrabold">
-                      {qrContext.session.className ||
-                        qrContext.session.subjectName}
-                    </p>
-                    <p className="mt-0.5 font-medium text-emerald-800">
-                      {qrContext.session.startTime}–{qrContext.session.endTime}{" "}
-                      · {qrContext.session.roomName || t("scheduleRoomTbd")}
-                    </p>
-                  </div>
-                )}
-
-                {code && secondsLeft > 0 && !codeError ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setShowQrSpotlight(true)}
-                      aria-label={t("checkinEnlargeQrAria")}
-                      className="group relative mx-auto inline-flex flex-col items-center overflow-hidden rounded-xl bg-white p-3 shadow-xs ring-1 ring-slate-200 transition hover:shadow-md hover:ring-brand-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-                    >
-                      <QRCodeSVG
-                        value={code}
-                        size={188}
-                        level="M"
-                        includeMargin
-                        className="h-auto max-w-full"
-                      />
-                      <span className="mt-1 text-xs font-semibold text-slate-500 group-hover:text-brand-primary">
-                        {t("checkinEnlargeQr")}
-                      </span>
-                    </button>
-
-                    {/* 4.2.7 Mã số 6 chữ số kèm nhãn nhỏ "Mã nhập tay" & hỗ trợ trình đọc màn hình */}
-                    <div className="space-y-0.5">
-                      <span className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        {t("checkinManualCodeLabel")}
-                      </span>
-                      <p
-                        aria-label={`${t("checkinManualCodeLabel")}: ${String(code).split("").join(" ")}`}
-                        className="font-mono text-2xl font-black tracking-[.26em] text-slate-950"
-                      >
-                        {code}
-                      </p>
-                    </div>
-
-                    {/* 4.2.5 & 4.8 Thanh đếm ngược (không đọc mỗi giây) */}
-                    <div className="space-y-1.5">
-                      <p className="text-xs font-medium text-slate-600">
-                        {refreshingCode ? (
-                          <span>{t("checkinRefreshingCode")}</span>
-                        ) : (
-                          <>
-                            {t("checkinNewCodeIn")}{" "}
-                            <strong className="font-bold tabular-nums text-brand-primary">
-                              {secondsLeft}s
-                            </strong>
-                          </>
-                        )}
-                      </p>
-                      <div
-                        role="progressbar"
-                        aria-label={t("checkinNewCodeIn")}
-                        aria-valuenow={secondsLeft}
-                        aria-valuemin={0}
-                        aria-valuemax={codeDuration}
-                        className="mx-auto h-1.5 w-full max-w-[220px] overflow-hidden rounded-full bg-slate-200"
-                      >
-                        <div
-                          className="h-full bg-brand-primary transition-[width] duration-300"
-                          style={{
-                            width: `${Math.min(100, Math.max(0, (secondsLeft / codeDuration) * 100))}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  /* TRẠNG THÁI 5: LỖI LÀM MỚI — Làm mờ mã cũ, không bao giờ hiển thị mã hết hạn như còn hiệu lực */
-                  <div className="space-y-3 py-3" role="alert">
-                    <div className="relative mx-auto w-fit">
-                      <div
-                        aria-hidden="true"
-                        className="rounded-xl bg-white p-3 opacity-35 blur-[4px] select-none pointer-events-none"
-                      >
-                        <LockedQrPlaceholderPattern size={172} />
-                      </div>
-                      <div className=" inset-0 flex flex-col items-center justify-center">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-900 border border-rose-200">
-                          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                          <span>{t("checkinStateErrorTitle")}</span>
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-slate-600">
-                      {t("checkinStateErrorSub")}
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={refreshCode}
-                      disabled={refreshingCode}
-                      className="min-h-[40px] inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-primary hover:bg-brand-primary-hover px-4 py-2 text-xs font-bold text-white shadow-2xs disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-                    >
-                      <RefreshCw
-                        className={`h-3.5 w-3.5 ${refreshingCode ? "animate-spin" : ""}`}
-                      />
-                      <span>{t("checkinBtnRetry")}</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : qrContext.mode === "checked_in" ? (
-              /* TRẠNG THÁI 2: ĐÃ ĐIỂM DANH */
-              <div className="space-y-2.5 py-6">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                  <CheckCircle2 className="h-8 w-8" />
-                </div>
-                <h3 className="text-base font-extrabold text-slate-900">
-                  { qrContext.record &&
-                  extractTimeFromIso(
-                    qrContext.record.checkInTime ||
-                      qrContext.record.checkedInAt,
-                  )
-                    ? tr("checkinStateCheckedInTime", {
-                        time: extractTimeFromIso(
-                          qrContext.record.checkInTime ||
-                            qrContext.record.checkedInAt,
-                        ),
-                      })
-                    : t("checkinStateCheckedInTitle")}
-                </h3>
-                {qrContext.session && (
-                  <p className="text-xs font-medium text-slate-600">
-                    {qrContext.session.className ||
-                      qrContext.session.subjectName}{" "}
-                    · {qrContext.session.startTime}–{qrContext.session.endTime}{" "}
-                    · {qrContext.session.roomName || t("scheduleRoomTbd")}
-                  </p>
-                )}
-              </div>
-            ) : (
-              /* TRẠNG THÁI 3: KHÓA MÃ QR (Không có buổi trong khung điểm danh) */
-              <div className="w-full space-y-3.5 py-2">
-                {/* Hình QR mờ dạng placeholder (họa tiết giả cố định không giải mã được) với biểu tượng khóa ở giữa */}
-                <div className="relative mx-auto flex h-44 w-44 items-center justify-center rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs">
-                  <div
-                    aria-hidden="true"
-                    className="opacity-20 blur-[1.5px] select-none pointer-events-none"
-                  >
-                    <LockedQrPlaceholderPattern size={148} />
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-sm">
-                      <Lock className="h-5 w-5" />
-                    </span>
-                  </div>
-                </div>
-
-                {qrContext.nextLockedSession ? (
-                  <div className="space-y-1.5 px-2">
-                    <p className="text-sm font-bold text-slate-900">
-                      {tr("checkinQrLockedOpenAt", {
-                        time: qrContext.openTimeFormatted,
-                        date: qrContext.openDateFormatted,
-                      })}
-                    </p>
-                    {qrContext.countdown && (
-                      <p className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
-                        {qrContext.countdown.days >= 1
-                          ? tr("checkinQrLockedCountdownDays", {
-                              days: qrContext.countdown.days,
-                              hours: qrContext.countdown.hours,
-                            })
-                          : tr("checkinQrLockedCountdownHours", {
-                              hours: qrContext.countdown.hours,
-                              minutes: qrContext.countdown.minutes,
-                            })}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="px-2 text-sm font-bold text-slate-700">
-                    {t("checkinQrLockedNoSession")}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* 4.2.1 & 4.2.2 Ẩn dòng hướng dẫn quét/15s khi không có mã đang hoạt động */}
-          {isQrActiveMode && code && secondsLeft > 0 && !codeError && (
-            <p className="mt-3 text-center text-xs leading-relaxed text-slate-600">
-              {tr("checkinQrGuideShort", { seconds: codeDuration })}
-            </p>
-          )}
-
-          {/* 4.2.8 Dòng "Cập nhật lúc HH:mm:ss" nhỏ, nhạt */}
-          {isQrActiveMode && codeUpdatedAt && (
-            <p className="mt-1 text-center text-xs text-slate-400">
-              {tr("checkinUpdatedAt", {
-                time: TIME_FORMATTER_HHMMSS.format(codeUpdatedAt),
-              })}
-            </p>
-          )}
-
-        </article>
-
-        {/* 4.3 Card Lịch trình học tập */}
-        <article className="min-w-0 flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6 lg:col-span-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-brand-accent-dark shrink-0" />
-              <h2 className="text-lg font-extrabold text-slate-900">
-                {isVi ? "Lịch trình điểm danh" : "Check-in schedule"}
-              </h2>
-            </div>
-
-            <div
-              className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1"
-              role="tablist"
-              aria-label={isVi ? "Lịch trình điểm danh" : "Check-in schedule"}
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={scheduleTab === "today"}
-                onClick={() => setScheduleTab("today")}
-                className={`min-h-[36px] rounded-lg px-3 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer ${
-                  scheduleTab === "today"
-                    ? "bg-white text-slate-900 shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                {t("checkinTabToday")} (
-                {scheduleLoading || scheduleFailed
-                  ? "–"
-                  : todayValidSessions.length}
-                )
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={scheduleTab === "upcoming"}
-                onClick={() => setScheduleTab("upcoming")}
-                className={`min-h-[36px] rounded-lg px-3 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer ${
-                  scheduleTab === "upcoming"
-                    ? "bg-white text-slate-900 shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                {t("checkinTabUpcoming")} (
-                {scheduleLoading || scheduleFailed
-                  ? "–"
-                  : upcomingValidSessions.length}
-                )
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-4 flex-1">
-            {scheduleLoading ? (
-              <div
-                aria-busy="true"
-                className="space-y-3 py-2"
-              >
-                {[0, 1].map((key) => (
-                  <div
-                    key={key}
-                    className="animate-pulse rounded-xl bg-slate-100 p-4 space-y-2"
-                  >
-                    <div className="h-3 w-1/4 rounded bg-slate-200" />
-                    <div className="h-4 w-2/3 rounded bg-slate-200" />
-                    <div className="h-3 w-1/2 rounded bg-slate-200" />
-                  </div>
-                ))}
-              </div>
-            ) : scheduleFailed ? (
-              <div
-                role="alert"
-                className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-status-error flex flex-wrap items-center justify-between gap-3"
-              >
-                <span>{scheduleError}</span>
-                <button
-                  type="button"
-                  onClick={refreshSchedule}
-                  className="min-h-[36px] rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
-                >
-                  {t("checkinBtnRetry")}
-                </button>
-              </div>
-            ) : scheduleTab === "today" ? (
-              todayValidSessions.length > 0 ? (
-                <div className="space-y-2.5">
-                  {todayValidSessions.map((session, idx) =>
-                    renderScheduleRowItem(session, idx),
-                  )}
-                </div>
-              ) : activeEnrollmentsCount === 0 ? (
-                /* 4.3 Trạng thái rỗng khi hội viên CHƯA có khóa nào: hiện nút Đăng ký khóa học */
-                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-5 py-6 text-center space-y-2.5">
-                  <p className="text-sm font-bold text-slate-800">
-                    {t("checkinEmptyNoCourse")}
-                  </p>
-                  <Link
-                    to="/member/catalog"
-                    className="min-h-[40px] inline-flex items-center justify-center rounded-lg bg-brand-primary hover:bg-brand-primary-hover px-4 py-2 text-xs font-bold text-white shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
-                  >
-                    {t("checkinBtnRegisterCourse")}
-                  </Link>
-                </div>
-              ) : (
-                /* 4.3 Trạng thái rỗng khi hội viên ĐÃ có khóa nhưng hôm nay không có buổi: kèm buổi kế tiếp, KHÔNG có nút đăng ký */
-                <div className="flex min-h-[240px] flex-col justify-center rounded-2xl border border-slate-200 bg-slate-50/60 px-5 py-6 text-center space-y-3">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700"><CalendarDays className="h-6 w-6" /></div>
-                  <p className="text-sm font-bold text-slate-800">
-                    {t("checkinEmptyTodayHasCourse")}
-                  </p>
-                  {nextFutureValidSession && (
-                    <div className="mx-auto w-full max-w-2xl rounded-2xl border border-blue-200 bg-white p-4 text-left shadow-xs">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-blue-800">{nextFutureValidSession.subjectName || "AVT SPORT"}</span>
-                          <h3 className="mt-2 text-base font-extrabold text-slate-900">{nextFutureValidSession.className || nextFutureValidSession.subjectName || (nextFutureValidSession.isPrivate ? t("schedulePtDefaultTitle") : `#${nextFutureValidSession.classId}`)}</h3>
-                          <p className="mt-1 text-xs font-medium leading-relaxed text-slate-600">{toDateDdMmYyyy(nextFutureValidSession.sessionDate)} · {nextFutureValidSession.startTime}–{nextFutureValidSession.endTime} · {nextFutureValidSession.roomName || t("scheduleRoomTbd")}{nextFutureValidSession.coachName ? ` · ${nextFutureValidSession.coachName}` : ""}</p>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800">{isVi ? "Sắp diễn ra" : "Coming up"}</span>
-                      </div>
-                      <p className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700"><QrCode className="h-4 w-4 shrink-0 text-brand-accent-dark" />{isVi ? "Mã QR sẽ tự mở trước giờ học 15 phút" : "Your QR pass opens automatically 15 minutes before class"}</p>
-                    </div>
-                  )}
-                </div>
-              )
-            ) : upcomingValidSessions.length > 0 ? (
-              <div className="max-h-[300px] space-y-2.5 overflow-y-auto pr-1">
-                {upcomingValidSessions.map((session, idx) =>
-                  renderScheduleRowItem(session, idx),
-                )}
-              </div>
-            ) : activeEnrollmentsCount === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-5 py-6 text-center space-y-2.5">
-                <p className="text-sm font-bold text-slate-800">
-                  {t("checkinEmptyNoCourse")}
-                </p>
-                <Link
-                  to="/member/catalog"
-                  className="min-h-[40px] inline-flex items-center justify-center rounded-lg bg-brand-primary hover:bg-brand-primary-hover px-4 py-2 text-xs font-bold text-white shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
-                >
-                  {t("checkinBtnRegisterCourse")}
-                </Link>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-5 py-5 text-center space-y-1.5">
-                <p className="text-sm font-bold text-slate-800">
-                  {tr("checkinEmptyUpcomingHasCourse", {
-                    days: UPCOMING_SCHEDULE_LOOKAHEAD_DAYS,
-                  })}
-                </p>
-                {nextFutureValidSession && (
-                  <p className="text-xs font-medium text-slate-600">
-                    {tr("checkinNextSessionLabel", {
-                      date: toDateDdMmYyyy(nextFutureValidSession.sessionDate),
-                      time: `${nextFutureValidSession.startTime}–${nextFutureValidSession.endTime}`,
-                      room:
-                        nextFutureValidSession.roomName ||
-                        t("scheduleRoomTbd"),
-                    })}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-          {scheduleTab === "today" && !scheduleLoading && !scheduleFailed && todayValidSessions.length === 0 && activeEnrollmentsCount > 0 && renderHowToStepsBox("mt-5")}
-
         </article>
       </section>
 
@@ -2261,7 +1206,7 @@ export function MemberCheckinView() {
             <div className="hidden lg:grid lg:grid-cols-[minmax(220px,1.15fr)_minmax(180px,0.9fr)_minmax(220px,1.1fr)_auto] gap-4 rounded-t-xl bg-slate-50 px-4 py-3 text-[11px] font-extrabold uppercase tracking-wide text-slate-500">
               <span>{isVi ? "Khóa học" : "Course"}</span>
               <span>{isVi ? "Ngày & Khung giờ" : "Date & Time"}</span>
-              <span>{isVi ? "Sân tập & Người quét" : "Court & Scanned by"}</span>
+              <span>{isVi ? "Sân tập & Người xác nhận" : "Court & Confirmed by"}</span>
               <span className="text-right">{isVi ? "Trạng thái" : "Status"}</span>
             </div>
             <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
@@ -2307,8 +1252,8 @@ export function MemberCheckinView() {
                     <div className="space-y-1 text-xs">
                       <p className="font-semibold text-slate-800">{row.roomName || t("scheduleRoomTbd")}</p>
                       <p className="text-slate-500">
-                        <span className="font-medium">{isVi ? "Người quét" : "Scanned by"}: </span>
-                        {row.scannerName || (isVi ? "Chưa ghi nhận" : "Not recorded")}
+                        <span className="font-medium">{isVi ? "Người xác nhận" : "Confirmed by"}: </span>
+                        {row.confirmedByName || (isVi ? "Chưa ghi nhận" : "Not recorded")}
                         {row.checkInTimeHhMm && (
                           <span>
                             {" · "}
@@ -2392,81 +1337,6 @@ export function MemberCheckinView() {
       </section>
 
       <AnimatePresence>
-        {/* Modal phóng to mã QR */}
-        {showQrSpotlight && isQrActiveMode && code && secondsLeft > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/60 p-4"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget)
-                setShowQrSpotlight(false)
-            }}
-          >
-            <motion.section
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.16 }}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="qr-spotlight-title"
-              className="relative flex w-full max-w-md flex-col items-center rounded-3xl bg-white p-6 text-center shadow-2xl"
-            >
-              <button
-                type="button"
-                onClick={() => setShowQrSpotlight(false)}
-                aria-label={t("checkinCloseSpotlightAria")}
-                className="min-h-[40px] min-w-[40px] absolute right-3 top-3 inline-flex items-center justify-center rounded-full p-2 text-slate-500 hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-
-              <p
-                id="qr-spotlight-title"
-                className="text-xs font-bold uppercase tracking-wider text-brand-accent-dark"
-              >
-                {t("checkinQrCardTitle")}
-              </p>
-
-              {qrContext.session && (
-                <p className="mt-1 text-xs font-bold text-slate-800">
-                  {qrContext.session.className ||
-                    qrContext.session.subjectName}{" "}
-                  · {qrContext.session.startTime}–{qrContext.session.endTime}
-                </p>
-              )}
-
-              <div className="mt-4 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-                <QRCodeSVG
-                  value={code}
-                  size={
-                    typeof window === "undefined"
-                      ? 260
-                      : Math.min(280, window.innerWidth - 80)
-                  }
-                  level="M"
-                  includeMargin
-                />
-              </div>
-
-              <span className="mt-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                {t("checkinManualCodeLabel")}
-              </span>
-              <p className="font-mono text-3xl font-black tracking-[.28em] text-slate-950">
-                {code}
-              </p>
-              <p className="mt-2 text-xs text-slate-600">
-                {t("checkinNewCodeIn")}{" "}
-                <strong className="tabular-nums text-brand-primary">
-                  {secondsLeft}s
-                </strong>
-              </p>
-            </motion.section>
-          </motion.div>
-        )}
-
         {/* 4.5 Ngăn trượt "Báo thiếu buổi tập" (Mobile rộng toàn màn hình w-full sm:max-w-md) */}
         {showDisputeDrawer && (
           <motion.div

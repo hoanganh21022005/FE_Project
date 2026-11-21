@@ -96,6 +96,49 @@ assert.equal(evaluateNormalClassOpening({ classItem: { ...classItem, openingConf
 assert.equal(evaluateNormalClassOpening({ classItem: { ...classItem, changePending: true }, sessions: [session], enrollments, authorities }).canSubmit, false)
 assert.equal(evaluateNormalClassOpening({ classItem, sessions: [session], enrollments, authorities: [] }).canSubmit, false)
 assert.equal(evaluateNormalClassOpening({ classItem, sessions: null, enrollments, authorities }).eligibilityStatus, 'unverified')
+
+const blockedKnownReason = evaluateNormalClassOpening({
+  classItem: {
+    ...classItem,
+    openingConfirmationAllowed: false,
+    openingConfirmationBlockReason: 'NORMAL_OPENING_TOO_LATE',
+  },
+  sessions: [session],
+  enrollments,
+  authorities,
+  now: new Date('2026-01-01T02:59:00Z'),
+})
+assert.equal(blockedKnownReason.canSubmit, false)
+assert.ok(blockedKnownReason.blockers.length > 0)
+assert.ok(!blockedKnownReason.blockers.some((item) => item.includes('NORMAL_OPENING_TOO_LATE')))
+
+const blockedUnknownReason = evaluateNormalClassOpening({
+  classItem: {
+    ...classItem,
+    openingConfirmationAllowed: false,
+    openingConfirmationBlockReason: 'SOME_NEW_CODE',
+  },
+  sessions: [session],
+  enrollments,
+  authorities,
+  now: new Date('2026-01-01T02:59:00Z'),
+})
+assert.equal(blockedUnknownReason.canSubmit, false)
+assert.ok(blockedUnknownReason.blockers.includes('Thao tác hiện chưa khả dụng. (SOME_NEW_CODE)'))
+
+const blockedEmptyReason = evaluateNormalClassOpening({
+  classItem: {
+    ...classItem,
+    openingConfirmationAllowed: false,
+    openingConfirmationBlockReason: '   ',
+  },
+  sessions: [session],
+  enrollments,
+  authorities,
+  now: new Date('2026-01-01T02:59:00Z'),
+})
+assert.equal(blockedEmptyReason.canSubmit, false)
+assert.ok(blockedEmptyReason.blockers.includes('Không thể xác nhận khai giảng lớp học ở thời điểm hiện tại.'))
 const missingMinimum = evaluateNormalClassOpening({ classItem: { ...classItem, minCapacity: null }, sessions: [session], enrollments, authorities, now: new Date('2026-01-01T02:00:00Z') })
 assert.equal(missingMinimum.minimum, null)
 assert.equal(missingMinimum.eligibilityStatus, 'unverified')

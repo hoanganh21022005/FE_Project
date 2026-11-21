@@ -25,14 +25,14 @@ import {
 const QUICK_TOPICS_VI = [
   { label: "Thanh toán & đối soát hóa đơn VNPay", subject: "Thanh toán & hóa đơn VNPay", prompt: "Hướng dẫn ngắn gọn cách thanh toán và đối soát hóa đơn VNPay tại trung tâm." },
   { label: "Tư vấn khóa Normal & HLV 1:1 Advanced", subject: "Tư vấn khóa học", prompt: "Tư vấn ngắn gọn sự khác nhau và mức học phí giữa lớp Normal và gói HLV 1:1 Advanced." },
-  { label: "Điểm danh mã QR & lịch tập", subject: "Điểm danh và lịch tập", prompt: "Hướng dẫn ngắn gọn cách quét mã QR điểm danh và kiểm tra lịch tập hàng tuần." },
+  { label: "Điểm danh thủ công & lịch tập", subject: "Điểm danh và lịch tập", prompt: "Hướng dẫn cách cung cấp mã hội viên hoặc số điện thoại để huấn luyện viên, lễ tân xác nhận điểm danh và cách kiểm tra lịch tập." },
   { label: "Bảo lưu & gia hạn gói hội viên", subject: "Bảo lưu và gia hạn gói", prompt: "Cho biết ngắn gọn điều kiện và quy trình bảo lưu hoặc gia hạn gói tập." },
 ]
 
 const QUICK_TOPICS_EN = [
   { label: "Payment & VNPay invoice reconciliation", subject: "Payment & VNPay invoice", prompt: "Briefly explain how to pay and reconcile a VNPay invoice at the center." },
   { label: "Normal & 1-on-1 Advanced consultation", subject: "Course consultation", prompt: "Briefly compare Normal and 1-on-1 Advanced, including price and key differences." },
-  { label: "QR check-in & training schedule", subject: "Check-in and schedule", prompt: "Briefly explain QR check-in and how to view my weekly training schedule." },
+  { label: "Manual attendance & training schedule", subject: "Attendance and schedule", prompt: "Explain how to provide my member code or phone number for attendance confirmation and view my weekly training schedule." },
   { label: "Membership freeze & extension", subject: "Membership freeze or extension", prompt: "Briefly explain the eligibility and process for freezing or extending a membership." },
 ]
 
@@ -87,7 +87,9 @@ const formatChatTime = (value, isVi) => {
 export function SupportView() {
   const { t, language, apiEnabled, currentUser, role, showToast } = useSCMS()
   const isVi = language === "vi"
-  const isMember = String(role || currentUser?.role || "").toLowerCase() === "member"
+  const normalizedRole = String(role || currentUser?.role || "").toLowerCase()
+  const isMember = normalizedRole === "member"
+  const isManager = normalizedRole === "manager"
 
   const [conversation, setConversation] = useState(null)
   const [inboxList, setInboxList] = useState([])
@@ -119,7 +121,7 @@ export function SupportView() {
   }, [])
 
   const refreshSupportChat = useCallback(async () => {
-    if (!apiEnabled) {
+    if (!apiEnabled || isManager) {
       setLoading(false)
       return
     }
@@ -647,15 +649,17 @@ export function SupportView() {
                 )}
 
                 {!isClosed ? (
-                  <button
-                    type="button"
-                    disabled={actionBusy}
-                    onClick={handleCloseConversation}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors cursor-pointer"
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                    <span>{isVi ? "Kết thúc" : "Close"}</span>
-                  </button>
+                  isMember && (
+                    <button
+                      type="button"
+                      disabled={actionBusy}
+                      onClick={handleCloseConversation}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors cursor-pointer"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>{isVi ? "Kết thúc" : "Close"}</span>
+                    </button>
+                  )
                 ) : (
                   <>
                     {isMember && (
@@ -692,22 +696,57 @@ export function SupportView() {
                 </span>
               </div>
             ) : !conversation ? (
-              <div className="mx-auto flex h-full max-w-xl flex-col items-center justify-center py-12 text-center">
-                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
-                  <Bot className="h-7 w-7" />
+              isMember ? (
+                <div className="flex flex-col gap-3 py-4">
+                  <div className="flex items-start gap-2.5">
+                    <span className="mt-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+                      <Bot className="h-4 w-4" />
+                    </span>
+                    <div className="flex min-w-0 flex-1 flex-col items-start">
+                      <span className="mb-1 px-1 text-xs font-bold text-slate-600">AVT AI</span>
+                      <div className="max-w-[85%] break-words rounded-2xl rounded-bl-xs border border-slate-200 bg-white px-4 py-3 text-xs leading-relaxed text-slate-800 shadow-2xs">
+                        {isVi
+                          ? "Xin chào! Mình là trợ lý AVT AI. Bạn cần hỗ trợ gì hôm nay?"
+                          : "Hello! I'm the AVT AI assistant. How can I help you today?"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pl-10" data-testid="support-quick-chips">
+                    {quickTopics.map((topic, idx) => {
+                      const TopicIcon = quickTopicIcons[idx]
+                      return (
+                        <button
+                          key={topic.subject}
+                          type="button"
+                          disabled={actionBusy || sending}
+                          onClick={() => handleSendMessage(null, topic)}
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-left text-xs font-semibold text-slate-700 shadow-2xs transition hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-700 disabled:opacity-50"
+                        >
+                          <TopicIcon className="h-3.5 w-3.5 shrink-0 text-blue-600" />
+                          <span className="break-words">{topic.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
-                <h3 className="text-lg font-extrabold tracking-tight text-slate-900">
-                  {isVi ? "Xin chào! Bạn cần hỗ trợ gì hôm nay?" : "Hello! How can we help today?"}
-                </h3>
-                <p className="mt-2 max-w-md text-xs leading-relaxed text-slate-500">
-                  {isVi ? "Chọn một chủ đề hỗ trợ bên phải hoặc nhập câu hỏi vào khung bên dưới để bắt đầu." : "Choose a support topic on the right or type your question below to get started."}
-                </p>
-                <div className="mt-8 grid w-full max-w-2xl grid-cols-1 gap-3 text-left sm:grid-cols-3">
-                  <div className="rounded-xl border border-slate-200 bg-white/80 p-3.5"><CreditCard className="mb-2 h-4 w-4 text-blue-700" /><p className="text-[11px] font-semibold leading-4 text-slate-600">{isVi ? "Tra cứu học phí & gói tập" : "Membership & pricing"}</p></div>
-                  <div className="rounded-xl border border-slate-200 bg-white/80 p-3.5"><BookOpen className="mb-2 h-4 w-4 text-violet-700" /><p className="text-[11px] font-semibold leading-4 text-slate-600">{isVi ? "Đối soát hóa đơn VNPay" : "VNPay invoice support"}</p></div>
-                  <div className="rounded-xl border border-slate-200 bg-white/80 p-3.5"><UserRound className="mb-2 h-4 w-4 text-emerald-700" /><p className="text-[11px] font-semibold leading-4 text-slate-600">{isVi ? "Kết nối Lễ tân 1 chạm" : "One-touch reception support"}</p></div>
+              ) : (
+                <div className="mx-auto flex h-full max-w-xl flex-col items-center justify-center py-12 text-center">
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
+                    <Bot className="h-7 w-7" />
+                  </div>
+                  <h3 className="text-lg font-extrabold tracking-tight text-slate-900">
+                    {isVi ? "Xin chào! Bạn cần hỗ trợ gì hôm nay?" : "Hello! How can we help today?"}
+                  </h3>
+                  <p className="mt-2 max-w-md text-xs leading-relaxed text-slate-500">
+                    {isVi ? "Chọn một chủ đề hỗ trợ bên phải hoặc nhập câu hỏi vào khung bên dưới để bắt đầu." : "Choose a support topic on the right or type your question below to get started."}
+                  </p>
+                  <div className="mt-8 grid w-full max-w-2xl grid-cols-1 gap-3 text-left sm:grid-cols-3">
+                    <div className="rounded-xl border border-slate-200 bg-white/80 p-3.5"><CreditCard className="mb-2 h-4 w-4 text-blue-700" /><p className="text-[11px] font-semibold leading-4 text-slate-600">{isVi ? "Tra cứu học phí & gói tập" : "Membership & pricing"}</p></div>
+                    <div className="rounded-xl border border-slate-200 bg-white/80 p-3.5"><BookOpen className="mb-2 h-4 w-4 text-violet-700" /><p className="text-[11px] font-semibold leading-4 text-slate-600">{isVi ? "Đối soát hóa đơn VNPay" : "VNPay invoice support"}</p></div>
+                    <div className="rounded-xl border border-slate-200 bg-white/80 p-3.5"><UserRound className="mb-2 h-4 w-4 text-emerald-700" /><p className="text-[11px] font-semibold leading-4 text-slate-600">{isVi ? "Kết nối Lễ tân 1 chạm" : "One-touch reception support"}</p></div>
+                  </div>
                 </div>
-              </div>
+              )
             ) : messages.length === 0 ? (
               <div className="text-center py-12 text-xs text-slate-500">
                 {isVi
@@ -733,15 +772,44 @@ export function SupportView() {
                     </div>
                   )
                 }
+                if (isMine) {
+                  return (
+                    <div
+                      key={msg.id || idx}
+                      className="flex flex-col items-end"
+                    >
+                      <div className="flex items-center gap-1.5 mb-1 px-1">
+                        <span className="text-xs text-slate-400">
+                          {formatChatTime(msg.createdAt, isVi)}
+                        </span>
+                      </div>
+                      <div className="max-w-[80%] break-words rounded-2xl rounded-br-xs px-4 py-2.5 text-xs leading-relaxed whitespace-pre-wrap shadow-2xs bg-slate-900 text-white">
+                        {renderFormattedMessage(msg.content)}
+                      </div>
+                    </div>
+                  )
+                }
                 return (
                   <div
                     key={msg.id || idx}
-                    className={`flex flex-col ${
-                      isMine ? "items-end" : "items-start"
-                    }`}
+                    className="flex items-start gap-2.5"
                   >
-                    <div className="flex items-center gap-1.5 mb-1 px-1">
-                      {!isMine && (
+                    <span
+                      data-testid={msg.senderType === "AI" ? "chat-avatar-ai" : "chat-avatar-staff"}
+                      className={`mt-5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                        msg.senderType === "AI"
+                          ? "bg-blue-50 text-blue-600 ring-1 ring-blue-100"
+                          : "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100"
+                      }`}
+                    >
+                      {msg.senderType === "AI" ? (
+                        <Bot className="w-3.5 h-3.5" />
+                      ) : (
+                        <UserRound className="w-3.5 h-3.5" />
+                      )}
+                    </span>
+                    <div className="flex min-w-0 flex-1 flex-col items-start">
+                      <div className="flex items-center gap-1.5 mb-1 px-1">
                         <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-600">
                           {msg.senderType === "AI" ? (
                             <Bot className="w-3 h-3 text-blue-600" />
@@ -753,28 +821,34 @@ export function SupportView() {
                               ? "AVT AI"
                               : "Chuyên viên Hỗ trợ")}
                         </span>
-                      )}
-                      <span className="text-xs text-slate-400">
-                        {formatChatTime(msg.createdAt, isVi)}
-                      </span>
-                    </div>
-                    <div
-                      className={`max-w-[80%] break-words rounded-2xl px-4 py-2.5 text-xs leading-relaxed whitespace-pre-wrap shadow-2xs ${
-                        isMine
-                          ? "bg-slate-900 text-white rounded-br-xs"
-                          : "bg-white border border-slate-200 text-slate-800 rounded-bl-xs"
-                      }`}
-                    >
-                      {renderFormattedMessage(msg.content)}
+                        <span className="text-xs text-slate-400">
+                          {formatChatTime(msg.createdAt, isVi)}
+                        </span>
+                      </div>
+                      <div className="max-w-[80%] break-words rounded-2xl rounded-bl-xs px-4 py-2.5 text-xs leading-relaxed whitespace-pre-wrap shadow-2xs bg-white border border-slate-200 text-slate-800">
+                        {renderFormattedMessage(msg.content)}
+                      </div>
                     </div>
                   </div>
                 )
               })
             )}
             {waitingAI && (
-              <div className="flex items-center gap-2 text-xs text-slate-500" role="status" aria-live="polite">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                {isVi ? "Trợ lý AI đang trả lời..." : "AI assistant is replying..."}
+              <div className="flex items-start gap-2.5" role="status" aria-live="polite">
+                <span className="mt-5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+                  <Bot className="w-3.5 h-3.5" />
+                </span>
+                <div className="flex flex-col items-start">
+                  <span className="mb-1 px-1 text-xs font-bold text-slate-600">AVT AI</span>
+                  <div className="inline-flex items-center gap-1.5 rounded-2xl rounded-bl-xs border border-slate-200 bg-white px-4 py-3 shadow-2xs">
+                    <span className="h-2 w-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="h-2 w-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="h-2 w-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                  <span className="sr-only">
+                    {isVi ? "Trợ lý AI đang trả lời..." : "AI assistant is replying..."}
+                  </span>
+                </div>
               </div>
             )}
             <div ref={messagesEndRef} />

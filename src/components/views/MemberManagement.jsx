@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatDate } from '../../locales/translations';
+import { ROLE_ADMIN } from '../../utils/navigation';
+import { getAdminStatusLabel } from '../admin/adminI18n';
 import { StatusBadge } from '../common/Badge';
 import { AdminPagination } from '../admin/AdminPagination';
 import { NewMemberModal } from '../modals/NewMemberModal';
@@ -23,10 +25,43 @@ export function MemberManagement({ onSelectMemberDetail }) {
     membersError,
     fetchMembers,
     packages,
+    role,
     t,
     language,
     apiEnabled
   } = useSCMS();
+
+  const isAdminView = role === ROLE_ADMIN;
+
+  const getAccountStatusBadge = (member) => {
+    const raw = String(member?.accountStatus || member?.status || 'active')
+      .trim()
+      .toLowerCase();
+    let colorClasses = 'bg-slate-100 text-slate-700 border-slate-300';
+    let label = getAdminStatusLabel(raw, language);
+
+    if (raw === 'active') {
+      colorClasses = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+      label = language === 'vi' ? 'Đang hoạt động' : 'Active';
+    } else if (raw === 'locked') {
+      colorClasses = 'bg-rose-50 text-rose-700 border-rose-200';
+      label = language === 'vi' ? 'Bị khóa' : 'Locked';
+    } else if (raw === 'pending') {
+      colorClasses = 'bg-amber-50 text-amber-800 border-amber-200';
+      label = language === 'vi' ? 'Chờ kích hoạt' : 'Pending activation';
+    } else if (raw === 'inactive') {
+      colorClasses = 'bg-slate-100 text-slate-700 border-slate-300';
+      label = language === 'vi' ? 'Không hoạt động' : 'Inactive';
+    }
+
+    return (
+      <span
+        className={`inline-flex items-center justify-center w-[124px] h-7 px-2 rounded border text-[11px] font-bold whitespace-nowrap shrink-0 text-center ${colorClasses}`}
+      >
+        {label}
+      </span>
+    );
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -260,7 +295,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
                     <span className="block truncate font-semibold text-slate-900" title={m.name || ''}>{m.name || '—'}</span>
                   </td>
                   <td className="px-4 py-4">
-                    <div className="truncate text-slate-800" title={m.email || ''}>{m.email || '—'}</div>
+                    <div className="break-words text-slate-800" title={m.email || ''}>{m.email || '—'}</div>
                     <div className="mt-1 text-xs tabular-nums text-slate-500">{m.phone || '—'}</div>
                   </td>
                   <td className="px-4 py-4">

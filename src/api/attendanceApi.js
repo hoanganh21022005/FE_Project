@@ -48,10 +48,6 @@ export function resolveSessionAttendanceAccess(session, legacyCanCheckIn = false
   }
 }
 
-export const scanAttendance = async (payload) => {
-  return httpClient.post("/api/attendances/scan", payload)
-}
-
 export const matchesSessionAttendance = (result, sessionId, memberId, status) =>
   Number(result?.sessionId) === Number(sessionId) &&
   Number(result?.memberId) === Number(memberId) &&
@@ -149,8 +145,6 @@ export const getSessionById = async (sessionId) => {
 }
 
 export const attendanceApi = {
-  scanAttendance,
-  scanCheckin: scanAttendance,
   recordSessionAttendance,
   manualCheckIn,
   manualCheckOut,

@@ -166,7 +166,7 @@ export default function ManagerAdvancedScheduleView() {
       <div className="mx-auto max-w-7xl p-4 sm:p-6">
         <PageHeading isVi={isVi} />
         <p className="mt-5 rounded-xl border border-dashed border-border-strong bg-bg-card p-8 text-center text-sm leading-5 text-text-secondary">
-          {isVi ? 'Kết nối Backend để xem lịch học Advanced.' : 'Connect to the Backend to view Advanced schedules.'}
+          {isVi ? 'Kết nối máy chủ để xem lịch học Advanced.' : 'Connect to the system to view Advanced schedules.'}
         </p>
       </div>
     )

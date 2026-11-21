@@ -4,8 +4,7 @@ import { createUser, getSpecializations, getUserById, updateUser } from "../../a
 import { useSCMS } from "../../context/SCMSContext.jsx"
 import { getAdminRoleLabel, getAdminStatusLabel, getAdminText } from "./adminI18n.js"
 import { useDialogFocus } from "./useDialogFocus.js"
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+import { validateEmail, validatePhone } from "../../utils/formValidation.js"
 
 const getGenderOptions = (language) => [
   { value: "", label: getAdminText(language, "userForm.genderEmpty") },
@@ -181,11 +180,17 @@ export function UserFormModal({
     selectedRoleObj &&
     ["admin", "role_admin"].includes(String(selectedRoleObj.name || "").toLowerCase().trim())
 
+  const validateField = (name, value) => {
+    if (name === "email") return validateEmail(value, { required: true, language })
+    if (name === "phone") return validatePhone(value, { language })
+    return ""
+  }
+
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
     if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: null }))
+      setErrors((prev) => ({ ...prev, [name]: validateField(name, value) || null }))
     }
     if (name === "roleId") {
       setErrors((prev) => ({ ...prev, centerId: null }))
@@ -209,11 +214,10 @@ export function UserFormModal({
     if (!formData.fullName.trim()) {
       newErrors.fullName = getAdminText(language, "userForm.errNameRequired")
     }
-    if (!formData.email.trim()) {
-      newErrors.email = getAdminText(language, "userForm.errEmailRequired")
-    } else if (!EMAIL_REGEX.test(formData.email.trim())) {
-      newErrors.email = getAdminText(language, "userForm.errEmailInvalid")
-    }
+    const emailError = validateField("email", formData.email)
+    const phoneError = validateField("phone", formData.phone)
+    if (emailError) newErrors.email = emailError
+    if (phoneError) newErrors.phone = phoneError
     if (!isEditMode && !isAdminRole) {
       const rawCenter = String(formData.centerId ?? "").trim()
       const numCenter = Number(rawCenter)
@@ -373,7 +377,7 @@ export function UserFormModal({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form noValidate onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Họ và tên (Bắt buộc) */}
             <div className="space-y-1">
@@ -411,6 +415,7 @@ export function UserFormModal({
                 type="email"
                 value={formData.email}
                 onChange={handleChange}
+                onBlur={(event) => !isEditMode && setErrors((prev) => ({ ...prev, email: validateField("email", event.target.value) || null }))}
                 placeholder="user@example.com"
                 readOnly={isEditMode}
                 disabled={submitting}
@@ -425,7 +430,7 @@ export function UserFormModal({
                 }
                 className={`min-h-11 w-full rounded border px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary ${
                   isEditMode ? "bg-bg-secondary/80 cursor-not-allowed border-border-strong" : "bg-bg-card border-border-strong"
-                } ${errors.email ? "border-status-danger" : ""}`}
+                } ${errors.email ? "border-red-500" : ""}`}
               />
               {isEditMode && (
                 <p id="user-form-email-hint" className="text-xs text-text-muted mt-1 leading-4">
@@ -433,7 +438,7 @@ export function UserFormModal({
                 </p>
               )}
               {errors.email && (
-                <p id="user-form-email-error" className="text-xs text-status-danger">{errors.email}</p>
+                <p id="user-form-email-error" className="text-xs text-red-600">{errors.email}</p>
               )}
             </div>
 
@@ -448,10 +453,14 @@ export function UserFormModal({
                 type="tel"
                 value={formData.phone}
                 onChange={handleChange}
+                onBlur={(event) => setErrors((prev) => ({ ...prev, phone: validateField("phone", event.target.value) || null }))}
                 placeholder="0901234567"
                 disabled={submitting}
-                className="min-h-11 w-full rounded border border-border-strong bg-bg-card px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary"
+                aria-invalid={Boolean(errors.phone)}
+                aria-describedby={errors.phone ? "user-form-phone-error" : undefined}
+                className={`min-h-11 w-full rounded border bg-bg-card px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary ${errors.phone ? "border-red-500" : "border-border-strong"}`}
               />
+              {errors.phone && <p id="user-form-phone-error" className="text-xs text-red-600">{errors.phone}</p>}
             </div>
 
             {/* Giới tính */}
@@ -510,7 +519,7 @@ export function UserFormModal({
                     const label = getAdminRoleLabel(r.name, language)
                     return (
                       <option key={r.id} value={r.id}>
-                        {label !== r.name ? `${label} (${r.name})` : r.name}
+                        {label}
                       </option>
                     )
                   })}

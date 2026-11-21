@@ -482,15 +482,16 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
   // Conflict Checking Hook (Queries existing classes in memory + optional backend API)
   const { conflict, isChecking: isCheckingConflict } = useScheduleConflict({
+    classType: "Normal",
     coachId: selectedCoachObj?.id || coachId,
     coachName: selectedCoachObj?.name,
     roomId: selectedRoomObj?.backendId || selectedRoomObj?.id || roomId,
     roomName: selectedRoomObj?.name || selectedRoomObj?.nameVi,
-    date: startDate,
-    startTime,
-    endTime,
+    date: isOpen ? startDate : "",
+    startTime: isOpen ? startTime : "",
+    endTime: isOpen ? endTime : "",
     selectedDays,
-    apiEnabled,
+    apiEnabled: Boolean(isOpen && apiEnabled),
     existingClasses: classes,
   })
 
@@ -1306,7 +1307,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
                   {apiEnabled && (
                     <p className="mt-2 text-[11px] leading-relaxed text-amber-700">
-                      Preview dự kiến theo mẫu đã chọn; Backend có thể điều chỉnh lịch quanh ngày nghỉ. Lịch thực tế được xác minh sau khi tạo.
+                      Preview dự kiến theo mẫu đã chọn; hệ thống có thể điều chỉnh lịch quanh ngày nghỉ. Lịch thực tế được xác minh sau khi tạo.
                     </p>
                   )}
                   {showSessionList && (

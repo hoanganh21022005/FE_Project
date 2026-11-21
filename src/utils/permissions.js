@@ -47,7 +47,7 @@ export function isSessionCancelled(session) {
 }
 
 /**
- * Check-in / bulk check-in / scan is ONLY allowed when session status is Scheduled
+ * Check-in / bulk check-in is ONLY allowed when session status is Scheduled
  */
 export function canCheckIn(session) {
   return normalizeSessionStatus(session) === 'Scheduled';

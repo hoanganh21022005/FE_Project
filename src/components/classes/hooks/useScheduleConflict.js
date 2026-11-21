@@ -297,8 +297,27 @@ export function checkSingleClassConflict(candidate, existing) {
     String(candidate.id) === String(existing.id)
   )
     return null
-  if (existing.status === "cancelled" || candidate.status === "cancelled")
+  const existStatus = String(existing.apiStatus ?? existing.status ?? "").trim().toLowerCase()
+  const candStatus = String(candidate.apiStatus ?? candidate.status ?? "").trim().toLowerCase()
+  if (["cancelled", "canceled", "closed", "completed"].includes(existStatus) || ["cancelled", "canceled"].includes(candStatus)) {
     return null
+  }
+  const existType = String(existing.classType ?? "").trim().toLowerCase()
+  const candidateType = String(candidate.classType ?? "").trim().toLowerCase()
+  const existingRecurringDays = normalizeWeekdays(
+    existing.selectedDays ?? existing.daysOfWeek ?? existing.weekdays,
+  )
+  // Normal creation validates recurring slots. One-off Advanced sessions and
+  // classes without a recurring weekday pattern do not establish a recurrence.
+  if (candidateType === "normal" && (existType === "advanced" || existingRecurringDays.length === 0)) {
+    return null
+  }
+  if (existType === "advanced" && !hasValidScheduleData(existing)) {
+    const existDaysCheck = normalizeWeekdays(existing.selectedDays)
+    if (!existing.startTime || !existing.endTime || existDaysCheck.length === 0) {
+      return null
+    }
+  }
 
   // Check using actual sessions when both candidate and existing have them
   const candSessions = getClassSessions(candidate)
@@ -378,15 +397,24 @@ export function checkSingleClassConflict(candidate, existing) {
     return null
   }
 
-  // 2. Day of week overlap
   // 2. Time window overlap
-  const cStart = parseTimeToMinutes(candidate.startTime || "06:00")
-  const cEnd = parseTimeToMinutes(candidate.endTime || "07:30")
-  const eStart = parseTimeToMinutes(existing.startTime || "06:00")
-  const eEnd = parseTimeToMinutes(existing.endTime || "07:30")
+  const cStart = parseTimeToMinutes(candidate.startTime)
+  const cEnd = parseTimeToMinutes(candidate.endTime)
+  const eStart = parseTimeToMinutes(existing.startTime)
+  const eEnd = parseTimeToMinutes(existing.endTime)
 
-  if (cStart === null || cEnd === null || eStart === null || eEnd === null) {
+  if (cStart === null || cEnd === null) {
     return null
+  }
+  if (eStart === null || eEnd === null) {
+    return {
+      hasConflict: false,
+      hasMissingSchedule: true,
+      status: "unverified",
+      conflictingClass: existing,
+      message: "Chưa thể xác minh xung đột vì thiếu giờ học của một lớp.",
+      tooltip: "Thiếu dữ liệu giờ học để xác nhận lịch có trùng hay không.",
+    }
   }
 
   // Overlap condition: interval 1 overlaps interval 2
@@ -601,6 +629,7 @@ export function useScheduleConflict({
   startTime,
   endTime,
   selectedDays = [],
+  classType = null,
   excludeClassId = null,
   apiEnabled = false,
   existingClasses = [],
@@ -699,6 +728,7 @@ export function useScheduleConflict({
             startTime,
             endTime,
             selectedDays,
+            classType,
           }
 
           // First: In-memory check against existingClasses

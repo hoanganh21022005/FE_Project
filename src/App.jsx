@@ -23,6 +23,7 @@ import {
 import { canAccessAdminOpsPath } from "./components/admin/adminNav"
 import { ErrorBoundary } from "./components/common/ErrorBoundary"
 import { VnpayCheckoutHost } from "./components/common/VnpayCheckoutHost"
+import { UNAUTHORIZED_EVENT } from "./api/httpClient"
 import {
   ROLE_ADMIN,
   ROLE_MANAGER,
@@ -422,7 +423,10 @@ function AdminManagerWildcardRedirect() {
   const location = useLocation()
   const subPath = location.pathname.replace(/^\/manager\/?/, "")
   const targetPath =
-    subPath && subPath !== "dashboard" && subPath !== "reports"
+    subPath &&
+    subPath !== "dashboard" &&
+    subPath !== "reports" &&
+    !subPath.startsWith("reports/")
       ? `/admin/ops/${subPath}`
       : "/admin/dashboard"
   return <Navigate to={`${targetPath}${location.search}`} replace />
@@ -469,6 +473,14 @@ function SCMSApp() {
   useEffect(() => {
     setMobileSidebarOpen(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      navigate("/login", { replace: true })
+    }
+    window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)
+  }, [navigate])
 
   const handleLoginSuccess = (userOrRole) => {
     const savedIntended =
@@ -530,6 +542,13 @@ function SCMSApp() {
   }
 
   const handleLogout = async () => {
+    const confirmed = typeof window === "undefined" || window.confirm(
+      language === "vi"
+        ? "Bạn có chắc chắn muốn đăng xuất không?"
+        : "Are you sure you want to log out?",
+    )
+    if (!confirmed) return
+
     const adminSession = role === ROLE_ADMIN
     await logout()
     if (typeof window !== "undefined") {
@@ -540,7 +559,7 @@ function SCMSApp() {
     if (adminSession) {
       navigate("/admin/login")
     } else {
-      navigate("/")
+      navigate("/login")
     }
   }
 
@@ -929,14 +948,7 @@ function SCMSApp() {
               />
               <Route
                 path="*"
-                element={
-                  <LoginView
-                    key={location.pathname}
-                    onLoginSuccess={handleLoginSuccess}
-                    onBackToHome={() => navigate("/")}
-                    initialMode="login"
-                  />
-                }
+                element={<Navigate to="/" replace />}
               />
             </Routes>
           </Suspense>
@@ -1089,7 +1101,11 @@ function SCMSApp() {
                   />
                   <Route
                     path="/admin/ops/audit-logs"
-                    element={<AuditLogView />}
+                    element={
+                      <AdminOpsGuard user={currentUser}>
+                        <AuditLogView />
+                      </AdminOpsGuard>
+                    }
                   />
 
                   {/* Nhóm Lễ tân */}
@@ -1796,7 +1812,16 @@ function SCMSApp() {
                   />
                   {/* Common Routes */}
                   <Route path="/settings" element={<SettingsView />} />
-                  <Route path="/support" element={<SupportView />} />
+                  <Route
+                    path="/support"
+                    element={
+                      role === ROLE_MANAGER ? (
+                        <Navigate to="/manager/dashboard" replace />
+                      ) : (
+                        <SupportView />
+                      )
+                    }
+                  />
                   <Route path="/profile" element={<PersonalProfileView />} />
                   <Route
                     path="/403"
@@ -1812,12 +1837,7 @@ function SCMSApp() {
                   {/* Fallback */}
                   <Route
                     path="*"
-                    element={
-                      <Navigate
-                        to={`/${role || "manager"}/dashboard`}
-                        replace
-                      />
-                    }
+                    element={<Navigate to={`/${role || "manager"}/dashboard`} replace />}
                   />
                 </Routes>
               </Suspense>

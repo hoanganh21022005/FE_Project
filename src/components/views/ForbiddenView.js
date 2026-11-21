@@ -1,5 +1,8 @@
 import React from "react";
 import { ShieldAlert, ArrowLeft, RefreshCw } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useSCMS } from "../../context/SCMSContext";
+import { getDefaultDashboard } from "../../utils/navigation";
 
 export function ForbiddenView({
   currentRole = "",
@@ -9,6 +12,13 @@ export function ForbiddenView({
   message = "",
   onGoHome = null,
 }) {
+  const navigate = useNavigate();
+  const { language } = useSCMS();
+  const isEnglish = language === "en";
+  const handleGoHome = () => {
+    if (onGoHome) return onGoHome();
+    navigate(getDefaultDashboard(currentRole) || "/");
+  };
   const rolesNeeded =
     allowedRoles.length > 0 ? allowedRoles.join(", ") : requiredRole;
 
@@ -36,20 +46,22 @@ export function ForbiddenView({
           className:
             "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100/60 text-amber-800 mb-3",
         },
-        React.createElement("span", null, "Giới hạn quyền"),
+        React.createElement("span", null, isEnglish ? "Access limited" : "Giới hạn quyền"),
         React.createElement("span", null, "•"),
-        React.createElement("span", null, "Truy cập bị từ chối"),
+        React.createElement("span", null, isEnglish ? "Forbidden" : "Truy cập bị từ chối"),
       ),
       React.createElement(
         "h1",
         { className: "text-2xl font-bold text-slate-900 tracking-tight mb-2" },
-        "Không có quyền truy cập",
+        isEnglish ? "Access denied" : "Không có quyền truy cập",
       ),
       React.createElement(
         "p",
         { className: "text-sm text-slate-600 mb-6 leading-relaxed" },
         message ||
-          "Tài khoản của bạn không có đủ thẩm quyền để xem trang hoặc thực hiện hành động này. Phiên đăng nhập của bạn vẫn được giữ nguyên an toàn.",
+          (isEnglish
+            ? "Your account does not have permission to view this page or complete this action. Your session is still active."
+            : "Tài khoản của bạn không có đủ thẩm quyền để xem trang hoặc thực hiện hành động này. Phiên đăng nhập của bạn vẫn được giữ nguyên an toàn."),
       ),
       (attemptedPath || rolesNeeded || currentRole) &&
         React.createElement(
@@ -65,7 +77,7 @@ export function ForbiddenView({
               React.createElement(
                 "span",
                 { className: "font-semibold text-slate-700" },
-                "Đường dẫn yêu cầu: ",
+                isEnglish ? "Requested path: " : "Đường dẫn yêu cầu: ",
               ),
               React.createElement(
                 "code",
@@ -83,7 +95,7 @@ export function ForbiddenView({
               React.createElement(
                 "span",
                 { className: "font-semibold text-slate-700" },
-                "Vai trò yêu cầu: ",
+                isEnglish ? "Required role: " : "Vai trò yêu cầu: ",
               ),
               React.createElement(
                 "span",
@@ -98,7 +110,7 @@ export function ForbiddenView({
               React.createElement(
                 "span",
                 { className: "font-semibold text-slate-700" },
-                "Vai trò hiện tại: ",
+                isEnglish ? "Current role: " : "Vai trò hiện tại: ",
               ),
               React.createElement(
                 "span",
@@ -113,18 +125,17 @@ export function ForbiddenView({
           className:
             "flex flex-col sm:flex-row items-center justify-center gap-3",
         },
-        onGoHome &&
-          React.createElement(
+        React.createElement(
             "button",
             {
               id: "forbidden-go-home",
               type: "button",
-              onClick: onGoHome,
+              onClick: handleGoHome,
               className:
                 "w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-primary hover:bg-brand-primary-hover text-white font-medium text-sm transition-colors shadow-xs",
             },
             React.createElement(ArrowLeft, { className: "w-4 h-4" }),
-            React.createElement("span", null, "Về Bảng điều khiển của bạn"),
+            React.createElement("span", null, isEnglish ? "Back to Home / Dashboard" : "Về Trang chủ / Bảng điều khiển"),
           ),
         React.createElement(
           "button",
@@ -136,7 +147,7 @@ export function ForbiddenView({
               "w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium text-sm transition-colors",
           },
           React.createElement(RefreshCw, { className: "w-4 h-4" }),
-          React.createElement("span", null, "Tải lại"),
+          React.createElement("span", null, isEnglish ? "Reload" : "Tải lại"),
         ),
       ),
     ),

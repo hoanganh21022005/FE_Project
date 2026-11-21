@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { AlertCircle, UserPlus, X } from 'lucide-react';
+import { validateEmail, validatePhone } from '../../utils/formValidation';
 
 const EMPTY_FORM = {
   name: '',
@@ -27,10 +28,25 @@ export function NewMemberModal({ isOpen, onClose, onCreated }) {
 
   if (!isOpen) return null;
 
+  const validateField = (field, value) => {
+    if (field === 'email') {
+      const emailError = validateEmail(value, { required: true, language });
+      if (emailError) return emailError;
+      if (!apiEnabled && members.some(member => (member.email || '').toLowerCase() === value.trim().toLowerCase())) {
+        return language === 'vi' ? 'Email này đã được sử dụng.' : 'This email is already in use.';
+      }
+    }
+    if (field === 'phone') return validatePhone(value, { language });
+    if (field === 'dateOfBirth' && value && value > new Date().toISOString().slice(0, 10)) {
+      return language === 'vi' ? 'Ngày sinh không thể ở tương lai.' : 'Birth date cannot be in the future.';
+    }
+    return '';
+  };
+
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+      setErrors(prev => ({ ...prev, [field]: validateField(field, value) || undefined }));
     }
     if (submitError) setSubmitError(null);
   };
@@ -46,17 +62,10 @@ export function NewMemberModal({ isOpen, onClose, onCreated }) {
       nextErrors.name = language === 'vi' ? 'Vui lòng nhập họ và tên.' : 'Full name is required.';
     }
 
-    if (!email) {
-      nextErrors.email = language === 'vi' ? 'Vui lòng nhập email.' : 'Email is required.';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      nextErrors.email = language === 'vi' ? 'Email chưa đúng định dạng.' : 'Invalid email format.';
-    } else if (!apiEnabled && members.some(member => (member.email || '').toLowerCase() === email.toLowerCase())) {
-      nextErrors.email = language === 'vi' ? 'Email này đã được sử dụng.' : 'This email is already in use.';
-    }
-
-    if (phone && !/^(0|\+84)[0-9]{8,10}$/.test(phone)) {
-      nextErrors.phone = language === 'vi' ? 'Số điện thoại chưa hợp lệ.' : 'Invalid phone number.';
-    }
+    const emailError = validateField('email', email);
+    const phoneError = validateField('phone', phone);
+    if (emailError) nextErrors.email = emailError;
+    if (phoneError) nextErrors.phone = phoneError;
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -110,7 +119,7 @@ export function NewMemberModal({ isOpen, onClose, onCreated }) {
   const fieldClass = error =>
     `w-full h-9 bg-stone-50 border rounded px-3 text-xs text-brand-dark placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-1 ${
       error
-        ? 'border-rose-500 focus:border-rose-600 focus:ring-rose-200'
+        ? 'border-red-500 focus:border-red-500 focus:ring-red-200'
         : 'border-slate-300 focus:border-brand-primary focus:ring-brand-primary'
     }`;
 
@@ -154,7 +163,7 @@ export function NewMemberModal({ isOpen, onClose, onCreated }) {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
+        <form noValidate onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
           <div className="space-y-3">
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
@@ -185,6 +194,7 @@ export function NewMemberModal({ isOpen, onClose, onCreated }) {
                   type="email"
                   value={formData.email}
                   onChange={e => updateField('email', e.target.value)}
+                  onBlur={e => setErrors(prev => ({ ...prev, email: validateField('email', e.target.value) || undefined }))}
                   placeholder="member@gmail.com"
                   className={fieldClass(errors.email)}
                 />
@@ -204,6 +214,7 @@ export function NewMemberModal({ isOpen, onClose, onCreated }) {
                   type="tel"
                   value={formData.phone}
                   onChange={e => updateField('phone', e.target.value)}
+                  onBlur={e => setErrors(prev => ({ ...prev, phone: validateField('phone', e.target.value) || undefined }))}
                   placeholder="0988123456"
                   className={fieldClass(errors.phone)}
                 />

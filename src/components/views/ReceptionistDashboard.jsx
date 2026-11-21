@@ -9,7 +9,7 @@ import {
   UserPlus,
   CreditCard,
   Activity,
-  QrCode,
+  ClipboardCheck,
   Calendar,
   RefreshCw,
 } from "lucide-react"
@@ -106,9 +106,9 @@ export function ReceptionistDashboard() {
             onClick={() => navigate("/receptionist/checkin")}
             className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-active cursor-pointer shadow-sm"
           >
-            <QrCode className="w-4 h-4" />
+            <ClipboardCheck className="w-4 h-4" />
             <span>
-              {language === "vi" ? "Điểm Danh & Check-in" : "Check-in Desk"}
+              {language === "vi" ? "Lịch sử điểm danh" : "Attendance history"}
             </span>
           </button>
 
@@ -130,14 +130,14 @@ export function ReceptionistDashboard() {
           className="text-left rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm hover:bg-slate-50/70 hover:border-brand-primary/40 transition-colors cursor-pointer flex items-start gap-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
         >
           <div className="p-2.5 bg-brand-blue-soft text-brand-primary rounded-xl shrink-0">
-            <QrCode className="w-4 h-4" />
+            <ClipboardCheck className="w-4 h-4" />
           </div>
           <div>
             <div className="text-sm font-semibold text-slate-900">
-              Điểm danh &amp; Check-in
+              Lịch sử điểm danh
             </div>
             <p className="text-xs leading-relaxed text-slate-500 mt-1">
-              Quét mã QR cổng vào, Check-in / Check-out thủ công và xem lịch sử
+              Theo dõi lịch sử điểm danh tại quầy
               điểm danh
             </p>
           </div>
@@ -301,7 +301,7 @@ export function ReceptionistDashboard() {
       </div>
 
       {/* Recent Attendances Snapshot */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
+      <div aria-busy={apiEnabled && loadingAttendances} className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 text-slate-900 shadow-sm space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <h3 className="text-base font-semibold text-slate-800">
             Lượt Điểm Danh &amp; Check-in Gần Nhất
@@ -313,14 +313,15 @@ export function ReceptionistDashboard() {
                 type="button"
                 onClick={loadAttendances}
                 disabled={loadingAttendances}
-                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                aria-label={language === "vi" ? "Làm mới lượt điểm danh" : "Refresh recent check-ins"}
+                title={language === "vi" ? "Làm mới lượt điểm danh" : "Refresh recent check-ins"}
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-wait disabled:opacity-50"
               >
                 <RefreshCw
                   className={`w-3.5 h-3.5 ${
                     loadingAttendances ? "animate-spin" : ""
                   }`}
                 />
-                <span>Làm mới</span>
               </button>
             )}
             <button
@@ -369,18 +370,18 @@ export function ReceptionistDashboard() {
                 key={att.attendanceId || `${att.memberId}-${att.checkInTime}`}
                 className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs"
               >
-                <div>
-                  <div className="font-semibold text-slate-900">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-semibold text-slate-900" title={att.memberName || `Hội viên #${att.memberId}`}>
                     {att.memberName || `Hội viên #${att.memberId}`}
                   </div>
-                  <div className="text-xs text-slate-500 tabular-nums mt-0.5">
+                  <div className="truncate text-xs text-slate-500 tabular-nums mt-0.5">
                     {att.className || "Check-in Cổng"} &bull;{" "}
                     {att.checkInTime
                       ? String(att.checkInTime).slice(0, 16).replace("T", " ")
                       : "Hôm nay"}
                   </div>
                 </div>
-                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                   {att.state || "Present"}
                 </span>
               </div>

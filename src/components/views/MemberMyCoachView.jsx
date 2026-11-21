@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { formatAdvancedStatus } from "../../utils/status"
 import {
   UserCheck,
   Mail,
@@ -74,7 +75,7 @@ export function MemberMyCoachView() {
   )
 
   // Navigation tab: 'coaches' | 'my_sessions' | 'advanced_pt'
-  const [activeTab, setActiveTab] = useState("coaches")
+  const [activeTab, setActiveTab] = useState("my_sessions")
 
   // Advanced PT Registration & Coach Work Schedule state
   const [advancedRegistrations, setAdvancedRegistrations] = useState([])
@@ -267,7 +268,7 @@ export function MemberMyCoachView() {
     try {
       const response = await memberPortalApi.respondToPrivateSessionProposal(proposal.id, false)
       if (String(response?.status || "").toLowerCase() !== "rejected" || response?.sessionId != null) {
-        throw new Error(isVi ? "Backend chưa xác nhận trạng thái Từ chối." : "The server did not confirm the Rejected state.")
+        throw new Error(isVi ? "Hệ thống chưa xác nhận trạng thái Từ chối." : "The server did not confirm the Rejected state.")
       }
       setPrivateSessionProposals((current) => current.map((item) =>
         String(item.id) === String(response.id) ? response : item,
@@ -347,7 +348,7 @@ export function MemberMyCoachView() {
         || String(acceptedResponse.session.id) !== String(acceptedSessionId)
         || String(acceptedResponse.session.status || "").toLowerCase() !== "scheduled"
       ) {
-        throw new Error(isVi ? "Backend chưa xác nhận buổi tập đã lên lịch." : "The server did not confirm a Scheduled session.")
+        throw new Error(isVi ? "Hệ thống chưa xác nhận buổi tập đã lên lịch." : "The server did not confirm a Scheduled session.")
       }
       setPrivateSessionProposals((current) => current.map((item) =>
         String(item.id) === String(acceptedResponse.id) ? acceptedResponse : item,
@@ -370,7 +371,7 @@ export function MemberMyCoachView() {
         || !confirmedSubscription
         || confirmedSubscription.remainingCredit == null
       ) {
-        throw new Error(isVi ? "Chưa thể xác minh đầy đủ lịch và số credit mới từ Backend." : "The updated schedule and subscription credits could not be fully verified.")
+        throw new Error(isVi ? "Chưa thể xác minh đầy đủ lịch và số credit mới từ hệ thống." : "The updated schedule and subscription credits could not be fully verified.")
       }
 
       const successMessage = isVi ? "Đã xác nhận lịch tập thành công" : "Schedule confirmed successfully."
@@ -743,21 +744,10 @@ export function MemberMyCoachView() {
     <div className="w-full space-y-6 font-sans antialiased">
       {/* Header */}
       <PageHeader
-        title={isVi ? "Huấn Luyện Viên & Đặt Lịch 1:1" : "Personal Coaches & 1-on-1 Sessions"}
-        description={isVi ? "Xem danh sách HLV, khung giờ trống và đặt lịch tập riêng 1:1." : "Browse coaches, view available slots, and book private 1-on-1 sessions."}
+        title={isVi ? "Lịch tập 1-1 & Đề xuất ca học" : "1-on-1 Schedule & Session Proposals"}
+        description={isVi ? "Theo dõi lịch tập riêng 1:1 và phản hồi các đề xuất ca học từ huấn luyện viên." : "Manage your 1-on-1 schedule and respond to session proposals from your coach."}
         actions={
           <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 p-1">
-            <button
-              type="button"
-              onClick={() => setActiveTab("coaches")}
-              className={`px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                activeTab === "coaches"
-                  ? "bg-white text-slate-900 shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              {isVi ? "Danh bạ Huấn luyện viên" : "Coach directory"} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">{coaches.length}</span>
-            </button>
             <button
               type="button"
               onClick={() => setActiveTab("my_sessions")}
@@ -768,6 +758,17 @@ export function MemberMyCoachView() {
               }`}
             >
               {isVi ? "Lịch 1:1 & đề xuất" : "1:1 schedule & proposals"} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">{upcomingPrivateSessions + privateSessionProposals.filter((proposal) => String(proposal.status || "").toLowerCase() === "pending" && proposal.sessionId == null).length}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("coaches")}
+              className={`px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                activeTab === "coaches"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              {isVi ? "Danh bạ Huấn luyện viên" : "Coach directory"} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5">{coaches.length}</span>
             </button>
             <button
               type="button"
@@ -990,10 +991,10 @@ export function MemberMyCoachView() {
                     </div>
                     <p className="mt-2 text-xs text-slate-600">{isVi ? "Hạn phản hồi: " : "Respond by: "}{formatProposalDeadline(proposal.respondBy, isVi)}</p>
                   </div>
-                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-extrabold uppercase text-amber-800">{proposal.status}</span>
+                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-extrabold uppercase text-amber-800">{formatAdvancedStatus(proposal.status, isVi)}</span>
                 </div>
                 <div className="mt-4 flex flex-wrap justify-end gap-2">
-                  <button type="button" disabled={rejectingProposalId != null || acceptingProposalId != null} onClick={() => handleAcceptProposal(proposal)} className="min-h-10 rounded-lg bg-emerald-700 px-4 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60">{acceptingProposalId != null && String(acceptingProposalId) === String(proposal.id) ? (isVi ? "Đang xác nhận..." : "Confirming...") : (isVi ? "Đồng ý" : "Accept")}</button>
+                  <button type="button" disabled={rejectingProposalId != null || acceptingProposalId != null} onClick={() => handleAcceptProposal(proposal)} className="min-h-10 rounded-lg bg-emerald-700 px-4 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60">{acceptingProposalId != null && String(acceptingProposalId) === String(proposal.id) ? (isVi ? "Đang xác nhận..." : "Confirming...") : (isVi ? "Chấp nhận" : "Accept")}</button>
                   <button type="button" disabled={rejectingProposalId != null || acceptingProposalId != null} onClick={() => handleRejectProposal(proposal)} className="min-h-10 rounded-lg border border-rose-300 bg-white px-4 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60">{rejectingProposalId != null && String(rejectingProposalId) === String(proposal.id) ? (isVi ? "Đang gửi..." : "Sending...") : (isVi ? "Từ chối" : "Reject")}</button>
                 </div>
               </article>
@@ -1004,7 +1005,7 @@ export function MemberMyCoachView() {
             <h3 id="closed-proposals-title" className="text-sm font-extrabold text-slate-900">{isVi ? "Đề xuất đã phản hồi" : "Responded proposals"}</h3>
             {closedSessionProposals.map((proposal) => <div key={proposal.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
               <span className="font-semibold text-slate-700">{proposal.sessionDate} · {String(proposal.startTime || "").slice(0, 5)}–{String(proposal.endTime || "").slice(0, 5)}</span>
-              <span className="font-bold text-slate-600">{proposal.status}</span>
+              <span className="font-bold text-slate-600">{formatAdvancedStatus(proposal.status, isVi)}</span>
             </div>)}
           </section>}
 
@@ -1059,7 +1060,7 @@ export function MemberMyCoachView() {
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700">
                         {["cancelled", "canceled"].includes(String(s.status || "").trim().toLowerCase())
                           ? (isCancelledWithRefund(s) ? t("sessionCancelledRefundedBadge") : t("sessionCancelledBadge"))
-                          : (s.status || "Scheduled")}
+                          : formatAdvancedStatus(s.status || "Scheduled", isVi)}
                       </span>
                     </div>
 
@@ -1212,7 +1213,7 @@ export function MemberMyCoachView() {
                                 : "bg-amber-50 text-amber-800 border border-amber-200"
                           }`}
                         >
-                          {reg.status || "Pending"}
+                          {formatAdvancedStatus(reg.status || "Pending", isVi)}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
@@ -1231,7 +1232,7 @@ export function MemberMyCoachView() {
                           )}
                         {reg.subscriptionStatus && (
                           <span>
-                            Gói: <strong>{reg.subscriptionStatus}</strong>
+                            Gói: <strong>{formatAdvancedStatus(reg.subscriptionStatus, isVi)}</strong>
                           </span>
                         )}
                         {(reg.reason || reg.note) && (
@@ -1410,7 +1411,7 @@ export function MemberMyCoachView() {
                 <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200 grid grid-cols-3 gap-2 text-center text-xs">
                   <div>
                     <div className="text-[10px] text-slate-500 uppercase font-bold">
-                      {isVi ? "Slot trống" : "Available"}
+                      {isVi ? "Còn nhận thêm" : "Available slots"}
                     </div>
                     <div className="text-base font-extrabold text-blue-900 font-mono">
                       {coachCapacity.availableSlots ?? "—"}
@@ -1418,7 +1419,7 @@ export function MemberMyCoachView() {
                   </div>
                   <div>
                     <div className="text-[10px] text-slate-500 uppercase font-bold">
-                      {isVi ? "Đang dạy (Credits)" : "Outstanding"}
+                      {isVi ? "Buổi đang dạy" : "Active sessions"}
                     </div>
                     <div className="text-base font-extrabold text-slate-900 font-mono">
                       {coachCapacity.outstandingCredits ?? "—"}
@@ -1426,7 +1427,7 @@ export function MemberMyCoachView() {
                   </div>
                   <div>
                     <div className="text-[10px] text-slate-500 uppercase font-bold">
-                      {isVi ? "Đang chờ duyệt" : "Requested"}
+                      {isVi ? "Chờ HLV duyệt" : "Pending requests"}
                     </div>
                     <div className="text-base font-extrabold text-amber-800 font-mono">
                       {coachCapacity.requestedCredits ?? "—"}

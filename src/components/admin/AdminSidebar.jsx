@@ -127,72 +127,73 @@ export function AdminSidebar({
       )}
       <aside
         className={`fixed inset-y-0 left-0 z-40 border-r border-brand-dark-hover bg-bg-sidebar text-text-inverse transition-[transform,width] duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 shrink-0 ${
-          collapsed ? "w-64 lg:w-16" : "w-64"
+          collapsed ? "w-[288px] lg:w-16" : "w-[288px]"
         } ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="h-full flex flex-col justify-between">
           <div className="flex-1 flex flex-col min-h-0">
             <div
-              className={`h-[76px] flex items-center border-b border-brand-dark-hover shrink-0 ${
-                collapsed ? "px-3 lg:px-0 lg:justify-center" : "px-3 justify-between"
-              }`}
+              className={`${collapsed && !isOpen ? "h-[56px] px-2" : "h-[76px] px-3.5"} border-b border-brand-dark-hover flex items-center justify-between shrink-0`}
             >
               <button
                 type="button"
                 onClick={() => select("admin_dashboard")}
                 title="AVT Sport System"
                 aria-label={`AVT Sport System - ${getAdminText(language, "dash.title")}`}
-                className={`flex min-h-[44px] items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded cursor-pointer min-w-0 ${
-                  collapsed ? "lg:hidden" : "flex-1 pr-3"
-                }`}
+                className="flex items-center gap-2.5 min-w-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent rounded cursor-pointer"
               >
                 <img
                   src="/images/MainPage/avt-sport-logo.png?v=6"
                   alt="AVT Sport"
-                  className="h-16 w-auto object-contain shrink-0 sm:h-[72px]"
+                  className={`object-contain flex-shrink-0 ${
+                    collapsed && !isOpen ? "w-10 h-8" : "h-16 w-auto sm:h-[72px]"
+                  }`}
                 />
-                <div className="min-w-0">
-                  <p className="text-[11px] leading-4 font-bold uppercase tracking-tight text-text-inverse whitespace-nowrap">
-                    AVT Sport System
-                  </p>
-                  <p className="text-[11px] leading-3.5 font-semibold uppercase tracking-wider text-text-inverse/70 whitespace-nowrap">
-                    Sports Center
-                  </p>
-                </div>
+                {(!collapsed || isOpen) && (
+                  <div className="truncate">
+                    <div className="text-xs font-bold tracking-tight text-white uppercase leading-tight truncate">
+                      AVT Sport SYSTEM
+                    </div>
+                    <div className="text-[9px] text-slate-300 font-bold tracking-wider uppercase leading-tight truncate">
+                      SPORTS CENTER
+                    </div>
+                  </div>
+                )}
               </button>
 
-              <button
-                type="button"
-                onClick={toggleCollapsed}
-                aria-label={
-                  collapsed
-                    ? getAdminText(language, "shell.expandSidebar")
-                    : getAdminText(language, "shell.collapseSidebar")
-                }
-                aria-expanded={!collapsed}
-                title={
-                  collapsed
-                    ? getAdminText(language, "shell.expandSidebar")
-                    : getAdminText(language, "shell.collapseSidebar")
-                }
-                className="hidden lg:inline-flex w-11 h-11 shrink-0 items-center justify-center rounded text-text-inverse focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent cursor-pointer"
-              >
-                <span className="w-7 h-7 rounded-md border border-white/15 bg-brand-dark-hover flex items-center justify-center">
-                  {collapsed ? (
+              <div className="hidden lg:flex items-center">
+                {!collapsed ? (
+                  <button
+                    type="button"
+                    onClick={toggleCollapsed}
+                    aria-label={getAdminText(language, "shell.collapseSidebar")}
+                    aria-expanded={true}
+                    title={getAdminText(language, "shell.collapseSidebar")}
+                    className="w-7 h-7 rounded-md bg-brand-dark-hover hover:bg-brand-primary-active text-white transition-colors border border-white/10 flex items-center justify-center flex-shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={toggleCollapsed}
+                    aria-label={getAdminText(language, "shell.expandSidebar")}
+                    aria-expanded={false}
+                    title={getAdminText(language, "shell.expandSidebar")}
+                    className="w-6 h-6 rounded-md bg-brand-dark-hover hover:bg-brand-primary-active text-white transition-colors border border-white/10 flex items-center justify-center flex-shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+                  >
                     <ChevronRight className="w-3.5 h-3.5" />
-                  ) : (
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  )}
-                </span>
-              </button>
+                  </button>
+                )}
+              </div>
 
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex w-11 h-11 shrink-0 items-center justify-center rounded text-text-inverse transition-colors hover:bg-brand-dark-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary lg:hidden cursor-pointer"
+                className="lg:hidden w-7 h-7 rounded-md bg-brand-dark-hover hover:bg-brand-primary-active text-white transition-colors border border-white/10 flex items-center justify-center flex-shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                 aria-label={getAdminText(language, "shell.closeMenu")}
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 

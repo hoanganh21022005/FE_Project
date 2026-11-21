@@ -56,6 +56,7 @@ export const ADMIN_ROLE_SHORT_LABELS = {
 
 export const ADMIN_PERMISSION_LABELS = {
   vi: {
+    ROLE_ADMIN: "Vai trò Quản trị viên hệ thống",
     MANAGE_USERS: "Quản lý người dùng",
     MANAGE_RBAC: "Quản lý vai trò & quyền",
     MANAGE_PERMISSIONS: "Quản trị phân quyền",
@@ -88,6 +89,7 @@ export const ADMIN_PERMISSION_LABELS = {
     VIEW_REPORTS: "Xem báo cáo thống kê",
   },
   en: {
+    ROLE_ADMIN: "System Administrator role",
     MANAGE_USERS: "Manage users",
     MANAGE_RBAC: "Manage roles & permissions",
     MANAGE_PERMISSIONS: "Manage permissions",
@@ -191,12 +193,14 @@ export const ADMIN_STATUS_LABELS = {
     active: "Hoạt động",
     inactive: "Không hoạt động",
     locked: "Đã khóa",
+    pending: "Chờ kích hoạt",
     unknown: "Không rõ",
   },
   en: {
     active: "Active",
     inactive: "Inactive",
     locked: "Locked",
+    pending: "Pending activation",
     unknown: "Unknown",
   },
 }
@@ -421,7 +425,7 @@ const ADMIN_TEXT = {
     "roleDialog.warnAdmin": "Bạn đang thay đổi vai trò của tài khoản Quản trị viên hệ thống (Admin). Hành động này có thể thu hồi quyền quản trị của tài khoản này.",
     "roleDialog.selectLabel": "Chọn vai trò mới:",
     "roleDialog.selectPlaceholder": "-- Chọn vai trò --",
-    "roleDialog.note": "Lưu ý từ hệ thống: Khi đổi vai trò, Backend sẽ khởi tạo bản ghi phụ tương ứng nếu chưa có và không tự xóa các dữ liệu liên kết cũ.",
+    "roleDialog.note": "Lưu ý từ hệ thống: Khi đổi vai trò, hệ thống sẽ khởi tạo bản ghi phụ tương ứng nếu chưa có và không tự xóa các dữ liệu liên kết cũ.",
     "roleDialog.submit": "Lưu vai trò",
     "roleDialog.errUpdate": "Không thể cập nhật vai trò người dùng.",
 
@@ -436,7 +440,7 @@ const ADMIN_TEXT = {
     "reissueDialog.bulletForceChange": "• Người dùng bắt buộc phải đổi mật khẩu ở lần đăng nhập tiếp theo.",
     "reissueDialog.closeDone": "Đã hiểu và đóng",
     "reissueDialog.processTitle": "Quy trình cấp lại mật khẩu tạm từ máy chủ:",
-    "reissueDialog.step1": "Hệ thống Backend sẽ tự sinh mật khẩu ngẫu nhiên và gửi trực tiếp qua email của người dùng, không hiển thị trên giao diện này.",
+    "reissueDialog.step1": "Hệ thống sẽ tự sinh mật khẩu ngẫu nhiên và gửi trực tiếp qua email của người dùng, không hiển thị trên giao diện này.",
     "reissueDialog.step2": "Hệ thống sẽ đăng xuất toàn bộ các phiên làm việc hiện tại của tài khoản này trên tất cả các thiết bị.",
     "reissueDialog.step3": "Người dùng sẽ bắt buộc phải đổi mật khẩu mới ngay sau khi đăng nhập thành công bằng mật khẩu tạm.",
     "reissueDialog.confirmQuestion": "Bạn có chắc chắn muốn thực hiện cấp lại mật khẩu cho tài khoản {name} không?",
@@ -973,7 +977,8 @@ export function getAdminAuditActionLabel(action, language = "vi") {
 
 export function getAdminStatusLabel(status, language = "vi") {
   const lang = normalizeAdminLanguage(language)
-  return ADMIN_STATUS_LABELS[lang]?.[status] || status || ADMIN_STATUS_LABELS[lang].unknown
+  const key = String(status || "").trim().toLowerCase()
+  return ADMIN_STATUS_LABELS[lang]?.[key] || ADMIN_STATUS_LABELS[lang]?.[status] || ADMIN_STATUS_LABELS[lang].unknown
 }
 
 export function formatAdminNumber(value, language = "vi") {

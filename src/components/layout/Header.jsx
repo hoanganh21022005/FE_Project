@@ -407,6 +407,7 @@ export function Header({ currentTitle, onLogout, onOpenMobileMenu }) {
                   <img
                     src={headerAvatar}
                     alt="Avatar"
+                    onError={() => setHeaderAvatar(null)}
                     className="w-full h-full object-cover"
                   />
                 ) : (

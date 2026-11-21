@@ -118,9 +118,11 @@ export function isRoomForSubject(room, regItem) {
     },
   ]
 
+  let matchedKnownSport = false
   for (const item of SPORT_DICTIONARY) {
     const isTargetSport = item.keys.some((k) => targetSubjectName.includes(k))
     if (isTargetSport) {
+      matchedKnownSport = true
       const hasTerm = item.roomTerms.some((t) => roomCombined.includes(t))
       const hasCode = item.codes.some((c) => roomCode.includes(c))
       if (hasTerm || hasCode) {
@@ -128,14 +130,16 @@ export function isRoomForSubject(room, regItem) {
       }
     }
   }
+  if (matchedKnownSport) return false
 
-  // 4. Token-level matching (e.g., "Tennis", "Quần vợt")
+  // 4. Token-level matching for unlisted subjects, ignoring generic Vietnamese words
+  const GENERIC_TOKENS = new Set(["bóng", "sân", "phòng", "môn", "tập", "học", "lớp"])
   if (targetSubjectName) {
     const tokens = targetSubjectName
       .replace(/[()[\]{}_-]/g, " ")
       .split(/\s+/)
       .map((t) => t.trim())
-      .filter((t) => t.length >= 3)
+      .filter((t) => t.length >= 3 && !GENERIC_TOKENS.has(t))
     if (tokens.some((token) => roomCombined.includes(token))) {
       return true
     }

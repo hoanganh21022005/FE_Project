@@ -81,6 +81,7 @@ export function AdminUsersView() {
   const initialRoleParam = searchParams.get("role")
 
   const [query, setQuery] = useState("")
+  const [debouncedQuery, setDebouncedQuery] = useState("")
   const [roleFilter, setRoleFilter] = useState(initialRoleParam || "all")
   const [statusFilter, setStatusFilter] = useState(
     VALID_STATUS_FILTERS.has(initialStatusParam) ? initialStatusParam : "all",
@@ -115,6 +116,11 @@ export function AdminUsersView() {
   const closeBtnRef = useRef(null)
   const lastTriggerRef = useRef(null)
   const roleFilterSeqRef = useRef(0)
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedQuery(query), 300)
+    return () => window.clearTimeout(timeout)
+  }, [query])
 
   const isSmallScreen = () =>
     typeof window !== "undefined" &&
@@ -379,7 +385,7 @@ export function AdminUsersView() {
   const baseUsers = serverUsers !== null ? serverUsers : (resources.users.data || [])
 
   const filteredUsers = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase()
+    const normalizedQuery = debouncedQuery.trim().toLowerCase()
     const filtered = baseUsers.filter((user) => {
       const matchesQuery =
         !normalizedQuery ||
@@ -407,7 +413,7 @@ export function AdminUsersView() {
       })
     }
     return sorted
-  }, [baseUsers, language, query, statusFilter, sortOrder])
+  }, [baseUsers, language, debouncedQuery, statusFilter, sortOrder])
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
@@ -539,8 +545,9 @@ export function AdminUsersView() {
                       setPage(1)
                     }}
                     placeholder={getAdminText(language, "users.searchPlaceholder")}
-                    className="min-h-[44px] w-full rounded border border-border-strong bg-bg-card pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
+                    className="min-h-[44px] w-full rounded border border-border-strong bg-bg-card pl-9 pr-9 text-sm text-text-primary placeholder:text-text-muted focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary/20 disabled:bg-bg-secondary disabled:text-text-muted"
                   />
+                  {query && <button type="button" onClick={() => { setQuery(""); setDebouncedQuery(""); setPage(1) }} aria-label={language === "vi" ? "Xóa tìm kiếm" : "Clear search"} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-text-muted hover:bg-bg-secondary hover:text-text-primary"><X className="h-4 w-4" /></button>}
                 </label>
                 <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                   <label className="flex-1 sm:flex-none sm:w-44">
@@ -556,7 +563,7 @@ export function AdminUsersView() {
                         const label = getAdminRoleLabel(role, language)
                         return (
                           <option key={role} value={role}>
-                            {label !== role ? `${label} (${role})` : role}
+                            {label}
                           </option>
                         )
                       })}
@@ -614,11 +621,11 @@ export function AdminUsersView() {
               </div>
 
               <div className="w-full overflow-x-auto">
-                <table className="w-full min-w-[760px] text-left text-sm">
+                <table className="w-full min-w-[860px] text-left text-sm">
                   <thead className="bg-bg-secondary text-xs font-semibold text-text-secondary border-b border-border-color">
                     <tr>
                       <th
-                        className="px-3.5 py-0 text-left align-middle whitespace-nowrap"
+                        className="min-w-[160px] px-3.5 py-0 text-left align-middle whitespace-nowrap"
                         aria-sort={
                           sortOrder === "name_asc"
                             ? "ascending"
@@ -642,35 +649,41 @@ export function AdminUsersView() {
                           )}
                         </button>
                       </th>
-                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colEmail")}</th>
-                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colRole")}</th>
-                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colStatus")}</th>
-                      <th className="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colCreatedAt")}</th>
-                      <th className="px-3.5 py-2.5 text-right align-middle whitespace-nowrap">{getAdminText(language, "users.colActions")}</th>
+                      <th className="min-w-[190px] px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colEmail")}</th>
+                      <th className="min-w-[145px] px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colRole")}</th>
+                      <th className="min-w-[145px] px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colStatus")}</th>
+                      <th className="min-w-[110px] px-3.5 py-2.5 text-left align-middle whitespace-nowrap">{getAdminText(language, "users.colCreatedAt")}</th>
+                      <th className="min-w-[68px] px-3.5 py-2.5 text-right align-middle whitespace-nowrap">{getAdminText(language, "users.colActions")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border-color">
                     {paginatedUsers.map((user) => (
                       <tr
                         key={user.id ?? user.email}
-                        className="h-11 transition-colors hover:bg-bg-secondary/70"
+                        className="transition-colors hover:bg-bg-secondary/70"
                       >
-                        <td className="px-3.5 py-0 align-middle text-sm text-text-primary whitespace-nowrap max-w-[200px] truncate">
+                        <td
+                          className="px-3.5 py-2 align-middle text-sm text-text-primary max-w-[220px] truncate"
+                          title={user.fullName || undefined}
+                        >
                           <span className="font-semibold text-text-primary">
                             {user.fullName || getAdminText(language, "users.noName")}
                           </span>
                         </td>
-                        <td className="px-3.5 py-0 align-middle text-sm text-text-secondary whitespace-nowrap max-w-[220px] truncate">
+                        <td
+                          className="px-3.5 py-2 align-middle text-sm text-text-secondary max-w-[240px] truncate"
+                          title={user.email || undefined}
+                        >
                           {user.email || "—"}
                         </td>
-                        <td className="px-3.5 py-0 align-middle text-sm text-text-primary whitespace-nowrap">
-                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
+                        <td className="px-3.5 py-2 align-middle text-sm text-text-primary">
+                          <span className="inline-flex items-center justify-center text-center whitespace-normal leading-4 rounded-full px-2.5 py-0.5 text-xs font-medium bg-status-info-bg text-status-info ring-1 ring-inset ring-status-info-border">
                             {getAdminRoleLabel(user.roleName, language) || `Role #${user.roleId ?? "?"}`}
                           </span>
                         </td>
-                        <td className="px-3.5 py-0 align-middle text-sm text-text-primary whitespace-nowrap">
+                        <td className="px-3.5 py-2 align-middle text-sm text-text-primary">
                           <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            className={`inline-flex items-center justify-center h-6 min-w-[116px] whitespace-nowrap rounded-full px-2.5 text-xs font-medium ${
                               user.status === "active"
                                 ? "bg-status-success-bg text-status-success ring-1 ring-inset ring-status-success-border"
                                 : user.status === "locked"
@@ -681,10 +694,10 @@ export function AdminUsersView() {
                             {getAdminStatusLabel(user.status, language)}
                           </span>
                         </td>
-                        <td className="px-3.5 py-0 align-middle text-sm text-text-secondary tabular-nums font-mono whitespace-nowrap">
+                        <td className="px-3.5 py-2 align-middle text-sm text-text-secondary tabular-nums font-mono whitespace-nowrap">
                           {formatAdminDate(user.createdAt, undefined, undefined, language)}
                         </td>
-                        <td className="px-3.5 py-0 align-middle text-sm text-text-primary text-right whitespace-nowrap">
+                        <td className="px-3.5 py-1 align-middle text-sm text-text-primary text-right whitespace-nowrap">
                           <UserRowActions
                             user={user}
                             isCurrentIdValid={isCurrentIdValid}
@@ -828,28 +841,35 @@ export function AdminUsersView() {
                         <ShieldCheck className="w-3.5 h-3.5 text-brand-primary" />
                         <span>{getAdminText(language, "users.detailRolesSection")}</span>
                       </div>
-                      {(detailUser || selectedUserSummary).permissions &&
-                      (detailUser || selectedUserSummary).permissions.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {(detailUser || selectedUserSummary).permissions.map((perm) => {
-                            const permName = typeof perm === "string" ? perm : perm.name
-                            const label = getAdminPermissionLabel(permName, language)
-                            return (
-                              <span
-                                key={permName}
-                                className="inline-flex items-center rounded px-2 py-0.5 text-xs font-mono bg-bg-secondary text-brand-primary border border-border-color/60"
-                                title={permName}
-                              >
-                                {label}
-                              </span>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-xs leading-4 text-text-muted italic">
-                          {getAdminText(language, "users.detailNoPerms")}
-                        </p>
-                      )}
+                      {(() => {
+                        const visiblePerms = (
+                          (detailUser || selectedUserSummary).permissions || []
+                        ).filter((perm) => {
+                          const permName = typeof perm === "string" ? perm : perm?.name
+                          return permName && permName !== "LOCK_SUBJECTS"
+                        })
+                        return visiblePerms.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {visiblePerms.map((perm) => {
+                              const permName = typeof perm === "string" ? perm : perm.name
+                              const label = getAdminPermissionLabel(permName, language)
+                              return (
+                                <span
+                                  key={permName}
+                                  className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-bg-secondary text-brand-primary border border-border-color/60"
+                                  title={permName}
+                                >
+                                  {label}
+                                </span>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-xs leading-4 text-text-muted italic">
+                            {getAdminText(language, "users.detailNoPerms")}
+                          </p>
+                        )
+                      })()}
                     </div>
 
                     {/* Thao tác quản trị tài khoản trên panel chi tiết */}

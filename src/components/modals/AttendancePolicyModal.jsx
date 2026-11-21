@@ -13,7 +13,6 @@ import {
 export const ATTENDANCE_POLICY = {
   version: '1.2',
   effectiveDate: '01/09/2026',
-  gateOpenMinutesBefore: 30, // Cổng mở trước giờ học 30 phút
   onTimeMinutesAfter: 15,     // Trong 15 phút đầu: Đúng giờ
   lateCutoffMinutes: 45,      // Từ phút 16 đến 45: Đi muộn (vẫn tính có mặt)
                               // Sau 45 phút: Khóa cổng, tính Vắng mặt
@@ -23,7 +22,6 @@ export const ATTENDANCE_POLICY = {
   maxAbsent: 3,               // Hạn mức vắng tối đa 3 buổi/khóa
   warningAbsentRemaining: 1,  // Cảnh báo khi còn 1 buổi vắng cuối cùng
   leaveNoticeHours: 12,       // Thời hạn báo trước khi xin nghỉ qua app
-  otpRefreshSeconds: 30,      // Mã OTP bảo mật đổi mỗi 30 giây
 };
 
 export function AttendancePolicyModal({ isOpen, onClose, language = 'vi' }) {
@@ -107,7 +105,7 @@ export function AttendancePolicyModal({ isOpen, onClose, language = 'vi' }) {
                   -30 PHÚT
                 </div>
                 <div className="text-[11px] text-[#6B7890] leading-tight">
-                  Mở mã QR vào sân
+                  Đến sân trước giờ học
                 </div>
               </div>
             </div>
@@ -165,26 +163,26 @@ export function AttendancePolicyModal({ isOpen, onClose, language = 'vi' }) {
         {/* Detailed Policy Sections (Editorial Layout without nested gray boxes) */}
         <div className="divide-y divide-[rgba(222,228,240,0.7)] space-y-4 pt-1">
 
-          {/* Section 01: Turnstile & QR */}
+          {/* Section 01: Manual attendance */}
           <div className="space-y-2.5 pt-4 first:pt-0">
             <div className="flex items-center gap-2">
               <span className="font-sans italic text-base text-[#24A9D2] font-medium">01</span>
               <h3 className="text-sm font-semibold text-[#202B46]">
-                Quy định quét mã QR & Vào sân
+                Quy trình điểm danh tại sân
               </h3>
             </div>
             <ul className="space-y-2 text-sm text-[#6B7890] leading-[1.65] pl-5 list-disc marker:text-[#24A9D2]">
               <li>
-                <strong className="text-[#202B46] font-medium">Thời gian mở mã:</strong> Mã QR động bắt đầu hiển thị trên ứng dụng trước giờ học <span className="text-[#202B46] font-medium">{policy.gateOpenMinutesBefore} phút</span>. Trước thời điểm này, mã sẽ được khóa bảo mật.
+                Hội viên đến sân trước giờ học và cung cấp mã hội viên hoặc số điện thoại cho Lễ tân / Huấn luyện viên.
               </li>
               <li>
-                <strong className="text-[#202B46] font-medium">Bảo mật mã số:</strong> Mã QR tự động làm mới mã bảo mật mỗi <span className="text-[#202B46] font-medium">{policy.otpRefreshSeconds} giây</span> để ngăn chặn hành vi chụp màn hình hoặc chia sẻ thẻ trái phép.
+                Lễ tân hoặc Huấn luyện viên xác nhận điểm danh trên hệ thống.
               </li>
               <li>
-                <strong className="text-[#202B46] font-medium">Quy định đi muộn:</strong> Quét mã sau giờ vào lớp từ phút thứ 1 đến phút 15 được ghi nhận trạng thái <span className="text-[#202B46] font-medium">Đi muộn</span>. Đi muộn vẫn được tính là một buổi có mặt để xét điều kiện hoàn thành khóa.
+                <strong className="text-[#202B46] font-medium">Quy định đi muộn:</strong> Buổi tập bắt đầu sau giờ quy định được ghi nhận trạng thái <span className="text-[#202B46] font-medium">Đi muộn</span>. Đi muộn vẫn được tính là một buổi có mặt để xét điều kiện hoàn thành khóa.
               </li>
               <li>
-                <strong className="text-[#202B46] font-medium">Khóa điểm danh:</strong> Sau <span className="text-[#202B46] font-medium">{policy.lateCutoffMinutes} phút</span> kể từ giờ bắt đầu lớp, cổng soát vé tự động khóa điểm danh và hệ thống tự động ghi nhận trạng thái <span className="text-[#202B46] font-medium">Vắng mặt</span>.
+                <strong className="text-[#202B46] font-medium">Khóa điểm danh:</strong> Sau <span className="text-[#202B46] font-medium">{policy.lateCutoffMinutes} phút</span> kể từ giờ bắt đầu lớp, hệ thống ngừng nhận điểm danh và ghi nhận trạng thái <span className="text-[#202B46] font-medium">Vắng mặt</span>.
               </li>
             </ul>
           </div>
@@ -219,7 +217,7 @@ export function AttendancePolicyModal({ isOpen, onClose, language = 'vi' }) {
               </h3>
             </div>
             <p className="text-sm text-[#6B7890] leading-[1.65]">
-              Nếu gặp sự cố điện thoại hết pin, máy quét cổng không nhận diện hoặc bị ghi nhận nhầm trạng thái vắng, bạn hãy nhấn nút <strong className="text-[#202B46] font-semibold">"Báo sai điểm danh"</strong> ngay tại danh sách lịch sử buổi học trên ứng dụng hoặc liên hệ trực tiếp HLV / Lễ tân sảnh A để được đối soát dữ liệu camera an ninh và cập nhật điểm danh chuẩn xác trong vòng 24 giờ.
+              Nếu điện thoại hết pin hoặc điểm danh chưa được ghi nhận chính xác, bạn hãy nhấn nút <strong className="text-[#202B46] font-semibold">"Báo sai điểm danh"</strong> trong lịch sử buổi học trên ứng dụng hoặc liên hệ trực tiếp Huấn luyện viên / Lễ tân để kiểm tra và cập nhật thông tin trong vòng 24 giờ.
             </p>
           </div>
 

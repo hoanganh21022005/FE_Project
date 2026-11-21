@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Lock, QrCode } from 'lucide-react';
+import { Check, Lock } from 'lucide-react';
 
 /**
  * SportTargetVisual (Architectural Sport Court Line-Art)
@@ -15,7 +15,6 @@ export function SportTargetVisual({
   court = 'Sân 02',
   zone = 'Khu A · Thảm Taraflex',
   theme = 'light',
-  onOpenQrPass,
 }) {
   const normCategory = (category || '').toLowerCase();
   const isBadminton = normCategory.includes('cầu lông') || normCategory.includes('badminton');
@@ -145,14 +144,9 @@ export function SportTargetVisual({
 
         {/* Trạng thái mở check-in */}
         {isCheckInOpen && (
-          <button
-            type="button"
-            onClick={onOpenQrPass}
-            className="absolute bottom-1 right-1 p-2 rounded-md bg-[#B89A66] hover:bg-[#A3834C] text-white cursor-pointer transition-colors shadow-sm"
-            title="Nhấn để phóng to mã QR quét tại cổng"
-          >
-            <QrCode className="w-4 h-4 stroke-[1.5]" />
-          </button>
+          <span className="absolute bottom-1 right-1 rounded-md bg-[#B89A66] px-2 py-1 text-[10px] font-semibold text-white">
+            Điểm danh
+          </span>
         )}
 
         {/* Trạng thái đã check-in: Tick xanh rêu sắc sảo ở góc */}

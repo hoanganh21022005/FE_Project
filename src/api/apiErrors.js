@@ -124,12 +124,12 @@ export const ERROR_CODE_TEXT = {
     en: 'Normal classes accept cash at the reception counter only. Pay with VNPay or visit the counter to register.',
   },
   LOBBY_CHECKIN_DISABLED: {
-    vi: 'Check-in thủ công tại quầy hiện đã tắt. Vui lòng quét mã QR theo buổi học.',
-    en: 'Manual check-in at the counter is turned off. Please scan the session QR code.',
+    vi: 'Điểm danh tại quầy hiện không khả dụng. Vui lòng liên hệ huấn luyện viên.',
+    en: 'Attendance at the reception desk is currently unavailable. Please contact your coach.',
   },
   SESSION_REQUIRED: {
-    vi: 'Thiếu mã buổi học. Vui lòng chọn buổi học trước khi quét mã.',
-    en: 'The session is missing. Select a session before scanning the code.',
+    vi: 'Thiếu buổi học. Vui lòng chọn buổi học trước khi ghi nhận điểm danh.',
+    en: 'The session is missing. Select a session before recording attendance.',
   },
   NORMAL_NOT_STARTED: {
     vi: 'Lớp học chưa khai giảng nên chưa thể thực hiện thao tác này.',
@@ -765,8 +765,8 @@ export function getFriendlyError(error, { language = 'vi' } = {}) {
     error?.message || error?.details?.message || error?.response?.data?.message || ''
   ).toUpperCase();
 
-  // Ghi mã lỗi gốc vào console để debug
-  if (error) console.warn('[getFriendlyError]', error);
+  // Log expected API failures only during local development.
+  if (import.meta.env?.DEV && error) console.warn('[getFriendlyError]', error);
 
   // 409 idempotency — lịch đã tồn tại
   if (

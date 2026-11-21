@@ -25,6 +25,20 @@ const cachedOrderForInvoice = (memberId, invoiceId, invoiceCode) => {
   } catch { return null }
 }
 
+const formatInvoiceStatus = (status, isVi) => {
+  const normalized = String(status || '').trim().toLowerCase()
+  if (normalized === 'successful' || normalized === 'paid') {
+    return isVi ? '\u0110\u00e3 thanh to\u00e1n' : 'Payment successful'
+  }
+  if (normalized === 'pending' || normalized === 'pending_payment') {
+    return isVi ? 'Đang chờ thanh toán' : 'Pending payment'
+  }
+  if (normalized === 'failed' || normalized === 'cancelled' || normalized === 'expired') {
+    return isVi ? 'Thanh to\u00e1n th\u1ea5t b\u1ea1i' : 'Payment failed'
+  }
+  return status || (isVi ? 'Chưa có thông tin' : 'Not provided')
+}
+
 export function PaymentResultView({ language = 'vi', isAuthenticated = false }) {
   const { search } = useLocation()
   const navigate = useNavigate()
@@ -38,6 +52,7 @@ export function PaymentResultView({ language = 'vi', isAuthenticated = false }) 
   const [invoiceId, setInvoiceId] = useState(queryInvoiceId)
   const [invoice, setInvoice] = useState(null)
   const [subscription, setSubscription] = useState(null)
+  const [invoiceKind, setInvoiceKind] = useState('generic')
   const [entitlementError, setEntitlementError] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -63,15 +78,15 @@ export function PaymentResultView({ language = 'vi', isAuthenticated = false }) 
       }
       if (!id) throw new Error(isVi ? 'Không tìm thấy mã hóa đơn để xác minh.' : 'No invoice identifier was found.')
       const currentInvoice = await invoiceApi.getMemberOwnInvoiceById(id)
-      if (!currentInvoice) throw new Error(isVi ? 'Backend chưa trả về hóa đơn.' : 'The server did not return an invoice.')
+      if (!currentInvoice) throw new Error(isVi ? 'Hệ thống chưa trả về hóa đơn.' : 'The server did not return an invoice.')
       setInvoice(currentInvoice)
+      const cachedOrder = cachedOrderForInvoice(memberId, id, currentInvoice.invoiceCode || queryInvoiceCode)
       if (['paid', 'successful'].includes(String(currentInvoice.paymentStatus || '').toLowerCase())) {
         try {
           const [registrations, subscriptions] = await Promise.all([
             advancedRegistrationApi.getMyAdvancedRegistrations(),
             membershipApi.getMemberSubscriptions(memberId, { strict: true, notifyForbidden: false, notifyUnauthorized: false }),
           ])
-          const cachedOrder = cachedOrderForInvoice(memberId, id, currentInvoice.invoiceCode || queryInvoiceCode)
           const registration = registrations.find((row) =>
             String(row.invoiceId) === String(id) ||
             (cachedOrder?.registrationId && String(row.id) === String(cachedOrder.registrationId)),
@@ -79,12 +94,45 @@ export function PaymentResultView({ language = 'vi', isAuthenticated = false }) 
           const subscriptionId = registration?.subscriptionId ?? cachedOrder?.subscriptionId
           const matchedSubscription = subscriptionId == null ? null : subscriptions.find((row) => String(row.subscriptionId) === String(subscriptionId))
           setSubscription(matchedSubscription || null)
+          const certainAdvanced = Boolean(
+            registration ||
+            matchedSubscription ||
+            cachedOrder?.type === 'Advanced' ||
+            cachedOrder?.registrationId != null ||
+            currentInvoice.packageId != null,
+          )
+          if (certainAdvanced) {
+            setInvoiceKind('advanced')
+          } else if (cachedOrder?.type === 'Normal' || currentInvoice.classId != null) {
+            setInvoiceKind('normal')
+          } else {
+            setInvoiceKind('generic')
+          }
         } catch (syncError) {
           setSubscription(null)
-          setEntitlementError(syncError?.message || (isVi ? 'Chưa tải được dữ liệu gói học từ Backend.' : 'Could not load subscription data from the server.'))
+          const certainAdvanced = Boolean(
+            cachedOrder?.type === 'Advanced' ||
+            cachedOrder?.registrationId != null ||
+            currentInvoice.packageId != null,
+          )
+          if (certainAdvanced) {
+            setInvoiceKind('advanced')
+          } else if (cachedOrder?.type === 'Normal' || currentInvoice.classId != null) {
+            setInvoiceKind('normal')
+          } else {
+            setInvoiceKind('generic')
+          }
+          setEntitlementError(syncError?.message || (isVi ? 'Chưa tải được dữ liệu gói học từ hệ thống.' : 'Could not load subscription data from the server.'))
         }
       } else {
         setSubscription(null)
+        if (cachedOrder?.type === 'Advanced' || cachedOrder?.registrationId != null || currentInvoice.packageId != null) {
+          setInvoiceKind('advanced')
+        } else if (cachedOrder?.type === 'Normal' || currentInvoice.classId != null) {
+          setInvoiceKind('normal')
+        } else {
+          setInvoiceKind('generic')
+        }
       }
     } catch (requestError) {
       setError(requestError?.message || (isVi ? 'Không thể xác minh trạng thái hóa đơn.' : 'Could not verify the invoice status.'))
@@ -120,19 +168,23 @@ export function PaymentResultView({ language = 'vi', isAuthenticated = false }) 
   const Icon = loading ? LoaderCircle : paid ? CheckCircle2 : ['failed', 'cancelled', 'expired'].includes(state) ? XCircle : CircleHelp
   const tone = paid ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : ['failed', 'cancelled', 'expired'].includes(state) ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-amber-200 bg-amber-50 text-amber-900'
   const title = loading ? (isVi ? 'Đang xác minh thanh toán' : 'Verifying payment')
-    : state === 'paid' ? (active ? (isVi ? 'Thanh toán thành công · Gói Advanced đang hoạt động' : 'Payment successful · Advanced subscription active') : (isVi ? 'Backend đã xác nhận thanh toán' : 'Payment confirmed by the server'))
+    : state === 'paid' ? (invoiceKind === 'normal' ? (isVi ? '\u0110\u0103ng k\u00fd l\u1edbp h\u1ecdc th\u00e0nh c\u00f4ng' : 'Class registration successful') : (isVi ? 'Thanh to\u00e1n th\u00e0nh c\u00f4ng' : 'Payment successful'))
       : state === 'reconciliation' ? (isVi ? 'Đã nhận thanh toán, đang đối soát' : 'Payment received; reconciliation is pending')
-        : state === 'pending' || state === 'checking' || state === 'unverified' ? (isVi ? 'Đang chờ Backend xác minh' : 'Waiting for server verification')
+        : state === 'pending' || state === 'checking' || state === 'unverified' ? (isVi ? 'Đang chờ hệ thống xác minh' : 'Waiting for server verification')
           : state === 'expired' ? (isVi ? 'Hóa đơn đã hết hạn' : 'Invoice expired')
             : state === 'failed' || state === 'cancelled' ? (isVi ? 'Thanh toán chưa thành công' : 'Payment was not successful')
               : (isVi ? 'Chưa xác minh được hóa đơn' : 'Invoice could not be verified')
-  const description = error || (entitlementError && paid && !active ? entitlementError : '') || (state === 'pending' || state === 'checking' || state === 'unverified'
-    ? (isVi ? 'Trạng thái bên dưới lấy từ hóa đơn Backend. Bạn có thể kiểm tra lại; hệ thống không tạo đơn mới.' : 'The status below comes from the server invoice. You can check again; no new order will be created.')
+  const description = error || (entitlementError && paid && !active && invoiceKind === 'advanced' ? entitlementError : '') || (state === 'pending' || state === 'checking' || state === 'unverified'
+    ? (isVi ? 'Trạng thái bên dưới lấy từ hóa đơn trên hệ thống. Bạn có thể kiểm tra lại; hệ thống không tạo đơn mới.' : 'The status below comes from the server invoice. You can check again; no new order will be created.')
     : active
-      ? (isVi ? 'Quyền học và thông tin gói được tải từ hồ sơ Subscription của Backend.' : 'Access and subscription details were loaded from the server.')
+      ? (isVi ? 'Quyền học và thông tin gói được tải từ hồ sơ trên hệ thống.' : 'Access and subscription details were loaded from the server.')
       : paid
-        ? (isVi ? 'Đang chờ Backend đồng bộ gói học; chưa có Subscription Active được xác nhận.' : 'Waiting for the server to sync access; no active subscription has been confirmed yet.')
-        : (isVi ? 'Trạng thái thanh toán hiển thị theo hóa đơn Backend.' : 'Payment status is shown from the server invoice.'))
+        ? (invoiceKind === 'normal'
+            ? (isVi ? 'Thanh toán thành công. Lớp của bạn đã được ghi nhận, xem tại Khóa học của tôi.' : 'Payment successful. Your class enrollment has been recorded; view it under My enrollments.')
+            : invoiceKind === 'advanced'
+              ? (isVi ? 'Hệ thống đang kích hoạt gói Advanced của bạn, vui lòng chờ ít phút.' : 'The system is activating your Advanced package, please wait a few minutes.')
+              : (isVi ? 'Thanh toán thành công.' : 'Payment successful.'))
+        : (isVi ? 'Trạng thái thanh toán hiển thị theo hóa đơn trên hệ thống.' : 'Payment status is shown from the server invoice.'))
 
   return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
     <section className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-900/5 sm:p-8" aria-labelledby="payment-result-title">
@@ -144,7 +196,7 @@ export function PaymentResultView({ language = 'vi', isAuthenticated = false }) 
         <div><dt className="text-slate-500">{isVi ? 'Mã hóa đơn' : 'Invoice code'}</dt><dd className="mt-1 break-all font-semibold text-slate-900">{invoiceCode || (isVi ? 'Chưa có thông tin' : 'Not provided')}</dd></div>
         {(invoiceId || queryInvoiceId) && <div><dt className="text-slate-500">{isVi ? 'Mã giao dịch nội bộ' : 'Invoice ID'}</dt><dd className="mt-1 font-semibold text-slate-900">{invoiceId || queryInvoiceId}</dd></div>}
         {invoice && <>
-          <div><dt className="text-slate-500">{isVi ? 'Trạng thái hóa đơn' : 'Invoice status'}</dt><dd className="mt-1 font-semibold text-slate-900">{invoice.paymentStatus}</dd></div>
+          <div><dt className="text-slate-500">{isVi ? 'Trạng thái hóa đơn' : 'Invoice status'}</dt><dd className="mt-1 font-semibold text-slate-900">{formatInvoiceStatus(invoice.paymentStatus, isVi)}</dd></div>
           {invoice.amount != null && <div><dt className="text-slate-500">{isVi ? 'Số tiền' : 'Amount'}</dt><dd className="mt-1 font-semibold text-slate-900">{Number(invoice.amount).toLocaleString(isVi ? 'vi-VN' : 'en-US')} VND</dd></div>}
         </>}
         {responseCode && <div><dt className="text-slate-500">{isVi ? 'Mã phản hồi VNPay (tham khảo)' : 'VNPay response code (reference)'}</dt><dd className="mt-1 font-semibold text-slate-900">{responseCode}</dd></div>}
@@ -155,8 +207,10 @@ export function PaymentResultView({ language = 'vi', isAuthenticated = false }) 
         </>}
       </dl>
       {!isPopup && <>
-        <button type="button" disabled={loading || !isAuthenticated} onClick={checkBackendStatus} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-violet-300 bg-white px-4 text-sm font-bold text-violet-800 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"><RefreshCw size={16} />{isVi ? 'Kiểm tra lại từ Backend' : 'Check again with server'}</button>
+        <button type="button" disabled={loading || !isAuthenticated} onClick={checkBackendStatus} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-violet-300 bg-white px-4 text-sm font-bold text-violet-800 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"><RefreshCw size={16} />{isVi ? 'Kiểm tra lại trạng thái' : 'Check again with server'}</button>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">{destinations.map((destination, index) => <button key={destination.path} type="button" onClick={() => goTo(destination.path)} className={index === 0 ? 'min-h-11 rounded-xl bg-violet-700 px-3 text-sm font-bold text-white hover:bg-violet-800' : 'min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 hover:bg-slate-50'}>{isVi ? destination.vi : destination.en}</button>)}</div>
+
+        <button type="button" onClick={() => navigate('/portal/home')} className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-medium text-white shadow-md transition hover:bg-blue-700"><span>Về trang chủ / Bảng điều khiển</span></button>
       </>}
       {!isAuthenticated && <p className="mt-4 text-center text-xs leading-5 text-slate-500">{isVi ? 'Đăng nhập để xem hóa đơn và trạng thái thanh toán đã đối soát.' : 'Sign in to view your invoice and reconciled payment status.'}</p>}
     </section>

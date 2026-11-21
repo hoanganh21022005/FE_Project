@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import { CoachStatusBadge } from "../coach/StatusBadge"
+import { formatAdvancedStatus } from "../../utils/status"
 import { formatMemberCode } from "../../utils/formatMember"
 import { formatDate } from "../../utils/datetime"
 import { memberApi } from "../../api/memberApi"
@@ -41,6 +42,51 @@ import {
 } from "./coach-assigned-members/roomHelpers"
 export { verifySessionResponseMatch } from "./coach-assigned-members/privateSessionHelpers"
 export { isRoomAvailable, isRoomForSubject, formatRoomOptionLabel } from "./coach-assigned-members/roomHelpers"
+
+const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000
+
+const isSlotAtLeast12HoursAhead = (dateStr, slot) => {
+  if (!dateStr || !slot?.startTime) return true
+  const rawTime = String(slot.startTime).trim()
+  const hhmmss = rawTime.length === 5 ? `${rawTime}:00` : rawTime.slice(0, 8)
+  const startsAtMs = Date.parse(`${dateStr}T${hhmmss}+07:00`)
+  if (!Number.isFinite(startsAtMs)) return true
+  return startsAtMs - Date.now() >= TWELVE_HOURS_MS
+}
+
+const getCoachPackageStatuses = (item) => [
+  item?.subscriptionStatus,
+  item?.status,
+  item?.paymentStatus,
+  item?.invoiceStatus,
+  item?.orderStatus,
+].filter(Boolean).map((value) =>
+  String(value).trim().toLowerCase().replace(/[\s-]+/g, '_'),
+)
+
+const DEAD_PACKAGE_STATUSES = new Set(['cancelled', 'canceled', 'expired', 'rejected', 'inactive'])
+const ACTIVE_PACKAGE_STATUSES = new Set(['active'])
+const MEMBER_PAYMENT_PENDING_STATUSES = new Set([
+  'pending_payment', 'waiting_payment', 'awaiting_payment', 'awaitingpayment', 'payment_pending',
+])
+
+const hasDeadPackageStatus = (item) =>
+  getCoachPackageStatuses(item).some((status) => DEAD_PACKAGE_STATUSES.has(status))
+
+const isActiveCoachPackage = (item) =>
+  !hasDeadPackageStatus(item) &&
+  getCoachPackageStatuses(item).some((status) => ACTIVE_PACKAGE_STATUSES.has(status))
+
+const isAwaitingMemberPayment = (item) => {
+  if (!item || hasDeadPackageStatus(item)) return false
+  const statuses = getCoachPackageStatuses(item)
+  if (statuses.some((status) => ACTIVE_PACKAGE_STATUSES.has(status))) return false
+  if (['paid', 'successful', 'success', 'completed'].includes(String(item.paymentStatus || '').trim().toLowerCase())) return false
+  return statuses.some((status) => MEMBER_PAYMENT_PENDING_STATUSES.has(status))
+}
+
+const isVisibleCoachPackage = (item) =>
+  isActiveCoachPackage(item) || isAwaitingMemberPayment(item)
 
 export function CoachAssignedMembersView() {
   const {
@@ -232,7 +278,9 @@ export function CoachAssignedMembersView() {
         const rawSlots = Array.isArray(slots) ? slots : []
         const validSlots = rawSlots.filter(isStandardPrivateSessionSlot)
         setAvailableSlots(validSlots)
-        const firstAvail = validSlots.find((s) => s.isAvailable === true)
+        const firstAvail = validSlots.find(
+          (s) => s.isAvailable === true && isSlotAtLeast12HoursAhead(date, s),
+        )
         if (firstAvail) {
           setSelectedSlot(firstAvail)
         }
@@ -461,7 +509,7 @@ export function CoachAssignedMembersView() {
     e.preventDefault()
     if (isSubmittingRef.current || bookingBusy || proposalResponse || !bookingReg) return
     if (!apiEnabled) {
-      setProposalError(language === "vi" ? "Kết nối Backend để gửi đề xuất lịch." : "Connect to the server to send a schedule proposal.")
+      setProposalError(language === "vi" ? "Kết nối máy chủ để gửi đề xuất lịch." : "Connect to the server to send a schedule proposal.")
       return
     }
 
@@ -505,7 +553,7 @@ export function CoachAssignedMembersView() {
     const sessionEndMs = parseVietnamDateTime(bookingDate + "T" + endTime)
     const expiresAtMs = parseVietnamDateTime(bookingReg.expiresAt)
     if (Number.isNaN(sessionStartMs) || Number.isNaN(sessionEndMs) || Number.isNaN(expiresAtMs)) {
-      setProposalError(language === "vi" ? "Không xác minh được ngày học hoặc hạn gói từ Backend." : "Could not verify the session date or subscription expiry from the server.")
+      setProposalError(language === "vi" ? "Không xác minh được ngày học hoặc hạn gói từ hệ thống." : "Could not verify the session date or subscription expiry from the server.")
       return
     }
     if (sessionStartMs - Date.now() < 12 * 60 * 60 * 1000) {
@@ -560,7 +608,7 @@ export function CoachAssignedMembersView() {
           if (matchingProposal) {
             setProposalResponse(matchingProposal)
             message = language === "vi"
-              ? "Đã tìm thấy đề xuất trên Backend khi đối soát; không gửi thêm đề xuất."
+              ? "Đã tìm thấy đề xuất trên hệ thống khi đối soát; không gửi thêm đề xuất."
               : "The proposal was found during reconciliation; no duplicate was sent."
             didReconcileProposal = true
           } else {
@@ -590,24 +638,16 @@ export function CoachAssignedMembersView() {
   const pendingAdvancedRequests = useMemo(() => {
     if (!Array.isArray(advancedRequests)) return []
     return advancedRequests.filter((r) => {
-      const st = String(r.status || "").toLowerCase()
+      if (hasDeadPackageStatus(r) || isAwaitingMemberPayment(r)) return false
+      const st = String(r.status || "").trim().toLowerCase().replace(/[\s-]+/g, "_")
       return st.includes("pending") || st.includes("request")
     })
   }, [advancedRequests])
 
-  // API mode booking candidates from registrations (ACCEPTED / INVOICED / ACTIVE)
+  // Chỉ gộp gói đang hoạt động hoặc thật sự chờ Member thanh toán.
   const apiBookingCandidates = useMemo(() => {
     if (!apiEnabled || !Array.isArray(advancedRequests)) return []
-    return advancedRequests.filter((r) => {
-      const st = String(r.status || "").toLowerCase()
-      return (
-        r.subscriptionId ||
-        (st !== "requested" &&
-          st !== "pending" &&
-          st !== "rejected" &&
-          st !== "declined")
-      )
-    })
+    return advancedRequests.filter(isVisibleCoachPackage)
   }, [apiEnabled, advancedRequests])
 
   const availableSubjects = useMemo(() => {
@@ -634,21 +674,8 @@ export function CoachAssignedMembersView() {
         if (sub !== subjectFilter) return false
       }
       if (statusFilter !== "all") {
-        const st = String(item.subscriptionStatus || item.status || "").toLowerCase()
-        if (statusFilter === "active" && st !== "active") return false
-        if (
-          statusFilter === "awaiting" &&
-          st !== "accepted" &&
-          st !== "invoiced"
-        )
-          return false
-        if (
-          statusFilter === "expired" &&
-          st !== "expired" &&
-          st !== "cancelled" &&
-          st !== "frozen"
-        )
-          return false
+        if (statusFilter === "active" && !isActiveCoachPackage(item)) return false
+        if (statusFilter === "awaiting" && !isAwaitingMemberPayment(item)) return false
       }
       return true
     })
@@ -866,7 +893,7 @@ export function CoachAssignedMembersView() {
                 const statusLabel = normalizedStatus === "pending" ? (language === "vi" ? "Đang chờ" : "Pending")
                   : normalizedStatus === "accepted" ? (language === "vi" ? "Đã xác nhận" : "Accepted")
                     : normalizedStatus === "rejected" ? (language === "vi" ? "Đã từ chối" : "Rejected")
-                      : normalizedStatus === "expired" ? (language === "vi" ? "Đã hết hạn" : "Expired") : status
+                      : normalizedStatus === "expired" ? (language === "vi" ? "Đã hết hạn" : "Expired") : formatAdvancedStatus(status, language === "vi")
                 return (
                   <article key={proposal.id} className="grid gap-2 py-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center">
                     <div className="space-y-1">
@@ -936,7 +963,6 @@ export function CoachAssignedMembersView() {
                 <option value="all">{t("coachFilterAllStatuses")}</option>
                 <option value="active">{t("coachStatusActive")}</option>
                 <option value="awaiting">{t("coachPtAwaitingPackagePayment")}</option>
-                <option value="expired">{t("coachStatusExpired")}</option>
               </select>
 
               <button
@@ -1159,13 +1185,8 @@ export function CoachAssignedMembersView() {
                               ? 100
                               : 0
 
-                        const rawStatus = String(
-                          item.subscriptionStatus || item.status || "",
-                        ).toLowerCase()
-                        const isSubActive = rawStatus === "active"
-                        const isAwaitingPayment =
-                          !isSubActive &&
-                          (rawStatus === "accepted" || rawStatus === "invoiced")
+                        const isSubActive = isActiveCoachPackage(item)
+                        const isAwaitingPayment = !isSubActive && isAwaitingMemberPayment(item)
 
                         const isSelectedForBooking =
                           activeSelectedPkg &&
@@ -1220,55 +1241,63 @@ export function CoachAssignedMembersView() {
                               />
                             </div>
 
-                            {/* Remaining sessions display (R2.2) */}
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between text-text-primary text-xs leading-4">
-                                <span className="font-medium text-text-secondary">
-                                  {t("coachRemainingSessionsLabel")}:
-                                </span>
-                                <span
-                                  className={`font-mono font-semibold tabular-nums ${
-                                    credit > 0 ? "text-status-success" : "text-status-danger"
-                                  }`}
-                                >
-                                  {totalCredit != null
-                                    ? `Còn ${credit}/${totalCredit} buổi (Đã tập ${usedCredit})`
-                                    : t("coachAvailableSessionsCount").replace(
-                                        "{count}",
-                                        String(credit),
-                                      )}
-                                </span>
-                              </div>
-                              {totalCredit != null && (
-                                <div className="w-full h-1.5 bg-border-color rounded overflow-hidden">
-                                  <div
-                                    style={{ width: `${progressPct}%` }}
-                                    className={`h-full rounded ${
-                                      credit > 0 ? "bg-status-success" : "bg-status-danger"
-                                    }`}
-                                  />
+                            {isAwaitingPayment ? (
+                              <p className="text-xs font-semibold text-amber-800">
+                                {language === "vi" ? "Chờ Member thanh toán" : "Waiting for Member payment"}
+                              </p>
+                            ) : (
+                              <>
+                                {/* Remaining sessions display (R2.2) */}
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between text-text-primary text-xs leading-4">
+                                    <span className="font-medium text-text-secondary">
+                                      {t("coachRemainingSessionsLabel")}:
+                                    </span>
+                                    <span
+                                      className={`font-mono font-semibold tabular-nums ${
+                                        credit > 0 ? "text-status-success" : "text-status-danger"
+                                      }`}
+                                    >
+                                      {totalCredit != null
+                                        ? `Còn ${credit}/${totalCredit} buổi (Đã tập ${usedCredit})`
+                                        : t("coachAvailableSessionsCount").replace(
+                                            "{count}",
+                                            String(credit),
+                                          )}
+                                    </span>
+                                  </div>
+                                  {totalCredit != null && (
+                                    <div className="w-full h-1.5 bg-border-color rounded overflow-hidden">
+                                      <div
+                                        style={{ width: `${progressPct}%` }}
+                                        className={`h-full rounded ${
+                                          credit > 0 ? "bg-status-success" : "bg-status-danger"
+                                        }`}
+                                      />
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
 
-                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs leading-4 text-text-secondary pt-1">
-                              <div className="flex flex-wrap items-center gap-3 font-mono">
-                                <span>
-                                  {t("coachPkgRegDateLabel")}:{" "}
-                                  <strong className="text-text-primary">{regDateLabel}</strong>
-                                </span>
-                                <span>
-                                  {t("coachExpiryDateLabel")}:{" "}
-                                  <strong className="text-text-primary">{formatVietnamDateOnly(item.expiresAt)}</strong>
-                                </span>
-                              </div>
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-xs leading-4 text-text-secondary pt-1">
+                                  <div className="flex flex-wrap items-center gap-3 font-mono">
+                                    <span>
+                                      {t("coachPkgRegDateLabel")}:{" "}
+                                      <strong className="text-text-primary">{regDateLabel}</strong>
+                                    </span>
+                                    <span>
+                                      {t("coachExpiryDateLabel")}:{" "}
+                                      <strong className="text-text-primary">{formatVietnamDateOnly(item.expiresAt)}</strong>
+                                    </span>
+                                  </div>
 
-                              {!canBook && unbookableReason && (
-                                <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border">
-                                  {unbookableReason}
-                                </span>
-                              )}
-                            </div>
+                                  {!canBook && unbookableReason && (
+                                    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-status-warning-bg text-status-warning ring-1 ring-inset ring-status-warning-border">
+                                      {unbookableReason}
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </div>
                         )
                       })}
@@ -1280,7 +1309,7 @@ export function CoachAssignedMembersView() {
                         <>
                           <div className="space-y-1 text-sm leading-5">
                             <div className="text-text-primary font-medium">
-                              {language === "vi" ? `Gói ${formatPkgName(activeSelectedPkg)} còn ${activeSelectedPkg.remainingCredit ?? 0} buổi. Đề xuất Pending không giữ sân hoặc trừ credit.` : `${formatPkgName(activeSelectedPkg)} has ${activeSelectedPkg.remainingCredit ?? 0} credits. A Pending proposal reserves no room and consumes no credit.`}
+                              {language === "vi" ? `Gói ${formatPkgName(activeSelectedPkg)} còn ${activeSelectedPkg.remainingCredit ?? 0} buổi. Đề xuất đang chờ không giữ sân hoặc trừ credit.` : `${formatPkgName(activeSelectedPkg)} has ${activeSelectedPkg.remainingCredit ?? 0} credits. A Pending proposal reserves no room and consumes no credit.`}
                             </div>
                             {bookablePackages.length > 1 && (
                               <div className="flex items-center gap-2">
@@ -1324,6 +1353,10 @@ export function CoachAssignedMembersView() {
                             </button>
                           </div>
                         </>
+                      ) : studentGroup.packages.some(isAwaitingMemberPayment) ? (
+                        <div className="text-xs font-semibold text-amber-800">
+                          {language === "vi" ? "Chờ Member thanh toán" : "Waiting for Member payment"}
+                        </div>
                       ) : (
                         <div className="flex items-center justify-between w-full gap-2 text-sm leading-5 text-text-secondary">
                           <span>

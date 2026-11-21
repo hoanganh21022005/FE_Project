@@ -8,6 +8,7 @@ import { invoiceApi } from '../../api/invoiceApi';
 import { getErrorMessage } from '../../api/apiErrors';
 import { isListAccessError, listLoadErrorMessage } from '../../api/listLoadState';
 import { canViewMemberSubscriptions } from '../../utils/paymentAccess.js';
+import { validateEmail, validatePhone } from '../../utils/formValidation.js';
 import {
   applyMockPaymentSettlements,
   createMockPendingPayment,
@@ -592,6 +593,20 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
 
   if (!isOpen) return null;
 
+  const validateField = (field, value) => {
+    if (field === 'email') return validateEmail(value, { required: true, language });
+    if (field === 'phone') return validatePhone(value, { language });
+    if (field === 'dateOfBirth' && value && value > new Date().toISOString().slice(0, 10)) {
+      return language === 'vi' ? 'Ngày sinh không thể ở tương lai' : 'Birth date cannot be in future';
+    }
+    return '';
+  };
+
+  const updateField = (field, value) => {
+    setFormData((previous) => ({ ...previous, [field]: value }));
+    if (errors[field]) setErrors((previous) => ({ ...previous, [field]: validateField(field, value) || undefined }));
+  };
+
   const validate = () => {
     const errs = {};
     if (!formData.name.trim()) {
@@ -661,7 +676,7 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+        <form noValidate onSubmit={handleSubmit} className="space-y-3 text-xs">
           <div>
             <label className="block font-semibold text-stone-700 mb-1">
               {language === 'vi' ? 'Họ và tên' : 'Full Name'} <span className="text-rose-600">*</span>
@@ -683,10 +698,11 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
               <input
                 type="email"
                 value={formData.email}
-                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
+                onChange={e => updateField('email', e.target.value)}
+                onBlur={e => setErrors(previous => ({ ...previous, email: validateField('email', e.target.value) || undefined }))}
+                className={`w-full bg-stone-50 border rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary ${errors.email ? 'border-red-500' : 'border-slate-300'}`}
               />
-              {errors.email && <p className="text-rose-600 text-[11px] mt-0.5">{errors.email}</p>}
+              {errors.email && <p className="text-red-600 text-[11px] mt-0.5">{errors.email}</p>}
             </div>
 
             <div>
@@ -696,9 +712,11 @@ function EditProfileModal({ isOpen, onClose, member, onUpdated }) {
               <input
                 type="text"
                 value={formData.phone}
-                onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full bg-stone-50 border border-slate-300 rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary"
+                onChange={e => updateField('phone', e.target.value)}
+                onBlur={e => setErrors(previous => ({ ...previous, phone: validateField('phone', e.target.value) || undefined }))}
+                className={`w-full bg-stone-50 border rounded px-3 py-1.5 focus:outline-none focus:border-brand-primary ${errors.phone ? 'border-red-500' : 'border-slate-300'}`}
               />
+              {errors.phone && <p className="text-red-600 text-[11px] mt-0.5">{errors.phone}</p>}
             </div>
           </div>
 

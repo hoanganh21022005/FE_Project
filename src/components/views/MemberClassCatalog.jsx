@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatDate } from '../../locales/translations';
-import { getErrorCode, getErrorMessage, translateErrorCode } from '../../api/apiErrors';
+import { describeBlockReason, getErrorCode, getErrorMessage, translateErrorCode } from '../../api/apiErrors';
 import { optionalBoolean } from '../../api/mappers';
 import { CancelClassBookingModal } from '../modals/CancelClassBookingModal';
 import { EnrollClassModal } from '../modals/EnrollClassModal';
@@ -1428,10 +1428,12 @@ function LegacyMemberClassCatalog() {
                         </div>
                       ) : optionalBoolean(cls?.registrationAllowed) === false ? (
                         <div className="w-full py-2.5 px-3 bg-slate-800/90 text-slate-300 border border-slate-700/60 rounded-lg text-xs font-semibold text-center leading-4">
-                          {(cls.registrationBlockReason &&
-                            translateErrorCode(cls.registrationBlockReason, language)) ||
-                            cls.registrationBlockReason ||
-                            (language === 'vi' ? 'Đã đóng đăng ký' : 'Registration closed')}
+                          {typeof cls?.registrationBlockReason === 'string' &&
+                          cls.registrationBlockReason.trim()
+                            ? describeBlockReason(cls.registrationBlockReason.trim(), language)
+                            : language === 'vi'
+                              ? 'Đã đóng đăng ký'
+                              : 'Registration closed'}
                         </div>
                       ) : isFull && optionalBoolean(cls?.registrationAllowed) !== true ? (
                         <div className="w-full py-2.5 bg-rose-950/80 text-rose-300 border border-rose-800/60 rounded-lg text-xs font-bold text-center uppercase tracking-wider">
@@ -1882,7 +1884,7 @@ function LegacyMemberClassCatalog() {
                   Trung tâm Thể thao Đa năng Chuẩn Quốc Tế AVT Sport
                 </div>
                 <p className="leading-relaxed text-slate-400">
-                  Hệ thống 9 bộ môn thể thao với mặt sân Taraflex, Plexicushion, DUPR tiêu chuẩn giải đấu. Kiểm soát vào sân tự động bằng mã QR động và thẻ điện tử AVT Access tại các cổng Turnstile.
+                  Hệ thống 9 bộ môn thể thao với mặt sân Taraflex, Plexicushion, DUPR tiêu chuẩn giải đấu. Huấn luyện viên và Lễ tân hỗ trợ xác nhận điểm danh tại sân.
                 </p>
               </div>
             </div>

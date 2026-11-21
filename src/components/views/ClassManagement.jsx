@@ -123,6 +123,30 @@ function getWeekdaysArray(days, category, apiMode = false) {
   return mapped.length > 0 ? mapped : apiMode ? [] : ["T2", "T4", "T6"]
 }
 
+function getClassScheduleDays(cls, sessions, apiMode = false) {
+  const days = [cls?.selectedDays, cls?.scheduleDays, cls?.recurringDays, cls?.daysOfWeek]
+    .find((value) => Array.isArray(value) && value.length > 0)
+  if (days) return days
+
+  if (apiMode && String(cls?.classType || "").trim().toLowerCase() === "normal") {
+    const inferred = inferNormalClassWeekdaysFromSessions(sessions, cls.totalSessions ?? 12)
+    if (Array.isArray(inferred) && inferred.length > 0) return inferred
+  }
+
+  const startDate = String(cls?.startDate || cls?.date || "").slice(0, 10)
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(startDate)
+  if (!match) return []
+  const [, year, month, day] = match
+  const date = new Date(Number(year), Number(month) - 1, Number(day))
+  if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return []
+  return [date.getDay()]
+}
+
+const cleanScheduleTime = (value) => {
+  const time = String(value || "").trim()
+  return /^\d{2}:\d{2}:\d{2}$/.test(time) ? time.slice(0, 5) : time
+}
+
 function formatScheduleTime(cls, apiMode = false) {
   if (apiMode && (!cls?.startTime || !cls?.endTime)) return "—"
   if (!cls) return "06:00 - 07:30"
@@ -134,8 +158,8 @@ function formatScheduleTime(cls, apiMode = false) {
   const defaultStart = isPickleball ? "18:15" : "06:00"
   const defaultEnd = isPickleball ? "20:00" : "07:30"
 
-  const start = (cls.startTime && String(cls.startTime).trim()) || defaultStart
-  const end = (cls.endTime && String(cls.endTime).trim()) || defaultEnd
+  const start = cleanScheduleTime(cls.startTime) || defaultStart
+  const end = cleanScheduleTime(cls.endTime) || defaultEnd
 
   return `${start} - ${end}`
 }
@@ -2731,13 +2755,7 @@ export function ClassManagement() {
                       const rawClassType = String(cls.classType || "")
                         .trim()
                         .toLowerCase()
-                      const displayWeekdays = Array.isArray(cls.selectedDays) && cls.selectedDays.length
-                        ? cls.selectedDays
-                        : apiEnabled
-                          ? rawClassType === "normal"
-                            ? inferNormalClassWeekdaysFromSessions(scheduledSessions, cls.totalSessions ?? 12) || []
-                            : []
-                          : cls.selectedDays
+                      const displayWeekdays = getClassScheduleDays(cls, scheduledSessions, apiEnabled)
                       const sessionTimePairs = new Set(scheduledSessions
                         .map((session) => `${session.startTime || ""}|${session.endTime || ""}`)
                         .filter((pair) => pair !== "|"))

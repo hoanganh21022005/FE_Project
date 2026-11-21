@@ -1,28 +1,23 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { QRCodeSVG } from "qrcode.react"
 import {
   Activity,
   AlertCircle,
   ArrowRight,
-  Bell,
   CalendarDays,
   CheckCircle2,
   Clock3,
   CreditCard,
   Dumbbell,
   MapPin,
-  QrCode,
   RefreshCw,
   ShieldCheck,
   UserRound,
   UsersRound,
-  X,
 } from "lucide-react"
 import { useSCMS } from "../../context/SCMSContext"
 import { httpClient } from "../../api/httpClient"
 import { extractList } from "../../api/schemaValidators"
-import { mapInvoice } from "../../api/invoiceMappers"
 import { getErrorMessage } from "../../api/apiErrors"
 import { getAuthoritativeProfileId } from "../../utils/memberSafetyHelpers"
 import {
@@ -34,7 +29,6 @@ import {
   getVietnamLocalDateTimeKey,
   isActiveAdvancedSubscription,
   isActiveNormalEnrollment,
-  isPayablePendingInvoice,
   isSubscriptionNearExpiry,
   normalizeState,
   toTimestamp,
@@ -45,8 +39,6 @@ const RESOURCE_KEYS = [
   "subscriptions",
   "sessions",
   "attendance",
-  "invoices",
-  "notifications",
 ]
 
 const EMPTY_RESOURCES = Object.fromEntries(
@@ -60,9 +52,6 @@ const extractRequiredList = (response, label) => {
   }
   return list
 }
-
-const isUnreadNotification = (item) =>
-  item?.isRead === false || item?.read === false || item?.unread === true
 
 const getDashboardSessionTitle = (session, fallback) =>
   session?.className ||
@@ -134,12 +123,6 @@ const formatDashboardDate = (value) => {
     year: "numeric",
   }).format(parsed)
 }
-
-const getNotificationTitle = (item, isVi) =>
-  (isVi ? item?.titleVi : item?.titleEn) ||
-  item?.title ||
-  item?.subject ||
-  (isVi ? "Thông báo mới" : "New notification")
 
 const getStatusLabel = (status, isVi) => {
   const state = normalizeState(status)
@@ -311,14 +294,6 @@ export function MemberDashboard() {
   const memberName = String(currentUser?.name || "").trim()
   const [resources, setResources] = useState(EMPTY_RESOURCES)
   const [refreshToken, setRefreshToken] = useState(0)
-  const [showQrModal, setShowQrModal] = useState(false)
-  const [qrPayload, setQrPayload] = useState("")
-  const [qrExpiresAt, setQrExpiresAt] = useState(null)
-  const [qrSecondsLeft, setQrSecondsLeft] = useState(0)
-  const [qrLoading, setQrLoading] = useState(false)
-  const [qrError, setQrError] = useState("")
-  const qrRequestId = useRef(0)
-  const qrLoadingRef = useRef(false)
 
   const retryDashboard = useCallback(() => {
     setRefreshToken((value) => value + 1)
@@ -427,16 +402,6 @@ export function MemberDashboard() {
         }
       }
 
-      jobs.push(
-        loadResource("invoices", async () => {
-          const list = await listFrom("/api/members/me/invoices", "Hóa đơn")
-          return list.map(mapInvoice).filter(Boolean)
-        }),
-        loadResource("notifications", () =>
-          listFrom("/api/notifications/me", "Thông báo"),
-        ),
-      )
-
       Promise.allSettled(jobs)
     }, 0)
 
@@ -462,8 +427,6 @@ export function MemberDashboard() {
   const attendance = (resources.attendance.data || []).filter(
     (item) => String(item?.memberId ?? item?.userId ?? item?.profileId ?? item?.member_id ?? item?.user_id ?? "") === String(memberId),
   )
-  const invoices = resources.invoices.data || []
-  const notifications = resources.notifications.data || []
   const normalEnrollments = useMemo(
     () => enrollments.filter(isActiveNormalEnrollment),
     [enrollments],
@@ -537,22 +500,6 @@ export function MemberDashboard() {
     () => getActiveAdvancedCreditCount(subscriptions),
     [subscriptions],
   )
-  const payableInvoices = useMemo(
-    () => invoices.filter((invoice) => isPayablePendingInvoice(invoice)),
-    [invoices],
-  )
-  const unreadNotifications = useMemo(
-    () => notifications.filter(isUnreadNotification),
-    [notifications],
-  )
-  const nearExpirySubscriptions = useMemo(
-    () =>
-      advancedSubscriptions.filter((subscription) =>
-        isSubscriptionNearExpiry(subscription),
-      ),
-    [advancedSubscriptions],
-  )
-
   const allEnrolledSessions = useMemo(
     () =>
       enrollments.flatMap(
@@ -598,101 +545,6 @@ export function MemberDashboard() {
       .slice(0, 4)
   }, [attendance, resources.sessions.data, allEnrolledSessions])
 
-  const loadQrCode = useCallback(async () => {
-    if (qrLoadingRef.current) return
-    qrLoadingRef.current = true
-    const requestId = qrRequestId.current + 1
-    qrRequestId.current = requestId
-    setQrLoading(true)
-    setQrError("")
-    setQrPayload("")
-    setQrExpiresAt(null)
-    setQrSecondsLeft(0)
-    try {
-      const response = await httpClient.get("/api/attendances/me/checkin-code")
-      if (qrRequestId.current !== requestId) return
-      const payload =
-        typeof response?.payload === "string" ? response.payload : ""
-      const ttl = Number(response?.expiresInSeconds)
-      if (!payload || !Number.isFinite(ttl) || ttl < 1) {
-        throw new Error(
-          isVi
-            ? "Hệ thống chưa thể cấp mã QR hoặc thời hạn mã không hợp lệ."
-            : "The system could not generate a valid QR code or expiry time.",
-        )
-      }
-      const normalizedTtl = Math.max(1, Math.round(ttl))
-      setQrPayload(payload)
-      setQrSecondsLeft(normalizedTtl)
-      setQrExpiresAt(Date.now() + normalizedTtl * 1000)
-    } catch (error) {
-      if (qrRequestId.current !== requestId) return
-      setQrError(
-        getErrorMessage(
-          error,
-          isVi ? "Không thể tải mã check-in." : "Could not load check-in code.",
-        ),
-      )
-    } finally {
-      qrLoadingRef.current = false
-      if (qrRequestId.current === requestId) setQrLoading(false)
-    }
-  }, [isVi])
-
-  const handleOpenQr = () => {
-    setShowQrModal(true)
-    loadQrCode()
-  }
-
-  useEffect(() => {
-    if (!showQrModal || !qrExpiresAt || !qrPayload) return undefined
-    const updateCountdown = () => {
-      const seconds = Math.max(0, Math.ceil((qrExpiresAt - Date.now()) / 1000))
-      setQrSecondsLeft(seconds)
-    }
-    updateCountdown()
-    const intervalId = window.setInterval(updateCountdown, 250)
-    const timeoutId = window.setTimeout(
-      loadQrCode,
-      Math.max(0, qrExpiresAt - Date.now()),
-    )
-    return () => {
-      window.clearInterval(intervalId)
-      window.clearTimeout(timeoutId)
-    }
-  }, [showQrModal, qrExpiresAt, qrPayload, loadQrCode])
-
-  useEffect(() => {
-    if (!showQrModal) return undefined
-    const refreshExpiredQrOnForeground = () => {
-      if (
-        document.visibilityState === "visible" &&
-        qrExpiresAt &&
-        Date.now() >= qrExpiresAt
-      ) {
-        loadQrCode()
-      }
-    }
-    document.addEventListener("visibilitychange", refreshExpiredQrOnForeground)
-    window.addEventListener("focus", refreshExpiredQrOnForeground)
-    return () => {
-      document.removeEventListener(
-        "visibilitychange",
-        refreshExpiredQrOnForeground,
-      )
-      window.removeEventListener("focus", refreshExpiredQrOnForeground)
-    }
-  }, [showQrModal, qrExpiresAt, loadQrCode])
-
-  useEffect(() => {
-    if (!showQrModal) return undefined
-    const onKeyDown = (event) => {
-      if (event.key === "Escape") setShowQrModal(false)
-    }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [showQrModal])
-
   const retryResource = () => retryDashboard()
   const locale = isVi ? "vi-VN" : "en-US"
   const unavailable = isVi ? "Ch\u01b0a c\u00f3 th\u00f4ng tin" : "Not provided"
@@ -704,43 +556,6 @@ export function MemberDashboard() {
     normalEnrollments.length === 0 &&
     normalSubscriptions.length === 0 &&
     advancedSubscriptions.length === 0
-
-  const attentionItems = [
-    ...payableInvoices.map((invoice) => ({
-      key: `invoice-${invoice.invoiceId}`,
-      icon: CreditCard,
-      title: isVi
-        ? `Hóa đơn ${invoice.invoiceCode || `#${invoice.invoiceId}`} đang chờ thanh toán`
-        : `Invoice ${invoice.invoiceCode || `#${invoice.invoiceId}`} is awaiting payment`,
-      detail: invoice.expiresAt
-        ? `${
-            isVi ? "Hết hạn lúc" : "Expires"
-          } ${formatVietnamDateTime(invoice.expiresAt, null, locale)}`
-        : "",
-      action: isVi ? "Xem hóa đơn" : "View invoice",
-      onAction: () => navigate("/member/invoices"),
-    })),
-    ...unreadNotifications.slice(0, 2).map((notification, index) => ({
-      key: `notification-${notification.id || index}`,
-      icon: Bell,
-      title: getNotificationTitle(notification, isVi),
-      detail: notification.message || notification.description || "",
-      action: isVi ? "Mở thông báo" : "Open notifications",
-      onAction: () => navigate("/member/notifications"),
-    })),
-    ...nearExpirySubscriptions.map((subscription) => ({
-      key: `expiry-${subscription.subscriptionId || subscription.id}`,
-      icon: Clock3,
-      title: isVi
-        ? `Gói ${subscription.subjectName || unavailable} sắp hết hạn`
-        : `${subscription.subjectName || "Advanced"} package expires soon`,
-      detail: `${
-        isVi ? "Hạn sử dụng" : "Expires"
-      }: ${formatVietnamDateTime(subscription.expiresAt, null, locale)}`,
-      action: isVi ? "Xem gói học" : "View packages",
-      onAction: () => navigate("/member/my-membership"),
-    })),
-  ]
 
   const kpis = [
     {
@@ -800,10 +615,7 @@ export function MemberDashboard() {
                 {attendanceRate !== null && <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-400/15 px-3 py-1.5 text-xs font-semibold text-emerald-100"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />{isVi ? "Tỷ lệ tham gia" : "Attendance rate"} {attendanceRate}%</span>}
               </div>
             </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              <button type="button" onClick={handleOpenQr} disabled={!apiEnabled} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"><QrCode className="h-4 w-4" aria-hidden="true" />{isVi ? "Mã QR Check-in" : "Check-in QR"}</button>
-              <button type="button" onClick={() => navigate("/member/schedule")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">{isVi ? "Xem lịch tuần" : "View weekly schedule"}<ArrowRight className="h-4 w-4" /></button>
-            </div>
+            <button type="button" onClick={() => navigate("/member/schedule")} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">{isVi ? "Xem lịch tuần" : "View weekly schedule"}<ArrowRight className="h-4 w-4" /></button>
           </div>
         </section>
 
@@ -1267,12 +1079,11 @@ export function MemberDashboard() {
               <div className="grid grid-cols-1 gap-2">
                 <button
                   type="button"
-                  onClick={handleOpenQr}
-                  disabled={!apiEnabled}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-900 transition hover:border-brand-primary/40 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => navigate("/member/attendance")}
+                  className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left text-[15px] font-semibold text-slate-900 transition hover:border-brand-primary/40 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                 >
-                  <QrCode className="h-4 w-4 text-brand-primary" />
-                  {isVi ? "Mã QR Check-in" : "Check-in QR"}
+                  <UserRound className="h-4 w-4 text-brand-primary" />
+                  {isVi ? "Thẻ hội viên" : "Member card"}
                   <ArrowRight className="ml-auto h-4 w-4 text-slate-400" />
                 </button>
                 <button
@@ -1305,98 +1116,6 @@ export function MemberDashboard() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/[0.02] sm:p-6">
-              <SectionHeading
-                icon={Bell}
-                title={isVi ? "Cần bạn chú ý" : "Needs attention"}
-              />
-              {resources.invoices.loading ||
-              resources.notifications.loading ||
-              resources.subscriptions.loading ? (
-                <LoadingBlock rows={2} />
-              ) : (
-                <>
-                  {(resources.invoices.error ||
-                    resources.notifications.error ||
-                    resources.subscriptions.error) && (
-                    <div className="mb-3 space-y-2">
-                      {resources.invoices.error && (
-                        <ResourceError
-                          message={resources.invoices.error}
-                          onRetry={retryResource}
-                          compact
-                          isVi={isVi}
-                        />
-                      )}
-                      {resources.notifications.error && (
-                        <ResourceError
-                          message={resources.notifications.error}
-                          onRetry={retryResource}
-                          compact
-                          isVi={isVi}
-                        />
-                      )}
-                      {resources.subscriptions.error && (
-                        <ResourceError
-                          message={resources.subscriptions.error}
-                          onRetry={retryResource}
-                          compact
-                          isVi={isVi}
-                        />
-                      )}
-                    </div>
-                  )}
-                  {attentionItems.length === 0 ? (
-                    resources.invoices.error ||
-                    resources.notifications.error ||
-                    resources.subscriptions.error ? null : (
-                      <div className="rounded-xl bg-emerald-50 px-4 py-4 text-[15px] text-emerald-900">
-                        <p className="flex items-center gap-2 font-semibold">
-                          <CheckCircle2 className="h-4 w-4" />
-                          {isVi
-                            ? "Chưa có việc nào cần xử lý"
-                            : "Nothing needs your attention"}
-                        </p>
-                      </div>
-                    )
-                  ) : (
-                    <ul className="space-y-3">
-                      {attentionItems.map((item) => {
-                        const Icon = item.icon
-                        return (
-                          <li
-                            key={item.key}
-                            className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5"
-                          >
-                            <div className="flex items-start gap-2.5">
-                              <Icon className="mt-0.5 h-4 w-4 shrink-0 text-amber-800" />
-                              <div className="min-w-0">
-                                <p className="text-[15px] font-semibold text-amber-950">
-                                  {item.title}
-                                </p>
-                                {item.detail && (
-                                  <p className="mt-1 text-[13px] leading-5 text-amber-900">
-                                    {item.detail}
-                                  </p>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={item.onAction}
-                                  className="mt-2 text-[15px] font-semibold text-brand-primary underline underline-offset-2 hover:text-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-dark"
-                                >
-                                  {item.action}
-                                </button>
-                              </div>
-                            </div>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  )}
-                </>
-              )}
-            </section>
-
             <section className="rounded-2xl border border-slate-200 bg-slate-900 p-5 text-white shadow-sm sm:p-6">
               <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-brand-accent-soft">
                 AVT SPORT
@@ -1424,91 +1143,6 @@ export function MemberDashboard() {
         </section>
       </div>
 
-      {showQrModal && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setShowQrModal(false)
-          }}
-        >
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="member-checkin-title"
-            className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6"
-          >
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
-              <div>
-                <p className="text-[13px] font-bold uppercase tracking-wide text-brand-accent-dark">
-                  AVT SPORT
-                </p>
-                <h2
-                  id="member-checkin-title"
-                  className="mt-1 text-lg font-bold text-slate-950"
-                >
-                  {isVi ? "Mã QR Check-in" : "Check-in QR"}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowQrModal(false)}
-                aria-label={isVi ? "Đóng" : "Close"}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <p className="mt-4 text-[15px] leading-6 text-slate-600">
-              {isVi
-                ? "Mã QR được cấp từ hệ thống và tự làm mới khi hết hạn. Đưa mã cho nhân viên để check-in."
-                : "This QR is issued by the system and refreshes when it expires. Present it to staff to check in."}
-            </p>
-            <div className="mt-4 flex min-h-[248px] items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-4">
-              {qrLoading ? (
-                <div className="text-center text-[15px] text-slate-600">
-                  <RefreshCw className="mx-auto mb-2 h-6 w-6 animate-spin text-brand-primary" />
-                  {isVi ? "Đang lấy mã check-in…" : "Loading check-in code…"}
-                </div>
-              ) : qrError ? (
-                <div className="w-full">
-                  <ResourceError
-                    message={qrError}
-                    onRetry={loadQrCode}
-                    isVi={isVi}
-                  />
-                </div>
-              ) : qrPayload ? (
-                <div className="text-center">
-                  <div className="inline-flex rounded-xl bg-white p-3 shadow-sm">
-                    <QRCodeSVG value={qrPayload} size={208} level="M" />
-                  </div>
-                  <p className="mt-3 text-[15px] text-slate-600">
-                    {isVi ? "Mã làm mới sau" : "Refreshes in"}{" "}
-                    <strong className="font-semibold text-brand-primary">
-                      {qrSecondsLeft}s
-                    </strong>
-                  </p>
-                </div>
-              ) : (
-                <p className="text-[15px] text-slate-600">
-                  {isVi
-                    ? "Chưa có mã check-in."
-                    : "No check-in code available."}
-                </p>
-              )}
-            </div>
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowQrModal(false)}
-                className="rounded-lg border border-slate-300 px-4 py-2.5 text-[15px] font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-600"
-              >
-                {isVi ? "Đóng" : "Close"}
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
     </div>
   )
 }
