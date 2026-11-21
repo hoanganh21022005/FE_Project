@@ -306,11 +306,13 @@ export const inspectNormalClassProposal = (proposal) => {
   }
 }
 
-export const evaluateNormalProposalApply = (proposal, classItem = null) => {
+export const evaluateNormalProposalApply = (proposal, classItem = null, { allowAppliedTransferRepair = false } = {}) => {
   const inspected = inspectNormalClassProposal(proposal)
   const blockers = []
   const unverified = []
-  if (normalize(inspected.status) !== 'pending') blockers.push('Only a Pending proposal can be applied.')
+  const isAppliedTransferRepair = allowAppliedTransferRepair && inspected.kind === 'transfer'
+    && normalize(inspected.status) === 'applied' && classItem?.changePending === true
+  if (normalize(inspected.status) !== 'pending' && !isAppliedTransferRepair) blockers.push('Only a Pending proposal can be applied.')
   if (!validVersion(inspected.proposalVersion)) unverified.push('Proposal version is unavailable or invalid.')
 
   if (inspected.hasWaitingChoices === true) blockers.push('At least one Member is still waiting to decide.')
@@ -319,7 +321,7 @@ export const evaluateNormalProposalApply = (proposal, classItem = null) => {
   if (classItem) {
     if (!validVersion(classItem.lifecycleVersion)) {
       unverified.push('Class lifecycleVersion is unavailable; reload the class before applying.')
-    } else if (validVersion(inspected.proposalVersion) && inspected.proposalVersion !== classItem.lifecycleVersion) {
+    } else if (!isAppliedTransferRepair && validVersion(inspected.proposalVersion) && inspected.proposalVersion !== classItem.lifecycleVersion) {
       blockers.push('The proposal version is stale; reload the current proposal and class.')
     }
   }

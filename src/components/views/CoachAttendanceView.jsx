@@ -39,7 +39,25 @@ import {
   UserCheck,
 } from "lucide-react"
 
-export function CoachAttendanceView() {
+const isBeforeSessionStart = (session) => {
+  const date = String(session?.sessionDate || "").slice(0, 10)
+  const time = String(session?.startTime || "").slice(0, 5)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return false
+  const startsAt = Date.parse(`${date}T${time}:00+07:00`)
+  return Number.isFinite(startsAt) && Date.now() < startsAt
+}
+
+const isNormalCoachClass = (item, apiMode) => {
+  const type = String(item?.classType || "").trim().toLowerCase()
+  if (type) return type === "normal"
+  if (item?.isPrivate === true) return false
+  const label = [item?.name, item?.nameVi, item?.category].filter(Boolean).join(" ").toLowerCase()
+  if (label.includes("advanced") || label.includes("pt 1:1")) return false
+  return !apiMode || label.includes("normal")
+}
+
+export function CoachAttendanceView({ mode = "normal" } = {}) {
+  const attendanceMode = mode === "advanced" ? "advanced" : "normal"
   const {
     classes,
     classesLoading,
@@ -63,19 +81,21 @@ export function CoachAttendanceView() {
   }, [apiEnabled, currentUser?.coachId, currentUser?.id])
 
   const [selectedClassId, setSelectedClassId] = useState(() => {
+    if (attendanceMode === "advanced") return "PT_1ON1"
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search)
       const urlClassId = urlParams.get("classId")
-      if (urlClassId) return urlClassId
+      if (urlClassId && urlClassId !== "PT_1ON1") return urlClassId
       const savedCoach = sessionStorage.getItem("scms_selected_attendance_coach_id")
       const currentCoachStr = currentUser?.coachId ? String(currentUser.coachId) : currentUser?.id ? String(currentUser.id) : null
       if (savedCoach && currentCoachStr && savedCoach !== currentCoachStr) {
         sessionStorage.removeItem("scms_selected_attendance_class_id")
         sessionStorage.removeItem("scms_selected_attendance_session_id")
         sessionStorage.setItem("scms_selected_attendance_coach_id", currentCoachStr)
-        return ""
+        return attendanceMode === "advanced" ? "PT_1ON1" : ""
       }
-      return sessionStorage.getItem("scms_selected_attendance_class_id") || ""
+      const savedClassId = sessionStorage.getItem("scms_selected_attendance_class_id") || ""
+      return savedClassId === "PT_1ON1" ? "" : savedClassId
     }
     return ""
   })
@@ -94,13 +114,15 @@ export function CoachAttendanceView() {
       sessionStorage.removeItem("scms_selected_attendance_session_id")
       sessionStorage.setItem("scms_selected_attendance_coach_id", String(resolvedCoachId))
       if (!hasUrlClass) {
-        setSelectedClassId("")
+        const nextClassId = attendanceMode === "advanced" ? "PT_1ON1" : ""
+        setSelectedClassId(nextClassId)
+        if (nextClassId) sessionStorage.setItem("scms_selected_attendance_class_id", nextClassId)
         setSelectedSessionId("")
       }
     } else if (!savedCoach) {
       sessionStorage.setItem("scms_selected_attendance_coach_id", String(resolvedCoachId))
     }
-  }, [resolvedCoachId])
+  }, [attendanceMode, resolvedCoachId])
 
   // Prefetch coach sessions to discover substitute classes and PT 1:1 sessions
   useEffect(() => {
@@ -160,6 +182,7 @@ export function CoachAttendanceView() {
     )
     const coachNameLower = String(currentUser?.name || "").trim().toLowerCase()
     const matched = classes.filter((c) => {
+      if (!isNormalCoachClass(c, apiEnabled)) return false
       if (apiEnabled) {
         return resolvedCoachId != null && String(c.coachId) === String(resolvedCoachId)
       }
@@ -178,7 +201,7 @@ export function CoachAttendanceView() {
 
     // Include selectedClassId from sessionStorage / URL if it exists in classes
     if (selectedClassId && !matchedIds.has(String(selectedClassId)) && selectedClassId !== "PT_1ON1") {
-      const targetClass = classes.find((c) => String(c.id) === String(selectedClassId)) || fallbackClassMap.get(String(selectedClassId))
+      const targetClass = classes.find((c) => String(c.id) === String(selectedClassId) && isNormalCoachClass(c, apiEnabled)) || fallbackClassMap.get(String(selectedClassId))
       if (targetClass) {
         additionalClasses.push({
           ...targetClass,
@@ -191,7 +214,7 @@ export function CoachAttendanceView() {
     // Include other substitute classes discovered from coach sessions
     substituteClassIds.forEach((clsId) => {
       if (!matchedIds.has(String(clsId)) && clsId !== "PT_1ON1") {
-        const targetClass = classes.find((c) => String(c.id) === String(clsId)) || fallbackClassMap.get(String(clsId))
+        const targetClass = classes.find((c) => String(c.id) === String(clsId) && isNormalCoachClass(c, apiEnabled)) || fallbackClassMap.get(String(clsId))
         if (targetClass) {
           additionalClasses.push({
             ...targetClass,
@@ -221,7 +244,7 @@ export function CoachAttendanceView() {
     if (selectedClassId) {
       found = coachClasses.find((c) => String(c.id) === String(selectedClassId)) || null
     } else {
-      found = coachClasses[0] || null
+      found = coachClasses.find((c) => isNormalCoachClass(c, apiEnabled)) || null
     }
     if (!found) {
       prevSelectedClassRef.current = null
@@ -239,49 +262,24 @@ export function CoachAttendanceView() {
     }
     prevSelectedClassRef.current = found
     return found
-  }, [coachClasses, selectedClassId])
+  }, [apiEnabled, coachClasses, selectedClassId])
 
   const normalClasses = useMemo(() => {
-    return coachClasses.filter((c) => String(c.id) !== "PT_1ON1")
-  }, [coachClasses])
-
-  const [attendanceMode, setAttendanceMode] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = sessionStorage.getItem("scms_selected_attendance_class_id")
-      if (saved === "PT_1ON1") return "advanced"
-    }
-    return "normal"
-  })
+    return coachClasses.filter((c) => String(c.id) !== "PT_1ON1" && isNormalCoachClass(c, apiEnabled))
+  }, [apiEnabled, coachClasses])
 
   useEffect(() => {
-    if (selectedClassId === "PT_1ON1") {
-      setAttendanceMode("advanced")
-    } else if (selectedClassId && selectedClassId !== "PT_1ON1") {
-      setAttendanceMode("normal")
+    if (!selectedClassId || selectedClassId === "PT_1ON1") return
+    if (normalClasses.some((item) => String(item.id) === String(selectedClassId))) return
+    const nextId = normalClasses[0]?.id == null ? "" : String(normalClasses[0].id)
+    setSelectedClassId(nextId)
+    setSelectedSessionId("")
+    if (typeof window !== "undefined") {
+      if (nextId) sessionStorage.setItem("scms_selected_attendance_class_id", nextId)
+      else sessionStorage.removeItem("scms_selected_attendance_class_id")
+      sessionStorage.removeItem("scms_selected_attendance_session_id")
     }
-  }, [selectedClassId])
-
-  const handleModeChange = (mode) => {
-    setAttendanceMode(mode)
-    if (mode === "advanced") {
-      setSelectedClassId("PT_1ON1")
-      setSelectedSessionId("")
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem("scms_selected_attendance_class_id", "PT_1ON1")
-        sessionStorage.removeItem("scms_selected_attendance_session_id")
-      }
-    } else {
-      const firstNormal = normalClasses[0] || null
-      const nextId = firstNormal ? String(firstNormal.id) : ""
-      setSelectedClassId(nextId)
-      setSelectedSessionId("")
-      if (typeof window !== "undefined") {
-        if (nextId) sessionStorage.setItem("scms_selected_attendance_class_id", nextId)
-        else sessionStorage.removeItem("scms_selected_attendance_class_id")
-        sessionStorage.removeItem("scms_selected_attendance_session_id")
-      }
-    }
-  }
+  }, [normalClasses, selectedClassId])
 
   useEffect(() => {
     if (selectedClass?.id && typeof window !== "undefined" && resolvedCoachId) {
@@ -384,6 +382,21 @@ export function CoachAttendanceView() {
     }
 
     if (!selectedClass?.id) {
+      setApiEnrollments([])
+      setApiAttendances([])
+      setClassTrainingPlans([])
+      setSessionTrainingResults([])
+      setSessionAbsenceNotices([])
+      setClassSessions([])
+      setLoadedClassId(null)
+      setLoadedSessionId(null)
+      setRosterError(null)
+      setAttendancesError(null)
+      setTrainingResultsError(null)
+      if (selectedSessionId) {
+        setSelectedSessionId("")
+        if (typeof window !== "undefined") sessionStorage.removeItem("scms_selected_attendance_session_id")
+      }
       setLoadingRoster(false)
       return
     }
@@ -478,11 +491,18 @@ export function CoachAttendanceView() {
           ...s,
           computedOrderNumber: s.sessionNumber || idx + 1,
         }))
+      const assignedSessions = sortedSessions.filter((session) =>
+        verifyCoachSessionPermission({
+          session,
+          classItem: selectedClass,
+          coachId: resolvedCoachId,
+        }).allowed,
+      )
 
-      setClassSessions(sortedSessions)
+      setClassSessions(assignedSessions)
 
       let targetSession = selectedSessionId
-        ? sortedSessions.find(
+        ? assignedSessions.find(
             (s) => String(s.id) === String(selectedSessionId),
           )
         : null
@@ -496,7 +516,7 @@ export function CoachAttendanceView() {
       }
 
       if (!targetSession) {
-        const coachAssignedUpcoming = sortedSessions.find(
+        const coachAssignedUpcoming = assignedSessions.find(
           (s) =>
             !isSessionCancelled(s) &&
             canCheckIn(s) &&
@@ -505,14 +525,14 @@ export function CoachAttendanceView() {
               : String(selectedClass?.coachId) === String(resolvedCoachId)) &&
             String(s.sessionDate || "") >= todayIso,
         )
-        const coachAssignedAny = sortedSessions.find(
+        const coachAssignedAny = assignedSessions.find(
           (s) =>
             !isSessionCancelled(s) &&
             (s.coachId != null
               ? String(s.coachId) === String(resolvedCoachId)
               : String(selectedClass?.coachId) === String(resolvedCoachId)),
         )
-        const nextScheduled = sortedSessions.find(
+        const nextScheduled = assignedSessions.find(
           (s) =>
             !isSessionCancelled(s) &&
             canCheckIn(s) &&
@@ -522,8 +542,8 @@ export function CoachAttendanceView() {
           coachAssignedUpcoming ||
           coachAssignedAny ||
           nextScheduled ||
-          sortedSessions.find((s) => !isSessionCancelled(s)) ||
-          sortedSessions[0] ||
+          assignedSessions.find((s) => !isSessionCancelled(s)) ||
+          assignedSessions[0] ||
           null
 
         if (!targetSession) {
@@ -535,7 +555,9 @@ export function CoachAttendanceView() {
           setSessionAbsenceNotices([])
           setLoadedClassId(null)
           setLoadedSessionId(null)
-          setRosterError(new Error("Lớp học này hiện chưa có buổi học nào."))
+          setRosterError(new Error(language === "vi"
+            ? "Không có buổi học nào của lớp này được phân công cho bạn."
+            : "No sessions in this class are assigned to you."))
           return
         }
 
@@ -656,7 +678,7 @@ export function CoachAttendanceView() {
     } finally {
       if (requestId === rosterRequestId.current) setLoadingRoster(false)
     }
-  }, [apiEnabled, classesLoading, resolvedCoachId, selectedClass, selectedSessionId, todayIso])
+  }, [apiEnabled, classesLoading, resolvedCoachId, selectedClass, selectedClassId, selectedSessionId, todayIso, language])
 
   useEffect(() => {
     loadClassRosterAndAttendance()
@@ -956,6 +978,7 @@ export function CoachAttendanceView() {
   const allowCheckIn =
     isClassValid && sessionReady && hasSessionPermission && attendanceAccess.allowed
   const allowCorrection = sessionReady && hasSessionPermission && canCorrectAttendance(activeSession)
+  const sessionHasNotStarted = apiEnabled && isBeforeSessionStart(activeSession)
   const resolvedSessionStatus = normalizeSessionStatus(activeSession) || "Scheduled"
 
   const bulkAllowed = canPerformBulkAttendance({
@@ -1192,62 +1215,18 @@ export function CoachAttendanceView() {
           </div>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900 leading-snug">
-              {language === "vi" ? "Điểm danh học viên" : "Attendance Tracking"}
+              {attendanceMode === "advanced"
+                ? language === "vi" ? "Điểm danh Advanced PT 1:1" : "Advanced 1:1 Attendance"
+                : language === "vi" ? "Điểm danh lớp Normal" : "Normal Class Attendance"}
             </h1>
             <p className="mt-1 text-sm text-slate-500 leading-relaxed">
-              {language === "vi"
-                ? "Quản lý điểm danh học viên theo từng buổi học"
-                : "Manage session attendance"}
+              {attendanceMode === "advanced"
+                ? language === "vi" ? "Điểm danh từng buổi tập kèm riêng 1:1" : "Record attendance for each 1:1 private session"
+                : language === "vi" ? "Điểm danh học viên theo từng buổi của lớp Normal" : "Record attendance for each Normal class session"}
             </p>
           </div>
         </div>
 
-        {/* Tab Switcher */}
-        <div role="tablist" className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1 gap-1 self-start shrink-0">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={attendanceMode === "normal"}
-            onClick={() => handleModeChange("normal")}
-            className={`inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3.5 text-xs font-semibold transition-all cursor-pointer ${
-              attendanceMode === "normal"
-                ? "bg-brand-primary text-white shadow-sm"
-                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>{language === "vi" ? "Lớp học thường (Normal)" : "Normal Classes"}</span>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-              attendanceMode === "normal"
-                ? "bg-white/20 text-white"
-                : "bg-bg-secondary text-text-secondary border border-border-color"
-            }`}>
-              {normalClasses.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={attendanceMode === "advanced"}
-            onClick={() => handleModeChange("advanced")}
-            className={`inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3.5 text-xs font-semibold transition-all cursor-pointer ${
-              attendanceMode === "advanced"
-                ? "bg-brand-primary text-white shadow-sm"
-                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-            }`}
-          >
-            <UserCheck className="w-4 h-4" />
-            <span>{language === "vi" ? "Kèm riêng 1:1 (Advanced)" : "1:1 PT (Advanced)"}</span>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-              attendanceMode === "advanced"
-                ? "bg-white/20 text-white"
-                : "bg-slate-200 text-slate-600"
-            }`}>
-              {coachPtSessions.length}
-            </span>
-          </button>
-        </div>
       </div>
 
       {/* Class Banner & Selector */}
@@ -1265,14 +1244,14 @@ export function CoachAttendanceView() {
                 ? (language === "vi" ? "Advanced 1:1" : "Advanced 1:1")
                 : (language === "vi" ? "Lớp Normal" : "Normal Class")}
             </span>
-            <CoachStatusBadge
+            {activeSession?.id != null && <CoachStatusBadge
               type="session"
               value={
                 sessionCancelled && activeSession?.centerInvalidated
                   ? "centerInvalidated"
                   : resolvedSessionStatus
               }
-            />
+            />}
 
             {attendanceMode === "normal" ? (
               normalClasses.length > 0 ? (
@@ -1401,7 +1380,13 @@ export function CoachAttendanceView() {
               : selectedClass?.nameVi || selectedClass?.name || (language === "vi" ? "Lớp học thường" : "Normal Class")}
           </h2>
 
-          {(() => {
+            {activeSession?.id == null ? (
+              <p className="text-sm leading-5 text-text-secondary mt-0.5">
+                {language === "vi"
+                  ? "Chưa có buổi học nào được phân công cho bạn trong lớp này."
+                  : "No session in this class is assigned to you."}
+              </p>
+            ) : (() => {
             const orderNum = activeSession?.computedOrderNumber || 1
             const sesDate = activeSession?.sessionDate
               ? formatDate(activeSession.sessionDate)
@@ -1502,7 +1487,7 @@ export function CoachAttendanceView() {
       </div>
 
       {/* Session Status & Permission Banners */}
-      {!hasSessionPermission && !loadingRoster && (
+      {!hasSessionPermission && !loadingRoster && activeSession?.id != null && (
         <div className="p-4 bg-status-warning-bg border border-status-warning-border rounded-lg flex items-start gap-3 text-status-warning">
           <AlertCircle className="w-5 h-5 text-status-warning shrink-0 mt-0.5" />
           <div className="space-y-1 text-sm leading-5">
@@ -1688,7 +1673,11 @@ export function CoachAttendanceView() {
                     </button>
                   </div>
                 )
-                : enrolledMembers.length > 0
+                : !selectedClass?.id
+                  ? language === "vi"
+                    ? "Bạn hiện chưa được phân công lớp Normal nào."
+                    : "You are not currently assigned to a Normal class."
+                  : enrolledMembers.length > 0
                   ? "Không tìm thấy học viên khớp với từ khóa."
                   : Number(selectedClass?.enrolledCount || 0) > 0
                     ? `Lớp đã có ${selectedClass.enrolledCount} học viên đăng ký. Bạn có thể nhập mã hội viên (MB-xxxx) ở ô "Điểm danh nhanh" phía trên để ghi nhận buổi học.`
@@ -1703,6 +1692,7 @@ export function CoachAttendanceView() {
                 saveState,
                 rowErrorMessage,
               } = getMemberStatusAndMeta(m)
+              const existingAttendanceBeforeStart = currentStatus !== "not_recorded" && sessionHasNotStarted
 
               return (
                 <div
@@ -1759,7 +1749,7 @@ export function CoachAttendanceView() {
 
                   <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
                     {/* R1.1 & R1.5: 4 one-touch buttons on 1 single row even at 375px */}
-                    {allowCheckIn && !sessionCancelled && hasSessionPermission ? (
+                    {allowCheckIn && !sessionCancelled && hasSessionPermission && !existingAttendanceBeforeStart ? (
                       <div className="grid grid-cols-2 gap-1 w-full sm:w-auto">
                         {[
                           {
@@ -1787,7 +1777,12 @@ export function CoachAttendanceView() {
                               type="button"
                               aria-label={btn.label}
                               aria-pressed={isSelected}
-                              disabled={saveState === "saving" || bulkSaving}
+                              disabled={saveState === "saving" || bulkSaving || existingAttendanceBeforeStart}
+                              title={existingAttendanceBeforeStart
+                                ? language === "vi"
+                                  ? "Đã có điểm danh; không thể sửa trước giờ bắt đầu."
+                                  : "Attendance is already recorded and cannot be changed before the session starts."
+                                : undefined}
                               onClick={() =>
                                 handleOneTouchCheckIn(m, btn.key, attendanceId)
                               }

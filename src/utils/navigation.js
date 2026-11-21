@@ -243,7 +243,9 @@ const ROUTE_TAB_MAP = {
   // Coach routes
   "/coach/dashboard": { role: ROLE_COACH, tab: "coach_dashboard" },
   "/coach/schedule": { role: ROLE_COACH, tab: "coach_schedule" },
-  "/coach/attendance": { role: ROLE_COACH, tab: "coach_attendance" },
+  "/coach/attendance": { role: ROLE_COACH, tab: "coach_attendance_normal" },
+  "/coach/attendance/normal": { role: ROLE_COACH, tab: "coach_attendance_normal" },
+  "/coach/attendance/advanced": { role: ROLE_COACH, tab: "coach_attendance_advanced" },
   "/coach/assigned-members": {
     role: ROLE_COACH,
     tab: "coach_assigned_members",
@@ -344,7 +346,9 @@ const TAB_ROUTE_MAP = {
   // Coach
   coach_dashboard: "/coach/dashboard",
   coach_schedule: "/coach/schedule",
-  coach_attendance: "/coach/attendance",
+  coach_attendance: "/coach/attendance/normal",
+  coach_attendance_normal: "/coach/attendance/normal",
+  coach_attendance_advanced: "/coach/attendance/advanced",
   coach_assigned_members: "/coach/assigned-members",
   coach_progress: "/coach/progress",
 
