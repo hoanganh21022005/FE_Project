@@ -1498,6 +1498,8 @@ export function MemberCourseCatalog({ requestsOnly = false } = {}) {
             && String(subscription.primaryCoachId) === String(item.primaryCoachId)
             && normalizeCatalogStatus(subscription.status) === 'active'
             && Number(subscription.remainingCredit) > 0)
+          const invoicePaid = ['paid', 'successful', 'completed'].includes(invoiceStatus)
+          const registrationPaidOrActive = invoicePaid || hasActivePackageForRegistration
           const staleInvoiced = ['accepted', 'invoiced'].includes(registrationStatus) && hasInvoiceRecord && unpaidInvoice && !hasActivePackageForRegistration && (invoiceExpiredByStatus || invoiceExpired || confirmationExpiredByGrace)
           const accepted = registrationStatus === 'accepted' || registrationStatus === 'invoiced'
           const rejected = registrationStatus === 'rejected'
@@ -1555,16 +1557,16 @@ return (
     </div>
 
     <div className="min-w-[220px] flex-1 space-y-2">
-      {accepted && !expiredRequest
-        ? <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800">{isVi ? 'Coach đã chấp thuận' : 'Coach accepted'}</span>
+      {(accepted && !expiredRequest) || registrationPaidOrActive
+        ? <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800">{registrationPaidOrActive ? (isVi ? (hasActivePackageForRegistration ? 'Đang hoạt động' : 'Đã thanh toán') : (hasActivePackageForRegistration ? 'Active' : 'Paid')) : (isVi ? 'Coach đã chấp thuận' : 'Coach accepted')}</span>
         : <StatusPill status={displayStatus} language={language} />}
-      {(item.confirmationDeadline || item.invoiceExpiresAt || item.expiresAt || relatedOrder?.expiresAt) && (
+      {!registrationPaidOrActive && !hasInvoiceRecord && (item.confirmationDeadline || item.invoiceExpiresAt || item.expiresAt || relatedOrder?.expiresAt) && (
         <p className={'whitespace-nowrap text-xs ' + (expiredRequest ? 'text-slate-400' : 'text-slate-500')}>
           {isVi ? 'Hạn: ' : 'Deadline: '}
           {formatDeadline(item.confirmationDeadline || item.invoiceExpiresAt || item.expiresAt || relatedOrder?.expiresAt, language)}
         </p>
       )}
-      {accepted && !expiredRequest && (
+      {accepted && !expiredRequest && !hasInvoiceRecord && !registrationPaidOrActive && (
         <p className="text-xs text-slate-500">
           {isVi ? 'HLV đã đồng ý nhận học viên. Vui lòng xác nhận đơn hàng trong vòng 24 giờ để tiến hành thanh toán.' : 'The coach accepted your request. Confirm the order within 24 hours to proceed with payment.'}
         </p>
