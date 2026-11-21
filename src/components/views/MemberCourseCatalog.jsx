@@ -167,9 +167,9 @@ const firstSessionStart = (courseClass, sessions) => {
   const date = start ? new Date(start) : null
   return date && !Number.isNaN(date.getTime()) ? date.getTime() : null
 }
-const registrationCutoffPassed = (courseClass, sessions) => {
+const registrationCutoffPassed = (courseClass, sessions, now = Date.now()) => {
   const firstStart = firstSessionStart(courseClass, sessions)
-  return firstStart != null && firstStart - Date.now() < 48 * 3600 * 1000
+  return firstStart != null && firstStart - now <= 48 * 3600 * 1000
 }
 const localCalendarDate = (value) => {
   if (!value) return null
@@ -208,6 +208,16 @@ const normalSessionIssueMessage = (issue, isVi) => issue === 'started'
   : issue === 'sessions'
     ? (isVi ? 'Lớp học đã bắt đầu hoặc không còn đủ 12 buổi học trong tương lai nên không thể đăng ký mới. Vui lòng chọn lớp khác sắp khai giảng.' : 'The class has started or fewer than 12 future sessions remain. Please choose a class starting soon.')
     : ''
+
+const canEnrollInNormalClass = (courseClass, subjectId, sessions, price, now = Date.now()) => {
+  const verification = verifyNormalCourseClass(courseClass, sessions, subjectId, { allowFull: allowsFullClass(courseClass) })
+  const checkEligible = verification.eligible && !normalFutureSessionIssue(courseClass, sessions)
+  return decideNormalEnroll(courseClass, {
+    checkEligible,
+    cutoffPassed: registrationCutoffPassed(courseClass, sessions, now),
+    hasPrice: hasSellablePrice(price) && hasSellablePrice(courseClass?.tuitionFee),
+  }).canEnroll
+}
 
 function InlineState({ loading, error, retry, empty, children, language }) {
   if (loading) return <div className="flex min-h-28 items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600" role="status"><LoaderCircle className="h-5 w-5 animate-spin text-brand-accent-dark" />{language === 'vi' ? 'Đang tải dữ liệu…' : 'Loading…'}</div>
@@ -391,10 +401,18 @@ export function MemberCourseCatalog() {
       const hasValidPrice = Boolean(subject && hasSellablePrice(subject[tier === 'Normal' ? 'normalPrice' : 'advancedPrice']) && !row.ambiguous && !row.invalidId)
       if (tier === 'Normal') {
         const subjectClasses = catalogClasses.filter((item) => String(item.subjectId) === String(subject?.id) && normalizeCatalogText(item.classType) === 'normal')
-        const openClasses = hasValidPrice ? subjectClasses.filter((item) =>
-          verifyNormalCourseClass(item, scheduleStates[item.id] ? scheduleStates[item.id].sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules), subject.id, { allowFull: allowsFullClass(item) }).eligible
-          && !normalFutureSessionIssue(item, scheduleStates[item.id] ? scheduleStates[item.id].sessions : (item.sessions ?? item.scheduleSessions ?? item.schedules)),
-        ) : []
+        const openClasses = hasValidPrice ? subjectClasses.filter((item) => {
+          const sessions = scheduleStates[item.id]?.sessions?.length
+            ? scheduleStates[item.id].sessions
+            : item.sessions ?? item.scheduleSessions ?? item.schedules
+          const alreadyEnrolled = enrollments.some((enrollment) => String(enrollment.classId) === String(item.id)
+            && !['cancelled', 'canceled', 'rejected', 'expired'].includes(normalizeCatalogStatus(enrollment.status)))
+          const uncertain = normalUncertainClassIds.some((id) => String(id) === String(item.id))
+          const text = normalizeCatalogText((item.name || '') + ' ' + (item.coachName || '') + ' ' + (item.subjectName || ''))
+          const matchesQuery = !query || text.includes(normalizeCatalogText(query))
+          return matchesQuery && !alreadyEnrolled && !uncertain
+            && canEnrollInNormalClass(item, subject.id, sessions, subject.normalPrice, trustedNow)
+        }) : []
         const loading = classesState.loading || subjectClasses.some((item) => scheduleStates[item.id]?.loading || (!scheduleStates[item.id] && !Array.isArray(item.sessions ?? item.scheduleSessions ?? item.schedules)))
         bySport.set(row.key, { available: openClasses.length > 0, count: openClasses.length, loading })
         return
@@ -406,7 +424,7 @@ export function MemberCourseCatalog() {
       bySport.set(row.key, { available: activeSport && hasValidPrice && (!coachData?.loaded || availableCoaches.length > 0), noCoach, count: availableCoaches.length })
     })
     return bySport
-  }, [resolvedSubjects, tier, catalogClasses, classesState.loading, scheduleStates, coachAvailabilityBySubject])
+  }, [resolvedSubjects, tier, catalogClasses, classesState.loading, scheduleStates, coachAvailabilityBySubject, enrollments, normalUncertainClassIds, trustedNow, query])
   const availableSports = useMemo(() => resolvedSubjects.filter((row) =>
     sportAvailability.get(row.key)?.available === true || sportAvailability.get(row.key)?.loading === true,
   ), [resolvedSubjects, sportAvailability])
@@ -1432,6 +1450,12 @@ export function MemberCourseCatalog() {
   const confirmDecision = confirmClass ? decideNormalEnroll(confirmClass, { checkEligible: true, hasPrice: true, language }) : null
   const normalClassCards = selectedClasses.filter((item) => normalizeCatalogText(item.classType) === 'normal')
   const visibleClasses = normalClassCards.filter((item) => {
+    const sessions = scheduleStates[item.id]?.sessions?.length
+      ? scheduleStates[item.id].sessions
+      : item.sessions ?? item.scheduleSessions ?? item.schedules
+    const alreadyEnrolled = findExistingClassEnrollment(item.id)
+    const uncertain = normalUncertainClassIds.some((id) => String(id) === String(item.id))
+    if (alreadyEnrolled || uncertain || !canEnrollInNormalClass(item, selectedSubject?.id, sessions, selectedSubject?.normalPrice, trustedNow)) return false
     const text = normalizeCatalogText((item.name || '') + ' ' + (item.coachName || '') + ' ' + (item.subjectName || ''))
     return !query || text.includes(normalizeCatalogText(query))
   })
@@ -1479,8 +1503,8 @@ export function MemberCourseCatalog() {
 
         {tier === 'Normal' ? <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="normal-class-title">
           <div className="flex items-start justify-between gap-3"><div><h2 id="normal-class-title" className="text-xl font-bold text-slate-950">{isVi ? 'Lớp Normal đang mở' : 'Open Normal classes'}</h2><p className="mt-1 text-sm text-slate-600">{isVi ? 'Một lớp chỉ đăng ký được khi đang mở, còn chỗ và lịch có đủ 12 buổi hợp lệ.' : 'A class can be enrolled only when Open, seats remain, and all 12 sessions are valid.'}</p></div><button type="button" onClick={refreshClasses} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50" aria-label={isVi ? 'Tải lại lớp' : 'Reload classes'}><RefreshCw size={17} /></button></div>
-          <InlineState loading={classesState.loading} error={classesState.error} retry={refreshClasses} empty={selectedSubject && !selectedClasses.length ? (isVi ? 'Hiện chưa có lớp Normal đang mở cho môn thể thao này.' : 'There are no Normal classes open for this sport.') : null} language={language}>
-            {!selectedSubject ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">{isVi ? 'Chọn môn đã xác minh để xem lớp.' : 'Select a verified sport to view classes.'}</p> : !normalClassCards.length ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">{isVi ? 'Chưa có lớp Normal nào cho môn học này.' : 'There are no Normal classes for this sport.'}</p> : <div className="space-y-3">{visibleClasses.map((item) => {
+          <InlineState loading={classesState.loading} error={classesState.error} retry={refreshClasses} language={language}>
+            {!selectedSubject ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">{isVi ? 'Chọn môn đã xác minh để xem lớp.' : 'Select a verified sport to view classes.'}</p> : !visibleClasses.length ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">{isVi ? 'Hiện không có lớp học nào khả dụng để đăng ký.' : 'There are no classes currently available for registration.'}</p> : <div className="space-y-3">{visibleClasses.map((item) => {
               const schedule = scheduleStates[item.id] || { loading: true, error: '', sessions: [] }
               const embeddedSessions = item.sessions ?? item.scheduleSessions ?? item.schedules
               const scheduleSessions = schedule.sessions.length
