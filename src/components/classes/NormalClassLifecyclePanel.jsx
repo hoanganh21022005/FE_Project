@@ -25,7 +25,7 @@ const localDateTime = (value) => {
   const date = new Date(value)
   return Number.isNaN(date.getTime())
     ? String(value)
-    : new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+    : new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(date)
 }
 
 const sessionDate = (session) => {

@@ -23,7 +23,7 @@ export const allowsFullClass = (courseClass) => courseClass?.registrationAllowed
 export function formatRegistrationDeadline(value, language = 'vi') {
   const ms = parseBackendDate(value)
   if (!Number.isFinite(ms)) return ''
-  return new Intl.DateTimeFormat(language === 'vi' ? 'vi-VN' : 'en-US', {
+  return new Intl.DateTimeFormat('en-GB', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Ho_Chi_Minh',
   }).format(new Date(ms))
 }

@@ -39,10 +39,10 @@ test("P03-FIX: Từ chối chuỗi ngoài contract (dùng dấu cách thay 'T')"
 test("P03-FIX: Xác thực năm nhuận chính xác tuyệt đối", () => {
   // Năm nhuận hợp lệ (2024 chia hết 4, 2000 chia hết 400)
   const leap2024 = formatAdminDate("2024-02-29")
-  assert.match(leap2024, /29.*thg.*2.*2024/)
+  assert.equal(leap2024, "29/02/2024")
 
   const leap2000 = formatAdminDate("2000-02-29")
-  assert.match(leap2000, /29.*thg.*2.*2000/)
+  assert.equal(leap2000, "29/02/2000")
 
   const leapTime2024 = formatAdminDateTime("2024-02-29T15:20:00")
   assert.match(leapTime2024, /15:20:00/)
@@ -93,11 +93,11 @@ test("adminDateUtils - Giá trị không hợp lệ trả về fallback, không 
 test("adminDateUtils - Date-only (YYYY-MM-DD) không bị nhảy sang ngày trước/sau", () => {
   // Đầu năm
   const d1 = formatAdminDate("2000-01-01")
-  assert.match(d1, /1.*thg.*1.*2000/)
+  assert.equal(d1, "01/01/2000")
 
   // Cuối năm
   const d2 = formatAdminDate("1995-12-31")
-  assert.match(d2, /31.*thg.*12.*1995/)
+  assert.equal(d2, "31/12/1995")
 })
 
 test("adminDateUtils - LocalDateTime không offset được hiểu đúng theo múi giờ Việt Nam (UTC+7)", () => {

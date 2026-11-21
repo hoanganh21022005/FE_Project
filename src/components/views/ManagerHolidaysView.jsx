@@ -36,17 +36,17 @@ const localizeHolidayError = (error, fallback, vi) => {
   return fallback
 }
 
-function formatDate(value, language) {
+function formatDate(value) {
   if (!value) return '—'
   const [year, month, day] = String(value).slice(0, 10).split('-').map(Number)
   if (!year || !month || !day) return '—'
-  return new Intl.DateTimeFormat(language === 'vi' ? 'vi-VN' : 'en-US', { dateStyle: 'medium' })
+  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
     .format(new Date(year, month - 1, day))
 }
-function formatDateTime(value, language) {
+function formatDateTime(value) {
   const date = value ? new Date(value) : null
   return date && !Number.isNaN(date.getTime())
-    ? new Intl.DateTimeFormat(language === 'vi' ? 'vi-VN' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+    ? new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(date)
     : '—'
 }
 

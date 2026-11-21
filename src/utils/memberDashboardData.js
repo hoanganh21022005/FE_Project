@@ -140,13 +140,14 @@ export const formatVietnamDateTime = (
     : String(dateValue)
   const timestamp = toTimestamp(raw)
   if (timestamp === null) return ""
-  return new Intl.DateTimeFormat(locale, {
+  return new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Ho_Chi_Minh",
     day: "2-digit",
-    month: "short",
+    month: "2-digit",
     year: "numeric",
     hour: timeValue ? "2-digit" : undefined,
     minute: timeValue ? "2-digit" : undefined,
+    hour12: timeValue ? false : undefined,
   }).format(timestamp)
 }
 
