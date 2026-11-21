@@ -318,7 +318,7 @@ export const ERROR_CODE_TEXT = {
     en: 'The manager account and class must belong to the same center.',
   },
   NORMAL_INSUFFICIENT_PAID: {
-    vi: 'Số hội viên đã đóng tiền chưa đạt mức tối thiểu để khai giảng.',
+    vi: 'Chưa đạt sĩ số tối thiểu',
     en: 'Not enough members have paid to reach the minimum for opening.',
   },
   NORMAL_MIN_CAPACITY_REQUIRED: {

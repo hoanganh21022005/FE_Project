@@ -352,13 +352,16 @@ function normalizeClassStatus(status) {
   return s || "unknown"
 }
 
-function StatusPill({ status }) {
+function StatusPill({ status, openingConfirmedAt }) {
   const norm = normalizeClassStatus(status)
-  const cfg = STATUS_CONFIG[norm] || {
+  const baseConfig = STATUS_CONFIG[norm] || {
     label: status || "Unknown status",
     bg: "bg-stone-100 text-stone-700 border-stone-200",
     dot: "bg-stone-400",
   }
+  const cfg = norm === "open" && openingConfirmedAt != null
+    ? { ...baseConfig, label: "Đã xác nhận khai giảng · Còn nhận đăng ký" }
+    : baseConfig
   return (
     <span
       className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${cfg.bg}`}
@@ -2801,8 +2804,7 @@ export function ClassManagement() {
                       return (
                         <tr
                           key={cls.id}
-                          onClick={() => setQuickViewClass(cls)}
-                          className={`transition-colors group/row cursor-pointer ${
+                          className={`transition-colors group/row ${
                             hasConflict
                               ? "bg-rose-50/70 hover:bg-rose-100/70 border-l-4 border-l-rose-500"
                               : isSelected
@@ -2812,7 +2814,7 @@ export function ClassManagement() {
                         >
                           {/* Cột Checkbox hàng */}
                           <td
-                            className="py-4 px-3 text-center align-middle"
+                            className="py-2.5 px-3 text-center align-middle"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <input
@@ -2824,7 +2826,7 @@ export function ClassManagement() {
                           </td>
 
                           {/* Cột 1: Lớp */}
-                          <td className="py-4 px-4 align-middle">
+                          <td className="py-2.5 px-4 align-middle">
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <div
@@ -2878,7 +2880,7 @@ export function ClassManagement() {
 
                           {/* Cột 2: Ngày khai giảng cho Manager */}
                           {columnVisibility.schedule !== false && (
-                            <td className="py-4 px-4 align-middle">
+                            <td className="py-2.5 px-4 align-middle">
                               <div className="space-y-1.5">
                                 {isManager ? (
                                   <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-900 tabular-nums">
@@ -2935,7 +2937,7 @@ export function ClassManagement() {
 
                           {/* Cột 3: Sân tập */}
                           {columnVisibility.room !== false && (
-                            <td className="py-4 px-4 align-middle">
+                            <td className="py-2.5 px-4 align-middle">
                               <div className="space-y-0.5">
                                 <div
                                   className="text-sm font-semibold text-stone-800 line-clamp-1 truncate"
@@ -2953,7 +2955,7 @@ export function ClassManagement() {
                           )}
                           {/* Cột 4: Huấn luyện viên */}
                           {columnVisibility.coach !== false && (
-                            <td className="py-4 px-4 align-middle">
+                            <td className="py-2.5 px-4 align-middle">
                               <div>
                                 <div className="space-y-0.5 min-w-0">
                                   <div
@@ -2986,7 +2988,7 @@ export function ClassManagement() {
 
                           {/* Cột 5: Đăng ký (Linear Progress Bar 8px kẹp giữa số liệu và text cảnh báo) */}
                           {columnVisibility.enrollment !== false && (
-                            <td className="py-4 px-4 align-middle">
+                            <td className="py-2.5 px-4 align-middle">
                               <div className="w-36">
                                 {/* Dòng số liệu: tỷ lệ và % */}
                                 <div className="flex items-center justify-between text-xs leading-none">
@@ -3016,7 +3018,7 @@ export function ClassManagement() {
 
                                 {/* Dòng text trạng thái / cảnh báo màu xám nhạt #6C757D */}
                                 <div className="text-xs leading-tight text-[#6C757D]">
-                                  {enrolled === null || capacity === null || minCap === null ? (
+                                  {normalizeClassStatus(cls.status) === "ongoing" ? null : enrolled === null || capacity === null || minCap === null ? (
                                     <span>—</span>
                                   ) : enrolled < minCap ? (
                                     <span>
@@ -3078,7 +3080,7 @@ export function ClassManagement() {
                                         ? 900000
                                         : 600000
                               return (
-                                <td className="py-4 px-4 align-middle whitespace-nowrap">
+                                <td className="py-2.5 px-4 align-middle whitespace-nowrap">
                                   <div className="space-y-0.5">
                                     {resolvedPrice === null ? (
                                       <div>—</div>
@@ -3105,14 +3107,14 @@ export function ClassManagement() {
 
                           {/* Cột 6: Trạng thái */}
                           {columnVisibility.status !== false && (
-                            <td className="py-4 px-4 align-middle whitespace-nowrap">
-                              <StatusPill status={cls.status} />
+                            <td className="py-2.5 px-4 align-middle whitespace-nowrap">
+                              <StatusPill status={cls.status} openingConfirmedAt={cls.openingConfirmedAt} />
                             </td>
                           )}
 
                           {/* Cột 7: Thao tác (Menu ⋯ căn sát lề phải) */}
                           <td
-                            className="py-4 pl-2 pr-4 align-middle text-right whitespace-nowrap"
+                            className="py-2.5 pl-2 pr-4 align-middle text-right whitespace-nowrap"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <RowActionMenu
@@ -3284,7 +3286,10 @@ export function ClassManagement() {
                           <button
                             type="button"
                             key={`${type}-${cls.id}-${session?.id ?? entryIndex}`}
-                            onClick={() => setQuickViewClass(cls)}
+                            onClick={() => {
+                              setQuickViewIntent("details")
+                              setQuickViewClass(cls)
+                            }}
                             title={`${isSession ? (timeLabel ? `${timeLabel} · ` : "") : "Khai giảng · "}${cls.nameVi || cls.name} (${statusMeta.label})`}
                             className={`w-full text-left p-1.5 border rounded-lg text-[11px] leading-snug transition-colors shadow-2xs cursor-pointer ${statusMeta.card}`}
                           >
@@ -3359,7 +3364,10 @@ export function ClassManagement() {
           initialLifecycleKind={quickViewIntent === "transfer" ? "Transfer" : "Postpone"}
           initialLifecycleAction={quickViewIntent}
           conflictInfo={classConflictsMap[quickViewClass.id]}
-          onClose={() => setQuickViewClass(null)}
+          onClose={() => {
+            setQuickViewClass(null)
+            setQuickViewIntent("details")
+          }}
           onEdit={(c) => {
             setEditingClass(c)
           }}

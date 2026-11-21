@@ -5,6 +5,7 @@ import { inferNormalClassWeekdaysFromSessions } from "../../api/mappers.js"
 import { getErrorMessage } from "../../api/apiErrors"
 import { normalizeRole, ROLE_MANAGER } from "../../utils/navigation"
 import {
+  canSubmitNormalClassOpening,
   evaluateNormalClassOpening,
   getFirstNormalClassSession,
   getNormalClassOpeningError,
@@ -113,6 +114,7 @@ export function ClassDetailDrawer({
   const [openingDialogOpen, setOpeningDialogOpen] = useState(false)
   const [openingReason, setOpeningReason] = useState("")
   const [openingSubmitting, setOpeningSubmitting] = useState(false)
+  const [openingSubmissionUncertain, setOpeningSubmissionUncertain] = useState(false)
   const [openingActionError, setOpeningActionError] = useState(null)
   const [openingRefreshWarning, setOpeningRefreshWarning] = useState("")
   const [confirmationAccepted, setConfirmationAccepted] = useState(false)
@@ -127,6 +129,7 @@ export function ClassDetailDrawer({
   const classIdRef = useRef(classId)
   const lifecyclePanelRef = useRef(null)
   const openingDataGeneration = useRef(0)
+  const openingRefreshTimeoutMs = 12000
   classIdRef.current = classId
 
   useEffect(() => () => { openingDataGeneration.current += 1 }, [classId])
@@ -177,6 +180,7 @@ export function ClassDetailDrawer({
 
   useEffect(() => {
     setConfirmationAccepted(confirmationAcceptedButUnrefreshed.has(String(classId)))
+    setOpeningSubmissionUncertain(false)
   }, [classId])
 
   // Close on Escape key
@@ -241,10 +245,10 @@ export function ClassDetailDrawer({
     setEnrollmentLoadFailed(false)
 
     const results = await Promise.allSettled([
-      managerApi.getClassById(classId, {}, { notifyForbidden: false }),
-      getEnrollmentsByClass(classId, { strict: true }),
-      managerApi.getSessions({ classId }, { notifyForbidden: false }),
-      managerApi.getClasses({ subjects, coaches }, { notifyForbidden: false }),
+      managerApi.getClassById(classId, {}, { notifyForbidden: false, timeoutMs: openingRefreshTimeoutMs }),
+      getEnrollmentsByClass(classId, { strict: true, timeoutMs: openingRefreshTimeoutMs }),
+      managerApi.getSessions({ classId }, { notifyForbidden: false, timeoutMs: openingRefreshTimeoutMs }),
+      managerApi.getClasses({ subjects, coaches }, { notifyForbidden: false, timeoutMs: openingRefreshTimeoutMs }),
     ])
     if (
       requestGeneration !== openingDataGeneration.current ||
@@ -288,39 +292,51 @@ export function ClassDetailDrawer({
     }
 
     const synchronized = errors.length === 0
+    const confirmed = results[0].status === "fulfilled" && results[0].value.openingConfirmedAt != null
     setOpeningRefreshWarning(synchronized ? "" : errors.join(" "))
     setClassDetailLoading(false)
     setLoading(false)
     setSessionsLoading(false)
-    return synchronized
+    return { synchronized, confirmed, classDetailLoaded: results[0].status === "fulfilled" }
+  }
+
+  const reconcileOpeningAfterUncertainSubmit = async () => {
+    const result = await refreshOpeningData().catch(() => null)
+    if (result?.classDetailLoaded) setOpeningSubmissionUncertain(false)
+    if (!result?.confirmed) return false
+    confirmationAcceptedButUnrefreshed.delete(String(classId))
+    setOpeningActionError(null)
+    setOpeningDialogOpen(false)
+    setOpeningReason("")
+    showToast("Khai giảng lớp học đã được xác nhận.", "success")
+    onClose()
+    return true
   }
 
   const authorities = Array.isArray(currentUser?.authorities) ? currentUser.authorities : []
   const hasManageClasses = authorities.includes("MANAGE_CLASSES")
   const hasManagerRole = normalizeRole(currentUser?.role, { isApiMode: apiEnabled }) === ROLE_MANAGER
-  const hasVerifiedEnrollmentData = !loading && !enrollmentLoadFailed && Array.isArray(enrollments) &&
-    enrollments.every((enrollment) => {
-      const enrollmentStatus = typeof enrollment?.status === "string" ? enrollment.status.trim().toLowerCase() : ""
-      if (!enrollmentStatus) return false
-      return enrollmentStatus !== "registered" ||
-        (typeof enrollment.paymentStatus === "string" && Boolean(enrollment.paymentStatus.trim()))
-    })
+  // Enrollment snapshots omit the invoice/member fields Backend uses for paidCount().
+  const hasAuthoritativePaidCount = false
   const openingEvaluation = evaluateNormalClassOpening({
     classItem: classDetail,
-    enrollments: apiEnabled && hasVerifiedEnrollmentData ? enrollments : null,
+    enrollments: apiEnabled && hasAuthoritativePaidCount ? enrollments : null,
     sessions: apiEnabled && !sessionsLoading && !sessionsError ? sessions : null,
     authorities,
     reason: openingReason,
   })
-  const openingEnrollmentShortfall = hasVerifiedEnrollmentData
+  const openingEnrollmentShortfall = openingEvaluation.paidRegisteredCount !== null
     && openingEvaluation.minimum != null
-    && (openingEvaluation.paidRegisteredCount ?? 0) < openingEvaluation.minimum
+    && openingEvaluation.paidRegisteredCount < openingEvaluation.minimum
   const openingDataLoading = classDetailLoading || sessionsLoading || loading
   const openingPermissionGranted = openingEvaluation.openingConfirmationAllowed === true
   const openingReasonNeedsInput = openingEvaluation.reasonRequired === true && !openingReason.trim()
-  const openingActionBlockers = openingReasonNeedsInput
-    ? openingEvaluation.blockers.slice(0, -1)
-    : openingEvaluation.blockers
+  const openingActionBlockers = openingEvaluation.openingConfirmationAllowed === true
+    ? []
+    : openingReasonNeedsInput
+      ? openingEvaluation.blockers.slice(0, -1)
+      : openingEvaluation.blockers
+  const openingSubmitReady = canSubmitNormalClassOpening({ ...openingEvaluation, reason: openingReason })
   const firstOpeningSession = getFirstNormalClassSession(sessions)?.session || null
   const scheduleClassItem = classDetail ?? cls
   const detailScheduleIsValid = hasValidScheduleData({ ...scheduleClassItem, sessions })
@@ -332,7 +348,7 @@ export function ClassDetailDrawer({
   const canShowOpeningAction = apiEnabled && hasManagerRole && hasManageClasses && normalClass &&
     !["cancelled", "canceled", "closed", "completed", "ongoing"].includes(lifecycleStatus) &&
     !classDetailLoading && !classDetailError && classDetail != null &&
-    classDetail.openingConfirmedAt == null && !confirmationAccepted && openingPermissionGranted !== false
+    classDetail.openingConfirmedAt == null && !confirmationAccepted && !openingSubmissionUncertain && openingPermissionGranted !== false
 
   useEffect(() => {
     if (!["opening", "transfer", "cancel"].includes(initialLifecycleAction)) return undefined
@@ -361,7 +377,7 @@ export function ClassDetailDrawer({
   }
 
   const validMemberSummary = (() => {
-    if (hasVerifiedEnrollmentData) {
+    if (hasAuthoritativePaidCount && openingEvaluation.paidRegisteredCount !== null) {
       const count = openingEvaluation.paidRegisteredCount ?? 0
       return classDetail?.minCapacity == null
         ? String(count)
@@ -382,14 +398,14 @@ export function ClassDetailDrawer({
     event?.preventDefault?.()
     const currentCheck = evaluateNormalClassOpening({
       classItem: classDetail,
-      enrollments: hasVerifiedEnrollmentData ? enrollments : null,
+      enrollments: hasAuthoritativePaidCount ? enrollments : null,
       sessions: !sessionsLoading && !sessionsError ? sessions : null,
       authorities,
       reason: openingReason,
       now: new Date(),
     })
     setOpeningActionError(null)
-    if (!hasManagerRole || (!currentCheck.canSubmit && currentCheck.openingConfirmationAllowed !== true) || (currentCheck.reasonRequired === true && !openingReason.trim()) || openingSubmitting || confirmationAccepted) {
+    if (!hasManagerRole || !canSubmitNormalClassOpening({ ...currentCheck, reason: openingReason }) || openingSubmitting || confirmationAccepted) {
       setOpeningActionError({
         status: 0,
         code: null,
@@ -399,6 +415,7 @@ export function ClassDetailDrawer({
     }
 
     setOpeningSubmitting(true)
+    setOpeningSubmissionUncertain(false)
     try {
       await managerApi.confirmNormalClassOpening(classId, currentCheck.payload, {
         notifyForbidden: false,
@@ -416,7 +433,11 @@ export function ClassDetailDrawer({
     } catch (error) {
       const normalized = getNormalClassOpeningError(error)
       setOpeningActionError(normalized)
-      refreshOpeningData().catch(() => {})
+      if (normalized.uncertain) {
+        setOpeningSubmissionUncertain(true)
+        await reconcileOpeningAfterUncertainSubmit()
+      }
+      else refreshOpeningData().catch(() => {})
     } finally {
       setOpeningSubmitting(false)
     }
@@ -583,7 +604,7 @@ export function ClassDetailDrawer({
 
   const statusSource = apiEnabled ? classDetail : cls
   const statusKey = statusSource?.status === "published" ? "open" : statusSource?.status === "completed" ? "closed" : statusSource?.status
-  const currentStatus = statusConfig[statusKey] || {
+  const baseCurrentStatus = statusConfig[statusKey] || {
     label: apiEnabled && !statusSource
       ? classDetailLoading ? "Đang tải trạng thái…" : classDetailError ? "Chưa tải được trạng thái" : "Chưa có thông tin"
       : statusSource?.apiStatus || statusSource?.status || "Chưa có thông tin",
@@ -591,6 +612,9 @@ export function ClassDetailDrawer({
     text: "text-stone-500",
     border: "border-stone-200",
   }
+  const currentStatus = statusKey === "open" && statusSource?.openingConfirmedAt != null
+    ? { ...baseCurrentStatus, label: "Đã xác nhận khai giảng · Còn nhận đăng ký" }
+    : baseCurrentStatus
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
@@ -786,9 +810,9 @@ export function ClassDetailDrawer({
                             <div>
                               <div className="text-stone-500">Member hợp lệ (Registered + Paid)</div>
                               <div className="mt-1 font-semibold tabular-nums text-stone-900">
-                                {!hasVerifiedEnrollmentData
+                                {!hasAuthoritativePaidCount
                                   ? "Chưa xác minh"
-                                  : `${openingEvaluation.paidRegisteredCount ?? 0}${classDetail.minCapacity == null ? "" : ` / ${classDetail.minCapacity}`}`}
+                                  : `${openingEvaluation.paidRegisteredCount ?? "Chưa xác minh"}${classDetail.minCapacity == null ? "" : ` / ${classDetail.minCapacity}`}`}
                               </div>
                             </div>
                             <div>
@@ -798,7 +822,7 @@ export function ClassDetailDrawer({
                               </div>
                             </div>
                           </div>
-                          {openingEvaluation.blockers.length > 0 ? (
+                          {openingEvaluation.blockers.length > 0 && openingEvaluation.openingConfirmationAllowed !== true ? (
                             <p className="mt-3 text-amber-800">{openingEvaluation.blockers[0]}</p>
                           ) : (
                             <p className="mt-3 text-stone-600">
@@ -918,15 +942,7 @@ export function ClassDetailDrawer({
               </button>
             </div>
 
-            <dl className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs sm:grid-cols-2" aria-busy={openingDataLoading}>
-              <div>
-                <dt className="text-stone-500">Sĩ số</dt>
-                <dd className="mt-1 font-semibold text-stone-900">
-                  {!hasVerifiedEnrollmentData
-                    ? openingDataLoading ? "Đang tải…" : enrollmentLoadFailed ? "Không tải được" : "Chưa đủ dữ liệu"
-                    : `${openingEvaluation.paidRegisteredCount ?? 0} / ${classDetail?.minCapacity ?? "Chưa xác minh"}`}
-                </dd>
-              </div>
+            <dl className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs" aria-busy={openingDataLoading}>
               <div>
                 <dt className="text-stone-500">Buổi học đầu tiên</dt>
                 <dd className="mt-1 font-semibold text-stone-900">
@@ -952,7 +968,7 @@ export function ClassDetailDrawer({
               <p role="status" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
                 {classDetailError || openingEvaluation.blockers[0] || "Lớp hiện không đủ điều kiện xác nhận khai giảng."}
               </p>
-            ) : openingEvaluation.blockers.length > 0 ? (
+            ) : openingEvaluation.blockers.length > 0 && openingEvaluation.openingConfirmationAllowed !== true ? (
               <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
                 {openingEvaluation.blockers[0]}
               </p>
@@ -986,6 +1002,11 @@ export function ClassDetailDrawer({
                     Tải lại lớp, enrollment và lịch
                   </button>
                 )}
+                {openingActionError.uncertain && (
+                  <button type="button" disabled={openingSubmitting || openingDataLoading} onClick={() => reconcileOpeningAfterUncertainSubmit()} className="mt-2 rounded-md border border-rose-300 bg-white px-2.5 py-1.5 font-semibold disabled:opacity-50">
+                    Kiểm tra trạng thái lớp
+                  </button>
+                )}
               </div>
             )}
 
@@ -993,8 +1014,8 @@ export function ClassDetailDrawer({
               <button type="button" disabled={openingSubmitting} onClick={dismissOpeningDialog} className="rounded-lg border border-stone-300 px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">
                 Hủy
               </button>
-              <button type="button" disabled={openingSubmitting || openingDataLoading || !canShowOpeningAction || !openingEvaluation.canSubmit || (openingEvaluation.reasonRequired === true && !openingReason.trim())} onClick={submitOpeningConfirmation} className="rounded-lg bg-indigo-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50">
-                {openingSubmitting ? "Đang xác nhận…" : openingDataLoading ? "Đang tải…" : "Xác nhận khai giảng"}
+              <button type="button" disabled={openingSubmitting || openingDataLoading || !canShowOpeningAction || !openingSubmitReady} onClick={submitOpeningConfirmation} className="rounded-lg bg-indigo-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50">
+                {openingActionError?.uncertain && openingDataLoading ? "Đang kiểm tra trạng thái…" : openingSubmitting ? "Đang xác nhận…" : openingDataLoading ? "Đang tải…" : "Xác nhận khai giảng"}
               </button>
             </div>
           </div>

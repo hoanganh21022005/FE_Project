@@ -11,7 +11,7 @@ import {
 } from '../src/api/apiErrors.js'
 
 const codes = Object.keys(BACKEND_CODE_MESSAGES)
-assert.equal(codes.length, 74)
+assert.equal(codes.length, 78)
 
 // AC-A1: mọi mã trong bảng khi có { code, message: "<MÃ>: English text" } hoặc chỉ { message: "MÃ: English text" }
 for (const code of codes) {
@@ -168,8 +168,8 @@ assert.equal(ac4Forbidden.message, BACKEND_CODE_MESSAGES.NORMAL_CASH_COUNTER_ONL
 
 console.log('api_error_codes_test.mjs (with W-A12): ALL PASSED')
 
-// E1: mọi mã trong bảng chung ra chuỗi không rỗng ở vi và en (số mã: 53 trước E1, 74 sau E1)
-assert.equal(Object.keys(ERROR_CODE_TEXT).length, 74)
+// E1: mọi mã trong bảng chung ra chuỗi không rỗng ở vi và en.
+assert.equal(Object.keys(ERROR_CODE_TEXT).length, 78)
 for (const [code, text] of Object.entries(ERROR_CODE_TEXT)) {
   assert.ok(typeof text.vi === 'string' && text.vi.trim().length > 0, `${code}: vi rỗng`)
   assert.ok(typeof text.en === 'string' && text.en.trim().length > 0, `${code}: en rỗng`)

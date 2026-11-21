@@ -146,20 +146,11 @@ export const evaluateNormalClassOpening = ({
   const rawMinimum = classItem?.minCapacity
   const minimum = Number(rawMinimum)
   const hasMinimum = rawMinimum !== null && rawMinimum !== undefined && rawMinimum !== '' && Number.isInteger(minimum) && minimum >= 0
-  let paidRegisteredCount = null
-  if (!hasMinimum) {
-    unverified.push('Chưa có sĩ số tối thiểu từ hệ thống.')
-  }
-  if (!Array.isArray(enrollments)) {
-    unverified.push('Chưa tải được danh sách đăng ký để xác minh sĩ số đã thanh toán.')
-  } else {
-    paidRegisteredCount = enrollments.filter((enrollment) =>
-      normalize(enrollment?.status) === 'registered' && normalize(enrollment?.paymentStatus) === 'paid',
-    ).length
-    if (hasMinimum && paidRegisteredCount < minimum) {
-      blockers.push(`Chưa đủ sĩ số tối thiểu đã thanh toán (${paidRegisteredCount}/${minimum}).`)
-    }
-  }
+  // The enrollment list does not expose invoice reconciliation/refund flags or
+  // the member status, role and center checks used by Backend paidCount().
+  // It cannot provide an authoritative paid minimum count.
+  const paidRegisteredCount = null
+  unverified.push('Backend chưa cung cấp số hội viên đã thanh toán có thể xác minh.')
 
   const serverNow = toFiniteTimestamp(classItem?.serverTime)
   const effectiveNow = serverNow !== null ? serverNow : now
@@ -222,11 +213,24 @@ export const evaluateNormalClassOpening = ({
   }
 }
 
+export const canSubmitNormalClassOpening = ({
+  canSubmit = false,
+  openingConfirmationAllowed = null,
+  reasonRequired = null,
+  reason = '',
+} = {}) => {
+  if (openingConfirmationAllowed === false) return false
+  if (reasonRequired === true && !String(reason ?? '').trim()) return false
+  return openingConfirmationAllowed === true || canSubmit === true
+}
+
 export const getNormalClassOpeningError = (error) => {
   const code = getErrorCode(error)
   const translated = code ? translateErrorCode(code, 'vi') : null
+  const status = Number(error?.status ?? error?.response?.status) || 0
   return {
-    status: Number(error?.status ?? error?.response?.status) || 0,
+    status,
+    uncertain: status === 0,
     code,
     message: translated || getErrorMessage(error, 'Không thể xác nhận khai giảng. Vui lòng thử lại.'),
     details: error?.details ?? error?.response?.data ?? null,
