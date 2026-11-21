@@ -49,7 +49,6 @@ function formatDateDmy(value) {
 export function ManagerDashboardInsights({ navigate }) {
   const {
     apiEnabled,
-    managerDataError,
     language,
   } = useSCMS()
   const vi = language === 'vi'
@@ -59,8 +58,6 @@ export function ManagerDashboardInsights({ navigate }) {
   const [revenueLoading, setRevenueLoading] = useState(apiEnabled)
   const [revenueReload, setRevenueReload] = useState(0)
 
-  const dashboardClasses = managerDataError ? [] : (classes || [])
-  const classDashboard = managerDataError ? null : dashboard
   const revenueStartDate = addDays(today, -(revenueRange - 1))
 
   useEffect(() => {
