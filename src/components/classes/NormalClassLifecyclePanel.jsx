@@ -234,6 +234,10 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
     (kind === 'Transfer' && (!validTransferTarget || targetSessionsLoading || Boolean(targetSessionsError) || !targetScheduleReady))
   const cancelBlocked = !cancelCheck.canAttempt || cancelCheck.unverified.length > 0 ||
     !lifecycleDataReady || !Number.isSafeInteger(classItem?.lifecycleVersion) || !cancelReason.trim()
+  const cancelNotice = cancelCheck.blockers[0] ?? cancelCheck.unverified[0] ??
+    (!lifecycleDataReady
+      ? proposalError ? 'Không tải được dữ liệu phương án; hãy tải lại trước khi hủy lớp.' : 'Đang tải trạng thái lớp…'
+      : null)
 
   const refreshAllReadData = useCallback(async () => {
     setRefreshing(true)
@@ -528,14 +532,24 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
       {initialAction !== 'transfer' && <div ref={cancelSectionRef} className={`${initialAction === 'cancel' ? '' : 'mt-4 border-t border-stone-200 pt-3'}`}>
         <p className="text-xs font-semibold text-stone-800">Hủy lớp trước khai giảng</p>
         <p className="mt-1 text-xs text-stone-600">Hủy lớp không đồng nghĩa hoàn tiền. Không thay đổi hóa đơn, enrollment hoặc trạng thái hiển thị tại đây.</p>
-        {(cancelCheck.blockers.length > 0 || cancelCheck.unverified.length > 0) && <p className="mt-1 text-xs text-amber-800">{cancelCheck.blockers[0] ?? cancelCheck.unverified[0]}</p>}
-        <label className="mt-2 block text-xs font-medium text-stone-700">
-          Lý do hủy
-          <textarea value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} rows={2} className="mt-1 block w-full resize-y rounded-md border border-stone-300 bg-white px-2.5 py-2 text-sm" placeholder="Nhập lý do hủy lớp" />
-        </label>
-        <button type="button" disabled={actionBusy || cancelBlocked} title={cancelBlocked ? cancelCheck.blockers[0] ?? cancelCheck.unverified[0] ?? (!cancelReason.trim() ? 'Vui lòng nhập lý do hủy.' : undefined) : undefined} onClick={submitCancelClass} className="mt-2 rounded-md border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 disabled:opacity-50">
-          {activeAction === 'cancel' ? 'Đang hủy lớp…' : 'Hủy lớp'}
-        </button>
+        {cancelNotice ? (
+          <div role="status" className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
+            <span>{cancelNotice}</span>
+            <button type="button" disabled={refreshing || proposalLoading} onClick={() => refreshAllReadData()} className="rounded border border-amber-300 bg-white px-2.5 py-1.5 font-semibold disabled:opacity-50">
+              Tải lại trạng thái lớp
+            </button>
+          </div>
+        ) : (
+          <>
+            <label className="mt-2 block text-xs font-medium text-stone-700">
+              Lý do hủy
+              <textarea value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} rows={2} className="mt-1 block w-full resize-y rounded-md border border-stone-300 bg-white px-2.5 py-2 text-sm" placeholder="Nhập lý do hủy lớp" />
+            </label>
+            <button type="button" disabled={actionBusy || cancelBlocked} title={cancelBlocked ? (!cancelReason.trim() ? 'Vui lòng nhập lý do hủy.' : undefined) : undefined} onClick={submitCancelClass} className="mt-2 rounded-md border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 disabled:opacity-50">
+              {activeAction === 'cancel' ? 'Đang hủy lớp…' : 'Hủy lớp'}
+            </button>
+          </>
+        )}
       </div>}
     </section>
   )

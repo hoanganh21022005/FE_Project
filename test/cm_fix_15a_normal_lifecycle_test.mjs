@@ -113,7 +113,12 @@ try {
   const openNormal = { id: 12, classType: 'Normal', apiStatus: 'Open', lifecycleVersion: 3, postponementCount: 0, changePending: false }
   assert.equal(evaluateNormalClassLifecycle(openNormal, { action: 'proposal', kind: 'Postpone' }).canAttempt, true)
   assert.equal(evaluateNormalClassLifecycle({ ...openNormal, postponementCount: 1 }, { kind: 'Postpone' }).canAttempt, false)
-  assert.equal(evaluateNormalClassLifecycle({ ...openNormal, apiStatus: 'Ongoing' }, { action: 'cancel' }).canAttempt, false)
+  const ongoingCancellation = evaluateNormalClassLifecycle({ ...openNormal, apiStatus: 'Ongoing' }, { action: 'cancel' })
+  assert.equal(ongoingCancellation.canAttempt, false)
+  assert.match(ongoingCancellation.blockers[0], /Lớp đang diễn ra/)
+  const publishedCancellation = evaluateNormalClassLifecycle({ ...openNormal, apiStatus: 'Published' }, { action: 'cancel' })
+  assert.equal(publishedCancellation.canAttempt, false)
+  assert.match(publishedCancellation.blockers[0], /Đã xuất bản/)
   assert.equal(evaluateNormalClassLifecycle({ ...openNormal, classType: 'Advanced' }).canAttempt, false)
   assert.equal(evaluateNormalClassLifecycle({ ...openNormal, apiStatus: null }).state, 'unverified')
   assert.equal(evaluateNormalClassLifecycle({ ...openNormal, changePending: null }).state, 'unverified')

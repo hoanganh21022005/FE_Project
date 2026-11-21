@@ -330,6 +330,11 @@ const STATUS_CONFIG = {
     bg: "bg-stone-100 text-stone-700 border-stone-200/90",
     dot: "bg-stone-400",
   },
+  published: {
+    label: "Đã xuất bản",
+    bg: "bg-amber-50 text-amber-700 border-amber-200",
+    dot: "bg-amber-500",
+  },
   closed: {
     label: "Đã kết thúc",
     bg: "bg-stone-100 text-stone-500 border-stone-200",
@@ -352,8 +357,9 @@ function normalizeClassStatus(status) {
   return s || "unknown"
 }
 
-function StatusPill({ status, openingConfirmedAt }) {
-  const norm = normalizeClassStatus(status)
+function StatusPill({ status, apiStatus, openingConfirmedAt }) {
+  const rawStatus = String(apiStatus ?? status ?? "").trim().toLowerCase()
+  const norm = rawStatus === "published" ? "published" : normalizeClassStatus(status)
   const baseConfig = STATUS_CONFIG[norm] || {
     label: status || "Unknown status",
     bg: "bg-stone-100 text-stone-700 border-stone-200",
@@ -1325,6 +1331,7 @@ function RowActionMenu({
   const [menuPosition, setMenuPosition] = useState(null)
   const menuRef = useRef(null)
   const buttonRef = useRef(null)
+  const canCancelBeforeOpening = String(cls?.apiStatus ?? cls?.status ?? "").trim().toLowerCase() === "open"
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -1429,17 +1436,19 @@ function RowActionMenu({
             <span>Thay đổi lớp</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setIsOpen(false)
-              onLifecycleAction && onLifecycleAction(cls, "cancel")
-            }}
-            className="w-full px-3.5 py-2 text-left text-rose-700 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer"
-          >
-            <Ban className="w-3.5 h-3.5 text-rose-600" />
-            <span>Hủy lớp</span>
-          </button>
+          {canCancelBeforeOpening && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false)
+                onLifecycleAction && onLifecycleAction(cls, "cancel")
+              }}
+              className="w-full px-3.5 py-2 text-left text-rose-700 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+            >
+              <Ban className="w-3.5 h-3.5 text-rose-600" />
+              <span>Hủy lớp</span>
+            </button>
+          )}
         </div>,
         document.body,
       )}
@@ -3108,7 +3117,7 @@ export function ClassManagement() {
                           {/* Cột 6: Trạng thái */}
                           {columnVisibility.status !== false && (
                             <td className="py-2.5 px-4 align-middle whitespace-nowrap">
-                              <StatusPill status={cls.status} openingConfirmedAt={cls.openingConfirmedAt} />
+                              <StatusPill status={cls.status} apiStatus={cls.apiStatus} openingConfirmedAt={cls.openingConfirmedAt} />
                             </td>
                           )}
 

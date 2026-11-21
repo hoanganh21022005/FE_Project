@@ -187,7 +187,16 @@ export const evaluateNormalClassLifecycle = (classItem, { action = 'proposal', k
   }
   const status = normalize(classItem.apiStatus ?? classItem.status)
   if (!status) unverified.push('Backend class status is unavailable.')
-  else if (status !== 'open') blockers.push('The class is not Open; this operation is only for before-opening lifecycle.')
+  else if (status !== 'open') {
+    const statusMessage = status === 'published'
+      ? 'Lớp đang ở trạng thái “Đã xuất bản”; Backend chỉ cho phép hủy trước khai giảng khi lớp ở trạng thái “Mở đăng ký”.'
+      : status === 'ongoing'
+        ? 'Lớp đang diễn ra nên không thể hủy theo luồng trước khai giảng.'
+        : status === 'cancelled' || status === 'canceled'
+          ? 'Lớp đã bị hủy.'
+          : 'Chỉ có thể hủy lớp trước khai giảng khi trạng thái lớp là “Mở đăng ký”.'
+    blockers.push(statusMessage)
+  }
 
   if (action === 'proposal' && classItem.changePending === true) blockers.push('A class change proposal is already pending.')
   else if (action === 'proposal' && classItem.changePending !== false) unverified.push('Pending-change state is unavailable.')
