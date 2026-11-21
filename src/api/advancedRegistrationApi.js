@@ -95,10 +95,12 @@ export const cancelAdvancedRegistration = async (registrationId) => {
   return httpClient.delete(`/api/advanced-registrations/${registrationId}`)
 }
 
-export const createAdvancedOrder = async (registrationId, paymentMethod) => {
+export const createAdvancedOrder = async (registrationId, paymentMethod, amount = null) => {
   if (!isValidNumericId(registrationId)) throw new Error('ID đăng ký Advanced không hợp lệ.')
   if (!['Cash', 'VNPay'].includes(paymentMethod)) throw new Error('Phương thức thanh toán không hợp lệ.')
-  const response = await httpClient.post(`/api/advanced-registrations/${registrationId}/order`, { paymentMethod })
+  const payload = { paymentMethod }
+  if (Number.isFinite(Number(amount)) && Number(amount) > 0) payload.amount = Number(amount)
+  const response = await httpClient.post(`/api/advanced-registrations/${registrationId}/order`, payload)
   return normalizeAdvancedOrderResponse(response)
 }
 

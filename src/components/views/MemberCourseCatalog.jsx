@@ -39,7 +39,6 @@ const formatMoney = (value, language) => hasSellablePrice(value)
 const formatAdvancedMoney = (value, language) => hasSellablePrice(value)
   ? `${Number(value).toLocaleString(language === 'vi' ? 'vi-VN' : 'en-US')} ${language === 'vi' ? 'VNĐ' : 'VND'}`
   : formatMoney(value, language)
-const DEFAULT_ADVANCED_PACKAGE_PRICE = 2_500_000
 const formatDate = (value, language) => {
   if (!value) return language === 'vi' ? 'Chưa có dữ liệu' : 'Not provided'
   const date = new Date(value)
@@ -102,11 +101,40 @@ const parseInvoiceAmount = (value) => {
   const parsed = Number(digits)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null
 }
+const resolveAdvancedPackageAmount = (registration, subject, relatedOrder = null) => {
+  const registrationPrice = [
+    registration?.packagePrice,
+    registration?.totalAmount,
+    registration?.orderAmount,
+    registration?.amount,
+    registration?.price,
+  ].map(parseInvoiceAmount).find((amount) => amount != null)
+  if (registrationPrice != null) return registrationPrice
+
+  const matchedInvoice = registration?.invoice ?? registration?.order?.invoice ?? relatedOrder?.invoice ?? relatedOrder
+  const orderPrice = [
+    matchedInvoice?.amount,
+    matchedInvoice?.totalAmount,
+    registration?.order?.totalAmount,
+    relatedOrder?.totalAmount,
+  ].map(parseInvoiceAmount).find((amount) => amount != null)
+  if (orderPrice != null) return orderPrice
+
+  const advancedSubject = subject ?? registration?.subject ?? registration?.course ?? {}
+  return [
+    advancedSubject?.advancedPrice,
+    advancedSubject?.privatePackagePrice,
+    advancedSubject?.ptPrice,
+    advancedSubject?.advanced_price,
+    advancedSubject?.price,
+    advancedSubject?.basePrice,
+  ].map(parseInvoiceAmount).find((amount) => amount != null) ?? null
+}
 const getInvoiceAmount = (invoice) =>
   parseInvoiceAmount(invoice?.amount) ??
   parseInvoiceAmount(invoice?.totalAmount) ??
   parseInvoiceAmount(invoice?.packagePrice) ??
-  3_500_000
+  null
 const getPaymentDeadlineLabel = (invoice, language) => {
   const status = normalizeCatalogStatus(invoice?.paymentStatus || invoice?.status)
   if (!['pending', 'pending_payment'].includes(status)) return null
@@ -245,7 +273,9 @@ function AdvancedInvoiceDetails({ order, language, now }) {
   const isVi = language === 'vi'
   const paymentStatus = normalizeCatalogStatus(order.paymentStatus || order.status)
   const rawDeadline = order.expiredAt || order.expiresAt || order.dueDate || order.paymentDeadline
-  const expiry = confirmationDeadlineTimestamp(rawDeadline)
+  const invoiceExpiry = confirmationDeadlineTimestamp(rawDeadline)
+  const createdAt = new Date(order.createdAt).getTime()
+  const expiry = invoiceExpiry ?? (Number.isFinite(createdAt) ? createdAt + 30 * 60 * 1000 : null)
   const deadlineLabel = getPaymentDeadlineLabel(order, language)
   const invoiceCode = getInvoiceCode(order, language)
   const amount = getInvoiceAmount(order)
@@ -264,10 +294,10 @@ function AdvancedInvoiceDetails({ order, language, now }) {
     <p><strong>{isVi ? 'Mã hóa đơn:' : 'Invoice code:'}</strong> {invoiceCode}</p>
     <p className="mt-1"><strong>{isVi ? 'ID hóa đơn:' : 'Invoice ID:'}</strong> {order.invoiceId ?? order.id ?? (isVi ? 'Chưa có' : 'Not available')}</p>
     <p className="mt-1"><strong>{isVi ? 'Số tiền:' : 'Amount:'}</strong> {formatMoney(amount, language)}</p>
-    <p className="mt-1"><strong>{isVi ? 'Phương thức:' : 'Payment method:'}</strong> {order.paymentMethod || (isVi ? 'Chưa có' : 'Not available')}</p>
+    <p className="mt-1"><strong>{isVi ? 'Phương thức:' : 'Payment method:'}</strong> {order.paymentMethod === 'Cash' ? (isVi ? 'Tiền mặt tại quầy' : 'Cash at counter') : order.paymentMethod || (isVi ? 'Chưa có' : 'Not available')}</p>
     <div className="mt-1 flex flex-wrap items-center gap-2"><strong>{isVi ? 'Trạng thái hóa đơn:' : 'Invoice status:'}<StatusPill status={order.paymentStatus || order.status} language={language} /></strong></div>
     {deadlineLabel && <p className="mt-1"><strong>{isVi ? 'Hạn thanh toán:' : 'Payment deadline:'}</strong> {deadlineLabel}</p>}
-    {paymentStatus === 'pending' && countdown != null && (remainingMs > 0
+    {['pending', 'pending_payment'].includes(paymentStatus) && countdown != null && (remainingMs > 0
       ? <p className="mt-1 font-semibold tabular-nums">{isVi ? 'Còn lại:' : 'Time remaining:'} {countdown}</p>
       : <p className="mt-1 text-amber-800">{isVi ? 'Đã đến hạn; đang chờ trạng thái hóa đơn từ hệ thống.' : 'Deadline reached; awaiting the invoice status from the server.'}</p>)}
     {isVnpay && paymentStatus === 'pending' && !hasHiddenPaymentStatus && <div className="mt-2">
@@ -1144,6 +1174,10 @@ export function MemberCourseCatalog({ requestsOnly = false } = {}) {
     if (pendingSubmitRef.current || orderInFlightRef.current.has(registrationKey)) return
     if (orders.some((order) => String(order.registrationId) === registrationKey)) return
     const preparedPopup = paymentMethod === 'VNPay' ? prepareVnpayCheckoutPopup() : null
+    const registrationSubject = subjects?.find((subject) => String(subject?.id) === String(registration.subjectId || registration.sportId))
+      ?? registration.subject
+      ?? registration.course
+    const packageAmount = resolveAdvancedPackageAmount(registration, registrationSubject, relatedOrder)
     let checkoutStarted = false
     orderInFlightRef.current.add(registrationKey)
     pendingSubmitRef.current = true
@@ -1152,7 +1186,7 @@ export function MemberCourseCatalog({ requestsOnly = false } = {}) {
     setSubmitting(true)
     setSubmittingError('')
     try {
-      const response = await advancedRegistrationApi.createAdvancedOrder(registration.id, paymentMethod)
+      const response = await advancedRegistrationApi.createAdvancedOrder(registration.id, paymentMethod, packageAmount)
       orderCreated = true
       let latestRegistration = null
       if (response?.invoiceId == null) {
@@ -1175,13 +1209,14 @@ export function MemberCourseCatalog({ requestsOnly = false } = {}) {
         subjectId: registration.subjectId,
         subjectName: selectedSubject?.id === registration.subjectId ? selectedSubject.name : registration.subjectName,
         coachName: registration.primaryCoachName ?? null,
-        status: response?.status ?? latestRegistration?.orderStatus ?? (paymentMethod === 'VNPay' && invoiceId != null ? 'pending' : null),
-        paymentStatus: response?.paymentStatus ?? latestRegistration?.paymentStatus ?? (paymentMethod === 'VNPay' && invoiceId != null ? 'pending' : null),
+        status: response?.status ?? latestRegistration?.orderStatus ?? (invoiceId != null ? 'pending' : 'invoiced'),
+        paymentStatus: response?.paymentStatus ?? latestRegistration?.paymentStatus ?? (invoiceId != null ? 'pending' : 'invoiced'),
         invoiceId,
         invoiceCode: response?.invoiceCode ?? null,
-        amount: response?.amount ?? null,
+        amount: response?.amount ?? packageAmount,
         paymentUrl: redirectUrl,
-        expiresAt: response?.expiresAt ?? null,
+        expiresAt: response?.expiresAt ?? latestRegistration?.invoiceExpiresAt ?? latestRegistration?.expiresAt ?? null,
+        createdAt: response?.createdAt ?? latestRegistration?.createdAt ?? new Date().toISOString(),
         paymentMethod,
       }
       setOrders((current) => {
@@ -1189,8 +1224,10 @@ export function MemberCourseCatalog({ requestsOnly = false } = {}) {
         saveMemberOrders(memberId, next)
         return next
       })
-      setNotice(isVi ? 'Đơn đăng ký đã được tạo. Quyền học sẽ được kích hoạt sau khi thanh toán thành công.' : 'Order created successfully. Course access will activate after payment is verified.')
+      setNotice(isVi ? 'Đặt đơn thành công! Vui lòng thanh toán hóa đơn.' : 'Order created successfully. Please pay the invoice.')
+      showToast?.(isVi ? 'Đặt đơn thành công! Vui lòng thanh toán hóa đơn.' : 'Order created successfully. Please pay the invoice.', 'success')
       await refreshRegistrations().catch(() => {})
+      if (invoiceId != null) await checkOrderStatus(order).catch(() => {})
       if (paymentMethod === 'VNPay' && paymentUrlIsSafe(redirectUrl) && !['paid', 'successful'].includes(normalizeCatalogStatus(order.paymentStatus || order.status))) {
         startVnpayCheckout({ paymentUrl: redirectUrl, invoiceId: order.invoiceId, invoiceCode: order.invoiceCode, onVerified: () => checkOrderStatus(order), popup: preparedPopup })
         checkoutStarted = true
@@ -1270,6 +1307,8 @@ export function MemberCourseCatalog({ requestsOnly = false } = {}) {
           paymentMethod: invoice?.rawPaymentMethod ?? item.paymentMethod,
           invoiceCode: invoice?.invoiceCode ?? item.invoiceCode,
           amount: invoice?.amount ?? item.amount,
+        totalAmount: invoice?.totalAmount ?? item.totalAmount,
+        createdAt: invoice?.createdAt ?? item.createdAt,
         } : {}),
         ...(order.type === 'Advanced'
           ? { status: subscription?.status ?? item.status }
@@ -1490,6 +1529,7 @@ export function MemberCourseCatalog({ requestsOnly = false } = {}) {
           const invoiceExpiry = confirmationDeadlineTimestamp(item.invoiceExpiresAt ?? item.expiresAt ?? relatedOrder?.expiresAt)
           const confirmationDeadline = confirmationDeadlineTimestamp(item.confirmationDeadline)
           const hasInvoiceRecord = Boolean(item.invoiceId ?? relatedOrder?.invoiceId)
+          const invoiceCreated = hasInvoiceRecord || Boolean(relatedOrder)
           const unpaidInvoice = !['paid', 'successful', 'completed'].includes(invoiceStatus)
           const invoiceExpiredByStatus = ['expired', 'cancelled', 'canceled'].includes(invoiceStatus)
           const invoiceExpired = invoiceExpiry != null && invoiceExpiry <= trustedNow
@@ -1522,35 +1562,12 @@ export function MemberCourseCatalog({ requestsOnly = false } = {}) {
                 ? String(subscription.subscriptionId ?? subscription.id) === String(item.subscriptionId)
                 : String(subscription.subjectId) === String(item.subjectId) && String(subscription.primaryCoachId) === String(item.primaryCoachId)))
             : null
-          const registrationSubject = subjects.find((subject) =>
-            String(subject?.id) === String(item.subjectId),
+          const registrationSubject = subjects?.find((subject) =>
+            String(subject?.id) === String(item.subjectId || item.sportId),
           ) ?? resolvedSubjects.find((row) =>
-            String(row.subject?.id) === String(item.subjectId),
+            String(row.subject?.id) === String(item.subjectId || item.sportId),
           )?.subject
-          const orderOrInvoiceAmount = [
-            relatedOrder?.orderAmount,
-            relatedOrder?.packagePrice,
-            relatedOrder?.totalPrice,
-            item.orderAmount,
-            item.packagePrice,
-            item.totalPrice,
-            relatedOrder?.amount,
-            relatedOrder?.totalAmount,
-            item.invoice?.amount,
-            item.invoice?.totalAmount,
-            relatedOrder?.invoice?.amount,
-            relatedOrder?.invoice?.totalAmount,
-            item.amount,
-          ].map(parseInvoiceAmount).find((amount) => amount != null)
-          const registrationPackageAmount = [
-            item.price,
-            item.totalAmount,
-          ].map(parseInvoiceAmount).find((amount) => amount != null)
-          const approvedAmount = orderOrInvoiceAmount
-            ?? registrationPackageAmount
-            ?? [registrationSubject?.advancedPrice, registrationSubject?.price]
-              .map(parseInvoiceAmount).find((amount) => amount != null)
-            ?? DEFAULT_ADVANCED_PACKAGE_PRICE
+          const approvedAmount = resolveAdvancedPackageAmount(item, registrationSubject, relatedOrder)
           const registrationInvoiceOrder = relatedOrder ? {
             ...relatedOrder,
             amount: approvedAmount,
@@ -1577,16 +1594,20 @@ return (
     </div>
 
     <div className="min-w-[220px] flex-1 space-y-2">
-      {(accepted && !expiredRequest) || registrationPaidOrActive
-        ? <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800">{registrationPaidOrActive ? (isVi ? (hasActivePackageForRegistration ? 'Đang hoạt động' : 'Đã thanh toán') : (hasActivePackageForRegistration ? 'Active' : 'Paid')) : (isVi ? 'Coach đã chấp thuận' : 'Coach accepted')}</span>
-        : <StatusPill status={displayStatus} language={language} />}
-      {!registrationPaidOrActive && !hasInvoiceRecord && (item.confirmationDeadline || item.invoiceExpiresAt || item.expiresAt || relatedOrder?.expiresAt) && (
+      {registrationPaidOrActive
+        ? <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800">{isVi ? (hasActivePackageForRegistration ? 'Đang hoạt động' : 'Đã thanh toán') : (hasActivePackageForRegistration ? 'Active' : 'Paid')}</span>
+        : invoiceCreated && !expiredRequest
+          ? <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800">{isVi ? 'Chờ thanh toán' : 'Pending payment'}</span>
+          : accepted && !expiredRequest
+            ? <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800">{isVi ? 'Coach đã chấp thuận' : 'Coach accepted'}</span>
+            : <StatusPill status={displayStatus} language={language} />}
+      {!registrationPaidOrActive && !invoiceCreated && (item.confirmationDeadline || item.invoiceExpiresAt || item.expiresAt) && (
         <p className={'whitespace-nowrap text-xs ' + (expiredRequest ? 'text-slate-400' : 'text-slate-500')}>
           {isVi ? 'Hạn: ' : 'Deadline: '}
           {formatDeadline(item.confirmationDeadline || item.invoiceExpiresAt || item.expiresAt || relatedOrder?.expiresAt, language)}
         </p>
       )}
-      {accepted && !expiredRequest && !hasInvoiceRecord && !registrationPaidOrActive && (
+      {accepted && !expiredRequest && !invoiceCreated && !registrationPaidOrActive && (
         <p className="text-xs text-slate-500">
           {isVi ? 'HLV đã đồng ý nhận học viên. Vui lòng xác nhận đơn hàng trong vòng 24 giờ để tiến hành thanh toán.' : 'The coach accepted your request. Confirm the order within 24 hours to proceed with payment.'}
         </p>
@@ -1594,9 +1615,11 @@ return (
     </div>
 
     <div className="flex shrink-0 flex-wrap items-center gap-3 md:col-span-2 2xl:col-span-1 2xl:justify-self-end">
-      <p className={'whitespace-nowrap text-base font-bold ' + (expiredRequest ? 'text-slate-400' : 'text-slate-900')}>
-        {formatAdvancedMoney(approvedAmount, language)}
-      </p>
+      {approvedAmount != null && Number.isFinite(Number(approvedAmount)) && Number(approvedAmount) > 0 ? (
+        <span className={'whitespace-nowrap text-base font-bold ' + (expiredRequest ? 'text-slate-400' : 'text-slate-900')}>
+          {Number(approvedAmount).toLocaleString('vi-VN')} VNĐ
+        </span>
+      ) : null}
       {expiredRequest ? (
         <span role="status" className="whitespace-nowrap rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-500">
           {isVi ? 'Hết hạn thanh toán' : 'Payment expired'}
@@ -1610,7 +1633,7 @@ return (
             id={'advanced-payment-' + item.id}
             value={paymentMethod}
             onChange={(event) => setPaymentMethod(event.target.value)}
-            className="h-10 w-40 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"
+            className="h-10 w-auto min-w-[170px] whitespace-nowrap rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-800"
           >
             <option value="VNPay">VNPay</option>
             <option value="Cash">{isVi ? 'Tiền mặt tại quầy' : 'Cash at counter'}</option>
@@ -1621,8 +1644,7 @@ return (
             onClick={() => createOrder(item)}
             className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-violet-700 px-4 text-sm font-medium text-white hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {submitting ? (isVi ? 'Đang tạo hóa đơn...' : 'Creating invoice...') : (isVi ? 'Xác nhận đặt đơn' : 'Confirm order')}
-            <ArrowUpRight size={16} />
+            {submitting ? <><LoaderCircle size={16} className="animate-spin" />{isVi ? 'Đang tạo hóa đơn...' : 'Creating invoice...'}</> : <>{isVi ? 'Xác nhận đặt đơn' : 'Confirm order'}<ArrowUpRight size={16} /></>}
           </button>
         </>
       ) : !expiredRequest && hasInvoiceRecord && unpaidInvoice && isInvoicePending(invoiceStatus) ? (
