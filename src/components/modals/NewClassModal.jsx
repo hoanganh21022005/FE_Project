@@ -1343,11 +1343,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                     </div>
                   </button>
 
-                  {apiEnabled && (
-                    <p className="mt-2 text-[11px] leading-relaxed text-amber-700">
-                      Preview dự kiến theo mẫu đã chọn; hệ thống có thể điều chỉnh lịch quanh ngày nghỉ. Lịch thực tế được xác minh sau khi tạo.
-                    </p>
-                  )}
                   {showSessionList && (
                     <div className="mt-2 p-3.5 bg-stone-50 border border-stone-200 rounded-xl max-h-48 overflow-y-auto space-y-1.5 text-xs">
                       {projectedSessions.map((s) => (

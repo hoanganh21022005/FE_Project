@@ -2165,32 +2165,6 @@ export function ClassManagement() {
         </div>
 
         <div className="flex items-center gap-2.5 w-full sm:w-auto">
-          {/* Toggle Chế độ xem: Danh sách (Bảng) vs Lịch tháng */}
-          <div className="bg-stone-100 p-1 rounded-xl flex items-center border border-stone-200/80 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => setViewMode("table")}
-              className={`px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
-                viewMode === "table"
-                  ? "bg-white text-stone-900 shadow-2xs font-bold"
-                  : "text-stone-600 hover:text-stone-900"
-              }`}
-            >
-              Danh sách
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("calendar")}
-              className={`px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
-                viewMode === "calendar"
-                  ? "bg-white text-stone-900 shadow-2xs font-bold"
-                  : "text-stone-600 hover:text-stone-900"
-              }`}
-            >
-              Lịch tháng
-            </button>
-          </div>
-
           {/* Primary class action uses the system brand color. */}
           <button
             type="button"
@@ -2541,9 +2515,8 @@ export function ClassManagement() {
           </div>
         )}
 
-        {/* 4. MAIN CONTENT: BẢNG DANH SÁCH (TABLE VIEW) HOẶC LỊCH THÁNG (CALENDAR) */}
-        {viewMode === "table" ? (
-          filteredAndSortedClasses.length === 0 ? (
+        {/* 4. MAIN CONTENT: BẢNG DANH SÁCH (TABLE VIEW) */}
+        {filteredAndSortedClasses.length === 0 ? (
             /* TRẠNG THÁI RỖNG (EMPTY STATE) GỌN GÀNG */
             <div className="p-12 text-center max-w-lg mx-auto space-y-4">
               <div className="w-12 h-12 bg-stone-100 text-stone-600 rounded-2xl flex items-center justify-center mx-auto border border-stone-200/80">
@@ -3221,112 +3194,6 @@ export function ClassManagement() {
                 </div>
               </div>
             </div>
-          )
-        ) : (
-          /* LỊCH THÁNG (CALENDAR MATRIX VIEW CHUẨN DESIGN) */
-          <div className="p-5 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <h3 className="text-sm font-bold text-stone-900">
-                  Lịch lớp tháng {calendarMonth.slice(5, 7)}/{calendarMonth.slice(0, 4)}
-                </h3>
-                <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-stone-600">
-                  <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-500" />Sắp tới</span>
-                  <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />Đã học</span>
-                  <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-500" />Đã hủy</span>
-                  <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" />Khai giảng</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCalendarMonth(currentCalendarMonth() || calendarMonth)}
-                  className="rounded-lg border border-stone-200 px-2.5 py-1 text-xs font-semibold text-stone-700 hover:bg-stone-50 cursor-pointer"
-                >
-                  Hôm nay
-                </button>
-                <button type="button" aria-label="Tháng trước" onClick={() => setCalendarMonth((month) => shiftCalendarMonth(month, -1))} className="rounded-lg border border-stone-200 p-1.5 hover:bg-stone-50 cursor-pointer"><ChevronLeft className="h-4 w-4" /></button>
-                <button type="button" aria-label="Tháng sau" onClick={() => setCalendarMonth((month) => shiftCalendarMonth(month, 1))} className="rounded-lg border border-stone-200 p-1.5 hover:bg-stone-50 cursor-pointer"><ChevronRight className="h-4 w-4" /></button>
-              </div>
-            </div>
-            {apiEnabled && classes.length > 0 && !calendarSchedule && <p role="status" className="text-xs text-stone-500">Đang tải lịch buổi học…</p>}
-            {apiEnabled && calendarSchedule?.error && <p role="alert" className="text-xs text-rose-700">Không tải được lịch buổi học. Lịch chỉ hiển thị ngày khai giảng của lớp.</p>}
-
-            <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-stone-600 pb-2 border-b border-stone-200 bg-stone-50/70 p-2.5 rounded-xl">
-              {weekdaysCalendar.map((day) => (
-                <div key={day}>{day}</div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-7 gap-2 min-h-[340px]">
-              {calendarCells.map((dateStr, i) => {
-                if (!dateStr) {
-                  return (
-                    <div
-                      key={`empty-${i}`}
-                      aria-hidden="true"
-                      className="min-h-[96px] rounded-xl bg-stone-50/40 border border-dashed border-stone-100"
-                    />
-                  )
-                }
-                const dayEntries = calendarEntries[dateStr] || []
-
-                return (
-                  <div
-                    key={dateStr}
-                    className={`p-2 bg-stone-50/60 border border-stone-200 rounded-xl min-h-[96px] text-left transition-colors hover:bg-stone-50 ${
-                      dateStr === todayKey ? "ring-2 ring-brand-primary bg-blue-50/20" : ""
-                    }`}
-                  >
-                    <div className={`text-xs font-semibold mb-1.5 tabular-nums flex items-center justify-between ${dateStr === todayKey ? "text-brand-primary font-bold" : "text-stone-500"}`}>
-                      <span>{Number(dateStr.slice(8, 10))}</span>
-                      {dayEntries.length > 0 && (
-                        <span className="text-[10px] font-medium text-stone-400">{dayEntries.length}</span>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      {dayEntries.map(({ class: cls, session, type }, entryIndex) => {
-                        const rawSessionStatus = String(session?.status || "").toLowerCase()
-                        const isSession = type === "session"
-                        const timeLabel = isSession && session?.startTime ? String(session.startTime).slice(0, 5) : null
-                        const statusMeta = !isSession
-                          ? { label: "Khai giảng", card: "bg-amber-50/80 border-amber-200/90 text-amber-950 hover:border-amber-400", badge: "bg-amber-100 text-amber-800" }
-                          : rawSessionStatus === "completed"
-                            ? { label: "Đã học", card: "bg-emerald-50/70 border-emerald-200/90 text-emerald-950 hover:border-emerald-400", badge: "bg-emerald-100 text-emerald-800" }
-                            : rawSessionStatus === "cancelled"
-                              ? { label: "Đã hủy", card: "bg-rose-50/70 border-rose-200/90 text-rose-900 hover:border-rose-400 opacity-85", badge: "bg-rose-100 text-rose-800" }
-                              : { label: "Sắp tới", card: "bg-blue-50/70 border-blue-200/90 text-blue-950 hover:border-blue-400", badge: "bg-blue-100 text-blue-800" }
-                        return (
-                          <button
-                            type="button"
-                            key={`${type}-${cls.id}-${session?.id ?? entryIndex}`}
-                            onClick={() => {
-                              setQuickViewIntent("details")
-                              setQuickViewClass(cls)
-                            }}
-                            title={`${isSession ? (timeLabel ? `${timeLabel} · ` : "") : "Khai giảng · "}${cls.nameVi || cls.name} (${statusMeta.label})`}
-                            className={`w-full text-left p-1.5 border rounded-lg text-[11px] leading-snug transition-colors shadow-2xs cursor-pointer ${statusMeta.card}`}
-                          >
-                            <div className="flex items-center justify-between gap-1 mb-0.5">
-                              <span className="font-bold tabular-nums truncate">
-                                {timeLabel || statusMeta.label}
-                              </span>
-                              <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-bold shrink-0 ${statusMeta.badge}`}>
-                                {statusMeta.label}
-                              </span>
-                            </div>
-                            <div className={`font-semibold line-clamp-2 ${rawSessionStatus === "cancelled" ? "line-through opacity-75" : ""}`}>
-                              {cls.nameVi || cls.name}
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
         )}
       </div>
 

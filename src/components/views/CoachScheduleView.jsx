@@ -903,8 +903,8 @@ export function CoachScheduleView() {
             </h1>
             <p className="mt-1 text-sm text-slate-500 leading-relaxed">
               {language === "vi"
-                ? "Thời khóa biểu tuần trực quan (Thứ/Ca học/Sân tập), danh sách từng ca dạy"
-                : "Visual weekly timetable by slot and room, with a detailed session list"}
+                ? "Thời khóa biểu và danh sách ca dạy"
+                : "Weekly timetable and teaching sessions"}
             </p>
           </div>
         </div>

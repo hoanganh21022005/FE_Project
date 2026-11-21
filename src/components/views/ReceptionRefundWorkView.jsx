@@ -14,6 +14,7 @@ import { useSCMS } from '../../context/SCMSContext'
 import { formatCurrency, formatDateTime } from '../../locales/translations'
 import { getErrorMessage } from '../../api/apiErrors'
 import { getNormalRefundError, getNormalRefunds } from '../../api/normalRefundApi.js'
+import { normalRefundOriginLabel } from '../../utils/normalRefundLabels.js'
 import {
   canWorkNormalRefundTransfer,
   claimNormalRefund,
@@ -123,7 +124,7 @@ const mapReceptionRefundError = (error, language, fallback) => {
 
 const toLocalDateTimeInput = (date = new Date()) => {
   const pad = (n) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
 const normalizeLocalDateTimePayload = (value) => {
@@ -136,6 +137,13 @@ const normalizeLocalDateTimePayload = (value) => {
     return trimmed
   }
   return trimmed
+}
+
+const localDateTimeMinimum = (value) => {
+  const normalized = normalizeLocalDateTimePayload(value)
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(normalized)
+    ? normalized.slice(0, 19)
+    : undefined
 }
 
 const statusBadgeClass = (status) => {
@@ -688,6 +696,8 @@ export function ReceptionRefundWorkView() {
                 <input
                   id={timeInputId}
                   type="datetime-local"
+                  step="1"
+                  min={localDateTimeMinimum(activeAttempt.claimedAt)}
                   value={form.performedAt}
                   onChange={(e) =>
                     updateAttemptForm(activeAttempt.id, { performedAt: e.target.value })
@@ -916,6 +926,9 @@ export function ReceptionRefundWorkView() {
                       </p>
                       <p className="text-xs leading-4 text-text-muted tabular-nums">
                         {isVi ? 'Hóa đơn:' : 'Invoice:'} #{refund.invoiceId ?? '—'}
+                      </p>
+                      <p className="text-xs leading-4 text-text-muted">
+                        {isVi ? 'Nguồn hoàn:' : 'Refund source:'} {normalRefundOriginLabel(refund.origin, isVi ? 'vi' : 'en')}
                       </p>
                     </div>
 

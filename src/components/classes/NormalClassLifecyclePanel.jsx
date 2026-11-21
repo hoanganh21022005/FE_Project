@@ -485,12 +485,17 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
   }
 
   const submitApplyProposal = async (proposal) => {
-    const check = evaluateNormalProposalApply(proposal, latestApplyClass)
-    const freshClassCheck = evaluateNormalClassLifecycle(latestApplyClass, { action: 'cancel' })
-    if (!check.canAttempt || !freshClassCheck.canAttempt || freshClassCheck.unverified.length > 0 ||
-      latestApplyClass?.lifecycleVersion !== proposal.version || actionBusy || !latestApplyProposal ||
+    const repairAppliedTransfer = String(proposal.kind ?? '').toLowerCase() === 'transfer'
+      && String(proposal.status ?? '').toLowerCase() === 'applied'
+      && latestApplyClass?.changePending === true
+      && !proposals?.some((item) => String(item.id) !== String(proposal.id) && String(item.status ?? '').toLowerCase() === 'pending')
+    const check = evaluateNormalProposalApply(proposal, latestApplyClass, { allowAppliedTransferRepair: repairAppliedTransfer })
+    const freshClassCheck = repairAppliedTransfer ? null : evaluateNormalClassLifecycle(latestApplyClass, { action: 'cancel' })
+    if (!check.canAttempt || (!repairAppliedTransfer && (!freshClassCheck?.canAttempt || freshClassCheck?.unverified.length > 0 || latestApplyClass?.lifecycleVersion !== proposal.version)) || actionBusy || !latestApplyProposal ||
       String(latestApplyProposal.id) !== String(proposal.id)) return
-    if (typeof window !== 'undefined' && !window.confirm('Áp dụng phương án mới nhất cho lớp này?')) return
+    if (typeof window !== 'undefined' && !window.confirm(repairAppliedTransfer
+      ? copy(isVi, 'Khôi phục lớp nguồn sau Transfer đã áp dụng? Lớp vẫn mở; thao tác này không hủy lớp.', 'Release the source class after the applied transfer? The class stays open and will not be cancelled.')
+      : copy(isVi, 'Áp dụng phương án mới nhất cho lớp này?', 'Apply the latest proposal to this class?'))) return
     setActiveAction(`apply:${proposal.id}`)
     setActionError(null)
     setActionStatus('')
@@ -687,7 +692,12 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
           {proposals.map((proposal, index) => {
             const inspected = inspectNormalClassProposal(proposal)
             const isLatestProposal = String(latestApplyProposal?.id) === String(proposal.id)
-            const applyState = evaluateNormalProposalApply(proposal, isLatestProposal ? latestApplyClass : classItem)
+            const proposalClass = isLatestProposal ? latestApplyClass : classItem
+            const canRepairTransfer = String(proposal.kind ?? '').toLowerCase() === 'transfer'
+              && String(proposal.status ?? '').toLowerCase() === 'applied'
+              && proposalClass?.changePending === true
+              && !proposals.some((item) => String(item.id) !== String(proposal.id) && String(item.status ?? '').toLowerCase() === 'pending')
+            const applyState = evaluateNormalProposalApply(proposal, proposalClass, { allowAppliedTransferRepair: canRepairTransfer })
             const isApplyLoading = String(activeApplyProposalId) === String(proposal.id)
             const target = proposal.targetClassId == null ? null : classes?.find((item) => String(item.id) === String(proposal.targetClassId))
             const statusMeta = proposalStatusMeta(proposal.status, isVi)
@@ -726,8 +736,8 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
                     <button type="button" disabled={isApplyLoading || actionBusy} onClick={() => refreshLatestApplyProposal(proposal.id)} className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">
                       {isApplyLoading ? copy(isVi, 'Đang kiểm tra…', 'Checking…') : copy(isVi, 'Kiểm tra đề xuất mới nhất', 'Check latest proposal')}
                     </button>
-                    <button type="button" disabled={actionBusy || !latestApplyProposal || !isLatestProposal || !latestApplyClass || latestApplyClass.lifecycleVersion !== latestApplyProposal.version || !applyState.canAttempt} title={applyState.blockers[0] ?? applyState.unverified[0] ?? (!latestApplyProposal || !isLatestProposal ? 'Kiểm tra proposal mới nhất trước khi áp dụng.' : latestApplyClass?.lifecycleVersion !== latestApplyProposal?.version ? 'Phiên bản lớp hoặc proposal chưa đồng bộ.' : undefined)} onClick={() => submitApplyProposal(latestApplyProposal)} className="rounded-lg border border-indigo-300 bg-indigo-50/70 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50">
-                      {activeAction === `apply:${proposal.id}` ? copy(isVi, 'Đang áp dụng…', 'Applying…') : copy(isVi, 'Áp dụng', 'Apply')}
+                    <button type="button" disabled={actionBusy || !latestApplyProposal || !isLatestProposal || !latestApplyClass || (latestApplyClass.lifecycleVersion !== latestApplyProposal.version && !canRepairTransfer) || !applyState.canAttempt} title={applyState.blockers[0] ?? applyState.unverified[0] ?? (!latestApplyProposal || !isLatestProposal ? 'Kiểm tra proposal mới nhất trước khi áp dụng.' : latestApplyClass?.lifecycleVersion !== latestApplyProposal?.version && !canRepairTransfer ? 'Phiên bản lớp hoặc proposal chưa đồng bộ.' : undefined)} onClick={() => submitApplyProposal(latestApplyProposal)} className="rounded-lg border border-indigo-300 bg-indigo-50/70 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50">
+                      {activeAction === `apply:${proposal.id}` ? copy(isVi, 'Đang xử lý…', 'Processing…') : canRepairTransfer ? copy(isVi, 'Mở khóa lớp nguồn', 'Release source class') : copy(isVi, 'Áp dụng', 'Apply')}
                     </button>
                   </div>
                 </div>
@@ -746,8 +756,8 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
         </ul>
       )}
       {appliedTransferProposal && <div role="status" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-        <p className="font-semibold">{copy(isVi, 'Đề xuất chuyển học viên đã xử lý; lớp nguồn chưa tự hủy.', 'The transfer proposal is processed; the source class was not cancelled.')}</p>
-        <p className="mt-1">{copy(isVi, 'Backend hiện vẫn báo lớp nguồn có thay đổi đang chờ sau khi áp dụng Transfer. Nếu muốn ngừng tổ chức lớp nguồn, hãy dùng mục “Hủy lớp trước khai giảng” bên dưới; thao tác này cần xác nhận riêng và Backend sẽ tự kiểm tra nghĩa vụ còn lại.', 'The Backend still reports a pending class change after applying a Transfer. If the center wants to stop the source class, use “Cancel before opening” below. Cancellation requires separate confirmation and the Backend checks remaining obligations.')}</p>
+        <p className="font-semibold">{copy(isVi, 'Đề xuất chuyển học viên đã áp dụng; lớp nguồn vẫn mở và không bị tự hủy.', 'The transfer proposal is applied; the source class remains open and is not cancelled.')}</p>
+        <p className="mt-1">{copy(isVi, 'Có thể tiếp tục chuyển học viên phù hợp vào lớp này theo lịch, sức chứa và điều kiện hiện tại.', 'Eligible members can continue transferring into this class, subject to its current schedule, capacity, and rules.')}</p>
       </div>}
       </>}
 

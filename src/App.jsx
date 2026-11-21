@@ -1498,7 +1498,7 @@ function SCMSApp() {
                     }
                   />
                   <Route
-                    path="/coach/attendance"
+                    path="/coach/attendance/normal"
                     element={
                       <RequireRole
                         allowedRoles={[ROLE_COACH]}
@@ -1506,10 +1506,24 @@ function SCMSApp() {
                         attemptedPath={location.pathname}
                         onForbidden={() => navigate(`/${role}/dashboard`)}
                       >
-                        <CoachAttendanceView />
+                        <CoachAttendanceView key="normal-attendance" mode="normal" />
                       </RequireRole>
                     }
                   />
+                  <Route
+                    path="/coach/attendance/advanced"
+                    element={
+                      <RequireRole
+                        allowedRoles={[ROLE_COACH]}
+                        currentRole={role}
+                        attemptedPath={location.pathname}
+                        onForbidden={() => navigate(`/${role}/dashboard`)}
+                      >
+                        <CoachAttendanceView key="advanced-attendance" mode="advanced" />
+                      </RequireRole>
+                    }
+                  />
+                  <Route path="/coach/attendance" element={<Navigate to="/coach/attendance/normal" replace />} />
                   <Route
                     path="/coach/assigned-members"
                     element={

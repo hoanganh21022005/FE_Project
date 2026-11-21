@@ -732,7 +732,7 @@ export function CoachAssignedMembersView() {
               {language === "vi" ? "Đề xuất lịch & Đăng ký sân" : "Schedule Proposals & Court Booking"}
             </h1>
             <p className="mt-1 text-sm text-slate-500 leading-relaxed">
-              {language === "vi" ? "Chọn Member và gói Advanced Active để gửi đề xuất; Member sẽ xác nhận trước khi lịch được lên lịch." : "Select a Member and active Advanced subscription to propose a time; the Member confirms before it is scheduled."}
+              {language === "vi" ? "Quản lý yêu cầu đăng ký sân và đề xuất lịch tập 1-1" : "Manage court requests and 1:1 session proposals"}
             </p>
           </div>
         </div>
@@ -843,9 +843,6 @@ export function CoachAssignedMembersView() {
                   {privateSessionProposals.length}
                 </span>
               </h3>
-              <p className="mt-1 text-xs text-text-secondary">
-                {language === "vi" ? "Đề xuất đang chờ không giữ phòng và không trừ Credit." : "Pending proposals do not reserve a room or consume a credit."}
-              </p>
             </div>
             <button
               type="button"
@@ -899,7 +896,7 @@ export function CoachAssignedMembersView() {
                     <div className="space-y-1">
                       <p className="font-semibold">{memberName} <span className="font-normal text-text-secondary">· {subject}</span></p>
                       <p className="text-text-secondary">
-                        {proposal.sessionDate || "—"} · {String(proposal.startTime || "").slice(0, 5)}–{String(proposal.endTime || "").slice(0, 5)} · {room?.name || (proposal.roomId ? `Room #${proposal.roomId}` : "—")}
+                        {proposal.sessionDate ? formatDate(proposal.sessionDate) : "—"} · {String(proposal.startTime || "").slice(0, 5)}–{String(proposal.endTime || "").slice(0, 5)} · {room?.name || (proposal.roomId ? `Room #${proposal.roomId}` : "—")}
                       </p>
                       <p className="text-xs text-text-secondary">
                         {language === "vi" ? "Hạn phản hồi: " : "Respond by: "}{proposal.respondBy ? formatVietnamDateTime(proposal.respondBy) : "—"}

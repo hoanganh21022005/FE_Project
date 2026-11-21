@@ -92,11 +92,6 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             label: language === "vi" ? "Ngày nghỉ" : "Holidays",
             icon: Calendar,
           },
-          {
-            path: "/manager/session-incidents",
-            label: language === "vi" ? "Sự cố lịch học" : "Session incidents",
-            icon: Activity,
-          },
           { path: "/manager/payments", labelKey: "payments", icon: CreditCard },
           {
             path: "/manager/normal-refunds",
@@ -121,9 +116,14 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             icon: Calendar,
           },
           {
-            path: "/coach/attendance",
-            label: language === "vi" ? "Điểm danh (Normal & Advanced)" : "Attendance (Normal & PT)",
+            path: "/coach/attendance/normal",
+            label: language === "vi" ? "Điểm danh Normal" : "Normal Attendance",
             icon: ClipboardCheck,
+          },
+          {
+            path: "/coach/attendance/advanced",
+            label: language === "vi" ? "Điểm danh Advanced" : "Advanced Attendance",
+            icon: UserCheck,
           },
           {
             path: "/coach/assigned-members",

@@ -370,8 +370,8 @@ export const ERROR_CODE_TEXT = {
     en: 'The class does not match the Advanced registration class.',
   },
   USE_ATTENDANCE_CORRECTION: {
-    vi: 'Buổi đã có điểm danh hoặc nhận xét; muốn đổi hãy dùng chức năng sửa điểm danh.',
-    en: 'Attendance or comments already exist; use the attendance correction feature to change them.',
+    vi: 'Buổi đã có điểm danh hoặc nhận xét. Trước giờ bắt đầu không thể đổi trạng thái; hãy tải lại để xem trạng thái đã ghi nhận.',
+    en: 'Attendance or comments already exist. The status cannot be changed before the session starts; reload to see the recorded status.',
   },
   NOT_YOUR_CLASS: {
     vi: 'Bạn không phụ trách lớp học này.',
