@@ -11,6 +11,7 @@ import {
 } from "../../api/normalClassOpening"
 import NormalClassLifecyclePanel from "./NormalClassLifecyclePanel"
 import { hasValidScheduleData } from "./hooks/useScheduleConflict"
+import { NORMAL_CLASS_TIME_SLOTS } from "../modals/new-class/classFormConstants.js"
 import {
   getEnrollmentsByClass,
   enrollMemberInClass,
@@ -311,6 +312,9 @@ export function ClassDetailDrawer({
     authorities,
     reason: openingReason,
   })
+  const openingEnrollmentShortfall = hasVerifiedEnrollmentData
+    && openingEvaluation.minimum != null
+    && (openingEvaluation.paidRegisteredCount ?? 0) < openingEvaluation.minimum
   const openingPermissionGranted = openingEvaluation.openingConfirmationAllowed === true
   const openingReasonNeedsInput = openingEvaluation.reasonRequired === true && !openingReason.trim()
   const openingActionBlockers = openingReasonNeedsInput
@@ -347,13 +351,12 @@ export function ClassDetailDrawer({
 
   const formatOpeningSession = (item) => {
     if (!item) return "Chưa xác minh"
-    const parsed = openingEvaluation.firstSessionStartsAt
-    if (parsed == null) return `${formatViDate(item.sessionDate)} ${item.startTime || ""}`.trim()
-    return new Intl.DateTimeFormat("vi-VN", {
-      dateStyle: "medium",
-      timeStyle: "short",
-      timeZone: "Asia/Ho_Chi_Minh",
-    }).format(new Date(parsed))
+    const startTime = String(item.startTime || "").slice(0, 5)
+    const endTime = String(item.endTime || "").slice(0, 5)
+    const slot = NORMAL_CLASS_TIME_SLOTS.find((timeSlot) =>
+      timeSlot.startTime === startTime && timeSlot.endTime === endTime,
+    )
+    return `${slot?.name || "Chưa xác định ca"} · ${formatViDate(item.sessionDate)}`
   }
 
   const validMemberSummary = (() => {
@@ -914,9 +917,9 @@ export function ClassDetailDrawer({
               </button>
             </div>
 
-            <dl className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs sm:grid-cols-3">
+            <dl className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs sm:grid-cols-2">
               <div>
-                <dt className="text-stone-500">Học viên đã thanh toán / sĩ số tối thiểu</dt>
+                <dt className="text-stone-500">Sĩ số</dt>
                 <dd className="mt-1 font-semibold text-stone-900">
                   {!hasVerifiedEnrollmentData
                     ? "Chưa xác minh"
@@ -929,17 +932,17 @@ export function ClassDetailDrawer({
                   {sessionsLoading || sessionsError ? "Chưa xác minh" : formatOpeningSession(firstOpeningSession)}
                 </dd>
               </div>
-              <div>
-                <dt className="text-stone-500">Trạng thái lớp</dt>
-                <dd className="mt-1 font-semibold text-stone-900">{currentStatus.label}</dd>
-              </div>
             </dl>
 
-            {!canShowOpeningAction && !classDetailLoading && (
+            {openingEnrollmentShortfall ? (
+              <p role="status" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                Chưa đủ sĩ số.
+              </p>
+            ) : !canShowOpeningAction && !classDetailLoading ? (
               <p role="status" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
                 {classDetailError || openingEvaluation.blockers[0] || "Lớp hiện không đủ điều kiện xác nhận khai giảng."}
               </p>
-            )}
+            ) : null}
 
             {openingEvaluation.reasonRequired === true && (
               <label className="mt-4 block text-xs font-semibold text-stone-700">
@@ -956,7 +959,7 @@ export function ClassDetailDrawer({
               </label>
             )}
 
-            {canShowOpeningAction && openingEvaluation.blockers.length > 0 && (
+            {!openingEnrollmentShortfall && canShowOpeningAction && openingEvaluation.blockers.length > 0 && (
               <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
                 {openingEvaluation.blockers[0]}
               </p>
