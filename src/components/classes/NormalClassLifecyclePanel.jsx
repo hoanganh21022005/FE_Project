@@ -16,10 +16,17 @@ import {
   inspectNormalClassProposal,
   isNormalLifecycleStaleError,
 } from '../../api/normalClassLifecycleApi.js'
+import {
+  filterNormalTransferTargetsForUi,
+  getNormalTransferRemainingSeats,
+  summarizeNormalProposalChoices,
+} from '../../utils/normalClassMergeUi.js'
 import { useSCMS } from '../../context/SCMSContext.jsx'
+import { formatDate } from '../../locales/translations'
 
 const text = (value, fallback = 'Chưa xác minh') =>
   typeof value === 'string' && value.trim() ? value : fallback
+const copy = (isVi, vi, en) => isVi ? vi : en
 
 const localDateTime = (value) => {
   if (value == null || value === '') return '—'
@@ -32,7 +39,9 @@ const localDateTime = (value) => {
 const sessionDate = (session) => {
   const date = session?.sessionDate ?? session?.date
   if (!date) return 'Chưa xác minh'
-  return `${date}${session?.startTime ? ` · ${session.startTime}` : ''}${session?.endTime ? `–${session.endTime}` : ''}`
+  const start = session?.startTime ? String(session.startTime).slice(0, 5) : ''
+  const end = session?.endTime ? String(session.endTime).slice(0, 5) : ''
+  return `${formatDate(date)}${start ? ` · ${start}` : ''}${end ? `–${end}` : ''}`
 }
 
 const hasCompleteSchedule = (sessions, expectedCount = 12) => {
@@ -47,30 +56,32 @@ const hasCompleteSchedule = (sessions, expectedCount = 12) => {
   )
 }
 
-function ProposalChoices({ proposal }) {
+function ProposalChoices({ proposal, isVi }) {
   const inspected = inspectNormalClassProposal(proposal)
   if (!Array.isArray(inspected.choices)) {
-    return <p className="mt-2 text-xs text-amber-800">Phản hồi hội viên: Chưa có danh sách lựa chọn.</p>
+    return <p className="mt-2 text-xs text-amber-800">{copy(isVi, 'Phản hồi hội viên: Chưa có danh sách lựa chọn.', 'Member responses: Choice details are unavailable.')}</p>
   }
   if (!inspected.memberChoicesVerified) {
-    return <p className="mt-2 text-xs text-amber-800">Phản hồi hội viên: Có thông tin cần xác nhận thêm.</p>
+    return <p className="mt-2 text-xs text-amber-800">{copy(isVi, 'Phản hồi hội viên: Có thông tin cần xác nhận thêm.', 'Member responses: Some details need verification.')}</p>
   }
   if (inspected.choices.length === 0) {
-    return <p className="mt-2 text-xs text-amber-800">Phản hồi hội viên: Chưa có phản hồi đồng ý.</p>
+    return <p className="mt-2 text-xs text-amber-800">{copy(isVi, 'Phản hồi hội viên: Chưa có phản hồi đồng ý.', 'Member responses: No choices have been recorded.')}</p>
   }
+
+  const summary = summarizeNormalProposalChoices(proposal)
 
   return (
     <div className="mt-3">
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-semibold text-stone-700">Phản hồi hội viên</span>
-        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-stone-700">
-          {inspected.pendingChoiceCount === null ? 'Chưa xác minh số đang chờ' : `${inspected.pendingChoiceCount} đang chờ`}
-        </span>
+        <span className="font-semibold text-stone-700">{copy(isVi, 'Phản hồi hội viên', 'Member responses')}</span>
+        {summary.verified ? <span className="rounded-full bg-stone-100 px-2 py-0.5 text-stone-700">
+          {copy(isVi, `${summary.total} cần phản hồi · ${summary.waiting} đang chờ · ${summary.accepted} đồng ý · ${summary.refunds} yêu cầu hoàn tiền`, `${summary.total} need a response · ${summary.waiting} waiting · ${summary.accepted} accepted · ${summary.refunds} requested refunds`)}
+        </span> : <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-800">{copy(isVi, 'Số liệu phản hồi chưa xác minh', 'Response totals are unverified')}</span>}
       </div>
       <ul className="mt-2 space-y-1.5">
         {inspected.choices.map((choice, index) => (
           <li key={`${choice.memberId ?? 'member'}-${index}`} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-stone-50 px-2.5 py-2 text-xs">
-            <span className="text-stone-600">Member {choice.memberId == null ? 'chưa xác minh' : `#${choice.memberId}`}</span>
+            <span className="text-stone-600">{copy(isVi, 'Hội viên', 'Member')} {choice.memberId == null ? copy(isVi, 'chưa xác minh', 'unverified') : `#${choice.memberId}`}</span>
             <span className="font-semibold text-stone-900">{text(choice.choice)}</span>
             <span className="text-stone-500">{localDateTime(choice.respondedAt)}</span>
           </li>
@@ -80,27 +91,53 @@ function ProposalChoices({ proposal }) {
   )
 }
 
-function ProposalSchedule({ schedule }) {
-  if (!Array.isArray(schedule)) return <p className="mt-2 text-xs text-amber-800">Lịch dự kiến: Chưa xác minh.</p>
-  if (!schedule.length) return <p className="mt-2 text-xs text-amber-800">Lịch dự kiến: Chưa có buổi học nào.</p>
+const formatFee = (value) => {
+  const amount = Number(value)
+  return Number.isFinite(amount) ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(amount) : 'Chưa xác minh'
+}
+
+function TransferClassComparison({ source, target, sourceSessions, targetSessions, isVi }) {
+  const sideTitles = [copy(isVi, 'Lớp hiện tại', 'Current class'), copy(isVi, 'Lớp đề xuất', 'Proposed class')]
+  const rows = [
+    { label: copy(isVi, 'Ngày khai giảng', 'First session'), source: sourceSessions?.[0]?.sessionDate ?? source?.startDate, target: targetSessions?.[0]?.sessionDate ?? target?.startDate },
+    { label: copy(isVi, 'Môn học', 'Subject'), source: source?.subjectName ?? source?.category, target: target?.subjectName ?? target?.category },
+    { label: copy(isVi, 'HLV', 'Coach'), source: sourceSessions?.[0]?.coachName ?? source?.coachName, target: targetSessions?.[0]?.coachName ?? target?.coachName },
+    { label: copy(isVi, 'Sân / phòng', 'Court / room'), source: sourceSessions?.[0]?.roomName ?? sourceSessions?.[0]?.room?.name, target: targetSessions?.[0]?.roomName ?? targetSessions?.[0]?.room?.name },
+    { label: copy(isVi, 'Học phí', 'Tuition'), source: formatFee(source?.tuitionFee), target: formatFee(target?.tuitionFee) },
+    { label: copy(isVi, 'Sĩ số / tối đa', 'Enrollment / capacity'), source: `${source?.enrolledCount ?? '—'} / ${source?.maxCapacity ?? source?.capacity ?? '—'}`, target: `${target?.enrolledCount ?? '—'} / ${target?.maxCapacity ?? target?.capacity ?? '—'}` },
+  ]
+  const scheduleText = (item) => item ? `${sessionDate(item)}${item.coachName ? ` · ${item.coachName}` : ''}${item.roomName ? ` · ${item.roomName}` : ''}` : copy(isVi, 'Chưa có dữ liệu lịch', 'Schedule unavailable')
+  return <div className="mt-3 grid gap-2 sm:grid-cols-2" aria-label={copy(isVi, 'So sánh lớp nguồn và lớp đề xuất', 'Compare source and proposed classes')}>
+    {[{ title: sideTitles[0], item: source, sessions: sourceSessions, tone: 'border-stone-200 bg-white' }, { title: sideTitles[1], item: target, sessions: targetSessions, tone: 'border-indigo-200 bg-indigo-50/50' }].map((side) => <section key={side.title} className={`rounded-lg border p-3 ${side.tone}`}>
+      <h4 className="text-xs font-semibold text-stone-800">{side.title}: {side.item?.name ?? copy(isVi, 'Chưa xác minh', 'Unverified')}</h4>
+      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-[11px] text-stone-600">{rows.map((row) => <div key={row.label} className="contents"><dt>{row.label}</dt><dd className="font-medium text-stone-800">{row[side.title === sideTitles[0] ? 'source' : 'target'] ?? copy(isVi, 'Chưa xác minh', 'Unverified')}</dd></div>)}</dl>
+      {side.title === sideTitles[1] && <p className="mt-2 text-[11px] text-amber-800">{getNormalTransferRemainingSeats(side.item) === null ? copy(isVi, 'Số chỗ còn lại cần Backend xác minh.', 'Backend must verify available seats.') : copy(isVi, `Còn khoảng ${getNormalTransferRemainingSeats(side.item)} chỗ; Backend sẽ kiểm tra lại khi hội viên đồng ý.`, `About ${getNormalTransferRemainingSeats(side.item)} seats remain; Backend will recheck when a member accepts.`)}</p>}
+      <details className="mt-2"><summary className="cursor-pointer text-[11px] font-semibold text-indigo-700">{copy(isVi, 'Lịch học', 'Schedule')} ({Array.isArray(side.sessions) ? side.sessions.length : 0})</summary><ol className="mt-1 max-h-28 space-y-1 overflow-auto text-[11px] text-stone-600">{Array.isArray(side.sessions) && side.sessions.length ? side.sessions.map((item, index) => <li key={item.id ?? item.sessionId ?? index}>{scheduleText(item)}</li>) : <li>{copy(isVi, 'Chưa tải được lịch chi tiết.', 'Schedule details could not be loaded.')}</li>}</ol></details>
+    </section>)}</div>
+}
+
+function ProposalSchedule({ schedule, isVi }) {
+  if (!Array.isArray(schedule)) return <p className="mt-2 text-xs text-amber-800">{copy(isVi, 'Lịch dự kiến: Chưa xác minh.', 'Proposed schedule: Unverified.')}</p>
+  if (!schedule.length) return <p className="mt-2 text-xs text-amber-800">{copy(isVi, 'Lịch dự kiến: Chưa có buổi học nào.', 'Proposed schedule: No sessions listed.')}</p>
   return (
     <details className="mt-3">
-      <summary className="cursor-pointer text-xs font-semibold text-indigo-700">Xem lịch dự kiến ({schedule.length} buổi)</summary>
+      <summary className="cursor-pointer text-xs font-semibold text-indigo-700">{copy(isVi, `Xem lịch dự kiến (${schedule.length} buổi)`, `View proposed schedule (${schedule.length} sessions)`)}</summary>
       <ol className="mt-2 max-h-36 space-y-1 overflow-auto rounded-md bg-stone-50 p-2 text-xs text-stone-700">
         {schedule.map((item, index) => (
           <li key={item.sessionId ?? index}>
             {item.sessionId == null ? '' : `Buổi #${item.sessionId} · `}{sessionDate(item)}
-            {' · Coach '}{item.coachId ?? 'Chưa xác minh'}{' · Phòng '}{item.roomId ?? 'Chưa xác minh'}
+            {' · '}{copy(isVi, 'HLV', 'Coach')} #{item.coachId ?? '—'}{' · '}{copy(isVi, 'Sân / phòng', 'Court / room')} #{item.roomId ?? '—'}
           </li>
         ))}
       </ol>
-      <p className="mt-1 text-[11px] text-stone-500">Đây là phương án xem trước; chưa xác nhận giữ chỗ lớp đích.</p>
+      <p className="mt-1 text-[11px] text-stone-500">{copy(isVi, 'Đây là phương án xem trước; chưa xác nhận giữ chỗ lớp đích.', 'This is a preview; a place in the target class is not reserved.')}</p>
     </details>
   )
 }
 
 export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Postpone', initialAction = 'details', sessions = null, sessionsLoading = false, sessionsError = '', onRefreshClassDetail }) {
-  const { apiEnabled, currentUser, classes, subjects, coaches, setClasses } = useSCMS()
+  const { apiEnabled, currentUser, classes, subjects, coaches, setClasses, language } = useSCMS()
+  const isVi = language !== 'en'
   const classId = classItem?.id
   const authorities = Array.isArray(currentUser?.authorities) ? currentUser.authorities : []
   const authorized = apiEnabled && canManageNormalClassLifecycle(currentUser?.role, authorities)
@@ -186,17 +223,15 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
     try {
       const items = await managerApi.getClasses({ subjects, coaches }, { notifyForbidden: false })
       setClasses?.(items)
-      setTargets(items.filter((item) =>
-        String(item.classType ?? '').toLowerCase() === 'normal' &&
-        String(item.apiStatus ?? '').toLowerCase() === 'open' &&
-        String(item.id) !== String(classId),
-      ))
+      const compatibleTargets = filterNormalTransferTargetsForUi(classItem, items)
+      setTargets(compatibleTargets)
+      setTargetClassId((currentId) => compatibleTargets.some((item) => String(item.id) === String(currentId)) ? currentId : '')
     } catch (error) {
       setTargetsError(getErrorMessage(error))
     } finally {
       setTargetsLoading(false)
     }
-  }, [classId, coaches, setClasses, subjects])
+  }, [classItem, coaches, setClasses, subjects])
 
   useEffect(() => {
     if (kind === 'Transfer' && authorized && targets === null && !targetsLoading && !targetsError) loadTargets()
@@ -251,9 +286,12 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
   const sourceScheduleReady = hasCompleteSchedule(sessions, expectedSourceSessions)
   const expectedTargetSessions = Number(validTransferTarget?.totalSessions ?? 12)
   const targetScheduleReady = hasCompleteSchedule(targetSessions, expectedTargetSessions)
+  const appliedTransferProposal = proposals?.find((proposal) =>
+    String(proposal.kind ?? '').toLowerCase() === 'transfer' && String(proposal.status ?? '').toLowerCase() === 'applied',
+  ) ?? null
   const createBlocked = !lifecycleCheck.canAttempt || lifecycleCheck.unverified.length > 0 ||
     !lifecycleDataReady || !Number.isSafeInteger(classItem?.lifecycleVersion) || !reason.trim() ||
-    !sourceScheduleReady ||
+    (kind === 'Transfer' && !sourceScheduleReady) ||
     (kind === 'Postpone' && (!Number.isInteger(Number(shiftDays)) || Number(shiftDays) <= 0)) ||
     (kind === 'Transfer' && (!validTransferTarget || targetSessionsLoading || Boolean(targetSessionsError) || !targetScheduleReady || targetClassDetailLoading || Boolean(targetClassDetailError) || !targetCutoffCheck.canAttempt))
   const cancelBlocked = !cancelCheck.canAttempt || cancelCheck.unverified.length > 0 ||
@@ -285,7 +323,9 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
       if (kind === 'Transfer' && reads[targetClassesIndex]?.status === 'fulfilled') {
         const freshClasses = reads[targetClassesIndex].value
         setClasses?.(freshClasses)
-        setTargets(freshClasses.filter((item) => String(item.classType ?? '').toLowerCase() === 'normal' && String(item.apiStatus ?? '').toLowerCase() === 'open' && String(item.id) !== String(classId)))
+        const compatibleTargets = filterNormalTransferTargetsForUi(classItem, freshClasses)
+        setTargets(compatibleTargets)
+        setTargetClassId((currentId) => compatibleTargets.some((item) => String(item.id) === String(currentId)) ? currentId : '')
         setTargetsError(null)
       } else if (kind === 'Transfer' && reads[targetClassesIndex]?.status === 'rejected') {
         setTargetsError(getErrorMessage(reads[targetClassesIndex].reason))
@@ -294,7 +334,7 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
     } finally {
       setRefreshing(false)
     }
-  }, [classId, coaches, kind, loadProposals, onRefreshClassDetail, setClasses, subjects, targetClassId])
+  }, [classId, classItem, coaches, kind, loadProposals, onRefreshClassDetail, setClasses, subjects, targetClassId])
 
   const refreshLatestApplyProposal = async (proposalId) => {
     setActiveApplyProposalId(proposalId)
@@ -422,13 +462,13 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
         <div>
           <h3 id="normal-proposals-heading" className="flex items-center gap-2 text-sm font-semibold text-stone-900">
             <ArrowRightLeft className="h-4 w-4 text-indigo-600" />
-            Phương án thay đổi lớp
+            {copy(isVi, 'Phương án thay đổi lớp / đề xuất chuyển học viên', 'Class change proposals / learner transfers')}
           </h3>
-          <p className="mt-1 text-xs text-stone-500">Đề xuất và phản hồi của hội viên.</p>
+          <p className="mt-1 text-xs text-stone-500">{copy(isVi, 'Đề xuất và phản hồi của hội viên.', 'Proposals and member responses.')}</p>
         </div>
         <button type="button" disabled={proposalLoading || refreshing} onClick={() => { setRefreshing(true); refreshAllReadData() }} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">
           <RefreshCw className={`h-3.5 w-3.5 ${proposalLoading || refreshing ? 'animate-spin' : ''}`} />
-          Tải lại
+          {copy(isVi, 'Tải lại', 'Reload')}
         </button>
       </div>
 
@@ -436,58 +476,99 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
       {actionStatus && <p role="status" className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">{actionStatus}</p>}
 
       <div className="mb-4 rounded-lg border border-stone-200 bg-stone-50 p-3">
-        <div className="flex items-center gap-2 text-xs font-semibold text-stone-800">
+          <div className="flex items-center gap-2 text-xs font-semibold text-stone-800">
           <CalendarClock className="h-4 w-4 text-indigo-600" />
-          Tạo đề xuất
+          {copy(isVi, 'Tạo đề xuất', 'Create proposal')}
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="text-xs font-medium text-stone-700">
-            Loại đề xuất
+              {copy(isVi, 'Loại đề xuất', 'Proposal type')}
             <select value={kind} onChange={(event) => { setKind(event.target.value); setTargetClassId('') }} className="mt-1 block w-full rounded-md border border-stone-300 bg-white px-2.5 py-2 text-sm" disabled={proposalLoading || refreshing}>
-              <option value="Postpone">Dời ngày khai giảng</option>
-              <option value="Transfer">Chuyển lớp</option>
+              <option value="Postpone">{copy(isVi, 'Dời ngày khai giảng', 'Postpone first session')}</option>
+              <option value="Transfer">{copy(isVi, 'Đề xuất chuyển học viên (gộp sang lớp Normal khác)', 'Propose moving learners to another Normal class')}</option>
             </select>
           </label>
           {kind === 'Postpone' ? (
             <label className="text-xs font-medium text-stone-700">
-              Số ngày dự kiến dời
+              {copy(isVi, 'Số ngày dự kiến dời', 'Days to postpone')}
               <input type="number" min="1" step="1" value={shiftDays} onChange={(event) => setShiftDays(event.target.value)} className="mt-1 block w-full rounded-md border border-stone-300 bg-white px-2.5 py-2 text-sm" />
             </label>
           ) : (
             <label className="text-xs font-medium text-stone-700">
-              Lớp đích
+              {copy(isVi, 'Lớp đích', 'Target class')}
               <select value={targetClassId} onChange={(event) => setTargetClassId(event.target.value)} className="mt-1 block w-full rounded-md border border-stone-300 bg-white px-2.5 py-2 text-sm" disabled={targetsLoading || Boolean(targetsError)}>
-                <option value="">{targetsLoading ? 'Đang tải danh sách lớp…' : targetsError ? 'Không tải được danh sách lớp' : 'Chọn lớp Normal đang mở'}</option>
-                {(targets ?? []).map((target) => <option key={target.id} value={target.id}>{target.name ?? `Lớp #${target.id}`}</option>)}
+              <option value="">{targetsLoading ? copy(isVi, 'Đang tải lớp phù hợp…', 'Loading compatible classes…') : targetsError ? copy(isVi, 'Không tải được danh sách lớp', 'Could not load classes') : copy(isVi, 'Chọn lớp đích tương thích', 'Choose a compatible target class')}</option>
+              {(targets ?? []).map((target) => {
+                return <option key={target.id} value={target.id}>{target.name ?? `Lớp #${target.id}`}</option>
+              })}
               </select>
             </label>
           )}
           <label className="text-xs font-medium text-stone-700 sm:col-span-2">
-            Lý do
-            <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={2} className="mt-1 block w-full resize-y rounded-md border border-stone-300 bg-white px-2.5 py-2 text-sm" placeholder="Nhập lý do đề xuất" />
+            {copy(isVi, 'Lý do', 'Reason')}
+            <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={2} className="mt-1 block w-full resize-y rounded-md border border-stone-300 bg-white px-2.5 py-2 text-sm" placeholder={copy(isVi, 'Nhập lý do đề xuất', 'Enter a reason for the proposal')} />
           </label>
         </div>
-        <p className="mt-2 text-xs text-stone-600">Lớp nguồn: {classItem?.name ?? `#${classId}`} · Trạng thái: {text(classItem?.apiStatus)}</p>
         {kind === 'Postpone' && (
-          <p className="mt-2 text-xs text-stone-600">Buổi đầu hiện tại: {Array.isArray(sessions) && sessions.length ? sessionDate([...sessions].sort((a, b) => String(a.sessionDate).localeCompare(String(b.sessionDate)))[0]) : 'Chưa xác minh'}</p>
+          <p className="mt-2 text-xs text-stone-600">{copy(isVi, 'Buổi đầu hiện tại:', 'Current first session:')} {Array.isArray(sessions) && sessions.length ? sessionDate([...sessions].sort((a, b) => String(a.sessionDate).localeCompare(String(b.sessionDate)))[0]) : copy(isVi, 'Chưa xác minh', 'Unverified')}</p>
         )}
         {kind === 'Transfer' && (
-          <div className="mt-2 space-y-1 text-xs">
-            <p className="text-stone-600">Sức chứa còn lại của lớp đích: Hệ thống sẽ tự động kiểm tra chỗ và lịch khi nhận đề xuất.</p>
-            {targetsError && <p role="alert" className="text-rose-700">Không tải được lớp đích: {targetsError}</p>}
-            {targetsError && <button type="button" onClick={loadTargets} disabled={targetsLoading} className="rounded border border-stone-300 bg-white px-2 py-1 text-xs font-semibold disabled:opacity-50">Tải lại lớp đích</button>}
+          <div className="mt-3 space-y-2.5 text-xs">
+            {!targetsLoading && !targetsError && (targets ?? []).length === 0 && <p role="status" className="text-amber-800">{copy(isVi, 'Không có lớp đích tương thích từ dữ liệu hiện có.', 'No compatible target class was found in the available data.')}</p>}
+            {targetsError && <p role="alert" className="text-rose-700">{copy(isVi, 'Không tải được lớp đích:', 'Could not load target classes:')} {targetsError}</p>}
+            {targetsError && <button type="button" onClick={loadTargets} disabled={targetsLoading} className="rounded border border-stone-300 bg-white px-2 py-1 text-xs font-semibold disabled:opacity-50">{copy(isVi, 'Tải lại lớp đích', 'Reload target classes')}</button>}
             {validTransferTarget && (
-              <p className="text-stone-600">Lịch lớp đích:</p>
+              <div className="rounded-lg border border-stone-200 bg-white p-3 shadow-2xs">
+                <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-2">
+                  <div className="flex items-center gap-1.5 font-semibold text-stone-800">
+                    <CalendarClock className="h-4 w-4 text-indigo-600" />
+                    <span>{copy(isVi, 'Lịch lớp đích', 'Target class schedule')}</span>
+                  </div>
+                  {Array.isArray(targetSessions) && targetSessions.length > 0 && (
+                    <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 border border-indigo-200">
+                      {copy(isVi, `${targetSessions.length} buổi học`, `${targetSessions.length} sessions`)}
+                    </span>
+                  )}
+                </div>
+                {targetSessionsLoading && <p role="status" className="text-stone-500">{copy(isVi, 'Đang tải lịch lớp đích…', 'Loading target schedule…')}</p>}
+                {targetSessionsError && <p role="alert" className="text-rose-700">{copy(isVi, 'Không tải được lịch lớp đích:', 'Could not load target schedule:')} {targetSessionsError}</p>}
+                {Array.isArray(targetSessions) && targetSessions.length === 0 && <p className="text-amber-800">{copy(isVi, 'Chưa có lịch cho lớp đích.', 'The target class has no schedule.')}</p>}
+                {Array.isArray(targetSessions) && targetSessions.length > 0 && (
+                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {targetSessions.map((item, index) => {
+                      const rawDate = item?.sessionDate ?? item?.date
+                      const start = item?.startTime ? String(item.startTime).slice(0, 5) : ''
+                      const end = item?.endTime ? String(item.endTime).slice(0, 5) : ''
+                      return (
+                        <li
+                          key={item.id ?? index}
+                          className="flex items-center justify-between gap-2 rounded-md border border-stone-200/80 bg-stone-50/70 px-2.5 py-2 text-stone-700"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 px-1.5 text-[10px] font-bold text-indigo-700">
+                              {index + 1}
+                            </span>
+                            <span className="font-semibold text-stone-900">
+                              {rawDate ? formatDate(rawDate) : copy(isVi, 'Chưa xác minh', 'Unverified')}
+                            </span>
+                          </div>
+                          {(start || end) && (
+                            <span className="shrink-0 rounded bg-white px-1.5 py-0.5 text-[11px] font-medium text-stone-600 border border-stone-200">
+                              {start}{end ? `–${end}` : ''}
+                            </span>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
             )}
-            {validTransferTarget && targetSessionsLoading && <p role="status" className="text-stone-500">Đang tải lịch lớp đích…</p>}
-            {validTransferTarget && targetSessionsError && <p role="alert" className="text-rose-700">Không tải được lịch lớp đích: {targetSessionsError}</p>}
-            {validTransferTarget && Array.isArray(targetSessions) && targetSessions.length === 0 && <p className="text-amber-800">Chưa có lịch cho lớp đích.</p>}
-            {validTransferTarget && Array.isArray(targetSessions) && targetSessions.length > 0 && <ul className="max-h-24 space-y-1 overflow-auto rounded bg-white p-2 text-stone-700">{targetSessions.map((item, index) => <li key={item.id ?? index}>{sessionDate(item)}</li>)}</ul>}
-            {validTransferTarget && targetClassDetailLoading && <p role="status" className="text-stone-500">Đang kiểm tra hạn đăng ký của lớp đích…</p>}
+            {validTransferTarget && targetClassDetailLoading && <p role="status" className="text-stone-500">{copy(isVi, 'Đang kiểm tra hạn đăng ký của lớp đích…', 'Checking the target registration cutoff…')}</p>}
             {validTransferTarget && targetClassDetailError && (
               <p role="alert" className="text-rose-700">
-                Không tải được trạng thái và hạn đăng ký của lớp đích: {targetClassDetailError}{' '}
-                <button type="button" onClick={() => setTargetClassDetailRefreshKey((key) => key + 1)} className="font-semibold underline">Thử lại</button>
+                {copy(isVi, 'Không tải được trạng thái và hạn đăng ký của lớp đích:', 'Could not load target status and registration cutoff:')} {targetClassDetailError}{' '}
+                <button type="button" onClick={() => setTargetClassDetailRefreshKey((key) => key + 1)} className="font-semibold underline">{copy(isVi, 'Thử lại', 'Retry')}</button>
               </p>
             )}
             {validTransferTarget && !targetClassDetailLoading && !targetClassDetailError && targetCutoffCheck.state === 'unverified' && (
@@ -497,19 +578,21 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
               <p role="status" className="text-amber-800">{targetCutoffCheck.message}</p>
             )}
             {validTransferTarget && !targetClassDetailLoading && !targetClassDetailError && targetCutoffCheck.state === 'open' && (
-              <p className="text-emerald-700">Lớp đích còn nhận đăng ký đến {localDateTime(targetCutoffCheck.registrationDeadline)}.</p>
+              <p className="text-emerald-700">{copy(isVi, 'Lớp đích còn nhận đăng ký đến', 'Target registration is open until')} {localDateTime(targetCutoffCheck.registrationDeadline)}.</p>
             )}
+            {validTransferTarget && <TransferClassComparison source={classItem} target={targetClassDetail ?? validTransferTarget} sourceSessions={sessions} targetSessions={targetSessions} isVi={isVi} />}
+            <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-amber-900">{copy(isVi, 'Đây là đề xuất, chưa chuyển học viên ngay. Khi hội viên chọn đồng ý, Backend sẽ chuyển quyền học ngay lập tức; nếu chọn yêu cầu hoàn tiền thì hệ thống ghi nhận nghĩa vụ hoàn tiền, chưa xác nhận đã chuyển tiền.', 'This is a proposal; learners are not moved when it is sent. When a member accepts, the Backend transfers the entitlement immediately. A refund choice creates a refund obligation but does not confirm that money has been sent.')}</p>
           </div>
         )}
         {(lifecycleCheck.blockers.length > 0 || lifecycleCheck.unverified.length > 0) && (
           <p className="mt-2 text-xs text-amber-800">{lifecycleCheck.blockers[0] ?? lifecycleCheck.unverified[0]}</p>
         )}
-        {sessionsLoading && <p role="status" className="mt-2 text-xs text-stone-500">Đang tải lịch lớp nguồn…</p>}
-        {sessionsError && <p role="alert" className="mt-2 text-xs text-rose-700">Không tải được lịch lớp nguồn: {sessionsError}</p>}
-        {!sessionsLoading && !sessionsError && !sourceScheduleReady && <p className="mt-2 text-xs text-amber-800">Lịch lớp nguồn chưa đủ {expectedSourceSessions} buổi hợp lệ.</p>}
-        {kind === 'Transfer' && validTransferTarget && Array.isArray(targetSessions) && !targetScheduleReady && !targetSessionsLoading && !targetSessionsError && <p className="mt-2 text-xs text-amber-800">Lịch lớp đích chưa đủ {expectedTargetSessions} buổi hợp lệ.</p>}
-        <button type="button" disabled={actionBusy || createBlocked} title={createBlocked ? lifecycleCheck.blockers[0] ?? lifecycleCheck.unverified[0] ?? (!lifecycleDataReady ? 'Đang chờ tải proposal thành công.' : sessionsError ? 'Không tải được lịch lớp nguồn.' : !sourceScheduleReady ? 'Lịch lớp nguồn chưa đủ hoặc chưa được tải.' : kind === 'Transfer' && targetClassDetailError ? 'Không tải được trạng thái lớp đích.' : kind === 'Transfer' && targetClassDetailLoading ? 'Đang xác minh hạn đăng ký của lớp đích.' : kind === 'Transfer' && validTransferTarget && !targetCutoffCheck.canAttempt ? targetCutoffCheck.message : kind === 'Transfer' && (targetSessionsError || targetSessionsLoading || !targetScheduleReady) ? 'Chưa xác minh được lịch lớp đích.' : !reason.trim() ? 'Vui lòng nhập lý do.' : undefined) : undefined} onClick={submitCreateProposal} className="mt-3 rounded-md bg-indigo-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
-          {activeAction === 'create' ? 'Đang tạo đề xuất…' : 'Tạo đề xuất'}
+        {sessionsLoading && <p role="status" className="mt-2 text-xs text-stone-500">{copy(isVi, 'Đang tải lịch lớp nguồn…', 'Loading source schedule…')}</p>}
+        {sessionsError && <p role="alert" className="mt-2 text-xs text-rose-700">{copy(isVi, 'Không tải được lịch lớp nguồn:', 'Could not load source schedule:')} {sessionsError}</p>}
+        {kind === 'Transfer' && !sessionsLoading && !sessionsError && !sourceScheduleReady && <p className="mt-2 text-xs text-amber-800">{copy(isVi, `Lịch lớp nguồn chưa đủ ${expectedSourceSessions} buổi hợp lệ.`, `The source schedule does not have ${expectedSourceSessions} valid sessions.`)}</p>}
+        {kind === 'Transfer' && validTransferTarget && Array.isArray(targetSessions) && !targetScheduleReady && !targetSessionsLoading && !targetSessionsError && <p className="mt-2 text-xs text-amber-800">{copy(isVi, `Lịch lớp đích chưa đủ ${expectedTargetSessions} buổi hợp lệ.`, `The target schedule does not have ${expectedTargetSessions} valid sessions.`)}</p>}
+        <button type="button" disabled={actionBusy || createBlocked} title={createBlocked ? lifecycleCheck.blockers[0] ?? lifecycleCheck.unverified[0] ?? (!lifecycleDataReady ? 'Đang chờ tải proposal thành công.' : kind === 'Transfer' && (sessionsError || !sourceScheduleReady) ? 'Không tải được hoặc lịch lớp nguồn chưa đủ buổi hợp lệ.' : kind === 'Transfer' && targetClassDetailError ? 'Không tải được trạng thái lớp đích.' : kind === 'Transfer' && targetClassDetailLoading ? 'Đang xác minh hạn đăng ký của lớp đích.' : kind === 'Transfer' && validTransferTarget && !targetCutoffCheck.canAttempt ? targetCutoffCheck.message : kind === 'Transfer' && (targetSessionsError || targetSessionsLoading || !targetScheduleReady) ? 'Chưa xác minh được lịch lớp đích.' : !reason.trim() ? 'Vui lòng nhập lý do.' : undefined) : undefined} onClick={submitCreateProposal} className="mt-3 rounded-md bg-indigo-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+          {activeAction === 'create' ? copy(isVi, 'Đang gửi đề xuất…', 'Sending proposal…') : kind === 'Transfer' ? copy(isVi, 'Gửi đề xuất chuyển học viên', 'Send learner transfer proposal') : copy(isVi, 'Tạo đề xuất', 'Create proposal')}
         </button>
       </div>
 
@@ -536,19 +619,19 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
               <li key={proposal.id ?? index} className="rounded-lg border border-stone-200 p-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold text-stone-900">{inspected.kind === 'unknown' ? `Loại: ${text(proposal.kind)}` : inspected.kind === 'postpone' ? 'Đề xuất dời khai giảng' : 'Đề xuất chuyển lớp'}</p>
-                    <p className="mt-1 text-xs text-stone-600">Trạng thái: <span className="font-medium text-stone-900">{text(proposal.status)}</span></p>
-                    <p className="mt-1 text-xs text-stone-600">Lớp nguồn: {proposal.classId == null ? 'Chưa xác minh' : `#${proposal.classId}`} · Lớp đích: {proposal.targetClassId == null ? '—' : target?.name ?? `#${proposal.targetClassId}`}</p>
-                    {proposal.shiftDays == null ? null : <p className="mt-1 text-xs text-stone-600">Dự kiến dời: {proposal.shiftDays} ngày</p>}
-                    <p className="mt-1 text-xs text-stone-600">Lý do: {text(proposal.reason, 'Không có lý do trong response')}</p>
-                    <p className="mt-1 text-xs text-stone-500">Proposal version: {proposal.version ?? 'Chưa có thông tin'} · lifecycleVersion lớp: {classItem?.lifecycleVersion ?? 'Chưa có thông tin'}</p>
+                    <p className="text-xs font-semibold text-stone-900">{inspected.kind === 'unknown' ? copy(isVi, `Loại: ${text(proposal.kind)}`, `Type: ${text(proposal.kind)}`) : inspected.kind === 'postpone' ? copy(isVi, 'Đề xuất dời khai giảng', 'Postpone proposal') : copy(isVi, 'Đề xuất chuyển học viên', 'Learner transfer proposal')}</p>
+                    <p className="mt-1 text-xs text-stone-600">{copy(isVi, 'Trạng thái:', 'Status:')} <span className="font-medium text-stone-900">{text(proposal.status)}</span></p>
+                    <p className="mt-1 text-xs text-stone-600">{copy(isVi, 'Lớp nguồn:', 'Source class:')} {proposal.classId == null ? copy(isVi, 'Chưa xác minh', 'Unverified') : `#${proposal.classId}`} · {copy(isVi, 'Lớp đích:', 'Target class:')} {proposal.targetClassId == null ? '—' : target?.name ?? `#${proposal.targetClassId}`}</p>
+                    {proposal.shiftDays == null ? null : <p className="mt-1 text-xs text-stone-600">{copy(isVi, `Dự kiến dời: ${proposal.shiftDays} ngày`, `Postponement: ${proposal.shiftDays} days`)}</p>}
+                    <p className="mt-1 text-xs text-stone-600">{copy(isVi, 'Lý do:', 'Reason:')} {text(proposal.reason, copy(isVi, 'Không có lý do trong response', 'No reason in the response'))}</p>
+                    <p className="mt-1 text-xs text-stone-500">{copy(isVi, `Phiên bản đề xuất: ${proposal.version ?? 'Chưa có thông tin'} · phiên bản lớp: ${classItem?.lifecycleVersion ?? 'Chưa có thông tin'}`, `Proposal version: ${proposal.version ?? 'Unavailable'} · class version: ${classItem?.lifecycleVersion ?? 'Unavailable'}`)}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button type="button" disabled={isApplyLoading || actionBusy} onClick={() => refreshLatestApplyProposal(proposal.id)} className="rounded-md border border-stone-300 px-2.5 py-1.5 text-xs font-semibold text-stone-700 disabled:opacity-50">
-                      {isApplyLoading ? 'Đang kiểm tra…' : 'Kiểm tra đề xuất mới nhất'}
+                      {isApplyLoading ? copy(isVi, 'Đang kiểm tra…', 'Checking…') : copy(isVi, 'Kiểm tra đề xuất mới nhất', 'Check latest proposal')}
                     </button>
                     <button type="button" disabled={actionBusy || !latestApplyProposal || !isLatestProposal || !latestApplyClass || latestApplyClass.lifecycleVersion !== latestApplyProposal.version || !applyState.canAttempt} title={applyState.blockers[0] ?? applyState.unverified[0] ?? (!latestApplyProposal || !isLatestProposal ? 'Kiểm tra proposal mới nhất trước khi áp dụng.' : latestApplyClass?.lifecycleVersion !== latestApplyProposal?.version ? 'Phiên bản lớp hoặc proposal chưa đồng bộ.' : undefined)} onClick={() => submitApplyProposal(latestApplyProposal)} className="rounded-md border border-indigo-300 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 disabled:opacity-50">
-                      {activeAction === `apply:${proposal.id}` ? 'Đang áp dụng…' : 'Áp dụng'}
+                      {activeAction === `apply:${proposal.id}` ? copy(isVi, 'Đang áp dụng…', 'Applying…') : copy(isVi, 'Áp dụng', 'Apply')}
                     </button>
                   </div>
                 </div>
@@ -559,17 +642,21 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
                     {applyEval?.canAttempt && <p className="mt-1">Proposal mới nhất đã sẵn sàng để áp dụng.</p>}
                   </div>
                 )}
-                <ProposalSchedule schedule={proposal.schedule} />
-                <ProposalChoices proposal={proposal} />
+                <ProposalSchedule schedule={proposal.schedule} isVi={isVi} />
+                <ProposalChoices proposal={proposal} isVi={isVi} />
                 {proposal.fingerprint == null && <p className="mt-2 text-xs text-amber-800">Thông tin xác thực: Đang chờ cập nhật.</p>}
               </li>
             )
           })}
         </ul>
       )}
+      {appliedTransferProposal && <div role="status" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+        <p className="font-semibold">{copy(isVi, 'Đề xuất chuyển học viên đã xử lý; lớp nguồn chưa tự hủy.', 'The transfer proposal is processed; the source class was not cancelled.')}</p>
+        <p className="mt-1">{copy(isVi, 'Backend hiện vẫn báo lớp nguồn có thay đổi đang chờ sau khi áp dụng Transfer. Nếu muốn ngừng tổ chức lớp nguồn, hãy dùng mục “Hủy lớp trước khai giảng” bên dưới; thao tác này cần xác nhận riêng và Backend sẽ tự kiểm tra nghĩa vụ còn lại.', 'The Backend still reports a pending class change after applying a Transfer. If the center wants to stop the source class, use “Cancel before opening” below. Cancellation requires separate confirmation and the Backend checks remaining obligations.')}</p>
+      </div>}
       </>}
 
-      {initialAction !== 'transfer' && <div ref={cancelSectionRef} className={`${initialAction === 'cancel' ? '' : 'mt-4 border-t border-stone-200 pt-3'}`}>
+      {(initialAction !== 'transfer' || appliedTransferProposal) && <div ref={cancelSectionRef} className={`${initialAction === 'cancel' ? '' : 'mt-4 border-t border-stone-200 pt-3'}`}>
         <p className="text-xs font-semibold text-stone-800">Hủy lớp trước khai giảng</p>
         <p className="mt-1 text-xs text-stone-600">Hủy lớp không đồng nghĩa hoàn tiền. Không thay đổi hóa đơn, enrollment hoặc trạng thái hiển thị tại đây.</p>
         {cancelNotice ? (
