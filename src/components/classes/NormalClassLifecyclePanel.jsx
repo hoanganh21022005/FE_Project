@@ -23,6 +23,7 @@ import {
 } from '../../utils/normalClassMergeUi.js'
 import { useSCMS } from '../../context/SCMSContext.jsx'
 import { formatDate } from '../../locales/translations'
+import { NORMAL_CLASS_TIME_SLOTS } from '../modals/new-class/classFormConstants.js'
 
 const text = (value, fallback = 'Chưa xác minh') =>
   typeof value === 'string' && value.trim() ? value : fallback
@@ -42,6 +43,22 @@ const sessionDate = (session) => {
   const start = session?.startTime ? String(session.startTime).slice(0, 5) : ''
   const end = session?.endTime ? String(session.endTime).slice(0, 5) : ''
   return `${formatDate(date)}${start ? ` · ${start}` : ''}${end ? `–${end}` : ''}`
+}
+
+const formatSessionSlotLabel = (session, isVi) => {
+  const slotNum = Number(session?.slotNumber)
+  if (Number.isInteger(slotNum) && slotNum > 0) {
+    return isVi ? `Ca ${slotNum}` : `Slot ${slotNum}`
+  }
+  const start = session?.startTime ? String(session.startTime).slice(0, 5) : ''
+  const end = session?.endTime ? String(session.endTime).slice(0, 5) : ''
+  const matched = NORMAL_CLASS_TIME_SLOTS.find(
+    (slot) => slot.startTime === start && (!end || slot.endTime === end),
+  )
+  if (matched) {
+    return isVi ? matched.name : `Slot ${matched.slotNumber}`
+  }
+  return start ? `${start}${end ? `–${end}` : ''}` : ''
 }
 
 const hasCompleteSchedule = (sessions, expectedCount = 12) => {
@@ -538,8 +555,7 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
                   <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {targetSessions.map((item, index) => {
                       const rawDate = item?.sessionDate ?? item?.date
-                      const start = item?.startTime ? String(item.startTime).slice(0, 5) : ''
-                      const end = item?.endTime ? String(item.endTime).slice(0, 5) : ''
+                      const slotLabel = formatSessionSlotLabel(item, isVi)
                       return (
                         <li
                           key={item.id ?? index}
@@ -549,13 +565,13 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
                             <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 px-1.5 text-[10px] font-bold text-indigo-700">
                               {index + 1}
                             </span>
-                            <span className="font-semibold text-stone-900">
+                            <span className="whitespace-nowrap font-semibold text-stone-900">
                               {rawDate ? formatDate(rawDate) : copy(isVi, 'Chưa xác minh', 'Unverified')}
                             </span>
                           </div>
-                          {(start || end) && (
-                            <span className="shrink-0 rounded bg-white px-1.5 py-0.5 text-[11px] font-medium text-stone-600 border border-stone-200">
-                              {start}{end ? `–${end}` : ''}
+                          {slotLabel && (
+                            <span className="shrink-0 rounded bg-white px-2 py-0.5 text-[11px] font-semibold text-indigo-700 border border-indigo-200">
+                              {slotLabel}
                             </span>
                           )}
                         </li>
