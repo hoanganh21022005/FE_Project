@@ -28,6 +28,29 @@ function subjectPriceWarning(language) {
     : 'This subject is active with a zero or blank price. Blank prices will default to 0. Continue?';
 }
 
+const STATUS_LABELS = {
+  active: ['Đang hoạt động', 'Active'],
+  inactive: ['Ngưng hoạt động', 'Inactive'],
+  available: ['Đang sử dụng', 'Available'],
+  maintenance: ['Đang bảo trì', 'Maintenance'],
+  closed: ['Đã đóng', 'Closed'],
+};
+
+function statusLabel(status, language) {
+  if (status === null || status === undefined || String(status).trim() === '') return '—';
+  const entry = STATUS_LABELS[String(status).trim().toLowerCase()];
+  if (!entry) return status;
+  return language === 'vi' ? entry[0] : entry[1];
+}
+
+function facilityTypeLabel(value, language) {
+  if (value === null || value === undefined || value === '') return '—';
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === 'indoor') return language === 'vi' ? 'Trong nhà' : 'Indoor';
+  if (normalized === 'outdoor') return language === 'vi' ? 'Ngoài trời' : 'Outdoor';
+  return value;
+}
+
 function ResourceModal({ type, item, language, onClose, onSave }) {
   const isRoom = type === 'room';
   const [form, setForm] = useState(() => item
@@ -99,8 +122,8 @@ function ResourceModal({ type, item, language, onClose, onSave }) {
                   {label('Loại hình *', 'Facility type *')}
                   <select required value={form.facilityType ?? ''} onChange={e => setForm({ ...form, facilityType: e.target.value })} className={fieldClass}>
                     <option value="" disabled>{label('Chọn loại hình', 'Choose a facility type')}</option>
-                    <option value="Indoor">Indoor</option>
-                    <option value="Outdoor">Outdoor</option>
+                    <option value="Indoor">{label('Trong nhà', 'Indoor')}</option>
+                    <option value="Outdoor">{label('Ngoài trời', 'Outdoor')}</option>
                   </select>
                 </label>
               </div>
@@ -121,7 +144,7 @@ function ResourceModal({ type, item, language, onClose, onSave }) {
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="block text-xs font-bold text-slate-700">
-                  Học phí Normal (VNĐ)
+                  {label('Học phí Normal (VNĐ)', 'Normal tuition (VND)')}
                   <input min="0" step="0.01" type="number" value={form.normalPrice ?? ''} onChange={e => setForm({ ...form, normalPrice: e.target.value })} className={fieldClass} />
                 </label>
                 <label className="block text-xs font-bold text-slate-700">
@@ -132,8 +155,8 @@ function ResourceModal({ type, item, language, onClose, onSave }) {
               <label className="block text-xs font-bold text-slate-700">
                 {label('Trạng thái', 'Status')}
                 <select required value={form.status ?? 'active'} onChange={e => setForm({ ...form, status: e.target.value })} className={fieldClass}>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
+                  <option value="active">{statusLabel('active', language)}</option>
+                  <option value="inactive">{statusLabel('inactive', language)}</option>
                 </select>
               </label>
               {isZeroOrMissingSubjectPrice(form) && form.status?.toLowerCase() === 'active' && (
@@ -223,8 +246,8 @@ export function ResourceManagement() {
       </div>
 
       <div className="flex gap-2">
-        <button onClick={() => setTab('subjects')} className={`px-4 py-2 rounded text-xs font-bold flex gap-2 cursor-pointer ${tab === 'subjects' ? 'bg-brand-primary text-white shadow-xs' : 'bg-white border border-slate-200 text-stone-700 hover:bg-slate-50'}`}><BookOpen className="w-4 h-4" /> Subjects ({subjects.length})</button>
-        <button onClick={() => setTab('rooms')} className={`px-4 py-2 rounded text-xs font-bold flex gap-2 cursor-pointer ${tab === 'rooms' ? 'bg-brand-primary text-white shadow-xs' : 'bg-white border border-slate-200 text-stone-700 hover:bg-slate-50'}`}><DoorOpen className="w-4 h-4" /> Rooms ({rooms.length})</button>
+        <button onClick={() => setTab('subjects')} className={`px-4 py-2 rounded text-xs font-bold flex gap-2 cursor-pointer ${tab === 'subjects' ? 'bg-brand-primary text-white shadow-xs' : 'bg-white border border-slate-200 text-stone-700 hover:bg-slate-50'}`}><BookOpen className="w-4 h-4" /> {label('Bộ môn', 'Subjects')} ({subjects.length})</button>
+        <button onClick={() => setTab('rooms')} className={`px-4 py-2 rounded text-xs font-bold flex gap-2 cursor-pointer ${tab === 'rooms' ? 'bg-brand-primary text-white shadow-xs' : 'bg-white border border-slate-200 text-stone-700 hover:bg-slate-50'}`}><DoorOpen className="w-4 h-4" /> {label('Sân/phòng', 'Rooms')} ({rooms.length})</button>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-lg overflow-x-auto">
@@ -236,7 +259,7 @@ export function ResourceManagement() {
               <tr>
                 <th className="p-3">{label('Bộ môn', 'Subject')}</th>
                 <th className="p-3">Normal</th><th className="p-3">Advanced</th>
-                <th className="p-3">Indoor/Outdoor</th><th className="p-3">{label('Trạng thái', 'Status')}</th><th className="p-3">{label('Thao tác', 'Actions')}</th>
+                <th className="p-3">{label('Trong nhà/Ngoài trời', 'Indoor/Outdoor')}</th><th className="p-3">{label('Trạng thái', 'Status')}</th><th className="p-3">{label('Thao tác', 'Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -245,8 +268,8 @@ export function ResourceManagement() {
                   <td className="p-3"><div className="font-bold text-slate-900">{item.name}</div><div className="text-slate-500 mt-1">{item.description || '—'}</div></td>
                   <td className="p-3 tabular-nums">{currency(item.normalPrice)}</td>
                   <td className="p-3 tabular-nums">{currency(item.advancedPrice)}</td>
-                  <td className="p-3">{item.outdoor == null ? '—' : item.outdoor ? 'Outdoor' : 'Indoor'}</td>
-                  <td className="p-3"><span className={`rounded px-2 py-1 text-xs font-bold uppercase ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{item.status || '—'}</span></td>
+                  <td className="p-3">{item.outdoor == null ? '—' : facilityTypeLabel(item.outdoor ? 'Outdoor' : 'Indoor', language)}</td>
+                  <td className="p-3"><span className={`rounded px-2 py-1 text-xs font-bold uppercase ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{statusLabel(item.status, language)}</span></td>
                   <td className="p-3"><div className="flex gap-2">
                     <button onClick={() => setEditor({ type: 'subject', item })} className="p-2 rounded bg-slate-100" title={label('Chỉnh sửa', 'Edit')}><Edit3 className="w-4 h-4" /></button>
                     <button disabled={busyId === item.id} onClick={() => removeSubject(item)} className="p-2 rounded bg-rose-50 text-rose-700 disabled:opacity-50" title={label('Xóa', 'Delete')}><Trash2 className="w-4 h-4" /></button>
@@ -258,7 +281,7 @@ export function ResourceManagement() {
         ) : (
           <table className="w-full min-w-[720px] text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 uppercase">
-              <tr><th className="p-3">{label('Sân/phòng', 'Facility')}</th><th className="p-3">{label('Vị trí', 'Location')}</th><th className="p-3">{label('Sức chứa', 'Capacity')}</th><th className="p-3">Facility Type</th><th className="p-3">{label('Trạng thái', 'Status')}</th><th className="p-3">{label('Thao tác', 'Actions')}</th></tr>
+              <tr><th className="p-3">{label('Sân/phòng', 'Facility')}</th><th className="p-3">{label('Vị trí', 'Location')}</th><th className="p-3">{label('Sức chứa', 'Capacity')}</th><th className="p-3">{label('Loại hình', 'Facility type')}</th><th className="p-3">{label('Trạng thái', 'Status')}</th><th className="p-3">{label('Thao tác', 'Actions')}</th></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rooms.map(item => (
@@ -266,8 +289,8 @@ export function ResourceManagement() {
                   <td className="p-3 font-bold text-slate-900">{item.roomCode ? `${String(item.roomCode).trim()} - ${item.name || `Sân #${item.id}`}` : (item.name || '—')}</td>
                   <td className="p-3">{item.location || '—'}</td>
                   <td className="p-3 tabular-nums">{item.capacity ?? '—'}</td>
-                  <td className="p-3">{item.facilityType || (item.outdoor == null ? '—' : item.outdoor ? 'Outdoor' : 'Indoor')}</td>
-                  <td className="p-3"><span className={`rounded px-2 py-1 text-xs font-bold uppercase ${item.status === 'available' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{item.status || '—'}</span></td>
+                  <td className="p-3">{item.facilityType ? facilityTypeLabel(item.facilityType, language) : (item.outdoor == null ? '—' : facilityTypeLabel(item.outdoor ? 'Outdoor' : 'Indoor', language))}</td>
+                  <td className="p-3"><span className={`rounded px-2 py-1 text-xs font-bold uppercase ${item.status === 'available' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{statusLabel(item.status, language)}</span></td>
                   <td className="p-3"><div className="flex items-center gap-2">
                     <button onClick={() => setEditor({ type: 'room', item })} className="p-2 rounded bg-slate-100" title={label('Chỉnh sửa', 'Edit')}><Edit3 className="w-4 h-4" /></button>
                     <select aria-label={label(`Trạng thái ${item.name}`, `Status for ${item.name}`)} disabled={busyId === item.id} value={item.status || ''} onChange={event => changeRoomStatus(item, event.target.value)} className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50">
