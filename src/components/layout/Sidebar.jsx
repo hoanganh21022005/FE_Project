@@ -9,6 +9,7 @@ import {
   Calendar,
   CalendarDays,
   ClipboardCheck,
+  ClipboardList,
   TrendingUp,
   CalendarPlus,
   CreditCard,
@@ -196,6 +197,11 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }) {
             label:
               language === "vi" ? "Đăng ký khóa học" : "Course registration",
             icon: Dumbbell,
+          },
+          {
+            path: "/member/registration-requests",
+            label: language === "vi" ? "Yêu cầu đăng ký" : "Registration requests",
+            icon: ClipboardList,
           },
           {
             path: "/member/enrollments",
