@@ -1276,16 +1276,9 @@ export function MemberCheckinView() {
               })}
             </div>
 
-            {/* Tổng số bản ghi & nút Tải thêm */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
-              <span className="text-xs text-slate-500">
-                {tr("checkinHistoryTotalCount", {
-                  shown: visibleAttendanceRows.length,
-                  total: filteredAttendance.length,
-                })}
-              </span>
-
-              {visibleHistoryCount < filteredAttendance.length && (
+            {/* Nút Tải thêm */}
+            {visibleHistoryCount < filteredAttendance.length && (
+              <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 pt-3">
                 <button
                   type="button"
                   onClick={() =>
@@ -1300,8 +1293,8 @@ export function MemberCheckinView() {
                       filteredAttendance.length - visibleHistoryCount,
                   })}
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         ) : (
           /* 4.4 Trạng thái rỗng phân biệt "Chưa có lịch sử điểm danh" và "Không có kết quả phù hợp bộ lọc" */

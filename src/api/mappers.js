@@ -237,6 +237,7 @@ export function mapClass(
       code: null,
       minTierRequired: null,
       minCapacity: asNumber(item.minCapacity),
+      pricingDraft: item.pricingDraft === true,
       openingConfirmedAt: item.openingConfirmedAt,
       openingConfirmedBy: asNumber(item.openingConfirmedBy),
       postponementCount: asNumber(item.postponementCount),
@@ -432,6 +433,7 @@ export const mapDashboard = (item) => ({
   totalClasses: asNumber(item.totalClasses),
   totalPackages: asNumber(item.totalPackages),
   totalRevenue: asNumber(item.totalRevenue),
+  netReceived: asNumber(item.netReceived),
   totalInvoices: asNumber(item.totalInvoices),
   activeSubscriptions: asNumber(item.activeSubscriptions),
   todaySessions: asNumber(item.todaySessions),
@@ -465,6 +467,9 @@ export const mapRevenueReport = (item = {}) => ({
         period: entry?.period ?? null,
         revenue: asNumber(entry?.revenue),
         count: asNumber(entry?.count),
+        moneyReceived: asNumber(entry?.moneyReceived),
+        moneyRefunded: asNumber(entry?.moneyRefunded),
+        netReceived: asNumber(entry?.netReceived),
       }))
     : [],
 })
@@ -518,6 +523,7 @@ export const toClassRequest = (item) => {
     tuitionFee: asNumber(item.tuitionFee ?? item.price),
     classType: item.classType ?? null,
     totalSessions: asNumber(item.totalSessions ?? item.sessionCount),
+    minCapacity: asNumber(item.minCapacity),
     // Keep unrecognized Backend values intact; never silently turn them into Open.
     status:
       normalizedStatus === "draft"

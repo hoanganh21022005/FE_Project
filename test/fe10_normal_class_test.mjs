@@ -767,6 +767,15 @@ async function runUnitSuite() {
     assert.match(contextSource, /error\.createdClass/)
     assert.match(modalSource, /Thử xác minh lại lịch/)
     assert.match(modalSource, /không gửi POST tạo lớp lần nữa/)
+    const weeklySchedulePosition = modalSource.indexOf('{/* Lịch học hằng tuần */}')
+    const timeSlotPosition = modalSource.indexOf('                Ca học')
+    const firstSessionDatePosition = modalSource.indexOf('                Ngày học đầu tiên')
+    assert.ok(weeklySchedulePosition >= 0 && weeklySchedulePosition < timeSlotPosition, 'weekly schedule is selected before the class time slot')
+    assert.ok(timeSlotPosition < firstSessionDatePosition, 'first session date is selected after the schedule and time slot')
+    assert.match(modalSource, /weekdays=\{selectedDays\}/, 'date picker disables weekdays outside the selected schedule')
+    assert.match(modalSource, /min=\{minimumStartDate\}/, 'date picker disables dates before the next valid class time')
+    assert.match(modalSource, /const dateError = isFirstSessionInPast[\s\S]*?!startDateMatchesSchedule/, 'a date made invalid by a schedule change requires reselection')
+    assert.match(modalSource, /setSelectedDays\(\[\.\.\.day\.days\]\)\s*setIsDirty\(true\)/, 'changing the weekly pattern does not silently replace the chosen date')
 
     console.log('PASS: FE-10 unit tests: Normal minCapacity defaults, constraints and request body; 400/409 handling; atomic 12-session creation and idempotent retries.')
   } finally {
@@ -1376,10 +1385,25 @@ async function runBrowserSuite() {
     await client.eval(clickCreateClassOpenButton)
     await client.waitFor(`Boolean(document.querySelector('#new-class-name'))`)
     await client.eval(`Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('T3') && b.textContent.includes('T5') && b.textContent.includes('T7'))?.click()`)
+    await client.eval(`Array.from(document.querySelectorAll('label')).find((item) => item.textContent.trim() === 'Ngày học đầu tiên')?.parentElement?.querySelector('button')?.click()`)
+    await client.waitFor(`Array.from(Array.from(document.querySelectorAll('label')).find((item) => item.textContent.trim() === 'Ngày học đầu tiên')?.parentElement?.querySelectorAll('button') || []).some((button) => /^\\d{1,2}$/.test(button.textContent.trim()) && !button.disabled)`)
+    const selectedFirstSessionDate = await client.eval(`
+      (() => {
+        const label = Array.from(document.querySelectorAll('label')).find((item) => item.textContent.trim() === 'Ngày học đầu tiên');
+        const field = label?.parentElement;
+        const firstAvailableDate = Array.from(field?.querySelectorAll('button') || []).find((button) => /^\\d{1,2}$/.test(button.textContent.trim()) && !button.disabled);
+        if (!firstAvailableDate) return false;
+        firstAvailableDate.click();
+        return true;
+      })()
+    `)
+    assert.equal(selectedFirstSessionDate, true, 'The form lets the manager explicitly select a future date matching the chosen weekdays')
     await client.eval(setClassNameInput('Cầu lông Normal chưa rõ kết quả'))
     await client.eval(clickSubmitModalButton)
     await client.waitFor(`window.__fe10Calls.normalCreatePosts.length === 1`)
     assert.deepEqual((await client.eval(`window.__fe10Calls.normalCreatePosts[0].body.daysOfWeek`)), [2, 4, 6])
+    const firstSessionDate = await client.eval(`window.__fe10Calls.normalCreatePosts[0].body.sportsClass.startDate`)
+    assert.ok([2, 4, 6].includes(new Date(firstSessionDate + 'T12:00:00').getDay()), 'The submitted startDate matches the explicitly selected weekly pattern')
     await client.waitFor(`document.querySelector('[role="alert"]')?.textContent.includes('requestId')`)
     assert.equal(await client.eval(`Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Cần kiểm tra kết quả'))?.disabled`), true)
     await client.eval(`window.confirm = () => true; Array.from(document.querySelectorAll('button')).find(b => b.title === 'Quay lại')?.click()`)

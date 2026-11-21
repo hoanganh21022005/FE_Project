@@ -1,16 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { getErrorMessage } from '../../api/apiErrors';
 import * as managerApi from '../../api/managerApi';
-import { revenueSummaryCsvRows, revenueTimelineForDisplay, serializeCsvRows } from '../../api/reportUtils';
+import { localDateString } from '../../api/sessionIncidentUtils';
+import { revenueTimelineForDisplay } from '../../api/reportUtils';
 import { formatCurrency } from '../../locales/translations';
-import { BarChart3, Download, LoaderCircle } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  AreaChart,
-  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -21,58 +19,71 @@ function EmptyChart({ children }) {
   return <div className="h-64 flex items-center justify-center text-xs text-slate-500">{children}</div>;
 }
 
-function RevenueBreakdownTable({ items, categoryLabel, language }) {
-  const vi = language === 'vi';
-  return <div className="mt-3 overflow-x-auto">
-    <table className="w-full text-left text-xs">
-      <thead className="text-slate-500 border-b"><tr><th className="py-2 pr-3">{categoryLabel}</th><th className="py-2 px-3 text-right">{vi ? 'Giao dịch' : 'Transactions'}</th><th className="py-2 pl-3 text-right">{vi ? 'Doanh thu' : 'Revenue'}</th></tr></thead>
-      <tbody className="divide-y divide-slate-100">{items.map((item, index) => <tr key={`${item.label}-${index}`}><td className="py-2 pr-3 text-slate-800">{item.label || '—'}</td><td className="py-2 px-3 text-right tabular-nums">{item.count ?? '—'}</td><td className="py-2 pl-3 text-right tabular-nums">{item.totalRevenue == null ? '—' : formatCurrency(item.totalRevenue, language)}</td></tr>)}</tbody>
-    </table>
-  </div>;
+function buildMockRevenueReport(payments, startDate, endDate, groupBy) {
+  const grouped = new Map();
+  (payments || []).filter((payment) => payment.status === 'successful').forEach((payment) => {
+    const paymentDate = String(payment.paymentDate || '').slice(0, 10);
+    if (paymentDate < startDate || paymentDate > endDate) return;
+    const period = groupBy === 'month' ? paymentDate.slice(0, 7) : paymentDate;
+    const entry = grouped.get(period) || { period, revenue: 0, count: 0 };
+    entry.revenue += Number(payment.amount) || 0;
+    entry.count += 1;
+    grouped.set(period, entry);
+  });
+  const timeline = [...grouped.values()].sort((a, b) => a.period.localeCompare(b.period));
+  const totalRevenue = timeline.reduce((total, entry) => total + entry.revenue, 0);
+  const normalizedTimeline = timeline.map((entry) => ({
+    ...entry,
+    moneyReceived: entry.revenue,
+    moneyRefunded: 0,
+    netReceived: entry.revenue,
+  }));
+  return {
+    totalRevenue,
+    moneyReceived: totalRevenue,
+    moneyRefunded: 0,
+    netReceived: totalRevenue,
+    totalTransactions: timeline.reduce((total, entry) => total + entry.count, 0),
+    timeline: normalizedTimeline,
+  };
 }
 
 export function ReportsView() {
   const { payments, members, t, language, apiEnabled } = useSCMS();
-  const [revenueReport, setRevenueReport] = useState(null);
+  const [monthlyRevenueReport, setMonthlyRevenueReport] = useState(null);
+  const [annualRevenueReport, setAnnualRevenueReport] = useState(null);
   const [memberReport, setMemberReport] = useState(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
   const [memberLoading, setMemberLoading] = useState(false);
   const [revenueError, setRevenueError] = useState(null);
   const [memberError, setMemberError] = useState(null);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [groupBy, setGroupBy] = useState('month');
-  const [filterError, setFilterError] = useState('');
-  const [exporting, setExporting] = useState(false);
   const vi = language === 'vi';
+  const reportDate = localDateString();
+  const currentMonth = reportDate.slice(0, 7);
+  const currentYear = reportDate.slice(0, 4);
+  const currentMonthStart = `${currentMonth}-01`;
+  const currentYearStart = `${currentYear}-01-01`;
+  const currentYearEnd = `${currentYear}-12-31`;
 
   useEffect(() => {
     if (!apiEnabled) return undefined;
-    if (startDate && endDate && startDate > endDate) {
-      setRevenueLoading(false);
-      setFilterError(vi ? 'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.' : 'Start date must be on or before end date.');
-      return undefined;
-    }
-
-    setFilterError('');
     let active = true;
     setRevenueLoading(true);
-    managerApi.getRevenueReport({ startDate, endDate, groupBy }, { notifyForbidden: false })
-      .then((report) => {
-        if (active) {
-          setRevenueReport(report);
-          setRevenueError(null);
-        }
-      })
-      .catch((error) => {
-        if (active) setRevenueError(getErrorMessage(error));
-      })
-      .finally(() => {
-        if (active) setRevenueLoading(false);
-      });
-
+    Promise.all([
+      managerApi.getRevenueReport({ startDate: currentMonthStart, endDate: reportDate, groupBy: 'day' }, { notifyForbidden: false }),
+      managerApi.getRevenueReport({ startDate: currentYearStart, endDate: currentYearEnd, groupBy: 'month' }, { notifyForbidden: false }),
+    ]).then(([monthReport, yearReport]) => {
+      if (!active) return;
+      setMonthlyRevenueReport(monthReport);
+      setAnnualRevenueReport(yearReport);
+      setRevenueError(null);
+    }).catch((error) => {
+      if (active) setRevenueError(getErrorMessage(error));
+    }).finally(() => {
+      if (active) setRevenueLoading(false);
+    });
     return () => { active = false; };
-  }, [apiEnabled, startDate, endDate, groupBy, vi]);
+  }, [apiEnabled, currentMonthStart, currentYearStart, currentYearEnd, reportDate]);
 
   useEffect(() => {
     if (!apiEnabled) return undefined;
@@ -91,147 +102,113 @@ export function ReportsView() {
       .finally(() => {
         if (active) setMemberLoading(false);
       });
-
     return () => { active = false; };
   }, [apiEnabled]);
 
-  const mockRevenue = payments.filter((payment) => payment.status === 'successful').reduce((sum, payment) => sum + payment.amount, 0);
-  const revenueValue = apiEnabled ? revenueReport?.totalRevenue : mockRevenue;
-  const timeline = revenueTimelineForDisplay(revenueReport);
-  const packageRevenue = revenueReport?.revenueByPackage || [];
-  const methodRevenue = revenueReport?.revenueByMethod || [];
+  const mockMonthlyReport = useMemo(
+    () => buildMockRevenueReport(payments, currentMonthStart, reportDate, 'day'),
+    [payments, currentMonthStart, reportDate],
+  );
+  const mockAnnualReport = useMemo(
+    () => buildMockRevenueReport(payments, currentYearStart, currentYearEnd, 'month'),
+    [payments, currentYearStart, currentYearEnd],
+  );
+  const currentMonthReport = apiEnabled ? monthlyRevenueReport : mockMonthlyReport;
+  const currentYearReport = apiEnabled ? annualRevenueReport : mockAnnualReport;
+  const monthlyTimeline = revenueTimelineForDisplay(currentMonthReport);
+  const annualTimelineByMonth = new Map(revenueTimelineForDisplay(currentYearReport).map((entry) => [String(entry.period || '').slice(0, 7), entry]));
+  const annualTimeline = Array.from({ length: 12 }, (_, index) => {
+    const monthNumber = index + 1;
+    const period = `${currentYear}-${String(monthNumber).padStart(2, '0')}`;
+    const entry = annualTimelineByMonth.get(period);
+    return {
+      period,
+      monthLabel: vi ? `T${monthNumber}` : new Intl.DateTimeFormat('en', { month: 'short' }).format(new Date(Number(currentYear), index, 1)),
+      revenue: entry?.revenue ?? null,
+      moneyRefunded: entry?.moneyRefunded ?? null,
+      netReceived: entry?.netReceived ?? null,
+      count: entry?.count ?? null,
+    };
+  });
+  const monthlyTimelineTotal = monthlyTimeline.reduce((sum, entry) => sum + (Number(entry.revenue) || 0), 0);
+  const monthlyTimelineCount = monthlyTimeline.reduce((sum, entry) => sum + (Number(entry.count) || 0), 0);
+  const monthlyRefundedTotal = monthlyTimeline.reduce((sum, entry) => sum + (Number(entry.moneyRefunded) || 0), 0);
+  const monthlyNetReceivedTotal = monthlyTimeline.reduce((sum, entry) => sum + (Number(entry.netReceived) || 0), 0);
   const monthlyGrowth = memberReport?.monthlyGrowth || [];
-  const noPaidTransactions = apiEnabled && revenueReport?.totalTransactions === 0;
+  const noYearRevenueData = revenueTimelineForDisplay(currentYearReport).length === 0;
 
-  const moneyTooltip = (value) => [value == null ? '—' : formatCurrency(value, language), vi ? 'Doanh thu' : 'Revenue'];
+  const moneyTooltip = (value, name) => [value == null ? '—' : formatCurrency(value, language), name];
   const sectionError = (error) => error && <p role="alert" className="mb-4 rounded border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">{error}</p>;
   const chartTitleClass = 'text-sm font-bold text-slate-900';
   const chartContainerClass = 'bg-white border border-slate-200 p-5 rounded-lg shadow-xs';
   const axisProps = { tick: { fontSize: 10, fill: '#64748B' }, axisLine: false, tickLine: false };
 
-  const handleExportReport = async () => {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      const revenueCsvReport = apiEnabled ? revenueReport : { totalRevenue: mockRevenue };
-      const rows = [
-        ['Metric', 'Value'],
-        ...revenueSummaryCsvRows(revenueCsvReport),
-        ['totalTransactions', apiEnabled ? revenueReport?.totalTransactions ?? null : payments.filter((p) => p.status === 'successful').length],
-        ['averageTransactionValue', apiEnabled ? revenueReport?.averageTransactionValue ?? null : null],
-        ['totalMembers', apiEnabled ? memberReport?.totalMembers ?? null : members.length],
-        ['activeMembers', apiEnabled ? memberReport?.activeMembers ?? null : members.filter((m) => m.status === 'active').length],
-        ['expiredMembers', apiEnabled ? memberReport?.expiredMembers ?? null : members.filter((m) => m.status === 'expired').length],
-        [],
-        ['Period', 'Revenue', 'Transactions'],
-        ...timeline.map((item) => [item.period || item.month || '', item.revenue, item.count]),
-        [],
-        [vi ? 'Gói' : 'Package', vi ? 'Giao dịch' : 'Transactions', vi ? 'Doanh thu' : 'Revenue'],
-        ...packageRevenue.map((item) => [item.packageName || '', item.count, item.totalRevenue]),
-        [],
-        [vi ? 'Phương thức' : 'Payment method', vi ? 'Giao dịch' : 'Transactions', vi ? 'Doanh thu' : 'Revenue'],
-        ...methodRevenue.map((item) => [item.method || '', item.count, item.totalRevenue]),
-      ];
-      const csvContent = serializeCsvRows(rows);
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `scms-report-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.setTimeout(() => URL.revokeObjectURL(url), 0);
-    } finally {
-      setExporting(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white border border-slate-200 p-4 rounded-lg shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-slate-100 text-slate-800 rounded border border-slate-200"><BarChart3 className="w-5 h-5" /></div>
-          <div>
-            <h2 className="text-sm font-bold text-slate-900 tracking-tight">{t('reports')}</h2>
-            <p className="text-xs text-slate-500">{vi ? 'Báo cáo doanh thu và tăng trưởng hội viên' : 'Revenue and member growth reports'}</p>
-          </div>
+      <section className={chartContainerClass}>
+        <div className="mb-4 flex flex-col gap-1 border-b border-slate-100 pb-3">
+          <h3 className={chartTitleClass}>{vi ? 'Doanh thu' : 'Revenue'} {new Intl.DateTimeFormat(vi ? 'vi-VN' : 'en-US', { month: 'long', year: 'numeric' }).format(new Date(`${currentMonth}-01T00:00:00`))}</h3>
+          <p className="text-xs text-slate-500">{vi ? 'Chi tiết doanh thu và số giao dịch theo từng ngày trong tháng.' : 'Revenue and transaction count by day for this month.'}</p>
         </div>
-        <button type="button" onClick={handleExportReport} disabled={exporting} className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 rounded text-xs font-bold flex items-center gap-1.5 border border-slate-300 shadow-xs cursor-pointer disabled:cursor-wait disabled:opacity-60">
-          {exporting ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> : <Download className="w-3.5 h-3.5 text-slate-600" aria-hidden="true" />}<span>{exporting ? (vi ? 'Đang chuẩn bị…' : 'Preparing…') : (vi ? 'Xuất CSV' : 'Export CSV')}</span>
-        </button>
-      </div>
+        {sectionError(revenueError)}
+        {revenueLoading ? <p role="status" className="py-8 text-center text-xs text-slate-500">{vi ? 'Đang tải báo cáo doanh thu…' : 'Loading revenue report…'}</p>
+          : monthlyTimeline.length === 0 ? <EmptyChart>{vi ? 'Tháng này chưa có giao dịch Paid.' : 'No paid transactions this month.'}</EmptyChart>
+            : <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead className="border-b border-slate-200 text-xs text-slate-500">
+                  <tr>
+                    <th className="py-2.5 pr-3 font-semibold">{vi ? 'Ngày' : 'Date'}</th>
+                    <th className="px-3 py-2.5 text-right font-semibold">{vi ? 'Giao dịch Paid' : 'Paid transactions'}</th>
+                    <th className="py-2.5 pl-3 text-right font-semibold">{vi ? 'Doanh thu gộp' : 'Gross revenue'}</th>
+                    <th className="py-2.5 pl-3 text-right font-semibold">{vi ? 'Tiền hoàn' : 'Refunds'}</th>
+                    <th className="py-2.5 pl-3 text-right font-semibold">{vi ? 'Tiền thực thu' : 'Net received'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {monthlyTimeline.map((item) => (
+                    <tr key={item.period}>
+                      <td className="py-2.5 pr-3 text-slate-800">{item.period}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">{item.count ?? '—'}</td>
+                      <td className="py-2.5 pl-3 text-right tabular-nums font-medium text-slate-900">{item.revenue == null ? '—' : formatCurrency(item.revenue, language)}</td>
+                      <td className="py-2.5 pl-3 text-right tabular-nums text-rose-700">{item.moneyRefunded == null ? '—' : formatCurrency(item.moneyRefunded, language)}</td>
+                      <td className="py-2.5 pl-3 text-right tabular-nums font-semibold text-slate-900">{item.netReceived == null ? '—' : formatCurrency(item.netReceived, language)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="border-t border-slate-200 font-bold text-slate-900">
+                  <tr>
+                    <td className="py-3 pr-3">{vi ? 'Tổng theo dữ liệu từng ngày' : 'Daily timeline total'}</td>
+                    <td className="px-3 py-3 text-right tabular-nums">{monthlyTimelineCount}</td>
+                    <td className="py-3 pl-3 text-right tabular-nums">{formatCurrency(monthlyTimelineTotal, language)}</td>
+                    <td className="py-3 pl-3 text-right tabular-nums text-rose-700">{formatCurrency(monthlyRefundedTotal, language)}</td>
+                    <td className="py-3 pl-3 text-right tabular-nums">{formatCurrency(monthlyNetReceivedTotal, language)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>}
+      </section>
 
       <section className={chartContainerClass}>
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-5">
-          <div>
-            <h3 className={chartTitleClass}>{vi ? 'Báo cáo doanh thu' : 'Revenue report'}</h3>
-            <p className="text-xs text-slate-500 mt-1">{vi ? 'Chỉ tính các giao dịch đã thanh toán.' : 'Includes paid transactions only.'}</p>
-          </div>
-          {apiEnabled && <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <label className="text-xs font-semibold text-slate-600">{vi ? 'Từ ngày' : 'Start date'}
-              <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="block mt-1 border rounded px-2.5 py-2 font-normal text-slate-800" />
-            </label>
-            <label className="text-xs font-semibold text-slate-600">{vi ? 'Đến ngày' : 'End date'}
-              <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="block mt-1 border rounded px-2.5 py-2 font-normal text-slate-800" />
-            </label>
-            <label className="text-xs font-semibold text-slate-600">{vi ? 'Nhóm theo' : 'Group by'}
-              <select value={groupBy} onChange={(event) => setGroupBy(event.target.value)} className="block mt-1 w-full border rounded px-2.5 py-2 font-normal text-slate-800">
-                <option value="day">{vi ? 'Ngày' : 'Day'}</option>
-                <option value="month">{vi ? 'Tháng' : 'Month'}</option>
-              </select>
-            </label>
-          </div>}
+        <div className="mb-4 flex flex-col gap-1 border-b border-slate-100 pb-3">
+          <h3 className={chartTitleClass}>{vi ? 'Doanh thu theo từng tháng trong năm' : 'Revenue by month'} · {currentYear}</h3>
+          <p className="text-xs text-slate-500">{vi ? 'Biểu đồ cột so sánh doanh thu theo tháng trong năm hiện tại.' : 'Column chart comparing monthly revenue for the current year.'}</p>
         </div>
-        {filterError && <p role="alert" className="mb-4 text-xs text-rose-700">{filterError}</p>}
         {sectionError(revenueError)}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mb-5">
-          <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Tổng doanh thu (totalRevenue)' : 'Total revenue (totalRevenue)'}</p><p className="mt-1 font-bold text-slate-900">{revenueValue == null ? '—' : formatCurrency(revenueValue, language)}</p></article>
-          {apiEnabled && <>
-            <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Tiền đã thu' : 'Money received'}</p><p className="mt-1 font-bold text-slate-900">{revenueReport?.moneyReceived == null ? '—' : formatCurrency(revenueReport.moneyReceived, language)}</p></article>
-            <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Tiền đã hoàn' : 'Money refunded'}</p><p className="mt-1 font-bold text-slate-900">{revenueReport?.moneyRefunded == null ? '—' : formatCurrency(revenueReport.moneyRefunded, language)}</p></article>
-            <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Tiền thu thuần' : 'Net received'}</p><p className="mt-1 font-bold text-slate-900">{revenueReport?.netReceived == null ? '—' : formatCurrency(revenueReport.netReceived, language)}</p></article>
-            <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Điều chỉnh Cash' : 'Cash corrections recorded'}</p><p className="mt-1 font-bold text-slate-900">{revenueReport?.cashCorrectionsRecorded == null ? '—' : formatCurrency(revenueReport.cashCorrectionsRecorded, language)}</p></article>
-          </>}
-          <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Giao dịch Paid' : 'Paid transactions'}</p><p className="mt-1 font-bold text-slate-900">{apiEnabled ? revenueReport?.totalTransactions ?? '—' : payments.filter((payment) => payment.status === 'successful').length}</p></article>
-          <article className="rounded border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold text-slate-500">{vi ? 'Giá trị trung bình' : 'Average transaction value'}</p><p className="mt-1 font-bold text-slate-900">{apiEnabled ? revenueReport?.averageTransactionValue == null ? '—' : formatCurrency(revenueReport.averageTransactionValue, language) : mockRevenue ? formatCurrency(mockRevenue / Math.max(1, payments.filter((payment) => payment.status === 'successful').length), language) : '—'}</p></article>
-        </div>
-        {apiEnabled && <p className="-mt-3 text-xs text-slate-500">{vi ? 'OpenAPI trả totalRevenue như một trường riêng và không mô tả công thức; số liệu này không được xem là đồng nghĩa với tiền thu thuần.' : 'OpenAPI returns totalRevenue as a separate field without defining its formula; it is not treated as the same value as net received.'}</p>}
-        {revenueLoading && <p className="mb-3 text-xs text-slate-500">{vi ? 'Đang tải báo cáo doanh thu…' : 'Loading revenue report…'}</p>}
-        {apiEnabled && noPaidTransactions
-          ? <EmptyChart>{vi ? 'Chưa có giao dịch trong kỳ.' : 'No transactions in this period.'}</EmptyChart>
-          : timeline.length === 0
-            ? <EmptyChart>{vi ? 'Chưa có dữ liệu biểu đồ.' : 'No chart data available.'}</EmptyChart>
-            : <div className="h-64 w-full">
+        {revenueLoading ? <p role="status" className="py-8 text-center text-xs text-slate-500">{vi ? 'Đang tải báo cáo doanh thu…' : 'Loading revenue report…'}</p>
+          : noYearRevenueData ? <EmptyChart>{vi ? 'Năm nay chưa có giao dịch Paid hoặc hoàn tiền hoàn tất.' : 'No paid transactions or completed refunds this year.'}</EmptyChart>
+            : <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={timeline} margin={{ top: 8, right: 12, left: 12, bottom: 0 }}>
-                  <defs><linearGradient id="reportRevenueGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2A5270" stopOpacity={0.75} /><stop offset="95%" stopColor="#2A5270" stopOpacity={0.05} /></linearGradient></defs>
+                <BarChart data={annualTimeline} margin={{ top: 8, right: 12, left: 12, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                  <XAxis dataKey={apiEnabled ? 'period' : 'month'} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="monthLabel" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
                   <YAxis {...axisProps} tickFormatter={(value) => formatCurrency(value, language)} />
                   <Tooltip formatter={moneyTooltip} contentStyle={{ backgroundColor: '#1E293B', borderRadius: '6px', color: '#fff', fontSize: '12px' }} />
-                  <Area type="monotone" dataKey={apiEnabled ? 'revenue' : 'revenue'} stroke="#2A5270" strokeWidth={2.5} fillOpacity={1} fill="url(#reportRevenueGradient)" />
-                </AreaChart>
+                  <Bar dataKey="revenue" name={vi ? 'Doanh thu gộp' : 'Gross revenue'} fill="#2A5270" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="moneyRefunded" name={vi ? 'Tiền hoàn' : 'Refunds'} fill="#E11D48" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="netReceived" name={vi ? 'Tiền thực thu' : 'Net received'} fill="#059669" radius={[4, 4, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </div>}
-
-        {apiEnabled && <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mt-6">
-          <div>
-            <h4 className="text-xs font-bold text-slate-800 mb-2">{vi ? 'Doanh thu theo gói' : 'Revenue by package'}</h4>
-            {noPaidTransactions || packageRevenue.length === 0 ? <EmptyChart>{vi ? 'Chưa có dữ liệu theo gói.' : 'No package revenue data.'}</EmptyChart> : <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%"><BarChart data={packageRevenue} margin={{ top: 6, right: 8, left: 8, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" /><XAxis dataKey="packageName" tick={{ fontSize: 10, fill: '#64748B' }} /><YAxis {...axisProps} tickFormatter={(value) => formatCurrency(value, language)} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="totalRevenue" fill="#3B332B" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer>
-            </div>}
-            {!noPaidTransactions && packageRevenue.length > 0 && <RevenueBreakdownTable items={packageRevenue.map((entry) => ({ label: entry.packageName, count: entry.count, totalRevenue: entry.totalRevenue }))} categoryLabel={vi ? 'Gói' : 'Package'} language={language} />}
-          </div>
-          <div>
-            <h4 className="text-xs font-bold text-slate-800 mb-2">{vi ? 'Doanh thu theo phương thức' : 'Revenue by payment method'}</h4>
-            {noPaidTransactions || methodRevenue.length === 0 ? <EmptyChart>{vi ? 'Chưa có dữ liệu theo phương thức.' : 'No payment method data.'}</EmptyChart> : <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%"><BarChart data={methodRevenue} margin={{ top: 6, right: 8, left: 8, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" /><XAxis dataKey="method" tick={{ fontSize: 10, fill: '#64748B' }} /><YAxis {...axisProps} tickFormatter={(value) => formatCurrency(value, language)} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="totalRevenue" fill="#2A5270" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer>
-            </div>}
-            {!noPaidTransactions && methodRevenue.length > 0 && <RevenueBreakdownTable items={methodRevenue.map((entry) => ({ label: entry.method, count: entry.count, totalRevenue: entry.totalRevenue }))} categoryLabel={vi ? 'Phương thức' : 'Method'} language={language} />}
-          </div>
-        </div>}
       </section>
 
       <section className={chartContainerClass}>

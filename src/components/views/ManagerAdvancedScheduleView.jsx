@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { CalendarDays, CheckCircle2, Clock3, RefreshCw, Search, UserRound } from 'lucide-react'
 import { useSCMS } from '../../context/SCMSContext.jsx'
+import { AdminPagination } from '../admin/AdminPagination.jsx'
 import { getErrorMessage } from '../../api/apiErrors.js'
 import { getPrivateSessionProposals } from '../../api/memberPortalApi.js'
 import { getMyAdvancedRegistrations } from '../../api/advancedRegistrationApi.js'
@@ -16,6 +17,16 @@ const statusInfo = (status, isVi) => {
   if (key === 'rejected') return { label: isVi ? 'Member từ chối' : 'Member declined', style: 'border-status-danger-border bg-status-danger-bg text-status-danger', Icon: UserRound }
   if (key === 'expired') return { label: isVi ? 'Đã hết hạn' : 'Expired', style: 'border-border-color bg-bg-secondary text-text-secondary', Icon: Clock3 }
   return { label: status || (isVi ? 'Chưa xác định' : 'Unknown'), style: 'border-border-color bg-bg-secondary text-text-secondary', Icon: Clock3 }
+}
+
+const classStatusInfo = (status, isVi) => {
+  const key = normalize(status)
+  if (key === 'ongoing' || key === 'active') return { label: isVi ? 'Đang diễn ra' : 'Ongoing', style: 'border-emerald-200 bg-emerald-50 text-emerald-700' }
+  if (key === 'open' || key === 'published') return { label: isVi ? 'Đang mở' : 'Open', style: 'border-blue-200 bg-blue-50 text-blue-700' }
+  if (key === 'closed') return { label: isVi ? 'Đã đóng' : 'Closed', style: 'border-slate-200 bg-slate-100 text-slate-700' }
+  if (key === 'completed') return { label: isVi ? 'Hoàn thành' : 'Completed', style: 'border-emerald-200 bg-emerald-50 text-emerald-800' }
+  if (key === 'cancelled') return { label: isVi ? 'Đã hủy' : 'Cancelled', style: 'border-rose-200 bg-rose-50 text-rose-700' }
+  return { label: status || '—', style: 'border-border-color bg-bg-secondary text-text-secondary' }
 }
 
 const formatDate = (value, language) => {
@@ -45,7 +56,7 @@ function StatusBadge({ status, isVi }) {
 }
 
 export default function ManagerAdvancedScheduleView() {
-  const { apiEnabled, currentUser, language } = useSCMS()
+  const { apiEnabled, currentUser, language, classes, classesLoading } = useSCMS()
   const isVi = language === 'vi'
   const canManage = canManageClasses(apiEnabled, currentUser?.authorities)
   const [proposals, setProposals] = useState([])
@@ -58,6 +69,10 @@ export default function ManagerAdvancedScheduleView() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+  const [classQuery, setClassQuery] = useState('')
+  const [classStatusFilter, setClassStatusFilter] = useState('all')
+  const [classPage, setClassPage] = useState(1)
+  const CLASS_PAGE_SIZE = 10
 
   const loadSchedule = useCallback(async () => {
     if (!apiEnabled || !canManage) return
@@ -111,6 +126,30 @@ export default function ManagerAdvancedScheduleView() {
     closed: rows.filter((row) => ['rejected', 'expired'].includes(normalize(row.status))).length,
   }), [rows])
 
+  const advancedClasses = useMemo(() => (classes || []).filter(
+    (item) => normalize(item.classType) === 'advanced',
+  ), [classes])
+
+  const filteredAdvancedClasses = useMemo(() => {
+    const needle = normalize(classQuery)
+    return advancedClasses
+      .filter((item) => {
+        if (classStatusFilter === 'all') return true
+        const st = normalize(item.status)
+        if (classStatusFilter === 'ongoing') return st === 'ongoing' || st === 'active'
+        return st === classStatusFilter
+      })
+      .filter((item) => !needle || [item.name, item.category, item.coachName]
+        .some((value) => normalize(value).includes(needle)))
+  }, [advancedClasses, classQuery, classStatusFilter])
+
+  useEffect(() => { setClassPage(1) }, [classQuery, classStatusFilter])
+
+  const classTotalPages = Math.max(1, Math.ceil(filteredAdvancedClasses.length / CLASS_PAGE_SIZE))
+  const safeClassPage = Math.min(Math.max(1, classPage), classTotalPages)
+  const classStartIndex = (safeClassPage - 1) * CLASS_PAGE_SIZE
+  const paginatedAdvancedClasses = filteredAdvancedClasses.slice(classStartIndex, classStartIndex + CLASS_PAGE_SIZE)
+
   const filteredRows = useMemo(() => {
     const needle = normalize(query)
     return rows
@@ -147,6 +186,113 @@ export default function ManagerAdvancedScheduleView() {
   return (
     <div className="w-full space-y-6" aria-busy={loading}>
       <PageHeading isVi={isVi} />
+
+      <section className="overflow-hidden rounded-xl border border-border-color bg-bg-card shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-border-color p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-text-primary">{isVi ? 'Danh sách lớp Advanced' : 'Advanced class list'}</h2>
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 tabular-nums">
+                {advancedClasses.length}
+              </span>
+            </div>
+            <p className="mt-1 text-sm leading-5 text-text-secondary">
+              {isVi ? 'Các lớp huấn luyện cá nhân Advanced được tách khỏi danh sách lớp Normal.' : 'Advanced personal coaching classes, separated from Normal group classes.'}
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
+              <input
+                type="search"
+                value={classQuery}
+                onChange={(event) => setClassQuery(event.target.value)}
+                placeholder={isVi ? 'Tìm lớp, môn, HLV...' : 'Search class, subject, coach...'}
+                aria-label={isVi ? 'Tìm lớp Advanced' : 'Search Advanced classes'}
+                className="h-10 w-full rounded-lg border border-border-strong bg-bg-card pl-9 pr-3 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary sm:w-56"
+              />
+            </div>
+            <select
+              value={classStatusFilter}
+              onChange={(event) => setClassStatusFilter(event.target.value)}
+              aria-label={isVi ? 'Lọc trạng thái lớp Advanced' : 'Filter Advanced class status'}
+              className="h-10 rounded-lg border border-border-strong bg-bg-card px-3 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+            >
+              <option value="all">{isVi ? 'Tất cả trạng thái' : 'All statuses'}</option>
+              <option value="ongoing">{isVi ? 'Đang diễn ra' : 'Ongoing'}</option>
+              <option value="closed">{isVi ? 'Đã đóng' : 'Closed'}</option>
+              <option value="cancelled">{isVi ? 'Đã hủy' : 'Cancelled'}</option>
+            </select>
+          </div>
+        </div>
+        {classesLoading ? (
+          <p role="status" className="p-6 text-sm text-text-secondary">{isVi ? 'Đang tải lớp Advanced…' : 'Loading Advanced classes…'}</p>
+        ) : filteredAdvancedClasses.length === 0 ? (
+          <p className="p-8 text-center text-sm text-text-secondary">
+            {advancedClasses.length === 0
+              ? (isVi ? 'Chưa có lớp Advanced.' : 'No Advanced classes yet.')
+              : (isVi ? 'Không có lớp Advanced nào phù hợp bộ lọc.' : 'No Advanced classes match these filters.')}
+          </p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[780px] text-left text-sm">
+                <thead className="border-b border-border-color bg-bg-secondary text-xs uppercase tracking-wide text-text-secondary">
+                  <tr>
+                    <th className="w-14 px-4 py-3 text-center font-semibold">STT</th>
+                    <th className="px-4 py-3 font-semibold">{isVi ? 'Lớp học' : 'Class'}</th>
+                    <th className="px-4 py-3 font-semibold">{isVi ? 'Huấn luyện viên' : 'Coach'}</th>
+                    <th className="px-4 py-3 text-center font-semibold">{isVi ? 'Số buổi' : 'Sessions'}</th>
+                    <th className="px-4 py-3 text-center font-semibold">{isVi ? 'Học viên' : 'Members'}</th>
+                    <th className="px-4 py-3 text-right font-semibold">{isVi ? 'Học phí' : 'Fee'}</th>
+                    <th className="px-4 py-3 text-center font-semibold">{isVi ? 'Trạng thái' : 'Status'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-color">
+                  {paginatedAdvancedClasses.map((item, idx) => {
+                    const st = classStatusInfo(item.status, isVi)
+                    return (
+                      <tr key={item.id} className="transition-colors hover:bg-bg-main">
+                        <td className="px-4 py-3.5 text-center text-xs tabular-nums text-text-secondary">{classStartIndex + idx + 1}</td>
+                        <td className="px-4 py-3.5">
+                          <div className="font-semibold text-text-primary">{item.name || (isVi ? `Lớp #${item.id}` : `Class #${item.id}`)}</div>
+                          {item.category && <div className="mt-0.5 text-xs text-text-secondary">{item.category}</div>}
+                        </td>
+                        <td className="px-4 py-3.5 text-text-secondary">{item.coachName || '—'}</td>
+                        <td className="px-4 py-3.5 text-center tabular-nums text-text-secondary">
+                          {item.sessionCount ?? item.totalSessions ?? '—'} {isVi ? 'buổi' : 'sessions'}
+                        </td>
+                        <td className="px-4 py-3.5 text-center tabular-nums text-text-secondary">
+                          {item.enrolledCount ?? '—'}/{item.capacity ?? '—'}
+                        </td>
+                        <td className="px-4 py-3.5 text-right font-semibold tabular-nums text-text-primary">
+                          {item.price == null ? '—' : new Intl.NumberFormat(isVi ? 'vi-VN' : 'en-US').format(item.price) + (isVi ? ' đ' : ' VND')}
+                        </td>
+                        <td className="px-4 py-3.5 text-center">
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${st.style}`}>
+                            {st.label}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {filteredAdvancedClasses.length > CLASS_PAGE_SIZE && (
+              <AdminPagination
+                page={safeClassPage}
+                totalPages={classTotalPages}
+                totalItems={filteredAdvancedClasses.length}
+                pageSize={CLASS_PAGE_SIZE}
+                onPageChange={setClassPage}
+                hideSummary
+                itemLabel={isVi ? 'lớp' : 'classes'}
+              />
+            )}
+          </>
+        )}
+      </section>
 
       <div className="rounded-xl border border-status-info-border bg-brand-blue-soft p-4 text-sm leading-6 text-text-primary">
         {isVi

@@ -1,11 +1,14 @@
 import React, { useState, useMemo, useRef, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { useLocation } from "react-router-dom"
 import { useSCMS } from "../../context/SCMSContext"
 import { SkeletonBlock, SkeletonRow, ErrorState } from "../ui/Skeleton"
-import { getSessions } from "../../api/managerApi.js"
+import { generateRecurringSessions, getSessions } from "../../api/managerApi.js"
 import { inferNormalClassWeekdaysFromSessions } from "../../api/mappers.js"
+import { validateNormalClassCapacity } from "../../api/normalClassCreation.js"
 import { formatDate } from "../../locales/translations"
 import { NewClassModal } from "../modals/NewClassModal"
+import { NORMAL_CLASS_TIME_SLOTS, ROOM_ACTIVITY_TYPES } from "../modals/new-class/classFormConstants.js"
 import { ClassEnrollmentsModal } from "../modals/ClassEnrollmentsModal"
 import { ClassDetailDrawer } from "../classes/ClassDetailDrawer"
 import { ImportClassesModal } from "../modals/ImportClassesModal"
@@ -49,7 +52,6 @@ import {
   AlertTriangle,
   AlertCircle,
   RotateCcw,
-  Eye,
   Check,
   Sparkles,
   ArrowUpDown,
@@ -160,6 +162,19 @@ function formatScheduleTime(cls, apiMode = false) {
   const end = cleanScheduleTime(cls.endTime) || defaultEnd
 
   return `${start} - ${end}`
+}
+
+function formatScheduleSlot(cls, apiMode = false) {
+  if (apiMode && (!cls?.startTime || !cls?.endTime)) return "—"
+  if (!cls) return NORMAL_CLASS_TIME_SLOTS[0].name
+
+  const start = String(cls.startTime || "06:00").trim().slice(0, 5)
+  const end = String(cls.endTime || "07:30").trim().slice(0, 5)
+  const slot = NORMAL_CLASS_TIME_SLOTS.find(
+    (entry) => entry.startTime === start && entry.endTime === end,
+  )
+
+  return slot?.name || "Ca chưa xác định"
 }
 
 function SortIcon({ sortKey, currentConfig }) {
@@ -364,6 +379,10 @@ function EditClassModal({
   subjects,
   staff,
   coaches,
+  rooms = [],
+  classSessions = [],
+  scheduleLoaded = false,
+  scheduleLoadError = false,
   existingClasses = [],
   language,
   onClose,
@@ -371,6 +390,11 @@ function EditClassModal({
 }) {
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
+  const [minCapacity, setMinCapacity] = useState(item.minCapacity ?? "")
+  const [scheduleDays, setScheduleDays] = useState(() => item.selectedDays || [])
+  const [scheduleRoomId, setScheduleRoomId] = useState("")
+  const [scheduleSlot, setScheduleSlot] = useState(NORMAL_CLASS_TIME_SLOTS[0])
+  const [scheduleTouched, setScheduleTouched] = useState(false)
   const activeCoaches = (
     coaches && coaches.length > 0 ? coaches : staff
   ).filter(
@@ -435,13 +459,66 @@ function EditClassModal({
   }))
 
   const currentCategory = form.category || item.category || ""
-  const { matchedCoaches, otherCoaches } = useMemo(() => {
-    const matched = activeCoaches.filter((c) =>
-      isCoachMatchingSport(c, currentCategory),
+  const classScheduleSessions = classSessions.filter((session) =>
+    String(session.classId) === String(item.id)
+    && String(session.status || "").toLowerCase() !== "cancelled",
+  )
+  const firstScheduledSession = [...classScheduleSessions].sort((a, b) =>
+    String(a.sessionDate || "").localeCompare(String(b.sessionDate || "")),
+  )[0]
+  const hasClassSessions = classScheduleSessions.length > 0
+  const existingScheduleDays = item.selectedDays?.length
+    ? item.selectedDays
+    : inferNormalClassWeekdaysFromSessions(classScheduleSessions, item.totalSessions ?? 12) || []
+  const canAddSchedule = apiMode
+    && String(item.classType || "normal").trim().toLowerCase() === "normal"
+    && scheduleLoaded
+    && !classScheduleSessions.some((session) => String(session.status || "").toLowerCase() !== "cancelled")
+  const hasPersistedSchedule = classScheduleSessions.some(
+    (session) => String(session.status || "").toLowerCase() !== "cancelled",
+  )
+  const scheduleDiscipline = SPORT_DISCIPLINES.find((sport) =>
+    String(sport.backendSubjectId) === String(form.subjectId)
+    || isCoachMatchingSport({ specialization: sport.name }, currentCategory),
+  )
+  const expectedRoomActivityType = ROOM_ACTIVITY_TYPES[scheduleDiscipline?.id]
+  const availableRooms = (rooms || []).filter((room) =>
+    String(room.status || "").trim().toLowerCase() === "available"
+    && (!expectedRoomActivityType || String(room.activityType || "").trim().toUpperCase() === expectedRoomActivityType),
+  )
+  const selectedScheduleRoom = availableRooms.find((room) => String(room.id) === String(scheduleRoomId))
+  const selectedScheduleSubject = (subjects || []).find((subject) => String(subject.id) === String(form.subjectId))
+  const scheduleIsOutdoor = selectedScheduleRoom?.outdoor === true || selectedScheduleSubject?.outdoor === true
+
+  useEffect(() => {
+    if (scheduleIsOutdoor && !scheduleSlot.outdoorAllowed) {
+      setScheduleSlot(NORMAL_CLASS_TIME_SLOTS.find((slot) => slot.outdoorAllowed) || NORMAL_CLASS_TIME_SLOTS[0])
+    }
+  }, [scheduleIsOutdoor, scheduleSlot])
+
+  useEffect(() => {
+    if (scheduleRoomId && availableRooms.length && !availableRooms.some((room) => String(room.id) === String(scheduleRoomId))) {
+      setScheduleRoomId("")
+    }
+  }, [availableRooms, scheduleRoomId])
+
+  useEffect(() => {
+    if (!apiMode || !scheduleLoaded || scheduleTouched) return
+    const firstSession = firstScheduledSession
+    if (firstSession?.roomId != null) setScheduleRoomId(String(firstSession.roomId))
+    const matchingSlot = NORMAL_CLASS_TIME_SLOTS.find((slot) =>
+      slot.startTime === String(firstSession?.startTime || "").slice(0, 5)
+      && slot.endTime === String(firstSession?.endTime || "").slice(0, 5),
     )
-    const other = activeCoaches.filter((c) => !matched.includes(c))
-    return { matchedCoaches: matched, otherCoaches: other }
-  }, [activeCoaches, currentCategory])
+    if (matchingSlot) setScheduleSlot(matchingSlot)
+    if (!item.selectedDays?.length && classScheduleSessions.length === 12) {
+      setScheduleDays(inferNormalClassWeekdaysFromSessions(classScheduleSessions, 12) || [])
+    }
+  }, [apiMode, scheduleLoaded, scheduleTouched, item.id, item.selectedDays, classSessions])
+  const matchedCoaches = useMemo(
+    () => activeCoaches.filter((coach) => isCoachMatchingSport(coach, currentCategory)),
+    [activeCoaches, currentCategory],
+  )
 
   const selectedCoachObj = useMemo(() => {
     return activeCoaches.find(
@@ -450,6 +527,21 @@ function EditClassModal({
         String(coach.id).match(/(\d+)$/)?.[1] === String(form.coachId),
     )
   }, [activeCoaches, form.coachId])
+  const currentCoachValue = selectedCoachObj?.id ?? form.coachId ?? ""
+  const canonicalCoachId = (value) => {
+    const raw = String(value ?? "").trim()
+    const trailingNumber = raw.match(/(\d+)$/)?.[1]
+    return trailingNumber == null ? "" : String(Number(trailingNumber))
+  }
+  const initialCoachId = canonicalCoachId(item.coachId)
+  const selectedCoachId = canonicalCoachId(currentCoachValue)
+  const selectedCoachName = String(selectedCoachObj?.name || form.coachName || "").trim().toLowerCase()
+  const originalCoachName = String(item.coachName || "").trim().toLowerCase()
+  const coachSelectionChanged = selectedCoachName && originalCoachName && selectedCoachName === originalCoachName
+    ? false
+    : initialCoachId && selectedCoachId
+      ? initialCoachId !== selectedCoachId
+      : selectedCoachName !== originalCoachName
 
   const roundedPerSessionPrice = useMemo(() => {
     if (
@@ -516,18 +608,47 @@ function EditClassModal({
     return apiMode ? [] : [1, 3, 5]
   })
 
-  const { conflict, isChecking: isCheckingConflict } = useScheduleConflict({
-    coachId: form.coachId,
-    coachName: form.coachName,
-    roomId: form.roomId,
-    roomName: form.roomVi || form.room,
-    date: form.startDate,
-    startTime: form.startTime,
-    endTime: form.endTime,
-    selectedDays,
+  const shouldCheckScheduleConflict = !apiMode
+    || (hasPersistedSchedule ? coachSelectionChanged : canAddSchedule)
+  const conflictSchedule = hasPersistedSchedule
+    ? firstScheduledSession
+    : null
+  const conflictRoom = conflictSchedule?.roomId != null
+    ? availableRooms.find((room) => String(room.id) === String(conflictSchedule.roomId))
+    : selectedScheduleRoom
+  const { conflict: scheduleConflict, isChecking: isCheckingConflict } = useScheduleConflict({
+    coachId: shouldCheckScheduleConflict ? form.coachId : "",
+    coachName: shouldCheckScheduleConflict ? form.coachName : "",
+    roomId: shouldCheckScheduleConflict ? (conflictSchedule?.roomId ?? scheduleRoomId) || form.roomId : "",
+    roomName: shouldCheckScheduleConflict ? conflictSchedule?.roomName || conflictRoom?.name || form.roomVi || form.room : "",
+    date: conflictSchedule?.sessionDate || form.startDate,
+    startTime: conflictSchedule?.startTime || (canAddSchedule ? scheduleSlot.startTime : form.startTime),
+    endTime: conflictSchedule?.endTime || (canAddSchedule ? scheduleSlot.endTime : form.endTime),
+    selectedDays: hasPersistedSchedule
+      ? existingScheduleDays
+      : canAddSchedule
+        ? scheduleDays
+        : selectedDays,
     excludeClassId: item.id,
+    apiEnabled: apiMode,
     existingClasses,
+    persistedSessions: hasPersistedSchedule && coachSelectionChanged
+      ? classScheduleSessions
+      : [],
   })
+  const staleDefaultScheduleConflict = hasPersistedSchedule
+    && String(scheduleConflict?.message || "").includes("Khung giờ lớp mới")
+  const conflict = staleDefaultScheduleConflict
+    ? null
+    : hasPersistedSchedule && !coachSelectionChanged
+      ? null
+      : shouldCheckScheduleConflict
+        ? scheduleConflict
+        : null
+  const visibleError = hasPersistedSchedule
+    && String(error).includes("Khung giờ lớp mới")
+    ? ""
+    : error
 
   const toggleWeekday = (dayId) => {
     if (selectedDays.includes(dayId)) {
@@ -550,12 +671,70 @@ function EditClassModal({
 
   const submit = async (e) => {
     e.preventDefault()
+    setError("")
     if (!form.name.trim()) {
       setError("Vui lòng nhập tên lớp học.")
       return
     }
+    if (apiMode) {
+      const nextCapacity = Number(form.capacity)
+      const enrolledCount = Math.max(0, Number(item.enrolledCount) || 0)
+      const minimumAllowedCapacity = Math.max(1, enrolledCount)
+      if (!Number.isInteger(nextCapacity) || nextCapacity < minimumAllowedCapacity || nextCapacity > 15) {
+        setError(`Sức chứa phải là số nguyên từ ${minimumAllowedCapacity} đến 15, không thấp hơn số học viên đã ghi danh.`)
+        return
+      }
+      if (minCapacity !== "" && Number(minCapacity) > nextCapacity) {
+        setError("Sĩ số tối đa không được thấp hơn sĩ số tối thiểu của lớp.")
+        return
+      }
+      const currentRoomCapacity = rooms.find(
+        (room) => String(room.id) === String(firstScheduledSession?.roomId),
+      )?.capacity
+      if (currentRoomCapacity != null && nextCapacity > Number(currentRoomCapacity)) {
+        setError(`Sức chứa lớp không được vượt quá sức chứa ${currentRoomCapacity} của sân hiện tại.`)
+        return
+      }
+    }
     if (!apiMode && !selectedDays.length) {
       setError("Vui lòng chọn ít nhất một thứ trong tuần.")
+      return
+    }
+    if (canAddSchedule) {
+      if (!scheduleRoomId || !scheduleDays.length || !form.startDate || !coachId) {
+        setError("Để bổ sung lịch, hãy chọn sân, ít nhất một thứ học, ngày bắt đầu và huấn luyện viên.")
+        return
+      }
+      const capacityError = validateNormalClassCapacity({
+        maxCapacity: form.capacity,
+        minCapacity: minCapacity === "" || minCapacity == null
+          ? Math.ceil((2 * Number(form.capacity)) / 3)
+          : minCapacity,
+        roomCapacity: selectedScheduleRoom?.capacity,
+        maxAllowedCapacity: 15,
+        requireRoomCapacity: true,
+      })
+      if (capacityError) {
+        setError(capacityError)
+        return
+      }
+      const firstDate = new Date(`${form.startDate}T00:00:00`)
+      if (form.startDate < vietnamDateKey(new Date()) || !scheduleDays.includes(firstDate.getDay())) {
+        setError("Ngày bắt đầu phải từ hôm nay trở đi và trùng với một thứ học đã chọn.")
+        return
+      }
+      if (new Date(`${form.startDate}T${scheduleSlot.startTime}:00`) <= new Date()) {
+        setError("Ca học đầu tiên phải bắt đầu trong tương lai. Hãy chọn ngày hoặc ca khác.")
+        return
+      }
+      if (scheduleIsOutdoor && !scheduleSlot.outdoorAllowed) {
+        setError("Sân ngoài trời không sử dụng được ca học đã chọn.")
+        return
+      }
+    }
+
+    if (shouldCheckScheduleConflict && isCheckingConflict) {
+      setError("Đang kiểm tra lịch của huấn luyện viên mới. Vui lòng đợi một chút rồi lưu lại.")
       return
     }
 
@@ -594,6 +773,15 @@ function EditClassModal({
             : 0,
         isFree: isFreeClass,
         selectedDays: apiMode ? null : selectedDays,
+        minCapacity: minCapacity === "" ? null : Number(minCapacity),
+        scheduleSetup: canAddSchedule ? {
+          classId: Number(item.id),
+          roomId: Number(scheduleRoomId),
+          startDate: form.startDate,
+          daysOfWeek: scheduleDays,
+          startTime: scheduleSlot.startTime,
+          endTime: scheduleSlot.endTime,
+        } : null,
         endDate: calculatedEndDate,
       })
       onClose()
@@ -641,10 +829,10 @@ function EditClassModal({
           onSubmit={submit}
           className="flex-1 overflow-y-auto p-6 space-y-4"
         >
-          {error && (
+          {visibleError && (
             <div className="p-3 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+              <span>{visibleError}</span>
             </div>
           )}
 
@@ -655,7 +843,7 @@ function EditClassModal({
             <input
               required
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onChange={(e) => { setError(""); setForm({ ...form, name: e.target.value }) }}
               className="w-full h-11 px-3.5 bg-white border border-stone-300 rounded-xl text-sm focus:border-stone-800 focus:ring-1 focus:ring-stone-800"
             />
           </div>
@@ -668,6 +856,7 @@ function EditClassModal({
               <select
                 required
                 value={form.subjectId || ""}
+                disabled={apiMode || hasClassSessions}
                 onChange={(e) => {
                   const matched = (subjects || []).find(
                     (s) => String(s.id) === e.target.value,
@@ -678,12 +867,9 @@ function EditClassModal({
                   )
                   let nextCoachId = form.coachId
                   let nextCoachName = form.coachName
-                  if (
-                    newMatched.length > 0 &&
-                    !isCoachMatchingSport(selectedCoachObj, newCategory)
-                  ) {
-                    nextCoachId = String(newMatched[0].id)
-                    nextCoachName = newMatched[0].name
+                  if (!isCoachMatchingSport(selectedCoachObj, newCategory)) {
+                    nextCoachId = newMatched[0] ? String(newMatched[0].id) : ""
+                    nextCoachName = newMatched[0]?.name || "Chưa phân công"
                   }
                   setForm({
                     ...form,
@@ -737,42 +923,8 @@ function EditClassModal({
                     ))}
                   </optgroup>
                 )}
-                {otherCoaches.length > 0 && (
-                  <optgroup label="HLV bộ môn khác">
-                    {otherCoaches.map((c) => (
-                      <option key={c.id} value={String(c.id)}>
-                        {c.name} —{" "}
-                        {c.specializationVi ||
-                          c.specialization ||
-                          c.specialty ||
-                          "HLV"}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
               </select>
-              {selectedCoachObj ? (
-                <div className="flex items-center gap-2 mt-1.5 text-xs flex-wrap">
-                  <span className="text-stone-500">Chuyên môn:</span>
-                  <span className="font-semibold text-stone-800">
-                    {selectedCoachObj.specializationVi ||
-                      selectedCoachObj.specialization ||
-                      selectedCoachObj.specialty ||
-                      "Huấn luyện viên"}
-                  </span>
-                  {isCoachMatchingSport(selectedCoachObj, currentCategory) ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 font-medium">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      Đúng chuyên môn
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80 font-medium">
-                      <AlertTriangle className="w-3 h-3 text-amber-600" />
-                      Khác chuyên môn {currentCategory}
-                    </span>
-                  )}
-                </div>
-              ) : (
+              {!selectedCoachObj && (
                 <p className="text-xs text-amber-700 mt-1.5 font-medium flex items-center gap-1">
                   <span>ℹ️ Chưa phân công: Danh mục học viên sẽ hiển thị "HLV sẽ được thông báo trước khai giảng".</span>
                 </p>
@@ -787,7 +939,9 @@ function EditClassModal({
               </label>
               <input
                 required
-                min="1"
+                min={apiMode ? Math.max(1, Number(item.enrolledCount) || 0) : 1}
+                max={apiMode ? 15 : undefined}
+                disabled={apiMode && !item.pricingDraft}
                 type="number"
                 value={form.capacity ?? ""}
                 onFocus={(e) => e.target.select()}
@@ -804,7 +958,7 @@ function EditClassModal({
                   const val = e.target.value
                   setForm({ ...form, capacity: val === "" ? "" : Number(val) })
                 }}
-                className="w-full h-11 px-3.5 bg-white border border-stone-300 rounded-xl text-sm font-medium focus:border-stone-800 focus:ring-1 focus:ring-stone-800 tabular-nums"
+                className="w-full h-11 px-3.5 bg-white border border-stone-300 rounded-xl text-sm font-medium focus:border-stone-800 focus:ring-1 focus:ring-stone-800 tabular-nums disabled:bg-stone-100 disabled:text-stone-500"
               />
             </div>
             {!apiMode && (
@@ -825,13 +979,30 @@ function EditClassModal({
                 </select>
               </div>
             )}
+            {apiMode && (
+              <div>
+                <label className="block text-xs font-semibold text-stone-800 mb-1.5">
+                  Sĩ số tối thiểu
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max={form.capacity || 15}
+                  value={minCapacity}
+                  disabled={!item.pricingDraft}
+                  onChange={(event) => setMinCapacity(event.target.value === "" ? "" : Number(event.target.value))}
+                  className="w-full h-11 px-3.5 bg-white border border-stone-300 rounded-xl text-sm disabled:bg-stone-100 disabled:text-stone-500"
+                />
+              </div>
+            )}
           </div>
 
           {/* Học phí: InputGroup tách biệt + Đảo chiều 2-way + Dấu chấm phân cách + Làm tròn hàng nghìn + Checkbox miễn phí */}
           {apiMode ? (
             <div className="space-y-2 p-3.5 bg-stone-50/70 border border-stone-200 rounded-xl">
               <label className="block text-xs font-semibold text-stone-800">Học phí
-                <input type="number" min="0" value={form.price ?? ""} onChange={(event) => setForm({ ...form, price: event.target.value === "" ? "" : Number(event.target.value) })} className="mt-1 w-full h-11 px-3.5 bg-white border border-stone-300 rounded-xl text-sm" />
+                <input type="number" min="0" value={form.price ?? ""} disabled={!item.pricingDraft} onChange={(event) => setForm({ ...form, price: event.target.value === "" ? "" : Number(event.target.value) })} className="mt-1 w-full h-11 px-3.5 bg-white border border-stone-300 rounded-xl text-sm disabled:bg-stone-100 disabled:text-stone-500" />
+                {!item.pricingDraft && <span className="text-xs text-stone-500">Học phí đã được khóa sau khi lớp được mở bán.</span>}
               </label>
             </div>
           ) : <div className="space-y-2 p-3.5 bg-stone-50/70 border border-stone-200 rounded-xl">
@@ -931,7 +1102,10 @@ function EditClassModal({
               </label>
               <input
                 type="date"
+                required={canAddSchedule}
+                min={canAddSchedule ? vietnamDateKey(new Date()) : undefined}
                 value={form.startDate || ""}
+                readOnly={apiMode && hasPersistedSchedule}
                 onChange={(e) =>
                   setForm({
                     ...form,
@@ -956,6 +1130,61 @@ function EditClassModal({
               />
             </div>
           </div>
+
+          {canAddSchedule && (
+            <section className="space-y-3 rounded-xl border border-stone-200 bg-stone-50/70 p-4">
+              <div>
+                <h4 className="text-sm font-bold text-stone-900">Lịch học</h4>
+                <p className="mt-1 text-xs text-stone-600">Lớp chưa có buổi học. Bổ sung sân, thứ học và ca học để tạo lịch 12 buổi.</p>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-stone-800">Sân tập</label>
+                <select required value={scheduleRoomId} onChange={(event) => { setScheduleTouched(true); setScheduleRoomId(event.target.value) }} className="h-11 w-full rounded-xl border border-stone-300 bg-white px-3.5 text-sm">
+                  <option value="">Chọn sân tập...</option>
+                  {availableRooms.map((room) => <option key={room.id} value={String(room.id)}>{room.roomCode ? `${room.roomCode} - ` : ""}{room.name}</option>)}
+                </select>
+                {availableRooms.length === 0 && <p className="mt-1 text-xs text-amber-700">Không có sân đang hoạt động phù hợp với bộ môn này.</p>}
+              </div>
+              <div>
+                <span className="mb-1.5 block text-xs font-semibold text-stone-800">Ngày học hằng tuần</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[{ id: 1, label: "T2" }, { id: 2, label: "T3" }, { id: 3, label: "T4" }, { id: 4, label: "T5" }, { id: 5, label: "T6" }, { id: 6, label: "T7" }, { id: 0, label: "CN" }].map((day) => {
+                    const selected = scheduleDays.includes(day.id)
+                    return <button key={day.id} type="button" aria-pressed={selected} onClick={() => { setScheduleTouched(true); setScheduleDays((current) => selected ? current.filter((value) => value !== day.id) : [...current, day.id].sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b))) }} className={`h-9 w-10 rounded-lg text-xs font-bold ${selected ? "bg-brand-primary text-white" : "border border-stone-200 bg-white text-stone-700"}`}>{day.label}</button>
+                  })}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-stone-800">Ca học</label>
+                  <select value={scheduleSlot.slotNumber} onChange={(event) => { setScheduleTouched(true); setScheduleSlot(NORMAL_CLASS_TIME_SLOTS.find((slot) => slot.slotNumber === Number(event.target.value)) || NORMAL_CLASS_TIME_SLOTS[0]) }} className="h-11 w-full rounded-xl border border-stone-300 bg-white px-3.5 text-sm">
+                    {NORMAL_CLASS_TIME_SLOTS.map((slot) => <option key={slot.slotNumber} value={slot.slotNumber} disabled={scheduleIsOutdoor && !slot.outdoorAllowed}>{slot.name} ({slot.startTime}–{slot.endTime})</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-stone-800">Số buổi</label>
+                  <input readOnly value="12 buổi" className="h-11 w-full rounded-xl border border-stone-300 bg-stone-100 px-3.5 text-sm text-stone-600" />
+                </div>
+              </div>
+            </section>
+          )}
+          {apiMode
+            && String(item.classType || "normal").trim().toLowerCase() === "normal"
+            && !scheduleLoaded && (
+              <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                {scheduleLoadError
+                  ? "Không tải được lịch hiện tại; hãy tải lại trang trước khi bổ sung lịch để tránh tạo trùng buổi học."
+                  : "Đang tải lịch hiện tại của lớp…"}
+              </p>
+            )}
+          {apiMode && scheduleLoaded && hasPersistedSchedule && (
+            <section className="space-y-2 rounded-xl border border-blue-100 bg-blue-50 p-4 text-xs text-blue-900">
+              <h4 className="text-sm font-bold">Lịch học hiện tại</h4>
+              <p><strong>Thứ học:</strong> {existingScheduleDays.length ? formatWeekdaysList(existingScheduleDays) : "Chưa xác định"}</p>
+              <p><strong>Ca học:</strong> {firstScheduledSession?.startTime && firstScheduledSession?.endTime ? `${formatScheduleSlot(firstScheduledSession, true)} (${firstScheduledSession.startTime.slice(0, 5)}–${firstScheduledSession.endTime.slice(0, 5)})` : "Chưa xác định"}</p>
+              <p><strong>Sân tập:</strong> {firstScheduledSession?.roomName || availableRooms.find((room) => String(room.id) === String(firstScheduledSession?.roomId))?.name || "Chưa xác định"}</p>
+            </section>
+          )}
 
           {!apiMode && <>
           <div className="grid grid-cols-2 gap-3.5">
@@ -1042,8 +1271,15 @@ function EditClassModal({
               </p>
             </div>
           )}
-          {apiMode && conflict?.hasMissingSchedule && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900">
+          {apiMode && coachSelectionChanged && conflict?.hasConflict && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-900 space-y-1">
+              <p className="font-semibold">HLV bị trùng lịch</p>
+              <p>{conflict.message || "Huấn luyện viên đã có lịch dạy trùng với lịch học hiện tại của lớp."}</p>
+            </div>
+          )}
+          {apiMode && (!hasPersistedSchedule || coachSelectionChanged) && conflict?.hasMissingSchedule && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900 space-y-1">
+              <p className="font-semibold">Khung giờ chồng lấn — chưa xác nhận trùng ngày</p>
               {conflict.message || "Chưa thể xác minh xung đột vì thiếu ngày học."}
             </div>
           )}
@@ -1059,11 +1295,11 @@ function EditClassModal({
             </button>
             <button
               type="submit"
-              disabled={saving || conflict?.hasConflict || conflict?.hasMissingSchedule}
+              disabled={saving || isCheckingConflict || conflict?.hasConflict || conflict?.hasMissingSchedule}
               className="px-5 py-2 text-xs font-semibold text-white bg-brand-primary hover:bg-brand-primary-hover rounded-xl transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               title={conflict?.hasConflict || conflict?.hasMissingSchedule ? conflict.message : "Lưu thay đổi"}
             >
-              {saving ? "Đang lưu..." : "Lưu thay đổi"}
+              {isCheckingConflict ? "Đang kiểm tra lịch..." : saving ? "Đang lưu..." : "Lưu thay đổi"}
             </button>
           </div>
         </form>
@@ -1077,63 +1313,71 @@ function EditClassModal({
 // -------------------------------------------------------------
 function RowActionMenu({
   cls,
-  onQuickView,
   onViewMembers,
   onEdit,
-  onChangeCoach,
-  onDuplicate,
-  onCancelClass,
-  onDelete,
-  onCopyLink,
-  apiMode = false,
+  onLifecycleAction,
   alignUp = false,
 }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [menuPosition, setMenuPosition] = useState(null)
   const menuRef = useRef(null)
+  const buttonRef = useRef(null)
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
+      if (!menuRef.current?.contains(e.target) && !buttonRef.current?.contains(e.target)) {
         setIsOpen(false)
       }
     }
+    const handleViewportChange = () => setIsOpen(false)
     if (isOpen) {
       document.addEventListener("mousedown", handleOutsideClick)
+      window.addEventListener("resize", handleViewportChange)
+      window.addEventListener("scroll", handleViewportChange, true)
     }
-    return () => document.removeEventListener("mousedown", handleOutsideClick)
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick)
+      window.removeEventListener("resize", handleViewportChange)
+      window.removeEventListener("scroll", handleViewportChange, true)
+    }
   }, [isOpen])
 
-  const hasEnrollments = (cls.enrolledCount || 0) > 0
+  const toggleMenu = (event) => {
+    event.stopPropagation()
+    if (isOpen) {
+      setIsOpen(false)
+      return
+    }
+    const rect = buttonRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const openUp = alignUp || window.innerHeight - rect.bottom < 240
+    setMenuPosition({
+      top: openUp ? undefined : rect.bottom + 6,
+      bottom: openUp ? window.innerHeight - rect.top + 6 : undefined,
+      right: Math.max(8, window.innerWidth - rect.right),
+    })
+    setIsOpen(true)
+  }
 
   return (
     <div className="relative inline-block text-left" ref={menuRef}>
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleMenu}
         className="w-8 h-8 rounded-lg hover:bg-stone-100 flex items-center justify-center text-stone-500 hover:text-stone-900 transition-colors cursor-pointer"
         title="Thao tác"
       >
         <MoreHorizontal className="w-4 h-4" />
       </button>
 
-      {isOpen && (
+      {isOpen && menuPosition && createPortal(
         <div
-          className={`absolute right-0 ${
-            alignUp ? "bottom-full mb-1.5" : "top-full mt-1.5"
-          } w-52 bg-white border border-stone-200 rounded-xl shadow-xl py-1.5 z-50 text-xs font-medium animate-in fade-in zoom-in-95 duration-100`}
+          ref={menuRef}
+          style={{ ...menuPosition, position: "fixed", zIndex: 1000, width: 208, maxHeight: "min(320px, calc(100vh - 16px))", overflowY: "auto" }}
+          className="bg-white border border-stone-200 rounded-xl shadow-xl py-1.5 text-xs font-medium animate-in fade-in zoom-in-95 duration-100"
+          onClick={(event) => event.stopPropagation()}
         >
-          <button
-            type="button"
-            onClick={() => {
-              setIsOpen(false)
-              onQuickView && onQuickView(cls)
-            }}
-            className="w-full px-3.5 py-2 text-left text-stone-700 hover:bg-stone-50 flex items-center gap-2.5 transition-colors cursor-pointer"
-          >
-            <Eye className="w-3.5 h-3.5 text-stone-500" />
-            <span>Xem chi tiết nhanh</span>
-          </button>
-
           <button
             type="button"
             onClick={() => {
@@ -1143,7 +1387,7 @@ function RowActionMenu({
             className="w-full px-3.5 py-2 text-left text-stone-700 hover:bg-stone-50 flex items-center gap-2.5 transition-colors cursor-pointer"
           >
             <Users className="w-3.5 h-3.5 text-stone-500" />
-            <span>Xem học viên ({cls.enrolledCount || 0})</span>
+            <span>Xem học viên</span>
           </button>
 
           <button
@@ -1155,86 +1399,46 @@ function RowActionMenu({
             className="w-full px-3.5 py-2 text-left text-stone-700 hover:bg-stone-50 flex items-center gap-2.5 transition-colors cursor-pointer"
           >
             <Edit3 className="w-3.5 h-3.5 text-stone-500" />
-            <span>Sửa lớp học</span>
+            <span>Chỉnh sửa lớp học</span>
           </button>
 
           <button
             type="button"
             onClick={() => {
               setIsOpen(false)
-              onChangeCoach(cls)
+              onLifecycleAction && onLifecycleAction(cls, "opening")
             }}
             className="w-full px-3.5 py-2 text-left text-stone-700 hover:bg-stone-50 flex items-center gap-2.5 transition-colors cursor-pointer"
           >
-            <UserRoundCheck className="w-3.5 h-3.5 text-stone-500" />
-            <span>Đổi huấn luyện viên</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-stone-500" />
+            <span>Xác nhận khai giảng</span>
           </button>
 
           <button
             type="button"
             onClick={() => {
               setIsOpen(false)
-              onDuplicate(cls)
+              onLifecycleAction && onLifecycleAction(cls, "transfer")
             }}
             className="w-full px-3.5 py-2 text-left text-stone-700 hover:bg-stone-50 flex items-center gap-2.5 transition-colors cursor-pointer"
           >
-            <Copy className="w-3.5 h-3.5 text-stone-500" />
-            <span>Nhân bản lớp học</span>
+            <ArrowLeftRight className="w-3.5 h-3.5 text-stone-500" />
+            <span>Thay đổi lớp</span>
           </button>
 
           <button
             type="button"
             onClick={() => {
               setIsOpen(false)
-              onCopyLink && onCopyLink(cls)
+              onLifecycleAction && onLifecycleAction(cls, "cancel")
             }}
-            className="w-full px-3.5 py-2 text-left text-stone-700 hover:bg-stone-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+            className="w-full px-3.5 py-2 text-left text-rose-700 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer"
           >
-            <LinkIcon className="w-3.5 h-3.5 text-stone-500" />
-            <span>Sao chép link đăng ký</span>
+            <Ban className="w-3.5 h-3.5 text-rose-600" />
+            <span>Hủy lớp</span>
           </button>
-
-          {!apiMode && cls.status !== "cancelled" && (
-            <button
-              type="button"
-              onClick={() => {
-                setIsOpen(false)
-                onCancelClass(cls)
-              }}
-              className="w-full px-3.5 py-2 text-left text-amber-700 hover:bg-amber-50/60 flex items-center gap-2.5 transition-colors cursor-pointer"
-            >
-              <Ban className="w-3.5 h-3.5 text-amber-600" />
-              <span>Hủy lớp học</span>
-            </button>
-          )}
-
-          {!apiMode && (
-            <>
-              <div className="my-1 border-t border-stone-100" />
-              <button
-                type="button"
-                onClick={() => {
-                  setIsOpen(false)
-                  onDelete(cls)
-                }}
-                disabled={hasEnrollments}
-                title={
-                  hasEnrollments
-                    ? "Không thể xóa lớp đã có học viên đăng ký. Vui lòng chọn Hủy lớp học."
-                    : "Xóa vĩnh viễn lớp học này"
-                }
-                className={`w-full px-3.5 py-2 text-left flex items-center gap-2.5 transition-colors ${
-                  hasEnrollments
-                    ? "text-stone-300 cursor-not-allowed"
-                    : "text-rose-600 hover:bg-rose-50 cursor-pointer"
-                }`}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Xóa lớp học</span>
-              </button>
-            </>
-          )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
@@ -1275,6 +1479,12 @@ export function ClassManagement() {
 
   const location = useLocation()
   const isManager = role === 'manager' || currentUser?.role === 'manager' || location.pathname.startsWith('/manager')
+  const managerNormalClasses = useMemo(() => {
+    if (!isManager) return classes || []
+    return (classes || []).filter(
+      (cls) => String(cls.classType || '').trim().toLowerCase() === 'normal',
+    )
+  }, [classes, isManager])
 
   // Mode: 'table' (Mặc định chuẩn) | 'calendar' (Lịch tháng)
   const [viewMode, setViewMode] = useState("table")
@@ -1311,6 +1521,7 @@ export function ClassManagement() {
   const [enrollingClass, setEnrollingClass] = useState(null)
   const [editingClass, setEditingClass] = useState(null)
   const [quickViewClass, setQuickViewClass] = useState(null)
+  const [quickViewIntent, setQuickViewIntent] = useState("details")
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isBulkReassignOpen, setIsBulkReassignOpen] = useState(false)
 
@@ -1359,7 +1570,7 @@ export function ClassManagement() {
   const [selectedClassIds, setSelectedClassIds] = useState([])
 
   // Filters state
-  const [activeTab, setActiveTab] = useState("all") // 'all' | 'open' | 'ongoing' | 'draft' | 'closed' | 'cancelled'
+  const [activeTab, setActiveTab] = useState("all") // 'all' | 'open' | 'ongoing' | 'closed' | 'cancelled'
   const [searchTerm, setSearchTerm] = useState("")
   const [filterSport, setFilterSport] = useState("all")
   const [filterCoach, setFilterCoach] = useState("all")
@@ -1426,12 +1637,11 @@ export function ClassManagement() {
 
   // Calculate status counts
   const counts = useMemo(() => {
-    const list = classes || []
+    const list = managerNormalClasses
     const res = {
       all: list.length,
       open: 0,
       ongoing: 0,
-      draft: 0,
       closed: 0,
       cancelled: 0,
     }
@@ -1442,17 +1652,17 @@ export function ClassManagement() {
       }
     })
     return res
-  }, [classes])
+  }, [managerNormalClasses])
 
   // Unique sports and coaches for filter dropdowns
   const availableSports = useMemo(() => {
     const fromSubjects = (subjects || []).map((s) => s.nameVi || s.name)
-    const fromClasses = (classes || []).map((c) => c.category)
+    const fromClasses = managerNormalClasses.map((c) => c.category)
     const combined = Array.from(
       new Set([...fromSubjects, ...fromClasses]),
     ).filter(Boolean)
     return combined.sort()
-  }, [subjects, classes])
+  }, [subjects, managerNormalClasses])
 
   const availableCoaches = useMemo(() => {
     const fromStaff = (coaches && coaches.length > 0 ? coaches : staff)
@@ -1461,16 +1671,16 @@ export function ClassManagement() {
         return r.includes("coach") || r.includes("huấn")
       })
       .map((s) => s.name)
-    const fromClasses = (classes || [])
+    const fromClasses = managerNormalClasses
       .map((c) => c.coachName)
       .filter((n) => n && n !== "Chưa phân công")
     const combined = Array.from(new Set([...fromStaff, ...fromClasses]))
     return combined.sort()
-  }, [coaches, staff, classes])
+  }, [coaches, staff, managerNormalClasses])
 
   // Filtered & Sorted Classes list
   const filteredAndSortedClasses = useMemo(() => {
-    const list = (classes || []).filter((cls) => {
+    const list = managerNormalClasses.filter((cls) => {
       // Tab filter
       const normStatus = normalizeClassStatus(cls.status)
       if (activeTab !== "all" && normStatus !== activeTab) {
@@ -1567,7 +1777,7 @@ export function ClassManagement() {
       return sortConfig.direction === "desc" ? -cmp : cmp
     })
   }, [
-    classes,
+    managerNormalClasses,
     activeTab,
     filterSport,
     filterCoach,
@@ -1765,18 +1975,35 @@ export function ClassManagement() {
     if (typeof setClasses === "function") {
       setClasses((prev) =>
         prev.map((c) =>
-          c.id === classId ? { ...c, enrolledCount: newCount } : c,
+          String(c.id) === String(classId) ? { ...c, enrolledCount: newCount } : c,
         ),
       )
-    }
-    if (typeof reloadClasses === "function") {
-      reloadClasses()
     }
   }
 
   // Handle Save from Edit Modal
   const handleSaveClass = async (updatedData) => {
-    await updateClass(updatedData.id, updatedData)
+    const { scheduleSetup, ...classData } = updatedData
+    await updateClass(classData.id, classData)
+    if (scheduleSetup) {
+      try {
+        await generateRecurringSessions(scheduleSetup)
+      } catch (scheduleError) {
+        const savedSessions = await getSessions({ classId: scheduleSetup.classId }, { notifyForbidden: false }).catch(() => [])
+        const inferredDays = inferNormalClassWeekdaysFromSessions(savedSessions, 12) || []
+        const expectedDays = [...scheduleSetup.daysOfWeek].sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b))
+        const scheduleWasSaved = savedSessions.length === 12
+          && inferredDays.length === expectedDays.length
+          && inferredDays.every((day, index) => day === expectedDays[index])
+          && savedSessions.every((session) => String(session.roomId) === String(scheduleSetup.roomId)
+            && String(session.startTime || "").slice(0, 5) === scheduleSetup.startTime
+            && String(session.endTime || "").slice(0, 5) === scheduleSetup.endTime)
+        if (!scheduleWasSaved) {
+          throw new Error(`Đã lưu thông tin lớp, nhưng chưa tạo được lịch 12 buổi: ${scheduleError?.message || "Vui lòng kiểm tra sân, ca học và thứ đã chọn."}`)
+        }
+      }
+      if (typeof reloadClasses === "function") await reloadClasses()
+    }
     showToast("Đã cập nhật thông tin lớp học thành công!", "success")
   }
 
@@ -1838,11 +2065,15 @@ export function ClassManagement() {
   const calendarEntries = useMemo(() => {
     const sessions = apiEnabled
       ? calendarSchedule?.sessions || []
-      : classes.flatMap((cls) => getClassSessions(cls).map((session) => ({
+      : filteredAndSortedClasses.flatMap((cls) => getClassSessions(cls).map((session) => ({
           ...session, classId: session.classId ?? cls.id,
         })))
-    return buildClassCalendarEntries(classes, sessions)
-  }, [apiEnabled, calendarSchedule, classes])
+    const entries = buildClassCalendarEntries(filteredAndSortedClasses, sessions)
+    Object.values(entries).forEach((list) => {
+      list.sort((a, b) => String(a.session?.startTime || "").localeCompare(String(b.session?.startTime || "")))
+    })
+    return entries
+  }, [apiEnabled, calendarSchedule, filteredAndSortedClasses])
   const weekdaysCalendar = [
     "Thứ 2",
     "Thứ 3",
@@ -1855,7 +2086,7 @@ export function ClassManagement() {
 
   const urgentCoachAlerts = useMemo(() => {
     const nowTime = Date.now()
-    return (classes || []).filter((cls) => {
+    return managerNormalClasses.filter((cls) => {
       const isUnassigned =
         !cls.coachId ||
         cls.coachName === "Chưa phân công" ||
@@ -1866,7 +2097,7 @@ export function ClassManagement() {
       const hours = (startDate.getTime() - nowTime) / (1000 * 60 * 60)
       return hours > 0 && hours <= 48
     })
-  }, [classes])
+  }, [managerNormalClasses])
 
   // Loading skeleton — shown while context is fetching classes from API
   if (classesLoading) {
@@ -1990,7 +2221,6 @@ export function ClassManagement() {
             count: counts.open,
           },
           { id: "ongoing", label: "Đang diễn ra", count: counts.ongoing },
-          { id: "draft", label: "Bản nháp", count: counts.draft },
           { id: "closed", label: "Đã kết thúc", count: counts.closed },
           { id: "cancelled", label: "Đã hủy", count: counts.cancelled },
         ].map((tab) => {
@@ -2536,6 +2766,25 @@ export function ClassManagement() {
                             endTime: cls.endTime || scheduledSessions[0]?.endTime,
                           }
                         : cls
+                      const weekdayIssue = conflictSchedule?.classes !== classes
+                        ? language === "vi"
+                          ? "Đang tải danh sách buổi học để xác định thứ học."
+                          : "Loading sessions to determine the class weekdays."
+                        : conflictSchedule.error
+                          ? language === "vi"
+                            ? "Không tải được danh sách buổi học, nên chưa thể xác định thứ học."
+                            : "Could not load class sessions, so the weekdays cannot be determined."
+                          : scheduledSessions.length === 0
+                            ? language === "vi"
+                              ? "Lớp chưa khai báo thứ học và chưa có buổi học để suy ra lịch."
+                              : "No weekdays are configured and no sessions are available to infer the schedule."
+                            : scheduledSessions.length !== 12
+                              ? language === "vi"
+                                ? `Lớp chưa khai báo thứ học; hiện có ${scheduledSessions.length}/12 buổi, chưa đủ dữ liệu để suy ra lịch.`
+                                : `No weekdays are configured; ${scheduledSessions.length} of 12 sessions are available, so the schedule cannot be inferred.`
+                              : language === "vi"
+                                ? "Lớp chưa khai báo thứ học; dữ liệu 12 buổi hiện có không khớp một lịch Normal hợp lệ."
+                                : "No weekdays are configured; the 12 session dates do not match a valid Normal schedule."
                       const classTypeLabel =
                         rawClassType === "normal"
                           ? "Normal"
@@ -2588,12 +2837,14 @@ export function ClassManagement() {
                                 >
                                   {cls.nameVi || cls.name}
                                 </div>
-                                <span
-                                  className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold leading-none shrink-0 ${classTypeClassName}`}
-                                  title="Loại lớp"
-                                >
-                                  {classTypeLabel}
-                                </span>
+                                {rawClassType !== "normal" && (
+                                  <span
+                                    className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold leading-none shrink-0 ${classTypeClassName}`}
+                                    title="Loại lớp"
+                                  >
+                                    {classTypeLabel}
+                                  </span>
+                                )}
                                 {hasConflict && (
                                   <span
                                     className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700 text-[10.5px] font-bold border border-rose-300 shadow-2xs shrink-0 cursor-help"
@@ -2628,45 +2879,56 @@ export function ClassManagement() {
                           {/* Cột 2: Ngày khai giảng cho Manager */}
                           {columnVisibility.schedule !== false && (
                             <td className="py-4 px-4 align-middle">
-                              <div className="space-y-1">
+                              <div className="space-y-1.5">
+                                {isManager ? (
+                                  <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-900 tabular-nums">
+                                    <Calendar className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+                                    <span>{formatViDate(cls.startDate || cls.date)}</span>
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-stone-500">
+                                    {isOngoing && rawClassType === "normal" ? (
+                                      <span className="text-sm font-semibold text-emerald-700">Đang diễn ra</span>
+                                    ) : isOngoing ? (
+                                      <span className="text-emerald-700 font-medium">{`Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`}</span>
+                                    ) : (
+                                      <span>
+                                        {rawClassType !== "normal" && <>Khai giảng: </>}
+                                        <span className="text-sm font-semibold text-stone-900">{formatViDate(cls.startDate || cls.date)}</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                                 {(!isManager || (apiEnabled && rawClassType === "normal")) && (
                                   <div className="flex items-center gap-1 flex-wrap">
-                                  {getWeekdaysArray(
-                                    displayWeekdays,
-                                    cls.category,
-                                    apiEnabled,
-                                  ).map((day) => (
-                                    <span
-                                      key={day}
-                                      className="px-1.5 py-0.5 rounded text-[10.5px] font-bold bg-stone-100 text-stone-700 border border-stone-200/80 tracking-tight"
-                                    >
-                                      {day}
-                                    </span>
-                                  ))}
-                                  {(!apiEnabled || (displaySchedule.startTime && displaySchedule.endTime)) && (
-                                    <span
-                                      className="text-xs font-semibold text-stone-800 ml-0.5"
-                                      title={`Khung giờ học: ${formatScheduleTime(displaySchedule, apiEnabled)}`}
-                                    >
-                                      {formatScheduleTime(displaySchedule, apiEnabled)}
-                                    </span>
-                                  )}
-                                </div>
+                                    {getWeekdaysArray(
+                                      displayWeekdays,
+                                      cls.category,
+                                      apiEnabled,
+                                    ).map((day) => (
+                                      <span
+                                        key={day}
+                                        className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/80 tracking-tight"
+                                      >
+                                        {day}
+                                      </span>
+                                    ))}
+                                    {(!apiEnabled || (displaySchedule.startTime && displaySchedule.endTime)) && (
+                                      <span
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200/80"
+                                        title={`Khung giờ học: ${formatScheduleTime(displaySchedule, apiEnabled)}`}
+                                      >
+                                        <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                        {formatScheduleSlot(displaySchedule, apiEnabled)}
+                                      </span>
+                                    )}
+                                    {apiEnabled && rawClassType === "normal" && displayWeekdays.length === 0 && (
+                                      <span className="text-xs text-amber-700" title={weekdayIssue}>
+                                        {language === "vi" ? "Thiếu thứ học" : "Weekdays missing"}
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
-                                <div className={isManager ? "text-sm font-semibold text-stone-900" : "text-xs text-stone-500"}>
-                                  {isManager ? (
-                                    formatViDate(cls.startDate || cls.date)
-                                  ) : isOngoing && rawClassType === "normal" ? (
-                                    <span className="text-sm font-semibold text-emerald-700">Đang diễn ra</span>
-                                  ) : isOngoing ? (
-                                    <span className="text-emerald-700 font-medium">{`Buổi tiếp theo: — / ${sessionCount ?? "—"} buổi`}</span>
-                                  ) : (
-                                    <span>
-                                      {rawClassType !== "normal" && <>Khai giảng: </>}
-                                      <span className="text-sm font-semibold text-stone-900">{formatViDate(cls.startDate || cls.date)}</span>
-                                    </span>
-                                  )}
-                                </div>
                               </div>
                             </td>
                           )}
@@ -2859,15 +3121,9 @@ export function ClassManagement() {
                                 paginatedClasses.length > 3 &&
                                 idx >= paginatedClasses.length - 2
                               }
-                              onQuickView={(c) => setQuickViewClass(c)}
-                              onViewMembers={(c) => setEnrollingClass(c)}
+                              onViewMembers={(c) => { setQuickViewClass(null); setEnrollingClass(c) }}
                               onEdit={(c) => setEditingClass(c)}
-                              onChangeCoach={(c) => setEditingClass(c)}
-                              onDuplicate={handleDuplicateClass}
-                              onCancelClass={handleCancelClass}
-                              onDelete={(c) => setDeletingClassTarget(c)}
-                              onCopyLink={handleCopyLink}
-                              apiMode={apiEnabled}
+                              onLifecycleAction={(c, action) => { setQuickViewIntent(action); setQuickViewClass(c) }}
                             />
                           </td>
                         </tr>
@@ -2878,21 +3134,7 @@ export function ClassManagement() {
               </div>
 
               {/* Bảng footer: Phân trang chuẩn & bộ chọn số dòng */}
-              <div className="px-5 py-3.5 border-t border-[#F1F3F5] bg-[#FBFBFC] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-500">
-                <div className="flex items-center gap-3">
-                  <span>
-                    Hiển thị{" "}
-                    <strong className="font-semibold text-stone-800">
-                      {totalItems > 0 ? startIdx + 1 : 0} - {endIdx}
-                    </strong>{" "}
-                    trên tổng số{" "}
-                    <strong className="font-semibold text-stone-800">
-                      {totalItems}
-                    </strong>{" "}
-                    lớp học
-                  </span>
-                </div>
-
+              <div className="px-5 py-3.5 border-t border-[#F1F3F5] bg-[#FBFBFC] flex flex-col sm:flex-row items-center justify-end gap-3 text-xs text-stone-500">
                 <div className="flex items-center gap-4">
                   {/* Bộ chọn số dòng trên 1 trang */}
                   <div className="flex items-center gap-2">
@@ -2968,12 +3210,27 @@ export function ClassManagement() {
           /* LỊCH THÁNG (CALENDAR MATRIX VIEW CHUẨN DESIGN) */
           <div className="p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-sm font-bold text-stone-900">
-                Lịch lớp tháng {calendarMonth.slice(5, 7)}/{calendarMonth.slice(0, 4)}
-              </h3>
+              <div className="flex flex-wrap items-center gap-3">
+                <h3 className="text-sm font-bold text-stone-900">
+                  Lịch lớp tháng {calendarMonth.slice(5, 7)}/{calendarMonth.slice(0, 4)}
+                </h3>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-stone-600">
+                  <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-500" />Sắp tới</span>
+                  <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />Đã học</span>
+                  <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-500" />Đã hủy</span>
+                  <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" />Khai giảng</span>
+                </div>
+              </div>
               <div className="flex items-center gap-2">
-                <button type="button" aria-label="Tháng trước" onClick={() => setCalendarMonth((month) => shiftCalendarMonth(month, -1))} className="rounded-lg border border-stone-200 p-1.5 hover:bg-stone-50"><ChevronLeft className="h-4 w-4" /></button>
-                <button type="button" aria-label="Tháng sau" onClick={() => setCalendarMonth((month) => shiftCalendarMonth(month, 1))} className="rounded-lg border border-stone-200 p-1.5 hover:bg-stone-50"><ChevronRight className="h-4 w-4" /></button>
+                <button
+                  type="button"
+                  onClick={() => setCalendarMonth(currentCalendarMonth() || calendarMonth)}
+                  className="rounded-lg border border-stone-200 px-2.5 py-1 text-xs font-semibold text-stone-700 hover:bg-stone-50 cursor-pointer"
+                >
+                  Hôm nay
+                </button>
+                <button type="button" aria-label="Tháng trước" onClick={() => setCalendarMonth((month) => shiftCalendarMonth(month, -1))} className="rounded-lg border border-stone-200 p-1.5 hover:bg-stone-50 cursor-pointer"><ChevronLeft className="h-4 w-4" /></button>
+                <button type="button" aria-label="Tháng sau" onClick={() => setCalendarMonth((month) => shiftCalendarMonth(month, 1))} className="rounded-lg border border-stone-200 p-1.5 hover:bg-stone-50 cursor-pointer"><ChevronRight className="h-4 w-4" /></button>
               </div>
             </div>
             {apiEnabled && classes.length > 0 && !calendarSchedule && <p role="status" className="text-xs text-stone-500">Đang tải lịch buổi học…</p>}
@@ -2992,7 +3249,7 @@ export function ClassManagement() {
                     <div
                       key={`empty-${i}`}
                       aria-hidden="true"
-                      className="min-h-[88px] rounded-xl bg-stone-50/40 border border-dashed border-stone-100"
+                      className="min-h-[96px] rounded-xl bg-stone-50/40 border border-dashed border-stone-100"
                     />
                   )
                 }
@@ -3001,28 +3258,51 @@ export function ClassManagement() {
                 return (
                   <div
                     key={dateStr}
-                    className={`p-2 bg-stone-50/60 border border-stone-200 rounded-xl min-h-[88px] text-left transition-colors hover:bg-stone-50 ${
-                      dateStr === todayKey ? "ring-2 ring-stone-900 bg-stone-100/50" : ""
+                    className={`p-2 bg-stone-50/60 border border-stone-200 rounded-xl min-h-[96px] text-left transition-colors hover:bg-stone-50 ${
+                      dateStr === todayKey ? "ring-2 ring-brand-primary bg-blue-50/20" : ""
                     }`}
                   >
-                    <div className="text-xs font-semibold text-stone-500 mb-1 tabular-nums">
-                      {Number(dateStr.slice(8, 10))}
+                    <div className={`text-xs font-semibold mb-1.5 tabular-nums flex items-center justify-between ${dateStr === todayKey ? "text-brand-primary font-bold" : "text-stone-500"}`}>
+                      <span>{Number(dateStr.slice(8, 10))}</span>
+                      {dayEntries.length > 0 && (
+                        <span className="text-[10px] font-medium text-stone-400">{dayEntries.length}</span>
+                      )}
                     </div>
-                    {dayEntries.map(({ class: cls, session, type }, entryIndex) => (
-                      <button
-                        type="button"
-                        key={`${type}-${cls.id}-${session?.id ?? entryIndex}`}
-                        onClick={() => setQuickViewClass(cls)}
-                        title={`${type === "session" ? "Buổi học" : "Khai giảng"}: ${cls.nameVi || cls.name}`}
-                        className="w-full text-left p-1.5 bg-white border border-stone-200 rounded-lg text-xs text-stone-900 font-semibold line-clamp-2 mb-1 shadow-2xs hover:border-stone-400 cursor-pointer"
-                      >
-                        <span className="text-stone-900 font-bold tabular-nums">
-                          {type === "session" ? (session.startTime || "Buổi học") : "Khai giảng"}
-                        </span>{" "}
-                        {cls.nameVi || cls.name}
-                        {type === "session" && session.status ? ` (${session.status})` : ""}
-                      </button>
-                    ))}
+                    <div className="space-y-1">
+                      {dayEntries.map(({ class: cls, session, type }, entryIndex) => {
+                        const rawSessionStatus = String(session?.status || "").toLowerCase()
+                        const isSession = type === "session"
+                        const timeLabel = isSession && session?.startTime ? String(session.startTime).slice(0, 5) : null
+                        const statusMeta = !isSession
+                          ? { label: "Khai giảng", card: "bg-amber-50/80 border-amber-200/90 text-amber-950 hover:border-amber-400", badge: "bg-amber-100 text-amber-800" }
+                          : rawSessionStatus === "completed"
+                            ? { label: "Đã học", card: "bg-emerald-50/70 border-emerald-200/90 text-emerald-950 hover:border-emerald-400", badge: "bg-emerald-100 text-emerald-800" }
+                            : rawSessionStatus === "cancelled"
+                              ? { label: "Đã hủy", card: "bg-rose-50/70 border-rose-200/90 text-rose-900 hover:border-rose-400 opacity-85", badge: "bg-rose-100 text-rose-800" }
+                              : { label: "Sắp tới", card: "bg-blue-50/70 border-blue-200/90 text-blue-950 hover:border-blue-400", badge: "bg-blue-100 text-blue-800" }
+                        return (
+                          <button
+                            type="button"
+                            key={`${type}-${cls.id}-${session?.id ?? entryIndex}`}
+                            onClick={() => setQuickViewClass(cls)}
+                            title={`${isSession ? (timeLabel ? `${timeLabel} · ` : "") : "Khai giảng · "}${cls.nameVi || cls.name} (${statusMeta.label})`}
+                            className={`w-full text-left p-1.5 border rounded-lg text-[11px] leading-snug transition-colors shadow-2xs cursor-pointer ${statusMeta.card}`}
+                          >
+                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                              <span className="font-bold tabular-nums truncate">
+                                {timeLabel || statusMeta.label}
+                              </span>
+                              <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-bold shrink-0 ${statusMeta.badge}`}>
+                                {statusMeta.label}
+                              </span>
+                            </div>
+                            <div className={`font-semibold line-clamp-2 ${rawSessionStatus === "cancelled" ? "line-through opacity-75" : ""}`}>
+                              {cls.nameVi || cls.name}
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                 )
               })}
@@ -3076,6 +3356,8 @@ export function ClassManagement() {
       {quickViewClass && (
         <ClassDetailDrawer
           cls={quickViewClass}
+          initialLifecycleKind={quickViewIntent === "transfer" ? "Transfer" : "Postpone"}
+          initialLifecycleAction={quickViewIntent}
           conflictInfo={classConflictsMap[quickViewClass.id]}
           onClose={() => setQuickViewClass(null)}
           onEdit={(c) => {
@@ -3131,6 +3413,10 @@ export function ClassManagement() {
           subjects={subjects}
           staff={staff}
           coaches={coaches}
+          rooms={rooms}
+          classSessions={conflictSchedule?.classes === classes ? conflictSchedule.sessions || [] : []}
+          scheduleLoaded={conflictSchedule?.classes === classes && !conflictSchedule.error}
+          scheduleLoadError={conflictSchedule?.classes === classes && Boolean(conflictSchedule.error)}
           existingClasses={classes}
           language={language}
           onClose={() => setEditingClass(null)}
@@ -3141,6 +3427,7 @@ export function ClassManagement() {
       {/* MODAL DANH SÁCH HỌC VIÊN */}
       {enrollingClass && (
         <ClassEnrollmentsModal
+          key={enrollingClass.id ?? enrollingClass.classId}
           cls={enrollingClass}
           onClose={() => setEnrollingClass(null)}
           onEnrollmentChange={handleEnrollmentChange}

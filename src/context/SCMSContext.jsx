@@ -2024,17 +2024,20 @@ export const SCMSProvider = ({ children }) => {
     const current = classes.find((item) => item.id === id) || {}
     const payload = { ...current, ...data }
 
-    // Pre-flight check against other classes
-    for (const existing of classes) {
-      if (String(existing.id) === String(id)) continue
-      const conflict = checkSingleClassConflict(payload, existing)
-      if (conflict) {
-        throw new Error(
-          conflict.message ||
-            (language === "vi"
-              ? "Không thể cập nhật lớp: HLV hoặc Sân tập đã có lịch hoạt động"
-              : "Schedule conflict"),
-        )
+    // Local class summaries can omit recurring weekdays. Use the backend as
+    // the authority in API mode; only block confirmed conflicts in mock mode.
+    if (!API_ENABLED) {
+      for (const existing of classes) {
+        if (String(existing.id) === String(id)) continue
+        const conflict = checkSingleClassConflict(payload, existing)
+        if (conflict?.hasConflict) {
+          throw new Error(
+            conflict.message ||
+              (language === "vi"
+                ? "Không thể cập nhật lớp: HLV hoặc Sân tập đã có lịch hoạt động"
+                : "Schedule conflict"),
+          )
+        }
       }
     }
 

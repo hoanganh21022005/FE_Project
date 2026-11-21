@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Package, RefreshCw } from 'lucide-react';
 import { useSCMS } from '../../context/SCMSContext';
 import * as managerApi from '../../api/managerApi';
 import { getErrorMessage } from '../../api/apiErrors';
@@ -12,7 +11,7 @@ const money = (value, language) => value == null
   : formatCurrency(value, language);
 
 export function PackageManagement() {
-  const { subjects, t, language, apiEnabled } = useSCMS();
+  const { subjects, language, apiEnabled } = useSCMS();
   const [activeType, setActiveType] = useState('Normal');
   const [apiSubjects, setApiSubjects] = useState([]);
   const [subjectLoaded, setSubjectLoaded] = useState(false);
@@ -48,20 +47,6 @@ export function PackageManagement() {
   const pricedSubjects = subjectsWithNonzeroPrice(visibleSubjects, activeType);
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 rounded-lg border border-stone-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="rounded bg-stone-100 p-2"><Package className="h-5 w-5 text-brand-primary" /></div>
-          <div><h2 className="text-lg font-bold text-brand-dark">{t('packages')}</h2></div>
-        </div>
-        {apiEnabled && <button type="button" disabled={subjectLoading} onClick={refresh} className="inline-flex min-h-10 items-center gap-2 rounded border border-stone-300 px-3 text-xs font-bold text-stone-700 hover:bg-stone-50 disabled:opacity-50"><RefreshCw className="h-4 w-4" />{vi ? 'Tải lại' : 'Refresh'}</button>}
-      </header>
-
-      {arePackageWritesHidden(apiEnabled) && (
-        <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-900">
-          {t('packageWritesRetiredNotice')}
-        </p>
-      )}
-
       <div role="tablist" aria-label={vi ? 'Loại gói thành viên' : 'Membership package type'} className="flex gap-2 border-b border-stone-200">
         {['Normal', 'Advanced'].map((type) => <button key={type} type="button" role="tab" aria-selected={activeType === type} aria-controls="package-type-panel" onClick={() => setActiveType(type)} className={activeType === type ? 'min-h-11 border-b-2 px-5 text-sm font-bold ' + (type === 'Advanced' ? 'border-brand-purple text-brand-purple-dark' : 'border-brand-primary text-brand-primary') : 'min-h-11 border-b-2 border-transparent px-5 text-sm font-bold text-stone-500 hover:text-stone-900'}>{type}</button>)}
       </div>

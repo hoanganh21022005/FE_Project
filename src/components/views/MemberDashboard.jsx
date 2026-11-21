@@ -170,8 +170,9 @@ function ResourceError({ message, onRetry, compact = false, isVi }) {
 }
 
 function LoadingBlock({ rows = 2 }) {
+  const { language } = useSCMS()
   return (
-    <div aria-label="Loading" className="animate-pulse space-y-3">
+    <div aria-label={language === "vi" ? "Đang tải" : "Loading"} className="animate-pulse space-y-3">
       {Array.from({ length: rows }, (_, index) => (
         <div
           key={index}

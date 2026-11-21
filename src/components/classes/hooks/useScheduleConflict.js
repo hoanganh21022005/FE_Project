@@ -339,6 +339,8 @@ export function checkSingleClassConflict(candidate, existing) {
             isMissingSchedule: false,
             conflictCoach: overlap.coachConflict,
             conflictRoom: overlap.roomConflict,
+            conflictCoachName: overlap.coachName,
+            conflictRoomName: overlap.roomName,
             conflictingClass: existing,
             conflictingClassName:
               existing.nameVi || existing.name || existing.code,
@@ -425,13 +427,34 @@ export function checkSingleClassConflict(candidate, existing) {
   const candDays = normalizeWeekdays(candidate.selectedDays)
   const existDays = normalizeWeekdays(existing.selectedDays)
   if (candDays.length === 0 || existDays.length === 0) {
+    const existingName = existing.nameVi || existing.name || existing.code || `Lớp #${existing.id}`
+    const coachLabel = candidate.coachName || existing.coachName || "đã phân công"
+    const roomLabel = candidate.roomVi || candidate.room || existing.roomVi || existing.room || "đã phân công"
+    const sharedResource = coachConflict && roomConflict
+      ? `huấn luyện viên ${coachLabel} và sân ${roomLabel}`
+      : coachConflict
+        ? `huấn luyện viên ${coachLabel}`
+        : `sân ${roomLabel}`
+    const candidateTime = `${candidate.startTime || "06:00"}–${candidate.endTime || "07:30"}`
+    const existingTime = `${existing.startTime || "06:00"}–${existing.endTime || "07:30"}`
+    const missingScheduleName = candDays.length === 0 && existDays.length === 0
+      ? `lớp mới và lớp “${existingName}”`
+      : candDays.length === 0
+        ? "lớp mới"
+        : `lớp “${existingName}”`
+
     return {
       hasConflict: false,
       hasMissingSchedule: true,
       status: "unverified",
       conflictingClass: existing,
-      message: "Chưa thể xác minh xung đột vì thiếu ngày học của một lớp.",
-      tooltip: "Thiếu dữ liệu ngày học để xác nhận lịch có trùng hay không.",
+      conflictCoach: coachConflict,
+      conflictRoom: roomConflict,
+      conflictCoachName: coachLabel,
+      conflictRoomName: roomLabel,
+      conflictingClassName: existingName,
+      message: `Khung giờ lớp mới (${candidateTime}) chồng lấn với lớp “${existingName}” (${existingTime}), dùng chung ${sharedResource}. Chưa xác nhận được trùng lịch vì thiếu ngày học của ${missingScheduleName}.`,
+      tooltip: `Khung giờ bị chồng lấn; cần bổ sung ngày học của ${missingScheduleName} để xác nhận trùng lịch.`,
     }
   }
 
@@ -468,6 +491,8 @@ export function checkSingleClassConflict(candidate, existing) {
     hasConflict: true,
     conflictCoach: coachConflict,
     conflictRoom: roomConflict,
+    conflictCoachName: coachName,
+    conflictRoomName: roomName,
     conflictingClass: existing,
     sharedDays,
     sharedDaysStr,
@@ -608,6 +633,7 @@ export function useScheduleConflict({
   excludeClassId = null,
   apiEnabled = false,
   existingClasses = [],
+  persistedSessions = [],
 }) {
   const [conflict, setConflict] = useState(null)
   const [isChecking, setIsChecking] = useState(false)
@@ -615,8 +641,7 @@ export function useScheduleConflict({
 
   useEffect(() => {
     if (
-      !startTime ||
-      !endTime ||
+      (persistedSessions.length === 0 && (!startTime || !endTime)) ||
       (!coachId && !coachName && !roomId && !roomName)
     ) {
       setConflict(null)
@@ -633,6 +658,64 @@ export function useScheduleConflict({
     timerRef.current = setTimeout(
       async () => {
         try {
+          if (apiEnabled && persistedSessions.length > 0 && coachId) {
+            const cleanCoachId = Number(String(coachId).replace(/\D/g, "")) || null
+            if (!cleanCoachId) {
+              setConflict({
+                hasConflict: false,
+                hasMissingSchedule: true,
+                status: "unverified",
+                message: "Không thể xác minh lịch HLV mới vì thiếu mã huấn luyện viên.",
+              })
+              return
+            }
+
+            try {
+              if (persistedSessions.some((session) =>
+                !session?.id || !session.sessionDate || !session.startTime || !session.endTime
+              )) {
+                setConflict({
+                  hasConflict: false,
+                  hasMissingSchedule: true,
+                  status: "unverified",
+                  message: "Không thể xác minh lịch HLV mới vì lịch hiện tại thiếu ngày hoặc giờ học.",
+                })
+                return
+              }
+              const responses = await Promise.all(persistedSessions.map((session) =>
+                httpClient.post("/api/sessions/check-conflict", {
+                  classId: excludeClassId,
+                  coachId: cleanCoachId,
+                  roomId: null,
+                  sessionDate: session.sessionDate,
+                  startTime: session.startTime.length === 5 ? `${session.startTime}:00` : session.startTime,
+                  endTime: session.endTime.length === 5 ? `${session.endTime}:00` : session.endTime,
+                  excludeSessionId: session.id,
+                }),
+              ))
+              const confirmedConflict = responses.find((response) => response?.hasConflict)
+              if (confirmedConflict) {
+                setConflict(confirmedConflict)
+                return
+              }
+
+              setConflict({
+                hasConflict: false,
+                conflictCoach: false,
+                conflictRoom: false,
+                message: "Huấn luyện viên mới không bị trùng với lịch hiện tại của lớp.",
+              })
+            } catch {
+              setConflict({
+                hasConflict: false,
+                hasMissingSchedule: true,
+                status: "unverified",
+                message: "Không thể kiểm tra trùng lịch của huấn luyện viên mới. Vui lòng thử lại.",
+              })
+            }
+            return
+          }
+
           const candidate = {
             id: excludeClassId,
             coachId,
@@ -736,6 +819,12 @@ export function useScheduleConflict({
     excludeClassId,
     apiEnabled,
     existingClasses,
+    JSON.stringify(persistedSessions.map((session) => ({
+      id: session.id,
+      sessionDate: session.sessionDate,
+      startTime: session.startTime,
+      endTime: session.endTime,
+    }))),
   ])
 
   return { conflict, isChecking }

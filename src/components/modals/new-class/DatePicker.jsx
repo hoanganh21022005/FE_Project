@@ -5,7 +5,7 @@ import { formatViDate } from "./classFormHelpers"
 // -------------------------------------------------------------
 // Component DatePicker tự dựng cố định dd/MM/yyyy không phụ thuộc OS locale
 // -------------------------------------------------------------
-export function DatePicker({ value, onChange, min, error }) {
+export function DatePicker({ value, onChange, min, weekdays, error }) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef(null)
 
@@ -150,7 +150,9 @@ export function DatePicker({ value, onChange, min, error }) {
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1
               const thisDate = new Date(viewYear, viewMonth, day)
-              const isDisabled = minDateObj && thisDate < minDateObj
+              const beforeMinimum = minDateObj && thisDate < minDateObj
+              const outsideSchedule = Array.isArray(weekdays) && !weekdays.includes(thisDate.getDay())
+              const isDisabled = Boolean(beforeMinimum || outsideSchedule)
 
               const yyyy = viewYear
               const mm = String(viewMonth + 1).padStart(2, "0")
@@ -164,10 +166,10 @@ export function DatePicker({ value, onChange, min, error }) {
                   disabled={isDisabled}
                   onClick={() => handleSelectDay(day)}
                   className={`w-7 h-7 flex items-center justify-center rounded-md text-xs transition-colors cursor-pointer ${
-                    isSelected
-                      ? "bg-stone-900 text-white font-medium"
-                      : isDisabled
-                        ? "text-stone-300 cursor-not-allowed"
+                    isDisabled
+                      ? "text-stone-300 cursor-not-allowed"
+                      : isSelected
+                        ? "bg-stone-900 text-white font-medium"
                         : "hover:bg-stone-100 text-stone-700"
                   }`}
                 >

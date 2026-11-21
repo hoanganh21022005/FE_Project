@@ -7,9 +7,9 @@ import { ManagerDashboardInsights } from './ManagerDashboardInsights';
 import { PageHeader } from '../ui/PageHeader';
 import { Card, StatCard, SectionTitle } from '../ui/DesignSystem';
 import {
-  Users, Clock, Calendar, CreditCard,
+  Users, Clock, CreditCard,
   ArrowUpRight, AlertTriangle, Activity, UserRound, CalendarDays,
-  BadgeCheck, WalletCards, ReceiptText, CalendarClock
+  BadgeCheck, WalletCards, ReceiptText
 } from 'lucide-react';
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend
@@ -34,7 +34,7 @@ export function ManagerDashboard({ onNavigate }) {
   const gracePeriodCount = apiEnabled ? null : visibleMembers.filter(m => m.membershipStatus === 'grace_period').length;
 
   const successfulPayments = visiblePayments.filter(p => p.status === 'successful');
-  const totalRevenue = apiEnabled ? dashboard?.totalRevenue ?? null : successfulPayments.reduce((acc, p) => acc + p.amount, 0);
+  const netReceived = apiEnabled ? dashboard?.netReceived ?? null : null;
   const pendingPaymentsCount = apiEnabled ? null : visiblePayments.filter(p => p.status === 'pending').length;
 
   if (apiEnabled) {
@@ -45,9 +45,8 @@ export function ManagerDashboard({ onNavigate }) {
       { label: language === 'vi' ? 'Subscription đang hoạt động' : 'Active subscriptions', value: dashboard?.activeSubscriptions, icon: BadgeCheck },
     ];
     const secondaryMetrics = [
-      { label: language === 'vi' ? 'Tổng doanh thu' : 'Total revenue', value: dashboard?.totalRevenue, icon: WalletCards, money: true },
+      { label: language === 'vi' ? 'Tiền thực thu' : 'Net received', value: dashboard?.netReceived, icon: WalletCards, money: true },
       { label: language === 'vi' ? 'Hóa đơn đã thanh toán' : 'Paid invoices', value: dashboard?.totalInvoices, icon: ReceiptText },
-      { label: language === 'vi' ? 'Buổi tập hôm nay' : 'Sessions today', value: dashboard?.todaySessions, icon: CalendarClock },
     ];
 
     return (
@@ -75,7 +74,7 @@ export function ManagerDashboard({ onNavigate }) {
           })}
         </section>
 
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label={language === 'vi' ? 'Chỉ số tài chính và lịch học' : 'Financial and schedule metrics'}>
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label={language === 'vi' ? 'Chỉ số tài chính' : 'Financial metrics'}>
           {secondaryMetrics.map((metric) => {
             const Icon = metric.icon;
             return (
@@ -106,7 +105,7 @@ export function ManagerDashboard({ onNavigate }) {
       />
 
       {/* KPI Cards Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Total Members */}
         <StatCard
           label={t('totalMembers')}
@@ -142,8 +141,8 @@ export function ManagerDashboard({ onNavigate }) {
 
         {/* Revenue Card */}
         <StatCard
-          label={t('totalRevenue')}
-          value={totalRevenue === null ? '—' : formatCurrency(totalRevenue, language)}
+          label={language === 'vi' ? 'Tiền thực thu' : 'Net received'}
+          value={netReceived === null ? '—' : formatCurrency(netReceived, language)}
           valueClassName="text-brand-teal"
           scope={language === 'vi' ? 'Tổng tích lũy *' : 'All-time total *'}
           icon={<CreditCard className="w-4 h-4" />}
@@ -157,21 +156,7 @@ export function ManagerDashboard({ onNavigate }) {
           }
         />
 
-        {/* Today Classes & Attendance */}
-        <StatCard
-          label={t('todayClasses')}
-          value={apiEnabled ? dashboard?.todaySessions ?? '—' : classes.length}
-          scope={language === 'vi' ? 'Hôm nay' : 'Today'}
-          icon={<Calendar className="w-4 h-4" />}
-          iconBg="bg-brand-sky-soft"
-          iconColor="text-brand-accent-dark"
-          footer={
-            <div className="text-xs text-slate-500 flex items-center gap-1.5 whitespace-nowrap">
-              <Activity className="w-3.5 h-3.5 text-brand-accent-dark shrink-0" />
-              <span>{language === 'vi' ? 'Tỷ lệ điểm danh:' : 'Attendance:'} <strong className="text-slate-900">{apiEnabled ? '—' : '94.5%'}</strong></span>
-            </div>
-          }
-        />
+
       </div>
       <p className="text-xs text-slate-400 -mt-1">
         {language === 'vi'
@@ -242,12 +227,7 @@ export function ManagerDashboard({ onNavigate }) {
           </div>
 
           {/* Table Pagination Footer */}
-          <div className="flex items-center justify-between text-xs text-slate-500 mt-3 pt-3 border-t border-slate-200">
-            <span>
-              {language === 'vi'
-                ? `Hiển thị 1-${classes.length} của ${classes.length} bản ghi`
-                : `Showing 1-${classes.length} of ${classes.length} records`}
-            </span>
+          <div className="flex items-center justify-end text-xs text-slate-500 mt-3 pt-3 border-t border-slate-200">
             <div className="flex items-center gap-1 text-xs tabular-nums">
               <button disabled className="px-2 py-1 bg-slate-100 border border-slate-200 rounded opacity-50 cursor-not-allowed">
                 {language === 'vi' ? 'Trang trước' : 'Previous'}

@@ -77,6 +77,20 @@ const en = translations?.en || {}
 const viKeys = new Set(Object.keys(vi))
 const enKeys = new Set(Object.keys(en))
 
+// These common UI labels must be translated when used as locale values.
+// A small allowlist avoids flagging product names and technical terms such as
+// Email, VNPay, Normal, Advanced, and PT 1:1.
+const COMMON_UI_ENGLISH_VALUES = new Set([
+  'submit', 'save', 'cancel', 'search', 'filter', 'no data', 'loading',
+  'pending', 'approved', 'completed', 'cancelled', 'canceled', 'failed',
+  'active', 'expired', 'retry', 'refresh', 'close', 'delete', 'edit',
+  'create', 'update', 'back', 'next', 'previous', 'yes', 'no',
+])
+const untranslatedCommonUi = [...viKeys]
+  .filter((key) => enKeys.has(key) && typeof vi[key] === 'string' && typeof en[key] === 'string')
+  .filter((key) => vi[key].trim().toLocaleLowerCase() === en[key].trim().toLocaleLowerCase())
+  .filter((key) => COMMON_UI_ENGLISH_VALUES.has(vi[key].trim().toLocaleLowerCase()))
+
 console.log(`\n📖 Translations: ${viKeys.size} VI keys, ${enKeys.size} EN keys\n`)
 
 const missingInEn = [...viKeys].filter(k => !enKeys.has(k)).sort()
@@ -92,6 +106,13 @@ const missingFromEn = [...usedKeys].filter(k => !enKeys.has(k)).sort()
 const onlyMissingEn = missingFromEn.filter(k => viKeys.has(k))
 
 let hasErrors = false
+
+if (untranslatedCommonUi.length > 0) {
+  console.log(`❌ ${untranslatedCommonUi.length} common UI values are still English in VI:`)
+  untranslatedCommonUi.sort().forEach((key) => console.log(`     ${key}: ${vi[key]}`))
+  hasErrors = true
+  console.log()
+}
 
 if (missingInEn.length > 0) {
   console.log(`⚠️  ${missingInEn.length} keys in VI but missing in EN:`)
@@ -131,7 +152,7 @@ if (!hasErrors) {
   console.log('✅ All i18n keys are consistent!\n')
 }
 
-const report = { viKeyCount: viKeys.size, enKeyCount: enKeys.size, usedKeyCount: usedKeys.size, missingInEn, missingInVi, missingFromVi, onlyMissingEn }
+const report = { viKeyCount: viKeys.size, enKeyCount: enKeys.size, usedKeyCount: usedKeys.size, untranslatedCommonUi, missingInEn, missingInVi, missingFromVi, onlyMissingEn }
 writeFileSync(join(__dirname, 'i18n-report.json'), JSON.stringify(report, null, 2), 'utf8')
 console.log('📄 Full report → scripts/i18n-report.json\n')
 process.exit(hasErrors ? 1 : 0)

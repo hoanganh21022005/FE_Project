@@ -116,7 +116,7 @@ export function SportCourseView() {
 
         <section className="sport-course-training coaches-grid-background" aria-labelledby="course-training-title">
           <div className="sport-course-container relative py-20 text-center sm:py-28">
-            <p className="sport-course-kicker text-white/50">YOUR NEXT MOVE</p>
+            <p className="sport-course-kicker text-white/50">{isVi ? "BƯỚC TIẾP THEO CỦA BẠN" : "YOUR NEXT MOVE"}</p>
             <h2 id="course-training-title" className="mx-auto mt-5 max-w-4xl font-display text-4xl font-extrabold uppercase leading-tight sm:text-5xl lg:text-6xl">{isVi ? "Tập luyện cùng HLV" : "Train with coach"} <span className="sport-course-accent">{coach.name}</span></h2>
             <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-white/70">{isVi ? `Khám phá lộ trình phù hợp và tập luyện cùng HLV ${coach.name}.` : `Explore a learning path that suits you and train with coach ${coach.name}.`}</p>
             <Link to="/login" className="sport-course-button mt-9">{isVi ? "Xem học phí" : "View tuition"}<ArrowRight className="h-4 w-4" /></Link>

@@ -212,7 +212,7 @@ export function EditStaffModal({ isOpen, onClose, staffMember, onUpdated }) {
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            aria-label="Close modal"
+            aria-label={language === 'vi' ? 'Đóng hộp thoại' : 'Close dialog'}
             className="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors cursor-pointer disabled:opacity-50"
           >
             <X className="w-5 h-5" />

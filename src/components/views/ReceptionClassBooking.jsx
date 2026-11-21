@@ -410,7 +410,7 @@ export function ReceptionClassBooking() {
           {members.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name} ({m.code}) -{" "}
-              {String(m.membershipStatus || "active").toUpperCase()} -{" "}
+              {String(m.membershipStatus || "none").toUpperCase()} -{" "}
               {m.currentPackageName}
             </option>
           ))}

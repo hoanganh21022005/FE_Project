@@ -184,7 +184,7 @@ export function NewStaffModal({ isOpen, onClose }) {
           <button
             onClick={handleAttemptClose}
             disabled={isSubmitting}
-            aria-label="Close modal"
+            aria-label={language === 'vi' ? 'Đóng hộp thoại' : 'Close dialog'}
             className="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors disabled:opacity-50 cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -338,7 +338,7 @@ export function NewStaffModal({ isOpen, onClose }) {
                   />
                   <button
                     type="button"
-                    aria-label="Toggle password visibility"
+                    aria-label={language === 'vi' ? 'Hiện hoặc ẩn mật khẩu' : 'Toggle password visibility'}
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
@@ -369,7 +369,7 @@ export function NewStaffModal({ isOpen, onClose }) {
                   />
                   <button
                     type="button"
-                    aria-label="Toggle confirm password visibility"
+                    aria-label={language === 'vi' ? 'Hiện hoặc ẩn mật khẩu xác nhận' : 'Toggle confirmation password visibility'}
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                   >

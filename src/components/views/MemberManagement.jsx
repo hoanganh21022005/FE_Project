@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSCMS } from '../../context/SCMSContext';
 import { formatDate } from '../../locales/translations';
 import { ROLE_ADMIN } from '../../utils/navigation';
 import { getAdminStatusLabel } from '../admin/adminI18n';
 import { StatusBadge } from '../common/Badge';
+import { AdminPagination } from '../admin/AdminPagination';
 import { NewMemberModal } from '../modals/NewMemberModal';
+import * as managerApi from '../../api/managerApi';
 import {
   UserCheck,
   UserPlus,
@@ -12,8 +14,6 @@ import {
   ChevronRight,
   SearchX,
   Users,
-  Clock,
-  PackagePlus,
   AlertTriangle,
   RefreshCw,
 } from 'lucide-react';
@@ -65,30 +65,60 @@ export function MemberManagement({ onSelectMemberDetail }) {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [membershipFilter, setMembershipFilter] = useState('all');
+  const [page, setPage] = useState(1);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [participatingCount, setParticipatingCount] = useState(null);
+  const PAGE_SIZE = 10;
 
-  // Quick stats: Count by membership package lifecycle only (account status is separate)
+  useEffect(() => {
+    let active = true;
+    if (!apiEnabled) {
+      setParticipatingCount(null);
+      return () => { active = false; };
+    }
+    managerApi.getMemberReport({ notifyForbidden: false })
+      .then((report) => {
+        if (active && Number.isFinite(report?.activeMembers)) setParticipatingCount(report.activeMembers);
+      })
+      .catch(() => {
+        if (active) setParticipatingCount(null);
+      });
+    return () => { active = false; };
+  }, [apiEnabled]);
+
+  // Quick stats: Count by account status
   const totalCount = members.length;
-  const activeCount = members.filter(m => m.membershipStatus === 'active').length;
+  const activeCount = members.filter(m => m.accountStatus === 'active').length;
   const graceCount = members.filter(m => m.membershipStatus === 'grace_period').length;
-  const noPackageCount = members.filter(m => !m.membershipStatus || m.membershipStatus === 'none' || !m.currentPackageId).length;
   const memberMetricsReady = !membersLoading && !membersError;
   const activeRatio = totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0;
 
   const filteredMembers = members.filter(m => {
     const nameMatch = (m.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const codeMatch = (m.code || '').toLowerCase().includes(searchTerm.toLowerCase());
     const emailMatch = (m.email || '').toLowerCase().includes(searchTerm.toLowerCase());
     const phoneMatch = String(m.phone || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSearch = nameMatch || emailMatch || phoneMatch;
+    const matchesSearch = nameMatch || codeMatch || emailMatch || phoneMatch;
 
     const matchesStatus =
-      statusFilter === 'all' ||
-      (statusFilter === 'none'
+      membershipFilter === 'all' ||
+      (membershipFilter === 'none'
         ? (!m.membershipStatus || m.membershipStatus === 'none' || !m.currentPackageId)
-        : m.membershipStatus === statusFilter);
+        : m.membershipStatus === membershipFilter);
+    const matchesAccountStatus = statusFilter === 'all' || m.accountStatus === statusFilter;
 
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && matchesAccountStatus;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, statusFilter, membershipFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const startIndex = (safePage - 1) * PAGE_SIZE;
+  const paginatedMembers = filteredMembers.slice(startIndex, startIndex + PAGE_SIZE);
 
   const getPackageName = (member) => {
     if (!member.currentPackageId) {
@@ -118,14 +148,14 @@ export function MemberManagement({ onSelectMemberDetail }) {
       </div>
 
       {/* 1. Quick Stats KPI Bar */}
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {/* Total Members */}
         <button
           type="button"
-          aria-pressed={statusFilter === 'all'}
-          onClick={() => setStatusFilter('all')}
+          aria-pressed={statusFilter === 'all' && membershipFilter === 'all'}
+          onClick={() => { setStatusFilter('all'); setMembershipFilter('all'); }}
           className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 ${
-            statusFilter === 'all' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
+            statusFilter === 'all' && membershipFilter === 'all' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
           }`}
         >
           <div className="mb-2 flex items-start justify-between gap-2 text-xs font-medium text-slate-500">
@@ -139,10 +169,10 @@ export function MemberManagement({ onSelectMemberDetail }) {
         {/* Active Members */}
         <button
           type="button"
-          aria-pressed={statusFilter === 'active'}
-          onClick={() => setStatusFilter('active')}
+          aria-pressed={statusFilter === 'active' && membershipFilter === 'all'}
+          onClick={() => { setStatusFilter('active'); setMembershipFilter('all'); }}
           className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 ${
-            statusFilter === 'active' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
+            statusFilter === 'active' && membershipFilter === 'all' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
           }`}
         >
           <div className="mb-2 flex items-start justify-between gap-2 text-xs font-medium text-slate-500">
@@ -154,54 +184,12 @@ export function MemberManagement({ onSelectMemberDetail }) {
           <div className="text-2xl font-semibold tracking-tight text-emerald-800 tabular-nums">
             {memberMetricsReady ? activeCount : '—'}
           </div>
-          <p className="mt-1 text-xs text-slate-500">{language === 'vi' ? 'Gói hội viên đang hoạt động' : 'Active memberships'}</p>
+          <p className="mt-1 text-xs text-slate-500">{language === 'vi' ? 'Tài khoản đang hoạt động' : 'Active accounts'}</p>
           {memberMetricsReady && (
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-emerald-100" aria-label={`${activeRatio}% active`}>
               <div className="h-full rounded-full bg-emerald-600 transition-[width]" style={{ width: `${activeRatio}%` }} />
             </div>
           )}
-        </button>
-
-        {/* 72h Grace Period */}
-        <button
-          type="button"
-          aria-pressed={statusFilter === 'grace_period'}
-          onClick={() => setStatusFilter('grace_period')}
-          className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 ${
-            statusFilter === 'grace_period' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
-          }`}
-        >
-          <div className="mb-2 flex items-start justify-between gap-2 text-xs font-medium text-slate-500">
-            <span>
-              {language === 'vi' ? 'Chờ gia hạn (72h)' : '72h Grace Period'}
-            </span>
-            <span className="rounded-lg bg-amber-50 p-2 text-amber-700"><Clock className="h-4 w-4" aria-hidden="true" /></span>
-          </div>
-          <div className="text-2xl font-semibold tracking-tight text-amber-800 tabular-nums">
-            {memberMetricsReady ? graceCount : '—'}
-          </div>
-          <p className="mt-1 text-xs text-slate-500">{language === 'vi' ? 'Đang trong thời gian gia hạn' : 'Within grace period'}</p>
-        </button>
-
-        {/* No Package */}
-        <button
-          type="button"
-          aria-pressed={statusFilter === 'none'}
-          onClick={() => setStatusFilter('none')}
-          className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 ${
-            statusFilter === 'none' ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'
-          }`}
-        >
-          <div className="mb-2 flex items-start justify-between gap-2 text-xs font-medium text-slate-500">
-            <span>
-              {language === 'vi' ? 'Chưa đăng ký gói' : 'No Package'}
-            </span>
-            <span className="rounded-lg bg-orange-50 p-2 text-orange-700"><PackagePlus className="h-4 w-4" aria-hidden="true" /></span>
-          </div>
-          <div className="text-2xl font-semibold tracking-tight text-orange-800 tabular-nums">
-            {memberMetricsReady ? noPackageCount : '—'}
-          </div>
-          <p className="mt-1 text-xs text-slate-500">{language === 'vi' ? 'Chưa có gói hội viên' : 'No active package'}</p>
         </button>
       </div>
 
@@ -233,7 +221,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
-              placeholder={language === 'vi' ? 'Tìm theo tên, email hoặc số điện thoại...' : 'Search by name, email or phone...'}
+              placeholder={language === 'vi' ? 'Tìm theo mã, tên, email hoặc số điện thoại...' : 'Search by ID, name, email or phone...'}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               aria-label={language === 'vi' ? 'Tìm thành viên' : 'Search members'}
@@ -243,15 +231,14 @@ export function MemberManagement({ onSelectMemberDetail }) {
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            aria-label={language === 'vi' ? 'Lọc theo trạng thái gói' : 'Filter by membership status'}
+            aria-label={language === 'vi' ? 'Lọc theo trạng thái tài khoản' : 'Filter by account status'}
             className="h-10 w-full shrink-0 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 cursor-pointer sm:w-52"
           >
             <option value="all">{language === 'vi' ? 'Tất cả trạng thái' : 'All statuses'}</option>
-            <option value="active">{t('active')}</option>
-            <option value="grace_period">{t('grace_period')}</option>
-            <option value="pending_payment">{t('pending_payment')}</option>
-            <option value="expired">{t('expired')}</option>
-            <option value="none">{language === 'vi' ? 'Chưa đăng ký gói' : 'No package'}</option>
+            <option value="active">{language === 'vi' ? 'Đang hoạt động' : 'Active'}</option>
+            <option value="inactive">{language === 'vi' ? 'Ngưng hoạt động' : 'Inactive'}</option>
+            <option value="locked">{language === 'vi' ? 'Đã khóa' : 'Locked'}</option>
+            <option value="pending">{language === 'vi' ? 'Đang xử lý' : 'Pending'}</option>
           </select>
           <button
             type="button"
@@ -266,24 +253,22 @@ export function MemberManagement({ onSelectMemberDetail }) {
       {/* Member Data Table */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1180px] table-fixed text-left text-sm">
+          <table className="w-full min-w-[1050px] table-fixed text-left text-sm">
             <colgroup>
-              <col className="w-[4%]" />
-              <col className="w-[15%]" />
-              <col className="w-[23%]" />
+              <col className="w-[5%]" />
               <col className="w-[14%]" />
+              <col className="w-[19%]" />
+              <col className="w-[23%]" />
+              <col className="w-[16%]" />
               <col className="w-[11%]" />
-              <col className="w-[15%]" />
-              <col className="w-[9%]" />
-              <col className="w-[9%]" />
+              <col className="w-[12%]" />
             </colgroup>
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
               <tr className="[&>th]:border-r [&>th]:border-slate-200 [&>th:last-child]:border-r-0">
                 <th scope="col" className="px-3 py-3 text-center">STT</th>
+                <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Mã Thành Viên' : 'Member ID'}</th>
                 <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Họ và tên' : 'Name'}</th>
                 <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Liên hệ' : 'Contact'}</th>
-                <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Gói hiện tại' : 'Current package'}</th>
-                <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Huấn luyện viên' : 'Coach'}</th>
                 <th scope="col" className="px-4 py-3">{language === 'vi' ? 'Trạng thái' : 'Status'}</th>
                 <th scope="col" className="px-3 py-3">{language === 'vi' ? 'Ngày tham gia' : 'Joined'}</th>
                 <th scope="col" className="px-3 py-3 text-center">{language === 'vi' ? 'Thao tác' : 'Actions'}</th>
@@ -294,18 +279,18 @@ export function MemberManagement({ onSelectMemberDetail }) {
                 [...Array(5)].map((_, idx) => (
                   <tr key={idx} className="animate-pulse">
                     <td className="px-3 py-4"><div className="mx-auto h-4 w-5 rounded bg-slate-200" /></td>
+                    <td className="px-4 py-4"><div className="h-4 w-16 rounded bg-slate-200" /></td>
                     <td className="px-4 py-4"><div className="h-4 w-32 rounded bg-slate-200" /><div className="mt-2 h-3 w-20 rounded bg-slate-100" /></td>
                     <td className="px-4 py-4"><div className="h-4 w-36 rounded bg-slate-200" /><div className="mt-2 h-3 w-24 rounded bg-slate-100" /></td>
-                    <td className="px-4 py-4"><div className="h-4 w-24 rounded bg-slate-200" /></td>
-                    <td className="px-4 py-4"><div className="h-4 w-24 rounded bg-slate-200" /></td>
                     <td className="px-4 py-4"><div className="h-5 w-20 rounded bg-slate-200" /></td>
                     <td className="px-3 py-4"><div className="h-4 w-16 rounded bg-slate-200" /></td>
                     <td className="px-3 py-4"><div className="mx-auto h-8 w-16 rounded bg-slate-200" /></td>
                   </tr>
                 ))
-              ) : filteredMembers.map((m, index) => (
+              ) : paginatedMembers.map((m, index) => (
                 <tr key={m.id} className="transition-colors hover:bg-slate-50">
-                  <td className="px-3 py-4 text-center text-xs tabular-nums text-slate-500">{index + 1}</td>
+                  <td className="px-3 py-4 text-center text-xs tabular-nums text-slate-500">{startIndex + index + 1}</td>
+                  <td className="px-4 py-4 font-mono text-xs font-semibold text-blue-800">{m.code || '—'}</td>
                   <td className="px-4 py-4">
                     <span className="block truncate font-semibold text-slate-900" title={m.name || ''}>{m.name || '—'}</span>
                   </td>
@@ -313,25 +298,22 @@ export function MemberManagement({ onSelectMemberDetail }) {
                     <div className="break-words text-slate-800" title={m.email || ''}>{m.email || '—'}</div>
                     <div className="mt-1 text-xs tabular-nums text-slate-500">{m.phone || '—'}</div>
                   </td>
-                  <td className="px-4 py-4 font-medium text-slate-800">
-                    {m.membershipStatus === 'none' || !m.currentPackageId ? (
-                      <span className="text-slate-400">{language === 'vi' ? 'Chưa đăng ký gói' : 'No package'}</span>
-                    ) : <span className="line-clamp-2">{getPackageName(m)}</span>}
-                  </td>
-                  <td className="px-4 py-4 text-slate-700">{m.primaryCoachName || (language === 'vi' ? 'Chưa phân công' : 'Unassigned')}</td>
                   <td className="px-4 py-4">
-                    {isAdminView ? (
-                      getAccountStatusBadge(m)
-                    ) : (
-                      <div className="flex flex-col items-start gap-1">
-                        <StatusBadge type="membership" status={m.membershipStatus || 'none'} />
-                        {m.accountStatus && m.accountStatus !== 'active' && (
-                          <span className="text-xs font-medium text-rose-700">
-                            {m.accountStatus === 'locked' ? (language === 'vi' ? 'Khóa TK' : 'Locked') : m.accountStatus}
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    <div className="flex flex-col items-start gap-1">
+                      <StatusBadge
+                        type="membership"
+                        status={m.accountStatus || 'unknown'}
+                        label={m.accountStatus === 'locked'
+                          ? (language === 'vi' ? 'Đã khóa' : 'Locked')
+                          : m.accountStatus === 'inactive'
+                            ? (language === 'vi' ? 'Ngưng hoạt động' : 'Inactive')
+                            : m.accountStatus === 'pending'
+                              ? (language === 'vi' ? 'Đang xử lý' : 'Pending')
+                              : m.accountStatus === 'active'
+                                ? (language === 'vi' ? 'Đang hoạt động' : 'Active')
+                                : m.accountStatus || '—'}
+                      />
+                    </div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-xs tabular-nums text-slate-600">{formatDate(m.joinDate, language)}</td>
                   <td className="px-3 py-4 text-center">
@@ -349,7 +331,7 @@ export function MemberManagement({ onSelectMemberDetail }) {
 
               {!membersLoading && filteredMembers.length === 0 && (
                 <tr>
-                  <td colSpan="8" className="px-4 py-12 text-center">
+                  <td colSpan="7" className="px-4 py-12 text-center">
                     <SearchX className="mx-auto h-8 w-8 text-slate-300" aria-hidden="true" />
                     <p className="mt-3 text-sm font-semibold text-slate-800">
                       {language === 'vi' ? 'Không tìm thấy thành viên phù hợp' : 'No matching members found'}
@@ -370,6 +352,17 @@ export function MemberManagement({ onSelectMemberDetail }) {
             </tbody>
           </table>
         </div>
+        {!membersLoading && filteredMembers.length > 0 && (
+          <AdminPagination
+            page={safePage}
+            totalPages={totalPages}
+            totalItems={filteredMembers.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+            hideSummary
+            itemLabel={language === 'vi' ? 'thành viên' : 'members'}
+          />
+        )}
       </div>
 
       <NewMemberModal

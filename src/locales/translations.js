@@ -11,7 +11,7 @@ export const translations = {
     dashboard: 'Tổng quan',
     staff: 'Nhân viên',
     members: 'Thành viên',
-    packages: 'Gói thành viên',
+    packages: 'Gói tập & Học phí',
     packageWritesRetiredNotice: 'Gói hội viên chung đã ngừng bán; gói Advanced mua theo môn học và huấn luyện viên.',
     memberships: 'Hội viên',
     classes: 'Lớp học',
@@ -63,6 +63,7 @@ export const translations = {
     grace_period: 'Chờ gia hạn',
     expired: 'Hết hạn',
     cancelled: 'Đã hủy',
+    inactive: 'Ngưng hoạt động',
     enrolled: 'Đã đăng ký',
 
     // Statuses - Payment
@@ -185,7 +186,7 @@ export const translations = {
     fullName: 'Họ và tên',
     email: 'Email',
     phone: 'Số điện thoại',
-    package: 'Gói thành viên',
+    package: 'Gói tập & Học phí',
     price: 'Mức giá',
     duration: 'Thời hạn (tháng)',
     method: 'Phương thức thanh toán',
@@ -852,6 +853,7 @@ export const translations = {
     grace_period: 'Grace Period',
     expired: 'Expired',
     cancelled: 'Cancelled',
+    inactive: 'Inactive',
     enrolled: 'Enrolled',
 
     // Statuses - Payment

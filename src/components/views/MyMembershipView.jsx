@@ -20,13 +20,20 @@ const formatDate = (value, language) => {
   return date.toLocaleDateString(language === "vi" ? "vi-VN" : "en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" })
 }
 const STATUS_KEYS = ["active", "grace_period", "pending_payment", "expired", "completed", "cancelled", "canceled", "pending", "registered", "confirmed", "enrolled", "withdrawn"]
-const statusLabel = (status, t) => {
+const statusLabel = (status, t, language) => {
   const key = String(status || "").toLowerCase().replace(/[\s-]+/g, "_")
   if (t && STATUS_KEYS.includes(key)) return t(key)
   const fallbacks = {
-    active: "Active", grace_period: "Grace Period", pending_payment: "Pending Payment",
-    expired: "Expired", completed: "Completed", cancelled: "Cancelled", canceled: "Cancelled",
-    registered: "Registered", confirmed: "Confirmed", enrolled: "Enrolled", withdrawn: "Withdrawn",
+    active: language === "vi" ? "Đang hoạt động" : "Active",
+    grace_period: language === "vi" ? "Thời gian gia hạn" : "Grace period",
+    pending_payment: language === "vi" ? "Chờ thanh toán" : "Pending payment",
+    expired: language === "vi" ? "Đã hết hạn" : "Expired",
+    completed: language === "vi" ? "Đã hoàn tất" : "Completed",
+    cancelled: language === "vi" ? "Đã hủy" : "Cancelled", canceled: language === "vi" ? "Đã hủy" : "Cancelled",
+    registered: language === "vi" ? "Đã đăng ký" : "Registered",
+    confirmed: language === "vi" ? "Đã xác nhận" : "Confirmed",
+    enrolled: language === "vi" ? "Đã ghi danh" : "Enrolled",
+    withdrawn: language === "vi" ? "Đã rút đăng ký" : "Withdrawn",
   }
   return fallbacks[key] || status || "–"
 }
@@ -35,7 +42,7 @@ function ResourceState({ loading, loadingText, error, onRetry, empty, emptyActio
   const { language } = useSCMS()
   const languageTextAdvanced = language === "vi" ? "Chọn môn học và huấn luyện viên để bắt đầu." : "Choose a course and coach to get started."
   if (loading) return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500" role="status"><RefreshCw className="mx-auto mb-3 h-5 w-5 animate-spin" />{loadingText ?? "…"}</div>
-  if (error) return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-800" role="alert"><p className="font-semibold">Chưa tải được dữ liệu</p><p className="mt-1 text-sm">{error}</p><button className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-rose-800 ring-1 ring-rose-200 hover:bg-rose-100" onClick={onRetry}><RefreshCw size={16} />Thử lại</button></div>
+  if (error) return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-800" role="alert"><p className="font-semibold">{language === "vi" ? "Chưa tải được dữ liệu" : "Could not load data"}</p><p className="mt-1 text-sm">{error}</p><button className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-rose-800 ring-1 ring-rose-200 hover:bg-rose-100" onClick={onRetry}><RefreshCw size={16} />{language === "vi" ? "Thử lại" : "Retry"}</button></div>
   if (empty) return emptyAction ? <div className="flex flex-col gap-4 rounded-2xl border border-blue-100 bg-blue-50/50 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"><div className="flex items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-brand-primary"><Dumbbell size={20} /></span><div><p className="font-semibold text-slate-900">{empty}</p><p className="mt-0.5 text-sm text-slate-500">{languageTextAdvanced}</p></div></div><Link to="/member/catalog" className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-semibold text-white hover:bg-brand-primary-hover">Đăng ký khóa học ngay<ArrowRight size={16} /></Link></div> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center"><p className="font-semibold text-slate-800">{empty}</p></div>
   return children
 }
@@ -44,12 +51,12 @@ function Info({ icon: Icon, label, value, highlight, action = false }) {
 }
 function SubscriptionCard({ item, language, t, history = false }) {
   const subject = item.subjectName || (item.subjectId ? "Môn #" + item.subjectId : "Chưa có thông tin môn")
-  const coach = item.primaryCoachName || (item.primaryCoachId ? "HLV #" + item.primaryCoachId : "Chưa có Primary Coach")
+  const coach = item.primaryCoachName || (item.primaryCoachId ? "HLV #" + item.primaryCoachId : (language === "vi" ? "Chưa có huấn luyện viên chính" : "No primary coach assigned"))
   const packageType = String(item.packageType || "").trim().toLowerCase()
   const kindLabel = packageType === "advanced" ? "Advanced · theo môn" : packageType === "normal" ? "Normal · gói hội viên cũ" : "Chưa phân loại · đang cập nhật thông tin"
   return <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-start gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-lavender-soft text-brand-purple-dark"><Award size={21} /></div><div><p className="text-xs font-bold uppercase tracking-wide text-brand-purple-dark">{kindLabel}</p><h3 className="mt-1 text-lg font-bold text-slate-900">{item.packageName || (packageType === "advanced" ? "Quyền học Advanced" : "Khóa học")}</h3></div></div><MembershipStatusBadge status={item.rawStatus || item.status} label={statusLabel(item.rawStatus || item.status, t)} /></div>
-    {packageType === "advanced" ? <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Info icon={Dumbbell} label="Môn học" value={subject} /><Info icon={UserRound} label="Primary Coach" value={coach} /><Info icon={CreditCard} label="Credit còn lại" value={item.remainingCredit == null ? "Chưa có thông tin" : item.remainingCredit + " credit"} highlight={item.remainingCredit === 0} /><Info icon={CalendarDays} label="Thời hạn" value={formatDate(item.activatedAt || item.startDate, language) + " – " + formatDate(item.expiresAt || item.endDate, language)} /></div> : <div className="mt-5 grid gap-4 sm:grid-cols-2"><Info icon={CalendarDays} label="Thời hạn hợp lệ" value={formatDate(item.activatedAt || item.startDate, language) + " – " + formatDate(item.expiresAt || item.endDate, language)} /><Info icon={CreditCard} label="Quyền sử dụng" value={packageType === "normal" ? "Gói Normal cũ; xem lớp đã đăng ký ở mục riêng." : "Chưa thể xác định loại gói tập; vui lòng liên hệ quầy lễ tân."} /></div>}
+    <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-start gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-lavender-soft text-brand-purple-dark"><Award size={21} /></div><div><p className="text-xs font-bold uppercase tracking-wide text-brand-purple-dark">{kindLabel}</p><h3 className="mt-1 text-lg font-bold text-slate-900">{item.packageName || (packageType === "advanced" ? (language === "vi" ? "Quyền học Advanced" : "Advanced entitlement") : (language === "vi" ? "Khóa học" : "Course"))}</h3></div></div><MembershipStatusBadge status={item.rawStatus || item.status} label={statusLabel(item.rawStatus || item.status, t, language)} /></div>
+    {packageType === "advanced" ? <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Info icon={Dumbbell} label="Môn học" value={subject} /><Info icon={UserRound} label={language === "vi" ? "Huấn luyện viên chính" : "Primary coach"} value={coach} /><Info icon={CreditCard} label="Credit còn lại" value={item.remainingCredit == null ? "Chưa có thông tin" : item.remainingCredit + " credit"} highlight={item.remainingCredit === 0} /><Info icon={CalendarDays} label="Thời hạn" value={formatDate(item.activatedAt || item.startDate, language) + " – " + formatDate(item.expiresAt || item.endDate, language)} /></div> : <div className="mt-5 grid gap-4 sm:grid-cols-2"><Info icon={CalendarDays} label="Thời hạn hợp lệ" value={formatDate(item.activatedAt || item.startDate, language) + " – " + formatDate(item.expiresAt || item.endDate, language)} /><Info icon={CreditCard} label="Quyền sử dụng" value={packageType === "normal" ? "Gói Normal cũ; xem lớp đã đăng ký ở mục riêng." : "Chưa thể xác định loại gói tập; vui lòng liên hệ quầy lễ tân."} /></div>}
     {packageType === "advanced" && item.remainingCredit === 0 && !history && <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Credit hiện còn 0. Quyền với các buổi đã đặt vẫn theo trạng thái lịch và xác nhận từ hệ thống.</p>}
     {packageType === "advanced" && !item.subjectName && !item.primaryCoachName && <p className="mt-4 text-xs text-slate-500">Thông tin chi tiết môn học/HLV đang được cập nhật; vui lòng liên hệ quầy lễ tân để được hỗ trợ.</p>}
   </article>
@@ -57,7 +64,7 @@ function SubscriptionCard({ item, language, t, history = false }) {
 function EnrollmentCard({ item, t, language }) {
   const className = item.className || item.courseName || item.name || (item.classId ? "Lớp #" + item.classId : "Lớp học")
   const subject = item.subjectName || (item.subjectId ? "Môn #" + item.subjectId : "Chưa có thông tin môn")
-  return <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-start gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-blue-soft text-brand-primary"><Dumbbell size={21} /></div><div><p className="text-xs font-bold uppercase tracking-wide text-brand-primary">Normal · {t("enrolled")}</p><h3 className="mt-1 text-lg font-bold text-slate-900">{className}</h3></div></div><MembershipStatusBadge status={item.status} label={statusLabel(item.status, t)} /></div><div className="mt-5 grid gap-3 sm:grid-cols-3"><Info icon={Dumbbell} label={language === "vi" ? "Môn học" : "Subject"} value={subject} /><Info icon={UserRound} label={language === "vi" ? "Huấn luyện viên" : "Coach"} value={item.coachName || item.primaryCoachName || (language === "vi" ? "Chưa có thông tin" : "Not available")} /><Link to="/member/schedule" className="group block rounded-xl"><Info icon={CalendarDays} label={language === "vi" ? "Lịch học" : "Schedule"} value={language === "vi" ? "Xem lịch học của tôi" : "View my schedule"} action /></Link></div><p className="mt-4 border-t border-slate-100 pt-3 text-[12.5px] leading-5 text-slate-500">{language === "vi" ? "Đăng ký lớp Normal là quyền theo lớp; không hiển thị như gói hội viên Basic/Advanced." : "Normal course enrollment is class-based and is shown separately from Basic/Advanced memberships."}</p></article>
+  return <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-start gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-blue-soft text-brand-primary"><Dumbbell size={21} /></div><div><p className="text-xs font-bold uppercase tracking-wide text-brand-primary">Normal · {t("enrolled")}</p><h3 className="mt-1 text-lg font-bold text-slate-900">{className}</h3></div></div><MembershipStatusBadge status={item.status} label={statusLabel(item.status, t, language)} /></div><div className="mt-5 grid gap-3 sm:grid-cols-3"><Info icon={Dumbbell} label={language === "vi" ? "Môn học" : "Subject"} value={subject} /><Info icon={UserRound} label={language === "vi" ? "Huấn luyện viên" : "Coach"} value={item.coachName || item.primaryCoachName || (language === "vi" ? "Chưa có thông tin" : "Not available")} /><Link to="/member/schedule" className="group block rounded-xl"><Info icon={CalendarDays} label={language === "vi" ? "Lịch học" : "Schedule"} value={language === "vi" ? "Xem lịch học của tôi" : "View my schedule"} action /></Link></div><p className="mt-4 border-t border-slate-100 pt-3 text-[12.5px] leading-5 text-slate-500">{language === "vi" ? "Đăng ký lớp Normal là quyền theo lớp; không hiển thị như gói hội viên Basic/Advanced." : "Normal course enrollment is class-based and is shown separately from Basic/Advanced memberships."}</p></article>
 }
 
 function MembershipStatusBadge({ status, label }) {
@@ -69,7 +76,7 @@ function MembershipStatusBadge({ status, label }) {
 function InvoiceRow({ invoice, language, t, copiedId, onCopy }) {
   const paid = invoice.paymentStatus === "successful"
   const code = invoice.invoiceCode || "Hóa đơn #" + (invoice.invoiceId || invoice.id)
-  return <div className="grid gap-3 border-b border-slate-100 px-4 py-4 last:border-0 md:grid-cols-[minmax(240px,1.4fr)_minmax(160px,1fr)_minmax(150px,.8fr)_minmax(150px,.7fr)] md:items-center md:px-5"><div className="min-w-0"><p className="truncate font-semibold text-slate-900">{invoice.packageName || invoice.className || "Giao dịch hội viên"}</p><div className="mt-1 flex items-center gap-1"><span className="truncate font-mono text-xs text-slate-500">{code}</span><button type="button" aria-label={copiedId === String(invoice.invoiceId || invoice.id) ? "Copied" : "Copy invoice ID"} onClick={() => onCopy(code, String(invoice.invoiceId || invoice.id))} className="rounded p-1 text-slate-400 hover:bg-slate-100">{copiedId === String(invoice.invoiceId || invoice.id) ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}</button></div></div><p className="text-sm text-slate-600">{formatDate(invoice.paymentDate || invoice.createdAt, language)}</p><span className={"inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold " + (paid ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600")}><span className={"h-1.5 w-1.5 rounded-full " + (paid ? "bg-emerald-500" : "bg-slate-400")} />{paid ? t("successful") : statusLabel(invoice.paymentStatus, t)}</span><p className="text-right text-sm font-bold tabular-nums text-slate-900">{invoice.amount == null ? "–" : Number(invoice.amount).toLocaleString(language === "vi" ? "vi-VN" : "en-US") + " ₫"}</p></div>
+  return <div className="grid gap-3 border-b border-slate-100 px-4 py-4 last:border-0 md:grid-cols-[minmax(240px,1.4fr)_minmax(160px,1fr)_minmax(150px,.8fr)_minmax(150px,.7fr)] md:items-center md:px-5"><div className="min-w-0"><p className="truncate font-semibold text-slate-900">{invoice.packageName || invoice.className || "Giao dịch hội viên"}</p><div className="mt-1 flex items-center gap-1"><span className="truncate font-mono text-xs text-slate-500">{code}</span><button type="button" aria-label={copiedId === String(invoice.invoiceId || invoice.id) ? "Copied" : "Copy invoice ID"} onClick={() => onCopy(code, String(invoice.invoiceId || invoice.id))} className="rounded p-1 text-slate-400 hover:bg-slate-100">{copiedId === String(invoice.invoiceId || invoice.id) ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}</button></div></div><p className="text-sm text-slate-600">{formatDate(invoice.paymentDate || invoice.createdAt, language)}</p><span className={"inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold " + (paid ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600")}><span className={"h-1.5 w-1.5 rounded-full " + (paid ? "bg-emerald-500" : "bg-slate-400")} />{paid ? t("successful") : statusLabel(invoice.paymentStatus, t, language)}</span><p className="text-right text-sm font-bold tabular-nums text-slate-900">{invoice.amount == null ? "–" : Number(invoice.amount).toLocaleString(language === "vi" ? "vi-VN" : "en-US") + " ₫"}</p></div>
 }
 
 function MembershipKpi({ icon: Icon, tone, title, value, detail }) {
@@ -99,7 +106,7 @@ export function MyMembershipView() {
   const [coachNames, setCoachNames] = useState({})
   const load = useCallback(async () => {
     if (!apiEnabled || !memberId) {
-      const message = !apiEnabled ? "Trang này cần kết nối máy chủ để hiển thị quyền hội viên." : "Không tìm thấy memberId của phiên đăng nhập; dữ liệu hội viên chưa được tải."
+      const message = language === "vi" ? (!apiEnabled ? "Trang này cần kết nối máy chủ để hiển thị quyền hội viên." : "Không tìm thấy mã hội viên của phiên đăng nhập; dữ liệu chưa được tải.") : (!apiEnabled ? "Connect to the server to view your membership entitlements." : "The signed-in session has no member ID; membership data could not be loaded.")
       setLoading({ subscriptions: false, enrollments: false, invoices: false })
       setErrors({ subscriptions: message, enrollments: message, invoices: message })
       return
@@ -114,15 +121,15 @@ export function MyMembershipView() {
     await Promise.all(Object.entries(requests).map(async ([key, request]) => {
       try {
         const result = await request
-        if (!Array.isArray(result)) throw new Error("Dữ liệu từ máy chủ không đúng định dạng.")
+        if (!Array.isArray(result)) throw new Error(language === "vi" ? "Dữ liệu từ máy chủ không đúng định dạng." : "The server returned data in an invalid format.")
         setData((previous) => ({ ...previous, [key]: result }))
       } catch (error) {
-        setErrors((previous) => ({ ...previous, [key]: getErrorMessage(error, "Không thể tải dữ liệu.") }))
+        setErrors((previous) => ({ ...previous, [key]: getErrorMessage(error, language === "vi" ? "Không thể tải dữ liệu." : "Could not load data.") }))
       } finally {
         setLoading((previous) => ({ ...previous, [key]: false }))
       }
     }))
-  }, [apiEnabled, memberId])
+  }, [apiEnabled, memberId, language])
   useEffect(() => { load() }, [load, reloadKey])
   useEffect(() => {
     if (!apiEnabled || !memberId) return undefined
@@ -133,7 +140,7 @@ export function MyMembershipView() {
     getSubjectNameMap().then((names) => { if (active) setSubjectNames(names) }).catch(() => {})
     memberPortalApi.getCoaches({}, { notifyForbidden: false }).then((list) => { if (active) setCoachNames(toNameMap(list)) }).catch(() => {})
     return () => { active = false }
-  }, [apiEnabled, memberId])
+  }, [apiEnabled, memberId, language])
   const namedData = useMemo(() => ({
     ...data,
     subscriptions: data.subscriptions.map((item) => ({

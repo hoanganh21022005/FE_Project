@@ -15,7 +15,6 @@ import {
   getLocalWeekday,
   getNextValidUpcomingDate,
   getDefaultNormalMinCapacity,
-  isNormalClassApiCreationBlocked,
   loadPendingNormalClassCreation,
   parseLocalDate,
   validateNormalClassCapacity,
@@ -36,7 +35,7 @@ import {
   VI_WEEKDAYS_FULL,
   ROOM_ACTIVITY_TYPES,
   CATALOG_KEY_TO_SPORT_ID,
-  TIME_OPTIONS_15MIN,
+  NORMAL_CLASS_TIME_SLOTS,
 } from "./new-class/classFormConstants"
 import { DEFAULT_COACHES } from "../../mocks/defaultCoaches"
 import {
@@ -44,9 +43,26 @@ import {
   formatViDate,
   formatViDateWithWeekday,
   formatNumber,
-  getDurationLabel,
 } from "./new-class/classFormHelpers"
 import { DatePicker } from "./new-class/DatePicker"
+
+function formatConflictDetail(detail) {
+  let formatted = detail.trim()
+  const timeMatch = formatted.match(/từ\s+(\d{1,2}:\d{2}(?::\d{2})?)\s+đến\s+(\d{1,2}:\d{2}(?::\d{2})?)/i)
+
+  if (timeMatch) {
+    const start = timeMatch[1].slice(0, 5)
+    const end = timeMatch[2].slice(0, 5)
+    const slot = NORMAL_CLASS_TIME_SLOTS.find(
+      (entry) => entry.startTime === start && entry.endTime === end,
+    )
+    const slotLabel = slot ? `ca ${slot.slotNumber}` : `ca chưa xác định (${start}–${end})`
+    formatted = formatted.replace(timeMatch[0], slotLabel)
+  }
+
+  formatted = formatted.replace(/ngày\s+(\d{4}-\d{2}-\d{2})/i, (_, date) => `ngày ${formatViDate(date)}`)
+  return /[.!?]$/.test(formatted) ? formatted : `${formatted}.`
+}
 
 // -------------------------------------------------------------
 // MAIN MODAL COMPONENT (Match 100% Reference Screenshots)
@@ -98,8 +114,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const [roomId, setRoomId] = useState("")
 
   const [selectedDays, setSelectedDays] = useState([1, 3, 5]) // T2-T4-T6
-  const [startTime, setStartTime] = useState("06:00")
-  const [endTime, setEndTime] = useState("07:30")
+  const [startTime, setStartTime] = useState(NORMAL_CLASS_TIME_SLOTS[0].startTime)
+  const [endTime, setEndTime] = useState(NORMAL_CLASS_TIME_SLOTS[0].endTime)
 
   // Mặc định ngày bắt đầu: ngày hợp lệ tiếp theo khớp thứ và chưa qua giờ
   const [startDate, setStartDate] = useState(() =>
@@ -122,7 +138,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   const [perSessionPriceInput, setPerSessionPriceInput] = useState(
     () => Math.round(650000 / 12 / 1000) * 1000,
   )
-  const [status, setStatus] = useState("Open") // 'Open' = Mở đăng ký ngay, 'Draft' = Bản nháp
 
   const [touched, setTouched] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -306,8 +321,14 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     ) {
       setSelectedDays(cloneFrom.selectedDays)
     }
-    if (cloneFrom.startTime) setStartTime(cloneFrom.startTime)
-    if (cloneFrom.endTime) setEndTime(cloneFrom.endTime)
+    const clonedTimeSlot = NORMAL_CLASS_TIME_SLOTS.find(
+      (slot) => slot.startTime === String(cloneFrom.startTime || "").slice(0, 5)
+        && slot.endTime === String(cloneFrom.endTime || "").slice(0, 5),
+    ) || NORMAL_CLASS_TIME_SLOTS.find(
+      (slot) => slot.startTime === String(cloneFrom.startTime || "").slice(0, 5),
+    ) || NORMAL_CLASS_TIME_SLOTS[0]
+    setStartTime(clonedTimeSlot.startTime)
+    setEndTime(clonedTimeSlot.endTime)
     if (cloneFrom.capacity) {
       const clonedCapacity = Number(cloneFrom.capacity)
       const clonedDefaultMin = getDefaultNormalMinCapacity(clonedCapacity)
@@ -350,7 +371,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         const clonedDays = Array.isArray(cloneFrom.selectedDays) && cloneFrom.selectedDays.length
           ? cloneFrom.selectedDays
           : [1, 3, 5]
-        const clonedTime = cloneFrom.startTime || "06:00"
+        const clonedTime = clonedTimeSlot.startTime
         const [hour, minute] = clonedTime.split(":").map(Number)
         const candidateStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), hour || 0, minute || 0)
         setStartDate(candidateStart > new Date() && clonedDays.includes(baseDate.getDay())
@@ -410,7 +431,20 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     () => (subjects || []).find((subject) => String(subject.id) === String(targetSubjectId)),
     [subjects, targetSubjectId],
   )
+  const isOutdoorClass = selectedSubject?.outdoor === true || selectedRoomObj?.outdoor === true
   const normalPrice = Number(selectedSubject?.normalPrice ?? selectedSubject?.normal_price)
+
+  useEffect(() => {
+    const currentSlot = NORMAL_CLASS_TIME_SLOTS.find(
+      (slot) => slot.startTime === startTime && slot.endTime === endTime,
+    )
+    if (!isOutdoorClass || !currentSlot || currentSlot.outdoorAllowed) return
+
+    const nextSlot = NORMAL_CLASS_TIME_SLOTS.find((slot) => slot.outdoorAllowed)
+    if (!nextSlot) return
+    setStartTime(nextSlot.startTime)
+    setEndTime(nextSlot.endTime)
+  }, [isOutdoorClass, startTime, endTime])
 
   useEffect(() => {
     if (apiEnabled && Number.isFinite(normalPrice) && normalPrice >= 0) {
@@ -445,11 +479,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     }
     return startDate
   }, [endMode, endDate, projectedSessions, startDate])
-
-  const durationLabel = useMemo(
-    () => getDurationLabel(startTime, endTime),
-    [startTime, endTime],
-  )
 
   // Conflict Checking Hook (Queries existing classes in memory + optional backend API)
   const { conflict, isChecking: isCheckingConflict } = useScheduleConflict({
@@ -487,7 +516,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
       nextDays = [...selectedDays, dayId].sort()
     }
     setSelectedDays(nextDays)
-    setStartDate(getNextValidUpcomingDate(nextDays, startTime))
   }
 
   // Safe Close with Confirmation if edited
@@ -512,6 +540,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   }, [startDate, startTime])
 
   const startDateMatchesSchedule = selectedDays.includes(getLocalWeekday(startDate))
+  const minimumStartDate = getNextValidUpcomingDate(selectedDays, startTime)
 
   // Selected weekday day of week for display
   const currentWeekdayLabel = useMemo(() => {
@@ -561,7 +590,9 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
   }
   const dateError = isFirstSessionInPast
     ? "Buổi học đầu tiên đã qua giờ hiện tại."
-    : ""
+    : !startDateMatchesSchedule
+      ? "Vui lòng chọn ngày khớp với lịch học đã chọn."
+      : ""
 
   // Handle Price changes with two-way sync
   const handleNumericPriceChange = (num) => {
@@ -622,8 +653,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
     }
   }
 
-  // Handle Submit (Draft or Open)
-  const handleSubmit = async (targetStatus = status) => {
+  // Handle class creation
+  const handleSubmit = async () => {
     const pendingCreation = normalRequestIdStateRef.current
     if (apiEnabled && pendingCreation?.status === "outcome_unknown") {
       showToast(
@@ -671,11 +702,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
       return
     }
 
-    if (isNormalClassApiCreationBlocked(apiEnabled, targetStatus)) {
-      showToast("Lớp Normal cần có lịch trình đầy đủ 12 buổi học.", "error")
-      return
-    }
-
     setTouched({
       className: true,
       capacity: true,
@@ -696,8 +722,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
       )
       return
     }
-    if (apiEnabled && !startDateMatchesSchedule) {
-      showToast("Ngày bắt đầu phải thuộc mẫu thứ đã chọn.", "error")
+    if (!startDateMatchesSchedule) {
+      showToast("Vui lòng chọn ngày khớp với lịch học đã chọn.", "error")
       return
     }
     if (!selectedDays.length) {
@@ -726,8 +752,10 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         showToast("Môn học chưa được phân loại trong nhà/ngoài trời (outdoor = null) nên chưa thể xếp lịch.", "error")
         return
       }
-      const isOutdoor = selectedSubject?.outdoor === true
-      if (isOutdoor && ["09:30", "13:00"].includes(startTime)) {
+      const selectedTimeSlot = NORMAL_CLASS_TIME_SLOTS.find(
+        (slot) => slot.startTime === startTime && slot.endTime === endTime,
+      )
+      if (isOutdoorClass && selectedTimeSlot && !selectedTimeSlot.outdoorAllowed) {
         showToast("Môn ngoài trời không được xếp vào ca 3 hoặc ca 4.", "error")
         return
       }
@@ -739,7 +767,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         }
       }
     }
-    if (apiEnabled && targetStatus !== "Draft") {
+    if (apiEnabled) {
       const missing = []
       if (!targetSubjectId) missing.push(`không tìm thấy môn "${currentSport.name}" trong danh mục hệ thống`)
       else if (!Number.isFinite(normalPrice)) missing.push(`môn "${currentSport.name}" chưa có học phí hợp lệ`)
@@ -777,8 +805,8 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         minCapacity: Number(minCapacity),
         roomCapacity: selectedRoomObj?.capacity,
         requireRoomCapacity: apiEnabled,
-        status: targetStatus === "Draft" ? "draft" : "published",
-        apiStatus: targetStatus,
+        status: "published",
+        apiStatus: "Open",
         price: apiEnabled ? normalPrice : isFreeClass ? 0 : Number(price),
         isFree: apiEnabled ? false : isFreeClass,
         sessionCount: apiEnabled ? 12 : Number(sessionCount),
@@ -789,7 +817,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         daysOfWeek: selectedDays.map(Number),
       }
 
-      if (apiEnabled && targetStatus !== "Draft") {
+      if (apiEnabled) {
         if (!Number.isInteger(payload.roomId) || payload.roomId <= 0) {
           throw new Error("Thông tin sân/phòng đã chọn không hợp lệ.")
         }
@@ -841,9 +869,7 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
         showToast(result.message || "Không thể tạo lớp học.", "error")
       } else {
         showToast(
-          targetStatus === "Draft"
-            ? "Đã lưu lớp học dạng bản nháp thành công!"
-            : "Đã tạo và mở đăng ký lớp học thành công!",
+          "Đã tạo và mở đăng ký lớp học thành công!",
           "success",
         )
         onClose()
@@ -948,16 +974,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                 className={`w-full h-11 px-3.5 text-sm font-semibold bg-white border ${nameError ? "border-rose-400" : "border-stone-300"} text-stone-800 rounded-xl focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800`}
               />
               {nameError && <p id="new-class-name-error" role="alert" className="text-xs text-rose-600 mt-1">{nameError}</p>}
-            </div>
-
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-3">
-              <div>
-                <p className="text-xs font-semibold text-stone-800">Loại lớp</p>
-                <p className="mt-0.5 text-xs text-stone-600">Form này tạo lớp Normal.</p>
-              </div>
-              <span className="inline-flex items-center rounded-md border border-sky-200 bg-white px-2 py-1 text-xs font-bold text-sky-700">
-                Normal
-              </span>
             </div>
 
             {/* Mô tả khóa học (không bắt buộc) */}
@@ -1073,102 +1089,12 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
           </div>
 
           {/* CARD 3: LỊCH HỌC */}
-          <div className="bg-white rounded-2xl border border-stone-200/80 p-6 space-y-4 shadow-2xs">
+          <div className="bg-white rounded-2xl border border-stone-200/80 p-5 space-y-4 shadow-2xs">
             <h2 className="text-base font-bold text-stone-900">Lịch học</h2>
 
-            {/* Ngày bắt đầu */}
+            {/* Lịch học hằng tuần */}
             <div>
-              <label className="text-sm font-medium text-stone-800 block mb-1.5">
-                Ngày bắt đầu
-              </label>
-              <DatePicker
-                value={startDate}
-                onChange={(v) => {
-                  setIsDirty(true)
-                  setStartDate(v)
-                }}
-                min={formatLocalDate(new Date())}
-                error={dateError}
-              />
-              {apiEnabled && !startDateMatchesSchedule && !isFirstSessionInPast && (
-                <p className="text-xs text-orange-600 mt-1 font-medium">
-                  Ngày bắt đầu phải thuộc mẫu thứ đã chọn.
-                </p>
-              )}
-              <div className="text-xs text-stone-500 mt-1">
-                {currentWeekdayLabel}
-              </div>
-              {dateError && (
-                <p className="text-xs text-orange-600 mt-1 font-medium flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>{dateError}</span>
-                </p>
-              )}
-            </div>
-
-            {/* Giờ bắt đầu (full width dropdown select chuẩn 24h) */}
-            <div>
-              <label className="text-sm font-medium text-stone-800 block mb-1.5">
-                Giờ bắt đầu
-              </label>
-              <div className="relative">
-                <select
-                  value={startTime}
-                  onChange={(e) => {
-                    setIsDirty(true)
-                    const nextStartTime = e.target.value
-                    setStartTime(nextStartTime)
-                    const currentDate = parseLocalDate(startDate)
-                    const [hour, minute] = nextStartTime.split(":").map(Number)
-                    const currentSessionStart = currentDate
-                      ? new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), hour || 0, minute || 0)
-                      : null
-                    if (!currentSessionStart || currentSessionStart <= new Date() || !selectedDays.includes(currentDate.getDay())) {
-                      setStartDate(getNextValidUpcomingDate(selectedDays, nextStartTime))
-                    }
-                  }}
-                  className="w-full h-11 px-3.5 pr-10 bg-white border border-stone-300 rounded-xl text-sm text-stone-900 font-normal appearance-none focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800 cursor-pointer"
-                >
-                  {TIME_OPTIONS_15MIN.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </div>
-
-            {/* Giờ kết thúc (full width dropdown select chuẩn 24h) */}
-            <div>
-              <label className="text-sm font-medium text-stone-800 block mb-1.5">
-                Giờ kết thúc
-              </label>
-              <div className="relative">
-                <select
-                  value={endTime}
-                  onChange={(e) => {
-                    setIsDirty(true)
-                    setEndTime(e.target.value)
-                  }}
-                  className="w-full h-11 px-3.5 pr-10 bg-white border border-stone-300 rounded-xl text-sm text-stone-900 font-normal appearance-none focus:outline-none focus:border-stone-800 focus:ring-1 focus:ring-stone-800 cursor-pointer"
-                >
-                  {TIME_OPTIONS_15MIN.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-              <div className="text-xs text-stone-500 mt-1">
-                Thời lượng {durationLabel}
-              </div>
-            </div>
-
-            {/* Lặp lại vào: Chips T2..CN (Nền đen than khi active chuẩn ảnh mẫu) */}
-            <div>
-              <label className="text-sm font-medium text-stone-800 block mb-2">
+              <label className="text-xs font-semibold text-stone-700 block mb-2">
                 Lịch học
               </label>
               <div className="flex items-center gap-2 flex-wrap">
@@ -1192,16 +1118,15 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                       onClick={() => {
                         if (apiEnabled) {
                           setSelectedDays([...day.days])
-                          setStartDate(getNextValidUpcomingDate(day.days, startTime))
                           setIsDirty(true)
                         } else {
                           toggleWeekday(day.days[0])
                         }
                       }}
-                      className={`${apiEnabled ? "w-auto px-4" : "w-12"} h-10 text-sm rounded-xl transition-colors cursor-pointer text-center font-medium ${
+                      className={`${apiEnabled ? "w-auto px-3.5" : "w-11"} h-9 text-xs sm:text-sm rounded-lg transition-colors cursor-pointer text-center font-medium ${
                         isSelected
-                          ? "bg-[#18181B] text-white border border-stone-900"
-                          : "bg-white text-stone-800 border border-stone-200 hover:bg-stone-50"
+                          ? "bg-[#18181B] text-white border border-stone-900 shadow-2xs"
+                          : "bg-white text-stone-700 border border-stone-200 hover:bg-stone-50"
                       }`}
                     >
                       {day.label}
@@ -1209,6 +1134,71 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
                   )
                 })}
               </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-stone-700 block mb-2">
+                Ca học
+              </label>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {NORMAL_CLASS_TIME_SLOTS.map((slot) => {
+                  const disabled = isOutdoorClass && !slot.outdoorAllowed
+                  const selected = startTime === slot.startTime && endTime === slot.endTime
+                  return (
+                    <button
+                      key={slot.slotNumber}
+                      type="button"
+                      aria-pressed={selected}
+                      disabled={disabled}
+                      onClick={() => {
+                        setIsDirty(true)
+                        setStartTime(slot.startTime)
+                        setEndTime(slot.endTime)
+                      }}
+                      className={`rounded-lg border px-2.5 py-2 text-center transition-all focus:outline-none focus:ring-2 focus:ring-brand-primary/30 ${
+                        disabled
+                          ? "cursor-not-allowed border-stone-200 bg-stone-100 text-stone-400"
+                          : selected
+                            ? "border-brand-primary bg-blue-50/80 text-brand-primary ring-1 ring-brand-primary/20 shadow-2xs cursor-pointer"
+                            : "border-stone-200 bg-white text-stone-700 hover:border-brand-primary/60 hover:bg-blue-50/40 cursor-pointer"
+                      }`}
+                    >
+                      <span className="block text-xs font-bold">{slot.name}</span>
+                      <span className="mt-0.5 block text-[11px] tabular-nums opacity-85">{slot.startTime}–{slot.endTime}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              {isOutdoorClass && (
+                <div className="text-xs text-stone-500 mt-1.5">
+                  Ca 3 và Ca 4 không áp dụng cho sân ngoài trời.
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-stone-800 block mb-1.5">
+                Ngày học đầu tiên
+              </label>
+              <DatePicker
+                value={startDate}
+                onChange={(v) => {
+                  setIsDirty(true)
+                  setStartDate(v)
+                }}
+                min={minimumStartDate}
+                weekdays={selectedDays}
+                error={Boolean(dateError)}
+              />
+              {dateError && (
+                <p role="alert" className="text-xs text-orange-600 mt-1 font-medium flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{dateError}</span>
+                </p>
+              )}
+              <p className="text-xs text-stone-500 mt-1">
+                Chỉ chọn được ngày tương lai khớp với lịch tuần và ca học. Nếu ngày đó là ngày nghỉ, Backend sẽ chuyển buổi học sang ngày phù hợp tiếp theo.
+              </p>
             </div>
 
             {/* Kết thúc: Theo số buổi vs Theo ngày */}
@@ -1514,35 +1504,6 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
               </label>}
             </div>
 
-            {/* Toggle Switch: Mở đăng ký ngay */}
-            <div className="flex items-center gap-3 pt-3 border-t border-stone-100">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={status === "Open"}
-                onClick={() => {
-                  setIsDirty(true)
-                  setStatus(status === "Open" ? "Draft" : "Open")
-                }}
-                className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors shrink-0 ${
-                  status === "Open" ? "bg-[#18181B]" : "bg-stone-300"
-                }`}
-              >
-                <div
-                  className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
-                    status === "Open" ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-              <div>
-                <div className="text-sm font-semibold text-stone-900">
-                  Mở đăng ký ngay
-                </div>
-                <div className="text-xs text-stone-500">
-                  Học viên thấy và đăng ký được sau khi tạo lớp.
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* CARD 5: TÓM TẮT */}
@@ -1642,18 +1603,26 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
               <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 space-y-1.5 shadow-2xs">
                 <div className="flex items-center gap-1.5 font-bold text-rose-800">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>Xung đột lịch dạy hoặc sân tập</span>
+                  <span>Lớp mới bị trùng lịch</span>
                 </div>
-                <p className="text-xs text-rose-700 leading-relaxed font-medium">
-                  {conflict.message}
-                </p>
+                <ol className="list-decimal space-y-1 pl-5 text-xs text-rose-700 leading-relaxed font-medium">
+                  {String(conflict.message || "Lịch học bị trùng với một lớp hiện có.")
+                    .split(/\s*\|\s*|\r?\n/)
+                    .filter((detail) => detail.trim())
+                    .map((detail, index) => (
+                      <li key={`${index}-${detail}`}>
+                        <strong>{formatConflictDetail(detail)}</strong>
+                      </li>
+                    ))}
+                </ol>
                 <p className="text-[11px] text-rose-600 italic">
                   Vui lòng thay đổi khung giờ, ngày học hoặc phân công HLV/sân
                   tập khác để tiếp tục.
                 </p>
               </div>
             ) : conflict?.hasMissingSchedule ? (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+                <p className="font-semibold">Khung giờ chồng lấn — chưa xác nhận trùng ngày</p>
                 {conflict.message || "Chưa thể xác minh xung đột vì thiếu ngày học."}
               </div>
             ) : (
@@ -1679,9 +1648,9 @@ export function NewClassModal({ isOpen, onClose, onSubmit, cloneFrom = null }) {
 
           <button
             type="button"
-            onClick={() => handleSubmit(status)}
+            onClick={() => handleSubmit()}
             disabled={
-              isSubmitting || normalCreationRecovery?.status === "outcome_unknown" || (!["created_unverified", "post_unconfirmed"].includes(normalCreationRecovery?.status) && (conflict?.hasConflict || isFirstSessionInPast || (apiEnabled && !startDateMatchesSchedule) || isNormalClassApiCreationBlocked(apiEnabled)))
+              isSubmitting || normalCreationRecovery?.status === "outcome_unknown" || (!["created_unverified", "post_unconfirmed"].includes(normalCreationRecovery?.status) && (conflict?.hasConflict || conflict?.hasMissingSchedule || isFirstSessionInPast || (apiEnabled && !startDateMatchesSchedule)))
             }
             className="h-10 px-6 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer flex items-center gap-2"
             title={

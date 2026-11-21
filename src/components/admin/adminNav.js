@@ -133,8 +133,8 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
       },
       {
         id: "ops_refunds",
-        label: "Hoàn tiền Normal",
-        labelEn: "Normal Refunds",
+        label: "Hoàn tiền",
+        labelEn: "Refunds",
         icon: ReceiptText,
         path: "/admin/ops/normal-refunds",
         requiredAuthority: "MANAGE_INVOICES",

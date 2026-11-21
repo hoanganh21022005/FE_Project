@@ -49,7 +49,7 @@ export function mapMember(dto) {
     healthNote: dto.healthNote || '',
     address: dto.address || '',
     gender: dto.gender || '',
-    dateOfBirth: dto.dateOfBirth || null,
+    dateOfBirth: dto.dateOfBirth || dto.birthDate || null,
     status: accountStatus,
     rawStatus,
     accountStatus,

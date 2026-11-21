@@ -1623,8 +1623,8 @@ export function LoginView({
                 <div className="mb-7">
                   <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-mlc-red">
                     {adminEntry
-                      ? "SYSTEM ADMINISTRATION"
-                      : "WELCOME TO AVT SPORT"}
+                      ? isVi ? "QUẢN TRỊ HỆ THỐNG" : "SYSTEM ADMINISTRATION"
+                      : isVi ? "CHÀO MỪNG ĐẾN VỚI AVT SPORT" : "WELCOME TO AVT SPORT"}
                   </p>
                   <h2 className="font-display text-3xl sm:text-[36px] font-extrabold tracking-tight text-mlc-ink leading-tight">
                     {adminEntry

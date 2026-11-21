@@ -98,7 +98,7 @@ function ProposalSchedule({ schedule }) {
   )
 }
 
-export default function NormalClassLifecyclePanel({ classItem, sessions = null, sessionsLoading = false, sessionsError = '', onRefreshClassDetail }) {
+export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Postpone', initialAction = 'details', sessions = null, sessionsLoading = false, sessionsError = '', onRefreshClassDetail }) {
   const { apiEnabled, currentUser, classes, subjects, coaches, setClasses } = useSCMS()
   const classId = classItem?.id
   const authorities = Array.isArray(currentUser?.authorities) ? currentUser.authorities : []
@@ -109,7 +109,7 @@ export default function NormalClassLifecyclePanel({ classItem, sessions = null, 
   const [proposalLoading, setProposalLoading] = useState(false)
   const [proposalError, setProposalError] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
-  const [kind, setKind] = useState('Postpone')
+  const [kind, setKind] = useState(initialKind === 'Transfer' ? 'Transfer' : 'Postpone')
   const [shiftDays, setShiftDays] = useState('1')
   const [reason, setReason] = useState('')
   const [cancelReason, setCancelReason] = useState('')
@@ -128,6 +128,16 @@ export default function NormalClassLifecyclePanel({ classItem, sessions = null, 
   const [actionStatus, setActionStatus] = useState('')
 
   const generation = useRef(0)
+  const cancelSectionRef = useRef(null)
+
+  useEffect(() => {
+    if (initialAction !== 'cancel') return undefined
+    const timer = window.setTimeout(() => {
+      cancelSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 180)
+    return () => window.clearTimeout(timer)
+  }, [classId, initialAction])
+
   const loadProposals = useCallback(async ({ silent = false } = {}) => {
     if (!classId || !authorized || !isNormal) return false
     const requestGeneration = ++generation.current
@@ -379,6 +389,7 @@ export default function NormalClassLifecyclePanel({ classItem, sessions = null, 
 
   return (
     <section className="rounded-xl border border-stone-200 bg-white p-4" aria-labelledby="normal-proposals-heading" aria-busy={proposalLoading || refreshing}>
+      {initialAction !== 'cancel' && <>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 id="normal-proposals-heading" className="flex items-center gap-2 text-sm font-semibold text-stone-900">
@@ -512,8 +523,9 @@ export default function NormalClassLifecyclePanel({ classItem, sessions = null, 
           })}
         </ul>
       )}
+      </>}
 
-      <div className="mt-4 border-t border-stone-200 pt-3">
+      {initialAction !== 'transfer' && <div ref={cancelSectionRef} className={`${initialAction === 'cancel' ? '' : 'mt-4 border-t border-stone-200 pt-3'}`}>
         <p className="text-xs font-semibold text-stone-800">Hủy lớp trước khai giảng</p>
         <p className="mt-1 text-xs text-stone-600">Hủy lớp không đồng nghĩa hoàn tiền. Không thay đổi hóa đơn, enrollment hoặc trạng thái hiển thị tại đây.</p>
         {(cancelCheck.blockers.length > 0 || cancelCheck.unverified.length > 0) && <p className="mt-1 text-xs text-amber-800">{cancelCheck.blockers[0] ?? cancelCheck.unverified[0]}</p>}
@@ -524,7 +536,7 @@ export default function NormalClassLifecyclePanel({ classItem, sessions = null, 
         <button type="button" disabled={actionBusy || cancelBlocked} title={cancelBlocked ? cancelCheck.blockers[0] ?? cancelCheck.unverified[0] ?? (!cancelReason.trim() ? 'Vui lòng nhập lý do hủy.' : undefined) : undefined} onClick={submitCancelClass} className="mt-2 rounded-md border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 disabled:opacity-50">
           {activeAction === 'cancel' ? 'Đang hủy lớp…' : 'Hủy lớp'}
         </button>
-      </div>
+      </div>}
     </section>
   )
 }

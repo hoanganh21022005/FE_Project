@@ -142,8 +142,11 @@ assert.deepEqual(toPackageRequest({ ...normalPackage, durationDays: 30 }), {
   name: 'Normal', durationDays: 30, price: 0, benefits: '', status: 'active', packageType: 'Normal', totalCredit: 12,
 })
 
-const dashboard = mapDashboard({ totalUsers: '10', totalMembers: 0, totalClasses: '4', totalPackages: 2, totalRevenue: '12345', totalInvoices: 0, activeSubscriptions: 3, todaySessions: '1' })
-assert.deepEqual(dashboard, { totalUsers: 10, totalMembers: 0, totalClasses: 4, totalPackages: 2, totalRevenue: 12345, totalInvoices: 0, activeSubscriptions: 3, todaySessions: 1 })
+const dashboard = mapDashboard({ totalUsers: '10', totalMembers: 0, totalClasses: '4', totalPackages: 2, totalRevenue: '12345', netReceived: '100000000', totalInvoices: 0, activeSubscriptions: 3, todaySessions: '1' })
+assert.deepEqual(dashboard, { totalUsers: 10, totalMembers: 0, totalClasses: 4, totalPackages: 2, totalRevenue: 12345, netReceived: 100000000, totalInvoices: 0, activeSubscriptions: 3, todaySessions: 1 })
+assert.equal(mapDashboard({ netReceived: 0 }).netReceived, 0)
+assert.equal(mapDashboard({ netReceived: null }).netReceived, null)
+assert.equal(mapDashboard({ netReceived: 'not-a-number' }).netReceived, null)
 assert.equal(mapDashboard({ totalUsers: null }).totalUsers, null)
 
 const subject = mapSubject({ id: 9, name: 'Tennis', normalPrice: 0, advancedPrice: 250000, outdoor: false, slug: 'tennis', status: 'Active' })

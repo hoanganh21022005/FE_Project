@@ -608,7 +608,7 @@ function SCMSApp() {
     if (path.startsWith("/admin/ops/advanced-schedule")) return "Lớp Advanced"
     if (path.startsWith("/admin/ops/resources")) return "Bộ môn & Phòng tập"
     if (path.startsWith("/admin/ops/payments")) return "Quản lý thanh toán"
-    if (path.startsWith("/admin/ops/normal-refunds")) return "Hoàn tiền Normal"
+    if (path.startsWith("/admin/ops/normal-refunds")) return "Hoàn tiền"
 
     // Lễ tân
     if (path.startsWith("/admin/ops/reception/dashboard")) return "Tổng quan lễ tân"
@@ -744,7 +744,7 @@ function SCMSApp() {
       return language === "vi" ? "Việc hoàn tiền" : "Refund work"
     if (path.includes("/payments")) return t("payments")
     if (path.includes("/normal-refunds"))
-      return language === "vi" ? "Hoàn tiền Normal" : "Normal refunds"
+      return language === "vi" ? "Hoàn tiền" : "Refunds"
     if (path.includes("/reports")) return t("reports")
     if (path.includes("/audit-logs")) return t("auditLogs")
     if (path.includes("/my-membership")) return t("myMembership")
