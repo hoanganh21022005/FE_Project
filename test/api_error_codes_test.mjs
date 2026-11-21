@@ -189,9 +189,9 @@ for (const code of [
   assert.ok(translateErrorCode(code, 'vi'), `${code}: thiếu vi`)
   assert.ok(translateErrorCode(code, 'en'), `${code}: thiếu en`)
 }
-// Mã đã có chữ từ trước không bị sửa
+// Mã đóng đăng ký nêu rõ hạn 48 giờ trước buổi đầu.
 assert.equal(translateErrorCode('CLASS_FULL', 'vi'), 'Lớp đã đủ chỗ.')
-assert.equal(translateErrorCode('NORMAL_REGISTRATION_CLOSED', 'vi'), 'Lớp đã đóng đăng ký.')
+assert.equal(translateErrorCode('NORMAL_REGISTRATION_CLOSED', 'vi'), 'Lớp đã đóng đăng ký vì đã đến hạn 48 giờ trước buổi học đầu tiên.')
 // Lớp lót: mã lạ, rỗng, null, chỉ khoảng trắng, không phải chuỗi
 assert.equal(describeBlockReason('MA_LA_CHUA_CO', 'vi'), 'Thao tác hiện chưa khả dụng. (MA_LA_CHUA_CO)')
 assert.equal(describeBlockReason('MA_LA_CHUA_CO', 'en'), 'This action is not available right now. (MA_LA_CHUA_CO)')

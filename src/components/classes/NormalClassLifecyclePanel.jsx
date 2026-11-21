@@ -10,6 +10,7 @@ import {
   createNormalClassProposal,
   evaluateNormalClassLifecycle,
   evaluateNormalProposalApply,
+  evaluateNormalTransferTargetCutoff,
   getNormalClassProposals,
   getNormalLifecycleError,
   inspectNormalClassProposal,
@@ -120,6 +121,10 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
   const [targetSessions, setTargetSessions] = useState(null)
   const [targetSessionsLoading, setTargetSessionsLoading] = useState(false)
   const [targetSessionsError, setTargetSessionsError] = useState(null)
+  const [targetClassDetail, setTargetClassDetail] = useState(null)
+  const [targetClassDetailLoading, setTargetClassDetailLoading] = useState(false)
+  const [targetClassDetailError, setTargetClassDetailError] = useState(null)
+  const [targetClassDetailRefreshKey, setTargetClassDetailRefreshKey] = useState(0)
   const [activeApplyProposalId, setActiveApplyProposalId] = useState(null)
   const [latestApplyProposal, setLatestApplyProposal] = useState(null)
   const [latestApplyClass, setLatestApplyClass] = useState(null)
@@ -214,12 +219,31 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
     return () => { active = false }
   }, [targetClassId])
 
+  useEffect(() => {
+    let active = true
+    if (!targetClassId) {
+      setTargetClassDetail(null)
+      setTargetClassDetailError(null)
+      setTargetClassDetailLoading(false)
+      return () => { active = false }
+    }
+    setTargetClassDetail(null)
+    setTargetClassDetailError(null)
+    setTargetClassDetailLoading(true)
+    managerApi.getClassById(targetClassId, {}, { notifyForbidden: false })
+      .then((item) => { if (active) setTargetClassDetail(item) })
+      .catch((error) => { if (active) setTargetClassDetailError(getErrorMessage(error)) })
+      .finally(() => { if (active) setTargetClassDetailLoading(false) })
+    return () => { active = false }
+  }, [targetClassId, targetClassDetailRefreshKey])
+
   const lifecycleCheck = useMemo(() => evaluateNormalClassLifecycle(classItem, {
     action: 'proposal',
     kind,
   }), [classItem, kind])
   const cancelCheck = useMemo(() => evaluateNormalClassLifecycle(classItem, { action: 'cancel' }), [classItem])
   const validTransferTarget = targets?.find((item) => String(item.id) === String(targetClassId)) ?? null
+  const targetCutoffCheck = evaluateNormalTransferTargetCutoff(targetClassDetail)
   const applyEval = latestApplyProposal ? evaluateNormalProposalApply(latestApplyProposal, latestApplyClass) : null
   const actionBusy = Boolean(activeAction) || activeApplyProposalId != null || proposalLoading || refreshing
   const lifecycleDataReady = Array.isArray(proposals) && !proposalError
@@ -231,7 +255,7 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
     !lifecycleDataReady || !Number.isSafeInteger(classItem?.lifecycleVersion) || !reason.trim() ||
     !sourceScheduleReady ||
     (kind === 'Postpone' && (!Number.isInteger(Number(shiftDays)) || Number(shiftDays) <= 0)) ||
-    (kind === 'Transfer' && (!validTransferTarget || targetSessionsLoading || Boolean(targetSessionsError) || !targetScheduleReady))
+    (kind === 'Transfer' && (!validTransferTarget || targetSessionsLoading || Boolean(targetSessionsError) || !targetScheduleReady || targetClassDetailLoading || Boolean(targetClassDetailError) || !targetCutoffCheck.canAttempt))
   const cancelBlocked = !cancelCheck.canAttempt || cancelCheck.unverified.length > 0 ||
     !lifecycleDataReady || !Number.isSafeInteger(classItem?.lifecycleVersion) || !cancelReason.trim()
   const cancelNotice = cancelCheck.blockers[0] ?? cancelCheck.unverified[0] ??
@@ -459,6 +483,22 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
             {validTransferTarget && targetSessionsError && <p role="alert" className="text-rose-700">Không tải được lịch lớp đích: {targetSessionsError}</p>}
             {validTransferTarget && Array.isArray(targetSessions) && targetSessions.length === 0 && <p className="text-amber-800">Chưa có lịch cho lớp đích.</p>}
             {validTransferTarget && Array.isArray(targetSessions) && targetSessions.length > 0 && <ul className="max-h-24 space-y-1 overflow-auto rounded bg-white p-2 text-stone-700">{targetSessions.map((item, index) => <li key={item.id ?? index}>{sessionDate(item)}</li>)}</ul>}
+            {validTransferTarget && targetClassDetailLoading && <p role="status" className="text-stone-500">Đang kiểm tra hạn đăng ký của lớp đích…</p>}
+            {validTransferTarget && targetClassDetailError && (
+              <p role="alert" className="text-rose-700">
+                Không tải được trạng thái và hạn đăng ký của lớp đích: {targetClassDetailError}{' '}
+                <button type="button" onClick={() => setTargetClassDetailRefreshKey((key) => key + 1)} className="font-semibold underline">Thử lại</button>
+              </p>
+            )}
+            {validTransferTarget && !targetClassDetailLoading && !targetClassDetailError && targetCutoffCheck.state === 'unverified' && (
+              <p role="status" className="text-amber-800">{targetCutoffCheck.message}</p>
+            )}
+            {validTransferTarget && !targetClassDetailLoading && !targetClassDetailError && targetCutoffCheck.state === 'closed' && (
+              <p role="status" className="text-amber-800">{targetCutoffCheck.message}</p>
+            )}
+            {validTransferTarget && !targetClassDetailLoading && !targetClassDetailError && targetCutoffCheck.state === 'open' && (
+              <p className="text-emerald-700">Lớp đích còn nhận đăng ký đến {localDateTime(targetCutoffCheck.registrationDeadline)}.</p>
+            )}
           </div>
         )}
         {(lifecycleCheck.blockers.length > 0 || lifecycleCheck.unverified.length > 0) && (
@@ -468,7 +508,7 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
         {sessionsError && <p role="alert" className="mt-2 text-xs text-rose-700">Không tải được lịch lớp nguồn: {sessionsError}</p>}
         {!sessionsLoading && !sessionsError && !sourceScheduleReady && <p className="mt-2 text-xs text-amber-800">Lịch lớp nguồn chưa đủ {expectedSourceSessions} buổi hợp lệ.</p>}
         {kind === 'Transfer' && validTransferTarget && Array.isArray(targetSessions) && !targetScheduleReady && !targetSessionsLoading && !targetSessionsError && <p className="mt-2 text-xs text-amber-800">Lịch lớp đích chưa đủ {expectedTargetSessions} buổi hợp lệ.</p>}
-        <button type="button" disabled={actionBusy || createBlocked} title={createBlocked ? lifecycleCheck.blockers[0] ?? lifecycleCheck.unverified[0] ?? (!lifecycleDataReady ? 'Đang chờ tải proposal thành công.' : sessionsError ? 'Không tải được lịch lớp nguồn.' : !sourceScheduleReady ? 'Lịch lớp nguồn chưa đủ hoặc chưa được tải.' : !reason.trim() ? 'Vui lòng nhập lý do.' : undefined) : undefined} onClick={submitCreateProposal} className="mt-3 rounded-md bg-indigo-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+        <button type="button" disabled={actionBusy || createBlocked} title={createBlocked ? lifecycleCheck.blockers[0] ?? lifecycleCheck.unverified[0] ?? (!lifecycleDataReady ? 'Đang chờ tải proposal thành công.' : sessionsError ? 'Không tải được lịch lớp nguồn.' : !sourceScheduleReady ? 'Lịch lớp nguồn chưa đủ hoặc chưa được tải.' : kind === 'Transfer' && targetClassDetailError ? 'Không tải được trạng thái lớp đích.' : kind === 'Transfer' && targetClassDetailLoading ? 'Đang xác minh hạn đăng ký của lớp đích.' : kind === 'Transfer' && validTransferTarget && !targetCutoffCheck.canAttempt ? targetCutoffCheck.message : kind === 'Transfer' && (targetSessionsError || targetSessionsLoading || !targetScheduleReady) ? 'Chưa xác minh được lịch lớp đích.' : !reason.trim() ? 'Vui lòng nhập lý do.' : undefined) : undefined} onClick={submitCreateProposal} className="mt-3 rounded-md bg-indigo-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
           {activeAction === 'create' ? 'Đang tạo đề xuất…' : 'Tạo đề xuất'}
         </button>
       </div>

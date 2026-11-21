@@ -233,6 +233,33 @@ export const evaluateNormalClassLifecycle = (classItem, { action = 'proposal', k
   }
 }
 
+export const evaluateNormalTransferTargetCutoff = (classItem) => {
+  const deadline = Date.parse(String(classItem?.registrationDeadline ?? ''))
+  const serverTime = Date.parse(String(classItem?.serverTime ?? ''))
+  if (!Number.isFinite(deadline) || !Number.isFinite(serverTime)) {
+    return {
+      state: 'unverified',
+      canAttempt: false,
+      registrationDeadline: null,
+      message: 'Chưa xác minh được hạn đăng ký của lớp đích. Hãy tải lại thông tin lớp.',
+    }
+  }
+  if (deadline <= serverTime) {
+    return {
+      state: 'closed',
+      canAttempt: false,
+      registrationDeadline: classItem.registrationDeadline,
+      message: 'Lớp đích đã đóng đăng ký vì đã đến hạn 48 giờ trước buổi đầu tiên. Hãy chọn lớp khác.',
+    }
+  }
+  return {
+    state: 'open',
+    canAttempt: true,
+    registrationDeadline: classItem.registrationDeadline,
+    message: null,
+  }
+}
+
 export const inspectNormalClassProposal = (proposal) => {
   if (!proposal || typeof proposal !== 'object' || Array.isArray(proposal)) {
     return {

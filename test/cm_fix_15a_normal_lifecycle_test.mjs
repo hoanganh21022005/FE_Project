@@ -6,6 +6,7 @@ import {
   classifyNormalProposalKind,
   createNormalClassProposal,
   evaluateNormalClassLifecycle,
+  evaluateNormalTransferTargetCutoff,
   evaluateNormalProposalApply,
   getNormalClassProposals,
   getNormalLifecycleError,
@@ -119,6 +120,17 @@ try {
   const publishedCancellation = evaluateNormalClassLifecycle({ ...openNormal, apiStatus: 'Published' }, { action: 'cancel' })
   assert.equal(publishedCancellation.canAttempt, false)
   assert.match(publishedCancellation.blockers[0], /Đã xuất bản/)
+  assert.equal(evaluateNormalTransferTargetCutoff({
+    registrationDeadline: '2026-11-23T10:00:00+07:00',
+    serverTime: '2026-11-21T10:00:00+07:00',
+  }).canAttempt, true, 'transfer target is eligible while Backend registration cutoff is in the future')
+  const closedTarget = evaluateNormalTransferTargetCutoff({
+    registrationDeadline: '2026-11-21T10:00:00+07:00',
+    serverTime: '2026-11-21T10:00:00+07:00',
+  })
+  assert.equal(closedTarget.canAttempt, false, 'transfer target is blocked at the exact 48-hour cutoff')
+  assert.match(closedTarget.message, /48 giờ/)
+  assert.equal(evaluateNormalTransferTargetCutoff({ registrationDeadline: null, serverTime: null }).state, 'unverified')
   assert.equal(evaluateNormalClassLifecycle({ ...openNormal, classType: 'Advanced' }).canAttempt, false)
   assert.equal(evaluateNormalClassLifecycle({ ...openNormal, apiStatus: null }).state, 'unverified')
   assert.equal(evaluateNormalClassLifecycle({ ...openNormal, changePending: null }).state, 'unverified')
