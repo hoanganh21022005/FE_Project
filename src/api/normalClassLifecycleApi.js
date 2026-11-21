@@ -198,7 +198,7 @@ export const evaluateNormalClassLifecycle = (classItem, { action = 'proposal', k
     blockers.push(statusMessage)
   }
 
-  if (action === 'proposal' && classItem.changePending === true) blockers.push('A class change proposal is already pending.')
+  if (action === 'proposal' && classItem.changePending === true) blockers.push('Đã gửi đề xuất.')
   else if (action === 'proposal' && classItem.changePending !== false) unverified.push('Pending-change state is unavailable.')
 
   if (!validVersion(classItem.lifecycleVersion)) {
