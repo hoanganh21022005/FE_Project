@@ -494,10 +494,6 @@ function PageHeading({ isVi }) {
           {isVi ? 'Quản lý danh sách lớp 1-1, lịch tập và trạng thái xác nhận của Member.' : 'Overview of 1-on-1 classes, schedules, and Member confirmations.'}
         </p>
       </div>
-      <span className="inline-flex items-center gap-2 rounded-full border border-status-info-border bg-brand-blue-soft px-3 py-1.5 text-xs leading-4 font-semibold text-brand-primary">
-        <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-        {isVi ? 'Chế độ theo dõi' : 'Read only'}
-      </span>
     </header>
   )
 }
