@@ -96,7 +96,7 @@ function ResourceModal({ type, item, language, onClose, onSave }) {
           <h3 className="text-sm font-bold text-slate-900">
             {item ? label(`Chỉnh sửa ${isRoom ? 'phòng' : 'bộ môn'}`, `Edit ${isRoom ? 'room' : 'subject'}`) : label(`Thêm ${isRoom ? 'phòng' : 'bộ môn'}`, `Create ${isRoom ? 'room' : 'subject'}`)}
           </h3>
-          <button type="button" onClick={onClose} aria-label={vi ? 'Đóng' : 'Close'}><X className="w-4 h-4" /></button>
+          <button type="button" onClick={onClose} aria-label={label('Đóng', 'Close')}><X className="w-4 h-4" /></button>
         </div>
 
         <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto">
