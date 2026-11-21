@@ -9,6 +9,7 @@ import { getRooms } from '../../api/managerApi.js'
 import { canManageClasses } from '../../api/holidayUtils.js'
 
 const normalize = (value) => String(value ?? '').trim().toLowerCase()
+const cleanSubjectLabel = (value) => String(value ?? '').replace(/\s*\(Tennis\)/gi, '').trim()
 
 const statusInfo = (status, isVi) => {
   const key = normalize(status)
@@ -117,7 +118,7 @@ export default function ManagerAdvancedScheduleView() {
       ...proposal,
       memberName: session?.bookedMemberName || registration?.memberName || (proposal.memberId ? `Member #${proposal.memberId}` : '—'),
       coachName: session?.coachName || registration?.primaryCoachName || (proposal.coachId ? `Coach #${proposal.coachId}` : '—'),
-      subjectName: session?.subjectName || registration?.subjectName || (proposal.subjectId ? `${isVi ? 'Môn' : 'Subject'} #${proposal.subjectId}` : '—'),
+      subjectName: cleanSubjectLabel(session?.subjectName || registration?.subjectName || (proposal.subjectId ? `${isVi ? 'Môn' : 'Subject'} #${proposal.subjectId}` : '—')),
       roomName: session?.roomName || roomById.get(String(proposal.roomId))?.name || (proposal.roomId ? `${isVi ? 'Sân/phòng' : 'Room'} #${proposal.roomId}` : '—'),
     }
   }), [proposals, registrationBySubscription, roomById, isVi])
@@ -310,7 +311,7 @@ export default function ManagerAdvancedScheduleView() {
                           <td className="px-4 py-3.5 text-center text-xs tabular-nums text-text-secondary">{classStartIndex + idx + 1}</td>
                           <td className="px-4 py-3.5">
                             <div className="font-semibold text-text-primary">{item.name || (isVi ? `Lớp #${item.id}` : `Class #${item.id}`)}</div>
-                            {item.category && <div className="mt-0.5 text-xs text-text-secondary">{item.category}</div>}
+                            {item.category && <div className="mt-0.5 text-xs text-text-secondary">{cleanSubjectLabel(item.category)}</div>}
                           </td>
                           <td className="px-4 py-3.5 text-text-secondary">{item.coachName || '—'}</td>
                           <td className="px-4 py-3.5 text-center tabular-nums text-text-secondary">
