@@ -1325,6 +1325,7 @@ function RowActionMenu({
   onViewMembers,
   onEdit,
   onLifecycleAction,
+  isVi = true,
   alignUp = false,
 }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -1433,7 +1434,10 @@ function RowActionMenu({
             className="w-full px-3.5 py-2 text-left text-stone-700 hover:bg-stone-50 flex items-center gap-2.5 transition-colors cursor-pointer"
           >
             <ArrowLeftRight className="w-3.5 h-3.5 text-stone-500" />
-            <span>Thay đổi lớp</span>
+            <span className="flex min-w-0 flex-col">
+              <span>{isVi ? 'Đề xuất chuyển học viên' : 'Propose learner transfer'}</span>
+              <span className="text-[10px] text-stone-500">{isVi ? 'Gộp sang lớp Normal khác' : 'Move learners to another Normal class'}</span>
+            </span>
           </button>
 
           {canCancelBeforeOpening && (
@@ -3135,6 +3139,7 @@ export function ClassManagement() {
                               onViewMembers={(c) => { setQuickViewClass(null); setEnrollingClass(c) }}
                               onEdit={(c) => setEditingClass(c)}
                               onLifecycleAction={(c, action) => { setQuickViewIntent(action); setQuickViewClass(c) }}
+                              isVi={language !== 'en'}
                             />
                           </td>
                         </tr>

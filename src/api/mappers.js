@@ -207,6 +207,7 @@ export function mapClass(
     return {
       id: item.id ?? null,
       name: item.name ?? null,
+      centerId: asNumber(item.centerId),
       nameVi: item.name ?? null,
       subjectId: item.subjectId ?? null,
       subjectName: item.subjectName ?? subject?.name ?? null,
