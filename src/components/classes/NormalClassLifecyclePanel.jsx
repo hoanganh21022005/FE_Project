@@ -738,7 +738,7 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
                     {applyEval?.canAttempt && <p className="mt-1 font-medium text-emerald-800">Đề xuất đã sẵn sàng để áp dụng.</p>}
                   </div>
                 )}
-                <ProposalSchedule schedule={proposal.schedule} isVi={isVi} />
+                {inspected.kind !== 'transfer' && <ProposalSchedule schedule={proposal.schedule} isVi={isVi} />}
                 <ProposalChoices proposal={proposal} isVi={isVi} />
               </li>
             )
