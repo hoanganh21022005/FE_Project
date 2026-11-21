@@ -73,6 +73,37 @@ const hasCompleteSchedule = (sessions, expectedCount = 12) => {
   )
 }
 
+function proposalStatusMeta(status, isVi) {
+  const s = String(status ?? '').trim().toLowerCase()
+  if (s === 'pending' || s === 'waiting') {
+    return { label: copy(isVi, 'Đang chờ phản hồi', 'Pending'), badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' }
+  }
+  if (s === 'ready' || s === 'approved' || s === 'readytoapply') {
+    return { label: copy(isVi, 'Sẵn sàng áp dụng', 'Ready to apply'), badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200' }
+  }
+  if (s === 'applied' || s === 'completed') {
+    return { label: copy(isVi, 'Đã áp dụng', 'Applied'), badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+  }
+  if (s === 'rejected' || s === 'cancelled' || s === 'canceled' || s === 'expired') {
+    return { label: copy(isVi, 'Đã đóng / Hủy', 'Closed'), badgeClass: 'bg-rose-50 text-rose-700 border-rose-200' }
+  }
+  return { label: text(status), badgeClass: 'bg-stone-100 text-stone-700 border-stone-200' }
+}
+
+function memberChoiceMeta(choice, isVi) {
+  const c = String(choice ?? '').trim().toLowerCase()
+  if (c === 'waiting' || c === 'pending') {
+    return { label: copy(isVi, 'Đang chờ', 'Waiting'), badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' }
+  }
+  if (c === 'accept' || c === 'accepted' || c === 'transfer' || c === 'agree') {
+    return { label: copy(isVi, 'Đồng ý', 'Accepted'), badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+  }
+  if (c === 'refund' || c === 'requestrefund') {
+    return { label: copy(isVi, 'Yêu cầu hoàn tiền', 'Refund requested'), badgeClass: 'bg-rose-50 text-rose-700 border-rose-200' }
+  }
+  return { label: text(choice), badgeClass: 'bg-stone-100 text-stone-700 border-stone-200' }
+}
+
 function ProposalChoices({ proposal, isVi }) {
   const inspected = inspectNormalClassProposal(proposal)
   if (!Array.isArray(inspected.choices)) {
@@ -88,21 +119,49 @@ function ProposalChoices({ proposal, isVi }) {
   const summary = summarizeNormalProposalChoices(proposal)
 
   return (
-    <div className="mt-3">
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-semibold text-stone-700">{copy(isVi, 'Phản hồi hội viên', 'Member responses')}</span>
-        {summary.verified ? <span className="rounded-full bg-stone-100 px-2 py-0.5 text-stone-700">
-          {copy(isVi, `${summary.total} cần phản hồi · ${summary.waiting} đang chờ · ${summary.accepted} đồng ý · ${summary.refunds} yêu cầu hoàn tiền`, `${summary.total} need a response · ${summary.waiting} waiting · ${summary.accepted} accepted · ${summary.refunds} requested refunds`)}
-        </span> : <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-800">{copy(isVi, 'Số liệu phản hồi chưa xác minh', 'Response totals are unverified')}</span>}
+    <div className="mt-3 border-t border-stone-100 pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+        <span className="font-semibold text-stone-800">{copy(isVi, 'Phản hồi hội viên', 'Member responses')}</span>
+        {summary.verified ? (
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium">
+            <span className="rounded-full bg-stone-100 px-2 py-0.5 text-stone-700">
+              {copy(isVi, `${summary.total} hội viên`, `${summary.total} total`)}
+            </span>
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 border border-amber-200">
+              {copy(isVi, `${summary.waiting} đang chờ`, `${summary.waiting} waiting`)}
+            </span>
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700 border border-emerald-200">
+              {copy(isVi, `${summary.accepted} đồng ý`, `${summary.accepted} accepted`)}
+            </span>
+            {summary.refunds > 0 && (
+              <span className="rounded-full bg-rose-50 px-2 py-0.5 text-rose-700 border border-rose-200">
+                {copy(isVi, `${summary.refunds} hoàn tiền`, `${summary.refunds} refunds`)}
+              </span>
+            )}
+          </div>
+        ) : (
+          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-800">
+            {copy(isVi, 'Số liệu phản hồi chưa xác minh', 'Response totals are unverified')}
+          </span>
+        )}
       </div>
-      <ul className="mt-2 space-y-1.5">
-        {inspected.choices.map((choice, index) => (
-          <li key={`${choice.memberId ?? 'member'}-${index}`} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-stone-50 px-2.5 py-2 text-xs">
-            <span className="text-stone-600">{copy(isVi, 'Hội viên', 'Member')} {choice.memberId == null ? copy(isVi, 'chưa xác minh', 'unverified') : `#${choice.memberId}`}</span>
-            <span className="font-semibold text-stone-900">{text(choice.choice)}</span>
-            <span className="text-stone-500">{localDateTime(choice.respondedAt)}</span>
-          </li>
-        ))}
+      <ul className="mt-2 divide-y divide-stone-100 overflow-hidden rounded-lg border border-stone-200/80 bg-stone-50/50">
+        {inspected.choices.map((choice, index) => {
+          const choiceBadge = memberChoiceMeta(choice.choice, isVi)
+          return (
+            <li key={`${choice.memberId ?? 'member'}-${index}`} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs">
+              <span className="font-medium text-stone-800">
+                {choice.memberName || `${copy(isVi, 'Hội viên', 'Member')} ${choice.memberId == null ? copy(isVi, 'chưa xác minh', 'unverified') : `#${choice.memberId}`}`}
+              </span>
+              <div className="flex items-center gap-3">
+                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${choiceBadge.badgeClass}`}>
+                  {choiceBadge.label}
+                </span>
+                <span className="text-[11px] text-stone-500 tabular-nums">{localDateTime(choice.respondedAt)}</span>
+              </div>
+            </li>
+          )
+        })}
       </ul>
     </div>
   )
@@ -631,36 +690,56 @@ export default function NormalClassLifecyclePanel({ classItem, initialKind = 'Po
             const applyState = evaluateNormalProposalApply(proposal, isLatestProposal ? latestApplyClass : classItem)
             const isApplyLoading = String(activeApplyProposalId) === String(proposal.id)
             const target = proposal.targetClassId == null ? null : classes?.find((item) => String(item.id) === String(proposal.targetClassId))
+            const statusMeta = proposalStatusMeta(proposal.status, isVi)
             return (
-              <li key={proposal.id ?? index} className="rounded-lg border border-stone-200 p-3">
+              <li key={proposal.id ?? index} className="rounded-xl border border-stone-200 bg-white p-4 shadow-2xs">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold text-stone-900">{inspected.kind === 'unknown' ? copy(isVi, `Loại: ${text(proposal.kind)}`, `Type: ${text(proposal.kind)}`) : inspected.kind === 'postpone' ? copy(isVi, 'Đề xuất dời khai giảng', 'Postpone proposal') : copy(isVi, 'Đề xuất chuyển học viên', 'Learner transfer proposal')}</p>
-                    <p className="mt-1 text-xs text-stone-600">{copy(isVi, 'Trạng thái:', 'Status:')} <span className="font-medium text-stone-900">{text(proposal.status)}</span></p>
-                    <p className="mt-1 text-xs text-stone-600">{copy(isVi, 'Lớp nguồn:', 'Source class:')} {proposal.classId == null ? copy(isVi, 'Chưa xác minh', 'Unverified') : `#${proposal.classId}`} · {copy(isVi, 'Lớp đích:', 'Target class:')} {proposal.targetClassId == null ? '—' : target?.name ?? `#${proposal.targetClassId}`}</p>
-                    {proposal.shiftDays == null ? null : <p className="mt-1 text-xs text-stone-600">{copy(isVi, `Dự kiến dời: ${proposal.shiftDays} ngày`, `Postponement: ${proposal.shiftDays} days`)}</p>}
-                    <p className="mt-1 text-xs text-stone-600">{copy(isVi, 'Lý do:', 'Reason:')} {text(proposal.reason, copy(isVi, 'Không có lý do trong response', 'No reason in the response'))}</p>
-                    <p className="mt-1 text-xs text-stone-500">{copy(isVi, `Phiên bản đề xuất: ${proposal.version ?? 'Chưa có thông tin'} · phiên bản lớp: ${classItem?.lifecycleVersion ?? 'Chưa có thông tin'}`, `Proposal version: ${proposal.version ?? 'Unavailable'} · class version: ${classItem?.lifecycleVersion ?? 'Unavailable'}`)}</p>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-bold text-stone-900">
+                        {inspected.kind === 'unknown' ? copy(isVi, `Loại: ${text(proposal.kind)}`, `Type: ${text(proposal.kind)}`) : inspected.kind === 'postpone' ? copy(isVi, 'Đề xuất dời khai giảng', 'Postpone proposal') : copy(isVi, 'Đề xuất chuyển học viên', 'Learner transfer proposal')}
+                      </p>
+                      <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusMeta.badgeClass}`}>
+                        {statusMeta.label}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-stone-600">
+                      {proposal.targetClassId != null && (
+                        <span>
+                          {copy(isVi, 'Lớp đích:', 'Target class:')}{' '}
+                          <strong className="font-semibold text-stone-900">{target?.name ?? `#${proposal.targetClassId}`}</strong>
+                        </span>
+                      )}
+                      {proposal.shiftDays != null && (
+                        <span>
+                          {copy(isVi, 'Dự kiến dời:', 'Postponement:')}{' '}
+                          <strong className="font-semibold text-stone-900">{copy(isVi, `${proposal.shiftDays} ngày`, `${proposal.shiftDays} days`)}</strong>
+                        </span>
+                      )}
+                      <span>
+                        {copy(isVi, 'Lý do:', 'Reason:')}{' '}
+                        <span className="text-stone-800">{text(proposal.reason, copy(isVi, 'Không có', 'None'))}</span>
+                      </span>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" disabled={isApplyLoading || actionBusy} onClick={() => refreshLatestApplyProposal(proposal.id)} className="rounded-md border border-stone-300 px-2.5 py-1.5 text-xs font-semibold text-stone-700 disabled:opacity-50">
+                    <button type="button" disabled={isApplyLoading || actionBusy} onClick={() => refreshLatestApplyProposal(proposal.id)} className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">
                       {isApplyLoading ? copy(isVi, 'Đang kiểm tra…', 'Checking…') : copy(isVi, 'Kiểm tra đề xuất mới nhất', 'Check latest proposal')}
                     </button>
-                    <button type="button" disabled={actionBusy || !latestApplyProposal || !isLatestProposal || !latestApplyClass || latestApplyClass.lifecycleVersion !== latestApplyProposal.version || !applyState.canAttempt} title={applyState.blockers[0] ?? applyState.unverified[0] ?? (!latestApplyProposal || !isLatestProposal ? 'Kiểm tra proposal mới nhất trước khi áp dụng.' : latestApplyClass?.lifecycleVersion !== latestApplyProposal?.version ? 'Phiên bản lớp hoặc proposal chưa đồng bộ.' : undefined)} onClick={() => submitApplyProposal(latestApplyProposal)} className="rounded-md border border-indigo-300 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 disabled:opacity-50">
+                    <button type="button" disabled={actionBusy || !latestApplyProposal || !isLatestProposal || !latestApplyClass || latestApplyClass.lifecycleVersion !== latestApplyProposal.version || !applyState.canAttempt} title={applyState.blockers[0] ?? applyState.unverified[0] ?? (!latestApplyProposal || !isLatestProposal ? 'Kiểm tra proposal mới nhất trước khi áp dụng.' : latestApplyClass?.lifecycleVersion !== latestApplyProposal?.version ? 'Phiên bản lớp hoặc proposal chưa đồng bộ.' : undefined)} onClick={() => submitApplyProposal(latestApplyProposal)} className="rounded-lg border border-indigo-300 bg-indigo-50/70 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50">
                       {activeAction === `apply:${proposal.id}` ? copy(isVi, 'Đang áp dụng…', 'Applying…') : copy(isVi, 'Áp dụng', 'Apply')}
                     </button>
                   </div>
                 </div>
                 {String(latestApplyProposal?.id) === String(proposal.id) && (
-                  <div role="status" className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
+                  <div role="status" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
                     <p className="font-semibold">Đã tải đề xuất mới nhất.</p>
-                    <p className="mt-1">Mã đề xuất: {latestApplyProposal.version ?? 'Chưa có thông tin'}; trạng thái: {text(latestApplyProposal.status)}. {applyEval?.blockers[0] ?? applyEval?.unverified[0] ?? 'Hệ thống đang thẩm định đề xuất.'}</p>
-                    {applyEval?.canAttempt && <p className="mt-1">Proposal mới nhất đã sẵn sàng để áp dụng.</p>}
+                    <p className="mt-1">Trạng thái: {proposalStatusMeta(latestApplyProposal.status, isVi).label}. {applyEval?.blockers[0] ?? applyEval?.unverified[0] ?? 'Hệ thống đang thẩm định đề xuất.'}</p>
+                    {applyEval?.canAttempt && <p className="mt-1 font-medium text-emerald-800">Đề xuất đã sẵn sàng để áp dụng.</p>}
                   </div>
                 )}
                 <ProposalSchedule schedule={proposal.schedule} isVi={isVi} />
                 <ProposalChoices proposal={proposal} isVi={isVi} />
-                {proposal.fingerprint == null && <p className="mt-2 text-xs text-amber-800">Thông tin xác thực: Đang chờ cập nhật.</p>}
               </li>
             )
           })}
